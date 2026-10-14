@@ -96,3 +96,27 @@ describe("which session a sign-out ends", () => {
     assert.equal(endsThisSession("sess-old", undefined), false, "no cookie: nothing of the browser's to end");
   });
 });
+
+// THE SHORT NAME AT THE DOOR (REQUIREMENTS §110): POST /api/auth/login takes "kapila.barad" or "kapila barad" for
+// kapila.barad@gpp.local, through the one rule the website's box and the server share (engine/accountNames.ts), and
+// only that: an exact match after the normalising, never a guess, and never an account at another address.
+describe("the short sign-in name", () => {
+  it("is the plant's own address: small letters, the spaces between the words dots, at @gpp.local", async () => {
+    const { signInAddress } = await import("../../frontend/src/engine/accountNames.ts");
+    for (const typed of ["kapila.barad", "kapila barad", "Kapila Barad", " KAPILA  BARAD "]) assert.equal(signInAddress(typed), "kapila.barad@gpp.local", typed);
+    assert.equal(signInAddress("Kapila.Barad@GPP.local"), "kapila.barad@gpp.local", "an address, as before");
+    assert.equal(signInAddress("kapilabarad01"), "kapilabarad01@gpp.local", "a gmail account is never reached by a short name");
+    assert.equal(signInAddress("kapila"), "kapila@gpp.local", "nothing guessed");
+  });
+
+  it("is what the sign-in route looks the account up by, and what it holds a computer back by", async () => {
+    const { readFileSync } = await import("node:fs");
+    const server = readFileSync(new URL("../index.ts", import.meta.url), "utf-8");
+    const login = server.slice(server.indexOf('app.post("/api/auth/login"'), server.indexOf('app.post("/api/auth/logout"'));
+    assert.match(login, /const normalizedEmail = signInAddress\(email\);/);
+    assert.match(login, /signInThrottle\.held\(normalizedEmail, req\.ip\)/);
+    assert.match(login, /getUserByEmail\(normalizedEmail\)/);
+    // And a removed account is told so, after the password was right, before "switched off".
+    assert.ok(login.indexOf("row.removed_at") > login.indexOf("verifyPassword") && login.indexOf("row.removed_at") < login.indexOf("if (!row.active)"));
+  });
+});

@@ -31,6 +31,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { dataDir } from "./paths.ts";
+import { FORMER_SEPARATOR, RELEASED_MARK, releasedFrom, releasedSignIn } from "../frontend/src/engine/accountNames.ts";
 
 export interface UserRow {
   id: string;
@@ -47,6 +48,14 @@ export interface UserRow {
   active: boolean;
   /** When they last signed in, ISO; null until they have. */
   last_sign_in: string | null;
+  /** When the super admin removed the account (REQUIREMENTS §110), ISO; null (or absent) while it is on the plant's list. */
+  removed_at?: string | null;
+  /** The super admin who removed it (an account id). */
+  removed_by?: string | null;
+  /** Whether it was switched on when it was removed: "Bring back" gives it back as it was. */
+  active_before_removal?: boolean | null;
+  /** The sign-ins it had before it was renamed, one a line (§110): never made again by the seeding. */
+  former_emails?: string;
 }
 
 let pool: pg.Pool | null = null;
@@ -231,6 +240,23 @@ const SCHEMA = `
   ALTER TABLE users ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sign_in TEXT;
 
+  -- REMOVED ACCOUNTS, AND THE SIGN-INS AN ACCOUNT HAD (REQUIREMENTS §110). Added to a table already in use with
+  -- nothing in them for the rows already there, so every account stays exactly as it was: nobody is removed and
+  -- nobody renamed by the change itself.
+  --   removed_at             when the super admin removed it (ISO); null while it is on the plant's list. A removed
+  --                          account is switched off as well and its sessions ended. NOTHING is deleted: its name
+  --                          stays on every record, history line and line of the activity log it wrote.
+  --   removed_by             the super admin who removed it (an account id).
+  --   active_before_removal  whether it was switched on when it was removed, so "Bring back" gives it back as it was.
+  --   former_emails          the sign-ins it had before it was renamed, one a line: the seeding and "Create the
+  --                          missing accounts" never make an account for one of them again.
+  -- An account whose sign-in was given to another (a rename's "replace it") keeps a sign-in nobody types: its own
+  -- with "#removed-" and its id after it (frontend/src/engine/accountNames.ts releasedSignIn).
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS removed_at TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS removed_by TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS active_before_removal BOOLEAN;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS former_emails TEXT NOT NULL DEFAULT '';
+
   -- Single row (id is always 1): the last date a reminder digest email went
   -- out, so five people opening the app one morning send one digest.
   CREATE TABLE IF NOT EXISTS digest_log (
@@ -314,7 +340,8 @@ const SCHEMA = `
   --   place            website, phone-app or api (another program)
   --   device_client    the browser or the app: "Chrome 141", "Mitra app 1.1.0"
   --   device_system    "Windows", "Android 14", "iOS 18.1"
-  --   ended_why        signed-out, super-admin, replaced or account-off
+  --   ended_why        signed-out, super-admin, replaced, account-off (switched off or removed, §110) or
+  --                    renamed (its sign-in changed by the super admin, §110)
   --   ended_by         the account that ended it: the person, or the super admin
   CREATE TABLE IF NOT EXISTS user_sessions (
     id TEXT PRIMARY KEY,
@@ -537,7 +564,17 @@ export async function getUserById(id: string): Promise<UserRow | undefined> {
   return rows[0];
 }
 
+/**
+ * THE PLANT'S ACCOUNTS: every one but those the super admin removed (REQUIREMENTS §110), which are left out of every
+ * list of people, the notifications, the reminders, the escalation and the minus score. listAllUsers for those too.
+ */
 export async function listUsers(): Promise<UserRow[]> {
+  const { rows } = await database().query<UserRow>("SELECT * FROM users WHERE removed_at IS NULL ORDER BY created_at");
+  return rows;
+}
+
+/** Every account, the removed ones too (Users & Access's "Show removed accounts", the start-up's password settling). */
+export async function listAllUsers(): Promise<UserRow[]> {
   const { rows } = await database().query<UserRow>("SELECT * FROM users ORDER BY created_at");
   return rows;
 }
@@ -571,12 +608,18 @@ export async function insertUser(u: Omit<UserRow, "role" | "departments" | "must
   }
 }
 
-/** Adds a named account with its role and departments as given, unless that email already has one. Returns true when it was added. */
+/**
+ * Adds a named account with its role and departments as given, unless an account has that sign-in, gave it up to
+ * another (a rename's "replace it"), or had it before it was renamed (REQUIREMENTS §110): an account the super admin
+ * removed or renamed is never made again. Returns true when it was added.
+ */
 export async function seedUser(u: UserRow): Promise<boolean> {
   const { rowCount } = await database().query(
     `INSERT INTO users (id, name, email, password_hash, role, created_at, departments, must_change_password)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (email) DO NOTHING`,
-    [u.id, u.name, u.email, u.password_hash, u.role, u.created_at, u.departments, u.must_change_password]
+     SELECT $1, $2, $3, $4, $5, $6, $7, $8
+      WHERE NOT EXISTS (SELECT 1 FROM users WHERE split_part(email, $9, 1) = $3 OR $3 = ANY(string_to_array(former_emails, $10)))
+     ON CONFLICT (email) DO NOTHING`,
+    [u.id, u.name, u.email, u.password_hash, u.role, u.created_at, u.departments, u.must_change_password, RELEASED_MARK, FORMER_SEPARATOR]
   );
   return (rowCount ?? 0) > 0;
 }
@@ -613,9 +656,12 @@ export async function setUserPassword(id: string, passwordHash: string, mustChan
   await database().query("UPDATE users SET password_hash = $1, must_change_password = $2 WHERE id = $3", [passwordHash, mustChange, id]);
 }
 
-/** Switches an account on or off. Returns the row as it now stands, or undefined when there is no such account. */
+/**
+ * Switches an account on or off. Returns the row as it now stands, or undefined when there is no such account. A
+ * removed account (REQUIREMENTS §110) is left as it is: it is brought back, not switched on (the route says so).
+ */
 export async function setUserActive(id: string, active: boolean): Promise<UserRow | undefined> {
-  const { rows } = await database().query<UserRow>("UPDATE users SET active = $1 WHERE id = $2 RETURNING *", [active, id]);
+  const { rows } = await database().query<UserRow>("UPDATE users SET active = CASE WHEN removed_at IS NULL THEN $1 ELSE active END WHERE id = $2 RETURNING *", [active, id]);
   return rows[0];
 }
 
@@ -626,15 +672,17 @@ export async function setUserActive(id: string, active: boolean): Promise<UserRo
  * decided under the lock the first sign-up takes (insertUser), so two changes at once cannot both leave nobody.
  * Returns null when there is no such account.
  */
-export async function setUserRole(id: string, role: "admin" | "staff"): Promise<{ row: UserRow; before: UserRow } | { refused: "last-super-admin" } | null> {
+export async function setUserRole(id: string, role: "admin" | "staff"): Promise<{ row: UserRow; before: UserRow } | { refused: "last-super-admin" | "removed" } | null> {
   return withClient((client) =>
     transaction(client, async () => {
       await client.query("SELECT pg_advisory_xact_lock(4711)");
       const found = await client.query<UserRow>("SELECT * FROM users WHERE id = $1", [id]);
       const before = found.rows[0];
       if (!before) return null;
+      // A removed account (REQUIREMENTS §110) is brought back first: this would switch it on.
+      if (before.removed_at) return { refused: "removed" as const };
       if (role === "staff" && before.role === "admin") {
-        const others = await client.query("SELECT 1 FROM users WHERE role = 'admin' AND active AND id <> $1 LIMIT 1", [id]);
+        const others = await client.query("SELECT 1 FROM users WHERE role = 'admin' AND active AND removed_at IS NULL AND id <> $1 LIMIT 1", [id]);
         if ((others.rowCount ?? 0) === 0) return { refused: "last-super-admin" as const };
       }
       const { rows } = await client.query<UserRow>(
@@ -649,6 +697,304 @@ export async function setUserRole(id: string, role: "admin" | "staff"): Promise<
 /** Stamped at every sign-in, so the administrator can see who has never used their account. */
 export async function markSignedIn(id: string, atISO: string): Promise<void> {
   await database().query("UPDATE users SET last_sign_in = $1 WHERE id = $2", [atISO, id]);
+}
+
+// ---------------------------------------------------------------------------
+// renaming and removing accounts (REQUIREMENTS §110; the routes are backend/accountRoutes.ts)
+//
+// Each change is ONE transaction: the accounts' lock (insertUser's, 4711) and then the lock every write of app_storage
+// takes (writeItem's, 4712), always in that order, so nothing else changes an account or the stored items meanwhile;
+// the users rows and the access rules ("access": who fills what moves with a renamed account, a removed account is
+// listed there as removed) are written together or not at all.
+
+/** The sign-ins an account had before it was renamed (§110), one a line (accountNames.ts FORMER_SEPARATOR). */
+export function formerSignIns(u: Pick<UserRow, "former_emails">): string[] {
+  return String(u.former_emails ?? "")
+    .split(FORMER_SEPARATOR)
+    .map((e) => e.trim())
+    .filter(Boolean);
+}
+
+/** The two stored items the access rules are worked out from, as they are inside the change's transaction. */
+export interface AccessItemsNow {
+  /** The access rules ("access"), as stored; null when none are. */
+  access: string | null;
+  /** The plant's catalogue ("documents"), as stored; null when none is. */
+  documents: string | null;
+}
+
+/** What an account has done that makes it more than an empty account (§110): any one of them, and it is used. */
+export interface AccountUse {
+  /** It has signed in (users.last_sign_in). */
+  signedIn: boolean;
+  /** It has a session on record, open or ended (user_sessions, §106). */
+  sessions: boolean;
+  /** A line of its own in the activity log or its archive, beyond a failed or refused sign-in (which anybody causes by typing its address). */
+  lines: boolean;
+  /** Items of its own in app_storage: its settings, its conversations with Mitra. */
+  ownData: boolean;
+}
+
+/** Never used: never signed in, never a session, nothing of its own in the log or the storage. Its work is known by its id; a name on a record may be another account's of the same name. */
+export const unusedAccount = (u: AccountUse): boolean => !u.signedIn && !u.sessions && !u.lines && !u.ownData;
+
+/** The lines a stranger causes by typing an address at the sign-in: not the account's own doing. */
+const DOOR_LINES = ["Sign-in failed", "Sign-in refused"];
+
+type Queryable = pg.Pool | pg.PoolClient;
+
+async function accountUseOn(q: Queryable, id: string): Promise<AccountUse> {
+  const { rows } = await q.query<{ signed_in: boolean | null; sessions: boolean; lines: boolean; own_data: boolean; archive: boolean }>(
+    `SELECT (SELECT last_sign_in IS NOT NULL FROM users WHERE id = $1) AS signed_in,
+            EXISTS (SELECT 1 FROM user_sessions WHERE user_id = $1) AS sessions,
+            EXISTS (SELECT 1 FROM activity_log WHERE user_id = $1 AND action <> ALL($2::text[])) AS lines,
+            EXISTS (SELECT 1 FROM app_storage WHERE scope = $1) AS own_data,
+            to_regclass('activity_log_archive') IS NOT NULL AS archive`,
+    [id, DOOR_LINES]
+  );
+  const r = rows[0];
+  let lines = !!r?.lines;
+  if (!lines && r?.archive) {
+    const a = await q.query<{ found: boolean }>("SELECT EXISTS (SELECT 1 FROM activity_log_archive WHERE user_id = $1 AND action <> ALL($2::text[])) AS found", [id, DOOR_LINES]);
+    lines = !!a.rows[0]?.found;
+  }
+  return { signedIn: !!r?.signed_in, sessions: !!r?.sessions, lines, ownData: !!r?.own_data };
+}
+
+/** What an account has done (§110). */
+export async function accountUse(id: string): Promise<AccountUse> {
+  return accountUseOn(database(), id);
+}
+
+async function lockAccounts(client: pg.PoolClient): Promise<void> {
+  await client.query("SELECT pg_advisory_xact_lock(4711)");
+  await client.query("SELECT pg_advisory_xact_lock(4712)");
+}
+
+/** Whether the plant still has a super admin who can sign in once these accounts are gone. */
+async function anotherSuperAdmin(client: pg.PoolClient, leaving: readonly string[]): Promise<boolean> {
+  const { rowCount } = await client.query("SELECT 1 FROM users WHERE role = 'admin' AND active AND removed_at IS NULL AND NOT (id = ANY($1::text[])) LIMIT 1", [leaving]);
+  return (rowCount ?? 0) > 0;
+}
+
+/**
+ * One item written inside a transaction the caller already holds (with the storage lock, lockAccounts): the same
+ * row writeItem writes, its version one up, its seq the next. The change journal that once wrapped this is withdrawn
+ * (REQUIREMENTS §108 part 2), so the item is written plainly.
+ */
+async function upsertItem(client: pg.PoolClient, scope: string, key: string, value: string, by: string): Promise<void> {
+  await client.query(
+    `INSERT INTO app_storage (scope, key, value, version, seq, updated_at, updated_by)
+     VALUES ($1, $2, $3, 1, nextval('app_storage_seq'), now(), $4)
+     ON CONFLICT (scope, key) DO UPDATE
+       SET value = EXCLUDED.value, version = app_storage.version + 1, seq = EXCLUDED.seq, updated_at = now(), updated_by = EXCLUDED.updated_by`,
+    [scope, key, value, by]
+  );
+}
+
+/** The access rules rewritten in the change's own transaction: `compose` answers the new value, or null to leave them. */
+async function writeAccessIn(client: pg.PoolClient, by: string, compose: (now: AccessItemsNow) => string | null): Promise<boolean> {
+  const { rows } = await client.query<{ key: string; value: string }>("SELECT key, value FROM app_storage WHERE scope = 'company' AND key = ANY($1::text[])", [["access", "documents"]]);
+  const access = rows.find((r) => r.key === "access")?.value ?? null;
+  const next = compose({ access, documents: rows.find((r) => r.key === "documents")?.value ?? null });
+  if (next === null || next === access) return false;
+  await upsertItem(client, "company", "access", next, by);
+  return true;
+}
+
+/** Removes accounts inside a transaction already holding the locks: stamped, switched off, what each was kept. */
+async function removeIn(client: pg.PoolClient, ids: readonly string[], byId: string, at: string): Promise<UserRow[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await client.query<UserRow>(
+    `UPDATE users SET removed_at = $2, removed_by = $3, active_before_removal = active, active = false
+      WHERE id = ANY($1::text[]) AND removed_at IS NULL RETURNING *`,
+    [ids, at, byId]
+  );
+  return rows;
+}
+
+/** Who changes an account: the super admin's id (users.removed_by) and sign-in (app_storage.updated_by). */
+export interface AccountChanger {
+  id: string;
+  email: string;
+}
+
+export type RenameOutcome =
+  | { kind: "renamed"; before: UserRow; row: UserRow; replaced: UserRow | null; replacedBefore: UserRow | null }
+  | { kind: "not-found" }
+  | { kind: "removed"; row: UserRow }
+  | { kind: "unchanged"; row: UserRow }
+  /** The sign-in is another account's: `unused` when that one has never been used, and could be replaced. */
+  | { kind: "held"; row: UserRow; holder: UserRow; unused: boolean }
+  | { kind: "last-super-admin"; row: UserRow; holder: UserRow };
+
+/** The rename the access rules are told of: the old and the new sign-in, and a replaced account's sign-in as it is now. */
+export interface RenameChange {
+  from: string;
+  to: string;
+  /** The given-up sign-in of the account replaced, or null when none was. */
+  released: string | null;
+}
+
+/**
+ * RENAMES AN ACCOUNT (§110): its name and its sign-in. A sign-in another account holds is refused (`held`), unless that
+ * account has never been used and `replace` is said: then it is removed, its sign-in given up (releasedSignIn), and the
+ * renamed account takes the sign-in, in one step. Never leaves the plant without a super admin who can sign in. The
+ * old sign-in is kept in former_emails. `compose` rewrites the access rules in the same transaction.
+ */
+export async function renameAccount(input: {
+  id: string;
+  name: string;
+  email: string;
+  replace: boolean;
+  by: AccountChanger;
+  at: string;
+  compose: (now: AccessItemsNow, change: RenameChange) => string | null;
+}): Promise<RenameOutcome> {
+  const tryOnce = (): Promise<RenameOutcome> =>
+    withClient((client) =>
+      transaction(client, async (): Promise<RenameOutcome> => {
+        await lockAccounts(client);
+        const found = await client.query<UserRow>("SELECT * FROM users WHERE id = $1", [input.id]);
+        const before = found.rows[0];
+        if (!before) return { kind: "not-found" };
+        if (before.removed_at) return { kind: "removed", row: before };
+        if (before.email === input.email && before.name === input.name) return { kind: "unchanged", row: before };
+        let holder: UserRow | null = null;
+        let replaced: UserRow | null = null;
+        if (before.email !== input.email) {
+          holder = (await client.query<UserRow>("SELECT * FROM users WHERE email = $1", [input.email])).rows[0] ?? null;
+          if (holder) {
+            const unused = unusedAccount(await accountUseOn(client, holder.id));
+            if (!input.replace || !unused) return { kind: "held", row: before, holder, unused };
+            if (holder.role === "admin" && holder.active && !holder.removed_at && !(await anotherSuperAdmin(client, [holder.id]))) return { kind: "last-super-admin", row: before, holder };
+            // The unused account is removed (if it was not already) and gives its sign-in up.
+            const released = await client.query<UserRow>(
+              `UPDATE users SET email = $2,
+                      removed_by = CASE WHEN removed_at IS NULL THEN $4 ELSE removed_by END,
+                      active_before_removal = CASE WHEN removed_at IS NULL THEN active ELSE active_before_removal END,
+                      removed_at = COALESCE(removed_at, $3), active = false
+                WHERE id = $1 RETURNING *`,
+              [holder.id, releasedSignIn(holder.email, holder.id), input.at, input.by.id]
+            );
+            replaced = released.rows[0];
+          }
+        }
+        const formers = formerSignIns(before);
+        if (before.email !== input.email && !formers.includes(before.email)) formers.push(before.email);
+        const updated = await client.query<UserRow>("UPDATE users SET name = $2, email = $3, former_emails = $4 WHERE id = $1 RETURNING *", [input.id, input.name, input.email, formers.join(FORMER_SEPARATOR)]);
+        const row = updated.rows[0];
+        await writeAccessIn(client, input.by.email, (now) => input.compose(now, { from: before.email, to: input.email, released: replaced?.email ?? null }));
+        return { kind: "renamed", before, row, replaced, replacedBefore: holder && replaced ? holder : null };
+      })
+    );
+  try {
+    return await tryOnce();
+  } catch (err) {
+    // An account made with the sign-in at that very moment (the users table keeps each sign-in once): asked again, it is held.
+    if ((err as { code?: string }).code === "23505") return tryOnce();
+    throw err;
+  }
+}
+
+export type RemoveOutcome =
+  | { kind: "removed"; rows: UserRow[]; already: UserRow[] }
+  | { kind: "not-found"; ids: string[] }
+  | { kind: "own-account" }
+  | { kind: "last-super-admin"; row: UserRow }
+  /** "Keep only these": the accounts that would go now are not the ones the page showed. */
+  | { kind: "list-changed"; remove: UserRow[] };
+
+/**
+ * REMOVES ACCOUNTS (§110): each stamped removed, switched off, what it was kept for "Bring back"; never the super
+ * admin's own, never so that no super admin who can sign in is left. Nothing of theirs is deleted. With `keep`
+ * ("Keep only these"): every account on the list but those and the super admin's own, and only when that is exactly
+ * `ids`, the list the page showed (`list-changed` with the list now, otherwise). `compose` lists them as removed in the
+ * access rules, in the same transaction.
+ */
+export async function removeAccounts(input: {
+  ids: readonly string[];
+  keep?: readonly string[];
+  by: AccountChanger;
+  at: string;
+  compose: (now: AccessItemsNow, removedEmails: string[]) => string | null;
+}): Promise<RemoveOutcome> {
+  return withClient((client) =>
+    transaction(client, async (): Promise<RemoveOutcome> => {
+      await lockAccounts(client);
+      let targets: UserRow[];
+      if (input.keep) {
+        const kept = new Set([...input.keep, input.by.id]);
+        const listed = (await client.query<UserRow>("SELECT * FROM users WHERE removed_at IS NULL ORDER BY created_at")).rows;
+        targets = listed.filter((u) => !kept.has(u.id));
+        const asked = new Set(input.ids);
+        if (targets.length !== asked.size || targets.some((u) => !asked.has(u.id))) return { kind: "list-changed", remove: targets };
+      } else {
+        targets = (await client.query<UserRow>("SELECT * FROM users WHERE id = ANY($1::text[])", [input.ids])).rows;
+        const known = new Set(targets.map((u) => u.id));
+        const missing = input.ids.filter((id) => !known.has(id));
+        if (missing.length > 0) return { kind: "not-found", ids: missing };
+      }
+      if (targets.some((u) => u.id === input.by.id)) return { kind: "own-account" };
+      const going = targets.filter((u) => !u.removed_at);
+      const already = targets.filter((u) => !!u.removed_at);
+      const boss = going.find((u) => u.role === "admin" && u.active);
+      if (boss && !(await anotherSuperAdmin(client, going.map((u) => u.id)))) return { kind: "last-super-admin", row: boss };
+      const rows = await removeIn(
+        client,
+        going.map((u) => u.id),
+        input.by.id,
+        input.at
+      );
+      if (rows.length > 0) await writeAccessIn(client, input.by.email, (now) => input.compose(now, rows.map((u) => u.email)));
+      return { kind: "removed", rows, already };
+    })
+  );
+}
+
+export type BringBackOutcome =
+  /** `signIn`: its own sign-in kept, given back (it had given it up and nobody holds it now), or held by `holder`. */
+  | { kind: "back"; before: UserRow; row: UserRow; signIn: "kept" | "restored" | "taken"; holder: UserRow | null }
+  | { kind: "not-found" }
+  | { kind: "not-removed"; row: UserRow };
+
+/**
+ * BRINGS A REMOVED ACCOUNT BACK (§110): on the plant's list again, switched on or off as it was when it was removed.
+ * One that gave its sign-in up to another account gets it back when nobody holds it by then; otherwise it keeps the
+ * given-up one until it is renamed. `compose` takes it off the removed list of the access rules, in the same transaction.
+ */
+export async function bringBackAccount(input: {
+  id: string;
+  by: AccountChanger;
+  compose: (now: AccessItemsNow, change: { was: string; now: string }) => string | null;
+}): Promise<BringBackOutcome> {
+  return withClient((client) =>
+    transaction(client, async (): Promise<BringBackOutcome> => {
+      await lockAccounts(client);
+      const before = (await client.query<UserRow>("SELECT * FROM users WHERE id = $1", [input.id])).rows[0];
+      if (!before) return { kind: "not-found" };
+      if (!before.removed_at) return { kind: "not-removed", row: before };
+      let email = before.email;
+      let signIn: "kept" | "restored" | "taken" = "kept";
+      let holder: UserRow | null = null;
+      const gaveUp = releasedFrom(before.email);
+      if (gaveUp) {
+        holder = (await client.query<UserRow>("SELECT * FROM users WHERE email = $1", [gaveUp])).rows[0] ?? null;
+        if (holder) signIn = "taken";
+        else {
+          email = gaveUp;
+          signIn = "restored";
+        }
+      }
+      const { rows } = await client.query<UserRow>(
+        `UPDATE users SET email = $2, removed_at = NULL, removed_by = NULL, active = COALESCE(active_before_removal, true), active_before_removal = NULL
+          WHERE id = $1 RETURNING *`,
+        [input.id, email]
+      );
+      await writeAccessIn(client, input.by.email, (now) => input.compose(now, { was: before.email, now: email }));
+      return { kind: "back", before, row: rows[0], signIn, holder };
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------

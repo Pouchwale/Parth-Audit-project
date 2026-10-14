@@ -230,6 +230,8 @@ const SIMPLE_ROUTES = new Set([
   "database-overview",
   // /access — User access: who may use which module, and their sign-ins and sign-outs, the super admin's own (REQUIREMENTS §84).
   "access",
+  // /master-list — the master list of who does what, the super admin's own (REQUIREMENTS §110).
+  "master-list",
   // /performance — the scorecard: who did their documents on time (REQUIREMENTS §64).
   "performance",
   // /notifications — each person's notifications, by day, from the server's ledger (REQUIREMENTS §97).

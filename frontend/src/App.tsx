@@ -43,6 +43,7 @@ import { NotificationsPage } from "./pages/NotificationsPage";
 import { ActivityLogPage } from "./pages/ActivityLogPage";
 import { DatabaseOverviewPage } from "./pages/DatabaseOverviewPage";
 import { AccessDashboardPage } from "./pages/AccessDashboardPage";
+import { MasterListPage } from "./pages/MasterListPage";
 import { PerformancePage } from "./pages/PerformancePage";
 import { InsightsPage } from "./pages/InsightsPage";
 import { MitraReaction } from "./components/common/MitraReaction";
@@ -165,6 +166,9 @@ function RouteSwitch() {
     // Who may use which module, and when each person signed in and out — the super admin's (REQUIREMENTS §84).
     case "access":
       return <AccessDashboardPage />;
+    // The master list of who does what: every document in F/SYS/02's order, who fills it and each person's level — the super admin's (REQUIREMENTS §110).
+    case "master-list":
+      return <MasterListPage />;
     case "activity":
       // Everything anybody has done on the portal (REQUIREMENTS §62).
       return <ActivityLogPage />;

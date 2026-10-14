@@ -2880,6 +2880,56 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
 
 /* ==== end of §96 and §97 ==== */
 
+/* ==== THE MASTER LIST OF WHO DOES WHAT, AND THE ACCOUNTS (REQUIREMENTS §110) ====
+   pages/MasterListPage.tsx: a level is a small text button (no drop-down), bold where the super admin set it; one
+   small menu (the designer's) opens beside it. Users & Access's removed accounts and "Keep only these". On the
+   theme's tokens only, so both themes read; nothing animates. */
+.ml-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
+.ml-filter { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; font-weight: 600; color: var(--color-text-muted); }
+.ml-filter .input { min-width: 170px; font-weight: 400; color: var(--color-text); }
+.ml-bulk {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md); background: var(--color-primary-light); position: sticky; top: 58px; z-index: 5;
+}
+.ml-bulk .input { width: auto; min-width: 160px; }
+.ml-table th.ml-person { white-space: normal; min-width: 76px; max-width: 110px; text-transform: none; letter-spacing: 0; font-size: 11.5px; }
+.ml-table td.ml-tick, .ml-table th.ml-tick { width: 30px; text-align: center; }
+.ml-table td.ml-sr { font-variant-numeric: tabular-nums; color: var(--color-text-muted); width: 44px; }
+.ml-table td.ml-format { white-space: nowrap; font-size: 12px; }
+.ml-table td.ml-name { min-width: 220px; max-width: 360px; font-size: 12.5px; }
+.ml-table td.ml-frequency { white-space: nowrap; }
+.ml-table td.ml-fill { min-width: 150px; max-width: 220px; }
+.ml-table td.ml-cell { padding: 3px 4px; }
+.ml-level, .ml-fill-button {
+  display: block; width: 100%; padding: 4px 6px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent;
+  color: var(--color-text); font: inherit; font-size: 12px; font-weight: 400; text-align: left; cursor: pointer;
+}
+.ml-level:hover, .ml-fill-button:hover { border-color: var(--color-border-strong); background: var(--color-surface); }
+.ml-level:focus-visible, .ml-fill-button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.ml-level.is-set { font-weight: 700; }
+.ml-level.is-none { color: var(--color-text-faint); }
+.ml-fill-button.is-nobody { color: var(--color-danger); font-weight: 600; }
+.ml-menu { width: 270px; }
+.ml-menu-title { padding: 4px 9px 6px; font-weight: 600; }
+.ml-menu-note { padding: 0 9px 6px; margin: 0; }
+.ml-menu-gap { display: inline-block; width: 12px; }
+.designer-menu-item.is-current { font-weight: 700; }
+.ml-fill-menu { width: 300px; }
+.ml-fill-list { max-height: 260px; overflow-y: auto; padding: 0 9px; }
+.ml-fill-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0; }
+.ml-main { font-size: 10.5px; font-weight: 700; color: var(--color-primary); }
+.ml-menu-actions { padding: 4px 6px 2px; }
+.users-removed td { color: var(--color-text-muted); }
+.keep-list { max-height: 360px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 6px 10px; }
+.keep-line { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
+.keep-line + .keep-line { border-top: 1px solid var(--color-border); }
+@media (max-width: 560px) {
+  .ml-filter .input, .ml-bulk .input { min-width: 0; width: 100%; }
+  .ml-bulk { position: static; }
+}
+
+/* ==== end of §110 ==== */
+
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,
    so this has to come after the rules it switches off or the cascade simply

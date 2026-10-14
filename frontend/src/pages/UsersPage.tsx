@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiCheck, FiKey, FiPlus, FiRefreshCw, FiShield, FiSlash, FiStar, FiUser, FiUserPlus } from "react-icons/fi";
+import { FiCheck, FiEdit2, FiKey, FiList, FiPlus, FiRefreshCw, FiRotateCcw, FiShield, FiSlash, FiStar, FiTrash2, FiUser, FiUserPlus, FiUsers } from "react-icons/fi";
 import { accessApi, ApiError, usersApi } from "../api/client";
 import { AccessSection, useAccessDocs, useAccessRules } from "../components/access/AccessSection";
 import { ACCESS_MODULES, buildAccess } from "../engine/accessRules";
 import { accountOf, lastSuperAdmin } from "../engine/accessEditing";
+import { shortSignIn, signInAddress } from "../engine/accountNames";
+import { accountWord, type AccountKey } from "../engine/accountWords";
 import { useAuth } from "../store/AuthContext";
+import { useAppStore } from "../store/AppStore";
 import { Link } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { DEPARTMENTS, departmentOfDocument } from "../data/seed/departments";
@@ -36,6 +39,15 @@ import type { ManagedUser } from "../types/auth";
 // nobody has described, and the plant's people who have no account yet
 // (components/access/AccessSection.tsx). Each account can be made a super admin, or
 // staff again, here too; the server refuses a change that would leave no super admin.
+//
+// THE ACCOUNTS THE PLANT KEEPS (REQUIREMENTS §110, backend/accountRoutes.ts). The owner, 12-Oct-2026: "change username
+// kapilabarad01@gmail.com change to kapila barad only and also remove all others except kapila, superadmin, admin,
+// vinay, sandeep and bharat, chirag, ankur, dharmik". Each account can be RENAMED (its name and its sign-in; a sign-in
+// held by an account nobody has used can be taken over with "Replace it") and REMOVED (stamped removed and switched
+// off, signed out everywhere, gone from every list of people; nothing deleted). "Show removed accounts" lists them, each
+// with "Bring back"; "Keep only these" removes every account not ticked in one step, after showing the list of what
+// goes. Never the super admin's own account, never the last super admin. Their words are in English, Gujarati and Hindi
+// (engine/accountWords.ts).
 
 const MIN_PASSWORD = 8;
 
@@ -60,17 +72,41 @@ type Ask =
   | { kind: "off"; user: ManagedUser }
   | { kind: "on"; user: ManagedUser }
   | { kind: "admin"; user: ManagedUser }
-  | { kind: "staff"; user: ManagedUser };
+  | { kind: "staff"; user: ManagedUser }
+  | { kind: "remove"; user: ManagedUser };
+
+/** The account being renamed, as the form stands, and a sign-in another account holds (the server's 409). */
+interface Renaming {
+  user: ManagedUser;
+  name: string;
+  email: string;
+  held: { code: string; holder: { id: string; name: string; email: string; unused: boolean; removed: boolean }; message: string } | null;
+}
+
+/** The account holding a sign-in, as the server's 409 names it. */
+type Holder = NonNullable<Renaming["held"]>["holder"];
+
+/** "Keep only these": the ticks, then the list of what goes, shown before the confirm. */
+interface Keeping {
+  keep: Set<string>;
+  step: "pick" | "confirm";
+}
 
 export function UsersPage() {
   const { user: me } = useAuth();
+  const { uiLang } = useAppStore();
+  const w = (key: AccountKey, vars?: Record<string, string | number>) => accountWord(uiLang, key, vars);
   const isAdmin = me?.role === "admin";
-  const [users, setUsers] = useState<ManagedUser[] | null>(null);
+  /** Every account, the removed ones too (§110): the page shows those only under "Show removed accounts". */
+  const [everyone, setEveryone] = useState<ManagedUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [ask, setAsk] = useState<Ask | null>(null);
+  const [renaming, setRenaming] = useState<Renaming | null>(null);
+  const [keeping, setKeeping] = useState<Keeping | null>(null);
+  const [showRemoved, setShowRemoved] = useState(false);
 
   // The new person, as the form stands.
   const [name, setName] = useState("");
@@ -80,6 +116,13 @@ export function UsersPage() {
   const [picked, setPicked] = useState<string[]>([]);
   // The password the administrator is about to give somebody, for a reset.
   const [resetTo, setResetTo] = useState("");
+
+  /** The accounts on the plant's list: everyone but the removed. */
+  const users = useMemo(() => (everyone === null ? null : everyone.filter((u) => !u.removedAt)), [everyone]);
+  const removedAccounts = useMemo(() => (everyone ?? []).filter((u) => !!u.removedAt), [everyone]);
+  const setUsers = (change: (list: ManagedUser[]) => ManagedUser[]) => setEveryone((list) => change(list ?? []));
+  /** One account as the server now has it, put in its place (or added). */
+  const putUser = (u: ManagedUser) => setUsers((list) => (list.some((x) => x.id === u.id) ? list.map((x) => (x.id === u.id ? { ...x, ...u } : x)) : [...list, u]));
 
   // The super admin's stored access rules, and the catalogue they are read against (REQUIREMENTS §96).
   const accessRules = useAccessRules(isAdmin);
@@ -97,7 +140,7 @@ export function UsersPage() {
   const load = () => {
     usersApi
       .list()
-      .then((res) => setUsers(res.users))
+      .then((res) => setEveryone(res.users))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load the accounts."));
   };
   useEffect(() => {
@@ -140,7 +183,7 @@ export function UsersPage() {
     setError(null);
     try {
       const res = await usersApi.create({ name: name.trim(), email: email.trim(), password, departments: everyModule ? [] : picked });
-      setUsers((list) => [...(list ?? []), res.user]);
+      setUsers((list) => [...list, res.user]);
       setNote(`${res.user.name} can sign in with ${res.user.email}. Give them the password you typed: it is the one they sign in with, and only you can change it.`);
       closeAdd();
     } catch (err) {
@@ -160,17 +203,23 @@ export function UsersPage() {
         setNote(`${ask.user.name}'s password is reset. Give them the new one: it is the one they sign in with from now on.`);
       } else if (ask.kind === "admin" || ask.kind === "staff") {
         const res = await accessApi.setRole(ask.user.id, ask.kind === "admin" ? "admin" : "staff");
-        if (res?.user) setUsers((list) => (list ?? []).map((u) => (u.id === res.user.id ? { ...u, ...res.user } : u)));
+        if (res?.user) setUsers((list) => list.map((u) => (u.id === res.user.id ? { ...u, ...res.user } : u)));
         else load();
         setNote(
           ask.kind === "admin"
             ? `${ask.user.name} is a super admin now: sees and does everything, and may sign in at any hour.`
             : `${ask.user.name} is staff now, and may see and do what Who may do what gives.`
         );
+      } else if (ask.kind === "remove") {
+        // REMOVED (§110): off the list at once; the access rules are read again, since nobody answers for anything through it.
+        const res = await usersApi.remove(ask.user.id);
+        putUser(res.user);
+        accessRules.reload();
+        setNote(w("users.removedDone", { name: ask.user.name }));
       } else {
         const on = ask.kind === "on";
         const res = await usersApi.setActive(ask.user.id, on);
-        setUsers((list) => (list ?? []).map((u) => (u.id === res.user.id ? res.user : u)));
+        setUsers((list) => list.map((u) => (u.id === res.user.id ? { ...u, ...res.user } : u)));
         setNote(on ? `${ask.user.name} can sign in again.` : `${ask.user.name} can no longer sign in. Nothing of theirs has been deleted.`);
       }
       setAsk(null);
@@ -181,6 +230,84 @@ export function UsersPage() {
       setBusy(false);
     }
   };
+
+  // RENAME (§110): the name and the sign-in; a sign-in held by an account nobody has used is offered with "Replace it".
+  const doRename = async (replace: boolean) => {
+    if (!renaming) return;
+    setBusy(true);
+    setError(null);
+    const target = renaming.user;
+    try {
+      const res = await usersApi.rename(target.id, renaming.name.trim(), renaming.email.trim(), replace);
+      putUser(res.user);
+      if (res.replaced) putUser(res.replaced);
+      accessRules.reload();
+      setRenaming(null);
+      const said = w("users.renamed", { name: res.user.name, email: res.user.email });
+      setNote(res.replaced ? `${said} ${w("users.renamedReplaced", { holder: res.replaced.name, name: res.user.name })}` : said);
+      // Renamed his own sign-in: this session has ended with the others; the sign-in screen says why.
+      if (target.id === me?.id && res.user.email !== target.email) window.location.reload();
+    } catch (err) {
+      const data = err instanceof ApiError ? (err.data as { holder?: Holder } | undefined) : undefined;
+      if (err instanceof ApiError && err.status === 409 && (err.code === "sign-in-unused" || err.code === "sign-in-used") && data?.holder) {
+        setRenaming((r) => (r ? { ...r, held: { code: err.code ?? "", holder: data.holder!, message: err.message } } : r));
+      } else setError(err instanceof ApiError ? err.message : "That could not be done.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // BRING BACK (§110): on the list again, switched on or off as it was.
+  const bringBack = async (u: ManagedUser) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await usersApi.bringBack(u.id);
+      putUser(res.user);
+      accessRules.reload();
+      setNote(
+        res.signIn === "taken" && res.holder
+          ? w("users.broughtBackNoSignIn", { name: res.user.name, email: u.signInGivenUp ?? u.email, holder: res.holder.name })
+          : res.signIn === "restored"
+            ? w("users.broughtBackSignIn", { name: res.user.name, email: res.user.email })
+            : res.user.active === false
+              ? w("users.broughtBackOff", { name: res.user.name })
+              : w("users.broughtBack", { name: res.user.name })
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "That could not be done.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // KEEP ONLY THESE (§110): every account not ticked, removed in one step, the list shown first.
+  const listed = users ?? [];
+  const going = keeping ? listed.filter((u) => !keeping.keep.has(u.id) && u.id !== me?.id) : [];
+  const doKeep = async () => {
+    if (!keeping) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const keep = listed.filter((u) => keeping.keep.has(u.id) || u.id === me?.id).map((u) => u.id);
+      const res = await usersApi.keepOnly(keep, going.map((u) => u.id));
+      for (const u of res.removed) putUser(u);
+      accessRules.reload();
+      setKeeping(null);
+      setNote(w("users.keptDone", { n: res.removed.length }));
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "list-changed") {
+        // Somebody changed the accounts meanwhile: the list is read again and shown again before anything goes.
+        load();
+        setKeeping((k) => (k ? { ...k, step: "pick" } : k));
+      }
+      setError(err instanceof ApiError ? err.message : "That could not be done.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const renameShort = renaming ? shortSignIn(signInAddress(renaming.email)) : null;
 
   return (
     <div data-page="users">
@@ -196,6 +323,18 @@ export function UsersPage() {
           <Link to="/access" className="btn btn-secondary btn-sm" title="Every account's modules as switches, and today's and past sign-ins and sign-outs">
             <FiShield size={13} /> User access — modules and sign-ins
           </Link>
+          {/* THE MASTER LIST OF WHO DOES WHAT (§110): every document in F/SYS/02's order, its people and their levels. */}
+          <Link to="/master-list" className="btn btn-secondary btn-sm" data-action="open-master-list">
+            <FiList size={13} /> {w("users.masterLink")}
+          </Link>
+          <button
+            className="btn btn-secondary btn-sm"
+            data-action="keep-only"
+            disabled={users === null}
+            onClick={() => setKeeping({ keep: new Set(me?.id ? [me.id] : []), step: "pick" })}
+          >
+            <FiUsers size={13} /> {w("users.keepOnly")}
+          </button>
           <button className="btn btn-primary btn-sm" data-action="add-user" onClick={() => setAdding(true)}>
             <FiUserPlus size={13} /> Add a person
           </button>
@@ -227,19 +366,32 @@ export function UsersPage() {
                 <th style={{ width: 200 }}>Sees</th>
                 <th style={{ width: 110 }}>Last sign-in</th>
                 <th style={{ width: 110 }}>Status</th>
-                <th style={{ width: 250 }}></th>
+                <th style={{ width: 330 }}></th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => {
                 const off = u.active === false;
+                const mine = u.id === me?.id;
+                const short = shortSignIn(u.email);
                 return (
                   <tr key={u.id} data-user={u.email} data-active={off ? "no" : "yes"}>
                     <td className="font-semibold notranslate" translate="no">
                       {u.name}
+                      {/* RENAME (§110): its name and its sign-in. */}
+                      <button
+                        type="button"
+                        className="access-cell-note"
+                        style={{ display: "block", fontWeight: 400 }}
+                        data-action="rename-user"
+                        onClick={() => setRenaming({ user: u, name: u.name, email: u.email, held: null })}
+                      >
+                        <FiEdit2 size={10} /> {w("users.rename")}
+                      </button>
                     </td>
                     <td className="text-sm notranslate" translate="no">
                       {u.email}
+                      {short && <span className="text-xs text-muted block">{short}</span>}
                     </td>
                     <td>
                       <span className={`badge ${u.role === "admin" ? "badge-Verified" : "badge-Due"}`}>{u.role === "admin" ? "admin" : "staff"}</span>
@@ -299,7 +451,7 @@ export function UsersPage() {
                         >
                           <FiKey size={12} /> Reset password
                         </button>
-                        {u.id !== me?.id && (
+                        {!mine && (
                           <button
                             className={off ? "btn btn-secondary btn-sm" : "btn btn-danger btn-sm"}
                             data-action={off ? "switch-on" : "switch-off"}
@@ -314,6 +466,18 @@ export function UsersPage() {
                                 <FiSlash size={12} /> Switch off
                               </>
                             )}
+                          </button>
+                        )}
+                        {/* REMOVE (§110): never his own account, never the last super admin. */}
+                        {!mine && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            data-action="remove-user"
+                            disabled={u.role === "admin" && lastSuperAdmin(users, u.id)}
+                            title={u.role === "admin" && lastSuperAdmin(users, u.id) ? "There must always be a super admin who can sign in" : undefined}
+                            onClick={() => setAsk({ kind: "remove", user: u })}
+                          >
+                            <FiTrash2 size={12} /> {w("users.remove")}
                           </button>
                         )}
                       </div>
@@ -331,10 +495,68 @@ export function UsersPage() {
         they are told. Switching an account off deletes nothing: their name stays on every record they signed.
       </p>
 
+      {/* THE REMOVED ACCOUNTS (§110): only when asked for, each with "Bring back". */}
+      {everyone !== null && (
+        <div className="mt-3" data-section="removed-accounts" data-count={removedAccounts.length}>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" data-action="show-removed" checked={showRemoved} onChange={(e) => setShowRemoved(e.target.checked)} />
+            {showRemoved ? w("users.hideRemoved") : w("users.showRemoved", { n: removedAccounts.length })}
+          </label>
+          {showRemoved && (
+            <div className="mt-2">
+              <h2 className="text-lg mb-1">{w("users.removedHeading")}</h2>
+              <p className="text-xs text-muted mb-2">{w("users.removedIntro")}</p>
+              {removedAccounts.length === 0 ? (
+                <p className="text-sm text-muted">{w("users.removedNone")}</p>
+              ) : (
+                <div className="doc-table">
+                  <table className="compact users-removed" data-table="removed-users">
+                    <thead>
+                      <tr>
+                        <th>{w("users.colName")}</th>
+                        <th>{w("users.colSignIn")}</th>
+                        <th>{w("users.colRemoved")}</th>
+                        <th style={{ width: 140 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {removedAccounts.map((u) => {
+                        const gaveUp = u.signInGivenUp ?? null;
+                        const holder = gaveUp ? (users ?? []).find((x) => x.email === gaveUp) : undefined;
+                        return (
+                          <tr key={u.id} data-removed-user={gaveUp ?? u.email}>
+                            <td className="font-semibold" translate="no">
+                              {u.name}
+                            </td>
+                            <td className="text-sm" translate="no">
+                              {gaveUp ?? u.email}
+                              {gaveUp && holder && <span className="text-xs block">{w("users.givenTo", { email: gaveUp, to: holder.name })}</span>}
+                            </td>
+                            <td className="text-sm">
+                              {w("users.removedOn", { when: u.removedAt ? formatDisplayDate(u.removedAt.slice(0, 10)) : "", by: u.removedBy ?? "—" })}
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                              <button className="btn btn-secondary btn-sm" data-action="bring-back" disabled={busy} onClick={() => void bringBack(u)}>
+                                <FiRotateCcw size={12} /> {w("users.bringBack")}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {accessRules.error && <div className="auth-error mt-4">{accessRules.error}</div>}
       {users !== null && accessRules.loaded && (
         <AccessSection
           users={users}
+          everyone={everyone ?? users}
           rules={accessRules.loaded.rules}
           version={accessRules.loaded.version}
           onSaved={accessRules.saved}
@@ -425,6 +647,159 @@ export function UsersPage() {
         </Modal>
       )}
 
+      {renaming && (
+        <Modal
+          title={w("users.renameTitle", { name: renaming.user.name })}
+          onClose={() => setRenaming(null)}
+          width={560}
+          footer={
+            <div className="flex gap-2 justify-end wrap" style={{ width: "100%" }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setRenaming(null)}>
+                {w("users.cancel")}
+              </button>
+              {renaming.held?.code === "sign-in-unused" && (
+                <button className="btn btn-danger btn-sm" data-action="replace-it" disabled={busy} onClick={() => void doRename(true)}>
+                  <FiCheck size={12} /> {w("users.replaceIt")}
+                </button>
+              )}
+              <button
+                className="btn btn-primary btn-sm"
+                data-action="save-rename"
+                disabled={busy || !renaming.name.trim() || !renaming.email.trim() || renaming.held !== null}
+                onClick={() => void doRename(false)}
+              >
+                <FiEdit2 size={12} /> {w("users.renameSave")}
+              </button>
+            </div>
+          }
+        >
+          <div className="flex flex-col gap-3" data-section="rename-user">
+            <div className="field">
+              <label htmlFor="rename-name">{w("users.renameName")}</label>
+              <input
+                id="rename-name"
+                className="input"
+                data-field="rename-name"
+                value={renaming.name}
+                onChange={(e) => setRenaming((r) => (r ? { ...r, name: e.target.value, held: null } : r))}
+                autoComplete="off"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="rename-email">{w("users.renameSignIn")}</label>
+              <input
+                id="rename-email"
+                className="input"
+                data-field="rename-email"
+                value={renaming.email}
+                onChange={(e) => setRenaming((r) => (r ? { ...r, email: e.target.value, held: null } : r))}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {renameShort && <p className="text-xs text-muted mt-1">{w("users.renameShort", { short: renameShort })}</p>}
+            </div>
+            <p className="text-xs text-muted">{w("users.renameNote")}</p>
+            {renaming.user.id === me?.id && <p className="text-xs">{w("users.renameOwn")}</p>}
+            {renaming.held && (
+              <div className="auth-error" data-section="rename-held" data-code={renaming.held.code} style={renaming.held.code === "sign-in-unused" ? { background: "var(--color-warning-bg)", color: "var(--color-text)" } : undefined}>
+                {renaming.held.code === "sign-in-unused"
+                  ? w("users.replaceBody", { holder: renaming.held.holder.name, email: renaming.held.holder.email, name: renaming.name.trim() })
+                  : w("err.signInUsed", { email: renaming.held.holder.email, holder: renaming.held.holder.name })}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {keeping && (
+        <Modal
+          title={w("users.keepTitle")}
+          onClose={() => setKeeping(null)}
+          width={600}
+          footer={
+            <div className="flex gap-2 justify-end wrap" style={{ width: "100%" }}>
+              {keeping.step === "pick" ? (
+                <>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setKeeping(null)}>
+                    {w("users.cancel")}
+                  </button>
+                  <button className="btn btn-primary btn-sm" data-action="keep-next" disabled={going.length === 0} onClick={() => setKeeping((k) => (k ? { ...k, step: "confirm" } : k))}>
+                    {w("users.keepNext")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn btn-ghost btn-sm" data-action="keep-back" onClick={() => setKeeping((k) => (k ? { ...k, step: "pick" } : k))}>
+                    {w("users.keepBack")}
+                  </button>
+                  <button className="btn btn-danger btn-sm" data-action="keep-confirm" disabled={busy || going.length === 0} onClick={() => void doKeep()}>
+                    <FiTrash2 size={12} /> {w("users.keepConfirm", { n: going.length })}
+                  </button>
+                </>
+              )}
+            </div>
+          }
+        >
+          <div data-section="keep-only" data-step={keeping.step}>
+            {keeping.step === "pick" ? (
+              <>
+                <p className="text-sm mb-2">{w("users.keepIntro")}</p>
+                <div className="flex gap-2 mb-2">
+                  <button className="btn btn-secondary btn-sm" data-action="keep-all" onClick={() => setKeeping((k) => (k ? { ...k, keep: new Set(listed.map((u) => u.id)) } : k))}>
+                    {w("users.keepAll")}
+                  </button>
+                  <button className="btn btn-secondary btn-sm" data-action="keep-none" onClick={() => setKeeping((k) => (k ? { ...k, keep: new Set(me?.id ? [me.id] : []) } : k))}>
+                    {w("users.keepNone")}
+                  </button>
+                </div>
+                <div className="keep-list">
+                  {listed.map((u) => {
+                    const mine = u.id === me?.id;
+                    return (
+                      <label key={u.id} className="keep-line" translate="no">
+                        <input
+                          type="checkbox"
+                          data-keep={u.email}
+                          checked={mine || keeping.keep.has(u.id)}
+                          disabled={mine}
+                          onChange={(e) =>
+                            setKeeping((k) => {
+                              if (!k) return k;
+                              const keep = new Set(k.keep);
+                              if (e.target.checked) keep.add(u.id);
+                              else keep.delete(u.id);
+                              return { ...k, keep };
+                            })
+                          }
+                        />
+                        <span className="font-semibold">{u.name}</span>
+                        <span className="text-xs text-muted">
+                          {u.email}
+                          {mine ? ` (${w("users.you")})` : ""}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {going.length === 0 && <p className="text-xs text-muted mt-2">{w("users.keepNothing")}</p>}
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold mb-2">{going.length === 1 ? w("users.keepGoesOne") : w("users.keepGoes", { n: going.length })}</p>
+                <ul className="text-sm mb-3" style={{ paddingLeft: 18 }} data-section="keep-goes" data-count={going.length} translate="no">
+                  {going.map((u) => (
+                    <li key={u.id} data-goes={u.email}>
+                      {u.name} <span className="text-muted">({u.email})</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted">{w("users.keepBody")}</p>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
+
       {ask && (
         <Modal
           title={
@@ -436,7 +811,9 @@ export function UsersPage() {
                   ? `Make ${ask.user.name} a super admin?`
                   : ask.kind === "staff"
                     ? `Make ${ask.user.name} staff?`
-                    : "Switch this account on?"
+                    : ask.kind === "remove"
+                      ? w("users.removeTitle", { name: ask.user.name })
+                      : "Switch this account on?"
           }
           onClose={() => {
             setAsk(null);
@@ -455,7 +832,7 @@ export function UsersPage() {
                 No, leave it
               </button>
               <button
-                className={ask.kind === "off" ? "btn btn-danger btn-sm" : "btn btn-primary btn-sm"}
+                className={ask.kind === "off" || ask.kind === "remove" ? "btn btn-danger btn-sm" : "btn btn-primary btn-sm"}
                 data-action="confirm-ask"
                 disabled={busy || (ask.kind === "reset" && resetTo.length < MIN_PASSWORD)}
                 onClick={() => void doAsk()}
@@ -471,6 +848,10 @@ export function UsersPage() {
                 ) : ask.kind === "staff" ? (
                   <>
                     <FiUser size={12} /> Yes, make staff
+                  </>
+                ) : ask.kind === "remove" ? (
+                  <>
+                    <FiTrash2 size={12} /> {w("users.removeConfirm")}
                   </>
                 ) : ask.kind === "off" ? (
                   <>
@@ -512,6 +893,11 @@ export function UsersPage() {
                 </strong>{" "}
                 will not be able to sign in, and whatever they have open stops working at its next action. <strong>Nothing is deleted</strong> — their name
                 stays on every record they signed, and you can switch the account on again.
+              </p>
+            )}
+            {ask.kind === "remove" && (
+              <p className="text-sm" data-section="confirm-remove">
+                {w("users.removeBody", { name: ask.user.name })}
               </p>
             )}
             {ask.kind === "admin" && (

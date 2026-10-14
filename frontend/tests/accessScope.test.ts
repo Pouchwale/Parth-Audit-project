@@ -113,8 +113,9 @@ test("Kapila Barad sees every module, with Edit in Quality Control and SYS and R
     assert.equal(departmentScope(), null, "Kapila Barad sees all ten modules");
     assert.equal(documentRepository.getAll().length, documentRepository.getAllUnscoped().length);
     assert.equal(documentLevel("qc-inprocess-printing"), "edit", "QC is hers to edit, even Ajay Zala's F/QC/13");
-    assert.equal(documentLevel("prd-alc-production"), "read");
-    assert.ok(!mayDo("prd-alc-production", "start"));
+    // Every module is hers to edit since 13-Oct-2026 (REQUIREMENTS §96); Ajay Sinh Vaghela still answers for it.
+    assert.equal(documentLevel("prd-alc-production"), "edit");
+    assert.ok(mayDo("prd-alc-production", "start"));
     assert.ok(!isMine("qc-inprocess-printing"), "Ajay Zala answers for F/QC/13");
     assert.ok(isMine("daily-pest-monitoring"));
   });

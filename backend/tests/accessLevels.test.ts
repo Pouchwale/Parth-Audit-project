@@ -89,8 +89,8 @@ describe("the catalogue and each person's levels", () => {
     const kapila = view("kapila");
     assert.equal(kapila.level("qc-inspection-printed-film"), "edit", "she edits all of QC");
     assert.equal(kapila.level("daily-pest-monitoring"), "edit", "she answers for F/HR/17");
-    assert.equal(kapila.level("hr-competence"), "read", "the rest she only views");
-    assert.equal(kapila.level("prd-alc-production"), "read");
+    assert.equal(kapila.level("hr-competence"), "edit", "every module is hers to edit (13 and 14-Oct-2026)");
+    assert.equal(kapila.level("prd-alc-production"), "edit");
     assert.equal(kapila.readsAll, true);
     const vinay = view("vinay");
     assert.equal(vinay.level("hr-competence"), "edit");

@@ -66,6 +66,8 @@ export const databaseStorageStore: StorageStore = {
 /** The super admin's write of the access rules, by whichever route it comes (backend/accessRulesRoutes.ts). */
 export interface AccessRulesWriter {
   save(req: Request, by: PublicUser, rules: unknown, baseVersion: number | null): Promise<WriteResult>;
+  /** Clears the rules but the removed accounts (REQUIREMENTS §110): true when it did, false when there were none to keep. */
+  clear?(req: Request, by: PublicUser): Promise<boolean>;
 }
 
 export interface StorageDeps {
@@ -296,8 +298,10 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
       res.status(403).json({ error: "Only the administrator may remove the company's data." });
       return;
     }
-    await store.deleteItem(storageScope(key, user.id), key);
-    if (key === ACCESS_KEY) logActivity(req, user, "Access changed", "Everybody", "The access rules were cleared: every person has the owner's table again (REQUIREMENTS §96)");
+    // The access rules cleared keep the accounts the super admin removed (REQUIREMENTS §110): they stay out of who fills what.
+    const kept = key === ACCESS_KEY && deps.accessRules?.clear ? await deps.accessRules.clear(req, user) : false;
+    if (!kept) await store.deleteItem(storageScope(key, user.id), key);
+    if (key === ACCESS_KEY) logActivity(req, user, "Access changed", "Everybody", `The access rules were cleared: every person has the owner's table again (REQUIREMENTS §96)${kept ? "; the removed accounts stay removed (§110)" : ""}`);
     res.status(204).end();
   });
 }

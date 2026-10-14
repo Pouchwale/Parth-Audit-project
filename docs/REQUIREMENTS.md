@@ -6252,6 +6252,13 @@ the super admin view everything; Ajay Sinh Vaghela, head of Production, fills ev
 challenge test; Sandeep Parekh fills HR like Vinay Bhojak; Kapila Barad fills all of Marketing and Dispatch; whoever may
 fill a document may also verify it, as before, even their own record; the accounts are name.surname@gpp.local.
 
+**Kapila Barad, 13 and 14-Oct-2026.** "give all module access to kapila barad" and "give all other access module access
+to kapilabarad01@gmail.com profile": Kapila Barad has every module to EDIT (her 7-Oct rights were every module to view
+and Edit in QC and SYS), and both her sign-ins, kapilabarad01@gmail.com on the plant's own system and the seeded
+kapila.barad@gpp.local, are one person in the rules (engine/accessRules.ts `canonicalEmail`): a setting stored for
+either, or a document given to either, is hers under both, with no rename needed. Who answers for each document is
+unchanged.
+
 The owner, 8-Oct-2026: "Consider superadmin as boss which can see anything ... So keep users according to module, and
 this applies to the mobile application also. And in our dashboard in the audit software I can give access from there
 only, and only the superadmin can do this: make an option for which user can access what, and give read, write and

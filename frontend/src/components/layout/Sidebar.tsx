@@ -562,6 +562,9 @@ const USERS_ITEM: NavItem = { to: "/users", labelKey: "nav.users", icon: FiUsers
 const DATABASE_OVERVIEW_ITEM: NavItem = { to: "/database-overview", labelKey: "nav.databaseOverview", icon: FiServer };
 // USER ACCESS is the super admin's too (REQUIREMENTS §84): who may use which module, and when each person signed in and out.
 const ACCESS_ITEM: NavItem = { to: "/access", labelKey: "nav.accessDashboard", icon: FiUsers };
+// THE MASTER LIST OF WHO DOES WHAT is the super admin's too (REQUIREMENTS §110), beside Users & Access: every document in
+// F/SYS/02's order, who fills it, and each person's level.
+const MASTER_LIST_ITEM: NavItem = { to: "/master-list", labelKey: "nav.masterList", icon: FiList };
 
 const SIDEBAR_STATE_KEY = "sidebar-open-modules";
 
@@ -615,7 +618,7 @@ export function Sidebar() {
   // administrator, whose own it is (§66).
   const systemItems = useMemo(() => {
     const items = demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM;
-    return user?.role === "admin" ? [...items, USERS_ITEM, ACCESS_ITEM, DATABASE_OVERVIEW_ITEM] : items;
+    return user?.role === "admin" ? [...items, USERS_ITEM, MASTER_LIST_ITEM, ACCESS_ITEM, DATABASE_OVERVIEW_ITEM] : items;
   }, [user?.role]);
   const { visible, narrow, close } = useSidebar();
   const [openState, setOpenState] = useState<Record<string, boolean>>(loadOpenState);

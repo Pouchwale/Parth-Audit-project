@@ -260,6 +260,16 @@ export const usersApi = {
   directory: () => api.get<{ people: DirectoryPerson[] }>("/users/directory"),
   setDepartments: (userId: string, departments: string[]) =>
     api.post<{ user: AuthUser }>(`/users/${encodeURIComponent(userId)}/departments`, { departments }),
+  // THE ACCOUNTS THE PLANT KEEPS (REQUIREMENTS §110, backend/accountRoutes.ts) — the super admin's alone. A rename to a
+  // sign-in another account holds is refused 409 `sign-in-used`, or `sign-in-unused` (with the holder) when that one
+  // has never been used: the same request with `replace` then removes it and gives the sign-in over, in one step.
+  rename: (userId: string, name: string, email: string, replace = false) =>
+    api.post<{ user: ManagedUser; replaced: ManagedUser | null; signedOut: number; unchanged?: boolean }>(`/users/${encodeURIComponent(userId)}/rename`, { name, email, replace }),
+  remove: (userId: string) => api.post<{ user: ManagedUser; already: boolean }>(`/users/${encodeURIComponent(userId)}/remove`),
+  bringBack: (userId: string) =>
+    api.post<{ user: ManagedUser; signIn: "kept" | "restored" | "taken"; holder: { id: string; name: string; email: string } | null }>(`/users/${encodeURIComponent(userId)}/bring-back`),
+  /** Every account but `keep` (and the super admin's own) removed in one step, only when that is exactly `remove`, the list the page showed (409 `list-changed`). */
+  keepOnly: (keep: string[], remove: string[]) => api.post<{ removed: ManagedUser[] }>("/users/keep-only", { keep, remove }),
 };
 
 // A CANDIDATE'S CV, READ ON THE SERVER (backend/cvExtract.ts, REQUIREMENTS §49).

@@ -22,8 +22,12 @@ export type DeviceCategory = "computer" | "mobile" | "tablet";
 /** Where a session was signed in: DCRS's website in a browser, the Mitra phone app, or another program through the DCRS API. */
 export type SessionPlace = "website" | "phone-app" | "api";
 
-/** Why a session ended: signed out by the person, by the super admin ("Sign out this device"), signed in again on the same device, or the account switched off. */
-export type SessionEndReason = "signed-out" | "super-admin" | "replaced" | "account-off";
+/**
+ * Why a session ended: signed out by the person, by the super admin ("Sign out this device"), signed in again on the
+ * same device, the account switched off (or removed, REQUIREMENTS §110), or its sign-in changed by the super admin
+ * (renamed, §110: it signs in again with the new one).
+ */
+export type SessionEndReason = "signed-out" | "super-admin" | "replaced" | "account-off" | "renamed";
 
 /** The code of a sign-in refused because the account is signed in on as many devices as it may be (403). */
 export const DEVICE_LIMIT_CODE = "device-limit";
@@ -121,17 +125,20 @@ export function sessionEndedWords(lang: DeviceLanguage, why: SessionEndReason | 
     if (why === "super-admin") return `સુપર એડમિને ${at} વાગ્યે આ ઉપકરણને સાઇન આઉટ કર્યું. ચાલુ રાખવા ફરી સાઇન ઇન કરો.`;
     if (why === "replaced") return `આ ઉપકરણ પર ${at} વાગ્યે ફરી સાઇન ઇન થયું, એટલે આ જૂનું સાઇન ઇન પૂરું થયું. ફરી સાઇન ઇન કરો.`;
     if (why === "account-off") return `${at} વાગ્યે ખાતું બંધ થયું ત્યારે આ ઉપકરણ સાઇન આઉટ થયું. ખાતું ફરી ચાલુ હોય તો સાઇન ઇન કરો; નહીં તો સુપર એડમિનને પૂછો.`;
+    if (why === "renamed") return `સુપર એડમિને ${at} વાગ્યે આ ખાતાનું સાઇન ઇન બદલ્યું. નવા સાઇન ઇનથી ફરી સાઇન ઇન કરો.`;
     return `આ સાઇન ઇન ${at} વાગ્યે સાઇન આઉટ થયું. ફરી સાઇન ઇન કરો.`;
   }
   if (lang === "hi") {
     if (why === "super-admin") return `सुपर एडमिन ने ${at} बजे इस डिवाइस को साइन आउट किया। जारी रखने के लिए फिर से साइन इन करें।`;
     if (why === "replaced") return `इस डिवाइस पर ${at} बजे फिर से साइन इन हुआ, इसलिए यह पुराना साइन इन खत्म हुआ। फिर से साइन इन करें।`;
     if (why === "account-off") return `${at} बजे खाता बंद हुआ तब यह डिवाइस साइन आउट हुआ। खाता फिर से चालू हो तो साइन इन करें; नहीं तो सुपर एडमिन से पूछें।`;
+    if (why === "renamed") return `सुपर एडमिन ने ${at} बजे इस खाते का साइन इन बदला। नए साइन इन से फिर से साइन इन करें।`;
     return `यह साइन इन ${at} बजे साइन आउट हुआ। फिर से साइन इन करें।`;
   }
   if (why === "super-admin") return `The super admin signed this device out at ${at}. Sign in again to carry on.`;
   if (why === "replaced") return `This device signed in again at ${at}, so this older sign-in was ended. Sign in again.`;
   if (why === "account-off") return `This device was signed out at ${at}, when the account was switched off. If it is on again, sign in again; if not, ask the super admin.`;
+  if (why === "renamed") return `The super admin changed this account's sign-in at ${at}. Sign in again with the new one.`;
   return `This sign-in was signed out at ${at}. Sign in again.`;
 }
 

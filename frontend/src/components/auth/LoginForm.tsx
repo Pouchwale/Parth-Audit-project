@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { signInWordsLanguage, useAuth } from "../../store/AuthContext";
 import { ApiError } from "../../api/client";
 import { DEVICE_LIMIT_CODE, deviceLimitWordsOf } from "../../engine/deviceWords";
+import { accountWord } from "../../engine/accountWords";
 import { PasswordInput } from "../common/PasswordInput";
 import { WorkingHoursNote } from "./WorkingHoursNote";
 
@@ -15,6 +16,10 @@ import { WorkingHoursNote } from "./WorkingHoursNote";
 //
 // ONE DEVICE TOO MANY (REQUIREMENTS §106): an account already signed in on as many devices as it may be is
 // refused with the devices named and since when, and what to do, in the screens' language.
+//
+// THE SHORT NAME (REQUIREMENTS §110): the box takes an address or the short name of one of the plant's own accounts
+// ("kapila.barad" or "kapila barad" for kapila.barad@gpp.local), so it is a text box, not an email box (the browser
+// would refuse a short name before the server saw it). An account the super admin removed is told so.
 export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup?: () => void }) {
   const { login, notice } = useAuth();
   const [email, setEmail] = useState("");
@@ -33,7 +38,12 @@ export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup?: () => void 
     try {
       await login(email.trim(), password);
     } catch (err) {
-      const words = err instanceof ApiError && err.code === DEVICE_LIMIT_CODE ? deviceLimitWordsOf(signInWordsLanguage(), err.data) : null;
+      const words =
+        err instanceof ApiError && err.code === DEVICE_LIMIT_CODE
+          ? deviceLimitWordsOf(signInWordsLanguage(), err.data)
+          : err instanceof ApiError && err.code === "account-removed"
+            ? accountWord(signInWordsLanguage(), "err.accountRemoved")
+            : null;
       setError(err instanceof ApiError ? { text: words ?? err.message, code: err.code } : { text: "Could not log in. Please try again." });
     } finally {
       setSubmitting(false);
@@ -54,16 +64,23 @@ export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup?: () => void 
       )}
       <WorkingHoursNote />
       <div className="field mb-3">
-        <label htmlFor="login-email">Email</label>
+        <label htmlFor="login-email">{accountWord(signInWordsLanguage(), "login.label")}</label>
         <input
           id="login-email"
-          type="email"
+          type="text"
+          inputMode="email"
           className="input"
-          autoComplete="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          aria-describedby="login-email-hint"
         />
+        <p id="login-email-hint" className="text-xs text-muted mt-1" data-section="short-sign-in">
+          {accountWord(signInWordsLanguage(), "login.hint")}
+        </p>
       </div>
       <div className="field mb-4">
         <label htmlFor="login-password">Password</label>

@@ -15,7 +15,8 @@ import { after, before, describe, it } from "node:test";
 import express, { type NextFunction, type Request, type Response } from "express";
 import type { PublicUser } from "../auth.ts";
 import type { StoredItem, UserRow, WriteResult } from "../db.ts";
-import { registerAccessRulesRoutes, type AccessRulesStore } from "../accessRulesRoutes.ts";
+import { registerAccessRulesRoutes, type AccessRulesService, type AccessRulesStore } from "../accessRulesRoutes.ts";
+import { releasedSignIn } from "../../frontend/src/engine/accountNames.ts";
 import { createMemoryLedger, type MemoryLedger } from "./memoryLedger.ts";
 import { DOCS_JSON } from "./accessFixtures.ts";
 import { DEFAULT_PEOPLE } from "../../frontend/src/engine/accessRules.ts";
@@ -67,6 +68,7 @@ class MemoryAccessStore implements AccessRulesStore {
 interface Server {
   base: string;
   store: MemoryAccessStore;
+  service: AccessRulesService;
   ledger: MemoryLedger;
   lines: { who: string | null; action: string; target: string; detail: string }[];
   close: () => Promise<void>;
@@ -99,11 +101,11 @@ async function start(): Promise<Server> {
     (req as Request & { user: PublicUser }).user = { id: u.id, name: u.name, email: u.email, role: u.role, departments: u.departments ? u.departments.split(",") : [] };
     next();
   };
-  registerAccessRulesRoutes(app, { requireAuth, logActivity: (_r, who, action, target = "", detail = "") => lines.push({ who: who?.name ?? null, action, target, detail }), store, ledger: () => ledger, clock: () => NOW });
+  const service = registerAccessRulesRoutes(app, { requireAuth, logActivity: (_r, who, action, target = "", detail = "") => lines.push({ who: who?.name ?? null, action, target, detail }), store, ledger: () => ledger, clock: () => NOW });
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));
   const { port } = server.address() as AddressInfo;
-  return { base: `http://127.0.0.1:${port}`, store, ledger, lines, close: () => new Promise((resolve) => server.close(() => resolve())) };
+  return { base: `http://127.0.0.1:${port}`, store, service, ledger, lines, close: () => new Promise((resolve) => server.close(() => resolve())) };
 }
 
 async function call(s: Server, method: string, route: string, who: string, body?: unknown) {
@@ -265,5 +267,50 @@ describe("the super admin, or staff", () => {
     const back = await call(s, "POST", "/api/users/u-admin/role", "u-owner", { role: "staff" });
     assert.equal(back.status, 200);
     assert.equal(back.body.user.role, "staff");
+  });
+});
+
+// THE REMOVED ACCOUNTS ARE NOT A PAGE'S TO WRITE (REQUIREMENTS §110): the rules list the removed accounts' sign-ins,
+// written with the removal itself (backend/accountRoutes.ts). A save keeps that list as stored, whatever a page sends,
+// so no page brings a removed person back into who fills what; clearing the rules keeps it too; "Create the missing
+// accounts" never makes again an account removed, one whose sign-in went to another, or one renamed away.
+describe("the removed accounts (REQUIREMENTS §110)", () => {
+  let s: Server;
+  before(async () => (s = await start()));
+  after(() => s.close());
+  const RAGHUNATH = "raghunath.mane@gpp.local";
+
+  it("a save keeps the removed list as stored, whatever the page sends, and everybody reads it", async () => {
+    s.store.items.set("company|access", { value: JSON.stringify({ version: 1, people: {}, responsibility: {}, removed: [RAGHUNATH] }), version: 1, seq: 9 });
+    const without = await call(s, "PUT", "/api/access/rules", "u-admin", { rules: { version: 1, people: { "ankur.raval@gpp.local": { modules: { HR: "read" } } }, responsibility: {} }, baseVersion: 1 });
+    assert.equal(without.status, 200, JSON.stringify(without.body));
+    assert.deepEqual(JSON.parse(s.store.items.get("company|access")!.value).removed, [RAGHUNATH], "a page that sent none did not bring him back");
+    const other = await call(s, "PUT", "/api/access/rules", "u-admin", { rules: { version: 1, people: {}, responsibility: {}, removed: ["vinay.bhojak@gpp.local"] }, baseVersion: 2 });
+    assert.equal(other.status, 200);
+    assert.deepEqual(JSON.parse(s.store.items.get("company|access")!.value).removed, [RAGHUNATH], "nor removed anybody");
+    const read = await call(s, "GET", "/api/access/rules", "u-vinay");
+    assert.deepEqual(read.body.rules.removed, [RAGHUNATH]);
+  });
+
+  it("clearing the rules keeps the removed accounts removed", async () => {
+    const req = {} as unknown as Parameters<AccessRulesService["clear"]>[0];
+    assert.equal(await s.service.clear(req, { id: "u-admin", name: "Super Admin", email: "admin@gpp.local", role: "admin", departments: [] }), true);
+    assert.deepEqual(JSON.parse(s.store.items.get("company|access")!.value), { version: 1, people: {}, responsibility: {}, removed: [RAGHUNATH] });
+    s.store.items.set("company|access", { value: JSON.stringify({ version: 1, people: {}, responsibility: {} }), version: 9, seq: 20 });
+    assert.equal(await s.service.clear(req, { id: "u-admin", name: "Super Admin", email: "admin@gpp.local", role: "admin", departments: [] }), false, "nothing to keep: the item may simply go");
+  });
+
+  it("'Create the missing accounts' never makes again an account removed, given up or renamed away", async () => {
+    s.store.users.push(row("u-raghu", "Raghunath Mane", RAGHUNATH, "staff", "MNT", { active: false, removed_at: "2026-10-12T06:00:00.000Z" }));
+    const kapila = s.store.users.find((u) => u.id === "u-kapila")!;
+    kapila.email = releasedSignIn("kapila.barad@gpp.local", "u-kapila");
+    const vinay = s.store.users.find((u) => u.id === "u-vinay")!;
+    vinay.email = "vinay@gpp.local";
+    vinay.former_emails = "vinay.bhojak@gpp.local";
+    const r = await call(s, "POST", "/api/access/accounts/create-missing", "u-admin", { password: "FirstPass@1" });
+    assert.equal(r.status, 200);
+    const made = r.body.created.map((c: { email: string }) => c.email);
+    for (const kept of [RAGHUNATH, "kapila.barad@gpp.local", "vinay.bhojak@gpp.local", "ankur.raval@gpp.local"]) assert.ok(!made.includes(kept), kept);
+    assert.equal(made.length, 8);
   });
 });
