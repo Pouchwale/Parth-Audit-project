@@ -28,7 +28,24 @@ function nowValue(type: EntryItem['type']): string {
  * and Not OK), and a box to type anything else. A button saves at once; typing saves when the box is left or typing
  * pauses. Read-only when the record cannot be changed now.
  */
-export function EntryField({ item, value, state, editable, onSave }: { item: EntryItem; value: string; state: FieldState | undefined; editable: boolean; onSave(value: string): void }) {
+export function EntryField({
+  item,
+  value,
+  state,
+  editable,
+  onSave,
+  onClear,
+  clearLabel = 'Clear',
+}: {
+  item: EntryItem;
+  value: string;
+  state: FieldState | undefined;
+  editable: boolean;
+  onSave(value: string): void;
+  /** Blanks the box through DCRS, asked first (DCRS's REQUIREMENTS §113). Offered only on a box that holds a value. */
+  onClear?(): void;
+  clearLabel?: string;
+}) {
   const theme = useTheme();
   const scheme = useColorSchemeSetting();
   const [text, setText] = useState(value);
@@ -87,6 +104,11 @@ export function EntryField({ item, value, state, editable, onSave }: { item: Ent
           <ActivityIndicator size="small" color={theme.textSecondary} />
         ) : state?.saved && !state.error ? (
           <Ionicons name="checkmark-circle" size={20} color={theme.success} accessibilityLabel="Saved" />
+        ) : null}
+        {editable && onClear && !empty ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={`${clearLabel}: ${item.label}`} onPress={onClear} hitSlop={8} style={({ pressed }) => [styles.clear, { opacity: pressed ? 0.6 : 1 }]}>
+            <Ionicons name="close-circle-outline" size={22} color={theme.textSecondary} />
+          </Pressable>
         ) : null}
       </View>
       {item.where ? <Text style={[styles.where, { color: theme.textSecondary }]}>{item.where}</Text> : null}
@@ -159,6 +181,7 @@ export function EntryField({ item, value, state, editable, onSave }: { item: Ent
 const styles = StyleSheet.create({
   field: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  clear: { minWidth: 32, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
   label: { flex: 1, fontSize: 15, fontWeight: '600', lineHeight: 20 },
   where: { fontSize: 13, marginTop: -Spacing.xs },
   value: { fontSize: 16 },

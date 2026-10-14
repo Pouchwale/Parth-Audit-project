@@ -352,3 +352,23 @@ it("answers 502 when DCRS's answer is not one the app can read", async () => {
   expect(record.statusCode).toBe(502);
   expect(record.json()).toMatchObject({ error: 'upstream_unavailable' });
 });
+
+it("relays a dry run of a change (§113) as a read, with the reason for a signed-off record, and logs only the real change", async () => {
+  const preview = { dryRun: true, recordId: 'rec-1', title: 'the Area Line Clearance – Printing of 30-Sep-2026', status: 'Verified', editable: false, willReopen: true, reasonNeeded: false, changes: [], added: [], removed: ['line 2 (No old labels, OK)'], cleared: [], problems: [] };
+  const { send, asked } = await start({
+    'POST /api/v1/records/rec-1/changes': (r) => ((r.body as { dryRun?: boolean }).dryRun ? json(200, preview) : json(200, { ...CHANGED, reopened: true, removed: ['line 2 (No old labels, OK)'], added: [], cleared: [] })),
+  });
+  const patch = { removeItems: { rows: ['row-2'] } };
+  const dry = await send('POST', '/records/rec-1/changes', { patch, dryRun: true, reason: 'wrong line' });
+  expect(dry.statusCode, dry.body).toBe(200);
+  expect(dry.json()).toMatchObject({ recordId: 'rec-1', dryRun: true, willReopen: true, reasonNeeded: false, removed: ['line 2 (No old labels, OK)'] });
+  const real = await send('POST', '/records/rec-1/changes', { patch, reason: 'wrong line', note: 'Entered on the phone' });
+  expect(real.json()).toMatchObject({ recordId: 'rec-1', reopened: true, removed: ['line 2 (No old labels, OK)'] });
+  expect(asked().map((r) => [`${r.method} ${r.path}`, r.body])).toEqual([
+    ['POST /api/v1/records/rec-1/changes', { patch, dryRun: true, reason: 'wrong line' }],
+    ['POST /api/v1/records/rec-1/changes', { patch, reason: 'wrong line', note: 'Entered on the phone' }],
+  ]);
+  // The dry run wrote nothing in DCRS, so it is not a change in this server's log either; the real change is, with the reason.
+  const logged = await database.db.select({ action: actions.action, summary: actions.summary }).from(actions);
+  expect(logged).toEqual([{ action: 'edit_record', summary: expect.stringContaining('correcting it because "wrong line"') }]);
+});

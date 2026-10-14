@@ -738,7 +738,35 @@ export interface RecordLayout {
   rows?: { mode: string; slotKey?: string; slots?: string[]; fixed?: number; count?: number };
   checkpoints?: { number: number; question: string; answer: string; noteAsks?: string; findingWhen?: string }[];
   fields?: RecordField[];
-  lists?: { key: string; label: string; items: string[] }[];
+  /** Every list of lines of the form, with what it allows (DCRS's REQUIREMENTS §113). */
+  lists?: RecordList[];
+}
+
+/** One list of lines of a form, as DCRS's layout.lists describes it: its rules and, on a record, its lines by id. */
+export interface RecordList {
+  key: string;
+  label: string;
+  /** What one line is called: "line", "rodent catch", "finding", "attendee". */
+  noun: string;
+  canAdd: boolean;
+  canRemove: boolean;
+  /** Why no line is added or removed, when neither is allowed. */
+  whyFixed?: string;
+  minLines: number;
+  maxAddAtOnce: number;
+  /** The box a line is named by (its time slot, trap box number, serial number). */
+  nameKey?: string;
+  numberKey?: string;
+  /** A list of plain words, not of boxes. */
+  scalar?: boolean;
+  within?: string;
+  /** The boxes of a new line. */
+  item: string[];
+  /** The boxes a person writes. */
+  writable: string[];
+  count?: number;
+  /** On a record: each line as it stands. A change aims at a line by its id, never by a position that moved. */
+  lines?: ({ row: number; id?: string | number; words: string } & Record<string, unknown>)[];
 }
 
 /** A record, as DCRS's GET /api/v1/records/:id answers it. */
@@ -784,10 +812,17 @@ export interface StartedRecord {
   record: RecordView;
 }
 
-/** Values the person entered, in DCRS's patch shape (see RecordView's layout). */
+/**
+ * Values the person entered, in DCRS's patch shape (see RecordView's layout): a box, a line's cell, and the four
+ * operations on a record's lines (addItems, removeItems, clearItems, itemEdits; DCRS's REQUIREMENTS §113). With
+ * dryRun, DCRS says what the patch would do and writes nothing: the confirmation sheet is worded from that. A
+ * signed-off record is changed with a reason (DCRS reopens it for correction and makes the change).
+ */
 export interface RecordChangeRequest {
   patch: Record<string, unknown>;
   note?: string;
+  dryRun?: boolean;
+  reason?: string;
 }
 
 /** What the Review screen can do to a record. */
@@ -811,4 +846,20 @@ export interface RecordChangeResult {
   changes?: { label: string; before: string; after: string }[];
   /** What DCRS left out of the change, and why. */
   problems?: string[];
+  /** A dry run's answer (§113): what the patch would do, nothing written. */
+  dryRun?: boolean;
+  /** "the Lamination Adhesive Viscosity Record of 11-Oct-2026" (a dry run). */
+  title?: string;
+  /** The record is signed off: the change reopens it for correction first, with a reason (a dry run). */
+  willReopen?: boolean;
+  /** With willReopen: no reason was sent yet (a dry run). */
+  reasonNeeded?: boolean;
+  /** The record was signed off and was reopened for this correction. */
+  reopened?: boolean;
+  /** The lines added: on a real change each with its id as stored, which removeItems takes off again (Undo). */
+  added?: { collection: string; id?: string | number; row?: number; words: string }[];
+  /** Each line taken off, in its own words: "line 3 (10:00, 20.4, Jeni)". */
+  removed?: string[];
+  /** Each written value blanked, with its line: "20.1 from line 4 (11:00)". */
+  cleared?: string[];
 }

@@ -84,6 +84,10 @@ const StartBody = z.object({ documentId: Text(200), date: z.string().trim().rege
 const ChangeBody = z.object({
   patch: z.record(z.string(), z.unknown()).refine((patch) => Object.keys(patch).length > 0, 'The change is empty: say which values to set.'),
   note: Text(500).optional(),
+  /** DCRS says what the patch would do and writes nothing (§113): the words of the Review screen's confirmation sheet. */
+  dryRun: z.boolean().optional(),
+  /** For a signed-off record: why it is corrected. DCRS reopens it and makes the change. */
+  reason: Text(500).optional(),
 });
 const REVIEWED_ACTIONS = new Set(['submit', 'verify', 'send_back']);
 const ActionBody = z
@@ -279,7 +283,12 @@ export function registerPhoneRoutes(app: FastifyInstance, deps: AppDeps) {
   app.post('/records/:recordId/changes', session, async (request): Promise<RecordChangeResult> => {
     const { recordId } = parseBody(RecordParams, request.params);
     const body = parseBody(ChangeBody, request.body);
-    const summary = `In record ${recordId}, set ${patchInWords(body.patch)} (entered on the Review screen)`;
+    // A dry run is a read: DCRS writes nothing and logs nothing, so neither does this server.
+    if (body.dryRun === true) {
+      const preview = await relay(request, (phone, credentials, options) => phone.changeRecord(credentials, recordId, { ...body, dryRun: true }, options));
+      return { recordId, ...answer<Omit<RecordChangeResult, 'recordId'>>(ChangeAnswer, preview) };
+    }
+    const summary = `In record ${recordId}, set ${patchInWords(body.patch)}${body.reason ? `, correcting it because ${spoken(body.reason, 200)}` : ''} (entered on the Review screen)`;
     const said = await logged(request, 'edit_record', { recordId, ...body }, summary, () =>
       relay(request, (phone, credentials, options) => phone.changeRecord(credentials, recordId, body, options)),
     );

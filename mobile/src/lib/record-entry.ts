@@ -5,19 +5,24 @@
 // lines; the daily pest control check points; any other form's fields) and its data as stored. Each value a person can
 // write becomes one input, and each answer is saved at once in DCRS's own patch shape (POST /records/:id/changes):
 //   a box of a log sheet, at its head or foot   {"header": {"<key>": value}}
-//   a cell of a line, by the line's number       {"itemEdits": [{"collection": "rows", "match": {"row": 2}, "set": {"<key>": value}}]}
+//   a cell of a line, by the line's id            {"itemEdits": [{"collection": "rows", "match": {"id": "row-…"}, "set": {"<key>": value}}]}
 //   a check point of the daily pest control      {"checkpoints": {"3": "Yes"}}
 //   any other field, or a part of one            {"<key>": value}, {"<key>": {"<part>": value}}
+// The lines of a record (DCRS's REQUIREMENTS §113): DCRS's layout.lists says, per list, whether lines can be added or
+// removed and why not, and names each line by its id. A line is added with addItems, taken off with removeItems and a
+// box blanked with clearItems; every such change is first asked of DCRS as a dry run (nothing written), whose words
+// the confirmation sheet shows, and a line just added can be taken off again by the id DCRS answered (Undo).
 // DCRS checks and stores every value as its own pages do, and refuses what it cannot take; nothing is decided here
 // beyond which inputs to show and which buttons to offer for the usual answers.
-import type { RecordField, RecordView } from '@shared/api';
+import type { RecordChangeResult, RecordField, RecordList, RecordView } from '@shared/api';
 
 export type EntryType = 'number' | 'text' | 'choice' | 'yesno' | 'time' | 'date';
 
 /** Where a value goes in DCRS's patch. */
 export type EntryTarget =
   | { kind: 'header'; key: string }
-  | { kind: 'row'; collection: string; row: number; key: string }
+  /** A cell of a line: aimed by the line's id when DCRS gave one, else by its position. */
+  | { kind: 'row'; collection: string; row: number; id?: string | number; key: string }
   | { kind: 'field'; key: string }
   | { kind: 'part'; key: string; part: string }
   | { kind: 'checkpoint'; number: number }
@@ -46,6 +51,43 @@ export interface EntryItem {
 export interface EntryGroup {
   title: string;
   items: EntryItem[];
+  /** The line of a list these inputs belong to, when they do: what deleting it names, and whether DCRS allows that. */
+  line?: LineRef;
+}
+
+/** A line of a list, as the controls name it. */
+export interface LineRef {
+  list: string;
+  /** What one line is called, from DCRS: "line", "rodent catch". */
+  noun: string;
+  row: number;
+  id: string | number | null;
+  /** The line in its own words, from DCRS. */
+  words: string;
+  canRemove: boolean;
+}
+
+/** A box of a new line. */
+export interface LineBox {
+  key: string;
+  label: string;
+  type: EntryType;
+  options: string[];
+  unit: string | null;
+}
+
+/** A list of lines with what the screen can do to it. */
+export interface LineList {
+  key: string;
+  label: string;
+  noun: string;
+  canAdd: boolean;
+  canRemove: boolean;
+  whyFixed: string | null;
+  maxAddAtOnce: number;
+  /** The boxes a new line asks for: the list's writable boxes, described by the form's columns where it has them. */
+  boxes: LineBox[];
+  lines: { row: number; id: string | number | null; words: string }[];
 }
 
 export interface Entry {
@@ -140,6 +182,60 @@ export function quickAnswers(type: EntryType, options: readonly string[], label:
 
 const writable = (field: RecordField) => !field.printed && !field.computed && !field.readFrom;
 
+/** DCRS's lists of lines on this record (layout.lists, §113), read defensively: none on a DCRS before §113. */
+function registry(record: Pick<RecordView, 'layout'>): RecordList[] {
+  const lists = record.layout?.lists;
+  if (!Array.isArray(lists)) return [];
+  return lists.filter((list): list is RecordList => isObj(list) && typeof list.key === 'string' && typeof list.canAdd === 'boolean');
+}
+
+/** A line's id as DCRS stored it, from the list's lines (by position) or the stored line itself. */
+function idOf(list: RecordList | undefined, index: number, stored: unknown): string | number | null {
+  const listed = list?.lines?.[index]?.id;
+  if (typeof listed === 'string' || typeof listed === 'number') return listed;
+  const own = isObj(stored) ? stored.id : undefined;
+  return typeof own === 'string' || typeof own === 'number' ? own : null;
+}
+
+function lineRef(list: RecordList | undefined, key: string, index: number, stored: unknown, fallbackWords: string): LineRef {
+  const words = list?.lines?.[index]?.words;
+  return {
+    list: key,
+    noun: list?.noun || 'line',
+    row: index + 1,
+    id: idOf(list, index, stored),
+    words: typeof words === 'string' && words ? words : fallbackWords,
+    canRemove: list?.canRemove === true,
+  };
+}
+
+/** The lists of lines of the record, each with its rules, the boxes of a new line and its lines: for the Add and Delete controls. */
+export function lineListsOf(record: RecordView): LineList[] {
+  const columns = new Map((record.layout?.columns ?? []).map((column) => [column.key, column]));
+  return registry(record).map((list) => {
+    const keys = list.writable.length > 0 ? list.writable : list.item;
+    const boxes = keys
+      .filter((key) => key !== 'id' && !SERIAL_KEY.test(key))
+      .map((key): LineBox => {
+        const column = columns.get(key);
+        const options = column?.options ?? [];
+        const type = column ? entryType(column.type, options) : typeOfValue(key, undefined);
+        return { key, label: column?.label?.trim() || labelOf(key), type, options, unit: column?.unit ?? null };
+      });
+    return {
+      key: list.key,
+      label: list.label || labelOf(list.key),
+      noun: list.noun || 'line',
+      canAdd: list.canAdd === true,
+      canRemove: list.canRemove === true,
+      whyFixed: typeof list.whyFixed === 'string' && list.whyFixed ? list.whyFixed : null,
+      maxAddAtOnce: typeof list.maxAddAtOnce === 'number' && list.maxAddAtOnce > 0 ? list.maxAddAtOnce : 1,
+      boxes,
+      lines: (list.lines ?? []).map((line, index) => ({ row: typeof line.row === 'number' ? line.row : index + 1, id: typeof line.id === 'string' || typeof line.id === 'number' ? line.id : null, words: typeof line.words === 'string' ? line.words : '' })),
+    };
+  });
+}
+
 function item(id: string, field: { key: string; label?: string; type?: string; options?: string[]; unit?: string; required?: boolean; min?: number; max?: number }, where: string | null, value: unknown, target: EntryTarget, type?: EntryType): EntryItem {
   const options = field.options ?? [];
   const kind = type ?? entryType(field.type, options);
@@ -190,6 +286,7 @@ function logSheet(record: RecordView): EntryGroup[] {
   const header = isObj(data.header) ? data.header : {};
   const rows = Array.isArray(data.rows) ? data.rows : [];
   const columns = layout.columns ?? [];
+  const list = registry(record).find((one) => one.key === 'rows');
   const groups: EntryGroup[] = [];
   const boxes = (fields: readonly RecordField[] | undefined, title: string) => {
     const items = (fields ?? []).filter(writable).map((field) => item(`header:${field.key}`, field, null, header[field.key], { kind: 'header', key: field.key }));
@@ -199,26 +296,30 @@ function logSheet(record: RecordView): EntryGroup[] {
   rows.forEach((row, index) => {
     if (!isObj(row)) return;
     const where = rowTitle(row, index, columns, layout.rows?.slotKey, layout.ownLineNumbers === true);
+    const id = idOf(list, index, row);
     const items = columns
       .filter(writable)
-      .map((column) => item(`row:${index}:${column.key}`, column, where, row[column.key], { kind: 'row', collection: 'rows', row: index + 1, key: column.key }));
-    if (items.length > 0) groups.push({ title: where, items });
+      .map((column) => item(`row:${index}:${column.key}`, column, where, row[column.key], { kind: 'row', collection: 'rows', row: index + 1, ...(id === null ? {} : { id }), key: column.key }));
+    if (items.length > 0) groups.push({ title: where, items, line: lineRef(list, 'rows', index, row, where) });
   });
   boxes(layout.footer, 'At the foot of the sheet');
   return groups;
 }
 
-function listGroups(key: string, label: string, keys: readonly string[] | undefined, value: unknown): EntryGroup[] {
+function listGroups(key: string, label: string, keys: readonly string[] | undefined, value: unknown, list: RecordList | undefined): EntryGroup[] {
   if (!Array.isArray(value) || PICTURE_LISTS.test(key)) return [];
   const groups: EntryGroup[] = [];
+  // The boxes a person writes, as DCRS's registry names them (§113); else the keys the form gave; else the line's own.
+  const asked = list && list.writable.length > 0 ? list.writable : keys;
   value.forEach((line, index) => {
     if (!isObj(line) || 'dataUrl' in line) return;
     const where = `${label}, line ${index + 1}`;
-    const names = (keys && keys.length > 0 ? keys : Object.keys(line)).filter((name) => name !== 'id' && !SERIAL_KEY.test(name));
+    const id = idOf(list, index, line);
+    const names = (asked && asked.length > 0 ? asked : Object.keys(line)).filter((name) => name !== 'id' && !SERIAL_KEY.test(name));
     const items = names.map((name) =>
-      item(`list:${key}:${index}:${name}`, { key: name }, where, line[name], { kind: 'row', collection: key, row: index + 1, key: name }, typeOfValue(name, line[name])),
+      item(`list:${key}:${index}:${name}`, { key: name }, where, line[name], { kind: 'row', collection: key, row: index + 1, ...(id === null ? {} : { id }), key: name }, typeOfValue(name, line[name])),
     );
-    if (items.length > 0) groups.push({ title: where, items });
+    if (items.length > 0) groups.push({ title: where, items, line: lineRef(list, key, index, line, where) });
   });
   return groups;
 }
@@ -260,7 +361,7 @@ function dailyPest(record: RecordView): EntryGroup[] {
     item(`field:${field.key}`, { ...field, required: required && field.key !== 'isHoliday' }, null, data[field.key], { kind: 'field', key: field.key }),
   );
   if (fields.length > 0) groups.push({ title: 'The check', items: fields });
-  for (const list of layout.lists ?? []) groups.push(...listGroups(list.key, list.label, list.items, data[list.key]));
+  for (const list of registry(record)) groups.push(...listGroups(list.key, list.label, list.item, data[list.key], list));
   return groups;
 }
 
@@ -268,11 +369,12 @@ function anyForm(record: RecordView): EntryGroup[] {
   const data = isObj(record.data) ? record.data : {};
   const boxes: EntryItem[] = [];
   const groups: EntryGroup[] = [];
+  const lists = registry(record);
   for (const field of record.layout?.fields ?? []) {
     if (field.key.startsWith('_') || !writable(field)) continue;
     const value = data[field.key];
     if (Array.isArray(value) || field.items) {
-      groups.push(...listGroups(field.key, field.label || labelOf(field.key), field.items, value));
+      groups.push(...listGroups(field.key, field.label || labelOf(field.key), field.items, value, lists.find((list) => list.key === field.key)));
     } else if (isObj(value) || field.parts) {
       const parts = field.parts ?? Object.keys(isObj(value) ? value : {});
       const holder = isObj(value) ? value : {};
@@ -313,13 +415,18 @@ export function withValues(entry: Entry, saved: Readonly<Record<string, string>>
   return summed(entry.supported, groups);
 }
 
+/** How a line is aimed at: by its id as DCRS stored it, else by its position on the sheet. */
+function matchOf(target: { row: number; id?: string | number }): Record<string, string | number> {
+  return target.id === undefined ? { row: target.row } : { id: target.id };
+}
+
 /** The change DCRS takes for one value. */
 export function patchFor(target: EntryTarget, value: string): Record<string, unknown> {
   switch (target.kind) {
     case 'header':
       return { header: { [target.key]: value } };
     case 'row':
-      return { itemEdits: [{ collection: target.collection, match: { row: target.row }, set: { [target.key]: value } }] };
+      return { itemEdits: [{ collection: target.collection, match: matchOf(target), set: { [target.key]: value } }] };
     case 'field':
       return { [target.key]: value };
     case 'part':
@@ -330,6 +437,62 @@ export function patchFor(target: EntryTarget, value: string): Record<string, unk
       // DCRS keeps the check point's answer and sets its note.
       return { checkpoints: { [String(target.number)]: { note: value } } };
   }
+}
+
+/**
+ * The change that blanks one box (§113): a line's cell through clearItems (DCRS names what it clears in its own
+ * words), a check point with null, any other box with null.
+ */
+export function clearPatchFor(target: EntryTarget): Record<string, unknown> {
+  switch (target.kind) {
+    case 'header':
+      return { header: { [target.key]: null } };
+    case 'row':
+      return { clearItems: { [target.collection]: [{ ...matchOf(target), keys: [target.key] }] } };
+    case 'field':
+      return { [target.key]: null };
+    case 'part':
+      return { [target.key]: { [target.part]: null } };
+    case 'checkpoint':
+      return { checkpoints: { [String(target.number)]: null } };
+    case 'checkpoint-note':
+      return { checkpoints: { [String(target.number)]: { note: '' } } };
+  }
+}
+
+/** The change that adds lines to a list, each with only the boxes the person filled: DCRS writes nothing else. */
+export function addLinePatch(list: string, lines: readonly Readonly<Record<string, string>>[]): Record<string, unknown> {
+  const values = lines.map((line) => Object.fromEntries(Object.entries(line).filter(([, value]) => value.trim() !== '').map(([key, value]) => [key, value.trim()])));
+  return { addItems: { [list]: values } };
+}
+
+/** The change that takes a line off its list, by its id when DCRS gave one, else by its position. */
+export function removeLinePatch(line: Pick<LineRef, 'list' | 'row' | 'id'>): Record<string, unknown> {
+  return { removeItems: { [line.list]: [line.id === null ? line.row : line.id] } };
+}
+
+/**
+ * The change that takes off again the lines a change added, by the ids DCRS answered (Undo); null when it added none
+ * with an id (a DCRS before §113 answers no ids, so there is nothing safe to take off).
+ */
+export function undoAddPatch(result: Pick<RecordChangeResult, 'added'>): Record<string, unknown> | null {
+  const byList: Record<string, (string | number)[]> = {};
+  for (const line of result.added ?? []) {
+    if (typeof line.id !== 'string' && typeof line.id !== 'number') continue;
+    (byList[line.collection] ??= []).push(line.id);
+  }
+  return Object.keys(byList).length > 0 ? { removeItems: byList } : null;
+}
+
+/** The words of a dry run's answer for the confirmation sheet: what DCRS would delete, clear and add. */
+export function previewLines(result: Pick<RecordChangeResult, 'removed' | 'cleared' | 'added' | 'changes'>): { removed: string[]; cleared: string[]; added: string[]; set: string[] } {
+  const marks = new Set(['(no row)', '(row removed)']);
+  return {
+    removed: (result.removed ?? []).filter((line) => typeof line === 'string'),
+    cleared: (result.cleared ?? []).filter((line) => typeof line === 'string'),
+    added: (result.added ?? []).map((line) => line.words).filter((words) => typeof words === 'string' && words !== ''),
+    set: (result.changes ?? []).filter((change) => !marks.has(change.before) && !marks.has(change.after)).map((change) => `${change.label}: ${change.after === '' ? '—' : change.after}`),
+  };
 }
 
 /** A note beside a number outside the form's band (not a refusal: the paper has no such gate, a remark is expected). */

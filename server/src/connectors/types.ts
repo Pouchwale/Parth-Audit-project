@@ -75,7 +75,7 @@ export interface PhoneRelay {
   tasks(credentials: unknown, options?: RelayOptions): Promise<unknown>;
   startRecord(credentials: unknown, body: { documentId: string; date?: string }, options?: RelayOptions): Promise<unknown>;
   record(credentials: unknown, recordId: string, options?: RelayOptions): Promise<unknown>;
-  changeRecord(credentials: unknown, recordId: string, body: { patch: Record<string, unknown>; note?: string }, options?: RelayOptions): Promise<unknown>;
+  changeRecord(credentials: unknown, recordId: string, body: { patch: Record<string, unknown>; note?: string; dryRun?: boolean; reason?: string }, options?: RelayOptions): Promise<unknown>;
   actOnRecord(credentials: unknown, recordId: string, body: { action: string; reason?: string; reviewed?: boolean }, options?: RelayOptions): Promise<unknown>;
 }
 

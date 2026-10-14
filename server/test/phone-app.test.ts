@@ -242,7 +242,23 @@ const PEST: RecordView = {
       { key: 'timeOfChecking', label: 'Time of checking', type: 'time' },
       { key: 'isHoliday', label: 'Holiday', type: 'yesno' },
     ],
-    lists: [{ key: 'rodentCatches', label: 'Rodent catches', items: ['trapBoxNo', 'location', 'count'] }],
+    // As DCRS describes the list since §113: its rules, the boxes of a new line, and each line by id.
+    lists: [
+      {
+        key: 'rodentCatches',
+        label: 'Rodent catches',
+        noun: 'rodent catch',
+        canAdd: true,
+        canRemove: true,
+        minLines: 0,
+        maxAddAtOnce: 10,
+        nameKey: 'trapBoxNo',
+        item: ['trapBoxNo', 'location', 'count'],
+        writable: ['trapBoxNo', 'location', 'count'],
+        count: 1,
+        lines: [{ row: 1, id: 'r1', trapBoxNo: 'T-3', words: 'T-3 · Store · 0' }],
+      },
+    ],
   },
   inWords: [],
   data: { checkpoints: { '1': { value: 'No' } }, checker: '', timeOfChecking: '', isHoliday: false, rodentCatches: [{ id: 'r1', trapBoxNo: 'T-3', location: 'Store', count: 0 }] },
@@ -324,7 +340,8 @@ it('asks every check point of the daily pest control with Yes and No, or 0 1 2 f
   expect(entry.requiredEmpty).toBe(3);
   expect(patchFor(items[1]!.target, '12')).toEqual({ checkpoints: { '4': '12' } });
   expect(patchFor(items[2]!.target, 'Roshni')).toEqual({ checker: 'Roshni' });
-  expect(patchFor(items[7]!.target, '1')).toEqual({ itemEdits: [{ collection: 'rodentCatches', match: { row: 1 }, set: { count: '1' } }] });
+  // A line's cell is aimed by the line's id as DCRS stored it, never by a position that may have moved (§113).
+  expect(patchFor(items[7]!.target, '1')).toEqual({ itemEdits: [{ collection: 'rodentCatches', match: { id: 'r1' }, set: { count: '1' } }] });
 
   // Submit waits for the required boxes (when DCRS gives no problems of its own), then for the tick.
   expect(submitState(PEST, entry, true)).toEqual({ shown: true, enabled: false, why: '3 required boxes are still empty.' });
@@ -418,4 +435,109 @@ it('reads any other form by its fields, leaves pictures and forms with pages of 
   expect(rangeNote({ type: 'number', min: 0, max: null, unit: null }, '-1')).toBe('Below 0: add a remark.');
   expect(quickAnswers('choice', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'], 'Shift')).toEqual([]);
   expect(quickAnswers('text', [], 'Checked by')).toEqual([]);
+});
+
+/** F-QC-32 with free lines, as DCRS answers it since §113: the list's rules and its lines by id. */
+const FREE_SHEET: RecordView = {
+  ...(RECORD as unknown as RecordView),
+  recordId: 'rec-32',
+  document: { id: 'qc-adhesive-mixing', formatNo: 'F-QC-32', name: 'Adhesive Mixing Ratio Record', kind: 'log-sheet' },
+  layout: {
+    kind: 'log-sheet',
+    header: [],
+    footer: [],
+    columns: [
+      { key: 'time', label: 'Time', type: 'time' },
+      { key: 'viscosity', label: 'Viscosity', type: 'number', unit: 'Sec.', min: 19, max: 21 },
+      { key: 'checkedBy', label: 'Checked By', type: 'text' },
+    ],
+    rows: { mode: 'free', count: 2 },
+    lists: [
+      {
+        key: 'rows',
+        label: 'Lines',
+        noun: 'line',
+        canAdd: true,
+        canRemove: true,
+        minLines: 1,
+        maxAddAtOnce: 50,
+        nameKey: 'time',
+        item: ['time', 'viscosity', 'checkedBy'],
+        writable: ['time', 'viscosity', 'checkedBy'],
+        count: 2,
+        lines: [
+          { row: 1, id: 'row-a1', time: '09:00', words: '09:00 · 20.1 · Jeni' },
+          { row: 2, id: 'row-b2', time: '10:00', words: '10:00 · 20.4 · Jeni' },
+        ],
+      },
+    ],
+  },
+  inWords: [],
+  data: { header: {}, rows: [{ id: 'row-a1', time: '09:00', viscosity: 20.1, checkedBy: 'Jeni' }, { id: 'row-b2', time: '10:00', viscosity: 20.4, checkedBy: 'Jeni' }] },
+};
+
+it("offers Add and Delete where DCRS's list allows them, names each line by id and its own words, and says why a fixed list cannot change (§113)", () => {
+  const { entryOf, lineListsOf, patchFor, clearPatchFor, addLinePatch, removeLinePatch, undoAddPatch, previewLines } = entryLogic;
+  const entry = entryOf(FREE_SHEET);
+  expect(entry.groups.map((g: { title: string; line?: unknown }) => [g.title, g.line])).toEqual([
+    ['Row 1', { list: 'rows', noun: 'line', row: 1, id: 'row-a1', words: '09:00 · 20.1 · Jeni', canRemove: true }],
+    ['Row 2', { list: 'rows', noun: 'line', row: 2, id: 'row-b2', words: '10:00 · 20.4 · Jeni', canRemove: true }],
+  ]);
+  // A cell is aimed by the line's id; a clear goes through clearItems, so DCRS names what it blanks.
+  const viscosity = entry.groups[1].items[1];
+  expect(patchFor(viscosity.target, '20.3')).toEqual({ itemEdits: [{ collection: 'rows', match: { id: 'row-b2' }, set: { viscosity: '20.3' } }] });
+  expect(clearPatchFor(viscosity.target)).toEqual({ clearItems: { rows: [{ id: 'row-b2', keys: ['viscosity'] }] } });
+  expect(clearPatchFor({ kind: 'checkpoint', number: 3 })).toEqual({ checkpoints: { '3': null } });
+  expect(clearPatchFor({ kind: 'header', key: 'lineNo' })).toEqual({ header: { lineNo: null } });
+
+  const [rows] = lineListsOf(FREE_SHEET);
+  expect(rows).toMatchObject({ key: 'rows', noun: 'line', canAdd: true, canRemove: true, whyFixed: null, maxAddAtOnce: 50 });
+  expect(rows.boxes).toEqual([
+    { key: 'time', label: 'Time', type: 'time', options: [], unit: null },
+    { key: 'viscosity', label: 'Viscosity', type: 'number', options: [], unit: 'Sec.' },
+    { key: 'checkedBy', label: 'Checked By', type: 'text', options: [], unit: null },
+  ]);
+  expect(rows.lines).toEqual([
+    { row: 1, id: 'row-a1', words: '09:00 · 20.1 · Jeni' },
+    { row: 2, id: 'row-b2', words: '10:00 · 20.4 · Jeni' },
+  ]);
+  // A new line carries only the boxes the person filled (nothing is written for them), and is taken off by id.
+  expect(addLinePatch('rows', [{ time: '11:00', viscosity: ' 20.2 ', checkedBy: '' }])).toEqual({ addItems: { rows: [{ time: '11:00', viscosity: '20.2' }] } });
+  expect(removeLinePatch(entry.groups[1].line)).toEqual({ removeItems: { rows: ['row-b2'] } });
+  expect(removeLinePatch({ list: 'rows', row: 3, id: null })).toEqual({ removeItems: { rows: [3] } });
+  expect(undoAddPatch({ added: [{ collection: 'rows', id: 'row-c3', row: 3, words: '11:00 · 20.2' }] })).toEqual({ removeItems: { rows: ['row-c3'] } });
+  expect(undoAddPatch({ added: [{ collection: 'rows', words: 'no id from an older DCRS' }] })).toBeNull();
+  expect(previewLines({ removed: ['line 2 (10:00, 20.4, Jeni)'], cleared: [], added: [{ collection: 'rows', words: '11:00 · 20.2' }], changes: [{ label: 'Row 2 (10:00)', before: '10:00 · 20.4 · Jeni', after: '(row removed)' }, { label: 'Row 1 (09:00) · Viscosity', before: '20.1', after: '20.3' }] })).toEqual({
+    removed: ['line 2 (10:00, 20.4, Jeni)'],
+    cleared: [],
+    added: ['11:00 · 20.2'],
+    set: ['Row 1 (09:00) · Viscosity: 20.3'],
+  });
+
+  // A sheet with printed time slots: no Add, no Delete, and DCRS's reason why.
+  const slots: RecordView = {
+    ...FREE_SHEET,
+    layout: { ...FREE_SHEET.layout!, rows: { mode: 'timeSlots', slotKey: 'time', count: 2 }, lists: [{ ...FREE_SHEET.layout!.lists![0]!, canAdd: false, canRemove: false, whyFixed: 'This sheet has one line for each time slot the form prints, so lines are not added or removed.', maxAddAtOnce: 0 }] },
+  };
+  const [fixed] = lineListsOf(slots);
+  expect(fixed).toMatchObject({ canAdd: false, canRemove: false, whyFixed: expect.stringContaining('time slot'), maxAddAtOnce: 1 });
+  expect(entryOf(slots).groups[0].line).toMatchObject({ canRemove: false, id: 'row-a1' });
+  // A DCRS before §113 describes no lists: nothing is offered, and a line is aimed by its position as before.
+  const older = entryOf({ ...FREE_SHEET, layout: { ...FREE_SHEET.layout!, lists: undefined }, data: { header: {}, rows: [{ time: '09:00', viscosity: 20.1 }] } });
+  expect(lineListsOf({ ...FREE_SHEET, layout: { ...FREE_SHEET.layout!, lists: undefined } })).toEqual([]);
+  expect(older.groups[0].line).toMatchObject({ canRemove: false, id: null, words: 'Row 1' });
+  expect(patchFor(older.groups[0].items[1].target, '20')).toEqual({ itemEdits: [{ collection: 'rows', match: { row: 1 }, set: { viscosity: '20' } }] });
+});
+
+it('words the line controls in English, Hindi and Gujarati, with the noun DCRS gives a line', async () => {
+  const { reviewWords } = await load('review-words');
+  expect(reviewWords('en').addLine('rodent catch')).toBe('Add a rodent catch');
+  expect(reviewWords('hi').deleteTitle).toBe('यह लाइन हटाएँ?');
+  expect(reviewWords('gu').reopens('Verified')).toContain('Verified');
+  expect(reviewWords(undefined).undo).toBe('Undo');
+  for (const language of ['en', 'hi', 'gu'] as const) {
+    const words = reviewWords(language);
+    expect(words.atMost(50)).toContain('50');
+    expect(words.added('11:00 · 20.2')).toContain('11:00 · 20.2');
+  }
 });

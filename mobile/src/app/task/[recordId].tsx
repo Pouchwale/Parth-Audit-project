@@ -3,14 +3,29 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RecordView, ReviewAction } from '@shared/api';
+import type { RecordChangeResult, RecordView, ReviewAction } from '@shared/api';
 import { EntryField, type FieldState } from '@/components/review/EntryField';
+import { LineSheet, type LineChange } from '@/components/review/LineSheet';
 import { Button, Card, Chip, Dialog, Notice, SegmentedControl } from '@/components/ui';
 import { MaxContentWidth, Radius, Spacing, useColorSchemeSetting, useTheme } from '@/constants/theme';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useNotifications } from '@/lib/notifications';
-import { entryOf, patchFor, submitState, withValues, type EntryGroup, type EntryItem } from '@/lib/record-entry';
+import {
+  addLinePatch,
+  clearPatchFor,
+  entryOf,
+  lineListsOf,
+  patchFor,
+  removeLinePatch,
+  submitState,
+  undoAddPatch,
+  withValues,
+  type EntryGroup,
+  type EntryItem,
+  type LineList,
+} from '@/lib/record-entry';
+import { reviewWords } from '@/lib/review-words';
 import { dateWords } from '@/lib/tasks-logic';
 
 /** Every value, or only those still empty, on a long sheet. */
@@ -21,6 +36,8 @@ const SHOW: readonly { value: 'all' | 'empty'; label: string }[] = [
 
 /** How long after the last value is saved the record is read again, for DCRS's own checks. */
 const RECHECK_MS = 1200;
+/** How long Undo is offered after a line is added (DCRS's REQUIREMENTS §113). */
+const UNDO_MS = 60_000;
 
 const ACTION_WORDS: Record<ReviewAction, { title: string; button: string; done: string }> = {
   submit: { title: 'Submit this record?', button: 'Submit', done: 'Submitted. It now waits for verification.' },
@@ -52,6 +69,12 @@ export default function ReviewScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const recheck = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A change to the record's lines (§113): the sheet open, and the Undo of the last add while it is offered.
+  const [lineChange, setLineChange] = useState<LineChange | null>(null);
+  const [undo, setUndo] = useState<{ patch: Record<string, unknown>; words: string } | null>(null);
+  const [undoing, setUndoing] = useState(false);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const words = reviewWords(language);
 
   const load = useCallback(async () => {
     try {
@@ -68,8 +91,51 @@ export default function ReviewScreen() {
     void load();
     return () => {
       if (recheck.current) clearTimeout(recheck.current);
+      if (undoTimer.current) clearTimeout(undoTimer.current);
     };
   }, [load]);
+
+  /** Asks DCRS what a patch would do, writing nothing: the words of the confirmation sheet. */
+  const dryRun = (patch: Record<string, unknown>, reason: string | undefined) =>
+    call((token) => api.changeRecord(token, recordId, { patch, dryRun: true, ...(reason ? { reason } : {}) }, language));
+  /** Makes the change in DCRS, with the reason that reopens a signed-off record. */
+  const commit = (patch: Record<string, unknown>, reason: string | undefined) =>
+    call((token) => api.changeRecord(token, recordId, { patch, note: 'Entered on the phone', ...(reason ? { reason } : {}) }, language));
+
+  /** A line was added, deleted or a box cleared: the record is read again, and an add offers Undo for a minute. */
+  function lineChanged(result: RecordChangeResult) {
+    setLineChange(null);
+    setReviewed(false);
+    const added = (result.added ?? []).map((line) => line.words).filter(Boolean);
+    const undoPatch = undoAddPatch(result);
+    if (added.length > 0 && undoPatch) {
+      setUndo({ patch: undoPatch, words: added.join('; ') });
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+      undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
+      setDone(null);
+    } else {
+      setUndo(null);
+      const removed = result.removed ?? [];
+      const cleared = result.cleared ?? [];
+      setDone(removed.length > 0 ? words.deleted(removed.join('; ')) : cleared.length > 0 ? words.cleared(cleared.join('; ')) : null);
+    }
+    void load();
+  }
+
+  /** Takes the lines just added off again, by the ids DCRS answered: a dry run first, as for any change, then the change. */
+  async function undoAdd() {
+    if (!undo) return;
+    setUndoing(true);
+    try {
+      await commit(undo.patch, undefined);
+      setUndo(null);
+      setDone(words.undone);
+      await load();
+    } catch (e) {
+      setActionError(errorMessage(e));
+    }
+    setUndoing(false);
+  }
 
   async function save(item: EntryItem, value: string) {
     setFields((current) => ({ ...current, [item.id]: { saving: true } }));
@@ -133,6 +199,15 @@ export default function ReviewScreen() {
       : entry.groups
     : [];
   const submit = submitState(record, entry, reviewed);
+  const lists = editable ? lineListsOf(record) : [];
+  const listsByKey = new Map(lists.map((list) => [list.key, list]));
+  // The last group of each list: "Add a line" sits under it, and a fixed list says why once.
+  const lastGroupOf = new Map<string, number>();
+  groups.forEach((group, index) => {
+    if (group.line) lastGroupOf.set(group.line.list, index);
+  });
+  const addSheet = (list: LineList) =>
+    setLineChange({ kind: 'add', noun: list.noun, boxes: list.boxes, maxAddAtOnce: list.maxAddAtOnce, patch: (values) => addLinePatch(list.key, [values]) });
   const canVerify = record.canVerify !== false;
   const verifies = canVerify && record.actions.includes('verify');
   const sendsBack = canVerify && record.actions.includes('send_back');
@@ -169,6 +244,13 @@ export default function ReviewScreen() {
         </Card>
       ) : null}
       {done ? <Notice>{done}</Notice> : null}
+      {undo ? (
+        <Card>
+          <Text style={[styles.meta, { color: theme.text }]}>{words.added(undo.words)}</Text>
+          <Text style={[styles.meta, { color: theme.textSecondary }]}>{words.undoFor}</Text>
+          <Button title={words.undo} kind="secondary" busy={undoing} onPress={() => void undoAdd()} />
+        </Card>
+      ) : null}
       {editable ? (
         <>
           <Text style={[styles.meta, { color: theme.textSecondary }]}>
@@ -191,6 +273,12 @@ export default function ReviewScreen() {
 
   const bottom = (
     <View style={styles.bottom}>
+      {/* A list with no line yet (the first rodent catch, the first finding): its Add sits here, under the form. */}
+      {lists
+        .filter((list) => list.canAdd && !lastGroupOf.has(list.key))
+        .map((list) => (
+          <Button key={list.key} title={words.addLine(list.noun)} kind="secondary" onPress={() => addSheet(list)} />
+        ))}
       {!editable ? <Values record={record} /> : null}
       {submit.shown || verifies || sendsBack ? (
         <Pressable
@@ -231,15 +319,48 @@ export default function ReviewScreen() {
         windowSize={5}
         ListHeaderComponent={top}
         ListFooterComponent={bottom}
-        renderItem={({ item: group }) => (
-          <View style={styles.group}>
-            <Text style={[styles.groupTitle, { color: theme.textSecondary }]}>{group.title}</Text>
-            {group.items.map((item) => (
-              <EntryField key={item.id} item={item} value={item.value} state={fields[item.id]} editable={editable} onSave={(value) => void save(item, value)} />
-            ))}
-          </View>
-        )}
+        renderItem={({ item: group, index }) => {
+          const list = group.line ? listsByKey.get(group.line.list) : undefined;
+          const last = group.line ? lastGroupOf.get(group.line.list) === index : false;
+          return (
+            <View style={styles.group}>
+              <View style={styles.groupHead}>
+                <Text style={[styles.groupTitle, styles.flex, { color: theme.textSecondary }]}>{group.title}</Text>
+                {editable && group.line?.canRemove ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${words.deleteLine}: ${group.title}`}
+                    hitSlop={8}
+                    onPress={() => setLineChange({ kind: 'delete', noun: group.line!.noun, patch: removeLinePatch(group.line!) })}
+                    style={({ pressed }) => [styles.bin, { opacity: pressed ? 0.6 : 1 }]}>
+                    <Ionicons name="trash-outline" size={20} color={theme.danger} />
+                  </Pressable>
+                ) : null}
+              </View>
+              {group.items.map((item) => (
+                <EntryField
+                  key={item.id}
+                  item={item}
+                  value={item.value}
+                  state={fields[item.id]}
+                  editable={editable}
+                  onSave={(value) => void save(item, value)}
+                  onClear={() => setLineChange({ kind: 'clear', patch: clearPatchFor(item.target) })}
+                  clearLabel={words.clearBox}
+                />
+              ))}
+              {last && list ? (
+                list.canAdd ? (
+                  <Button title={words.addLine(list.noun)} kind="secondary" onPress={() => addSheet(list)} />
+                ) : list.whyFixed ? (
+                  <Text style={[styles.meta, { color: theme.textSecondary }]}>{list.whyFixed}</Text>
+                ) : null
+              ) : null}
+            </View>
+          );
+        }}
       />
+      {lineChange ? <LineSheet change={lineChange} language={language} dryRun={dryRun} commit={commit} onDone={lineChanged} onCancel={() => setLineChange(null)} /> : null}
       {sheet ? (
         <ConfirmSheet
           action={sheet}
@@ -339,7 +460,9 @@ const styles = StyleSheet.create({
   meta: { fontSize: 14, lineHeight: 20 },
   label: { fontSize: 16, fontWeight: '600' },
   group: { gap: Spacing.sm, marginBottom: Spacing.lg },
+  groupHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 28 },
   groupTitle: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  bin: { minWidth: 36, minHeight: 36, alignItems: 'center', justifyContent: 'center' },
   bottom: { gap: Spacing.md, marginTop: Spacing.sm },
   tick: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, minHeight: 56 },
   row: { flexDirection: 'row', gap: Spacing.sm },
