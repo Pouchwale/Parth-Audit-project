@@ -62,11 +62,11 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
   // As the paper (REQUIREMENTS §111): Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By, and
   // nothing printed above the grid — the specification is in the Viscosity heading, where the paper prints it
   // and where it sets the band a reading outside is highlighted by. The owner crossed out the line DCRS
-  // printed above, and circled its numbered Sr. No.: on the paper the day's date is written there on the
-  // day's first line ("6/9/26", "7/9/26") and the hours under Date/Time.
+  // printed above. The Sr. No. column numbers the lines: on 14-Oct-2026 he sent a phone picture of the date
+  // standing in it ("there is a separate column for Sr. Number but there the date is coming ... I don't want
+  // this in any document"), so the day is the header's DATE alone and srNoShowsDate is set on no issued format.
   "qc-viscosity": {
     documentId: "qc-viscosity",
-    srNoShowsDate: true,
     // "Viscosity (20.0 ± 1.0 Sec.)" and "Tested By" in the paper's own letters, not the sheet's capitals (§111 part 6).
     headingsAsPrinted: true,
     headerFields: [],

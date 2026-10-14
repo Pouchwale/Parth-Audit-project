@@ -223,7 +223,7 @@ test("the incoming records and F/QC/36 number their lines '1.', as printed; Flex
     const want = id === "qc-flexo-ink" ? ["1", "2", "3"] : ["1.", "2.", "3."];
     assert.deepEqual([0, 1, 2].map((i) => srNoText(layout, i, "14-Oct-2026")), want, id);
   }
-  assert.equal(srNoText(layoutOf("qc-viscosity"), 0, "14-Oct-2026"), "14-Oct-2026", "F-QC-30's date in its Sr. No. as before");
+  assert.equal(srNoText(layoutOf("qc-viscosity"), 0, "14-Oct-2026"), "1", "F-QC-30 numbers its lines too (the owner, 14-Oct-2026)");
   assert.equal(srNoText(layoutOf("qc-adhesive-mixing"), 1, "14-Oct-2026"), "2", "every other sheet as before");
   const bopp = await sheet("qc-bopp-film");
   assert.deepEqual(Array.from(bopp.matchAll(/data-sr-no="">([^<]*)</g), (m) => m[1]), ["1.", "2.", "3.", "4."]);
