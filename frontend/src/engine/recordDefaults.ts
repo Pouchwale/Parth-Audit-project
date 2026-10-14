@@ -4,6 +4,7 @@ import type {
   FlyCatcherData,
   GapInspectionData,
   LogSheetData,
+  LogSheetLayout,
   LogSheetRow,
   MasterData,
   ServiceReportData,
@@ -170,14 +171,25 @@ const isDecisionField = (key: string): boolean => key === "lotStatus" || key ===
 // that starts as "Done", an ALC as "Yes", a cleaning as "Dry" or a compliance
 // as "હા" is a decision nobody made, and the required check could never catch
 // one left unanswered.
+/**
+ * A new line of a log sheet, blank in every box that is not printed: numbers
+ * null, everything else "". Nothing is decided for the person — not "ALC DONE:
+ * Yes", not "Line Clearance: Done", not "Cleaning: Dry" — since the system
+ * writes only what a person said (REQUIREMENTS §98); a column's
+ * autoFill.default is Demo Mode's (engine/autoFill.ts), never Add Row's. The
+ * sheet's Add Row, the HR fetch's new line and Mitra's "add a row" all build
+ * their line here.
+ */
+export function blankLogRow(layout: LogSheetLayout, id: string = generateId("row")): LogSheetRow {
+  const row: LogSheetRow = { id };
+  for (const c of layout.columns) row[c.key] = c.type === "number" ? null : "";
+  return row;
+}
+
 export function emptyLogRows(documentId: string): LogSheetRow[] {
   const layout = getLogSheetLayout(documentId);
   if (!layout) return [];
-  const blank = (): LogSheetRow => {
-    const row: LogSheetRow = { id: generateId("row") };
-    for (const c of layout.columns) row[c.key] = c.type === "number" ? null : "";
-    return row;
-  };
+  const blank = (): LogSheetRow => blankLogRow(layout);
   const mode = layout.rowMode;
   if (mode.kind === "timeSlots") {
     return mode.slots.map((slot) => ({ ...blank(), [mode.slotKey]: slot }));

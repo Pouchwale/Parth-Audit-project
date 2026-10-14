@@ -37,6 +37,7 @@ import { documentLayoutIn, documentTextIn, keepFormAsIssued } from "../../i18n/d
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
+import { blankLogRow } from "../../engine/recordDefaults";
 import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
 import { BIND_APPEND_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
@@ -216,11 +217,8 @@ export function LogSheetRecordView({
   const setHeader = (key: string, value: string) => save({ ...data, header: { ...data.header, [key]: value } });
   const setCell = (rowId: string, key: string, value: string | number | null) =>
     save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)) });
-  const addRow = () => {
-    const row: LogSheetRow = { id: generateId("row") };
-    for (const c of layout.columns) row[c.key] = c.type === "number" ? null : c.autoFill?.default !== undefined && c.type !== "text" ? String(c.autoFill.default) : "";
-    save({ ...data, rows: [...data.rows, row] });
-  };
+  // Add Row starts a line blank in every box (REQUIREMENTS §98): no "ALC DONE: Yes" or "Cleaning: Dry" decided for the person.
+  const addRow = () => save({ ...data, rows: [...data.rows, blankLogRow(layout, generateId("row"))] });
   const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
 
   // HR formats that name a person fetch them from HR Master Data (REQUIREMENTS

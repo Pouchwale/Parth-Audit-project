@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FiCheckCircle, FiDatabase, FiInfo, FiUserPlus } from "react-icons/fi";
 import type { HrMasterPerson, LogSheetData, LogSheetLayout, LogSheetRow } from "../../types";
 import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
+import { blankLogRow as engineBlankLogRow } from "../../engine/recordDefaults";
 import { useRouter } from "../../store/router";
 import {
   applyFills,
@@ -40,10 +41,9 @@ interface Pending {
   conflicts: FieldFill[];
 }
 
+/** A new line with no id yet, blank in every box (engine/recordDefaults.ts blankLogRow, REQUIREMENTS §98). */
 export function blankLogRow(layout: LogSheetLayout): LogSheetRow {
-  const row: LogSheetRow = { id: "" };
-  for (const c of layout.columns) row[c.key] = c.type === "number" ? null : c.autoFill?.default !== undefined && c.type !== "text" ? String(c.autoFill.default) : "";
-  return row;
+  return engineBlankLogRow(layout, "");
 }
 
 export function HrMasterFetch({
