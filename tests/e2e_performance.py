@@ -940,6 +940,12 @@ with sync_playwright() as p:
     log_out = page.locator(".app-topbar button[title='Log Out']")
     if log_out.count():
         log_out.first.click()
+        # Every log-out asks about the day's work first (REQUIREMENTS s72).
+        page.wait_for_timeout(500)
+        _review_ok = page.locator("[data-action='logout-review-confirm']")
+        if _review_ok.count():
+            _review_ok.first.click()
+        page.wait_for_selector("#login-email", timeout=30000)
     page.goto(f"{BASE}/index.html")
     page.wait_for_selector("#login-email", timeout=60000)
     page.wait_for_timeout(400)
