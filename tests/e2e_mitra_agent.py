@@ -13,7 +13,7 @@ own request to api.openai.com is stood in for by backend/tests/ai.test.ts), and
 the server's "assistant configured" flag is switched on in the auth answers, so
 the agent path runs without a key. Checked against the production build on :8842:
 
-  * an instruction becomes a tool call the browser carries out - "open insights"
+  * an instruction becomes a tool call the browser carries out - "open the calendar"
     navigates, shows the step as done, and the final words are rendered (bold);
   * an unclear instruction comes back as a question with options (ask_user);
     tapping one sends it as the next message;
@@ -113,7 +113,7 @@ def agent_route(route):
         except Exception:
             pass
         if name == "navigate":
-            route.fulfill(json={"kind": "final", "text": "Opened **Insights** for you — what stands out is at the top."})
+            route.fulfill(json={"kind": "final", "text": "Opened the **Calendar** for you — every record by its day."})
         elif name == "edit_open_record":
             route.fulfill(json={"kind": "final", "text": f"Done — viscosity at 14:00 is now 20.4. Tool said ok={result.get('ok')}."})
         else:
@@ -121,8 +121,10 @@ def agent_route(route):
         return
     text = (last.get("content") or "") if last.get("role") == "user" else ""
     low = text.lower()
-    if "insights" in low:
-        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c1", "navigate", {"route": "/insights"})]})
+    # The Calendar: a page every account has (Insights is the super admin's, REQUIREMENTS §116, and this sign-up is staff
+    # in the full run).
+    if "calendar" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c1", "navigate", {"route": "/calendar"})]})
     elif "register" in low and "[attachment" not in low:
         route.fulfill(
             json={
@@ -214,17 +216,17 @@ with sync_playwright() as p:
     dismiss(page)
     composer = page.locator(".assistant-page textarea.assistant-input")
     check("The new interface is there: composer, attach button, microphone, send", composer.count() == 1 and page.locator(".assistant-page [data-action='attach']").count() == 1 and page.locator(".assistant-page [data-action='voice']").count() == 1 and page.locator(".assistant-page [data-action='send']").count() == 1)
-    composer.fill("open insights")
+    composer.fill("open the calendar")
     page.locator(".assistant-page [data-action='send']").click()
     # The navigate tool leaves the page itself, so the step is looked for on the
     # conversation once back on it (below); here, that the person was taken there.
     try:
-        page.wait_for_function("() => location.hash === '#/insights'", timeout=15000)
+        page.wait_for_function("() => location.hash === '#/calendar'", timeout=15000)
     except Exception:
         pass
     page.wait_for_timeout(1500)
-    check("The model's navigate call is carried out: the person is on Insights", page.url.endswith("#/insights"), page.url)
-    check("The request carried the tools and the words", len(REQUESTS) >= 2 and isinstance(REQUESTS[0].get("tools"), list) and len(REQUESTS[0]["tools"]) >= 8 and "open insights" in last_user_content(REQUESTS[0]), (len(REQUESTS), len(REQUESTS[0].get("tools", [])) if REQUESTS else None))
+    check("The model's navigate call is carried out: the person is on the Calendar", page.url.endswith("#/calendar"), page.url)
+    check("The request carried the tools and the words", len(REQUESTS) >= 2 and isinstance(REQUESTS[0].get("tools"), list) and len(REQUESTS[0]["tools"]) >= 8 and "open the calendar" in last_user_content(REQUESTS[0]), (len(REQUESTS), len(REQUESTS[0].get("tools", [])) if REQUESTS else None))
     check("...and the tool's result went back to the model", any(m.get("role") == "tool" for m in REQUESTS[1].get("messages", [])) if len(REQUESTS) >= 2 else False)
 
     page.goto(f"{BASE}/index.html#/assistant")
@@ -232,7 +234,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     dismiss(page)
     check("...and the step is kept on the conversation, shown as finished, after the page it left", page.locator(".mitra-step[data-tool='navigate'][data-status='done']").count() >= 1, page.locator(".mitra-step").all_inner_texts())
-    final = page.locator(".assistant-page .chat-msg.bot", has_text="Insights")
+    final = page.locator(".assistant-page .chat-msg.bot", has_text="Calendar")
     check("The final words are rendered, bold and all", final.count() >= 1 and final.last.locator("strong").count() >= 1, final.last.inner_text() if final.count() else None)
 
     print("\n==== An unclear instruction is asked about, not guessed ====")

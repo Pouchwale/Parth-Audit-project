@@ -68,8 +68,10 @@ TARGETS = {
     "activity": "#app-sidebar a[href='#/activity']",
     "finish": "[data-action='take-tour']",
 }
-STAFF_STEPS = ["welcome", "sidebar", "modules", "day", "search", "calendar", "library", "records", "mitra", "bell", "sound", "reports", "finish"]
-ADMIN_STEPS = STAFF_STEPS[:-1] + ["users", "access", "database", "master", "activity", "finish"]
+# The System section is the super admin's (REQUIREMENTS §116): the staff tour has no Reports step, the super admin's has
+# it before their own pages.
+STAFF_STEPS = ["welcome", "sidebar", "modules", "day", "search", "calendar", "library", "records", "mitra", "bell", "sound", "finish"]
+ADMIN_STEPS = STAFF_STEPS[:-1] + ["reports", "users", "access", "database", "master", "activity", "finish"]
 
 TOUR_NOW = """(targets) => {
   const t = document.querySelector("[data-section='tour']");
