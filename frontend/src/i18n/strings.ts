@@ -690,6 +690,8 @@ const en = {
   "ai.voiceUnsupported": "Voice input needs Chrome or Edge — this browser doesn't provide speech recognition.",
   "ai.voiceError": "I couldn't catch that — try again, or type it instead.",
   "ai.voiceDenied": "Microphone permission was blocked, so I can't listen. Allow the microphone in your browser and try again.",
+  // Opened over the LAN as http://<address> the browser gives no microphone at all (utils/micCheck.ts).
+  "ai.voiceInsecure": "The microphone works only on a secure address. Open DCRS at http://localhost:{port} on the DCRS computer, or at its https address, and try again.",
   // Mitra as an agent (REQUIREMENTS §80): files, the microphone by the server, the steps it takes
   "ai.attach": "Attach a file",
   "ai.attachFiles": "Files",
@@ -1492,6 +1494,7 @@ const gu: Record<StringKey, string> = {
   "ai.voiceUnsupported": "વોઇસ ઇનપુટ માટે Chrome કે Edge જોઈએ — આ બ્રાઉઝરમાં સ્પીચ રેકગ્નિશન નથી.",
   "ai.voiceError": "મને બરાબર સંભળાયું નહીં — ફરી પ્રયાસ કરો, અથવા લખીને જણાવો.",
   "ai.voiceDenied": "માઇક્રોફોનની પરવાનગી બંધ છે, તેથી હું સાંભળી શકતો નથી. બ્રાઉઝરમાં માઇક્રોફોન ચાલુ કરીને ફરી પ્રયાસ કરો.",
+  "ai.voiceInsecure": "માઇક્રોફોન ફક્ત સુરક્ષિત સરનામા પર જ કામ કરે છે. DCRS કમ્પ્યુટર પર http://localhost:{port} ખોલો, અથવા તેનું https સરનામું ખોલો, અને ફરી પ્રયાસ કરો.",
   // Mitra as an agent (REQUIREMENTS §80)
   "ai.attach": "ફાઇલ જોડો",
   "ai.attachFiles": "ફાઇલો",

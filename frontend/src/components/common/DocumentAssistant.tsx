@@ -35,6 +35,7 @@ import { historyForAgent, runMitraTurn } from "../../engine/mitraAgent";
 import { MAX_ATTACHMENTS, acceptFile, pickFromFolder, readAttachment } from "../../engine/mitraAttachments";
 import type { MitraAttachment, MitraStep, MitraToolContext } from "../../engine/mitraTypes";
 import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../../utils/recorder";
+import { micSecureAddressWords } from "../../utils/micCheck";
 // Mitra never talks over a person speaking into the microphone (REQUIREMENTS §81).
 import { noVoiceHintOnce, setMicBusy } from "../../utils/voice";
 import {
@@ -1858,7 +1859,8 @@ export function DocumentAssistant() {
       setRecording({ active: true, seconds: 0, transcribing: false });
     } catch (err) {
       setMicBusy(false);
-      bot(recorderErrorKind(err) === "denied" ? t("ai.voiceDenied") : t("ai.voiceError"));
+      // Over the LAN's http address the browser has no microphone to allow (utils/micCheck.ts): say where to open DCRS instead.
+      bot(micSecureAddressWords() ?? (recorderErrorKind(err) === "denied" ? t("ai.voiceDenied") : t("ai.voiceError")));
     }
   };
 
@@ -2344,7 +2346,7 @@ export function DocumentAssistant() {
         setInput("");
         void send(transcript, true);
       },
-      onError: (kind) => bot(kind === "denied" ? t("ai.voiceDenied") : t("ai.voiceError")),
+      onError: (kind) => bot(micSecureAddressWords() ?? (kind === "denied" ? t("ai.voiceDenied") : t("ai.voiceError"))),
       onEnd: () => {
         sessionRef.current = null;
         setListening(false);
