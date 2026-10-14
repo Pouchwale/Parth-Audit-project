@@ -907,7 +907,7 @@ with sync_playwright() as p:
     )
     check(
         "...they are the reviewed Gujarati: the share of the records never done, as FMS counts it, no English left, and no 'runs' or 'discount'",
-        seen_gu["rule"] is not None and seen_gu["rule"]["text"].startswith(f"{MINUS_GU}:") and "કેટલા ટકા ક્યારેય ન થયા" in seen_gu["rule"]["text"] and f"{MINUS}20%" in seen_gu["rule"]["text"]
+        seen_gu["rule"] is not None and seen_gu["rule"]["text"].startswith(f"{MINUS_GU}:") and "કેટલા ટકા ક્યારેય ન થયા" in seen_gu["rule"]["text"] and f"{MINUS}20" in seen_gu["rule"]["text"] and "%" not in seen_gu["rule"]["text"]
         and seen_gu["tile"] is not None and seen_gu["tile"]["text"] == MINUS_GU and all(h["text"] == MINUS_GU for h in seen_gu["headings"])
         and seen_gu["band"] is not None and seen_gu["band"]["text"].startswith(MINUS_GU) and ("ક્યારેય ન" in seen_gu["band"]["text"] or "કંઈ છૂટ્યું નથી" in seen_gu["band"]["text"])
         and (seen_gu["open"] is None or "ક્યારેય ન થયેલો ગણાશે" in seen_gu["open"]["text"])
