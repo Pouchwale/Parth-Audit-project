@@ -34,6 +34,7 @@
 // reads and writes both, and everything here works on either the same way.
 
 import { onRoomRefused, roomBusy, roomGet, roomIdle, roomKept, roomNames, roomRemove, roomSet } from "./browserRoom";
+import { isPreLaunchNoise } from "../engine/preLaunchNoise";
 
 export const NAMESPACE = "dcrs:v1:";
 const MARKER_PREFIX = "dcrs:sync:";
@@ -675,13 +676,25 @@ function mergeRecords(base: BaseView | null, mine: Rec[], theirs: Rec[], prefer:
     }
     return x;
   };
-  // Without a common copy, a record is known deleted only from the deletions log.
+  // Without a common copy, a record is known deleted only from the deletions log — and a blank sheet from before the
+  // system went live that this browser holds and the database no longer does was moved to the database's archive by
+  // the server (REQUIREMENTS §115, backend/recordsArchive.ts): an old copy must not put it back. Only this browser's
+  // own lines are read so (mineById): one the database holds and this browser does not is kept, as any other.
   let gone: Set<string> | null = null;
+  let archivedHere: ((id: string) => boolean) | null = null;
   if (!ids) {
     try {
       gone = new Set((JSON.parse(local.get("deletions") ?? "[]") as { recordId?: string }[]).map((d) => String(d.recordId)));
     } catch {
       gone = new Set();
+    }
+    const liveStart = liveStartDateLocal();
+    if (liveStart) {
+      const mineById = new Map(mine.map((r) => [String(r.id), r] as const));
+      archivedHere = (id) => {
+        const m = mineById.get(id);
+        return !!m && isPreLaunchNoise(m as Parameters<typeof isPreLaunchNoise>[0], liveStart);
+      };
     }
   }
   const merged = mergeById<Rec>(mine, theirs, {
@@ -695,9 +708,20 @@ function mergeRecords(base: BaseView | null, mine: Rec[], theirs: Rec[], prefer:
       if (ids.get(id) === h(t)) return m;
       return laterRecord(m, t, "mine");
     },
-    gone: (id) => !!gone && gone.has(id),
+    gone: (id) => (!!gone && gone.has(id)) || (!!archivedHere && archivedHere(id)),
   });
   return withoutDuplicateBlanks(merged);
+}
+
+/** The day the system went live, as this browser's copy of the "live-start" item has it; null while none is stored. */
+function liveStartDateLocal(): string | null {
+  try {
+    const parsed: unknown = JSON.parse(local.get("live-start") ?? "null");
+    const date = isObject(parsed) ? parsed.date : null;
+    return typeof date === "string" && date ? date : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Merges this browser's copy of an item with the database's. `prefer` decides a value both changed when there is no common copy. */

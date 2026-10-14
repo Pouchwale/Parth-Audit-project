@@ -6,7 +6,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { generateId } from "../utils/id";
 import { pressable } from "../utils/pressable";
-import { todayISO } from "../utils/date";
+import { formatDisplayDate, todayISO } from "../utils/date";
 import { scheduleLabel } from "../engine/frequencyEngine";
 import { resolveResponsibleEmployees } from "../engine/documentInfo";
 import { weeklyOffDay, WEEKDAY_LONG } from "../engine/holidays";
@@ -300,6 +300,7 @@ export function MasterDataPage() {
       )}
 
       {tab === "settings" && <PlantHoursCard onOpenHolidays={() => setTab("holidays")} />}
+      {tab === "settings" && <ArchivedBlanksCard />}
       {tab === "settings" && (
         <div className="card" style={{ maxWidth: 560 }}>
           <div className="card-pad">
@@ -460,6 +461,74 @@ export function MasterDataPage() {
 // the same file the server runs): the weekly off, the festival holidays, the
 // adjustment days, and the next two weeks day by day.
 const PLANT_DAYS_SHOWN = 14;
+
+// THE BLANK SHEETS FROM BEFORE GO-LIVE, KEPT IN THE ARCHIVE (REQUIREMENTS §115). The server moves them there by itself
+// at its start (backend/recordsArchive.ts); nothing is deleted. Only the super admin sees how many, and "Bring them
+// back" restores exactly those — never a duplicate — which the sync then hands every browser.
+function ArchivedBlanksCard() {
+  const { user } = useAuth();
+  const admin = user?.role === "admin";
+  const { bump } = useAppStore();
+  const [count, setCount] = useState<number | null>(null);
+  const [liveStart, setLiveStart] = useState<string | null>(null);
+  const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = async () => {
+    try {
+      const res = await fetch("/api/archive/blanks", { credentials: "same-origin" });
+      if (!res.ok) return;
+      const body = (await res.json()) as { count: number; liveStartDate: string | null };
+      setCount(body.count);
+      setLiveStart(body.liveStartDate);
+    } catch {
+      /* the server is away: the card says nothing */
+    }
+  };
+  useEffect(() => {
+    if (admin) void load();
+  }, [admin]);
+  const bringBack = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/archive/blanks/restore", { method: "POST", credentials: "same-origin" });
+      const body = (await res.json()) as { restored?: number; alreadyThere?: number; error?: string };
+      if (!res.ok) setSaid({ ok: false, text: body.error ?? "The sheets could not be brought back." });
+      else {
+        const n = body.restored ?? 0;
+        setSaid({ ok: true, text: `Brought back ${n} blank sheet${n === 1 ? "" : "s"} from the archive${body.alreadyThere ? ` (${body.alreadyThere} were already in the records)` : ""}. Every browser receives them through the sync.` });
+        bump();
+      }
+      await load();
+    } catch {
+      setSaid({ ok: false, text: "The server could not be reached." });
+    } finally {
+      setBusy(false);
+    }
+  };
+  // Nobody but the super admin sees the card: staff are shown nothing of it, and asked nothing.
+  if (!admin || count === null) return null;
+  return (
+    <div className="card mb-4" style={{ maxWidth: 720 }} data-section="archived-blanks" data-count={count}>
+      <div className="card-pad">
+        <h3 className="text-base font-semibold mb-1">Blank sheets from before go-live, kept in the archive: {count}</h3>
+        <p className="text-muted text-sm mb-3">
+          Blank sheets the calendar once made for dates before the system went live{liveStart ? ` on ${formatDisplayDate(liveStart)}` : ""}, which nobody ever opened. The
+          server moves them out of the records and into its archive at its start; nothing is deleted, and no report, count or reminder counts them.
+        </p>
+        {count > 0 && (
+          <button type="button" className="btn btn-secondary btn-sm" data-action="restore-archived-blanks" disabled={busy} onClick={() => void bringBack()}>
+            Bring them back
+          </button>
+        )}
+        {said && (
+          <p className="text-sm mt-2" role="status" data-section="archived-blanks-said" style={{ color: said.ok ? "var(--color-success)" : "var(--color-danger)" }}>
+            {said.text}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function PlantHoursCard({ onOpenHolidays }: { onOpenHolidays: () => void }) {
   const { user, hours: server } = useAuth();
