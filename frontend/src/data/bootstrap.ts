@@ -12,6 +12,7 @@ import { pinSchedulesWrittenOnRev00 } from "../engine/pmSchedule";
 import { alignCompanyName } from "./companyNameMigration";
 import { alignSeededLineNumbers } from "./lineNumbersMigration";
 import { alignPapersOnFile } from "./paperOnFileMigration";
+import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -75,6 +76,10 @@ export function bootstrap(): void {
   alignSeededLineNumbers();
   // Two seeded papers as their papers write them: F/QC/16's own Sr. No., F/QC/30's participants a line each (§111).
   alignPapersOnFile();
+  // The F/QC/11 page on file stored DCRS's "TO BE CONFIRMED" in its Serial No, which printed and was carried onto
+  // every new sheet: it takes the paper's blank box (REQUIREMENTS §111 part 6). Before the month's preparation, so
+  // nothing carries it forward.
+  alignSeededPlaceholders();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

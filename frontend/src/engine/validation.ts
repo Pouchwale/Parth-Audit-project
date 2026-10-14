@@ -20,6 +20,7 @@ import { withoutLineNumber } from "./lineNumbers";
 import { numbersOwnLines } from "./formLineNumbers";
 import { mergedRuns } from "./paperLayout";
 import { codeRulesFor } from "./documentFormats";
+import { outOfBandCount } from "./printedBands";
 
 // "Was the lot accepted as it is?" — the one status that needs no reason
 // beside it. Each form prints the words its own way (the incoming material
@@ -40,9 +41,8 @@ export function isOutOfBand(col: LogColumn, value: unknown): boolean {
 export function logSheetOutOfBandCount(documentId: string, data: LogSheetData, record?: { formatRevision?: string } | null): number {
   const layout = getLogSheetLayoutForRecord(documentId, record);
   if (!layout) return 0;
-  let n = 0;
-  for (const row of data.rows) for (const col of layout.columns) if (isOutOfBand(col, row[col.key])) n += 1;
-  return n;
+  // A column's band, a tolerance box's, a line's printed specification and a box against its tolerance (REQUIREMENTS §111 rule 2).
+  return outOfBandCount(layout, data);
 }
 
 /** A revision of a format that a record was filled on and the format has since replaced. */

@@ -38,7 +38,7 @@ import {
   SUPPLIER_COA_NOTE,
   SYSTEM_GENERATED_NOTE,
 } from "../src/data/seed/qcCoaLayouts";
-import { FLEXO_INK_SYSTEM_NOTE } from "../src/data/seed/qcIncomingLayouts";
+import { FLEXO_INK_ADDRESS, FLEXO_INK_SYSTEM_NOTE, INCOMING_ADDRESS } from "../src/data/seed/qcIncomingLayouts";
 import { dropFormatEdit, saveFormatEdit } from "../src/data/formatEdits";
 import { boxGroups, boxTableRows, columnHeading, inBoxTable, paperColumnProps, placedTables } from "../src/engine/paperLayout";
 import { readFileSync } from "node:fs";
@@ -328,10 +328,9 @@ const INCOMING: Record<string, { title: string; formatNo: string; columns: strin
       ["SPECTROMETER SHADE RANGE (dE)", "Delta Value DE should be below 3.0"],
       ["SKINNING", "Very thick top layer skinning & solid particles not acceptable"],
       ["FLOW RATE", "Max. 120 mm (Except Silver  & Gold ink)"],
-      [
-        "DRYING TEST",
-        "By Thumb Impression : No Inking of the thumb after rubbing the roll up of one big & one small drop of ink dried for 24 hrs.\nOn Glass surface : For Solid Print Immediately drying (with in 1 hrs) For small drops of ink dried for 24hrs",
-      ],
+      // Two printed lines, the second unnumbered under DRYING TEST with its own observation (§111 part 6).
+      ["DRYING TEST", "By Thumb Impression : No Inking of the thumb after rubbing the roll up of one big & one small drop of ink dried for 24 hrs."],
+      ["", "On Glass surface : For Solid Print Immediately drying (with in 1 hrs) For small drops of ink dried for 24hrs"],
       ["ALKALI RESISTANCE (AR TEST)", "If Specified in P.O. then No fading of ink roll up in 2% NaOH Solution for 24hrs"],
       ["SOAP RESISTANCE (SR TEST)", "If Specified in P.O. then No staining of ink roll up to 20 % soap jelly kept for 24hrs"],
       ["LIGHT FASTNESS TEST", "No fading of the ink roll up when exposed to direct sun for 80hrs."],
@@ -468,7 +467,8 @@ for (const [id, paper] of Object.entries(INCOMING)) {
     );
     assert.equal(layout.instructions, undefined, "nothing printed above the grid");
     assert.equal(layout.notesBelow, undefined);
-    assert.deepEqual(layout.notesAtFoot, id === "qc-flexo-ink" ? [FLEXO_INK_SYSTEM_NOTE] : undefined);
+    // At the foot, the address the paper prints under its Format number line; Flexo Ink's own, then its system line (part 6).
+    assert.deepEqual(layout.notesAtFoot, id === "qc-flexo-ink" ? [FLEXO_INK_ADDRESS, FLEXO_INK_SYSTEM_NOTE] : [INCOMING_ADDRESS]);
 
     const html = await sheet(id);
     assert.deepEqual(headings(html), ["Sr. No.", ...paper.columns], "the paper's SR. NO., printed in capitals as every heading is");
@@ -534,7 +534,10 @@ const groupShape = (g: ReturnType<typeof boxGroups>[number]) => [
 
 test("F/QC/06 Certificate of Analysis [COA] For Label: every block under its own heading, its tables as the paper's, in the paper's order, and nothing of DCRS's", async () => {
   const layout = layoutOf("qc-coa-label");
-  assert.deepEqual(layout.instructions, COA_LETTERHEAD, "the letterhead's three lines under the company's name");
+  // The letterhead's three lines under the company's name in the header block, and the title in its own letters (part 6).
+  assert.equal(layout.instructions, undefined, "nothing printed above the boxes");
+  assert.deepEqual(layout.underCompany, COA_LETTERHEAD, "the letterhead's three lines under the company's name");
+  assert.equal(layout.titleAsPrinted, true);
   assert.deepEqual(boxGroups(layout, "header").map(groupShape), [
     [[], 3, ["Production Order No.", "Delivery No.", "COA Date :"]],
     [[], 1, ["Client Name"]],
@@ -614,7 +617,9 @@ test("F/QC/06 Certificate of Analysis [COA] For Label: every block under its own
 
 test("F/QC/07 Certificate of Analysis [COA] For Shrink Sleeves: its Specified Size and SLEEVE FILM tables, its own FINISHING, the heat sentence above the retest sentence", async () => {
   const layout = layoutOf("qc-coa-sleeve");
-  assert.deepEqual(layout.instructions, COA_LETTERHEAD);
+  assert.equal(layout.instructions, undefined);
+  assert.deepEqual(layout.underCompany, COA_LETTERHEAD);
+  assert.equal(layout.titleAsPrinted, true);
   assert.equal(layout.gridAcross, true);
   const header = boxGroups(layout, "header");
   assert.deepEqual(groupShape(header[4]), [
@@ -676,10 +681,15 @@ test("F/QC/07 Certificate of Analysis [COA] For Shrink Sleeves: its Specified Si
 
 test("F/QC/25 Certificate of Analysis [COA] For CORRUGATED BOXES: its heading block, Date:, its fourteen lines under Sr.No. and GSM, the two signatures", async () => {
   const layout = layoutOf("qc-coa-corrugated");
-  // The letterhead as the paper's three cells above "Date:", the line under it — not one line joined by dashes (part 4).
+  // The letterhead as the paper's three cells at the head of the page in place of the company's line, the line under it,
+  // then the title in its own letters — not one line joined by dashes (part 4), nor under the title (part 6).
   assert.equal(layout.instructions, undefined, "nothing of its own above the boxes");
-  assert.deepEqual(layout.headerFields[0].tableAbove, "Letterhead");
-  assert.deepEqual(layout.headerFields[0].printedAbove, ["CBA: CORRUGATED BOX ANALYSIS"]);
+  assert.equal(layout.letterhead, "Letterhead");
+  assert.deepEqual(layout.underCompany, ["CBA: CORRUGATED BOX ANALYSIS"]);
+  assert.equal(layout.paperTitle, "Certificate of Analysis [COA] For CORRUGATED BOXES");
+  assert.equal(layout.titleAsPrinted, true);
+  assert.equal(layout.headerFields[0].tableAbove, undefined);
+  assert.equal(layout.headerFields[0].printedAbove, undefined);
   const letterhead = layout.referenceTables?.find((t) => t.title === "Letterhead");
   assert.equal(letterhead?.untitled, true);
   assert.deepEqual(letterhead?.columns, []);
@@ -710,7 +720,7 @@ test("F/QC/25 Certificate of Analysis [COA] For CORRUGATED BOXES: its heading bl
 // ---------------------------------------------------------------------------
 // 4. The Nivea tolerance card
 
-test("F-QC-19 Tolerance card for Beiersdorf AG. Germany: seven panels, each with its own APPROVED BY: and SIGN. :, no Sr. No., nothing of DCRS's", async () => {
+test("F-QC-19 Tolerance card for Beiersdorf AG. Germany: its nine panels, each with its own APPROVED BY: and SIGN. :, no Sr. No., nothing of DCRS's", async () => {
   const id = "qc-tolerance-card-nivea";
   assert.deepEqual([docOf(id).name, docOf(id).formatNo], ["Tolerance Card for Beiersdorf AG. Germany", "F-QC-19"]);
   const layout = layoutOf(id);
@@ -728,6 +738,9 @@ test("F-QC-19 Tolerance card for Beiersdorf AG. Germany: seven panels, each with
       "ERROR : IN BATCH COADING AREA",
       "ERROR : IN NIVEA LOGO",
       "ERROR : IN PLAIN AREA",
+      // Page 2 of the printed sheet: OTHER and IN BATCH COADING AREA again (§111 part 6).
+      "ERROR : OTHER",
+      "ERROR : IN BATCH COADING AREA",
     ]);
   }
   const html = await sheet(id);
@@ -890,7 +903,7 @@ test("Demo Mode's certificates: today's production order and date, tested figure
   }
   assert.ok(between2(box.rows[3].observation, 11, 13) && between2(box.rows[4].observation, 200, 300), "the box's B.S. and C.S. inside F/QC/02's 5 ply specification");
   const card = demoOf("qc-tolerance-card-nivea");
-  assert.ok(card.rows.length === 7 && card.rows.every((r) => r.approvedBy === "Kapila Barad" && r.sign === "Kapila Barad"));
+  assert.ok(card.rows.length === 9 && card.rows.every((r) => r.approvedBy === "Kapila Barad" && r.sign === "Kapila Barad"));
 });
 
 test("Demo Mode's F/QC/36 is the day's first laminated job, with its own films and composite GSM, and both signatures", () => {

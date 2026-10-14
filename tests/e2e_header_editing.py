@@ -181,18 +181,18 @@ with sync_playwright() as p:
     offered = {a: clickable(page, a) for a in ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-record-date", "rename-page-no")}
     check("Its header offers every value to be typed over: the company, the title, the number, the revision, the Date and the Page No.", all(n == 1 for n in offered.values()), offered)
     before = header(page)
-    check("...headed as the paper is: F/QC/33, Rev 00, the record's date, 1 of 1 (digital)",
-          before.get("Format No.") == "F/QC/33" and before.get("Rev No.") == "00" and before.get("Date") == shown_date(rec.get("dueDate", "2000-01-01")) and before.get("Page No.") == "1 of 1 (digital)", before)
+    check("...headed as the paper is: F/QC/33, Rev 00, the record's date, 1 of 1",
+          before.get("Format No.") == "F/QC/33" and before.get("Rev No.") == "00" and before.get("Date") == shown_date(rec.get("dueDate", "2000-01-01")) and before.get("Page No.") == "1 of 1", before)
 
     initial = type_over(page, "rename-page-no", "header-page", "1 of 2")
-    check("The Page No. is clicked and becomes a box, holding what the header prints", initial == "1 of 1 (digital)", initial)
+    check("The Page No. is clicked and becomes a box, holding what the header prints", initial == "1 of 1", initial)
     now = header(page)
     rec = record_by_id(page, rid) or {}
     check("...typed over, the header prints 1 of 2", now.get("Page No.") == "1 of 2", now)
     check("...saved on the record alone, beside its boxes", (rec.get("headerBlock") or {}).get("page") == "1 of 2" and "headerBlock" not in (rec.get("data") or {}), rec.get("headerBlock"))
     last = (rec.get("history") or [{}])[-1]
     lines = [(c.get("label"), c.get("before"), c.get("after")) for c in last.get("changes") or []]
-    check("...with a line in its history naming what the header said before and after", ("Header · Page No.", "1 of 1 (digital)", "1 of 2") in lines, last)
+    check("...with a line in its history naming what the header said before and after", ("Header · Page No.", "1 of 1", "1 of 2") in lines, last)
 
     due = rec.get("dueDate", date.today().isoformat())
     written = (datetime.strptime(due, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")

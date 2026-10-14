@@ -60,8 +60,9 @@ import type { LogColumn, LogHeaderField, LogRowMode, LogSheetLayout } from "../.
 //     bursting strengths, the shrinkage ratios, the Cobb values) is kept as
 //     those same lines inside the one specification cell.
 //   · F/QC/18's DRYING TEST specification is printed as two boxes against the
-//     one parameter; a grid cannot hold that, so both lines sit in the one
-//     specification cell, in the printed order.
+//     one parameter, each with its own observation: two printed lines, the
+//     second continuing the first with no number of its own
+//     (continuationLines, REQUIREMENTS §111 part 6).
 //   · F/QC/02 and F/QC/04 are read three samples at a time, so on those two the
 //     OBSERVATION column is replaced by the form's own SAMPLE – 1 / SAMPLE – 2 /
 //     SAMPLE - 3 (the dashes are the paper's: en dashes on 1 and 2, a hyphen on 3).
@@ -92,9 +93,10 @@ import type { LogColumn, LogHeaderField, LogRowMode, LogSheetLayout } from "../.
 // reads "Accepted"); each signature box is headed INSPECTED BY or APPROVED BY
 // with QA INSPECTOR or QA MANAGER printed under it (printedLabel, printedBelow);
 // the lines are numbered "1.", "2." as printed (srNoFullStop) — but on Flexo
-// Ink, which prints "1", "2". The address and "Format number: -
-// ... Page 1 of 1" footer of the paper is the page's own header block here
-// (components/documents/DocumentHeader.tsx), as on every document.
+// Ink, which prints "1", "2". The "Format number: - ... Page 1 of 1" line at the
+// foot of the paper is the page's own header block here
+// (components/documents/DocumentHeader.tsx), as on every document; the address
+// under it is printed at the foot, as the paper prints it (notesAtFoot, part 6).
 
 /**
  * The four-line, two-column header box printed above the grid on all fourteen, in the
@@ -136,6 +138,16 @@ const sampleColumns = (): LogColumn[] => [
   { key: "sample3", label: "SAMPLE - 3", type: "text", width: 140 },
 ];
 
+/**
+ * THE SPECIFICATION PRINTED ON EACH LINE JUDGES THE READING WRITTEN BESIDE IT (REQUIREMENTS §111 part 6, rule 2):
+ * "OUTER DIA (mm) 90 (+2.0 / -1.0)", "MOISTURE CONTENT (%) Max 15%", "VISCOSITY.(SEC) 30 ± 10" — a reading outside
+ * is highlighted, as a reading outside its printed band is on every sheet. Only a specification that is a plain
+ * figure is read; "As per P.O." and a band for each ply are the inspector's (engine/printedBands.ts).
+ */
+export const OBSERVATION_BAND = { spec: "specification", readings: ["observation"] };
+/** F/QC/02 and F/QC/04: each of the three samples judged by its line's specification. */
+const SAMPLES_BAND = { spec: "specification", readings: ["sample1", "sample2", "sample3"] };
+
 /** The lines printed down the grid: [TEST PARAMETERS, SPECIFICATION]. */
 const printedRows = (rows: [string, string][]): LogRowMode => ({
   kind: "fixedRows",
@@ -170,6 +182,15 @@ export const signatureBoxes = (): LogHeaderField[] => [
   { key: "approvedBy", label: "APPROVED BY (QA MANAGER)", printedLabel: "APPROVED BY", printedBelow: "QA MANAGER", type: "text", width: 200, autoFill: { sign: true } },
 ];
 
+/**
+ * THE ADDRESS AT THE FOOT OF THE PAPER (REQUIREMENTS §111 part 6): printed under the "Format number: - ... Page 1 of 1"
+ * line of thirteen of the incoming records, F/QC/33 and F/QC/36, word for word — the paper's own "GUAJRAT" included.
+ * DCRS printed it nowhere: the format number is the header block's, the address was nobody's.
+ */
+export const INCOMING_ADDRESS = "308/9, GIDC, DEDIYASAN, MEHSANA, GUAJRAT, INDIA - 384002";
+/** F/QC/21 FLEXO INK's address line, worded its own way, above its system-generated line. */
+export const FLEXO_INK_ADDRESS = "308/9 GIDC, DEDIYASAN, MEHSANA - 384002, GUJARAT, INDIA";
+
 /** F/QC/21 FLEXO INK's line at the foot of the paper, under the address (REQUIREMENTS §111). */
 export const FLEXO_INK_SYSTEM_NOTE = "This is a system generated document with regulated access. It does not require a signature";
 
@@ -183,6 +204,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       // The two spaces before "(+ 2" are the paper's own.
       ["SIZE (mm)", "Should be as per P.O.  (+ 2/- 0.0)"],
@@ -191,6 +213,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["CORONA TREATMENT (Dynes)", "Both side Minimum 36 dynes"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-01_Inspection record for BOPP Film (2).pdf"),
   } satisfies LogSheetLayout,
 
@@ -201,6 +225,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: sampleColumns(),
+    specBand: SAMPLES_BAND,
     rowMode: printedRows([
       ["SIZE (L x W x H) mm", "AS PER P.O. (±5)"],
       ["NOS OF PLY", "AS PER P.O."],
@@ -209,6 +234,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["COMPRESSION STRENGTH(KGS)", "3PLY: 200 ± 35\n5PLY: 250 ± 50\n7PLY: 350 ± 75"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-02_Inspection record for CORRUGATED BOX (2).pdf"),
   } satisfies LogSheetLayout,
 
@@ -219,6 +246,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["SIZE (mm)", "Should be as per P.O."],
       ["TOTAL GSM (GSM)", "Should be as per P.O."],
@@ -234,6 +262,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["PEEL ADHESION @ 180 DEGREE", "Should  be as per specification"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-03_Inspection record for Label stock (2).pdf"),
   } satisfies LogSheetLayout,
 
@@ -244,6 +274,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: sampleColumns(),
+    specBand: SAMPLES_BAND,
     rowMode: printedRows([
       ["OUTER DIA (mm)", "90 (+2.0 / -1.0)"],
       ["INNER DIA (mm)", "76 (+2.0 / -0.0)"],
@@ -255,6 +286,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["BRUSTING STRENGTH (kg/cm²)", "As per supplier COA"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-04_Inspection record for Paper core (2).pdf"),
   } satisfies LogSheetLayout,
 
@@ -265,6 +298,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["SIZE (mm)", "Should be as per P.O. (±2)"],
       // "SHRINKAGE RATIO (%))" is printed with two closing brackets — the paper's own.
@@ -276,6 +310,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["CORONA TREATMENT (Dynes)", "Both side Min. 36 dynes"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-05_Inspection record for PVC+PET Film (2).pdf"),
   } satisfies LogSheetLayout,
 
@@ -286,6 +322,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["CODE NO.", "As per PO"],
       ["SHADE", "Should match to the master or the specimen Or To Pantone Code No"],
@@ -293,17 +330,19 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["SKINNING", "Very thick top layer skinning & solid particles not acceptable"],
       // The two spaces in "Silver  & Gold" are the paper's own.
       ["FLOW RATE", "Max. 120 mm (Except Silver  & Gold ink)"],
-      // The paper prints this specification as two boxes against the one parameter; both
-      // lines are kept here in the one specification cell, in the printed order.
-      [
-        "DRYING TEST",
-        "By Thumb Impression : No Inking of the thumb after rubbing the roll up of one big & one small drop of ink dried for 24 hrs.\nOn Glass surface : For Solid Print Immediately drying (with in 1 hrs) For small drops of ink dried for 24hrs",
-      ],
+      // The paper prints DRYING TEST once over two specifications, the second on an unnumbered line of its own with
+      // its own OBSERVATION box (REQUIREMENTS §111 part 6): two lines here, the second continuing the first.
+      ["DRYING TEST", "By Thumb Impression : No Inking of the thumb after rubbing the roll up of one big & one small drop of ink dried for 24 hrs."],
+      ["", "On Glass surface : For Solid Print Immediately drying (with in 1 hrs) For small drops of ink dried for 24hrs"],
       ["ALKALI RESISTANCE (AR TEST)", "If Specified in P.O. then No fading of ink roll up in 2% NaOH Solution for 24hrs"],
       ["SOAP RESISTANCE (SR TEST)", "If Specified in P.O. then No staining of ink roll up to 20 % soap jelly kept for 24hrs"],
       ["LIGHT FASTNESS TEST", "No fading of the ink roll up when exposed to direct sun for 80hrs."],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
+    // "On Glass surface" continues DRYING TEST: no number of its own, its parameter the line above's.
+    continuationLines: [6],
     specimenSource: blankForm("F-QC-18_Inspection record for Offset Ink.pdf"),
   } satisfies LogSheetLayout,
 
@@ -314,6 +353,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["Size (mm)", "As per PO"],
       ["Total GSM (gm/sq.m)", "As per PO"],
@@ -325,6 +365,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["Bulk Density (gm/ccm)", "N.A."],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-19_Inspection record for Duplex board.pdf"),
   } satisfies LogSheetLayout,
 
@@ -335,6 +377,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["Size (mm)", "As per PO"],
       ["Total GSM (gm/sq.m)", "As per PO"],
@@ -346,20 +389,24 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["Bulk Density (gm/ccm)", "For Kraft Paper: 1.3+….\nFor White Top Liner: 1.1 +…."],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-20_Inspection record for Kraft Paper.pdf"),
   } satisfies LogSheetLayout,
 
   // ---- F/QC/21 (00 / 01.04.2023) — INSPECTION RECORD – FLEXO INK
   // The only one of the fourteen whose header box reads "Batch number", and the
   // only one printing the system-generated note — at the foot of the page, under
-  // the address, so after every box here (notesAtFoot, REQUIREMENTS §111).
+  // the address, so after every box here (notesAtFoot, REQUIREMENTS §111) — its own address line above it, worded its
+  // own way (part 6).
   "qc-flexo-ink": {
     documentId: "qc-flexo-ink",
-    notesAtFoot: [FLEXO_INK_SYSTEM_NOTE],
+    notesAtFoot: [FLEXO_INK_ADDRESS, FLEXO_INK_SYSTEM_NOTE],
     headerColumns: HEADER_BOXES_PER_LINE,
     // Its lines are numbered "1", "2" with no full stop, where the other thirteen print "1.", "2.".
     headerFields: incomingHeader("Batch number"),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["Code no", "As per purchase order"],
       ["Shade", "Should match to the master or the specimen Or To Pantone Code No"],
@@ -382,6 +429,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["SKINNING AND FOREIGN PARTICLES", "skinning of the top layer and foreign particles mixed in the adhesive is not acceptable"],
       ["VISCOSITY (sec)", "Viscosity is 15 to 20 secs, when measured with B4 Ford cup"],
@@ -390,6 +438,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["FILM CLARITY", "Clear film After lamination"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-21_Inspection record for Lamination film adhesive.pdf"),
   } satisfies LogSheetLayout,
 
@@ -400,12 +450,15 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["SKINNING AND FOREIGN PARTICLES", "skinning of the top layer and foreign particles mixed in the adhesive is not acceptable"],
       ["VISCOSITY (sec)", "Mixed of adhesive with 20% water, viscosity is 30 to 40 secs, when measured with B4 Ford cup"],
       ["SOLID CONTENT (%)", "Min 50"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-22_Inspection record for Side pasting adhesive.pdf"),
   } satisfies LogSheetLayout,
 
@@ -416,6 +469,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       // "APPERANCE." with its full stop, "CONTAINT" and "VISCOSITY.(SEC)" are the paper's own.
       ["APPERANCE.", "Milky White"],
@@ -425,6 +479,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["SOLID CONTAINT (%)", "16 to 25"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-23_Inspection record for Corru. starch powder.pdf"),
   } satisfies LogSheetLayout,
 
@@ -435,6 +491,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       // "APPERANCE.", "Cremes to Brown Color", "CONTAINT" and "VISCOSITY.(SEC)" are the paper's own.
       ["APPERANCE.", "Cremes to Brown Color"],
@@ -444,6 +501,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["SOLID CONTAINT (%)", "16 to 30"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: blankForm("F-QC-24_Inspection record for Corru.sheet pasting powder.pdf"),
   } satisfies LogSheetLayout,
 
@@ -456,6 +515,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       // The two spaces before "(+ 2" are the paper's own, as on F/QC/01.
       ["SIZE (mm)", "Should be as per P.O.  (+ 2/- 0.0)"],
@@ -467,6 +527,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["ODOUR TEST", "No abnormal odour"],
     ]),
     footerFields: lotStatusFooter(),
+    // The address printed at the foot of the paper, under its Format number line (REQUIREMENTS §111 part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     specimenSource: "F-QC-33_Inspection record for Incoming Lamination Film.pdf (blank form supplied 02-Oct-2026 — no filled specimen)",
     originalPages: [
       { src: "/source/fqc33-incoming-lamination-film-p1.jpg", caption: "F/QC/33 (00 / 15.12.2024) — Inspection Record – Incoming Lamination Grade Film, the blank format as supplied" },

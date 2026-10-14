@@ -3,6 +3,7 @@ import type {
   DocumentDefinition,
   FlyCatcherData,
   LogColumn,
+  LogHeaderField,
   LogSheetData,
   LogSheetLayout,
   LogSheetRow,
@@ -11,6 +12,7 @@ import type {
   ServiceReportData,
   TrainingRecordData,
 } from "../types";
+import { GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { createDefaultData } from "./recordDefaults";
@@ -32,7 +34,8 @@ import {
 import { dayInfo } from "./holidays";
 import { isLotAccepted, isOutOfBand, supersededRevisionOf } from "./validation";
 import { withComputedCells } from "./computedCells";
-import { qcPaperSample } from "./qcPaperSamples";
+import { qcPaperSample, qcPaperSigners, qcShiftSigner } from "./qcPaperSamples";
+import { isPlaceholder } from "./observations";
 import { qcReportSample } from "./qcReportSamples";
 import { withMergedRuns } from "./paperLayout";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
@@ -425,15 +428,31 @@ function signFor(col: LogColumn, lineTime: string | undefined, doc: DocumentDefi
   const shift = col.autoFill?.byShift;
   // The time the reading the sign is under was taken at (F-QC-40.C's "20:30 HRS", REQUIREMENTS §111), else the line's.
   const time = col.autoFill?.atTime ?? lineTime;
+  // A QC line is signed by the QC lab executive of HR Master Data on that shift (REQUIREMENTS §111 part 6): the
+  // papers' own "Jeni" and "Singh" are not on HR Master Data, so they sign only where it holds no lab executive.
+  if (doc.id.startsWith("qc-")) {
+    // A QC sheet with one sign box (the hot-room record) is signed by whoever was on that shift, not by the first
+    // name the role lookup happens to return — which used to put "Jeni" on every temperature sheet ever filed.
+    const at = time ?? (shift ? "09:00" : makeRng(`shift|${doc.id}|${dueDate}`).chance(0.5) ? "09:00" : "21:00");
+    const paper = shift ? (isNightHour(at) ? shift.night : shift.day) : qcSignerFor(at);
+    return qcShiftSigner(dueDate, at, paper);
+  }
   if (shift && time) return isNightHour(time) ? shift.night : shift.day;
   if (shift) return shift.day;
-  // A QC sheet with one sign box (the hot-room record) is signed by whoever
-  // was on that shift, not by the first name the role lookup happens to
-  // return — which used to put "Jeni" on every temperature sheet ever filed.
-  if (doc.id.startsWith("qc-") && !col.autoFill?.byShift) {
-    return qcSignerFor(makeRng(`shift|${doc.id}|${dueDate}`).chance(0.5) ? "09:00" : "21:00");
-  }
   return responsibleName(doc, master, "");
+}
+
+/**
+ * Who signs a box above or below a QC sheet in Demo Mode and sample data (REQUIREMENTS §111 part 6): the QA Manager
+ * where the box is an approval or a verification, a QC lab executive of HR Master Data where it is an inspection, a
+ * test or a check — never a name HR Master Data does not hold ("Pooja P", "Rashmi"). Any other box (an operator's)
+ * is the document's responsible person, as before.
+ */
+function qcBoxSigner(field: LogHeaderField, doc: DocumentDefinition, master: MasterData, dueDate: string, otherwise: string): string {
+  const words = `${field.label} ${field.printedLabel ?? ""}`;
+  if (/approv|verif|manager/i.test(words)) return qcPaperSigners(dueDate, doc.id, master, otherwise).manager;
+  if (/inspect|test|check|\bqa\b|quality|sign/i.test(words) && !/operator/i.test(words)) return qcShiftSigner(dueDate, "09:00", otherwise);
+  return otherwise;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -823,13 +842,19 @@ function fillLogSheet(
       header[f.key] = f.printed;
       continue;
     }
-    const prev = previous?.data.header?.[f.key];
-    if (f.autoFill?.sign) header[f.key] = prev?.trim() || responsibleName(doc, master, layout.specimenHeader?.[f.key] ?? "");
+    // DCRS's own "TO BE CONFIRMED" (a box the scan could not be read in) is never carried onto a new sheet (§111 part 6).
+    const prevRaw = previous?.data.header?.[f.key];
+    const prev = isPlaceholder(prevRaw) ? undefined : prevRaw;
+    const specimen = isPlaceholder(layout.specimenHeader?.[f.key]) ? "" : (layout.specimenHeader?.[f.key] ?? "");
+    if (f.autoFill?.sign) {
+      const named = prev?.trim() || responsibleName(doc, master, specimen);
+      header[f.key] = doc.id.startsWith("qc-") ? qcBoxSigner(f, doc, master, dueDate, named) : named;
+    }
     // "Date of Inspection", "Date :" — the day the record is for, not the day the last one was.
     else if (f.autoFill?.dueDate) header[f.key] = dueDate;
     else if (f.autoFill?.carryForward && prev) header[f.key] = prev;
     else if (f.autoFill?.default !== undefined) header[f.key] = f.autoFill.default;
-    else header[f.key] = f.autoFill?.carryForward ? (layout.specimenHeader?.[f.key] ?? "") : "";
+    else header[f.key] = f.autoFill?.carryForward ? specimen : "";
   }
 
   // How the lot was dispositioned, on the inspection formats that print a Lot
@@ -953,6 +978,8 @@ function fillLogSheet(
   // people of HR Master Data (engine/qcPaperSamples.ts). This is Demo Mode's and a test server's
   // sample data only, as everything in this file is.
   const paper = qcPaperSample(doc.id, layout, dueDate, { header, rows }, lot, master, responsibleName(doc, master, ""));
+  // The two internal calibration records as a real week's or month's sheet (REQUIREMENTS §111 part 6).
+  calibrationSample(doc.id, dueDate, header, rows);
   // The reports and registers of group B the same way (engine/qcReportSamples.ts, the review of 13-Oct-2026): their
   // two signatures two people of HR Master Data, the utility test's samples and the printing aids destroyed that day's.
   const report = qcReportSample(doc.id, dueDate, paper ?? { header, rows }, master, responsibleName(doc, master, ""));
@@ -986,6 +1013,51 @@ function fillLogSheet(
 }
 
 const isLaminationSheet = (documentId: string): boolean => documentId === "prd-process-parameter" || documentId === "prd-alc-production";
+
+/** The first day on or after `onOrAfter` that falls on the same day and month as `iso` (a yearly calibration's anniversary). */
+function anniversaryFrom(iso: string, onOrAfter: string): string {
+  const [, m, d] = iso.split("-");
+  let year = Number(onOrAfter.slice(0, 4));
+  const at = (y: number) => {
+    // 29 February in a year without one is the 28th.
+    const day = m === "02" && d === "29" && !(y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? "28" : d;
+    return `${y}-${m}-${day}`;
+  };
+  while (compareISO(at(year), onOrAfter) < 0) year += 1;
+  return at(year);
+}
+
+/** The same day a month on ("2026-10-14" → "2026-11-14"; the 31st into a shorter month is that month's last day). */
+function monthOn(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const year = m === 12 ? y + 1 : y;
+  const month = m === 12 ? 1 : m + 1;
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
+
+/**
+ * THE INTERNAL CALIBRATION RECORDS AS A REAL SHEET (REQUIREMENTS §111 part 6, rule 3 of the brief). Demo Mode's and a
+ * test server's sample data only, as everything in this file is; a Live sheet is prepared by engine/knownParts.ts,
+ * which carries the Calibration Expiry as written and says first when it has run out.
+ *   - The Calibration Expiry the supplied 2024 pages wrote (22.09.2025 on F/QC/11, 27.08.2024 on F/QC/12) is past on
+ *     a sheet of 2026, and every line on it read Pass: an instrument out of calibration passed. A sample sheet's
+ *     instrument was calibrated on its yearly date since, so its expiry is that date's next anniversary.
+ *   - F/QC/11's Due Date is the next month's calibration, a month after this one (it was left blank).
+ *   - F/QC/11's Sign. line is signed, plate by plate, by the QC lab executive of HR Master Data who calibrated (the
+ *     supplied page's "Rashmi" is not on HR Master Data).
+ */
+function calibrationSample(documentId: string, dueDate: string, header: Record<string, string>, rows: LogSheetRow[]): void {
+  if (documentId !== "qc-gsm-plate-calibration" && documentId !== "qc-weight-scale-calibration") return;
+  const expiry = header.calibrationExpiry;
+  if (typeof expiry === "string" && ISO_DATE.test(expiry) && compareISO(expiry, dueDate) < 0) header.calibrationExpiry = anniversaryFrom(expiry, addDays(dueDate, 1));
+  if (documentId !== "qc-gsm-plate-calibration") return;
+  const calibrated = ISO_DATE.test(header.calibrationDate ?? "") ? header.calibrationDate : dueDate;
+  header.dueDate = monthOn(calibrated);
+  const signer = qcShiftSigner(dueDate, "09:00", "");
+  const sign = rows.find((r) => r.parameter === "Sign.");
+  if (sign && signer) for (const plate of GSM_PLATES) sign[plate.key] = signer;
+}
 
 // Map one scheduled job onto whichever of the two lamination sheets is being
 // filled — the two formats record the same run in different columns.
@@ -1085,7 +1157,7 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       const r = rangeOf(rows, "viscosity");
       return [
         `Prepared ${rows.length} batch rows at the standard 15 kg adhesive / 1.65 kg hardener / 19.5 kg ethyl mix.`,
-        `Mix viscosity ${r?.min.toFixed(2)}–${r?.max.toFixed(2)} Sec.; checked by ${Array.from(new Set(rows.map((x) => x.checkedBy).filter(Boolean))).join(", ")}. Add or remove rows to match today's batches.`,
+        `Mix viscosity ${r?.min.toFixed(2)}–${r?.max.toFixed(2)} Sec.; verified by ${Array.from(new Set(rows.map((x) => x.verifiedBy).filter(Boolean))).join(", ")}. Add or remove rows to match today's batches.`,
       ];
     }
     // DATE & SHIFT is written by the person, as on the paper (REQUIREMENTS §91): a sheet filed before then holds a shift.

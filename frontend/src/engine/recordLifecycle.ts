@@ -70,7 +70,7 @@ export function saveDraft<T>(
 export interface HeaderDefaults {
   /** ISO date — the record's due date, on most views. */
   date: string;
-  /** "1 of 1 (digital)", or whatever the view prints. */
+  /** "1 of 1", or whatever the view prints. */
   page: string;
 }
 
@@ -114,7 +114,7 @@ export function saveHeaderBlock(record: RecordInstance, next: RecordHeaderBlock,
 
 /**
  * What a record's header prints where nothing was typed over (REQUIREMENTS §86): the record's own date, and
- * "1 of 1 (digital)" — or, on a day of the daily register (F/HR/17), its row of the month's register. One rule
+ * "1 of 1" — or, on a day of the daily register (F/HR/17), its row of the month's register. One rule
  * for the views and for the history of a correction, so both say what the header prints.
  */
 export function recordHeaderDefaults(record: Pick<RecordInstance, "documentId" | "dueDate">): HeaderDefaults {
@@ -122,7 +122,8 @@ export function recordHeaderDefaults(record: Pick<RecordInstance, "documentId" |
     const day = fromISODate(record.dueDate);
     return { date: record.dueDate, page: `row ${day.getDate()} of the ${MONTH_NAMES[day.getMonth()]} register` };
   }
-  return { date: record.dueDate, page: "1 of 1 (digital)" };
+  // The page as the paper numbers it (REQUIREMENTS §111 part 6): "(digital)" was DCRS's own word on it.
+  return { date: record.dueDate, page: "1 of 1" };
 }
 
 export function submitRecord(

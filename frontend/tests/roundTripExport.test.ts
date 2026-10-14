@@ -444,3 +444,28 @@ test("the paper's own marks stay out of the downloaded file: LOT STATUS reads th
   setText(parts, untouched.entries.find((e) => e.path === "header/lotStatus")!.ref!, "ACCEPTED");
   assert.deepEqual(changesBy(planImport(await read(zipOf(parts)), "upload.xlsx", ctx(incomingData("SEGREGATION")))), { "header/lotStatus": "ACCEPTED" });
 });
+
+// ---------------------------------------------------------------------------
+// the header block's own lines (REQUIREMENTS §111 part 6): the paper's lines under the company's name go into the file
+
+test("a downloaded file carries the lines the paper prints under the company's name, between the name and the title", () => {
+  const head = h(
+    "div",
+    { "data-print-doc": "", "data-bind-record": REC },
+    {},
+    h(
+      "div",
+      { class: "doc-header" },
+      {},
+      h("div", { class: "company-name has-lines" }, {}, "GUJARAT PRINT PACK PUBLICATIONS PVT LTD"),
+      h("div", { class: "company-lines" }, {}, h("div", {}, {}, "Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes")),
+      h("div", { class: "doc-title" }, {}, "WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE")
+    )
+  );
+  const texts = documentBlocks([head] as unknown as Element[]).flatMap((b) => (b.kind === "text" ? [[b.text, b.strong]] : []));
+  assert.deepEqual(texts, [
+    ["GUJARAT PRINT PACK PUBLICATIONS PVT LTD", true],
+    ["Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes", false],
+    ["WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE", true],
+  ]);
+});

@@ -166,16 +166,17 @@ test("the Sr. No. holds the record's date on the day's first line and nothing on
   assert.equal(layout.srNoShowsDate, true);
   assert.equal(srNoText(layout, 0, "14-Oct-2026"), "14-Oct-2026");
   assert.equal(srNoText(layout, 1, "14-Oct-2026"), "");
-  assert.equal(srNoText(layout, 23, "14-Oct-2026"), "");
+  assert.equal(srNoText(layout, 22, "14-Oct-2026"), "");
   assert.equal(srNoText(layoutOf(MIXING), 2, "14-Oct-2026"), "3", "every other sheet numbers its lines");
   const data = createDefaultData(docOf(VISCOSITY), DAY, master) as LogSheetData;
   const rows = bodyRows(await sheet(VISCOSITY, data));
-  assert.equal(rows.length, 24);
+  // 9:00 to 07:00, as the page is written: no 08:00 line (§111 part 6).
+  assert.equal(rows.length, 23);
   assert.equal(rows[0].cells[0].text, "14-Oct-2026", "the date on the first line");
   assert.ok(rows.slice(1).every((r) => r.cells[0].text === ""), "and nothing below it");
   assert.deepEqual(
     rows.map((r) => r.cells[1].text),
-    ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00", "08:00"],
+    ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00"],
     "the hours under Date/Time"
   );
 });
@@ -353,6 +354,8 @@ test("a format edited before §111 takes the paper's shape from the issued one, 
     instructions: ["Viscosity specification: 20.0 ± 1.0 Sec. One reading every hour, round the clock (09:00 to 08:00 next day).", "Keep the cup clean."],
   };
   delete (old as { srNoShowsDate?: true }).srNoShowsDate;
+  // Nor did it print its headings in the paper's letters (§111 part 6): a mark of the paper the edit could not hold then.
+  delete (old as { headingsAsPrinted?: true }).headingsAsPrinted;
   try {
     saveFormatEdit(VISCOSITY, { revisionNo: "01", revisionDate: "2026-10-01", layout: old, revisions: [] });
     const now = getLogSheetLayout(VISCOSITY)!;
@@ -366,15 +369,21 @@ test("a format edited before §111 takes the paper's shape from the issued one, 
       notesBelow: undefined,
       headerColumns: undefined,
       instructions: [`PROCEDURE: ${CALIBRATION_PROCEDURE}`],
-      headerFields: gsmIssued.headerFields.map(({ printed: _p, ...f }) => f),
+      headerFields: gsmIssued.headerFields.map(({ printed: _p, paperColumn: _c, printedLabel: _l, ...f }) => f),
     };
     delete (gsmOld as Partial<LogSheetLayout>).notesBelow;
     delete (gsmOld as Partial<LogSheetLayout>).headerColumns;
+    delete (gsmOld as Partial<LogSheetLayout>).headingsAsPrinted;
+    delete (gsmOld as Partial<LogSheetLayout>).groupCellLines;
     saveFormatEdit(GSM, { revisionNo: "02", revisionDate: "2026-10-01", layout: gsmOld, revisions: [] });
     const gsmNow = getLogSheetLayout(GSM)!;
     assert.deepEqual(Object.fromEntries(printedBoxes(gsmNow).map((f) => [f.key, f.printed])), GSM_PRINTED);
     assert.equal(gsmNow.instructions, undefined, "the procedure is printed below the grid, not twice");
     assert.deepEqual(gsmNow.notesBelow, [`PROCEDURE: ${CALIBRATION_PROCEDURE}`]);
+    // And part 6's: the paper's letters, its box words and Due Date:- at the right, Pass/Fail and Sign. one cell a plate.
+    assert.equal(gsmNow.headingsAsPrinted, true);
+    assert.deepEqual(gsmNow.groupCellLines, [4, 5]);
+    assert.deepEqual(gsmNow.headerFields.find((f) => f.key === "dueDate"), gsmIssued.headerFields.find((f) => f.key === "dueDate"));
 
     // A format edited since says what it says.
     saveFormatEdit(VISCOSITY, { revisionNo: "02", revisionDate: "2026-10-14", layout: { ...issued, instructions: ["Keep the cup clean."], notesBelow: [] }, revisions: [] });
@@ -427,14 +436,15 @@ test("F/QC/11 GSM cutting plate: the paper's boxes and printed values, I. Calibr
   assert.deepEqual(
     layout.headerFields.map((f) => [f.printedLabel ?? f.label, f.printed ?? null]),
     [
-      ["Device ID No", "1-54, 2-55, 3-56, 4-57"],
-      ["Location", "LAB"],
-      ["Department", "LAB"],
-      ["Manufacturer", "Global Eng. Co. (GEC)"],
-      ["Serial No", null],
-      ["Calibration Expiry", null],
-      ["I. Calibration Date", null],
-      ["Due Date", null],
+      // The paper's own words, its colons and ":-" included (§111 part 6).
+      ["Device ID No:", "1-54, 2-55, 3-56, 4-57"],
+      ["Location:", "LAB"],
+      ["Department:", "LAB"],
+      ["Manufacturer:", "Global Eng. Co. (GEC)"],
+      ["Serial No:", null],
+      ["Calibration Expiry:", null],
+      ["I. Calibration Date:-", null],
+      ["Due Date:-", null],
     ]
   );
   assert.deepEqual(

@@ -54,6 +54,35 @@ export function qcPaperSigners(dueDate: string, seed: string, master: MasterData
   return { inspector: lab.length > 0 ? rng.pick(lab) : fallback, manager };
 }
 
+/** QC's lab executives on HR Master Data, longest-serving first, for each list of people it hands out. */
+const labByPeople = new WeakMap<object, { name: string; joined: string }[]>();
+function labExecutives(): { name: string; joined: string }[] {
+  const people = hrMasterRepository.all();
+  const hit = labByPeople.get(people);
+  if (hit) return hit;
+  const lab = people
+    .filter((p) => /^lab\b/i.test(p.department) && /executive/i.test(p.designation))
+    .map((p) => ({ name: p.fullName, joined: p.joiningDate || "" }))
+    .sort((a, b) => compareISO(a.joined || "0000-01-01", b.joined || "0000-01-01") || a.name.localeCompare(b.name));
+  labByPeople.set(people, lab);
+  return lab;
+}
+
+/**
+ * WHO SIGNS A QC LINE IN DEMO MODE AND SAMPLE DATA (REQUIREMENTS §111 part 6, rule 3 of the brief: signed by people
+ * of HR Master Data). The papers' own day and night testers (F-QC-30's and F-QC-32's "Jeni" and "Singh", F/QC/11's
+ * "Rashmi") are not on HR Master Data, nor are "Pooja P" or Demo Mode's "Priya Solanki". So a QC line or box is
+ * signed by QC's lab executives who had joined by the day: the longest-serving on the day shift (08:00 to 18:00),
+ * the next on the night shift. Where HR Master Data holds none (a server not yet set up), the name given.
+ */
+export function qcShiftSigner(dueDate: string, time: string | undefined, fallback: string): string {
+  const lab = labExecutives().filter((p) => !p.joined || compareISO(p.joined, dueDate) <= 0);
+  if (lab.length === 0) return fallback;
+  const hour = Number(String(time ?? "09:00").split(":")[0]);
+  const night = Number.isFinite(hour) && (hour >= 18 || hour < 8);
+  return night ? (lab[1] ?? lab[0]).name : lab[0].name;
+}
+
 // ---------------------------------------------------------------------------
 // numbers on the plant's own series
 
@@ -196,7 +225,8 @@ const INCOMING_LOTS: Record<string, LotMaker> = {
         fig(rng, 0.6, 2.2, 1),
         "No skinning",
         `${rng.int(85, 110)} mm`,
-        "Thumb: no inking after 24 hrs. Glass: solid dried within 1 hr, drops within 24 hrs",
+        "No inking of the thumb after 24 hrs",
+        "Solid dried within 1 hr, drops within 24 hrs",
         "Not specified in P.O.",
         "Not specified in P.O.",
         "No fading after 80 hrs",

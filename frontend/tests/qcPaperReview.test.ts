@@ -22,6 +22,7 @@ import { COMPLIANCE_STATEMENTS } from "../src/data/seed/complianceStatements";
 import { UTILITY_TEST_JOB_NAMES } from "../src/data/seed/qcReportLayouts";
 import { alignPapersOnFile, PARTICIPANTS_AS_FIRST_SEEDED, PAPER_ON_FILE_NOTE } from "../src/data/paperOnFileMigration";
 import { historyOf } from "../src/engine/recordHistory";
+import { qcShiftSigner } from "../src/engine/qcPaperSamples";
 
 // store/router.tsx reads window.location the moment it loads; the harness stands up none.
 if (typeof (globalThis as { location?: unknown }).location === "undefined") {
@@ -98,10 +99,15 @@ test("F01: F-QC-40.C — each reading has its tester's sign under it, in its own
     assert.equal(sign!.required, true, `${key}: the paper asks for the sign`);
   }
   assert.deepEqual(layout.secondLine, { label: "" }, "the sign's line is headed with nothing: it is the reading's own cell");
-  // A sample day: the day's tester signs the day's three readings, the night's the night's three.
+  // A sample day: the day's tester signs the day's three readings, the night's the night's three — QC's lab
+  // executives of HR Master Data on those shifts (§111 part 6), two people.
   const filled = sample(id);
   const row = filled.rows[0];
-  assert.deepEqual(readings.map((k) => row[`${k}Sign`]), ["Jeni", "Jeni", "Jeni", "Singh", "Singh", "Singh"]);
+  const day = qcShiftSigner(DAY, "08:30", "Jeni");
+  const night = qcShiftSigner(DAY, "20:30", "Singh");
+  assert.notEqual(day, night);
+  assert.ok(hrNames().has(day) && hrNames().has(night), `${day} / ${night} on HR Master Data`);
+  assert.deepEqual(readings.map((k) => row[`${k}Sign`]), [day, day, day, night, night, night]);
   assert.deepEqual(validateForSubmit(docOf(id), recordOf(id, filled)).errors, []);
   // A record with a reading and no sign under it is not submitted.
   const unsigned = { ...filled, rows: [{ ...row, t2030Sign: "" }] };

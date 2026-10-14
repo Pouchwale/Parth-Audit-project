@@ -148,7 +148,7 @@ PROCEDURE = "Calibration to be done by qualified QA person as per calibration wo
 def check_paper(doc_id, seen):
     if doc_id == "qc-viscosity":
         check("F-QC-30 prints Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By", seen["gridHeadings"] == ["Sr. No.", "Date/Time", "Viscosity (20.0 ± 1.0 Sec.)", "Tested By"], seen["gridHeadings"])
-        check("...the day's date in the Sr. No. of the first line only", len(seen["srNo"]) == 24 and seen["srNo"][0] != "" and all(x == "" for x in seen["srNo"][1:]), seen["srNo"][:3])
+        check("...the day's date in the Sr. No. of the first line only", len(seen["srNo"]) == 23 and seen["srNo"][0] != "" and all(x == "" for x in seen["srNo"][1:]), seen["srNo"][:3])
         check("...and no specification line above the grid", "Viscosity specification" not in seen["text"])
     elif doc_id == "qc-adhesive-mixing":
         check("F-QC-32 prints its Date column", seen["gridHeadings"][:3] == ["Sr. No.", "Date", "Time"], seen["gridHeadings"])

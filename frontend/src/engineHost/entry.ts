@@ -845,6 +845,10 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         ...(l.panels ? { panels: { lines: l.panels.lines, perRow: l.panels.perRow } } : {}),
         // The lines printed with the format number (F/QC/20's issue and review dates): printed, nothing to write.
         ...(l.printedWithNumber?.length ? { printedWithNumber: l.printedWithNumber } : {}),
+        // Part 6: F/QC/11's Pass/Fail and Sign. one cell a plate, and F/QC/18's line continuing DRYING TEST (no number of
+        // its own) — the lines are still the rows a patch names, each by its index.
+        ...(l.groupCellLines?.length ? { groupCellLines: l.groupCellLines } : {}),
+        ...(l.continuationLines?.length ? { continuationLines: l.continuationLines } : {}),
         header: l.headerFields.map(fieldOf),
         footer: (l.footerFields ?? []).map(fieldOf),
         columns: l.columns.map(fieldOf),

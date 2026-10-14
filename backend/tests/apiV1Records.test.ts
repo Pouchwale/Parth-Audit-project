@@ -329,7 +329,7 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     // the phone, through the route the Review screen saves each answer with, so what follows reads, changes and
     // submits a record a person filled, whatever day the tests run on. Nothing is filled with sample data.
     const slots = (storedRecord(s, recordId).data.rows as Body[]).map((row: Body) => String(row.time));
-    assert.equal(slots.length, 24, "one line for each hour of the day");
+    assert.equal(slots.length, 23, "one line for each hour of the day, 9:00 to 07:00 as F-QC-30 is written (REQUIREMENTS §111 part 6)");
     const entered = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.qc, {
       patch: { itemEdits: slots.map((time, i) => ({ collection: "rows", match: { time }, set: { viscosity: (19.6 + (i % 5) * 0.2).toFixed(1), testedBy: "Kapila Barad" } })) },
       note: READINGS_NOTE,
@@ -345,7 +345,7 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.equal(r.status, 200);
     assert.equal(r.body.document.formatNo, "F-QC-30");
     assert.equal(r.body.layout.rows.mode, "timeSlots");
-    assert.ok(Array.isArray(r.body.data.rows) && r.body.data.rows.length === 24);
+    assert.ok(Array.isArray(r.body.data.rows) && r.body.data.rows.length === 23);
     assert.ok(r.body.inWords.length > 0 && r.body.inWords.every((c: Body) => typeof c.label === "string"));
     assert.deepEqual(r.body.actions, ["submit", "delete"]);
   });

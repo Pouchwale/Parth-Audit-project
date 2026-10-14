@@ -309,7 +309,7 @@ test("an incoming record's format edited before §111 takes the marks from the i
   const strip = <T extends object>(o: T, keys: string[]): T => Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k))) as T;
   const marks = ["choicesAcross", "printedBelow", "printedLabel", "boxesPerLine", "paperColumn"];
   const old = {
-    ...strip(issued, ["srNoFullStop", "headerColumns"]),
+    ...strip(issued, ["srNoFullStop", "headerColumns", "notesAtFoot"]),
     headerFields: issued.headerFields.map((f) => strip(f, marks)),
     footerFields: issued.footerFields!.map((f) => strip(f, marks)),
   } as LogSheetLayout;

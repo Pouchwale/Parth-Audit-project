@@ -139,6 +139,14 @@ export interface LogHeaderField {
    * name (Mitra, a record's history, a downloaded file) and is not printed.
    */
   asHeading?: true;
+  /**
+   * THE BOX IS JUDGED AGAINST ANOTHER BY THE PAPER'S TOLERANCE (REQUIREMENTS §111, rule 2): a certificate of
+   * analysis prints its TOLERANCE table — Length + 2 mm / - 2 mm, Face Material ± 10 % — and its Tested Size
+   * Length outside the Client's Specified Size Length by more than that is highlighted. `of`: the box holding the
+   * figure it is judged against; `plus` and `minus`: the table's figures, in the box's unit or, with `percent`, a
+   * percentage of that figure (engine/printedBands.ts). Nothing is judged where either box is not a plain figure.
+   */
+  within?: { of: string; plus: number; minus: number; percent?: true };
 }
 
 export interface LogColumn {
@@ -218,6 +226,13 @@ export interface LogColumn {
    * Word files made from it, the format's designer) puts it below.
    */
   beneath?: string;
+  /**
+   * THE BAND IS THE TOLERANCE WRITTEN IN A BOX ABOVE THE GRID (REQUIREMENTS §111, rule 2): F/QC/12 prints
+   * "Acceptable Tolerance:" among its boxes, and each Deviation % ("0.02%") outside ± that figure ("0.05 %")
+   * is highlighted as a reading outside its printed band is. The key of that box; the band is read from what
+   * the record holds there, so a sheet with no tolerance written highlights nothing (engine/printedBands.ts).
+   */
+  toleranceFrom?: string;
   // Auto-fill behaviour for this column. Precedence in engine/autoFill.ts:
   //   dueDate → sign → nominal (random reading inside the band) → carryForward
   //   (copy the template value exactly) → jitter (template value ± jitter%) →
@@ -301,6 +316,25 @@ export interface LogSheetLayout {
    * format. A record and its print are headed with it; a format the plant has renamed is headed with its new name.
    */
   paperTitle?: string;
+  /**
+   * THE TITLE IN THE PAPER'S OWN LETTERS (REQUIREMENTS §111 part 6): the header block prints every title in
+   * capitals, as most papers do; the certificates print "Certificate of Analysis [COA] For Label", F/QC/13 "In
+   * Process Quality Control", and theirs is printed so.
+   */
+  titleAsPrinted?: true;
+  /**
+   * THE LINES THE PAPER PRINTS UNDER THE COMPANY'S NAME, in the header block (REQUIREMENTS §111 part 6): F/QC/11
+   * and F/QC/12 print "Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes";
+   * the certificates of analysis their address, contact and GSTIN lines; F/QC/25 "CBA: CORRUGATED BOX ANALYSIS"
+   * under its letterhead. Before the title, where the paper prints them.
+   */
+  underCompany?: string[];
+  /**
+   * THE PAPER'S OWN LETTERHEAD IN PLACE OF THE COMPANY'S LINE (REQUIREMENTS §111 part 6): the title of one of the
+   * layout's `referenceTables` (untitled) drawn at the top of the header block — F/QC/25's three cells, the
+   * company's name in the first — so the name is printed once and the title stands under it, as on the paper.
+   */
+  letterhead?: string;
   // Text printed on the form above the grid (instructions, recommended
   // values, ALC protocol, ...), verbatim. Only what the paper prints: an
   // explanation of DCRS's own is never put here (REQUIREMENTS §111).
@@ -408,6 +442,28 @@ export interface LogSheetLayout {
    * unchanged: every line still holds every column.
    */
   answerAcross?: { answer: string; across: string[]; headingLine: number; lines: number[] };
+  /**
+   * ONE CELL A HEADING ON THESE PRINTED LINES (REQUIREMENTS §111): F/QC/11 prints its Pass/Fail and Sign. lines with
+   * one cell under each plate, across the plate's size and Deviation columns. On these lines (counted from 0) each
+   * run of columns under one heading (LogColumn.group) is drawn as one cell, its first column's; the record keeps
+   * every column, the others empty.
+   */
+  groupCellLines?: number[];
+  /**
+   * A PRINTED LINE THAT CONTINUES THE ONE ABOVE IT (REQUIREMENTS §111 part 6): F/QC/18 prints DRYING TEST once over
+   * two specifications — "By Thumb Impression : ..." and, on an unnumbered line under it, "On Glass surface : ..." —
+   * each with its own OBSERVATION box. On these lines (counted from 0) the printed cells left empty stand merged with
+   * the line above's (its Sr. No. and its TEST PARAMETERS), and the line takes no number; its other cells are its own.
+   */
+  continuationLines?: number[];
+  /**
+   * THE SPECIFICATION PRINTED ON EACH LINE IS THE LINE'S BAND (REQUIREMENTS §111, rule 2): an incoming material
+   * record prints "OUTER DIA (mm) | 90 (+2.0 / -1.0)", "MOISTURE CONTENT (%) | Max 15%", "VISCOSITY.(SEC) | 30 ± 10"
+   * down its side, and a reading written in `readings` outside the figures `spec` prints is highlighted. Only a
+   * specification that is a plain figure is read ("As per P.O.", a band for each ply or side, "Except ..." are left
+   * to the inspector), and only a reading that is a plain figure is judged (engine/printedBands.ts).
+   */
+  specBand?: { spec: string; readings: string[] };
   /**
    * EVERY ENTRY TAKES TWO LINES (REQUIREMENTS §111): the second line's own
    * heading, written in the first column — F/QC/12's "Deviation %". The columns

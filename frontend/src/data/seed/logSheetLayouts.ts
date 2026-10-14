@@ -1,7 +1,7 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
 import { CALIBRATION_PROCEDURE, QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
-import { FLEXO_INK_SYSTEM_NOTE, QC_INCOMING_LAYOUTS, signatureBoxes } from "./qcIncomingLayouts";
+import { FLEXO_INK_SYSTEM_NOTE, INCOMING_ADDRESS, OBSERVATION_BAND, QC_INCOMING_LAYOUTS, signatureBoxes } from "./qcIncomingLayouts";
 import { FQC13_WITHDRAWN_LINES, QC_IN_PROCESS_LAYOUTS } from "./qcInProcessLayouts";
 import { LINE_CLEARANCE_TITLE_LINES, QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
 import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
@@ -46,10 +46,13 @@ const hotRoomReading = (key: string, heading: string, time: string): LogColumn[]
   },
 ];
 
+// F-QC-30's day, as its page is written (REQUIREMENTS §111 part 6): 9:00 to 07:00 — twenty-three readings, the next
+// day's first at 9:00. DCRS printed an 08:00 line the page does not have, and filled it on its specimen with the
+// next morning's 9:00 reading (7/9/26, 19.59, Jeni).
 const HOURLY_SLOTS = [
   "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
   "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00",
-  "03:00", "04:00", "05:00", "06:00", "07:00", "08:00",
+  "03:00", "04:00", "05:00", "06:00", "07:00",
 ];
 
 export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
@@ -62,6 +65,8 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-viscosity": {
     documentId: "qc-viscosity",
     srNoShowsDate: true,
+    // "Viscosity (20.0 ± 1.0 Sec.)" and "Tested By" in the paper's own letters, not the sheet's capitals (§111 part 6).
+    headingsAsPrinted: true,
     headerFields: [],
     columns: [
       { key: "time", label: "Date/Time", type: "time", fixed: true, width: 90 },
@@ -81,7 +86,7 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
       { time: "01:00", viscosity: 20.58, testedBy: "Singh" }, { time: "02:00", viscosity: 19.76, testedBy: "Singh" },
       { time: "03:00", viscosity: 19.87, testedBy: "Singh" }, { time: "04:00", viscosity: 19.52, testedBy: "Singh" },
       { time: "05:00", viscosity: 19.78, testedBy: "Singh" }, { time: "06:00", viscosity: 19.16, testedBy: "Singh" },
-      { time: "07:00", viscosity: 19.76, testedBy: "Singh" }, { time: "08:00", viscosity: 19.59, testedBy: "Jeni" },
+      { time: "07:00", viscosity: 19.76, testedBy: "Singh" },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.18 PM.jpeg (F-QC-30, filled 6/9/26 – 7/9/26)",
   },
@@ -92,6 +97,8 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
   // the grid (DCRS's "One row per adhesive batch mixed..." was its own explanation, not the paper's).
   "qc-adhesive-mixing": {
     documentId: "qc-adhesive-mixing",
+    // "Adhesive (kg)", "Viscosity (Sec.)", "Checked by" in the paper's own letters, not the sheet's capitals (§111 part 6).
+    headingsAsPrinted: true,
     headerFields: [],
     columns: [
       // The day the batch was mixed: the record's date (a line written after midnight is changed by the person).
@@ -104,15 +111,19 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
       { key: "ethyl", label: "Ethyl (kg)", type: "number", unit: "kg", min: 19.0, max: 20.0, decimals: 2, required: true, autoFill: { carryForward: true, default: 19.5 }, width: 100 },
       { key: "viscosity", label: "Viscosity (Sec.)", type: "number", unit: "Sec.", nominal: 20.0, min: 19.0, max: 21.0, decimals: 2, required: true, width: 110 },
       { key: "remark", label: "Remark", type: "text" },
-      { key: "checkedBy", label: "Checked by", type: "text", autoFill: { sign: true, byShift: { day: "Jeni", night: "Singh" } }, width: 130 },
-      { key: "verifiedBy", label: "Verified by", type: "text", width: 130 },
+      // The page is signed under Verified by, by the shift's QC tester; Checked by is left blank (§111 part 6).
+      { key: "checkedBy", label: "Checked by", type: "text", width: 130 },
+      { key: "verifiedBy", label: "Verified by", type: "text", autoFill: { sign: true, byShift: { day: "Jeni", night: "Singh" } }, width: 130 },
     ],
     rowMode: { kind: "free", minRows: 1, typicalRows: 3 },
+    // As the page is written (REQUIREMENTS §111 part 6): the signatures stand under Verified by, Checked by is left
+    // blank, and its fifth line is of the next morning, 7/9/26.
     specimenRows: [
-      { date: "2026-09-06", time: "04:30", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.9, remark: "", checkedBy: "Jeni", verifiedBy: "" },
-      { date: "2026-09-06", time: "21:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.76, remark: "", checkedBy: "Singh", verifiedBy: "" },
-      { date: "2026-09-06", time: "02:50", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.89, remark: "", checkedBy: "Singh", verifiedBy: "" },
-      { date: "2026-09-06", time: "06:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 20.15, remark: "", checkedBy: "Singh", verifiedBy: "" },
+      { date: "2026-09-06", time: "04:30", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.9, remark: "", checkedBy: "", verifiedBy: "Jeni" },
+      { date: "2026-09-06", time: "21:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.76, remark: "", checkedBy: "", verifiedBy: "Singh" },
+      { date: "2026-09-06", time: "02:50", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.89, remark: "", checkedBy: "", verifiedBy: "Singh" },
+      { date: "2026-09-06", time: "06:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 20.15, remark: "", checkedBy: "", verifiedBy: "Singh" },
+      { date: "2026-09-07", time: "11:20", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 20.12, remark: "", checkedBy: "", verifiedBy: "Jeni" },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.17 PM.jpeg (F-QC-32, filled 6/9/26 – 7/9/26)",
   },
@@ -369,6 +380,10 @@ Object.assign(LOG_SHEET_LAYOUTS, {
       { key: "specification", label: "SPECIFICATION", type: "text", fixed: true, width: 200 },
       { key: "observation", label: "OBSERVATION", type: "text", required: true, autoFill: { carryForward: true }, width: 200 },
     ],
+    // A reading outside the specification printed on its line is highlighted, as on the incoming records (§111 part 6).
+    specBand: OBSERVATION_BAND,
+    // The address printed at the foot of the paper, as on the incoming records (part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     rowMode: {
       kind: "fixedRows",
       rows: fixedParams([
@@ -578,6 +593,13 @@ function placedTablesFrom(issued: LogSheetLayout, edited: LogSheetLayout): { ref
   const missing = (issued.referenceTables ?? []).filter((t) => wanted.has(t.title) && !own.some((o) => o.title === t.title));
   return missing.length > 0 ? { referenceTables: [...own, ...missing] } : {};
 }
+/** The paper's letterhead (part 6), with its table where the edited format never held it; none where the format holds its own table of that title. */
+function letterheadFrom(issued: LogSheetLayout, edited: LogSheetLayout): Pick<LogSheetLayout, "letterhead" | "referenceTables"> {
+  const table = issued.letterhead ? issued.referenceTables?.find((t) => t.title === issued.letterhead) : undefined;
+  if (!issued.letterhead || !table) return {};
+  const own = edited.referenceTables ?? [];
+  return own.some((t) => t.title === table.title) ? { letterhead: issued.letterhead } : { letterhead: issued.letterhead, referenceTables: [...own, table] };
+}
 /** The paper's words for a box's choices fit an edited box only while it offers the same choices (else they would print other words). */
 const sameChoices = (own: LogHeaderField, edited: LogHeaderField): boolean =>
   (own.options ?? []).length === (edited.options ?? []).length && (own.options ?? []).every((o, i) => edited.options?.[i] === o);
@@ -600,10 +622,13 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
         f.printed !== undefined || f.tableAbove !== undefined || f.boxesPerLine !== undefined || f.paperColumn !== undefined || f.boxTable !== undefined ||
         f.choicesAcross !== undefined || f.printedBelow !== undefined || f.inSentence !== undefined || f.inGridHead !== undefined || f.asHeading !== undefined
     ) ||
+    // (Part 6's marks — groupCellLines, specBand, toleranceFrom, within — are no part of this test: the format editor
+    // holds none of them, so a format it saved since carries them only as the issued layout gave them.)
     edited.columns.some((c) => c.beneath !== undefined || c.printedLabel !== undefined || c.groupApart !== undefined || c.merged !== undefined);
   if (issued && !saysPaper) {
     const issuedBoxes = new Map([...issued.headerFields, ...(issued.footerFields ?? [])].map((f) => [f.key, f]));
     const issuedColumns = new Map(issued.columns.map((c) => [c.key, c]));
+    const keys = new Set(boxes.map((f) => f.key));
     // The paper's own words and places of a box (§111): its printed value, the table and lines printed above it, how
     // many boxes stand to a line from it, the words printed beside it — each where the edited box says nothing of its own.
     const box = (f: LogHeaderField): LogHeaderField => {
@@ -620,6 +645,8 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       if (own.printedBelow !== undefined) paper.printedBelow = own.printedBelow;
       if (own.inSentence !== undefined) paper.inSentence = own.inSentence;
       if (own.inGridHead !== undefined) paper.inGridHead = own.inGridHead;
+      // The tolerance a box is judged by (a certificate's TOLERANCE table, part 6), where it is judged against a box the edit still has.
+      if (own.within !== undefined && keys.has(own.within.of)) paper.within = own.within;
       if (own.printedAbove !== undefined && f.printedAbove === undefined) paper.printedAbove = own.printedAbove;
       if (own.printedLabel !== undefined && f.printedLabel === undefined) paper.printedLabel = own.printedLabel;
       // The paper's heading the person writes (F/QC/29's analysis report, the review of 13-Oct-2026).
@@ -651,6 +678,13 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       ...(issued.photoBelowGrid ? { photoBelowGrid: issued.photoBelowGrid } : {}),
       ...(issued.approvedOnVerify ? { approvedOnVerify: issued.approvedOnVerify } : {}),
       ...(issued.panels ? { panels: issued.panels } : {}),
+      // Part 6: the lines one cell a heading (F/QC/11's Pass/Fail and Sign.), and the specification each line prints
+      // judging its reading (the incoming records) where the edit keeps both columns.
+      ...(issued.groupCellLines ? { groupCellLines: issued.groupCellLines } : {}),
+      // The header block as the paper's: the title in its letters, the lines under the company's name, its letterhead.
+      ...(issued.titleAsPrinted ? { titleAsPrinted: issued.titleAsPrinted } : {}),
+      ...(issued.underCompany ? { underCompany: issued.underCompany } : {}),
+      ...(issued.specBand && [issued.specBand.spec, ...issued.specBand.readings].every((k) => edited.columns.some((c) => c.key === k)) ? { specBand: issued.specBand } : {}),
       instructions: instructions && instructions.length > 0 ? instructions : undefined,
       // A table the paper prints among the boxes that the edited format never held (F/QC/25's letterhead, part 4)
       // comes with the box it stands above; the format's own tables are kept as they are.
@@ -665,9 +699,13 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
         // A group heading in a cell of its own, a cell merged down its lines (the review of 13-Oct-2026).
         if (own?.groupApart !== undefined && c.group === own.group) paper.groupApart = own.groupApart;
         if (own?.merged !== undefined) paper.merged = own.merged;
+        // F/QC/12's Deviation % judged by its Acceptable Tolerance box (part 6), where the edit keeps the box.
+        if (own?.toleranceFrom !== undefined && keys.has(own.toleranceFrom)) paper.toleranceFrom = own.toleranceFrom;
         return Object.keys(paper).length === 0 ? c : { ...c, ...paper };
       }),
     };
+    // F/QC/25's letterhead in the header block, its table brought along where the format never held it.
+    out = { ...out, ...letterheadFrom(issued, out) };
     if (edited.instructions === undefined) delete out.instructions;
     if (edited.footerFields === undefined) delete out.footerFields;
   }

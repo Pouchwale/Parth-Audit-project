@@ -108,6 +108,8 @@ export const QC_IN_PROCESS_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-inprocess-printing": {
     documentId: "qc-inprocess-printing",
     paperTitle: "In Process Quality Control",
+    // In its own letters, as the paper prints it (REQUIREMENTS §111 part 6).
+    titleAsPrinted: true,
     instructions: [FQC13_PROCEDURE],
     referenceTables: [
       {

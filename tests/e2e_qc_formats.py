@@ -608,11 +608,15 @@ with sync_playwright() as p:
     check("The paper core record prints its six parameters, also in three samples", sheet_rows(page).count() == 6, sheet_rows(page).count())
 
     open_page(page, "#/document/qc-offset-ink")
-    drying = next((row for row in (cell_texts(page, i) for i in range(9)) if "DRYING TEST" in row[1]), [])
+    # DRYING TEST stands over two printed lines, the second unnumbered with its own OBSERVATION (s111 part 6).
+    at = next((i for i in range(10) if "DRYING TEST" in " ".join(cell_texts(page, i))), -1)
+    drying = cell_texts(page, at) if at >= 0 else []
+    glass = cell_texts(page, at + 1) if at >= 0 else []
     check(
-        "The offset ink record keeps both drying tests the form prints against the one parameter",
-        "By Thumb Impression" in " ".join(drying) and "On Glass surface" in " ".join(drying),
-        drying,
+        "The offset ink record keeps both drying tests the form prints against the one parameter, each on a line of its own",
+        drying[:2] == ["6.", "DRYING TEST"] and "By Thumb Impression" in " ".join(drying) and len(glass) == 2 and glass[0].startswith("On Glass surface")
+        and sheet_rows(page).count() == 10 and cell_texts(page, at + 2)[0] == "7.",
+        (drying, glass),
     )
 
     # ==================================================================
@@ -1474,7 +1478,7 @@ with sync_playwright() as p:
     rid = start_record(page, "qc-tolerance-card-nivea")
     heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     panels = page.locator("[data-print-doc] table.log-sheet tbody tr").count()
-    check("The tolerance card: seven panels, each with its own APPROVED BY: and SIGN. :, no Sr. No.", heads == ["", "APPROVED BY:", "SIGN. :"] and panels == 7, (heads, panels))
+    check("The tolerance card: its nine panels (s111 part 6), each with its own APPROVED BY: and SIGN. :, no Sr. No.", heads == ["", "APPROVED BY:", "SIGN. :"] and panels == 9, (heads, panels))
     shoot(page, "F-QC-19-tolerance-card")
 
     check("No JavaScript errors", not errors, errors[:5])

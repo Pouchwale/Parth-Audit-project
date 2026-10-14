@@ -31,6 +31,7 @@ import {
 } from "../../engine/pmSchedule";
 import { EquipmentFetch, EquipmentMachineList } from "./EquipmentFetch";
 import { isOutOfBand, supersededRevisionOf } from "../../engine/validation";
+import { boxOutOfBand, judgeFor, outOfBandCount, type CellJudge } from "../../engine/printedBands";
 import { withoutLineNumber } from "../../engine/lineNumbers";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
 import { withComputedCells } from "../../engine/computedCells";
@@ -54,9 +55,11 @@ import {
   gridLines,
   headingParts,
   inBoxTable,
+  continuationsOf,
   isPrintedBox,
   mergedRuns,
   panelsOf,
+  letterheadTable,
   paperColumnProps,
   placedTables,
   runStarts,
@@ -335,6 +338,7 @@ export function LogSheetRecordView({
         list={personBox ? "hr-master-people" : machineList !== undefined ? machineList : (lists?.[f.key] ?? f.list)}
         onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : undefined}
         inTable={inTable}
+        outOfBand={boxOutOfBand(f, data.header)}
       />
     );
   };
@@ -350,18 +354,29 @@ export function LogSheetRecordView({
       employees={employeeNames}
       list={lists?.[f.key] ?? f.list}
       inTable={inTable}
+      outOfBand={boxOutOfBand(f, data.header)}
     />
   );
   // The printed tables offered behind "Show" above the sheet: all but those the paper prints in a place of their
   // own among the boxes (tableAbove — the certificates' TOLERANCE, REQUIREMENTS §111), which are drawn there, open.
   const placed = placedTables(layout);
+  const letterhead = letterheadTable(layout);
   const topTables = (layout.referenceTables ?? []).filter((t) => !placed.has(t.title));
 
   const mode = layout.rowMode;
   const qcForm = departmentOfDocument(doc.id, doc.formatNo) === "QC";
   const canAddRows = editable && mode.kind === "free";
   const canRemoveRows = editable && mode.kind === "free" && data.rows.length > (mode.minRows ?? 0);
-  const outOfBand = data.rows.reduce((n, row) => n + layout.columns.filter((c) => isOutOfBand(c, row[c.key])).length, 0);
+  // Every reading outside the band its paper prints: a column's, a tolerance box's, a line's specification, a box
+  // against its tolerance (engine/printedBands.ts, REQUIREMENTS §111 rule 2). The judge is made again only when a
+  // tolerance box changes, so a keystroke elsewhere redraws no line of the grid.
+  const judge = judgeFor(layout, data.header);
+  const outOfBand = outOfBandCount(layout, data);
+  // F/QC/11's Pass/Fail and Sign. lines: one cell a plate (groupCellLines).
+  const groupCells = layout.groupCellLines;
+  // F/QC/18's "On Glass surface" line under DRYING TEST: its Sr. No. and parameter merged with the line above (part 6).
+  const joined = continuationsOf(layout, data.rows);
+  const joinedLines = new Set(joined.keys());
   // A FORM THE PAPER PRINTS AS BOXES ALONE has no grid to draw — the Supplier
   // Registration Form is labelled lines and prose blocks from the top of page 1
   // to the bottom of page 3 (REQUIREMENTS §68). Drawing the empty table would
@@ -432,6 +447,11 @@ export function LogSheetRecordView({
         doc={doc}
         // The title as the paper prints it, unless the plant has renamed the format since (REQUIREMENTS §111).
         title={layout.paperTitle && !formatEditFor(doc.id)?.name ? layout.paperTitle : undefined}
+        // The paper's letters, its lines under the company's name and its own letterhead in place of the company's
+        // line (F/QC/25), before the title, as the paper prints them (REQUIREMENTS §111 part 6).
+        titleAsPrinted={layout.titleAsPrinted}
+        underCompany={layout.underCompany}
+        letterhead={letterhead ? <div className="doc-letterhead"><PrintedTable table={letterhead} /></div> : undefined}
         dateLabel={formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date)}
         pageLabel={record.headerBlock?.page ?? headerDefaults.page}
         revision={superseded ? { no: superseded.revisionNo, date: superseded.revisionDate } : undefined}
@@ -630,8 +650,12 @@ export function LogSheetRecordView({
                 issuedColumns={issuedFirst}
                 second={lines.second}
                 fixedRow={mode.kind === "fixedRows" ? mode.rows[i] : undefined}
+                judge={judge}
+                groupCells={groupCells?.includes(i)}
                 numbered={numbered}
-                srNo={numbered ? srNoText(layout, i, recordDate) : undefined}
+                srNo={numbered ? srNoText(layout, i, recordDate, joinedLines) : undefined}
+                spanDown={joined.get(i + 1)}
+                joinsAbove={joined.get(i)}
                 editable={editable}
                 lang={lang}
                 employees={employeeNames}
@@ -1392,6 +1416,20 @@ function AnswerAcrossGrid({
 }
 
 /**
+ * How many cells the column at `at` spans on a line drawn one cell a heading (groupCellLines): the whole run of
+ * columns under its heading for the run's first column, 0 for the others (drawn by the first), 1 for a column
+ * under no heading.
+ */
+function groupSpan(columns: LogColumn[], at: number): number {
+  const group = columns[at].group;
+  if (group === undefined) return 1;
+  if (at > 0 && columns[at - 1].group === group) return 0;
+  let n = 1;
+  while (at + n < columns.length && columns[at + n].group === group) n += 1;
+  return n;
+}
+
+/**
  * ONE LINE OF THE GRID, drawn again only when that line changes (REQUIREMENTS
  * §76). Everything it is handed is either the line itself — a new object only
  * when one of its cells was written — or the same on every render: the layout's
@@ -1408,6 +1446,10 @@ const SheetRow = React.memo(function SheetRow({
   issuedColumns,
   second,
   fixedRow,
+  judge,
+  groupCells,
+  spanDown,
+  joinsAbove,
   numbered,
   srNo,
   editable,
@@ -1433,6 +1475,14 @@ const SheetRow = React.memo(function SheetRow({
   second?: GridLines["second"];
   /** The line the form prints here, on a form that prints its lines. */
   fixedRow: Record<string, string | number | null> | undefined;
+  /** Whether a cell is outside the band its paper prints (engine/printedBands.ts): the same function until a tolerance box changes. */
+  judge: CellJudge;
+  /** A line the paper prints with one cell under each heading (LogSheetLayout.groupCellLines): F/QC/11's Pass/Fail and Sign. */
+  groupCells?: boolean;
+  /** The printed cells of this line that stand down over the next, which continues it (continuationLines): its Sr. No. too. */
+  spanDown?: string[];
+  /** The printed cells of this line drawn by the line above, which it continues: and its Sr. No. */
+  joinsAbove?: string[];
   /** The sheet's own Sr. No. is drawn (the form does not number its lines itself, REQUIREMENTS §102). */
   numbered: boolean;
   /** What the Sr. No. shows: the line's number, or the record's date on a sheet that writes the day there (REQUIREMENTS §111). */
@@ -1460,13 +1510,19 @@ const SheetRow = React.memo(function SheetRow({
   // day — runs down both lines, as the one cell of the paper holds the reading and the sign.
   const leadSpans = !!second && second.label === "";
   const firstLine = (
-    <tr data-line={second ? "first" : undefined}>
-      {numbered && (
-        <td className="text-muted" rowSpan={lineSpan} data-sr-no="">
+    <tr data-line={second ? "first" : undefined} data-continues={joinsAbove ? "" : undefined}>
+      {numbered && !joinsAbove && (
+        <td className="text-muted" rowSpan={spanDown ? 2 : lineSpan} data-sr-no="">
           {srNo ?? index + 1}
         </td>
       )}
       {columns.map((c, ci) => {
+        // ONE CELL A HEADING (REQUIREMENTS §111): on F/QC/11's Pass/Fail and Sign. lines a plate's size and Deviation
+        // columns are one cell, the first column's; the record keeps the others, empty.
+        const across = groupCells && c.group !== undefined ? groupSpan(columns, ci) : 1;
+        if (across === 0) return null;
+        // A printed cell the line above draws down over this one (F/QC/18's DRYING TEST, §111 part 6).
+        if (joinsAbove?.includes(c.key)) return null;
         // A line the form prints blank (F/HR/05's two spare topic lines)
         // has nothing fixed in it, so it is written in like any cell.
         const col = effectiveColumn(c, fixedRow);
@@ -1480,9 +1536,16 @@ const SheetRow = React.memo(function SheetRow({
         // A cell the paper merges down a run of lines is drawn on the run's first line only, across the run.
         const span = spans?.[c.key];
         if (span === 0) return null;
-        const rowSpan = span !== undefined && span > 1 ? span : ci === 0 && leadSpans ? 2 : undefined;
+        // A printed cell standing down over the next line, which continues it (F/QC/18's DRYING TEST, §111 part 6).
+        const rowSpan = span !== undefined && span > 1 ? span : spanDown?.includes(c.key) || (ci === 0 && leadSpans) ? 2 : undefined;
         return (
-          <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""} rowSpan={rowSpan} data-merged={span !== undefined && span > 1 ? String(span) : undefined}>
+          <td
+            key={c.key}
+            className={judge(row, c, fixedRow) ? "cell-out-of-band" : ""}
+            colSpan={across > 1 ? across : undefined}
+            rowSpan={rowSpan}
+            data-merged={span !== undefined && span > 1 ? String(span) : undefined}
+          >
             <CellInput
               col={col}
               bind={bindProps(logCellBind(row, index, col, rowName))}
@@ -1529,7 +1592,7 @@ const SheetRow = React.memo(function SheetRow({
           const under = second.under[ci];
           if (!under) return <td key={c.key} />;
           return (
-            <td key={c.key} className={isOutOfBand(under, row[under.key]) ? "cell-out-of-band" : ""} data-beneath={under.key}>
+            <td key={c.key} className={judge(row, under, fixedRow) ? "cell-out-of-band" : ""} data-beneath={under.key}>
               <CellInput
                 col={under}
                 bind={bindProps(logCellBind(row, index, under, rowName))}
@@ -1564,6 +1627,7 @@ const SheetBox = React.memo(function SheetBox({
   list,
   onBoxBlur,
   inTable,
+  outOfBand,
 }: {
   field: LogHeaderField;
   issuedLabel: string;
@@ -1576,6 +1640,8 @@ const SheetBox = React.memo(function SheetBox({
   onBoxBlur?: (rowId: string | null, value: string) => void;
   /** A cell of the paper's table of boxes (boxTable, REQUIREMENTS §111). */
   inTable?: boolean;
+  /** Outside the paper's tolerance of the box it is judged against (LogHeaderField.within, REQUIREMENTS §111 rule 2). */
+  outOfBand?: boolean;
 }) {
   return (
     <HeaderFieldInput
@@ -1588,6 +1654,7 @@ const SheetBox = React.memo(function SheetBox({
       list={list}
       onBlur={onBoxBlur ? (v) => onBoxBlur(null, v) : undefined}
       inTable={inTable}
+      outOfBand={outOfBand}
     />
   );
 });
@@ -1602,6 +1669,7 @@ function HeaderFieldInput({
   list,
   onBlur,
   inTable = false,
+  outOfBand = false,
 }: {
   field: LogHeaderField;
   /** The label AS ISSUED — which boxes offer the employee list cannot depend on the language being read (REQUIREMENTS §58). */
@@ -1615,6 +1683,8 @@ function HeaderFieldInput({
   onBlur?: (v: string) => void;
   /** A cell of the paper's table of boxes (boxTable, REQUIREMENTS §111): the table's words head it. */
   inTable?: boolean;
+  /** Outside the paper's tolerance (LogHeaderField.within): highlighted as a reading outside its band is. */
+  outOfBand?: boolean;
 }) {
   // A CELL OF THE PAPER'S TABLE OF BOXES (REQUIREMENTS §111) — F/QC/06's LABEL STOCK — is headed by the
   // table's own words, so it draws no label of its own: its name is what a screen reader says. Every other
@@ -1627,8 +1697,9 @@ function HeaderFieldInput({
       {field.printedBelow}
     </span>
   ) : null;
-  const box = (className: string, label: React.ReactNode, body: React.ReactNode) =>
-    inTable ? (
+  const box = (plain: string, label: React.ReactNode, body: React.ReactNode) => {
+    const className = outOfBand ? `${plain} field-out-of-band` : plain;
+    return inTable ? (
       <div className={`${className} field-in-table`} data-box={field.key}>
         {body}
       </div>
@@ -1639,6 +1710,7 @@ function HeaderFieldInput({
         {below}
       </div>
     );
+  };
   // A box that names a PERSON offers the employee names. "Machine Name:",
   // "Name of Equipment:" and "EQUIPMENT NAME" name a machine (REQUIREMENTS §74),
   // and offering them the people on the payroll put a person's name one tap
