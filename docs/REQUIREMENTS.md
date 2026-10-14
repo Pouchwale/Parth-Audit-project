@@ -3195,9 +3195,11 @@ page:
   Live the live ones, like every other page.
 - **Who sees what**: the names come from `GET /api/users/directory`, which returns id, name, role and
   departments — never an email or a hash. The administrator and an account with no departments see everybody; a
-  department account sees the accounts that share a department with it, and only its own documents' scores —
-  so a colleague who also answers for another department is scored there from part of their work, and the
-  card and the CSV say so ("Also answers for …, outside your departments").
+  department account sees the accounts that share a module it sees (§96) — the ones kept to its department, and
+  the ones that see every module, the administrator and management among them, listed without a score — and
+  only its own documents' scores, so a colleague who also answers for another department is scored there from
+  part of their work, and the card and the CSV say so ("Also answers for …, outside your departments": the
+  account's own departments outside this screen, since their records are not in view; 14-Oct-2026).
 - The page reads and never writes. Live records exist only for the months somebody has opened (the app creates
   a month's shells on first visit), so a month nobody has looked at has nothing due rather than everything
   missed; the Dashboard and Calendar open the current month for everyone daily, which is what keeps it honest.

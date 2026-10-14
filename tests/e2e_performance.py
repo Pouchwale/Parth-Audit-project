@@ -770,13 +770,24 @@ with sync_playwright() as p:
         )
     qc_listing = directory(page)
     qc_people = (json.loads(qc_listing["text"]) if qc_listing["status"] == 200 else {}).get("people") or []
+    # The directory is read by the modules a person sees (REQUIREMENTS s96; backend/index.ts GET /api/users/directory): a QC
+    # account reads the accounts that share a module it sees - the ones kept to QC, and the ones that see every module
+    # (the super admin, an account with no departments), as e2e_user_access asks for Kapila Barad on Ankur Raval's list.
     check(
-        "The server hands a QC account only the accounts that share Quality Control - itself among them, the unrestricted one not",
-        qc_listing["status"] == 200 and any(x["name"] == QC_PERSON for x in qc_people) and all("QC" in x["departments"] for x in qc_people) and not any(x["name"] == VIEWER for x in qc_people),
+        "The server hands a QC account the accounts that share a module it sees - itself and the unrestricted ones among them, no other department's",
+        qc_listing["status"] == 200
+        and any(x["name"] == QC_PERSON for x in qc_people)
+        and any(x["name"] == VIEWER for x in qc_people)
+        and all("QC" in x["departments"] or x["departments"] == [] for x in qc_people),
         qc_people,
     )
     check("...still without an address in it", "@" not in qc_listing["text"], qc_listing["text"][:300])
-    check("...so the unrestricted account has no card on a QC account's scorecard", page.locator(f"[data-person='{VIEWER}']").count() == 0)
+    unrestricted_card = page.locator(f"[data-person='{VIEWER}']")
+    check(
+        "...so the unrestricted account has a card on a QC account's scorecard too, listed without a score",
+        unrestricted_card.count() == 1 and unrestricted_card.get_attribute("data-scored") == "no" and unrestricted_card.locator("[data-field='person-score']").count() == 0,
+        unrestricted_card.first.evaluate("el => el.textContent") if unrestricted_card.count() else None,
+    )
 
     # ==================================================================
     # 9. Two accounts in one department: a record counts for whoever submitted it
