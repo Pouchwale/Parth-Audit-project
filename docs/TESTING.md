@@ -1095,7 +1095,7 @@ Seven scripts live in `tests/`:
   readings). Browser suites: those that opened these pages as a staff account made by sign-up are listed in REQUIREMENTS
   §116 and brought over one by one — each either signs in as the run's super admin or checks the refusal; the checks
   that a staff account's sidebar has no System group, that each address answers it with the refusal and that the super
-  admin has them all are `tests/e2e_user_access.py`'s. `npm run typecheck` clean; `npm run test:unit`: frontend 1152
+  admin has them all are `tests/e2e_user_access.py`'s (section 9b); `tests/e2e_tour.py` (the staff tour has no Reports step, the super admin's has it before their own pages) and `tests/e2e_mitra_agent.py` (the mocked model opens the Calendar, a page every account has) are brought over; the rest named in §116 wait on a free browser. `npm run typecheck` clean; `npm run test:unit`: frontend 1152
   (one voice-timing test flaky under the full run's load, green alone), backend 636 (4 skipped, as before).
 - **The blank sheets from before go-live moved to the archive, never deleted** (REQUIREMENTS §115, 14-Oct-2026: the
   "Found 3457 blank records ... Clean up" banner on every profile; the owner: "without any loss of any records or any
