@@ -25,7 +25,7 @@ import { prepareScopedInsights, scopedInsights } from "./scopedInsights";
 import { isLotAccepted } from "./validation";
 import { outOfBandCount } from "./printedBands";
 import { actionForGrade, RM_PM_PERFORMANCE_ID, SERVICE_PROVIDER_PERFORMANCE_ID, serviceRatingCells } from "./purchaseRatings";
-import { closedDays, decisionText, formatMinus, minusScore, scoreOf, scorecards, type Person } from "./performance";
+import { closedDays, decisionText, formatMinus, minusScore, scorecards, type Person } from "./performance";
 import { machineKey, machineNumbersIn } from "./equipmentMaster";
 import { keptTo } from "./latenessCore";
 import { totalRodents } from "./rodentPattern";
@@ -1410,12 +1410,12 @@ function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
   yield;
   const sum = cards.byDocument.reduce((a, d) => ({ onTime: a.onTime + d.onTime, late: a.late + d.late, overdue: a.overdue + d.overdue }), { onTime: 0, late: 0, overdue: 0 });
   const due = sum.onTime + sum.late + sum.overdue;
-  const score = scoreOf(sum.onTime, sum.late, sum.overdue);
+  // The score Mitra gives is the minus score (REQUIREMENTS §92; the owner, 13-Oct-2026): never the figure out of 100.
   facts.push({
     text:
       due === 0
         ? `Performance Scorecard${only}: no record that is counted fell due in ${label}${cards.byDocument.some((d) => d.pending > 0) ? " (some are not due yet)" : ""}.`
-        : `Performance Scorecard (on time counts 1, late ½, never done 0)${only}, records due in ${label}: ${sum.onTime} of ${due} on time, ${sum.late} late, ${sum.overdue} never done${score !== null ? ` — score ${score}` : ""}, minus score ${formatMinus(minusScore(sum.overdue, due))} (the share of the records due never done, as FMS counts it: 8 of 10 done is −20%).`,
+        : `Performance Scorecard${only}, records due in ${label}: ${sum.onTime} of ${due} on time, ${sum.late} late, ${sum.overdue} never done — score ${formatMinus(minusScore(sum.overdue, due))} (the share of the records due never done, as FMS counts it: 8 of 10 done is −20; a late record still counts as done).`,
     recordIds: [],
   });
   if (named.length) {
@@ -1430,7 +1430,7 @@ function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
       const shown = scored.slice(0, 3);
       const mine = scored.find((p) => p.person.id === ctx.self?.id);
       if (mine && !shown.includes(mine)) shown.splice(2, 1, mine);
-      for (const p of shown) facts.push({ text: `${quoteFree(p.person.name, 40)}: score ${p.score}, minus score ${formatMinus(p.minus)}, ${tidy(decisionText(p.decision), 200)}`, recordIds: [] });
+      for (const p of shown) facts.push({ text: `${quoteFree(p.person.name, 40)}: score ${formatMinus(p.minus)}, ${tidy(decisionText(p.decision), 200)}`, recordIds: [] });
     } else if (ctx.self && keptTo(ctx.self).length > 0) {
       facts.push({
         text: "No personal score here: whose work a record was needs the list of accounts that share a department, and it could not be read just now — the Performance Scorecard shows each person's score.",
@@ -1438,7 +1438,7 @@ function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
       });
     }
     for (const d of cards.byDepartment.filter((d) => d.due > 0).slice(0, 3)) {
-      facts.push({ text: `${d.name}${d.code ? ` (${d.code})` : ""}: score ${d.score}, minus score ${formatMinus(d.minus)}, ${tidy(decisionText(d.decision), 200)}`, recordIds: [] });
+      facts.push({ text: `${d.name}${d.code ? ` (${d.code})` : ""}: score ${formatMinus(d.minus)}, ${tidy(decisionText(d.decision), 200)}`, recordIds: [] });
     }
   }
   const worst = cards.byDocument.filter((d) => d.late + d.overdue > 0).slice(0, LIST_MAX);

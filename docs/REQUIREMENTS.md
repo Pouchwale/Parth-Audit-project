@@ -6023,6 +6023,41 @@ Summary report and the Dashboard's "Today's score" (§81, item 5). Since 9-Oct-2
 round(done ÷ due × 100) − 100: the Dashboard's Today's score over today's work, the minus score over the period chosen
 (item 59, answered by the owner).
 
+**6. The minus score is the only score anybody sees (14-Oct-2026).** The owner, 13-Oct-2026: "i want tat score sould be
+in always negative number only like for example if any user assigned any task for example 10 and he has completed 8
+then is score is actually 80 percent then his score is -20 not 80 percent on his dashboard as well as superadmin like
+wise whatever the user see is always in negative only." So part 5's "the score out of 100 ... did not change" is
+withdrawn as far as anything shown, said or exported goes:
+
+- **The rule** stands as part 1 has it: score = round(done ÷ due × 100) − 100, **written "−20" (a minus sign, no percent
+  sign) or "0"** when nothing was missed — never a positive number and never "80%". A plain number (-20) where a number
+  is wanted: `data-minus`, the CSV. engine/performance.ts `formatMinus` writes it; `shownScore` gives "—" for a line
+  not scored at all.
+- **Where the figure out of 100 used to show, the minus score shows instead**: the Performance page's tables (one
+  "Minus score" column; no "Score" column), each person's card (the big figure, no "out of 100"), the "Most behind"
+  lines, the plant's tile, the weekly digest card and its email (backend/escalation.ts, the stored digest's `score` is
+  the minus score from the first run after this change; the page works older bodies out from their counts), the
+  Management Summary's Record-keeping lines and table (engine/monthlySummary.ts, `records.score` is the minus score),
+  Mitra's history answers and the phone's GET /api/v1/figures (engine/historyDigest.ts: "score −20 (the share of the
+  records due never done ...)"), the day's notification (engine/notifications.ts: "You are at −50 on the scorecard —
+  needs attention. Every record never done takes it below 0; nothing missed is 0."; `Standing.score` is the minus
+  score, the leader is whoever is closest to 0), the spoken reminder (utils/voice.ts: "you're at minus 8 this month",
+  i18n/strings.voice.ts in English and Gujarati), the administrator's TeamScoreCard and the rule boxes
+  (i18n/strings.score.ts). The export's columns: ... 9 **Score** (the minus score as a plain number), 10 Still open
+  today, 11 Grade, 12 Decision — the "Minus score (%)" column is gone.
+- **Ranks order by the minus score**, worst first, closest to 0 at the top of a rank: every table's order and the
+  people's (engine/performance.ts worstFirst: the minus score, then the figure out of 100, then the most never done,
+  then the most due; nothing due last).
+- **The grade's words** (excellent, on track, needs attention, falling behind) and the decision sentences still come
+  from the on-time rule (on time 1, late ½, never done 0), and the rule box says so; the figure that rule gives is
+  shown nowhere. The Dashboard's Today's score (§81) was the minus form already.
+
+Tests: frontend/tests/minusScore.test.ts (the formatter: "−20", "0", never a percent; `shownScore`),
+dailyNudgeStanding.test.ts (the standing line), mitraHistoryReview.test.ts and backend/tests/apiV1Records.test.ts
+(Mitra's and the phone's lines), voice.test.ts (the spoken reminder), teamMinusScore.test.ts (the card's words),
+latenessCore.test.ts (the order, held to the reference with the minus score first); tests/e2e_performance.py (every
+line, card, tile and CSV row in the minus form, no "out of 100", no percent).
+
 **Tests.** frontend/tests/minusScore.test.ts (10): the rule and its figure (8 of 10 and 16 of 20 both −20%, 1 of 3 is
 −67, 199 of 200 is −1, nothing due 0, "−20%" and "0%"), the owner's example (10 due, 8 done: −20%, the score still 70 or
 80), late costs nothing, 0 never −0, not due yet and still open today (and the next day), the plant's closed days and an

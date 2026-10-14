@@ -65,7 +65,6 @@ import {
   attribute,
   dateInZone,
   plantClosedDays,
-  scoreOf,
   type CalendarMaster,
   type LatenessDocument,
   type LatenessPerson,
@@ -762,6 +761,18 @@ export interface DigestBody {
 
 const emptyCounts = (): Counts => ({ due: 0, onTime: 0, late: 0, neverDone: 0, pending: 0 });
 
+/** The minus score of a count (§92): round(done ÷ due × 100) − 100, at most −1 while anything was never done, 0 when nothing was; null when nothing was due. */
+export function minusOf(c: Pick<Counts, "due" | "neverDone">): number | null {
+  if (!(c.due > 0)) return null;
+  const done = Math.min(Math.max(c.due - c.neverDone, 0), c.due);
+  let s = Math.round((done / c.due) * 100) - 100;
+  if (done < c.due) s = Math.min(s, -1);
+  return Math.max(-100, Math.min(0, s)) || 0;
+}
+
+/** The minus score as written in the digest's email: "−20", "0", or "—" when nothing was due. */
+const minusText = (s: number | null): string => (s === null ? "—" : s < 0 ? `−${-s}` : "0");
+
 /** Worst first — the scorecard's order: the lowest score, then the most never done, then the most due; nothing due last. */
 function worstFirst(a: Counts & { score: number | null }, b: Counts & { score: number | null }): number {
   if (a.score === null || b.score === null) return a.score === b.score ? 0 : a.score === null ? 1 : -1;
@@ -821,7 +832,10 @@ export async function runWeeklyDigest(today: string): Promise<{ period: string; 
     add(byDoc, judgement.outcome);
     perDocument.set(doc.id, byDoc);
   }, answerersOf(plant));
-  const scored = <T extends Counts>(c: T): T & { score: number | null } => ({ ...c, score: scoreOf(c.onTime, c.late, c.neverDone) });
+  // THE SCORE IS THE MINUS SCORE (REQUIREMENTS §92; the owner, 13-Oct-2026): round(done ÷ due × 100) − 100, below 0
+  // while anything was never done (a late record still counts as done), 0 when nothing was missed, null when nothing
+  // was due — the same figure engine/performance.ts fmsScore gives the pages. Never the figure out of 100.
+  const scored = <T extends Counts>(c: T): T & { score: number | null } => ({ ...c, score: minusOf(c) });
 
   const departments = Array.from(perDepartment, ([code, c]) => ({ ...scored(c), code, name: deptName(code), people: (accountsOf.get(code) ?? []).map((p) => p.name) })).sort(
     (a, b) => worstFirst(a, b) || a.name.localeCompare(b.name)
@@ -868,7 +882,7 @@ export async function runWeeklyDigest(today: string): Promise<{ period: string; 
     `Weekly digest — ${week}`,
     `<p>${escapeHtml(summary)}.</p>` +
       `<table style="border-collapse:collapse;font-family:sans-serif;font-size:13px;"><thead><tr><th ${cell}>Department</th><th ${cell}>Due</th><th ${cell}>On time</th><th ${cell}>Late</th><th ${cell}>Never done</th><th ${cell}>Score</th></tr></thead><tbody>` +
-      departments.map((d) => `<tr><td ${cell}>${escapeHtml(d.name)}</td><td ${cell}>${d.due}</td><td ${cell}>${d.onTime}</td><td ${cell}>${d.late}</td><td ${cell}>${d.neverDone}</td><td ${cell}>${d.score ?? "—"}</td></tr>`).join("") +
+      departments.map((d) => `<tr><td ${cell}>${escapeHtml(d.name)}</td><td ${cell}>${d.due}</td><td ${cell}>${d.onTime}</td><td ${cell}>${d.late}</td><td ${cell}>${d.neverDone}</td><td ${cell}>${minusText(d.score)}</td></tr>`).join("") +
       `</tbody></table>` +
       (worstDocuments.length ? `<p>Most behind: ${worstDocuments.map((d) => escapeHtml(`${d.what} (${[d.late ? `${d.late} late` : "", d.neverDone ? `${d.neverDone} never done` : ""].filter(Boolean).join(", ")})`)).join("; ")}.</p>` : "") +
       `<p style="color:#6b7280;font-size:12px;">The same digest is on the Performance page for the super admin.</p>`

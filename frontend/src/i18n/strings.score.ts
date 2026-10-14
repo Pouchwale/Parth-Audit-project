@@ -17,7 +17,7 @@
 const en = {
   "perf.minus.label": "Minus score",
   "perf.minus.rule":
-    "the share of the records due that were never done, as an FMS sheet counts it: 10 due and 8 done is −20%, and so is 20 due and 16 done. A record submitted late still counts as done, a record not due yet takes nothing off, and nothing missed is 0%. It sits beside the score out of 100 and changes nothing in it.",
+    "the share of the records due that were never done, as an FMS sheet counts it: 10 due and 8 done is −20, and so is 20 due and 16 done. A record submitted late still counts as done, a record not due yet takes nothing off, and nothing missed is 0. It is the only score shown, always a minus figure or 0 — never the percentage done.",
   "perf.minus.missed": "{done} of {due} done, {n} never done",
   "perf.minus.missedOne": "{done} of {due} done, 1 never done",
   "perf.minus.none": "Nothing missed",
@@ -26,7 +26,7 @@ const en = {
   "perf.minus.openTodayShort": "{n} still open today",
   // Every person's minus score on the administrator's and the super admin's dashboard (9-Oct-2026).
   "perf.team.title": "Minus score of every person",
-  "perf.team.rule": "As an FMS sheet counts it: 8 of 10 records done is −20%, and 0% means nothing was missed. Counted from the records, by the Performance Scorecard's own rules.",
+  "perf.team.rule": "As an FMS sheet counts it: 8 of 10 records done is −20, and 0 means nothing was missed. Counted from the records, by the Performance Scorecard's own rules.",
   "perf.team.plant": "The whole plant",
   "perf.team.done": "{done} of {due} done",
   "perf.team.nothingDue": "No record fell due",
@@ -39,7 +39,7 @@ const en = {
 const gu: Record<keyof typeof en, string> = {
   "perf.minus.label": "માઇનસ સ્કોર",
   "perf.minus.rule":
-    "ભરવાના રેકોર્ડમાંથી કેટલા ટકા ક્યારેય ન થયા, એફએમએસ શીટની રીતે: 10 માંથી 8 થયા હોય તો −20%, અને 20 માંથી 16 થયા હોય તો પણ −20%. મોડો જમા થયેલો રેકોર્ડ પણ થયેલો ગણાય, જેની તારીખ હજી આવી નથી એવો રેકોર્ડ કંઈ ઘટાડતો નથી, અને કંઈ ન છૂટ્યું હોય તો 0%. તે 100 માંથી મળતા સ્કોરની બાજુમાં છે અને તેમાં કંઈ બદલતો નથી.",
+    "ભરવાના રેકોર્ડમાંથી કેટલા ટકા ક્યારેય ન થયા, એફએમએસ શીટની રીતે: 10 માંથી 8 થયા હોય તો −20, અને 20 માંથી 16 થયા હોય તો પણ −20. મોડો જમા થયેલો રેકોર્ડ પણ થયેલો ગણાય, જેની તારીખ હજી આવી નથી એવો રેકોર્ડ કંઈ ઘટાડતો નથી, અને કંઈ ન છૂટ્યું હોય તો 0. આ જ એકમાત્ર સ્કોર છે, હંમેશાં માઇનસ આંકડો કે 0 — થયેલા કામની ટકાવારી ક્યારેય નહીં.",
   "perf.minus.missed": "{due} માંથી {done} થયા, {n} ક્યારેય ન થયા",
   "perf.minus.missedOne": "{due} માંથી {done} થયા, 1 ક્યારેય ન થયો",
   "perf.minus.none": "કંઈ છૂટ્યું નથી",
@@ -47,7 +47,7 @@ const gu: Record<keyof typeof en, string> = {
   "perf.minus.openToday.many": "{n} રેકોર્ડ આજે હજુ ખુલ્લા છે: આજે જમા ન થાય એ દરેક ક્યારેય ન થયેલો ગણાશે.",
   "perf.minus.openTodayShort": "{n} આજે હજુ ખુલ્લા",
   "perf.team.title": "દરેક વ્યક્તિનો માઇનસ સ્કોર",
-  "perf.team.rule": "એફએમએસ શીટની રીતે: 10 માંથી 8 રેકોર્ડ થયા હોય તો −20%, અને 0% એટલે કંઈ છૂટ્યું નથી. રેકોર્ડ પરથી, પરફોર્મન્સ સ્કોરકાર્ડના પોતાના નિયમો પ્રમાણે ગણેલું.",
+  "perf.team.rule": "એફએમએસ શીટની રીતે: 10 માંથી 8 રેકોર્ડ થયા હોય તો −20, અને 0 એટલે કંઈ છૂટ્યું નથી. રેકોર્ડ પરથી, પરફોર્મન્સ સ્કોરકાર્ડના પોતાના નિયમો પ્રમાણે ગણેલું.",
   "perf.team.plant": "આખો પ્લાન્ટ",
   "perf.team.done": "{due} માંથી {done} થયા",
   "perf.team.nothingDue": "કોઈ રેકોર્ડ ભરવાનો નહોતો",

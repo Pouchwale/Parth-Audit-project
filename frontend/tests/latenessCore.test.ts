@@ -176,9 +176,15 @@ namespace REFERENCE {
     const g = grade(score);
     return { due: t.onTime + t.late + t.overdue, onTime: t.onTime, late: t.late, overdue: t.overdue, pending: t.pending, score, grade: g, decision: decide(t, g, today) } as ScoreLine;
   }
+  // The minus score of a line (§92), worked out here on its own: the ORDER has been by it first since 14-Oct-2026 (the
+  // owner, 13-Oct-2026: the only score anybody sees), then as it stood.
+  function minusOf(l: ScoreLine): number {
+    if (!(l.due > 0) || l.overdue <= 0) return 0;
+    return Math.max(-100, Math.min(Math.round(((l.due - l.overdue) / l.due) * 100) - 100, -1));
+  }
   function worstFirst(a: ScoreLine, b: ScoreLine): number {
     if (a.score === null || b.score === null) return a.score === b.score ? 0 : a.score === null ? 1 : -1;
-    return a.score - b.score || b.overdue - a.overdue || b.due - a.due;
+    return minusOf(a) - minusOf(b) || a.score - b.score || b.overdue - a.overdue || b.due - a.due;
   }
   const NO_DEPARTMENT = "";
   const sameName = (s: string): string => s.trim().replace(/\s+/g, " ").toLowerCase();

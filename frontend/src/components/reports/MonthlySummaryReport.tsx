@@ -11,7 +11,7 @@ import { documentOpenRoute } from "../../engine/documentRoutes";
 import { currentInsightInput } from "../../engine/insightsInput";
 import { startMonthlySummary, type MonthlySummary, type MonthlySummaryInput } from "../../engine/monthlySummary";
 import type { Insight, InsightSeverity } from "../../engine/insights";
-import type { ScoreLine } from "../../engine/performance";
+import { formatMinus, type ScoreLine } from "../../engine/performance";
 import { formatDisplayDate, todayISO } from "../../utils/date";
 import { printDocument } from "../../utils/print";
 import { useT } from "../../i18n";
@@ -649,8 +649,9 @@ const ScoreCells = ({ line }: { line: ScoreLine }) => (
     <td className="score-num text-muted" data-col="pending">
       {line.pending}
     </td>
-    <td className="score-num font-bold" data-col="score">
-      {line.score === null ? "—" : line.score}
+    {/* The score is the minus score (REQUIREMENTS §92; the owner, 13-Oct-2026): "−20" or "0", never the figure out of 100. */}
+    <td className={`score-num font-bold notranslate ${line.minus < 0 ? "text-danger" : ""}`} translate="no" data-col="score" data-minus={line.minus}>
+      {line.score === null ? "—" : formatMinus(line.minus)}
     </td>
   </>
 );

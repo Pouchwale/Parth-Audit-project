@@ -386,7 +386,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   "Gurudev's licence"
 - /soc — Statements of Compliance list
 - /assistant — the full-page Assistant chat (the user may already be there; rarely a navigation target)
-- /performance — the Performance Scorecard: a score for each person, department, module and document from what was done on time, late or never done. Use for "scores", "scorecard", "performance", "who is on time", "who is late", "how is Kapila / HR / QC doing"
+- /performance — the Performance Scorecard: a minus score for each person, department, module and document (the share of the records due never done: 8 of 10 done is −20, nothing missed is 0, never a percentage done). Use for "scores", "scorecard", "performance", "who is on time", "who is late", "how is Kapila / HR / QC doing"
 - /search — the global search screen
 - /master-data — admin reference data (employees, chemicals, PC IDs, holidays, ...)${DEMO_ROUTE_LINE}
 Never invent a path outside this list, and never include a record id (you don't know any).`;

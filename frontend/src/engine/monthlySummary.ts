@@ -21,7 +21,9 @@ import { insightCounts, isHumanRecord, startInsights, type Insight, type Insight
 import { breakdownLines, dayMonth, luxReadings, supplierStandings, type BreakdownLine } from "./insightRules";
 import { isLinkedLine, pmActuals, pmDoneIndex, type PmIndex } from "./pmSchedule";
 import {
+  formatMinus,
   grade as gradeOf,
+  minusScore,
   monthRange,
   scoreOf,
   scorecards,
@@ -143,6 +145,7 @@ export interface RecordsPart extends Part {
   never: number;
   /** Not due yet — shown, never counted. */
   pending: number;
+  /** The minus score (§92; the owner, 13-Oct-2026): the share of the records due never done, −20 or 0; null when nothing was due. */
   score: number | null;
   grade: Grade;
   /** Modules and departments with anything due or to come, worst first. */
@@ -561,8 +564,10 @@ function recordsPart(input: MonthlySummaryInput, frame: Frame, seen: Seen, cards
     pending += d.pending;
   }
   const due = onTime + late + never;
-  const score = scoreOf(onTime, late, never);
-  const g = gradeOf(score);
+  // The grade's words weigh lateness (on time 1, late ½, never done 0); the SCORE anybody reads is the minus score
+  // (REQUIREMENTS §92; the owner, 13-Oct-2026): the share of the records due never done, −20 or 0, never a percentage done.
+  const g = gradeOf(scoreOf(onTime, late, never));
+  const score = due > 0 ? minusScore(never, due) : null;
   const byModule = cards.byModule.filter((m) => m.due + m.pending > 0);
   const byDepartment = cards.byDepartment.filter((d) => d.due + d.pending > 0);
   const worstDocuments = cards.byDocument.filter((d) => d.late + d.overdue > 0).slice(0, 3);
@@ -587,17 +592,19 @@ function recordsPart(input: MonthlySummaryInput, frame: Frame, seen: Seen, cards
   } else {
     sentences.push(
       `${grouped(onTime)} of ${plural(due, "record")} that fell due in ${frame.label} ${onTime === 1 ? "was" : "were"} handed in on time, ${grouped(late)} late and ${grouped(never)} never done` +
-        `${pending > 0 ? ` (${grouped(pending)} more not due yet)` : ""} — a score of ${score} out of 100, ${g.label.toLowerCase()}.`
+        `${pending > 0 ? ` (${grouped(pending)} more not due yet)` : ""} — score ${formatMinus(score ?? 0)}, ${g.label.toLowerCase()}.`
     );
-    sentences.push("The score counts a record on time as 1, late as ½ and never done as 0 — the Performance Scorecard's rule.");
+    sentences.push(
+      "The score is the share of the records due that were never done, as an FMS sheet counts it: 10 due and 8 done is −20, nothing missed is 0, and a record submitted late still counts as done. The grade's words weigh lateness too: on time 1, late ½, never done 0 — the Performance Scorecard's rule."
+    );
     const scoredModules = byModule.filter((m) => m.due > 0);
     if (scoredModules.length > 1) {
       const worst = scoredModules[0];
       const best = scoredModules[scoredModules.length - 1];
       sentences.push(
-        worst.score === best.score
-          ? `Every module scored ${worst.score}.`
-          : `By module, ${worst.module} scored lowest (${worst.score}: ${worst.onTime} of ${worst.due} on time) and ${best.module} highest (${best.score}).`
+        worst.minus === best.minus
+          ? `Every module scored ${formatMinus(worst.minus)}.`
+          : `By module, ${worst.module} scored lowest (${formatMinus(worst.minus)}: ${worst.due - worst.overdue} of ${worst.due} done) and ${best.module} highest (${formatMinus(best.minus)}).`
       );
     }
     if (worstDocuments.length > 0) {
@@ -1171,7 +1178,7 @@ function headlineOf(s: MonthlySummary): string[] {
   else if (r.due === 0) out.push(`${when}, ${where}, no record fell due${r.pending > 0 ? `; ${plural(r.pending, "record")} still to come` : ""}.`);
   else
     out.push(
-      `${when}, ${where}, ${grouped(r.onTime)} of ${plural(r.due, "record")} due ${r.onTime === 1 ? "was" : "were"} handed in on time, ${grouped(r.late)} late and ${grouped(r.never)} never done — a score of ${r.score} (${r.grade.label.toLowerCase()}).`
+      `${when}, ${where}, ${grouped(r.onTime)} of ${plural(r.due, "record")} due ${r.onTime === 1 ? "was" : "were"} handed in on time, ${grouped(r.late)} late and ${grouped(r.never)} never done — score ${formatMinus(r.score ?? 0)} (${r.grade.label.toLowerCase()}).`
     );
 
   // What needs attention, most serious first; a part with nothing to say gives nothing here.
