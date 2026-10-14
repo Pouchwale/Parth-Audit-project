@@ -22,6 +22,8 @@ export const HINDI = {
   // "Fill it with sample data" asked of a live record (REQUIREMENTS §98, engine/sampleFill.ts).
   sampleLiveDeclined: "नमूना डेटा केवल डेमो मोड में अभ्यास के लिए है। लाइव रिकॉर्ड में वही भरें जो आपने देखा।",
   noteLatin: "Hindi mein poora jawab dene ke liye AI seva chahiye, jo abhi uplabdh nahi hai.",
+  // The microphone over the LAN's http address (utils/micCheck.ts); {port} is this DCRS's port.
+  micSecureAddress: "माइक्रोफ़ोन केवल सुरक्षित पते पर काम करता है। DCRS कंप्यूटर पर http://localhost:{port} खोलें, या उसका https पता खोलें, और फिर कोशिश करें।",
   sample: {
     female: "नमस्ते! मैं मित्र हूँ। कोई काम बाकी होगा तो मैं याद दिलाऊँगी, और काम पूरा होने पर शाबाशी दूँगी।",
     male: "नमस्ते! मैं मित्र हूँ। कोई काम बाकी होगा तो मैं याद दिलाऊँगा, और काम पूरा होने पर शाबाशी दूँगा।",

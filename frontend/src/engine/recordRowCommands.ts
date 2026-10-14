@@ -1,5 +1,6 @@
 import type { LogColumn, LogSheetData, LogSheetLayout, LogSheetRow } from "../types";
 import { findByLabel } from "./formatCommands";
+import { blankLogRow } from "./recordDefaults";
 
 // A RECORD'S OWN LINES, CHANGED BY SAYING SO (REQUIREMENTS §64).
 //
@@ -111,11 +112,9 @@ export function parseRowCommand(text: string): RowCommand | null {
 // ---------------------------------------------------------------------------
 // doing it
 
-/** A new line, exactly as the sheet's own Add Row builds one (components/records/LogSheetRecordView.tsx). */
+/** A new line, exactly as the sheet's own Add Row builds one: blank in every box that is not printed (engine/recordDefaults.ts, REQUIREMENTS §98). */
 export function blankRow(layout: LogSheetLayout, id: string): LogSheetRow {
-  const row: LogSheetRow = { id };
-  for (const c of layout.columns) row[c.key] = c.type === "number" ? null : c.autoFill?.default !== undefined && c.type !== "text" ? String(c.autoFill.default) : "";
-  return row;
+  return blankLogRow(layout, id);
 }
 
 const isBlank = (v: unknown): boolean => v === null || v === undefined || String(v).trim() === "";
