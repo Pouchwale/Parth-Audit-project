@@ -97,7 +97,8 @@ export function ownStanding(
   const cards = scorecards(records, docs, people, "this-month", today, calendar);
   const line = cards.byPerson.find((p) => p.person.id === me.id);
   if (!line || !line.answers || line.score === null) return null;
-  return { score: line.score, grade: line.grade.label, rank: null, outOf: 1, best: null, minus: line.minus };
+  // The score anybody is told is the minus score (REQUIREMENTS §92; the owner, 13-Oct-2026), never the figure out of 100.
+  return { score: line.minus, grade: line.grade.label, rank: null, outOf: 1, best: null };
 }
 
 export function DailyNudge() {

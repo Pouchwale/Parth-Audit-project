@@ -124,11 +124,23 @@ test("the figure and its words: the share never done, as FMS counts it; 0 (never
   assert.ok(Object.is(minusScore(3, Number.NaN), 0));
   assert.equal(fmsScore(8, 10), -20);
   assert.ok(Object.is(fmsScore(10, 10), 0));
-  assert.equal(formatMinus(0), "0%");
-  assert.equal(formatMinus(-0), "0%", "never written as -0");
-  assert.equal(formatMinus(-20), `${MINUS}20%`, "a true minus sign (U+2212)");
-  assert.equal(formatMinus(-100), `${MINUS}100%`);
-  assert.equal(formatMinus(minusScore(1, 3)), `${MINUS}33%`);
+  // The owner, 13-Oct-2026: "-20 not 80 percent" — a minus sign and no percent sign, "0" when nothing was missed.
+  assert.equal(formatMinus(0), "0");
+  assert.equal(formatMinus(-0), "0", "never written as -0");
+  assert.equal(formatMinus(-20), `${MINUS}20`, "a true minus sign (U+2212), no percent sign");
+  assert.equal(formatMinus(-100), `${MINUS}100`);
+  assert.equal(formatMinus(minusScore(1, 3)), `${MINUS}33`);
+  assert.doesNotMatch(formatMinus(-20), /%/);
+});
+
+test("the score anybody is shown is the minus score, never the figure out of 100 (the owner, 13-Oct-2026)", async () => {
+  const { shownScore } = await import("../src/engine/performance");
+  assert.equal(shownScore({ score: 80, minus: -20 }), `${MINUS}20`, "8 of 10 done: -20, not 80");
+  assert.equal(shownScore({ score: 100, minus: 0 }), "0");
+  assert.equal(shownScore({ score: 70, minus: 0 }), "0", "late costs nothing: a late record was still done");
+  assert.equal(shownScore({ score: null, minus: 0 }), "—", "not scored at all");
+  assert.equal(shownScore(null), "—");
+  for (const minus of [-100, -67, -20, -1, 0]) assert.doesNotMatch(shownScore({ score: 50, minus }), /^[1-9]|%/, "never a positive number, never a percent");
 });
 
 test("the owner's example: 10 records due and 8 handed in is -20%, for the person, the department, the document and the module", () => {
@@ -142,7 +154,7 @@ test("the owner's example: 10 records due and 8 handed in is -20%, for the perso
   const jeni = card(cards, JENI);
   assert.deepEqual([jeni.due, jeni.onTime, jeni.late, jeni.overdue, jeni.pending], [10, 6, 2, 2, 0]);
   assert.equal(jeni.minus, -20, "10 due, 8 handed in: -20");
-  assert.equal(formatMinus(jeni.minus), `${MINUS}20%`);
+  assert.equal(formatMinus(jeni.minus), `${MINUS}20`);
   assert.equal(jeni.score, 70, "the score out of 100 is the same formula as ever: (6 + 1) / 10");
   assert.equal(jeni.openToday, 0);
   assert.equal(department(cards, "QC")?.minus, -20);
@@ -158,7 +170,7 @@ test("the owner's example: 10 records due and 8 handed in is -20%, for the perso
   const twenty = [...days(1, 16).map((d) => rec(qcDaily, sep(d), handedIn(sep(d), "Jeni"))), ...days(17, 20).map((d) => rec(qcDaily, sep(d)))];
   const share = card(score(twenty, "2026-09-24"), JENI);
   assert.deepEqual([share.due, share.overdue, share.minus], [20, 4, -20]);
-  assert.equal(formatMinus(share.minus), `${MINUS}20%`);
+  assert.equal(formatMinus(share.minus), `${MINUS}20`);
 });
 
 test("a record handed in late was done: it costs nothing", () => {
@@ -166,7 +178,7 @@ test("a record handed in late was done: it costs nothing", () => {
   const jeni = card(score(records, "2026-09-24"), JENI);
   assert.deepEqual([jeni.due, jeni.late, jeni.overdue], [10, 4, 0]);
   assert.ok(Object.is(jeni.minus, 0), `nothing missed is exactly 0, got ${jeni.minus}`);
-  assert.equal(formatMinus(jeni.minus), "0%");
+  assert.equal(formatMinus(jeni.minus), "0");
   assert.equal(jeni.score, 80);
 });
 

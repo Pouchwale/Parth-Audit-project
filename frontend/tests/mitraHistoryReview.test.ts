@@ -428,14 +428,15 @@ test("12b: in a shared department a person's score is the Scorecard's, and witho
   const pageScore = page.byPerson.find((p) => p.person.id === "u-vinay")?.score;
   const aloneScore = alone.byPerson.find((p) => p.person.id === "u-vinay")?.score;
   assert.notEqual(pageScore, aloneScore, "the case is one where scoring alone gives another figure");
-  assert.match(pack.text, new RegExp(`"Vinay Bhojak": score ${pageScore},`), pack.text);
-  // ...and his minus score (§92) is the Scorecard's too, beside it; the department's line carries its own.
+  // The score Mitra gives is the minus score (§92; the owner, 13-Oct-2026), the Scorecard's own — never the figure out of 100.
   const pageMinus = page.byPerson.find((p) => p.person.id === "u-vinay")?.minus ?? Number.NaN;
-  assert.ok(pack.text.includes(`"Vinay Bhojak": score ${pageScore}, minus score ${formatMinus(pageMinus)},`), pack.text);
+  assert.ok(pack.text.includes(`"Vinay Bhojak": score ${formatMinus(pageMinus)},`), pack.text);
+  assert.ok(!pack.text.includes(`"Vinay Bhojak": score ${pageScore},`), "the figure out of 100 is said nowhere");
   const departmentLines = page.byDepartment.filter((d) => d.due > 0).slice(0, 3);
   assert.ok(departmentLines.length > 0);
-  for (const d of departmentLines) assert.ok(pack.text.includes(`${d.code ? ` (${d.code})` : ""}: score ${d.score}, minus score ${formatMinus(d.minus)},`), `${d.code}\n${pack.text}`);
-  assert.match(pack.text, /Performance Scorecard[^\n]*, minus score (0%|−\d+%) \(the share of the records due never done, as FMS counts it: 8 of 10 done is −20%\)/);
+  for (const d of departmentLines) assert.ok(pack.text.includes(`${d.code ? ` (${d.code})` : ""}: score ${formatMinus(d.minus)},`), `${d.code}\n${pack.text}`);
+  assert.match(pack.text, /Performance Scorecard[^\n]* — score (0|−\d+) \(the share of the records due never done, as FMS counts it: 8 of 10 done is −20; a late record still counts as done\)/);
+  assert.doesNotMatch(pack.text, /score \d+%|minus score/);
 
   // Kavita asks when the list cannot be read: no score for her at all, and the pack says why.
   const failing = await evidenceOptionsFor(intent, kavita, () => Promise.reject(new Error("offline")));

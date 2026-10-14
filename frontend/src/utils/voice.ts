@@ -59,6 +59,7 @@ import type { SayRequest } from "../engine/engageBus";
 import { assistantConfigured } from "../engine/features";
 import { generalPurposeLine, purposeLine } from "../engine/purpose";
 import { gapScoreLine } from "../engine/motivation";
+import { formatMinus } from "../engine/performance";
 import { assistantApi, ApiError } from "../api/client";
 import { settingsRepository, type AppSettings } from "../data/repositories/settingsRepository";
 import { STRINGS, type Language } from "../i18n/strings";
@@ -701,7 +702,7 @@ export interface ReminderFacts {
   documentName: string;
   /** 0 = due today; negative = that many days late. */
   daysUntilDue: number;
-  /** Their on-time score this month, when it is known; null leaves the number out. */
+  /** Their score this month when it is known — the minus score, −20 when one in five was missed (said "minus 20"); null leaves the number out. */
   score: number | null;
   /** The document's module, for the line on why it matters. */
   module?: string;
@@ -729,7 +730,7 @@ export function reminderLine(f: ReminderFacts, lang: Language): string {
   const nudge =
     f.day && f.day.total > 0 && f.day.done < f.day.total
       ? gapScoreLine(f.day.done, f.day.total, lang)
-      : words(lang, `voice.nudge.${kind}${scored ? ".score" : ""}.${variant(`${f.seed}|nudge`, 3) + 1}`, scored ? { score: Math.round(f.score as number) } : undefined);
+      : words(lang, `voice.nudge.${kind}${scored ? ".score" : ""}.${variant(`${f.seed}|nudge`, 3) + 1}`, scored ? { score: formatMinus(f.score as number) } : undefined);
   return `${addressed(f.firstName, intro)} ${nudge} ${purposeLine(f.module, lang, f.seed)}`;
 }
 

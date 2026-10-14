@@ -461,8 +461,10 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.equal(late.status, 200, JSON.stringify(late.body));
     const evidence = late.body.evidence as string[];
     const plant = evidence.find((l) => l.includes("Performance Scorecard")) ?? "";
-    assert.match(plant, /minus score (0%|−\d+%) \(the share of the records due never done, as FMS counts it: 8 of 10 done is −20%\)/, JSON.stringify(evidence));
-    assert.ok(evidence.some((l) => /\(HR\): score \d+, minus score (0%|−\d+%),/.test(l)), JSON.stringify(evidence));
+    // The score the phone is given is the minus score, "−20" or "0" (the owner, 13-Oct-2026) — never a percentage done.
+    assert.match(plant, / — score (0|−\d+) \(the share of the records due never done, as FMS counts it: 8 of 10 done is −20; a late record still counts as done\)/, JSON.stringify(evidence));
+    assert.ok(evidence.some((l) => /\(HR\): score (0|−\d+),/.test(l)), JSON.stringify(evidence));
+    assert.ok(!evidence.some((l) => /score [1-9]\d*[,%]/.test(l)), JSON.stringify(evidence));
   });
 
   it("submit, then a change is refused until the record is reopened; the super admin verifies it", async () => {

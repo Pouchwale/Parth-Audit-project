@@ -109,9 +109,9 @@ function GradeBadge({ line }: { line: ScoreLine }) {
  * minus sign, kept out of translation. The plain number is on the element that
  * holds it (data-minus), so a reader never has to parse the sign.
  */
-function MinusFigure({ minus, className = "" }: { minus: number; className?: string }) {
+function MinusFigure({ minus, className = "", field }: { minus: number; className?: string; field?: string }) {
   return (
-    <span className={`notranslate ${className}`.trim()} translate="no">
+    <span className={`notranslate ${className}`.trim()} translate="no" data-field={field} data-minus={field ? minus : undefined}>
       {formatMinus(minus)}
     </span>
   );
@@ -157,9 +157,7 @@ function ScoreCells({ line }: { line: ScoreLine }) {
       <td className="score-num text-muted" data-col="pending">
         {line.pending}
       </td>
-      <td className="score-num font-bold" data-col="score">
-        {line.score === null ? "—" : line.score}
-      </td>
+      {/* THE SCORE IS THE MINUS SCORE (the owner, 13-Oct-2026): the figure out of 100 is shown nowhere. */}
       <td className={`score-num font-bold ${line.minus < 0 ? "text-danger" : ""}`} data-col="minus" data-minus={line.minus} data-open-today={line.openToday}>
         <MinusFigure minus={line.minus} />
       </td>
@@ -181,7 +179,6 @@ function ScoreHeadings({ first }: { first: string }) {
         <th className="score-num">Late</th>
         <th className="score-num">Never done</th>
         <th className="score-num">Not due yet</th>
-        <th className="score-num">Score</th>
         {/* It may wrap on paper (styles.css): the printout is fitted to the narrowest the tables can be. */}
         <th {...minus.hold("score-num score-minus-head")}>{minus.say("perf.minus.label")}</th>
         <th>Grade</th>
@@ -240,7 +237,7 @@ function WeeklyDigestCard({ digest, lang, onOpen }: { digest: WeeklyDigest; lang
       <div className="card-pad" style={{ paddingTop: 0 }}>
         <p className="text-sm mb-3" data-field="digest-summary">
           {t.due} record{t.due === 1 ? " was" : "s were"} due: {t.onTime} on time, {t.late} late, {t.neverDone} never done
-          {t.score !== null ? ` — a score of ${t.score}` : ""}. CAPA: {capa.internalOpen} finding{capa.internalOpen === 1 ? "" : "s"} open, {capa.internalOverdue} past target
+          {t.due > 0 ? ` — a score of ${formatMinus(minusScore(t.neverDone, t.due))}` : ""}. CAPA: {capa.internalOpen} finding{capa.internalOpen === 1 ? "" : "s"} open, {capa.internalOverdue} past target
           {capa.externalOpen + capa.externalAwaiting > 0 ? `; ${capa.externalOpen} customer complaint${capa.externalOpen === 1 ? "" : "s"} being worked on, ${capa.externalAwaiting} waiting for approval` : ""}.{" "}
           {b.escalations.raised > 0
             ? `${b.escalations.raised} escalation${b.escalations.raised === 1 ? "" : "s"} raised that week${b.escalations.open > 0 ? `, ${b.escalations.open} not yet acknowledged` : ""}.`
@@ -275,8 +272,8 @@ function WeeklyDigestCard({ digest, lang, onOpen }: { digest: WeeklyDigest; lang
                     <td className={`score-num ${d.neverDone ? "text-danger font-semibold" : ""}`} data-col="neverDone">
                       {d.neverDone}
                     </td>
-                    <td className="score-num font-bold" data-col="score">
-                      {d.score === null ? "—" : d.score}
+                    <td className="score-num font-bold notranslate" translate="no" data-col="score" data-minus={d.due > 0 ? minusScore(d.neverDone, d.due) : undefined}>
+                      {d.due > 0 ? formatMinus(minusScore(d.neverDone, d.due)) : "—"}
                     </td>
                   </tr>
                 ))}
@@ -367,15 +364,12 @@ export function PersonCard({
 
       {p.answers ? (
         <>
-          <div className="score-card-figure">
-            <span className="score-big notranslate" translate="no" data-field="person-score">
-              {p.score === null ? "—" : p.score}
-            </span>
-            {p.score !== null && <span className="text-muted text-sm">out of 100</span>}
+          {/* THE SCORE IS THE MINUS SCORE (REQUIREMENTS §92, the owner, 13-Oct-2026): the share of the records due never done,
+              "−20" or "0", the only figure on the card; the score out of 100 is shown nowhere. */}
+          <div className="score-card-figure" data-tone={p.minus < 0 ? "minus" : "zero"}>
+            <MinusFigure minus={p.minus} className={`score-big score-minus-figure ${p.minus < 0 ? "text-danger" : ""}`} field="person-score" />
           </div>
-          {/* THE MINUS SCORE (REQUIREMENTS §92), as FMS counts it: the share of the records due never done, beside the score, never instead of it. */}
           <div className="score-minus" data-field="person-minus" data-minus={p.minus} data-open-today={p.openToday} data-tone={p.minus < 0 ? "minus" : "zero"}>
-            <MinusFigure minus={p.minus} className="score-minus-figure" />
             <span {...minus.hold("score-minus-label")}>
               <strong>{minus.say("perf.minus.label")}</strong>{" "}
               {p.overdue === 0
@@ -441,8 +435,8 @@ export function PersonCard({
                 <span className="score-worst-figures">
                   {w.overdue > 0 && <span className="text-danger">{w.overdue} never done</span>}
                   {w.late > 0 && <span className="text-warning">{w.late} late</span>}
-                  <strong className="notranslate" translate="no">
-                    {w.score}
+                  <strong className="notranslate" translate="no" data-minus={w.minus}>
+                    {formatMinus(w.minus)}
                   </strong>
                 </span>
               </button>
@@ -623,22 +617,22 @@ export function PerformancePage() {
   const scope = departmentScope();
 
   const exportCSV = () => {
-    // The minus score and what is still open today go after the score (columns 10 and 11): every column before them stays where it was.
-    const figures = (l: ScoreLine, note = "") => [l.due, l.onTime, l.late, l.overdue, l.pending, l.score === null ? "" : l.score, l.minus, l.openToday, l.grade.label, decisionText(l.decision) + note];
+    // The score column is the minus score as a plain number (-20; the owner, 13-Oct-2026), then what is still open today (column 10), the grade and the decision.
+    const figures = (l: ScoreLine, note = "") => [l.due, l.onTime, l.late, l.overdue, l.pending, l.score === null ? "" : l.minus, l.openToday, l.grade.label, decisionText(l.decision) + note];
     // The same warning the card carries, for a person scored here on part of their work.
     const partly = (p: PersonScore) => {
       const unseen = outsideView(p, scope);
       return unseen.length ? ` Not counted here: ${unseen.map(departmentName).join(" and ")}, outside the departments of whoever exported this.` : "";
     };
     const rows: (string | number)[][] = [
-      ...cards.byPerson.map((p) => ["Person", p.person.name, p.answers ? p.departments.join(" ") : "Every department — not scored", ...(p.answers ? figures(p, partly(p)) : ["", "", "", "", "", "", "", "", "No score", decisionText(p.decision)])]),
+      ...cards.byPerson.map((p) => ["Person", p.person.name, p.answers ? p.departments.join(" ") : "Every department — not scored", ...(p.answers ? figures(p, partly(p)) : ["", "", "", "", "", "", "", "No score", decisionText(p.decision)])]),
       ...cards.byDepartment.map((d) => ["Department", d.name, d.code, ...figures(d)]),
       ...cards.byModule.map((m) => ["Module", m.module, "", ...figures(m)]),
       ...cards.byDocument.map((d) => ["Document", `${d.doc.formatNo.toUpperCase().startsWith("TO BE") ? "" : `${d.doc.formatNo} `}${d.doc.name}`, d.department, ...figures(d)]),
     ];
     downloadCSV(
       `performance-scorecard-${cards.period.from}-to-${cards.period.to}${isDemo ? "-demo" : ""}.csv`,
-      toCSV(["Scored", "Name", "Department", "Records due", "On time", "Late", "Never done", "Not due yet", "Score", "Minus score (%)", "Still open today", "Grade", "Decision"], rows)
+      toCSV(["Scored", "Name", "Department", "Records due", "On time", "Late", "Never done", "Not due yet", "Score", "Still open today", "Grade", "Decision"], rows)
     );
   };
 
@@ -692,8 +686,9 @@ export function PerformancePage() {
         </div>
 
         <div className="score-rule mb-4" data-section="performance-rule">
-          <strong>How a score is worked out.</strong> Every record that fell due in the period counts: on time 1, late ½, never done 0. The score is what
-          was earned out of the records due, as a percentage — 90 and over is excellent, 75 on track, 50 needs attention, under 50 falling behind. A
+          <strong>How a score is worked out.</strong> The score is always a minus figure — how much of what fell due was never done: 10 due and 8 done is
+          −20 and nothing missed is 0, never a percentage done. Every record that fell due in the period counts. The grade&apos;s words weigh
+          lateness too: on time 1, late ½, never done 0, out of the records due — 90 and over is excellent, 75 on track, 50 needs attention, under 50 falling behind. A
           scheduled record is on time when it is submitted on or before its due date; an as-required record gets {AS_REQUIRED_DAYS} days from the date it is
           for, and the last of them is never a day the plant was closed. A record put right later is judged by when it was first submitted. Not counted: a day the plant was closed, a holiday line, a reference
           document, and a record that is not due yet.
@@ -714,15 +709,27 @@ export function PerformancePage() {
 
         <div className="flex gap-3 wrap mb-6" data-section="performance-overall" data-period={periodKey}>
           <div className="stat-tile">
-            <div className="stat-value notranslate" translate="no" data-overall="score">
-              {overall.score === null ? "—" : overall.score}
+            <div
+              className="stat-value"
+              style={{ color: overall.minus < 0 ? "var(--color-danger)" : "var(--color-success)" }}
+              data-overall="minus"
+              data-minus={overall.minus}
+              data-open-today={overall.openToday}
+            >
+              <MinusFigure minus={overall.minus} />
             </div>
+            <div {...minus.hold("stat-label")}>{minus.say("perf.minus.label")}</div>
             <div className="stat-label">
               <span aria-hidden="true">{overall.grade.emoji}</span> {overall.grade.label} — {periodLabel.toLowerCase()}
             </div>
             <div className="text-xs text-faint notranslate" translate="no">
               {range}
             </div>
+            {overall.openToday > 0 && (
+              <div {...minus.hold("text-xs text-faint")} data-field="overall-open-today" data-open-today={overall.openToday}>
+                {minus.say("perf.minus.openTodayShort", { n: overall.openToday })}
+              </div>
+            )}
           </div>
           <div className="stat-tile">
             <div className="stat-value" data-overall="due">
@@ -747,23 +754,6 @@ export function PerformancePage() {
               {overall.overdue}
             </div>
             <div className="stat-label">Never done</div>
-          </div>
-          <div className="stat-tile">
-            <div
-              className="stat-value"
-              style={{ color: overall.minus < 0 ? "var(--color-danger)" : "var(--color-success)" }}
-              data-overall="minus"
-              data-minus={overall.minus}
-              data-open-today={overall.openToday}
-            >
-              <MinusFigure minus={overall.minus} />
-            </div>
-            <div {...minus.hold("stat-label")}>{minus.say("perf.minus.label")}</div>
-            {overall.openToday > 0 && (
-              <div {...minus.hold("text-xs text-faint")} data-field="overall-open-today" data-open-today={overall.openToday}>
-                {minus.say("perf.minus.openTodayShort", { n: overall.openToday })}
-              </div>
-            )}
           </div>
         </div>
 

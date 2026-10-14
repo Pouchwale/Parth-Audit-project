@@ -69,18 +69,19 @@ test("there is an HR document filled in every day to build the month from", () =
 test("in a department two accounts share, the notification's score is the scorecard's, not the person's alone", () => {
   const onPage = scorecardLine(ASHA, SEPTEMBER);
   // Asha answers for her own late sheet and the one nobody handed in; Bhavna's four count for Bhavna.
-  assert.deepEqual([onPage?.onTime, onPage?.late, onPage?.overdue, onPage?.score], [0, 1, 1, 25]);
+  // 1 of 2 done: the minus score is −50 (the score anybody is told since 13-Oct-2026); the on-time figure 25 is shown nowhere.
+  assert.deepEqual([onPage?.onTime, onPage?.late, onPage?.overdue, onPage?.score, onPage?.minus], [0, 1, 1, 25, -50]);
   const standing = ownStanding(ASHA, DIRECTORY, SEPTEMBER, documents, TODAY, CALENDAR);
-  assert.equal(standing?.score, onPage?.score, "the notification and the Performance Scorecard give Asha different scores");
+  assert.equal(standing?.score, onPage?.minus, "the notification and the Performance Scorecard give Asha different scores");
   assert.equal(standing?.grade, onPage?.grade.label);
-  // Bhavna's own line too: her four on time and the one nobody handed in.
-  assert.equal(ownStanding(BHAVNA, DIRECTORY, SEPTEMBER, documents, TODAY, CALENDAR)?.score, scorecardLine(BHAVNA, SEPTEMBER)?.score);
-  assert.equal(scorecardLine(BHAVNA, SEPTEMBER)?.score, 80);
+  // Bhavna's own line too: her four on time and the one nobody handed in, 4 of 5 done.
+  assert.equal(ownStanding(BHAVNA, DIRECTORY, SEPTEMBER, documents, TODAY, CALENDAR)?.score, scorecardLine(BHAVNA, SEPTEMBER)?.minus);
+  assert.equal(scorecardLine(BHAVNA, SEPTEMBER)?.minus, -20);
 });
 
 test("a directory that leaves the person out still scores them, with everybody else in it", () => {
   const standing = ownStanding(ASHA, [BHAVNA, QC], SEPTEMBER, documents, TODAY, CALENDAR);
-  assert.equal(standing?.score, 25);
+  assert.equal(standing?.score, -50);
 });
 
 test("without the list of accounts, a score a colleague's records could have changed is left out, not guessed", () => {
@@ -92,26 +93,31 @@ test("without the list, a score nobody else's records touch is still said — an
   const hers = [sheet(1, "Asha Patel"), sheet(2, "  asha  PATEL "), sheet(5, "Asha Patel", 2), sheet(6, null)];
   const standing = ownStanding(ASHA, null, hers, documents, TODAY, CALENDAR);
   assert.ok(standing, "a score that cannot be wrong was left out");
-  assert.equal(standing.score, scorecardLine(ASHA, hers)?.score);
+  assert.equal(standing.score, scorecardLine(ASHA, hers)?.minus, "the score said is the minus score (the owner, 13-Oct-2026)");
   assert.equal(standing.rank, null, "no place is claimed without the list");
 });
 
-test("the notification says the minus score too, the scorecard's own (REQUIREMENTS §92)", async () => {
+test("the notification's score is the minus score, the scorecard's own, and nothing else (REQUIREMENTS §92; the owner, 13-Oct-2026)", async () => {
   const { encourage } = await import("../src/engine/notifications");
-  // Asha answers for the sheet nobody handed in and her own late one: 1 of 2 done, -50%. Bhavna: her four and that one, 4 of 5, -20%.
+  // Asha answers for the sheet nobody handed in and her own late one: 1 of 2 done, -50. Bhavna: her four and that one, 4 of 5, -20.
   const standing = ownStanding(ASHA, DIRECTORY, SEPTEMBER, documents, TODAY, CALENDAR);
-  assert.equal(standing?.minus, scorecardLine(ASHA, SEPTEMBER)?.minus);
-  assert.equal(standing?.minus, -50);
-  assert.equal(ownStanding(BHAVNA, DIRECTORY, SEPTEMBER, documents, TODAY, CALENDAR)?.minus, -20);
+  assert.equal(standing?.score, scorecardLine(ASHA, SEPTEMBER)?.minus);
+  assert.equal(standing?.score, -50);
+  assert.equal(ownStanding(BHAVNA, DIRECTORY, SEPTEMBER, documents, TODAY, CALENDAR)?.score, -20);
   const work = { notifications: [], high: 0, medium: 0, low: 0, overdue: 0, theirOwn: true, modules: [] };
   const words = encourage(work, standing, "Asha");
-  assert.ok(words.standing.includes(`Minus score this month: ${String.fromCharCode(0x2212)}50%.`), words.standing);
-  assert.ok(words.standing.startsWith(`You are at ${standing?.score}% on the scorecard`), "the score's own words stay first");
+  const MINUS = String.fromCharCode(0x2212);
+  assert.ok(words.standing.startsWith(`You are at ${MINUS}50 on the scorecard`), words.standing);
+  assert.doesNotMatch(words.standing, /\d+%|out of 100|Minus score this month/, "never a percentage, never the figure out of 100");
   // Nothing missed: said as 0, never -0.
   const clean = [sheet(1, "Asha Patel"), sheet(2, "Asha Patel")];
   const cleanStanding = ownStanding(ASHA, DIRECTORY, clean, documents, TODAY, CALENDAR);
-  assert.ok(Object.is(cleanStanding?.minus, 0));
-  assert.ok(encourage(work, cleanStanding, "Asha").standing.includes("Minus score this month: 0, nothing missed."));
+  assert.ok(Object.is(cleanStanding?.score, 0));
+  const cleanWords = encourage(work, cleanStanding, "Asha").standing;
+  assert.ok(cleanWords.startsWith("You are at 0 on the scorecard") && cleanWords.includes("Nothing missed."), cleanWords);
+  // With a place: the leader is whoever is closest to 0, and the gap is in points of the minus score.
+  const placed = encourage(work, { score: -50, grade: "Needs attention", rank: 2, outOf: 3, best: 0 }, "Asha").standing;
+  assert.ok(placed.includes(`2 of 3 on the scorecard at ${MINUS}50`) && placed.includes("The leader is at 0") && placed.includes("closes 50 points"), placed);
   // A standing without the figure says nothing of it.
   assert.ok(!encourage(work, { score: 80, grade: "On track", rank: null, outOf: 1, best: null }, "Asha").standing.includes("Minus"));
 });

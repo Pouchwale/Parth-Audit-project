@@ -686,19 +686,21 @@ test("an audio clip the browser will not play falls back to the browser's voice;
 // ---- the words ----
 
 test("the spoken reminder: the first name, the document, how late or due today, the score when known, why it matters", () => {
-  const base = { firstName: "Heena", documentName: "Line Clearance Checklist", daysUntilDue: 0, score: 92, module: "Quality Control — Inspection Records", seed: "rec-1|2026-09-27" };
+  // The score said is the minus score (the owner, 13-Oct-2026): −8, said "minus 8", never "92%".
+  const base = { firstName: "Heena", documentName: "Line Clearance Checklist", daysUntilDue: 0, score: -8, module: "Quality Control — Inspection Records", seed: "rec-1|2026-09-27" };
   const today = reminderLine(base, "en");
   assert.match(today, /^Heena, the Line Clearance Checklist is due today\. /);
-  assert.match(today, /92%/);
+  assert.match(today, /−8/);
+  assert.doesNotMatch(today, /%|92/);
   assert.ok(today.endsWith(purposeLine(base.module, "en", base.seed)), "ends with why the record matters");
   const late = reminderLine({ ...base, daysUntilDue: -3, score: null }, "en");
   assert.match(late, /is 3 days late\./);
-  assert.doesNotMatch(late, /%/, "no score when it is not known");
+  assert.doesNotMatch(late, /%|−\d/, "no score when it is not known");
   assert.match(reminderLine({ ...base, daysUntilDue: -1 }, "en"), /is a day late\./);
   assert.match(reminderLine({ ...base, firstName: "" }, "en"), /^The Line Clearance Checklist is due today\./);
   const gu = reminderLine(base, "gu");
   assert.match(gu, /^Heena, Line Clearance Checklist આજે ભરવાનું છે\./);
-  assert.ok(GUJARATI.test(gu) && gu.includes("92%"));
+  assert.ok(GUJARATI.test(gu) && gu.includes("−8") && !gu.includes("%"));
   // Different records read differently.
   const nudges = new Set(Array.from({ length: 12 }, (_, i) => reminderLine({ ...base, seed: `rec-${i}` }, "en").split(". ")[1]));
   assert.ok(nudges.size >= 2, "more than one way of saying it");

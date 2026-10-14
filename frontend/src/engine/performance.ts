@@ -113,12 +113,22 @@ export function grade(score: number | null): Grade {
 // which agreed with the example only when exactly 10 were due: 16 of 20 was −40.)
 // It is the day card's rule too (engine/motivation.ts dayGapScore), so nobody is
 // shown two answers: while anything is missing it stays below 0 (199 of 200 is
-// −1%), nothing missed is 0, and nothing due is 0. A record handed in late was
-// still done; one whose day has not ended costs nothing yet. It sits beside the
-// score out of 100, never instead of it, and the records, the people, the
-// calendar and the period are the scorecard's own, so it can never count a
-// record the score does not. A total is scored from its counts, never by adding
-// up the lines' percentages.
+// −1), nothing missed is 0, and nothing due is 0. A record handed in late was
+// still done; one whose day has not ended costs nothing yet. The records, the
+// people, the calendar and the period are the scorecard's own, so it can never
+// count a record the score out of 100 does not. A total is scored from its
+// counts, never by adding up the lines' percentages.
+//
+// SINCE 14-OCT-2026 IT IS THE ONLY SCORE ANYBODY SEES. The owner, 13-Oct-2026:
+// "i want tat score sould be in always negative number only ... if any user
+// assigned any task for example 10 and he has completed 8 then is score is
+// actually 80 percent then his score is -20 not 80 percent on his dashboard as
+// well as superadmin like wise whatever the user see is always in negative
+// only." So every screen, sentence, spoken line and export writes the minus
+// score, as "−20" (a minus sign, no percent sign) or "0", and never the figure
+// out of 100 — which stays here (`score`) only for the grade's words and the
+// decision sentences. The order of every table is by the minus score, worst
+// first (worstFirst below), so a rank is a rank by the minus score.
 
 /** The FMS score: round(done ÷ due × 100) − 100, from −100 to 0; below 0 while anything is missing; 0 when nothing is due. */
 export function fmsScore(done: number, due: number): number {
@@ -136,10 +146,21 @@ export function minusScore(neverDone: number, due: number): number {
   return fmsScore(due - missed, due);
 }
 
-/** The minus score as shown: "0%", or "−20%" with a true minus sign (U+2212). */
+/**
+ * THE SCORE AS SHOWN, SAID AND EXPORTED (the owner, 13-Oct-2026): "0", or "−20"
+ * with a true minus sign (U+2212) and no percent sign — never a positive number.
+ * Where a plain number is wanted (a CSV cell, a data- attribute) the number
+ * itself is written, -20.
+ */
 export function formatMinus(minus: number): string {
   const n = Math.round(Math.abs(minus));
-  return minus < 0 && n > 0 ? `−${n}%` : "0%";
+  return minus < 0 && n > 0 ? `−${n}` : "0";
+}
+
+/** The score of a line as shown: its minus score ("−20", "0"), or "—" when it is not scored at all (`null`). */
+export function shownScore(line: { score: number | null; minus: number } | null | undefined): string {
+  if (!line || line.score === null) return "—";
+  return formatMinus(line.minus);
 }
 
 // ---- Adding up ----------------------------------------------------------------
@@ -277,10 +298,10 @@ function line(t: Tally, today: string): ScoreLine {
   };
 }
 
-/** Worst first: the lowest score, then the most never done, then the most due; nothing due goes last. */
+/** Worst first: the lowest minus score (the rank, 13-Oct-2026), then the lowest score out of 100, then the most never done, then the most due; nothing due goes last. */
 function worstFirst(a: ScoreLine, b: ScoreLine): number {
   if (a.score === null || b.score === null) return a.score === b.score ? 0 : a.score === null ? 1 : -1;
-  return a.score - b.score || b.overdue - a.overdue || b.due - a.due;
+  return a.minus - b.minus || a.score - b.score || b.overdue - a.overdue || b.due - a.due;
 }
 
 // ---- The period -----------------------------------------------------------------

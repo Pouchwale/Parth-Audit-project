@@ -199,25 +199,24 @@ export function daysWork(reminders: readonly DocumentReminder[], person: Pick<Au
  * engine/performance.ts so this file stays free of that walk too.
  */
 export interface Standing {
-  /** Their own score for the period, or null when nothing of theirs has fallen due. */
+  /**
+   * Their own score for the period — THE MINUS SCORE (§92; the owner, 13-Oct-2026: "whatever the user see is always in
+   * negative only"): the share of what fell due that was never done, −20 when one in five was missed, 0 when nothing
+   * was. Null when nothing of theirs has fallen due.
+   */
   score: number | null;
   /** The grade's own words: "Excellent", "On track". */
   grade: string;
-  /** 1 for the person with the best score among those scored; null when they are not scored. */
+  /** 1 for the person closest to 0 among those scored; null when they are not scored. */
   rank: number | null;
   /** How many people are scored at all. */
   outOf: number;
-  /** The score of whoever is first, so "two of these and you lead" can be said truthfully. */
+  /** The score of whoever is first (closest to 0), so "two of these and you lead" can be said truthfully. */
   best: number | null;
-  /** Their minus score for the period (§92), the FMS way: the share of what fell due that was never done (-20 when one in five was missed), 0 when nothing was missed. Left out, nothing is said of it. */
-  minus?: number;
 }
 
-/** The minus score in one sentence (§92), after the score's own: " Minus score this month: −20%." */
-function minusSentence(minus: number | undefined): string {
-  if (minus === undefined || !Number.isFinite(minus)) return "";
-  return minus < 0 ? ` Minus score this month: ${formatMinus(minus)}.` : " Minus score this month: 0, nothing missed.";
-}
+/** What the figure means, in a few words after it: " Nothing missed." at 0, else what brings it back. */
+const meaning = (score: number): string => (score < 0 ? " Every record never done takes it below 0; nothing missed is 0." : " Nothing missed.");
 
 /**
  * THE DAY'S WORDS. One short line that says what is waiting, and one that says
@@ -253,18 +252,18 @@ export function encourage(work: DaysWork, standing: Standing | null, firstName: 
   if (standing.rank === null) {
     return {
       headline,
-      standing: `You are at ${standing.score}% on the scorecard — ${standing.grade}.${minusSentence(standing.minus)}${work.notifications.length > 0 ? " Finishing these on time is what holds it there." : ""}`,
+      standing: `You are at ${formatMinus(standing.score)} on the scorecard — ${standing.grade}.${meaning(standing.score)}${work.notifications.length > 0 ? " Finishing these on time is what holds it there." : ""}`,
     };
   }
   const { score, grade, rank, outOf, best } = standing;
   const leading = rank === 1;
   const behind = best !== null && best > score ? best - score : 0;
-  const minus = minusSentence(standing.minus);
+  const shown = formatMinus(score);
   const standingWords = leading
-    ? `You are top of the scorecard at ${score}% — ${grade}.${minus} Keeping these on time keeps you there.`
+    ? `You are top of the scorecard at ${shown} — ${grade}.${meaning(score)} Keeping these on time keeps you there.`
     : behind > 0
-      ? `You are ${rank} of ${outOf} on the scorecard at ${score}% — ${grade}.${minus} The leader is ${best}%; on-time work is what closes ${behind} point${behind === 1 ? "" : "s"}.`
-      : `You are ${rank} of ${outOf} on the scorecard at ${score}% — ${grade}.${minus}`;
+      ? `You are ${rank} of ${outOf} on the scorecard at ${shown} — ${grade}.${meaning(score)} The leader is at ${formatMinus(best as number)}; on-time work is what closes ${behind} point${behind === 1 ? "" : "s"}.`
+      : `You are ${rank} of ${outOf} on the scorecard at ${shown} — ${grade}.${meaning(score)}`;
   return { headline, standing: standingWords };
 }
 

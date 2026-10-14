@@ -81,7 +81,7 @@ test("every person's line is the Performance Scorecard's, worst first, with the 
 
   // The owner's example: 10 due, 8 done is −20%.
   assert.deepEqual([line("Jeni").due, line("Jeni").done, line("Jeni").minus], [10, 8, -20]);
-  assert.equal(formatMinus(line("Jeni").minus), `${MINUS}20%`);
+  assert.equal(formatMinus(line("Jeni").minus), `${MINUS}20`, "a minus sign and no percent sign (the owner, 13-Oct-2026)");
   // 15 of 20 is −25%: worse, so first.
   assert.deepEqual([line("Asha Patel").due, line("Asha Patel").done, line("Asha Patel").minus], [20, 15, -25]);
   // Each line is the scorecard's own figure.
@@ -105,7 +105,8 @@ test("the card itself: shown while the people are read, the minus score's words 
   const html = renderToStaticMarkup(h(auth.AuthProvider, null, h(store.AppStoreProvider, null, h(router.RouterProvider, null, h(TeamScoreCard)))));
   assert.match(html, /data-section="team-minus"/);
   assert.match(html, /Minus score of every person/);
-  assert.match(html, /8 of 10 records done is −20%/, "the rule says what −20% means");
+  assert.match(html, /8 of 10 records done is −20, and 0 means nothing was missed/, "the rule says what −20 means");
+  assert.doesNotMatch(html, /−20%|0%/, "no percent sign anywhere on the card");
   assert.match(html, /data-state="team-minus-loading"/, "before the accounts arrive, it says it is counting");
   assert.match(html, /data-action="open-performance"/);
 });
