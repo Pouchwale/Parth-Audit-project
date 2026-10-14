@@ -52,7 +52,10 @@ export function sampleFillSwitchedOn(): boolean {
   return env?.ALLOW_SAMPLE_FILL === "1";
 }
 
-/** Whether Mitra has a model to ask — GROQ_API_KEY is set on the server (REQUIREMENTS §72). */
+/**
+ * Whether Mitra has a model to ask — an AI key is set on the server (REQUIREMENTS §72): since §109 the owner's ChatGPT
+ * key, CHATGPT_API_KEY (or OPENAI_API_KEY), else GROQ_API_KEY on a server set up before it (backend/ai.ts).
+ */
 export function assistantConfigured(): boolean {
   return assistant;
 }

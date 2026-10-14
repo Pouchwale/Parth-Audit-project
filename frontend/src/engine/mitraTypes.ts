@@ -7,7 +7,7 @@ import type { ChipAction } from "./guidedChecklist";
 
 // ---- the wire (frontend ⇄ POST /api/assistant/agent) ---------------------
 
-/** One tool the model may call, in the OpenAI function shape Groq takes. */
+/** One tool the model may call, in OpenAI's function shape (ChatGPT since REQUIREMENTS §109; Groq takes it too). */
 export interface ToolSchema {
   type: "function";
   function: { name: string; description: string; parameters: Record<string, unknown> };
@@ -55,7 +55,8 @@ export interface MitraAttachment {
   note?: string;
   /** Images only (≤ 2 MB): for the preview and add_photo_to_open_record. */
   dataUrl?: string;
-  readBy?: "text" | "ocr";
+  /** "model": a picture read by the server's vision model (REQUIREMENTS §109); "ocr": by OCR. */
+  readBy?: "text" | "ocr" | "model";
 }
 
 /** What POST /api/assistant/extract answers. */
@@ -68,7 +69,7 @@ export interface ExtractResult {
   pages?: number;
   sheets?: string[];
   note?: string;
-  readBy: "text" | "ocr";
+  readBy: "text" | "ocr" | "model";
 }
 
 /** What POST /api/assistant/transcribe answers. */

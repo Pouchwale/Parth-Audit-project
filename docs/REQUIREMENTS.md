@@ -8047,6 +8047,165 @@ sheets), tests/e2e_find_every_document.py (the master list no longer offers F-QC
 the document counts in e2e_smoke.py, e2e_hr_module.py (135), e2e_every_record_starts.py, e2e_departments.py
 (52 for a QC account) and e2e_qc_calibration.py (46).
 
+## §109 One AI key for both apps: ChatGPT (OpenAI), fast on the phone (12-Oct-2026)
+
+**The request.** The owner, 12-Oct-2026: "i have added new api so make sure from now use that only everywhere for both
+mobile and audit software and make sure it should respond perfectly specially in mobile it should give fast, response
+and perfectly with good fonts so do work on it and work accordingly with any error." DCRS's `backend/.env` now holds
+one setting, `CHATGPT_API_KEY`, an OpenAI key (it no longer holds `GROQ_API_KEY`). Measured that day on the key, with
+programs that load the file and print no key: 133 models; 5,000 requests and 2,000,000 tokens a minute (Groq's free
+key had 8,000 tokens a minute: open question 51). Streamed with one function tool offered through
+`/v1/chat/completions`, gpt-5.4-mini with `reasoning_effort: "none"` wrote its first words in 0.65 s (English) and
+1.1 s (Gujarati) and called the tool; gpt-4.1-mini in 0.6 to 0.7 s; gpt-5-mini with "minimal" in about 0.8 s. The
+gpt-5.4, 5.6 and 6 families with any other reasoning effort, or none given, refuse function tools there (400, "use
+/v1/responses"). The same key speaks (gpt-4o-mini-tts), hears (gpt-4o-mini-transcribe, gpt-4o-transcribe, whisper-1)
+and reads pictures (image_url data URLs).
+
+**The rule: one key, one place.** `CHATGPT_API_KEY` (also accepted as `OPENAI_API_KEY`, OpenAI's own name) in DCRS's
+`backend/.env` serves BOTH apps. When it is set nothing calls Groq: the chat, Mitra's agent and its tools, the
+checklist's answers, the HR CV reader, pictures, hearing and the voice all go to OpenAI. Groq stays only for a server
+that has no OpenAI key (an older setup, which works exactly as before). The Mitra server takes the AI settings from
+DCRS's `backend/.env` when its own environment has no OpenAI key (its `DCRS_ENV_FILE`, below). Nobody opens or prints
+either file; programs load them, and no key reaches a log line, an answer, a test or a document.
+
+**1. DCRS: one client, the service chosen in one place** (built 12-Oct-2026: `backend/ai.ts`, which was
+`backend/groq.ts`). `aiProvider()` decides from the environment: OpenAI when `CHATGPT_API_KEY` or `OPENAI_API_KEY`
+is set (the first if both), else Groq with `GROQ_API_KEY`, else none (Mitra answers from the system's own records and
+says so, §72). Only WHETHER a key is set reaches the browser (`features.assistant`, backend/features.ts). Five calls
+go through it: `aiChatJSON` (the chat, the answers about history, the checklist, the CV reader), `aiChatWithTools` (a
+round of Mitra's agent, §80), `aiReadPicture` (new), `aiTranscribe` and `aiSpeak`. Plain `fetch`, as before: no new
+package.
+
+**2. The models and their settings**, each overridable in `backend/.env` (`backend/.env.example` names them, and
+docs/DEPLOYMENT.md says each):
+
+| Setting | Default | For |
+|---|---|---|
+| `AI_CHAT_MODEL` | gpt-5.4-mini | the chat, the answers about history, the CV reader |
+| `AI_AGENT_MODEL` | `AI_CHAT_MODEL` | Mitra's agent and its tools |
+| `AI_SHORT_MODEL` | gpt-5.4-nano | a checklist answer read into its four fields |
+| `AI_VISION_MODEL` | gpt-5.4-mini | the words in a picture |
+| `AI_FALLBACK_MODEL` | gpt-4.1-mini | asked once when the first cannot answer; `none`: no second model |
+| `AI_TRANSCRIBE_MODEL` | gpt-4o-mini-transcribe | the microphone |
+| `AI_TTS_MODEL` | gpt-4o-mini-tts | Mitra's voice |
+| `AI_TTS_VOICE_FEMALE` / `_MALE` | coral / ash | the two voices a person chooses between |
+| `AI_DAILY_TOKEN_BUDGET` | 3,000,000 | the cost guard (6. below) |
+
+- *How each model is asked.* On `/v1/chat/completions`, always `max_completion_tokens`, never `max_tokens`. The
+  reasoning effort is the least the model's family takes, so it answers at once and may call tools: `"none"` for
+  gpt-5.1 and later (the 5.4, 5.6 and 6 families), `"minimal"` for gpt-5, gpt-5-mini and gpt-5-nano, `"low"` for the
+  o-series, and nothing for gpt-4.1 and gpt-4o, which do not reason. The analyst's request for more thought (§75)
+  goes to Groq's gpt-oss only: on ChatGPT speed comes first.
+- *Temperature, probed once.* Whether a gpt-5 model takes `temperature` with "none" is learnt at its first answer: a
+  400 that names a parameter the model does not take (`temperature`, `top_p`, `parallel_tool_calls`) has the
+  question asked again without it, and that model's later requests leave it out, for as long as the server runs.
+- *Groq* (no OpenAI key) keeps its own settings and defaults: `GROQ_MODEL` (openai/gpt-oss-120b), `GROQ_AGENT_MODEL`,
+  Whisper for the microphone, Orpheus for the voice (English only, its terms accepted once by the Groq organisation's
+  admin) with `GROQ_TTS_VOICE_FEMALE` / `_MALE`, and `GROQ_DAILY_TOKEN_BUDGET` (200,000).
+
+**3. When a model cannot answer — "work accordingly with any error".** The second model (`AI_FALLBACK_MODEL`) is asked
+once when the first refused the request (400: "use /v1/responses", a setting it does not take), is not on the account
+(403 or 404 `model_not_found`: then skipped for ten minutes, so it costs one round trip in ten minutes, not one a
+question) or failed on OpenAI's side (5xx). It is not asked for a wrong key (401) or an account out of credit (429
+`insufficient_quota`): it would be refused the same way. A 429 asking to wait is waited out as long as it says
+(Retry-After, retry-after-ms or "try again in 20ms"), at most 8 seconds and twice, as before; one saying there is no
+credit is not waited out. A call that hangs gives up after 30 seconds, as before (§75), and no answer at all (the
+network) is not asked of the second model, which would wait the same. The server's log says which model could not
+answer and why, in the service's own words with any key taken out. A model that declines says so in its own words
+(OpenAI's `refusal`), which the person is shown. Whatever fails, the person gets an answer: the browser answers from
+the system's own records and says why (§72), as with any failure.
+
+**4. Pictures read by the model** (`backend/attachments.ts`). A picture attached to Mitra (a register page, a label, a
+screenshot) is sent to the vision model as an `image_url` data URL with `detail: "high"`, told to copy the text out
+exactly as written, in its own script, a table one row a line, numbers, dates, codes and names never corrected or
+guessed, a word it cannot read as `[?]`, and the picture's text as something to copy, never an instruction. Its words
+travel with the message as an attachment's always did (`readBy: "model"`); a picture with no text says so. OCR
+(tesseract.js, §80) reads it as before whenever the model may not or cannot: no ChatGPT key,
+`PICTURES_READ_WITH_ASSISTANT=0`, a picture that is not a PNG, JPEG, WEBP or GIF by its bytes or is over 10 MB, a person over the
+assistant's throttle, or the model failing. A picture read by the model counts as one of the person's calls.
+
+**5. The microphone and the voice.** The microphone (`POST /api/assistant/transcribe`) goes to
+gpt-4o-mini-transcribe, which hears Gujarati, Hindi and English (no language forced, §89), with the plant's words as
+its hint; it answers `json` (a `whisper-*` model named in the setting is asked for `verbose_json` and a temperature,
+as Groq's is). Mitra's voice (`POST /api/assistant/speak`) is gpt-4o-mini-tts: the whole line in one call (the model
+takes 4,096 characters, a browser sends at most 600) as a WAV with its sizes written out, in coral or ash, told how to
+say it by the line's script: Mitra, a warm colleague at a plant in Gujarat, English with a natural Indian accent, or
+natural everyday Hindi or Gujarati, at an easy pace. The browser still speaks first wherever it has a natural Indian
+voice of its own (§89), so the server's voice is used for English where the browser has none, as before. A speech
+model the key's project cannot use (403, 404) is "voice-unavailable", said in ChatGPT's words (give the key's project
+access at platform.openai.com, or set `AI_TTS_MODEL`), asked again after ten minutes, and the browser speaks
+meanwhile (§85). The voice card's words in Master Data name "the AI service" and platform.openai.com, in English and
+Gujarati.
+
+**6. The cost guard: `AI_DAILY_TOKEN_BUDGET`.** OpenAI is paid by the token, so the plant's use is capped: 3,000,000
+tokens a day by default, counted on the server per day on the plant's own clock (PLANT_TIMEZONE), in memory. Counted:
+the tokens every answer reports (the chat, the agent, the checklist, the CV reader, pictures), the transcriptions'
+tokens, and Mitra's voice by estimate (it reports none: its words at four characters a token, its audio at about 21
+tokens a second, from gpt-4o-mini-tts's $0.015 a minute at $12 a million). At 90% the chat and the agent stop asking
+the model and answer from the records with the reason ("allowance", §75); the last tenth is left for the checklist,
+CVs, pictures, the microphone and the voice. At 100% nothing is asked of the model until the next day: every route
+answers 429 with the code `daily-allowance` in plain words, and the voice and the microphone fall back to the
+browser's (on a Groq key the microphone and the voice go on, as before: Groq bills them apart from tokens). The server's log says each threshold once, in plain words ("The AI allowance for today is 90% used: … of
+3,000,000 tokens (AI_DAILY_TOKEN_BUDGET) …"). The super admin reads the day's count at `GET /api/assistant/usage`:
+which service answers, the allowance, what is used and where the chat stops. The Mitra server counts its own calls.
+
+**7. What was relaxed for ChatGPT, and what stays lean.** Made for Groq's free key and relaxed: the voice's 200-character
+pieces asked one at a time (one call now), the daily allowance (200,000 → 3,000,000) and each person's throttle (20
+model calls in ten minutes → 60: an agent question takes several rounds, and the day's cost is held by the cost
+guard; 20 on Groq as before). Kept, because a lean prompt is a quick answer and the phones above all need speed: the
+agent's prompt ceiling (2,200 characters), the browser's budgets for a round (six turns of history, a tool's result
+1,500 characters, the facts 2,500, the evidence pack 6,000) and the server's checks that mirror them, and a round's
+1,200 tokens of writing.
+
+**8. No paid call in a test, no key in a log line.** `scripts/run-e2e.ts` blanks `CHATGPT_API_KEY`, `OPENAI_API_KEY`
+and `GROQ_API_KEY` for both test servers (and sets `PICTURES_READ_WITH_ASSISTANT=0`), and `scripts/unit-tests.ts`
+blanks the three for the backend's tests: `backend/env.ts` never fills a name that is set, even blank, so the real key
+in `backend/.env` cannot reach a test, and every suite and unit test runs without a network call. A service's error
+can echo the key it was sent (OpenAI's 401 names it, partly hidden): every error's words lose this server's keys,
+anything shaped like a key (`sk-…`, `gsk_…`) and a Bearer value before they reach an exception or the log. A server
+with no AI key answers the chat, the agent and the checklist at once, 503 `not-configured` in plain words, and writes
+nothing to its log for it (until now each question left a stack trace there); the browser's words are unchanged (§72).
+
+**9. The Mitra server and the phone app** (their own repository, branch mitra-notify; docs/chatbot-integration.md
+says the contract). The Mitra server switches every AI call to OpenAI with the same settings' names, taking them from
+DCRS's `backend/.env` when its own environment has no OpenAI key: `DCRS_ENV_FILE` is that file's path, and defaults to
+the DCRS folder's `backend/.env` when the Mitra repository sits inside the DCRS folder (`Audit project
+chatbot-mobile` does); only the AI settings are taken from it, never anything else, and the file is never printed or
+logged. Fast on the phone: the first words within about a second on the plant's network (streamed from the first
+token, nothing slow before it), the chat drawn without stalling a low-end phone, and good fonts (Plus Jakarta Sans,
+Noto Sans Gujarati, Noto Sans Devanagari, from the official `@expo-google-fonts` packages, over the air). Those parts
+are built and tested in the Mitra repository; this section is DCRS's.
+
+**Tests.** `backend/tests/ai.test.ts` (36, new; the AI service stood in for at the network edge: `fetch` replaced,
+every request recorded and answered in OpenAI's own shapes at api.openai.com, Groq's at api.groq.com; stand-in keys
+only; each fails on the code before this section, which had no `backend/ai.ts`): which service answers (OpenAI with
+`CHATGPT_API_KEY` even beside a Groq key, `OPENAI_API_KEY` the same, Groq alone, none, a blank or spaces-only key no
+key); both runners blank every name a key goes by; the brief's models and each setting, Groq's own; the reasoning
+effort by family; the request shapes (the chat: gpt-5.4-mini, `reasoning_effort` "none" whatever the caller asked,
+`max_completion_tokens` and no `max_tokens`, `json_object`, the history between; the agent's round: the tools,
+`tool_choice` auto, the calls handed back, and through `runAgentStep` with the server's own prompt first; a checklist
+answer to gpt-5.4-nano; the CV reader at temperature 0; gpt-4.1-mini sent no effort and gpt-5-mini "minimal"; a
+picture as an `image_url` data URL with `detail: "high"`, its tokens counted; a picture attached read by the model,
+by OCR when both models fail, never sent on Groq, switched off or for a person over the throttle; the speech body —
+gpt-4o-mini-tts, the whole 600-character line in one call, coral and ash, the instruction for English, Gujarati and
+Hindi, none for tts-1, a streamed WAV given its sizes; a speech model not on the account as voice-unavailable in
+ChatGPT's words; the transcription form — gpt-4o-mini-transcribe, `json`, the plant's hint, a language only when
+chosen, no temperature, its tokens counted, whisper-1 as `verbose_json`; Groq's address and shapes kept); when a
+model cannot answer (a refused `temperature` learnt once and left out after; the 5.4 model refusing tools answered by
+gpt-4.1-mini with no effort, the log saying why in the service's words; a model's refusal handed on as its words; a 404 model skipped for ten minutes; a 401 and `insufficient_quota` neither waited out
+nor asked of the second model; a 429 waited out as it asks; no answer at all not asked twice); the cost guard
+(counted per answer, the chat stopping at 90%, every call refused at 100% with no request made, each said once in the
+log; on a Groq key the microphone and the voice going on, billed apart from tokens; 3,000,000 by default; the super admin's count; speech by estimate); and no key in a log line (a 401 echoing the
+key: the error, its stack and every line logged carry none; every warning on the way; the transcription's and the
+voice's failures; the key's shapes, OpenAI's partly hidden one included). `backend/tests/tts.test.ts` (one new: the
+same voice answers in ChatGPT's words; the Groq ones now on a Groq key alone). Changed browser suites:
+`tests/e2e_mitra_agent.py` (its canned answers in OpenAI's function-calling shapes, and a new check that every
+request the browser sent is in OpenAI's chat shapes, which the server hands to ChatGPT as they are),
+`tests/e2e_voice_and_sounds.py` (the server's answers as DCRS words them on the ChatGPT key: the not-configured answer
+names `CHATGPT_API_KEY`, the voice card names platform.openai.com), `tests/e2e_assistant_chat.py` (the live suite, run
+by hand on :8844 with the key loaded by the program, paced 2 seconds apart by default, `E2E_CHAT_PACE_S`). The VERIFY
+stage measures the live answers on the owner's key (at most 60,000 tokens).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -8225,7 +8384,8 @@ the document counts in e2e_smoke.py, e2e_hr_module.py (135), e2e_every_record_st
 45. **A neural voice on the DCRS server** (§85 part 3). Piper speaks a reminder in about a second on the plant's kind of laptop
     and sounds human, but the phonemiser it needs (espeak-ng) is licensed GPL-3.0, and the voice's own data licence must be
     checked. Adopt it, or wait for Groq's voice (its terms accepted once by the Groq organisation's admin)? Until then, DCRS
-    opened in Microsoft Edge has the most human voice.
+    opened in Microsoft Edge has the most human voice. — **ANSWERED by the owner's ChatGPT key, 12-Oct-2026 (§109)**: the
+    server's voice is OpenAI's gpt-4o-mini-tts, which speaks English, Hindi and Gujarati; no voice is made on the PC.
 46. **Who verifies a record** (§85). DCRS lets the person who submitted a record verify it too — no rule says the verifier must
     be somebody else (it was so before §85; the mobile app's live check showed a QC account doing both). Should the verifier
     always be a different person, or the department head?
@@ -8249,7 +8409,9 @@ the document counts in e2e_smoke.py, e2e_hr_module.py (135), e2e_every_record_st
     user. Which account does the plant use?
 51. **The Groq plan** (§88). Mitra's answers, in the browser and on the phones, come from Groq. The free plan allows about
     8,000 tokens a minute for the whole plant, so once a few questions have been asked within a minute the next answers
-    wait. A paid plan removes that wait. Stay on the free plan, or move to a paid one?
+    wait. A paid plan removes that wait. Stay on the free plan, or move to a paid one? — **ANSWERED by the owner,
+    12-Oct-2026 (§109)**: Mitra's answers in both apps come from his paid ChatGPT (OpenAI) key, 2,000,000 tokens a
+    minute; a daily cost guard (`AI_DAILY_TOKEN_BUDGET`, 3,000,000 tokens by default) holds the bill.
 52. **The server PC's fixed address and firewall** (§88). The server PC needs a fixed address on the company network (a
     DHCP reservation by its network card's MAC address) and its three ports (4000, 3000 and 8081) reachable from the staff
     Wi-Fi, with client isolation off and the network marked Private in Windows. The note to hand to IT is section 2 of

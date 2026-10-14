@@ -49,7 +49,8 @@ const en = {
   "voice.langs.title": "Mitra's voice in this browser",
   "voice.langs.persona":
     "One Mitra in all three languages, female or male as chosen above. In Microsoft Edge the female voice is Neerja, Swara and Dhwani, and the male voice Prabhat, Madhur and Niranjan.",
-  "voice.row.server": "Groq's natural voice, made on the server ({name}).",
+  // The server's voice: the AI service's (ChatGPT's since REQUIREMENTS §109, Groq's on an older setup).
+  "voice.row.server": "The AI service's natural voice, made on the server ({name}).",
   "voice.row.natural": "{name}, a natural voice.",
   "voice.row.online": "{name}, an online voice. Microsoft Edge's natural Indian voices sound more like a person.",
   "voice.row.basic": "{name}, a basic voice. Microsoft Edge's natural Indian voices sound more like a person.",
@@ -67,9 +68,9 @@ const en = {
   "voice.mic.listening": "Listening in {lang}. Take your time: I'll wait until you've finished speaking.",
   "voice.mic.lang.en": "English",
   "voice.mic.lang.gu": "Gujarati",
-  "voice.serverFailed": "Groq's natural voice could not be reached just now — this browser's own voice speaks meanwhile.",
+  "voice.serverFailed": "The AI service's natural voice could not be reached just now — this browser's own voice speaks meanwhile.",
   "voice.serverTerms":
-    "The natural server voice is not available yet. The Groq organisation's admin must accept the terms of the speech model (canopylabs/orpheus-v1-english) at console.groq.com; until then this browser's own voice is used.",
+    "The natural server voice is not available yet: the AI account on the server cannot use its speech model. For ChatGPT the administrator gives the key's project access to it at platform.openai.com (for Groq, accepts the model's terms at console.groq.com); until then this browser's own voice is used.",
   "voice.cue.chime": "Something new",
   "voice.cue.reminder": "Spoken reminder",
   "voice.cue.success": "In on time",
@@ -158,7 +159,7 @@ const gu: Record<keyof typeof en, string> = {
   "voice.langs.title": "આ બ્રાઉઝરમાં મિત્રનો અવાજ",
   "voice.langs.persona":
     "ત્રણેય ભાષામાં એક જ મિત્ર, ઉપર પસંદ કર્યા મુજબ સ્ત્રી કે પુરુષ. Microsoft Edge માં સ્ત્રી અવાજ Neerja, Swara અને Dhwani છે, અને પુરુષ અવાજ Prabhat, Madhur અને Niranjan.",
-  "voice.row.server": "Groq નો કુદરતી અવાજ, સર્વર પર બનેલો ({name}).",
+  "voice.row.server": "AI સેવાનો કુદરતી અવાજ, સર્વર પર બનેલો ({name}).",
   "voice.row.natural": "{name}, કુદરતી અવાજ.",
   "voice.row.online": "{name}, ઓનલાઇન અવાજ. Microsoft Edge ના ભારતીય કુદરતી અવાજ વધુ માણસ જેવા લાગે છે.",
   "voice.row.basic": "{name}, સાદો અવાજ. Microsoft Edge ના ભારતીય કુદરતી અવાજ વધુ માણસ જેવા લાગે છે.",
@@ -174,9 +175,9 @@ const gu: Record<keyof typeof en, string> = {
   "voice.mic.listening": "{lang}માં સાંભળું છું. નિરાંતે બોલો: તમે બોલી રહો ત્યાં સુધી હું રાહ જોઈશ.",
   "voice.mic.lang.en": "અંગ્રેજી",
   "voice.mic.lang.gu": "ગુજરાતી",
-  "voice.serverFailed": "Groq નો કુદરતી અવાજ હમણાં મળી શક્યો નહીં — ત્યાં સુધી આ બ્રાઉઝરનો પોતાનો અવાજ બોલે છે.",
+  "voice.serverFailed": "AI સેવાનો કુદરતી અવાજ હમણાં મળી શક્યો નહીં — ત્યાં સુધી આ બ્રાઉઝરનો પોતાનો અવાજ બોલે છે.",
   "voice.serverTerms":
-    "સર્વરનો કુદરતી અવાજ હજી ઉપલબ્ધ નથી. Groq સંસ્થાના એડમિને console.groq.com પર બોલવાના મોડેલ (canopylabs/orpheus-v1-english) ની શરતો સ્વીકારવી પડશે; ત્યાં સુધી આ બ્રાઉઝરનો પોતાનો અવાજ વપરાશે.",
+    "સર્વરનો કુદરતી અવાજ હજી ઉપલબ્ધ નથી: સર્વર પરનું AI ખાતું તેનું બોલવાનું મોડેલ વાપરી શકતું નથી. ChatGPT માટે એડમિન platform.openai.com પર કીના પ્રોજેક્ટને તેની પરવાનગી આપે (Groq માટે, console.groq.com પર મોડેલની શરતો સ્વીકારે); ત્યાં સુધી આ બ્રાઉઝરનો પોતાનો અવાજ વપરાશે.",
   "voice.cue.chime": "કંઈક નવું",
   "voice.cue.reminder": "બોલીને યાદ",
   "voice.cue.success": "સમયસર જમા",

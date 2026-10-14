@@ -10,9 +10,10 @@
 
 WHAT THIS PROVES
 
-  * A QUESTION IS THE MODEL'S TO ANSWER. This server is started with no
-    GROQ_API_KEY (scripts/run-e2e.ts blanks it, so the suites stay
-    network-independent), so the model cannot be asked - and the app then says
+  * A QUESTION IS THE MODEL'S TO ANSWER. This server is started with no AI
+    key (scripts/run-e2e.ts blanks CHATGPT_API_KEY, OPENAI_API_KEY and
+    GROQ_API_KEY, so the suites stay network-independent and make no paid
+    call, s109), so the model cannot be asked - and the app then says
     so ON THE ANSWER: a question is still answered from the system's own
     records, but it is labelled, which is the thing that was missing. Before
     s72 the app answered from those records FIRST and never said so, which is

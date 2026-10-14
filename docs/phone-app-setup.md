@@ -26,8 +26,8 @@ PowerShell, in the DCRS folder, unless the step says otherwise.
 >    **8081** and **3000** (Mitra on the phones) and **4000** (DCRS in browsers). The Wi-Fi must not keep devices
 >    apart: "client isolation" / "AP isolation" must be off on the staff network, and the phones must not be on a
 >    guest network.
-> 3. **Internet over HTTPS.** Mitra's answers come from Groq (api.groq.com), and Expo checks its sign-in at
->    expo.dev. The phones also need the internet the first time, to install Expo Go.
+> 3. **Internet over HTTPS.** Mitra's answers come from ChatGPT (api.openai.com, REQUIREMENTS §109), and Expo checks
+>    its sign-in at expo.dev. The phones also need the internet the first time, to install Expo Go.
 > 4. **Always on.** The PC never sleeps or hibernates (Power: Sleep "Never"), and switches itself on when the power
 >    comes back (in the BIOS/UEFI: "Restore on AC power loss" set to "Power On").
 > 5. **Signs itself in.** After a restart, Windows signs the server's standard account in by itself, so the
@@ -65,8 +65,9 @@ PowerShell, in the DCRS folder, unless the step says otherwise.
    DCRS_APP_URL=http://<server address>:4000
    # Optional: the first password of the named accounts (step 7).
    SEED_ACCOUNT_PASSWORD=<a first password of your choosing>
-   # Optional: Mitra inside DCRS, in the browsers.
-   GROQ_API_KEY=<your Groq key>
+   # Mitra's AI key, for BOTH apps (REQUIREMENTS §109): the ChatGPT (OpenAI) key. Mitra in the browsers uses it,
+   # and the Mitra server takes it from this file (step 7). backend\.env.example names the optional AI settings.
+   CHATGPT_API_KEY=<the ChatGPT (OpenAI) key>
    # The key the Mitra server proves itself with: the SAME value in step 7 (REQUIREMENTS §106).
    MITRA_SERVER_KEY=<a long random key: see the command in step 7>
    # Optional: the most devices one account may be signed in on at once (2 unless set; off = no limit).
@@ -80,7 +81,8 @@ PowerShell, in the DCRS folder, unless the step says otherwise.
    PORT=3000
    CREDENTIALS_KEY=<32 random bytes, base64: see the command below>
    DCRS_BASE_URL=http://127.0.0.1:4000
-   GROQ_API_KEY=<your Groq key, from https://console.groq.com/keys>
+   # No AI key here: the Mitra server takes CHATGPT_API_KEY and the AI_* settings from DCRS's backend\.env
+   # (DCRS_ENV_FILE; by default the DCRS folder's backend\.env, since this folder sits inside it). REQUIREMENTS §109.
    SUPER_ADMINS=<optional: more sign-in emails for the app's own Accounts and Security views; DCRS's super admin needs no entry>
    REPORT_TIME_ZONE=Asia/Kolkata
    MITRA_SERVER_KEY=<the same key as in DCRS's backend\.env, step 6>
@@ -244,7 +246,7 @@ Then, with **one Android phone and one iPhone** on the company Wi-Fi:
 | Sign-in refused, giving the staff working hours | Outside the staff's working hours | Staff wait for the start it names; the super admin may sign in at any time |
 | "Sign in to DCRS in a browser and choose your own password first." | The account is still on its first password | Change it once in DCRS in a browser (step 7) |
 | "Wrong username or password." | Not the person's DCRS email and password | Use the DCRS ones; the super admin can reset it on Users & Access |
-| Mitra is slow, or says to wait a minute | Groq's free plan allows about 8,000 tokens a minute for the whole plant | Wait a minute; a paid Groq plan allows more |
+| Mitra answers from the system's own records "until tomorrow" | The day's AI allowance is used up (`AI_DAILY_TOKEN_BUDGET`, 3,000,000 tokens a day by default: the cost guard of the paid ChatGPT key) | Wait for the next day, or raise `AI_DAILY_TOKEN_BUDGET` in `backend\.env` and restart; the super admin sees the day's count at `/api/assistant/usage` |
 | Records dated a day out, or "today" is wrong | The PC's time zone or clock | Step 3.2; `npm run phone:check` checks it |
 | After a restart nothing answers | Windows did not sign the account in, or the task is missing | Step 2.5 and step 5; read `logs\plant-servers.log` |
 
@@ -253,8 +255,8 @@ Then, with **one Android phone and one iPhone** on the company Wi-Fi:
 - **Plain http, on the company Wi-Fi only.** Never forward ports 4000, 3000 or 8081 from the internet, and do not
   use `-AnyProfile` on a PC that leaves the plant.
 - **Keep these private**: `backend\data\jwt-secret.txt` (anyone holding it can make a DCRS sign-in),
-  `backend\data\postgres-password`, `backend\.env`, the Mitra server's `server\.env` (its `CREDENTIALS_KEY` unlocks
-  the DCRS sign-ins it keeps, and its Groq key is the plant's), `MITRA_SERVER_KEY` in both (anyone holding it could
+  `backend\data\postgres-password`, `backend\.env` (it holds the plant's ChatGPT key, which is paid by the token), the Mitra server's `server\.env` (its `CREDENTIALS_KEY` unlocks
+  the DCRS sign-ins it keeps), `MITRA_SERVER_KEY` in both (anyone holding it could
   name a sign-in's device as they liked), and the plant's Expo account password.
 - **The servers run as the standard account** (step 3.1), never as an administrator. Autologon keeps its password
   encrypted, but an administrator of the PC can read it: keep the PC's administrators few.

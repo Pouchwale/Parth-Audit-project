@@ -2,16 +2,17 @@
 //
 // The browser (frontend/src/engine/mitraAgent.ts) sends the conversation and
 // the schemas of the tools it can run; this file checks the request against
-// the limits that keep the plant inside its Groq allowance, writes the system
-// prompt, asks the model once (backend/groq.ts groqChatWithTools) and hands
-// back either the model's words or the tool calls it wants run. THE TOOLS RUN
+// the limits that keep every round lean (and so quick), writes the system
+// prompt, asks the model once (backend/ai.ts aiChatWithTools: ChatGPT since
+// REQUIREMENTS §109) and hands back either the model's words or the tool calls
+// it wants run. THE TOOLS RUN
 // IN THE BROWSER — they act on the working copy, the open record and the
 // router, none of which this server can reach — so one request here is one
 // round of the loop, and the browser calls again with the results.
 //
 // The wire shapes are frontend/src/engine/mitraTypes.ts, mirrored by hand: the
 // server imports nothing from the frontend at run time.
-import { groqChatWithTools, type AssistantReply, type ChatMessage, type ToolCall, type ToolSchema } from "./groq.ts";
+import { aiChatWithTools, type AssistantReply, type ChatMessage, type ToolCall, type ToolSchema } from "./ai.ts";
 import { ASSISTANT_NAME } from "./assistant.ts";
 
 export type AgentMessage = ChatMessage;
@@ -35,12 +36,15 @@ export interface AgentRequest {
 export type AgentResponse = { kind: "final"; text: string } | { kind: "tools"; text: string | null; calls: ToolCall[] };
 
 // ---------------------------------------------------------------------------
-// THE LIMITS (the spec's "every prompt byte counts"). The Groq plan allows
-// 8,000 tokens a minute and 200,000 a day for the whole plant, and every round
-// of the loop sends the whole conversation again — so the browser keeps the
-// tool schemas short, the history to six turns and the tool results compact,
-// and the server refuses what would pad the prompt (the same reasoning as
-// /api/assistant/chat's caps in index.ts).
+// THE LIMITS (the spec's "every prompt byte counts"). Every round of the loop
+// sends the whole conversation again — so the browser keeps the tool schemas
+// short, the history to six turns and the tool results compact, and the server
+// refuses what would pad the prompt (the same reasoning as
+// /api/assistant/chat's caps in index.ts). They were sized for Groq's free key
+// (8,000 tokens a minute, 200,000 a day for the whole plant); since §109 the
+// ChatGPT key allows far more, and they stay because a lean round is a quick
+// one, which the phones above all need. The day's cost is held by the
+// allowance in backend/ai.ts.
 export const LIMITS = {
   tools: 32,
   toolsJson: 24000,
@@ -71,12 +75,13 @@ export const AGENT_PROMPT_MAX_CHARS = 2200;
 export const AGENT_MAX_COMPLETION_TOKENS = 1200;
 
 /**
- * Whisper's vocabulary hint (backend/groq.ts groqTranscribe): the plant, its
- * three languages and its record words, so they come out as written: the
- * company's name, DCRS, Mitra, the format numbers. No language is forced on
- * Whisper (REQUIREMENTS §89): it hears which one is spoken, and a hint naming
- * all three, each in its own script, leans it to none. Whisper reads at most
- * 224 tokens of a prompt; this is about 50.
+ * The microphone's vocabulary hint (backend/ai.ts aiTranscribe: ChatGPT's
+ * gpt-4o-mini-transcribe since §109, Whisper on Groq): the plant, its three
+ * languages and its record words, so they come out as written: the company's
+ * name, DCRS, Mitra, the format numbers. No language is forced on the model
+ * (REQUIREMENTS §89): it hears which one is spoken, and a hint naming all
+ * three, each in its own script, leans it to none. Whisper reads at most 224
+ * tokens of a prompt; this is about 50.
  */
 export const TRANSCRIBE_PROMPT = "Gujarat Print Pack Publications Pvt Ltd, Mehsana. DCRS records with Mitra: F/QC/30, F/HR/17, CAPA, lamination, viscosity. English, हिंदी, ગુજરાતી.";
 
@@ -310,18 +315,18 @@ export function validateAgentRequest(body: unknown): Checked {
 
 export type AgentTransport = (call: { system: string; messages: AgentMessage[]; tools: ToolSchema[]; maxTokens: number; temperature: number }) => Promise<AssistantReply>;
 
-let transport: AgentTransport = groqChatWithTools;
+let transport: AgentTransport = aiChatWithTools;
 
-/** The unit tests stand in for Groq here; null puts the real client back. */
+/** The unit tests stand in for the model here; null puts the real client back. */
 export function setAgentTransportForTests(fn: AgentTransport | null): void {
-  transport = fn ?? groqChatWithTools;
+  transport = fn ?? aiChatWithTools;
 }
 
 /**
  * Asks the model once with a checked request. Words → `final`; tool calls (with
  * any words said before them) → `tools`, for the browser to run and report
  * back; a message with neither → "Done.", so the person is never left with
- * nothing. Throws when Groq cannot be reached — the route answers 502.
+ * nothing. Throws when the model cannot be reached — the route answers 502.
  */
 export async function runAgentStep(request: AgentRequest): Promise<AgentResponse> {
   const system = buildAgentSystemPrompt({

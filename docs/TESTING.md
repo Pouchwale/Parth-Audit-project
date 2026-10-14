@@ -1024,6 +1024,36 @@ Seven scripts live in `tests/`:
   together, so the storage suite's sign-up came first: `E2E_SKIP_UNIT=1 npm run test:e2e --
   tests/e2e_storage_room.py tests/e2e_access_levels.py` passed 16 of 16 and 148 of 148 ("With another super admin
   on this database (['room-...@example.com']), his own 'Make staff' is open").
+- **One AI key for both apps: ChatGPT (OpenAI)** (REQUIREMENTS §109, 12-Oct-2026: `backend/groq.ts` became
+  `backend/ai.ts`, and every AI call of DCRS goes to the owner's ChatGPT key, Groq only on a server without one). New
+  unit tests, each failing on the code before the change (at a375be9 there was no `backend/ai.ts`, and neither runner
+  named `CHATGPT_API_KEY`): `backend/tests/ai.test.ts` (36), with the AI service stood in for at the network edge
+  (`fetch` replaced; every request recorded and answered in OpenAI's own shapes at api.openai.com, Groq's at
+  api.groq.com; stand-in keys only, no network); what each proves is listed in REQUIREMENTS §109 "Tests".
+  `backend/tests/tts.test.ts` gains one (the voice's answers in ChatGPT's words), and its Groq cases now run on a Groq
+  key alone. `npm run test:unit` at 405e7eb: frontend 691 and backend 595, all passing but the PostgreSQL ledger's 3,
+  skipped without `DCRS_LEDGER_TEST_URL` (at a375be9: 691 and 558); `npm run typecheck` clean. Both runners now blank
+  `CHATGPT_API_KEY`, `OPENAI_API_KEY` and `GROQ_API_KEY` (`scripts/run-e2e.ts` also sets
+  `PICTURES_READ_WITH_ASSISTANT=0`), so no browser suite and no unit test can make a paid call, whatever
+  `backend/.env` holds; and a server with no key now answers the chat, the agent and the checklist 503
+  `not-configured` at once, with no stack trace in its log (`e2e_voice_languages.py`'s server had logged one for each
+  question; `e2e_assistant_and_logout.py`'s logged none after). Browser suites, each run ALONE with the project's
+  runner (`E2E_SKIP_UNIT=1 npm run test:e2e -- tests/<suite>.py`, 8842 and 8843 free), no JavaScript error in any:
+  `e2e_mitra_agent.py` 22 of 22 at 2f1527f (new: every request the browser sent, 9 of them, in OpenAI's chat shapes),
+  `e2e_mitra_format.py` 54 of 54 at 2f1527f, `e2e_voice.py` 13 of 13 and `e2e_voice_languages.py` 28 of 28 at
+  76aaa3d, `e2e_voice_and_sounds.py` 70 of 70 at 405e7eb (69 of 70 at b333431: "The speaker sits after the
+  connection, the clock and the language" failed for a reason of its own, the theme switch of §90 standing between
+  the language and the speaker since 3a65c84, as Topbar.tsx places it; the check now names it),
+  `e2e_assistant_and_logout.py` 32 of 32 and `e2e_hr_cv_import.py` 42 of 42 at 405e7eb, and
+  `e2e_assistant_fill.py` 156 of 156 at 405e7eb (in 18 minutes).
+  Changed suites: `e2e_mitra_agent.py` (its canned answers in OpenAI's function-calling shapes, and the new check that
+  every request the browser sent is in OpenAI's chat shapes, which the server hands to ChatGPT as they are),
+  `e2e_voice_and_sounds.py` (the server's answers as DCRS words them on the ChatGPT key: the not-configured answer
+  names `CHATGPT_API_KEY`, the voice card platform.openai.com; the top bar's theme switch), `e2e_assistant_chat.py`
+  (the live suite: ChatGPT's words, paced 2 seconds apart by default, `E2E_CHAT_PACE_S`), and the docstrings of
+  `e2e_assistant_and_logout.py` and `e2e_backlog_regression.py`. Not run here: the live suite `e2e_assistant_chat.py`
+  (it makes paid calls: the VERIFY stage's, on the owner's key, at most 60,000 tokens) and the full browser run.
+
 - **Every QC format exactly as the paper** (REQUIREMENTS §111, 13-Oct-2026: the layout abilities `printed`,
   `srNoShowsDate`, `beneath` with `secondLine`, `notesBelow` and `headerColumns`, an empty box printing empty, and
   F-QC-30, F-QC-32, F/QC/11 and F/QC/12 as their originals in source-documents/qc-originals-2026-10-13/ and the

@@ -30,19 +30,22 @@ REQUIREMENTS s85 ("it should sound like a human only") adds, on pages of their o
     a time with a breath between; the words made for the ear ("form F H R 17",
     "30th September at 2:30 PM", "92 percent", no symbol read out); the Master
     Data card names that voice and plays a sample in it;
-  * GET /api/assistant/speak answers 200 (here: not-configured) and, with no
-    key, no line is ever asked of the server;
+  * GET /api/assistant/speak answers 200 (here: not-configured, naming the key
+    to set, CHATGPT_API_KEY since s109) and, with no key, no line is ever asked
+    of the server;
   * with the assistant configured (the auth answer switched, as
-    e2e_mitra_agent.py does): the Groq terms not accepted - the server is asked
-    once, never for a line, both lines are said by the browser and the card says
-    what the Groq admin must do; Groq's voice available - the line is fetched,
-    made for the ear, and played as a clip.
+    e2e_mitra_agent.py does), the server's answers in ChatGPT's (OpenAI's)
+    words since s109: the speech model not on the AI account - the server is
+    asked once, never for a line, both lines are said by the browser and the
+    card says what the account's admin must do (platform.openai.com); the AI
+    service's voice available - the line is fetched, made for the ear, and
+    played as a clip.
 
 Audio is never really heard: an init script records every "dcrs:cue" and
 "dcrs:say" event (engine/engageBus.ts), counts the AudioContexts made and the
 notes started, stubs speechSynthesis.speak (recording what would be said, in
-which voice) and HTMLMediaElement.play. The server has no Groq key here, so every
-line goes to the browser's own voice.
+which voice) and HTMLMediaElement.play. The server has no AI key here (the
+runner blanks them all), so every line goes to the browser's own voice.
 
 Network-independent, against the production build on :8842 (DCRS_BASE overrides it).
 """
@@ -160,7 +163,7 @@ def note_speak(request):
 
 
 def auth_with_assistant(route):
-    """The server's auth answers with the assistant switched on (as with a Groq key), so the server voice is asked about."""
+    """The server's auth answers with the assistant switched on (as with an AI key), so the server voice is asked about."""
     response = route.fetch()
     try:
         body = response.json()
@@ -526,10 +529,12 @@ with sync_playwright() as p:
     # 4. The top bar's speaker mutes everything, and brings it back
     # ==================================================================
     print("\n==== The top bar's speaker ====")
+    # Since s90 the theme switch (light, dark, the computer's) sits between the language and the speaker
+    # (components/layout/Topbar.tsx: "after the language, so the bar still begins connection, clock, language").
     order = page.evaluate(
-        """() => { const end = document.querySelector('.app-topbar-end'); if (!end) return []; return Array.from(end.children).map((el) => el.matches('[data-connection]') ? 'connection' : el.matches('[data-clock]') ? 'clock' : el.matches('.lang-select, .lang-select *') || el.querySelector('.lang-select') ? 'language' : el.matches("[data-action='toggle-sound']") ? 'sound' : (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 20)); }"""
+        """() => { const end = document.querySelector('.app-topbar-end'); if (!end) return []; return Array.from(end.children).map((el) => el.matches('[data-connection]') ? 'connection' : el.matches('[data-clock]') ? 'clock' : el.matches('.lang-select, .lang-select *') || el.querySelector('.lang-select') ? 'language' : el.matches('[data-theme-switch]') ? 'theme' : el.matches("[data-action='toggle-sound']") ? 'sound' : (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 20)); }"""
     )
-    check("The speaker sits after the connection, the clock and the language", order[:4] == ["connection", "clock", "language", "sound"], order)
+    check("The speaker sits after the connection, the clock, the language and the theme", order[:5] == ["connection", "clock", "language", "theme", "sound"], order)
     toggle = page.locator("[data-action='toggle-sound']")
     check("It is on, and says what pressing it does", toggle.get_attribute("aria-pressed") == "true" and "Mute" in (toggle.get_attribute("title") or ""), toggle.get_attribute("title"))
     toggle.click()
@@ -631,8 +636,8 @@ with sync_playwright() as p:
     print("\n==== s85: the server's voice, asked once ====")
     real = page.evaluate("() => fetch('/api/assistant/speak', { credentials: 'include' }).then(async (r) => ({ status: r.status, body: await r.json() }))")
     check(
-        "GET /api/assistant/speak answers 200 - here no key: not-configured, not available, in plain words",
-        real.get("status") == 200 and (real.get("body") or {}).get("code") == "not-configured" and (real.get("body") or {}).get("available") is False and "GROQ_API_KEY" in ((real.get("body") or {}).get("message") or ""),
+        "GET /api/assistant/speak answers 200 - here no key: not-configured, not available, in plain words naming the key to set (s109)",
+        real.get("status") == 200 and (real.get("body") or {}).get("code") == "not-configured" and (real.get("body") or {}).get("available") is False and "CHATGPT_API_KEY" in ((real.get("body") or {}).get("message") or ""),
         real,
     )
     check("With no key, the browser never asked the server for a line (all lines went to the browser's voice)", not [r for r in speak_requests if r[0] == "POST"], speak_requests[:5])
@@ -668,14 +673,15 @@ with sync_playwright() as p:
         pg.wait_for_timeout(400)
         return pg, asked
 
-    terms = "Mitra's natural voice needs the Groq organisation's admin to accept the model's terms at console.groq.com (canopylabs/orpheus-v1-english)."
-    pg, asked = with_key_page({"available": False, "code": "voice-unavailable", "message": terms, "engine": None, "model": "canopylabs/orpheus-v1-english", "voices": {"female": "hannah", "male": "daniel"}, "recheckAfterMs": 600000})
+    # The server's answers as backend/tts.ts words them on the ChatGPT key (s109).
+    refused = "Mitra's natural voice needs the speech model gpt-4o-mini-tts on the ChatGPT (OpenAI) account: give the key's project access to it at platform.openai.com, or set AI_TTS_MODEL to a speech model it has."
+    pg, asked = with_key_page({"available": False, "code": "voice-unavailable", "message": refused, "engine": None, "model": "gpt-4o-mini-tts", "voices": {"female": "coral", "male": "ash"}, "recheckAfterMs": 600000})
     n0 = len(recorded(pg)["spoken"])
     for line in ("The first line with a key.", "The second line with a key."):
         pg.evaluate("(t) => window.dispatchEvent(new CustomEvent('dcrs:say', { detail: { text: t, lang: 'en', priority: 'high' } }))", line)
         wait_for(pg, "(t) => window.__spoken.some((s) => s.text === t)", 5000, line)
     rec = recorded(pg)
-    check("The Groq terms not accepted: both lines said by the browser", all(any(s.get("text") == line for s in rec["spoken"][n0:]) for line in ("The first line with a key.", "The second line with a key.")), rec["spoken"][n0:])
+    check("The speech model not on the AI account: both lines said by the browser", all(any(s.get("text") == line for s in rec["spoken"][n0:]) for line in ("The first line with a key.", "The second line with a key.")), rec["spoken"][n0:])
     check("...the server asked ONCE (a 200), and never for a line - no failed request", asked["GET"] == 1 and asked["POST"] == [], asked)
     pg.goto(f"{BASE}/index.html#/master-data")
     pg.wait_for_timeout(1000)
@@ -687,22 +693,22 @@ with sync_playwright() as p:
     except Exception:
         pass
     check(
-        "...and the voice card says what the Groq organisation's admin must do",
-        note_el.count() == 1 and note_el.first.get_attribute("data-state") == "voice-unavailable" and "console.groq.com" in note_el.first.inner_text(),
+        "...and the voice card says what the AI account's admin must do (platform.openai.com), naming Groq only as the older setup",
+        note_el.count() == 1 and note_el.first.get_attribute("data-state") == "voice-unavailable" and "platform.openai.com" in note_el.first.inner_text(),
         note_el.first.inner_text() if note_el.count() else "no note",
     )
     check("...the answer remembered: not asked again for the card", asked["GET"] == 1, asked)
     pg.close()
 
     pg, asked = with_key_page(
-        {"available": True, "code": "available", "message": "Mitra speaks with Groq's natural voice, made on this server.", "engine": "groq", "model": "canopylabs/orpheus-v1-english", "voices": {"female": "hannah", "male": "daniel"}, "recheckAfterMs": 3600000},
+        {"available": True, "code": "available", "message": "Mitra speaks with ChatGPT's natural voice (OpenAI), made on this server.", "engine": "openai", "model": "gpt-4o-mini-tts", "voices": {"female": "coral", "male": "ash"}, "recheckAfterMs": 3600000},
         clip=tiny_wav(),
     )
     before = recorded(pg)
     pg.evaluate("() => window.dispatchEvent(new CustomEvent('dcrs:say', { detail: { text: 'Your F/HR/17 is at 92%.', lang: 'en', priority: 'high' } }))")
     wait_for(pg, "(n) => window.__audio.plays > n", 5000, before["audio"]["plays"])
     rec = recorded(pg)
-    check("Groq's voice available: the line is fetched and played as a clip", asked["GET"] == 1 and len(asked["POST"]) == 1 and rec["audio"]["plays"] > before["audio"]["plays"], (asked, rec["audio"]))
+    check("The AI service's voice available: the line is fetched and played as a clip", asked["GET"] == 1 and len(asked["POST"]) == 1 and rec["audio"]["plays"] > before["audio"]["plays"], (asked, rec["audio"]))
     posted = (asked["POST"][0] or {}) if asked["POST"] else {}
     check("...the words it is given made for the ear", posted.get("text") == "Your form F H R 17 is at 92 percent." and posted.get("voice") in ("female", "male"), posted)
     check("...and the browser's own voice kept quiet", not any("F H R" in (s.get("text") or "") or "F/HR" in (s.get("text") or "") for s in rec["spoken"][len(before["spoken"]):]), rec["spoken"][len(before["spoken"]):])

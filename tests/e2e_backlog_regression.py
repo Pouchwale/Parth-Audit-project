@@ -20,7 +20,7 @@ flooring prepareDueRecords() too, and by making prepared.at/updatedAt
 actually equal for a freshly-prepared record (see recordRepository.ts's
 upsertMany + engine/assistantPrepare.ts).
 
-Network-independent (no Groq calls) -- run alongside e2e_smoke.py:
+Network-independent (no model calls) -- run alongside e2e_smoke.py:
     npm run test:e2e          # runs this automatically, see scripts/run-e2e.ts
 or manually against a server you start yourself:
     npm run build

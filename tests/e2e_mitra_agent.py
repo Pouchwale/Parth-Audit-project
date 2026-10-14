@@ -6,10 +6,12 @@ Gujarati or a mix - and DO it through the API rather than through the fixed
 keyword rules, asking when an instruction is unclear.
 
 Network-independent: the model is mocked at the browser's network edge
-(POST /api/assistant/agent answers with canned tool calls and final words, the
-way Groq would through backend/mitraAgent.ts), and the server's "assistant
-configured" flag is switched on in the auth answers, so the agent path runs
-without a key. Checked against the production build on :8842:
+(POST /api/assistant/agent answers with canned tool calls and final words, in
+OpenAI's function-calling shapes, the way ChatGPT answers through
+backend/mitraAgent.ts and backend/ai.ts since REQUIREMENTS s109; the server's
+own request to api.openai.com is stood in for by backend/tests/ai.test.ts), and
+the server's "assistant configured" flag is switched on in the auth answers, so
+the agent path runs without a key. Checked against the production build on :8842:
 
   * an instruction becomes a tool call the browser carries out - "open insights"
     navigates, shows the step as done, and the final words are rendered (bold);
@@ -22,6 +24,8 @@ without a key. Checked against the production build on :8842:
   * when the model fails, the app still answers (the local path, s72);
   * on an open record the agent's edit_open_record tool changes the sheet
     exactly as a person's words would, with the step shown;
+  * every request the browser sent is in OpenAI's chat shapes (s109): the
+    server hands its tools and messages to ChatGPT as they are;
   * no JavaScript errors.
 """
 import json
@@ -294,6 +298,29 @@ with sync_playwright() as p:
     )
     check("...and the sheet now reads 20.4 at 14:00", stored is not None and stored["viscosity"] == 20.4, stored)
     check("...and the final words are shown in the dock", page.locator(".assistant-dock .chat-msg.bot", has_text="20.4").count() >= 1)
+
+    def openai_shapes(body):
+        """What is not in OpenAI's chat shapes in one request (s109: the server hands these to ChatGPT as they are)."""
+        wrong = []
+        for t in body.get("tools") or []:
+            fn = t.get("function") or {}
+            if t.get("type") != "function" or not isinstance(fn.get("name"), str) or not isinstance(fn.get("description"), str) or not isinstance(fn.get("parameters"), dict):
+                wrong.append(("tool", t))
+        for m in body.get("messages") or []:
+            role = m.get("role")
+            if role == "user" and isinstance(m.get("content"), str):
+                continue
+            if role == "tool" and isinstance(m.get("tool_call_id"), str) and isinstance(m.get("content"), str):
+                continue
+            if role == "assistant" and (m.get("content") is None or isinstance(m.get("content"), str)):
+                calls = m.get("tool_calls") or []
+                if all(isinstance(c.get("id"), str) and c.get("type") == "function" and isinstance((c.get("function") or {}).get("name"), str) and isinstance((c.get("function") or {}).get("arguments"), str) for c in calls):
+                    continue
+            wrong.append(("message", m))
+        return wrong
+
+    misshapen = [w for b in REQUESTS for w in openai_shapes(b)]
+    check(f"Every request the browser sent ({len(REQUESTS)}) is in OpenAI's chat shapes: function tools, user / assistant / tool messages, calls with string arguments", len(REQUESTS) >= 6 and not misshapen, misshapen[:3])
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()
