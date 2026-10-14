@@ -51,11 +51,14 @@ Network-independent, against the production build on :8842 (DCRS_BASE overrides 
 """
 import os
 import struct
+import os
 import sys
 import time
 from datetime import date
 
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin, SUPER_ADMIN_NAME  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -298,19 +301,15 @@ with sync_playwright() as p:
     page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
     page.on("request", note_speak)
 
-    page.goto(f"{BASE}/index.html")
-    page.wait_for_selector("text=Sign up", timeout=60000)
-    page.wait_for_timeout(800)
-    sign_up(page, f"voice-{int(time.time() * 1000)}@example.com")
+    # The first account a server ever has becomes its super admin and sees every department: the run's super
+    # admin (tests/_super_admin.py), made or signed in first, so that the person of Production signed up next is
+    # staff - what this suite is about. Master Data, whose voice card sections 4b to 5 read, is the super
+    # admin's (REQUIREMENTS s116) and is opened as it from 4b on.
+    check("The run's super admin is on the server first", become_super_admin(page, BASE) == "admin")
+    log_out(page)
+    page.evaluate("() => { window.__cues.length = 0; window.__says.length = 0; window.__spoken.length = 0; }")
+    sign_up(page, f"voice-prd-{int(time.time() * 1000)}@example.com")
     page.wait_for_timeout(1500)
-    # The first account a server ever has becomes its administrator and sees every
-    # department; a second, kept to Production, is what this suite is about.
-    if ((me(page) or {}).get("user") or {}).get("role") == "admin":
-        print("    (the first account on this server is its administrator; signing up a Production account)")
-        log_out(page)
-        page.evaluate("() => { window.__cues.length = 0; window.__says.length = 0; window.__spoken.length = 0; }")
-        sign_up(page, f"voice-prd-{int(time.time() * 1000)}@example.com")
-        page.wait_for_timeout(1500)
     who = (me(page) or {}).get("user") or {}
     check("Signed in as a person of Production", who.get("role") != "admin" and who.get("departments") == [DEPARTMENT], who)
     today = date.today().isoformat()
@@ -571,6 +570,9 @@ with sync_playwright() as p:
     # 4b. REQUIREMENTS s85: the voice Mitra chooses, and how it says a line
     # ==================================================================
     print("\n==== s85: the voice chosen, and a line made for the ear ====")
+    # From here Master Data's voice card is read, the super admin's (REQUIREMENTS s116): the browser signs in as
+    # the run's super admin. The voice chosen and a line made for the ear are the same for every account.
+    check("Signed in as the run's super admin for Master Data's voice card", become_super_admin(page, BASE) == "admin")
     kind = settings(page).get("voiceKind") or "female"
     voice_page = context.new_page()
     voice_page.on("pageerror", lambda e: errors.append(str(e)))
@@ -745,7 +747,8 @@ with sync_playwright() as p:
     check("...and shown as chosen", card.locator("[data-voice-kind='male']").get_attribute("aria-pressed") == "true" and card.locator("[data-remind-every='60']").get_attribute("aria-pressed") == "true")
     before = recorded(page)
     card.locator("[data-action='test-voice']").click()
-    heard = wait_for(page, "([n, name]) => { const t = window.__spoken.slice(n).map((s) => s.text || '').join(' '); return t.includes(name) && t.includes('Mitra'); }", 5000, [len(before["spoken"]), FIRST_NAME])
+    # The super admin is the one signed in here (s116), so the hello is by its first name.
+    heard = wait_for(page, "([n, name]) => { const t = window.__spoken.slice(n).map((s) => s.text || '').join(' '); return t.includes(name) && t.includes('Mitra'); }", 5000, [len(before["spoken"]), SUPER_ADMIN_NAME.split()[0]])
     check("Hear Mitra says hello, by name", heard, recorded(page)["spoken"][-2:])
     card.locator("[data-action='test-sound']").click()
     page.wait_for_timeout(400)
