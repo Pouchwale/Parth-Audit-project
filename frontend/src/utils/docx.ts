@@ -34,7 +34,7 @@ export type DocxCell = string | DocxRun[];
 
 export type DocxBlock =
   | { type: "paragraph"; text: string; bold?: boolean; size?: number; center?: boolean; parts?: DocxRun[] }
-  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string };
+  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true };
 
 /** What a document carries besides its body. */
 export interface DocxExtras {
@@ -132,9 +132,10 @@ function guid(): string {
 /** A one-section Word document. */
 export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Array<ArrayBuffer> {
   // A grid (a table with a heading row) of more than six columns, or any table of
-  // more than eight, turns the page; the form's Format No. / Rev No. row does not.
+  // more than eight, turns the page; the form's Format No. / Rev No. row (a band,
+  // whatever the paper prints in it since REQUIREMENTS §111) does not.
   const columnsOf = (b: DocxBlock) => (b.type === "table" ? Math.max(0, ...b.rows.map((r) => r.length)) : 0);
-  const widest = Math.max(0, ...blocks.map((b) => (b.type === "table" && ((b.headerRows ?? 0) > 0 || columnsOf(b) > 8) ? columnsOf(b) : 0)));
+  const widest = Math.max(0, ...blocks.map((b) => (b.type === "table" && !b.band && ((b.headerRows ?? 0) > 0 || columnsOf(b) > 8) ? columnsOf(b) : 0)));
   const landscape = widest > 6;
   const fontSize = widest > 12 ? 14 : widest > 8 ? 16 : 18;
   const controls = new Controls();

@@ -148,7 +148,7 @@ export interface Cell {
 export type ExportBlock =
   | { kind: "text"; text: string; strong: boolean; title?: boolean; parts?: ExportSegment[] }
   | { kind: "fields"; pairs: [string, Cell][] }
-  | { kind: "table"; rows: Cell[][]; headerRows: number; bindTable?: ExportTableBinding };
+  | { kind: "table"; rows: Cell[][]; headerRows: number; bindTable?: ExportTableBinding; band?: true };
 
 const SKIP = "button, .btn, .no-print, datalist, script, style, svg, template, noscript, [hidden], [aria-hidden='true'], input[type='file'], input[type='hidden']";
 
@@ -454,7 +454,9 @@ function walk(el: Element, out: ExportBlock[]): void {
       }
     }
     const meta = Array.from(el.querySelectorAll(".meta-cell")).flatMap((c) => [{ text: clean(textOf(c.querySelector(".k") ?? c)) }, cellFrom([c.querySelector(".v") ?? c])]);
-    if (meta.length > 0) out.push({ kind: "table", rows: [meta], headerRows: 0 });
+    // The Format No. / Rev No. / Date / Page row is a band across the page, not a grid: however many cells the paper
+    // prints in it, it never turns the page (utils/docx.ts).
+    if (meta.length > 0) out.push({ kind: "table", rows: [meta], headerRows: 0, band: true });
     return;
   }
   const label = el.classList.contains("field") ? el.querySelector(":scope > label") : null;
@@ -804,7 +806,7 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
     }
     if (b.kind === "fields") return { type: "table", rows: b.pairs.map(([label, cell]) => [label, cellOfWord(cell, label)]), boldFirstColumn: true };
     const rows = b.rows.map((r) => r.map((c) => cellOfWord(c)));
-    const block: DocxBlock = { type: "table", rows, headerRows: b.headerRows };
+    const block: DocxBlock = { type: "table", rows, headerRows: b.headerRows, ...(b.band ? { band: true as const } : {}) };
     if (builder && b.bindTable) {
       const fixed = b.rows.filter((r, ri) => ri < b.headerRows || !r.some(isBound)).map((r) => rowSignature(r.map((c) => c.text)));
       const table = builder.addTable(b.bindTable, { headerRows: b.headerRows, ...(fixed.length ? { fixedRows: fixed } : {}) });

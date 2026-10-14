@@ -203,6 +203,7 @@ with sync_playwright() as p:
     check("...with its title and header block", any("INDUCTION TRAINING RECORD" in p for p in paragraphs) and any("F/HR/05" in c for t in tables for r in t for c in r), paragraphs[:6])
     topic_table = next((t for t in tables if any("Training Topics" in c for c in t[0])), None)
     check("...and its topics as a table with a repeating heading row", topic_table is not None and any("Briefing on Company profile" in c for r in topic_table for c in r) and "<w:tblHeader/>" in xml, topic_table[:2] if topic_table else tables[:2])
+    print(f"    (F/HR/05 Word tables, columns each: {[max(len(r) for r in t) for t in tables]}; heading rows: {xml.count('<w:tblHeader/>')}; landscape: {'w:orient=' + chr(34) + 'landscape' + chr(34) in xml})")
     check("...on a portrait page (five columns)", 'w:orient="landscape"' not in xml)
 
     goto(page, "#/soc/soc-labels")
