@@ -1181,7 +1181,7 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       const hums = of("%");
       return [
         humidity
-          ? `Logged the ${h.area ? `${String(h.area).toLowerCase()} area's ` : ""}3 readings: ${Math.min(...temps)}–${Math.max(...temps)} °C and ${Math.min(...hums)}–${Math.max(...hums)} % (recommended 25 ± 2 °C / 45 ± 5 %).`
+          ? `Logged the ${h.area ? `${String(h.area).toLowerCase()} area's ` : ""}readings at 08:30, 12:30 and 16:30: ${Math.min(...temps)}–${Math.max(...temps)} °C and ${Math.min(...hums)}–${Math.max(...hums)} % (recommended 25 ± 2 °C / 45 ± 5 %).`
           : `Logged all 6 sleeve division readings: ${Math.min(...temps)}–${Math.max(...temps)} °C (recommended 28 ± 2 °C).`,
         signers.length ? `Each reading signed under it by the tester on shift: ${signers.join(" / ")}.` : "Each reading is signed under it by whoever takes it.",
       ];
@@ -1189,8 +1189,8 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
     case "qc-ruler-verification": {
       const off = rows.filter((r) => String(r.difference ?? "") !== "" && String(r.difference) !== "0.0").length;
       return [
-        `Verified ${h.make || "the ruler"} ${h.serialNo || ""} against the master ${h.masterSerialNo || ""} at the six printed points: ${off === 0 ? "every reading on the master's figure" : `${off} a millimetre off`}, ${rows[0]?.status || "status to judge"} against + / - 1 mm.`.replace(/\s+/g, " "),
-        "Write the master's certificate (calibration date, due date, report number) as it stands, and sign the verification.",
+        `Verified ${h.make || "the ruler"} ${h.serialNo || ""} against the master ${h.masterSerialNo || ""} at the six printed points: ${off === 0 ? "every reading on the master's figure" : `${off} off the master's figure`}, ${rows[0]?.status || "no verdict yet"} against + / - 1 mm.`.replace(/\s+/g, " "),
+        `The master's certificate is written as its calibration of ${formatDisplayDate(h.masterCalibrationDate)} (report ${h.masterCalibrationReportNo || "—"}): check it against the certificate on file before you submit.`,
       ];
     }
     case "qc-adhesive-mixing": {

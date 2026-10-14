@@ -664,7 +664,7 @@ function issuedOf(doc: DocumentDefinition): Obj | null {
   const validUntil = complianceValidUntil(statement);
   const lines = [
     statement.headerTitle,
-    ...statement.sections.flatMap((section) => [`${section.label}:`, ...section.lines.map((l) => `  ${l}`)]),
+    ...statement.sections.flatMap((section) => [`${section.label.replace(/:\s*$/, "")}:`, ...section.lines.map((l) => `  ${l}`)]),
     "",
     ...statement.declarations,
     "",

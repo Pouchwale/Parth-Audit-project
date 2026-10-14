@@ -168,6 +168,7 @@ describe("the host, over a stand-in store", { timeout: 300_000 }, () => {
       assert.equal(body.referenceOnly, true);
       assert.equal(body.issued.title, "STATEMENT OF COMPLIANCE – SHRINK SLEEVES");
       assert.ok(body.issued.text.includes("Usable for packers of products max up to 30 Deg C."), id);
+      assert.ok(body.issued.text.includes("Manufacturer:\n") && !body.issued.text.includes("::"), "a label printed with its colon is given one colon");
     }
     // Asked to open it, the phone is told it is read, and given its words.
     const opened = await host.change(QC, "open", { documentId: "F QC 09" }, () => undefined);

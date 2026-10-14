@@ -19,6 +19,7 @@ import { withComputedCells } from "../src/engine/computedCells";
 import { outOfBandCount } from "../src/engine/printedBands";
 import { matchDocuments } from "../src/engine/assistantLocal";
 import { findDocument } from "../src/engine/mitraTools";
+import { findDocuments } from "../src/engine/documentFinder";
 import { defaultResponsible } from "../src/engine/accessRules";
 import { QC_GROUPS } from "../src/data/seed/qcModule";
 import { COMPLIANCE_STATEMENTS, complianceValidUntil } from "../src/data/seed/complianceStatements";
@@ -313,6 +314,20 @@ test("F/QC-10: the Statement of Compliance for shrink sleeves as the document pr
   assert.deepEqual(matchDocuments("show me the pouch soc"), ["soc-flexible-packaging"], "never the sleeves' for the pouches'");
 });
 
+test("F/QC-09 and F/QC-38 print their table's own marks — •, ❖ and ✓ — as their Word originals and the owner's PDF of 14-Oct-2026 do", () => {
+  const lines = (id: string, label: string) => COMPLIANCE_STATEMENTS[id].sections.find((x) => x.label === label)!.lines;
+  const marks = (ls: string[]) => ls.map((l) => l.slice(0, 2));
+  // F/QC-09: the raw materials a bullet each; "❖" before the conditions, "✓" before each of them.
+  assert.ok(lines("soc-labels", "Raw materials used").every((l) => l.startsWith("• ")));
+  assert.deepEqual(marks(lines("soc-labels", "Specification for use").slice(2)), ["❖ ", "✓ ", "✓ ", "✓ ", "✓ "]);
+  // F/QC-38: products, raw materials and uses "❖"; the conditions "✓"; the rolls' top and bottom layers "❖".
+  assert.ok(lines("soc-flexible-packaging", "Product").every((l) => l.startsWith("❖ ")));
+  assert.ok(lines("soc-flexible-packaging", "Raw materials used").every((l) => l.startsWith("❖ ")));
+  assert.deepEqual(marks(lines("soc-flexible-packaging", "Specification for use")), ["❖ ", "❖ ", "❖ ", "✓ ", "✓ ", "✓ ", "✓ ", "❖ "]);
+  // No "•" of DCRS's before a condition on any of the three.
+  for (const s of Object.values(COMPLIANCE_STATEMENTS)) assert.ok(!s.sections.some((x) => x.lines.some((l) => l.startsWith("• Chemical"))), s.documentId);
+});
+
 // ---------------------------------------------------------------------------
 // Mitra and Search find each by its number and its words
 
@@ -329,4 +344,9 @@ test("Mitra finds the three by their numbers and words; the number without its l
   assert.deepEqual(matchDocuments("temperature and humidity monitoring for the ink kitchen"), ["qc-temperature-humidity"]);
   assert.deepEqual(matchDocuments("open the ruler verification record"), ["qc-ruler-verification"]);
   assert.deepEqual(matchDocuments("weighing scale calibration"), ["qc-weight-scale-calibration"], "F/QC/12's scale is not the ruler");
+  // The Master List of Formats no longer says any of the four is "not in DCRS yet": each number finds the document.
+  for (const [listed, id] of [["F-QC-17", "qc-ruler-verification"], ["F-QC-10", "soc-shrink-sleeves"], ["F-QC-40. A", "qc-temperature-humidity"], ["F-QC-40. B", "qc-temperature-sleeve"]]) {
+    const found = findDocuments(listed);
+    assert.ok(found.length === 1 && found[0].kind !== "master" && found[0].doc.id === id, `${listed}: ${found.map((f) => (f.kind === "master" ? `master ${f.format.formatNo}` : f.doc.id)).join(", ")}`);
+  }
 });

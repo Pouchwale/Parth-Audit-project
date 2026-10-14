@@ -1722,6 +1722,9 @@ body { top: 0 !important; }
 .doc-table table.paper-box-table td .field-in-table .input { width: 100%; min-width: 64px; }
 /* A table of boxes headed across by its corner (F/QC/17's "Master Measuring Scale (Ruler) Details"), centred as printed. */
 .doc-table table.paper-box-table th.paper-box-table-across { text-align: center; }
+/* A Statement of Compliance's list after its table, a bullet to an item as the documents print it (§111 part 8). */
+[data-section="soc-list"] p.soc-item { position: relative; padding-left: 18px; }
+[data-section="soc-list"] p.soc-item::before { content: "•"; position: absolute; left: 4px; }
 /* The grid printed across (gridAcross: a certificate's PRINTING, its colours 1 to 10 across). */
 .doc-table table.log-sheet-across th.log-sheet-across-head { text-align: left; white-space: nowrap; vertical-align: middle; }
 .doc-table table.log-sheet-across td { text-align: center; }

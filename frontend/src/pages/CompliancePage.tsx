@@ -299,7 +299,10 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
             ) : (
               <p
                 key={i}
-                className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}${s.headings?.includes(d) ? " font-semibold" : ""}`}
+                // A bullet to each item, as the documents print their list (REQUIREMENTS §111, part 8): drawn by the
+                // stylesheet, so the words a download holds and reads back are the item's alone. A heading (REACH) has
+                // none; a "⇨" line is a bullet of the item above, with its own arrow.
+                className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}${s.headings?.includes(d) ? " font-semibold" : d.startsWith("⇨") ? "" : " soc-item"}`}
                 style={d.startsWith("⇨") ? { paddingLeft: 24 } : undefined}
                 {...bindProps(complianceBind.declaration(i))}
               >

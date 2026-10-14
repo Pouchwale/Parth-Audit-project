@@ -15,6 +15,11 @@
 // document holds it: one line per bullet, in order (`declarations`), each
 // "⇨" line a bullet of the list above it, as the document draws it, and the
 // headings it prints in the list named in `headings`.
+//
+// THE MARKS IN THE TABLE (REQUIREMENTS §111, part 8): each document's own, as its Word original and the owner's PDF of
+// 14-Oct-2026 print them — F/QC-09's raw materials "•", "❖" before the conditions and "✓" before each; F/QC-38's
+// products, raw materials and uses "❖" and its conditions "✓"; F/QC-10's as its page. They were held without them,
+// or with a "•" of DCRS's before the conditions.
 import { COMPANY } from "./masterData";
 
 export interface ComplianceSection {
@@ -48,7 +53,7 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
       { label: "Product", lines: ["Pressure Labels"] },
       {
         label: "Raw materials used",
-        lines: ["Adhesive Label – Paper, Silver metalized paper, Filmic Paper, BOPP Film", "Ink – UV / Water based", "Lamination adhesive", "UV Varnish", "Cold Foil", "Coil Foil adhesive"],
+        lines: ["• Adhesive Label – Paper, Silver metalized paper, Filmic Paper, BOPP Film", "• Ink – UV / Water based", "• Lamination adhesive", "• UV Varnish", "• Cold Foil", "• Coil Foil adhesive"],
       },
       { label: "Manufacturing process", lines: ["Printing (Flexo), Lamination, Foiling, Coating, Punching, Slitting"] },
       { label: "Subcontracted / Outsource manufacturing", lines: ["Nil"] },
@@ -58,11 +63,11 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
         lines: [
           "Used as secondary packaging for packers of FMCG, Pharma, Food industries & Cosmetic products for product aesthetic, identification & labelling",
           "Usable for packers of products ranging from – 40 Deg C to 130 Deg C.",
-          "Finish products shall not be used for further use by the customer, if found with any of the below mentioned conditions.",
-          "• Chemical contamination in the product as well as product packaging such as traces of any chemicals, oil or objectionable materials",
-          "• Physical contamination in the products such as any non-product foreign matter found in the products",
-          "• Product packaging are damaged",
-          "• Products are damaged during transportation",
+          "❖ Finish products shall not be used for further use by the customer, if found with any of the below mentioned conditions.",
+          "✓ Chemical contamination in the product as well as product packaging such as traces of any chemicals, oil or objectionable materials",
+          "✓ Physical contamination in the products such as any non-product foreign matter found in the products",
+          "✓ Product packaging are damaged",
+          "✓ Products are damaged during transportation",
         ],
       },
       { label: "Usable life", lines: ["18 months from the date of manufacturing"] },
@@ -97,13 +102,13 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
       {
         label: "Product",
         lines: [
-          "Flexo Printed & Unlaminated Flexible Packaging materials in roll form & pouch form",
-          "Flexo Printed & Solvent base laminated Flexible Packaging materials in roll form & pouch form",
+          "❖ Flexo Printed & Unlaminated Flexible Packaging materials in roll form & pouch form",
+          "❖ Flexo Printed & Solvent base laminated Flexible Packaging materials in roll form & pouch form",
         ],
       },
       {
         label: "Raw materials used",
-        lines: ["Films – BOPP, METALIZED FILMS, PEARLISED BOPP, MATT FINISH FILMS, POLYSTER FILMS", "Aluminium Foils", "Ink", "Solvents – Ethyl acetate", "Adhesive & Hardener"],
+        lines: ["❖ Films – BOPP, METALIZED FILMS, PEARLISED BOPP, MATT FINISH FILMS, POLYSTER FILMS", "❖ Aluminium Foils", "❖ Ink", "❖ Solvents – Ethyl acetate", "❖ Adhesive & Hardener"],
       },
       { label: "Manufacturing process", lines: ["Printing (Flexo), Lamination - solvent based), Slitting & Pouching"] },
       { label: "Subcontracted / Outsource manufacturing", lines: ["Nil"] },
@@ -114,14 +119,14 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
       {
         label: "Specification for use",
         lines: [
-          "Flexible packaging laminates can be used up to maximum 12 months from date of manufacturing if storage condition doesn’t exceed 50 degrees centigrade.",
-          "Suitability of storage condition for packed products to be determined by packers.",
-          "Finish products (Rolls & Pouches) shall not be used for further processing or packaging of the products by the customer, if found with any of the below mentioned conditions.",
-          "• Chemical contamination in the product as well as product packaging such as traces of any chemicals, oil or objectionable materials",
-          "• Physical contamination in the products such as any non-product foreign matter found in the products",
-          "• Product packaging are damaged",
-          "• Products are damaged during transportation",
-          "• Discard top layer & bottom layer of the films roll for approx. 5 meters, depending upon the visual quality of the rolls",
+          "❖ Flexible packaging laminates can be used up to maximum 12 months from date of manufacturing if storage condition doesn’t exceed 50 degrees centigrade.",
+          "❖ Suitability of storage condition for packed products to be determined by packers.",
+          "❖ Finish products (Rolls & Pouches) shall not be used for further processing or packaging of the products by the customer, if found with any of the below mentioned conditions.",
+          "✓ Chemical contamination in the product as well as product packaging such as traces of any chemicals, oil or objectionable materials",
+          "✓ Physical contamination in the products such as any non-product foreign matter found in the products",
+          "✓ Product packaging are damaged",
+          "✓ Products are damaged during transportation",
+          "❖ Discard top layer & bottom layer of the films roll for approx. 5 meters, depending upon the visual quality of the rolls",
         ],
       },
       {
