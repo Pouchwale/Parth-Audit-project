@@ -135,7 +135,9 @@ def sign_in_as(page, email, password):
 
 def log_lines(page, query=""):
     open_page(page, "#/activity", settle=2600)
-    if query:
+    box = page.locator("[data-field='activity-search']")
+    # The box keeps the last words typed (a search left in a box): a reading with no query empties it first.
+    if query or (box.count() and box.input_value()):
         page.fill("[data-field='activity-search']", query)
         page.keyboard.press("Enter")
         page.wait_for_timeout(1200)
@@ -299,6 +301,11 @@ with sync_playwright() as p:
 
     # THE CHIPS (the owner, 14-Oct-2026): who, which module, which document, what - each filtered on the server, combined.
     open_page(page, "#/activity", settle=2600)
+    # Words left in the search box by the readings above would stay a filter after Clear chips: emptied first.
+    if page.locator("[data-field='activity-search']").input_value():
+        page.fill("[data-field='activity-search']", "")
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(1000)
     page.locator("[data-field='activity-span'] [data-span='all']").click()
     page.wait_for_timeout(1500)
     page.locator("[data-field='activity-chips-action'] [data-chip='action'][data-value='Format changed']").click()
