@@ -338,6 +338,13 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
 
     def dock_say(words, wait_for=None):
+        # A chip folds the dock, and Send is disabled while Mitra is still answering the last turn: open the dock
+        # and wait for Send before typing (16-Oct-2026).
+        open_dock()
+        try:
+            page.wait_for_selector(".assistant-dock button[aria-label='Send']:not([disabled])", timeout=20000)
+        except Exception:
+            pass
         page.locator(".assistant-dock textarea.input").fill(words)
         page.locator(".assistant-dock button[aria-label='Send']").click()
         if wait_for:
@@ -356,6 +363,12 @@ with sync_playwright() as p:
 
     def dock_chip(label):
         return page.locator(".assistant-dock .chat-chip", has_text=label)
+
+    def dock_question():
+        """The question Mitra asked: the last bot message with words in it (an empty bubble for the answer still
+        on its way can sit after it)."""
+        texts = [t for t in page.locator(".assistant-dock .chat-msg.bot").all_inner_texts() if t.strip()]
+        return texts[-1] if texts else ""
 
     print("\n==== A free sheet: add a line (Undo), delete a line after its confirmation, clear a value ====")
     page.goto(f"{BASE}/index.html#/document/qc-adhesive-mixing")
@@ -384,7 +397,7 @@ with sync_playwright() as p:
     check("Added again for the deletion", len(rows) == before_rows + 1, len(rows))
     line_no = len(rows)
     dock_say(f"delete line {line_no}", ".assistant-dock .chat-chip")
-    question = page.locator(".assistant-dock .chat-msg.bot").last.inner_text()
+    question = dock_question()
     check("A deletion is asked first, in the line's own words, as chips", dock_chip("Yes, delete it").count() == 1 and dock_chip("No, keep it").count() == 1 and re.search(rf"Delete line {line_no} \(.*10:30.*20\.4.*Jeni\) from", question) is not None, question[:200])
     dock_chip("No, keep it").first.click()
     page.wait_for_timeout(1200)
@@ -402,7 +415,7 @@ with sync_playwright() as p:
     rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
     line_no = len(rows)
     dock_say(f"clear line {line_no}", ".assistant-dock .chat-chip")
-    question = page.locator(".assistant-dock .chat-msg.bot").last.inner_text()
+    question = dock_question()
     check("A clear of a written value is asked first, naming the value and the line", dock_chip("Yes, clear it").count() == 1 and dock_chip("No, leave it").count() == 1 and re.search(rf"Clear 20\.4 from line {line_no} \(10:30\) on", question) is not None, question[:200])
     dock_chip("Yes, clear it").first.click()
     page.wait_for_timeout(1500)
