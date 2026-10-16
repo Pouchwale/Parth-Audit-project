@@ -354,10 +354,12 @@ with sync_playwright() as p:
     check("'add 2 rows' adds two lines to the record, at once", rows() == start + 2, (start, rows(), reply))
     check("...listed back, with Undo offered", "row" in reply.lower() and chips(page, "undo").count() == 1, reply)
     reply = say(page, "delete the last row")
-    check("'delete the last row' takes one off again", rows() == start + 1, (start, rows(), reply))
-    check("...and offers Undo too", chips(page, "undo").count() == 1, reply)
-    tap(page, "undo")
-    check("Undo puts the line back", rows() == start + 2, rows())
+    # A deletion is asked first, in the line's own words, on a draft too (REQUIREMENTS §113): nothing goes until the yes.
+    check("'delete the last row' is asked first, in the line's own words, and nothing is taken off yet", rows() == start + 2 and "Delete line" in reply and chips(page, "confirmLineChange").count() == 1, (start, rows(), reply))
+    tap(page, "confirmLineChange")
+    check("Yes: the line goes", rows() == start + 1, rows())
+    reply = say(page, "add a row")
+    check("A line added again: the register holds two added lines once more", rows() == start + 2, (rows(), reply))
     check("None of it touched the format", (format_edit(page, FREE_DOC) or {}).get("revisionNo") == rev2)
     reply = say(page, "row 1 remarks is Checked against the shade card")
     first = (((record() or {}).get("data") or {}).get("rows") or [{}])[0]
