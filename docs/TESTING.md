@@ -1102,7 +1102,10 @@ Seven scripts live in `tests/`:
   it, printed as a [NOTE]; a suite that needed the super admin and did not get it fails its first check saying so.
   THE RULE: a :8842 suite that needs the super admin becomes it FIRST, before any sign-up of its own, so the account
   is the first on the server in every order (the full run, a run resumed from a later suite, a suite alone) and the
-  suite's own sign-ups are staff. Brought to it: `e2e_smoke` (first in the runner's order, it makes the account; its
+  suite's own sign-ups are staff. ONE CARE WHEN RESUMING: a resumed run starts a fresh :8842 database, so its first
+  suite must be one whose first act is the helper (e2e_smoke, e2e_insights, e2e_theme …); resumed from a suite that
+  needs no super admin (e2e_celebrations, 16-Oct-2026) that suite's own sign-up came first and every later super-admin
+  suite got a staff account ("[NOTE] … role staff"). Brought to it: `e2e_smoke` (first in the runner's order, it makes the account; its
   random "Playwright QA" account is staff, refused Reports in the page's words, and Demo Mode, Reports and Master
   Data from section 6 on are the super admin's), `e2e_translate`, `e2e_print_and_forms`, `e2e_print_all_documents`,
   `e2e_trend_reports`, `e2e_sys_module`, `e2e_sheet_designer`, `e2e_voice_languages`, `visual_qa`, `e2e_departments`
