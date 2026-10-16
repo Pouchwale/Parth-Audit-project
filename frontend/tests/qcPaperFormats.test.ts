@@ -109,7 +109,32 @@ const bodyRows = (html: string) => Array.from(between(html, "<tbody", "</tbody>"
 
 const GSM_PRINTED: Record<string, string> = { deviceIdNo: "1-54, 2-55, 3-56, 4-57", location: "LAB", department: "LAB", manufacturer: "Global Eng. Co. (GEC)" };
 
-test("a box the paper prints: written into every new record, and every record reads it whatever was typed there before", () => {
+/**
+ * The printed-box machinery is kept for a designer who chooses it; since REQUIREMENTS §117 no issued format prints a
+ * read-only box (F/QC/11's four are editable, the paper's words their start). So the machinery is tested on a layout of
+ * its own: F/QC/11 as §111 had it, with its four boxes printed, held as a format edit for the length of the test.
+ */
+function withGsmBoxesPrinted<T>(body: () => T): T {
+  const issued = getIssuedLogSheetLayout(GSM)!;
+  const printed: LogSheetLayout = {
+    ...issued,
+    headerFields: issued.headerFields.map((f) => (f.key in GSM_PRINTED ? { ...f, autoFill: undefined, printed: GSM_PRINTED[f.key] } : f)),
+  };
+  saveFormatEdit(GSM, { revisionNo: "01", revisionDate: "2026-10-01", layout: printed, revisions: [] });
+  const done = (out: T): T => {
+    dropFormatEdit(GSM);
+    return out;
+  };
+  try {
+    const out = body();
+    return out instanceof Promise ? (out.then(done, (e) => { dropFormatEdit(GSM); throw e; }) as unknown as T) : done(out);
+  } catch (e) {
+    dropFormatEdit(GSM);
+    throw e;
+  }
+}
+
+test("a box the paper prints: written into every new record, and every record reads it whatever was typed there before", () => withGsmBoxesPrinted(() => {
   const layout = layoutOf(GSM);
   assert.deepEqual(Object.fromEntries(printedBoxes(layout).map((f) => [f.key, f.printed])), GSM_PRINTED);
   // A new record, the morning's known parts and Demo Mode's fill hold the paper's words.
@@ -129,9 +154,9 @@ test("a box the paper prints: written into every new record, and every record re
   const other: LogSheetData = { header: { deviceIdNo: "QC-76" }, rows: [] };
   assert.equal(withPrintedBoxes(SCALE, other), other, "a form that prints no value in a box is left as it is");
   assert.equal(withPrintedBoxes("daily-pest-monitoring", other), other);
-});
+}));
 
-test("a box the paper prints is never typed, uploaded, asked for or written by Mitra", async () => {
+test("a box the paper prints is never typed, uploaded, asked for or written by Mitra", () => withGsmBoxesPrinted(async () => {
   const layout = layoutOf(GSM);
   const device = layout.headerFields.find((f) => f.key === "deviceIdNo")!;
   assert.equal(logHeaderBind(device), null, "a downloaded file carries no place to change it");
@@ -157,6 +182,27 @@ test("a box the paper prints is never typed, uploaded, asked for or written by M
   for (const [k, v] of Object.entries(GSM_PRINTED)) assert.match(html, new RegExp(`data-printed="${k}"[^>]*>${v.replace(/[()]/g, "\\$&")}<`), `${k} reads as printed`);
   assert.ok(!html.includes("WS-2026-10"), "what was typed there before is not shown");
   assert.ok(!/data-bind="header\/deviceIdNo"/.test(html), "and there is no box to type into");
+}));
+
+test("F/QC/11's four boxes are editable since §117: the paper's words start every new sheet, and whatever is written stays", async () => {
+  const layout = layoutOf(GSM);
+  assert.deepEqual(printedBoxes(layout), [], "no issued format prints a read-only box");
+  assert.deepEqual(Object.fromEntries(layout.headerFields.filter((f) => f.key in GSM_PRINTED).map((f) => [f.key, f.autoFill?.default])), GSM_PRINTED, "the paper's words are the start");
+  const blank = createDefaultData(docOf(GSM), DAY, master) as LogSheetData;
+  for (const [k, v] of Object.entries(GSM_PRINTED)) assert.equal(blank.header[k], v, `a new record's ${k}`);
+  const known = prepareKnownParts(docOf(GSM), DAY, master, undefined)!;
+  for (const [k, v] of Object.entries(GSM_PRINTED)) assert.equal((known.data as LogSheetData).header[k], v, `the prepare's ${k}`);
+  // "Location: LAB" circled on the owner's print of 16-Oct-2026: the person writes another, and it stays.
+  const typed: LogSheetData = { header: { ...blank.header, location: "QC Lab" }, rows: blank.rows };
+  assert.equal((withComputedCells(GSM, typed) as LogSheetData).header.location, "QC Lab", "nothing writes the paper's word back over it");
+  const patched = applyAssistantPatch("log-sheet", GSM, blank, { header: { location: "QC Lab" } });
+  assert.deepEqual(patched.problems, []);
+  assert.equal((patched.data as LogSheetData).header.location, "QC Lab", "Mitra may write it");
+  assert.ok(logSheetBindings(layout, blank).some((b) => b.path === "header/location"), "a downloaded file carries a place to change it");
+  const html = await sheet(GSM, typed, true);
+  assert.match(html, /data-bind="header\/deviceIdNo"/, "a box to type into");
+  assert.ok(!/data-printed=/.test(html), "no box drawn as printed words");
+  assert.ok(html.includes("QC Lab"));
 });
 
 // ---------------------------------------------------------------------------
@@ -385,7 +431,8 @@ test("a format edited before §111 takes the paper's shape from the issued one, 
     delete (gsmOld as Partial<LogSheetLayout>).groupCellLines;
     saveFormatEdit(GSM, { revisionNo: "02", revisionDate: "2026-10-01", layout: gsmOld, revisions: [] });
     const gsmNow = getLogSheetLayout(GSM)!;
-    assert.deepEqual(Object.fromEntries(printedBoxes(gsmNow).map((f) => [f.key, f.printed])), GSM_PRINTED);
+    assert.deepEqual(printedBoxes(gsmNow), [], "no box is read-only (§117)");
+    assert.deepEqual(Object.fromEntries(gsmNow.headerFields.filter((f) => f.key in GSM_PRINTED).map((f) => [f.key, f.autoFill?.default])), GSM_PRINTED, "the paper's words start its four boxes");
     assert.equal(gsmNow.instructions, undefined, "the procedure is printed below the grid, not twice");
     assert.deepEqual(gsmNow.notesBelow, [`PROCEDURE: ${CALIBRATION_PROCEDURE}`]);
     // And part 6's: the paper's letters, its box words and Due Date:- at the right, Pass/Fail and Sign. one cell a plate.
@@ -437,14 +484,15 @@ test("F-QC-32 Adhesive Mixing Ratio Record: the paper's ten columns with the Dat
   assert.ok(demo.rows.length >= 1 && demo.rows.every((r) => r.date === DAY), JSON.stringify(demo.rows.map((r) => r.date)));
 });
 
-test("F/QC/11 GSM cutting plate: the paper's boxes and printed values, I. Calibration Date and Due Date, No. 54 to 57 over size and Deviation, PROCEDURE below", async () => {
+test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them, I. Calibration Date and Due Date, No. 54 to 57 over size and Deviation, PROCEDURE below", async () => {
   const layout = layoutOf(GSM);
   assert.equal(layout.instructions, undefined);
   assert.equal(layout.headerColumns, 3);
   assert.deepEqual(
-    layout.headerFields.map((f) => [f.printedLabel ?? f.label, f.printed ?? null]),
+    layout.headerFields.map((f) => [f.printedLabel ?? f.label, f.autoFill?.default ?? null]),
     [
-      // The paper's own words, its colons and ":-" included (§111 part 6).
+      // The paper's own words, its colons and ":-" included (§111 part 6); the first four start with what the paper
+      // prints and are the person's to change (§117).
       ["Device ID No:", "1-54, 2-55, 3-56, 4-57"],
       ["Location:", "LAB"],
       ["Department:", "LAB"],

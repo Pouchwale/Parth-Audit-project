@@ -224,7 +224,10 @@ test("F/QC/17: the Measuring Scale (Ruler) Internal Verification Record as its p
       ["Measuring Scale (Ruler) under calibration details", ["Make", "Serial number", "Range", "Least count", "Calibration date", "Calibration due date", "Accetable tolerance"]],
     ]
   );
-  assert.equal(layout.headerFields.find((f) => f.key === "acceptableTolerance")?.printed, "+ / - 1 mm");
+  // The paper's "+ / - 1 mm" starts the box; since §117 the person may write the ruler's own over it.
+  const tolerance = layout.headerFields.find((f) => f.key === "acceptableTolerance")!;
+  assert.equal(tolerance.autoFill?.default, "+ / - 1 mm");
+  assert.equal(tolerance.printed, undefined, "editable, not printed read-only");
   assert.ok(layout.rowMode.kind === "fixedRows");
   assert.deepEqual(layout.rowMode.kind === "fixedRows" && layout.rowMode.rows.map((r) => r.masterReading), ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"]);
   const filled = sample(id);
@@ -233,7 +236,8 @@ test("F/QC/17: the Measuring Scale (Ruler) Internal Verification Record as its p
   assert.ok(words.includes("Measuring Scale (Ruler) Internal Verification Record"), "the title in its own letters");
   assert.ok(words.indexOf("Master Measuring Scale (Ruler) Details") < words.indexOf("Measuring Scale (Ruler) under calibration details"));
   assert.match(html, /paper-box-table-across" colSpan="2">Master Measuring Scale \(Ruler\) Details/i);
-  assert.ok(words.includes("+ / - 1 mm"));
+  // The tolerance is a box since §117: the paper's "+ / - 1 mm" is its value (the sheet's text has no input values).
+  assert.ok(html.includes("+ / - 1 mm"), "the paper's tolerance starts its box");
   const g = grid(html);
   assert.deepEqual(headings(g), ["#", "Master calibrator reading", "Observed reading (mm)", "Difference", "Status (Pass/Fail)", "Calibration performed by"]);
   assert.equal((g.match(/rowSpan="6"/gi) ?? []).length, 2, "the Status and the name, one cell each down the six lines");

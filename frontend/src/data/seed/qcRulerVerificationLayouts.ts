@@ -58,13 +58,16 @@ const ruler: LogHeaderField[] = [
   { key: "leastCount", label: "Least count", type: "text" },
   { key: "calibrationDate", label: "Calibration date", type: "date", required: true, autoFill: { dueDate: true } },
   { key: "calibrationDueDate", label: "Calibration due date", type: "date", required: true },
-  // "Accetable" is the paper's own spelling; the tolerance is printed, and judges every Difference.
-  { key: "acceptableTolerance", label: "Accetable tolerance", type: "text", printed: RULER_TOLERANCE },
+  // "Accetable" is the paper's own spelling; the paper's "+ / - 1 mm" starts the box and judges every Difference
+  // (toleranceFrom reads what the box holds), and the person may write another over it (REQUIREMENTS §117).
+  { key: "acceptableTolerance", label: "Accetable tolerance", type: "text", autoFill: { default: RULER_TOLERANCE } },
 ];
 
 export const QC_RULER_VERIFICATION_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-ruler-verification": {
     documentId: "qc-ruler-verification",
+    // A portrait page, as the original is (REQUIREMENTS §117).
+    paper: "portrait",
     titleAsPrinted: true,
     headingsAsPrinted: true,
     // The paper numbers its six points under "#": the sheet's own numbers, headed as the paper heads them.

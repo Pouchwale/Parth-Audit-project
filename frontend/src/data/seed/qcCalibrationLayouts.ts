@@ -155,6 +155,8 @@ const weightScale: LogSheetLayout = {
   rowMode: { kind: "single" },
   // A new week's sheet is written as the last one was — every box and the line, editable (§117).
   carryForwardAll: true,
+  // A landscape page, as the original is (§117): the print, the PDF, the Word and Excel files follow it.
+  paper: "landscape",
   notesBelow: ["PROCEDURE:", CALIBRATION_PROCEDURE],
   specimenHeader: WEIGHT_SCALE_HEADER,
   specimenRows: WEIGHT_SCALE_SPECIMEN_LINES,
@@ -193,7 +195,12 @@ export const GSM_SPECIMEN_ROWS: Record<string, string>[] = GSM_ROWS.map((row) =>
   return line;
 });
 
-/** What the paper prints in its first four boxes (REQUIREMENTS §111): the four plates and where they are kept. */
+/**
+ * What the paper prints in its first four boxes (REQUIREMENTS §111): the four plates and where they are kept. Since
+ * §117 (the owner, 16-Oct-2026: "Location: LAB" circled, "make each and every part of document editable") they are
+ * the START of every new sheet's boxes, not read-only words: the person writes over any of them, and the next sheet
+ * carries what was written (carryForwardAll).
+ */
 export const GSM_PRINTED = {
   deviceIdNo: "1-54, 2-55, 3-56, 4-57",
   location: "LAB",
@@ -214,6 +221,8 @@ export const GSM_HEADER: Record<string, string> = {
 
 const gsmPlate: LogSheetLayout = {
   documentId: "qc-gsm-plate-calibration",
+  // A landscape page, as the original is (REQUIREMENTS §117): the print, the PDF, the Word and Excel files follow it.
+  paper: "landscape",
   // The paper's own Index column (Tasted-1, 2, 3, 4, Pass/Fail, Sign.) numbers the lines (REQUIREMENTS §102).
   ownLineNumbers: true,
   // "Manufacturers of Printed Cartons, ..." under the company's name, as the paper prints it.
@@ -223,10 +232,11 @@ const gsmPlate: LogSheetLayout = {
   headingsAsPrinted: true,
   // Each box's words as the paper prints them, its colon or ":-" included; the names stay those the history and Mitra go by.
   headerFields: [
-    { key: "deviceIdNo", label: "Device ID No", printedLabel: "Device ID No:", type: "text", width: 170, printed: GSM_PRINTED.deviceIdNo },
-    { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 120, printed: GSM_PRINTED.location },
-    { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, printed: GSM_PRINTED.department },
-    { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, printed: GSM_PRINTED.manufacturer },
+    // The paper's words start each of these four boxes; every one is editable (§117).
+    { key: "deviceIdNo", label: "Device ID No", printedLabel: "Device ID No:", type: "text", width: 170, autoFill: { default: GSM_PRINTED.deviceIdNo, carryForward: true } },
+    { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 120, autoFill: { default: GSM_PRINTED.location, carryForward: true } },
+    { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { default: GSM_PRINTED.department, carryForward: true } },
+    { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { default: GSM_PRINTED.manufacturer, carryForward: true } },
     { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 120, autoFill: { carryForward: true } },
     { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true } },
     // The month's calibration is done on the day its record is for; left to the

@@ -858,6 +858,8 @@ const entry = (key: string, label: string, width: number): LogColumn => ({ key, 
 
 const dailyCleaning: LogSheetLayout = {
   documentId: "hr-daily-cleaning",
+  // A landscape page, as the original is (REQUIREMENTS §117): the print, the PDF, the Word and Excel files follow it.
+  paper: "landscape",
   // The paper numbers its areas in a "#" column of its own (REQUIREMENTS §102).
   ownLineNumbers: true,
   // The paper's NOTE, its closing bracket with no opening one included.
@@ -885,6 +887,8 @@ const dailyCleaning: LogSheetLayout = {
 
 const monthlyCleaning: LogSheetLayout = {
   documentId: "hr-monthly-cleaning",
+  // A landscape page, as the original is (REQUIREMENTS §117).
+  paper: "landscape",
   // The paper numbers its areas in a "#" column of its own, under an unnumbered Date line (REQUIREMENTS §102).
   ownLineNumbers: true,
   instructions: [CLEANING_NOTE],

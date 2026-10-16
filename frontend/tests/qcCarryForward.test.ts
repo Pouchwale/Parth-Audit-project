@@ -125,7 +125,7 @@ test("a new F/QC/17 is written as the previous one was: every box and line carri
   recordRepository.query({ documentId: d.id }).forEach((r) => recordRepository.remove(r.id));
 });
 
-test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's printed boxes stay printed; without a previous record the sheet is the paper's blank", () => {
+test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what was written over the paper's words; without a previous record the sheet is the paper's blank", () => {
   const master = masterRepository.get();
   const weight = doc("qc-weight-scale-calibration");
   recordRepository.query({ documentId: weight.id }).forEach((r) => recordRepository.remove(r.id));
@@ -155,7 +155,8 @@ test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's printed boxes stay print
   const rows = data(sep).rows.map((r) => (r.parameter === "Sign." ? { ...r, p54: "Rashmi" } : r.parameter === "Pass/Fail" ? { ...r, p54: "Pass" } : { ...r, p54: "20 x 20cm" }));
   recordRepository.upsert({ ...sep, data: { header: { ...data(sep).header, deviceIdNo: "typed over", serialNo: "50", calibrationExpiry: "2027-09-20", dueDate: "2026-10-31" }, rows } });
   const carried = carriedFrom(layoutOf(gsm.id), data(recordRepository.getById(sep.id)!), createDefaultData(gsm, "2026-10-31", master) as LogSheetData, "2026-10-31");
-  assert.equal(carried.header.deviceIdNo, "1-54, 2-55, 3-56, 4-57", "the paper's printed words, whatever the last sheet held");
+  assert.equal(carried.header.deviceIdNo, "typed over", "the person's own words, carried for the person to change (§117)");
+  assert.equal(carried.header.location, "LAB", "a box nobody changed keeps the paper's words");
   assert.equal(carried.header.serialNo, "50");
   assert.equal(carried.header.calibrationDate, "2026-10-31", "the month's calibration date is the record's day");
   assert.equal(carried.rows.find((r) => r.parameter === "Sign.")?.p54, "Rashmi");

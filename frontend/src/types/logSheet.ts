@@ -501,6 +501,14 @@ export interface LogSheetLayout {
    */
   carryForwardAll?: true;
   /**
+   * THE PAPER'S ORIENTATION (REQUIREMENTS §117, the owner, 16-Oct-2026: "Download formatting reqd.", every QC and HR
+   * document printed on A4 "portrait or landscape as the paper is"): F/QC/11 and F/QC/12 are landscape pages, F/QC/17
+   * a portrait one. The print and the server's PDF (utils/print.ts) turn the page as it says and scale the sheet to
+   * that page's width; the Word and Excel files (utils/docx.ts, utils/documentExport.ts) are set up on it. Where a
+   * layout says nothing the page is chosen by the sheet's width, as before (§54).
+   */
+  paper?: "portrait" | "landscape";
+  /**
    * The paper's text AT THE FOOT of the sheet, after the boxes below the grid,
    * verbatim and in its order (REQUIREMENTS §111): F/QC/21's "This is a system
    * generated document ...", the certificates of analysis' "THIS IS A SYSTEM

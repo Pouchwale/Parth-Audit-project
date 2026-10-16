@@ -266,16 +266,11 @@ with sync_playwright() as p:
     headings = sheet.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     expected = ["Index", "No. 54", "No. 55", "No. 56", "No. 57", "20 x 20cm", "Deviation", "10 x 10cm", "Deviation", "5 x 5cm", "Deviation", "2.5 x 2.5cm", "Deviation"]
     check("...the four plates as the paper heads them: No. 54 to 57, each over its size and Deviation (s111)", headings == expected, headings)
-    printed = printed_values(page)
-    check(
-        "...Device ID No, Location, Department and Manufacturer printed as the paper prints them, not typed (s111)",
-        printed == {"deviceIdNo": "1-54, 2-55, 3-56, 4-57", "location": "LAB", "department": "LAB", "manufacturer": "Global Eng. Co. (GEC)"},
-        printed,
-    )
+    check("...Device ID No, Location, Department and Manufacturer are boxes, not printed words (s117: every part editable)", printed_values(page) == {}, printed_values(page))
     values = header_values(page)
     check(
-        "...and the boxes written in as the scan: serial blank as the paper's box (s111 part 6), expiry 22.09.2025, calibrated 31.12.2024, due date blank",
-        values[:4] == ["", "2025-09-22", "2024-12-31", ""],
+        "...the four boxes holding the paper's words, then serial blank as the paper's box (s111 part 6), expiry 22.09.2025, calibrated 31.12.2024, due date blank",
+        values[:8] == ["1-54, 2-55, 3-56, 4-57", "LAB", "LAB", "Global Eng. Co. (GEC)", "", "2025-09-22", "2024-12-31", ""],
         values,
     )
     labels = sheet.locator(".field label").all_inner_texts()
@@ -391,11 +386,18 @@ with sync_playwright() as p:
     first = page.locator("table.log-sheet tbody tr").first
     # Columns: Index (the paper's own, no Sr. No.), then each plate's size and its Deviation.
     check("The GSM plate's Deviation cells are worked out too", first.locator("td").nth(2).locator("input").count() == 0 and first.locator("td").nth(1).locator("input").count() == 1)
+    device_box = page.locator("[data-print-doc] input[data-bind='header/deviceIdNo']")
     check(
-        "...and its printed boxes are printed on a new sheet too, with nothing to type into",
-        printed_values(page).get("deviceIdNo") == "1-54, 2-55, 3-56, 4-57" and page.locator("[data-print-doc] input[data-bind='header/deviceIdNo']").count() == 0,
+        "...and a new sheet starts its Device ID No box with the paper's words, in a box to type into (s117)",
+        device_box.count() == 1 and device_box.input_value() == "1-54, 2-55, 3-56, 4-57" and printed_values(page) == {},
         printed_values(page),
     )
+    location_box = page.locator("[data-print-doc] input[data-bind='header/location']")
+    location_box.fill("QC Lab")
+    page.wait_for_timeout(1200)
+    check("...and Location, circled on the owner's print of 16-Oct-2026, takes what is written over the paper's LAB", record(page, gsm_id)["data"]["header"].get("location") == "QC Lab", record(page, gsm_id)["data"]["header"])
+    location_box.fill("LAB")
+    page.wait_for_timeout(800)
     first.locator("td").nth(1).locator("input").fill("20.1 x 20cm")
     page.wait_for_timeout(1500)
     grow = record(page, gsm_id)["data"]["rows"][0]
@@ -404,7 +406,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(1500)
     rows = record(page, gsm_id)["data"]["rows"]
     check("...and back at its own size, 0% - with nothing worked out on the Pass/Fail and Sign lines", rows[0]["p54dev"] == "0%" and (rows[4].get("p54dev") or "") == "" and (rows[5].get("p54dev") or "") == "", [r.get("p54dev") for r in rows])
-    check("...and the record holds the paper's printed values", record(page, gsm_id)["data"]["header"].get("manufacturer") == "Global Eng. Co. (GEC)", record(page, gsm_id)["data"]["header"])
+    check("...and the record holds the paper's words where nobody wrote over them", record(page, gsm_id)["data"]["header"].get("manufacturer") == "Global Eng. Co. (GEC)", record(page, gsm_id)["data"]["header"])
     shoot(page, "F-QC-11")
 
     # ==================================================================

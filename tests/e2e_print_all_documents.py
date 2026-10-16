@@ -83,6 +83,8 @@ PRINTED = """
         return !!n && !!t && shown(n) && !!(t.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING) ? n.textContent : null;
       })(),
       text: docs.map((d) => d.textContent).join(' '),
+      // What the boxes above and below the grid hold (an input's value is not in textContent).
+      boxValues: Array.from(document.querySelectorAll('[data-print-doc] .field input, [data-print-doc] .field select, [data-print-doc] .field textarea')).filter(shown).map((e) => e.value),
     };
   }
 """
@@ -156,7 +158,7 @@ def check_paper(doc_id, seen):
         check("...and no 'One row per adhesive batch mixed' line", "One row per adhesive batch" not in seen["text"])
     elif doc_id == "qc-gsm-plate-calibration":
         check("F/QC/11 prints No. 54 to 57 over size and Deviation", seen["gridHeadings"][:5] == ["Index", "No. 54", "No. 55", "No. 56", "No. 57"], seen["gridHeadings"])
-        check("...the four printed boxes", all(v in seen["text"] for v in ["1-54, 2-55, 3-56, 4-57", "Global Eng. Co. (GEC)"]))
+        check("...the four boxes holding the paper's words, each a box to type into (s117)", all(v in seen["boxValues"] for v in ["1-54, 2-55, 3-56, 4-57", "LAB", "Global Eng. Co. (GEC)"]), seen["boxValues"][:6])
         check("...the PROCEDURE below the grid", bool(seen["notesAfterGrid"]) and PROCEDURE in seen["notesAfterGrid"], seen["notesAfterGrid"])
         check("...and no explanation of DCRS's", "The four plates" not in seen["text"] and "worked out" not in seen["text"])
     elif doc_id == "qc-weight-scale-calibration":
