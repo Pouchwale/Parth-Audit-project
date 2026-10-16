@@ -1115,7 +1115,14 @@ Seven scripts live in `tests/`:
   list of every person's, and is handed the directory as before; section 9's made-up second account is QC's, and
   nobody is part-scored on the super admin's scorecard; section 12 uses the helper's account, the admin@gpp.local
   fallback gone); and on the product server `e2e_working_hours` (a member of staff is refused Master Data; the API
-  refusal of a forged write as before). `e2e_theme` opens every page as a staff sign-up, the refusals in dark among
+  refusal of a forged write as before). Found after the brief's grep, which named the five page routes and not Demo
+  Mode's: `e2e_editing` (Master Data's row corrected in place), `e2e_pm_link` (Insights read after the PM date),
+  `e2e_mitra_format` (the Activity Log of section 8) and `e2e_storage_room` (the Demo Mode page's note on the daily
+  sheets' window) run as the super admin, and on the product server `e2e_database_overview` checks that a member of
+  staff has neither the Activity Log nor the Database overview in the sidebar. `e2e_files` and `e2e_realism` stay a
+  staff sign-up: the top bar's Demo pill is everybody's and the demo year comes from the Dashboard, and e2e_realism's
+  click on the Demo page's Generate is guarded; `e2e_mitra_copy_edit`'s navigate to Insights arrives after Stop and is
+  never carried out either way. `e2e_theme` opens every page as a staff sign-up, the refusals in dark among
   them, unchanged. `npm run typecheck` clean; `npm run test:unit`: frontend 1152
   (one voice-timing test flaky under the full run's load, green alone), backend 636 (4 skipped, as before).
 - **The blank sheets from before go-live moved to the archive, never deleted** (REQUIREMENTS §115, 14-Oct-2026: the
