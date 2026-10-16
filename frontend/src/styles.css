@@ -1459,6 +1459,10 @@ body { top: 0 !important; }
 .fhr18-month { display: flex; align-items: baseline; gap: 14px; margin-top: 12px; padding: 6px 10px; border: 1px solid #2c3e50; font-size: 12.5px; }
 .fhr18-month .k { font-weight: 700; }
 .fhr18-month .v { font-weight: 600; letter-spacing: 0.04em; border-bottom: 1px solid #2c3e50; min-width: 120px; padding: 0 6px; }
+/* On a visit's own page the Month & Year is the box the person fills: the paper's underlined blank (FlyCatcherRecordView.tsx, REQUIREMENTS §111 part 9). */
+.fhr18-month input.v { border: none; border-bottom: 1px solid #2c3e50; border-radius: 0; background: transparent; font: inherit; font-weight: 600; letter-spacing: 0.04em; color: inherit; height: auto; line-height: 1.4; width: 180px; }
+.fhr18-month input.v:focus { outline: none; border-bottom-color: var(--color-primary); }
+.fhr18-month input.v:disabled { opacity: 1; color: inherit; -webkit-text-fill-color: currentColor; cursor: default; }
 .fhr18-legend { margin-top: 8px; }
 .fhr18-legend td { text-align: left; padding: 3px 7px; font-size: 11.5px; }
 .fhr18-legend td.pc-id { width: 64px; font-weight: 600; white-space: nowrap; }

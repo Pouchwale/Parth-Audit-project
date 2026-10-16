@@ -196,7 +196,8 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     status: "Configured",
     description:
       "Fortnightly inspection and cleaning of fly catcher units PC-01 through PC-13 — approximate flies caught per unit (the Fly Catcher Infestation trend adds these up per unit and per month), tube light install / due dates, cleaning done by and verified by.",
-    sourceFile: "Kapila mam department reports .pdf (pages 5-6, photographed)",
+    sourceFile:
+      "F-HR-18_Fly Catcher Inspection & Cleaning Record.doc (the company's own Word original, sent 16-Oct-2026); Kapila mam department reports .pdf (pages 5-6, the August-2026 register filled, photographed)",
     schedule: { type: "fortnightly", anchorDayOfMonth: 3 },
   },
   {

@@ -87,7 +87,8 @@ REPORT               Reports > Daily Monitoring Summary (reproduces the monthly 
 ## 2. Fortnightly — Fly Catcher Inspection & Cleaning Record
 
 ```
-SOURCE DOCUMENT      Kapila mam department reports.pdf, pages 5-6
+SOURCE DOCUMENT      Kapila mam department reports.pdf, pages 5-6; the blank Word original
+                      F-HR-18_Fly Catcher Inspection & Cleaning Record.doc (16-Oct-2026, §111 part 9)
 DOCUMENT STRUCTURE   Header + Month&Year + PC location legend (PC-01..PC-13) + data table
 DIGITAL TEMPLATE     kind: "fly-catcher" — src/components/records/FlyCatcherRecordView.tsx
 DATABASE FIELDS      FlyCatcherData: monthYear, entries[13] { pcId, catchCountApprox,
@@ -8086,6 +8087,47 @@ filled with sample data by Mitra and submitted; the module holds 46; with QC_PAP
 sheets), tests/e2e_find_every_document.py (the master list no longer offers F-QC-10, F-QC-17, F-QC-40. A or B), and
 the document counts in e2e_smoke.py, e2e_hr_module.py (135), e2e_every_record_starts.py, e2e_departments.py
 (52 for a QC account) and e2e_qc_calibration.py (46).
+
+### §111, part 9: F/HR/18 as the company's own Word original (16-Oct-2026)
+
+**The paper.** The owner sent the blank format itself, "F-HR-18_Fly Catcher Inspection & Cleaning Record .doc" (Word
+97-2003; kept as source-documents/F-HR-18_Fly Catcher Inspection & Cleaning Record.doc), read from the file story by
+story: antiword prints its body, and the page header — where this format keeps its words — was read from the file's
+piece table and header stories. The page header, printed on both pages: the company line; "FORTNIGHTLY – FLY CATCHER
+INSPECTION & CLEANING RECORD"; Format No.: F/HR/18 | Rev No: 02 | Date: 15.12.2024 | Page No.: x of y; a "Month &
+Year ____" line; the legend of the thirteen units in two columns (PC – 01 Near Wash room (GF) beside PC – 05 Pouching
+area (GF), then 02/06, 03/07, 04/08, 09/10, 11/12 and 13 alone; PC – 10 "Warehouse office wall" with no floor); and the
+seven headings PC ID NO. | DATE OF SERVICE | FLIES CATCH COUNT APPROX. | DATE OF TUBE LIGHT INSTALLATION | DUE DATE FOR
+TUBE LIGHT REPLACEMENT | CLEANING DONE BY | VERIFIED BY. The body: PC - 01 to PC - 08 on page 1 and PC - 09 to PC - 13
+on page 2, two lines each, every cell blank. Two things in the file are not on the paper: a "SIPCO GROUP" text box and
+a "Document No. QR/PMT/02 / Effective Date 15-04-2005 / Revision No. 00" table, left in a first-page header story by
+the 2007 batch-record template the file was made from, which the section never prints — the August-2026 register
+scanned from the plant ("Fly catcher reports .pdf") shows neither. The company line prints the one name every format
+prints (§87).
+
+**DCRS, before and after.** The monthly register (components/records/FlyCatcherRegisterSheet.tsx) was already the
+paper — the title, the four header cells, Month & Year, the legend, the seven headings, two lines per unit, PC-01..08
+then PC-09..13 — and keeps it; its legend and heading line are now the one piece of code (Fhr18Legend, Fhr18GridHead,
+FHR18_HEADINGS) that a visit's own page draws too. A visit's own page (components/records/FlyCatcherRecordView.tsx)
+was not the paper: it drew a "Location" column the paper has not, no DATE OF SERVICE, headings in other words ("Tube
+Light Installed") and a note of DCRS's own above the grid. It is now the paper: the header block, the Month & Year as
+the underlined box the person fills, the legend, and the grid under the seven headings — one line per unit for this
+visit (the register draws the paper's two from the month's visits), the date of service the visit's own date written
+as the paper writes it (3/08/26), and the count, both tube-light dates and the two names boxes a person with Write or
+Edit level writes, closed on a signed-off visit. The print and the file downloaded are that sheet; with the company's
+Word original on file the document downloads as Word, as the originals of 7-Oct-2026 do (§93, utils/documentExport.ts
+documentFileKind). The catalogue line names the original (data/seed/documentDefinitions.ts sourceFile). Records on
+file keep their data: no key changed.
+
+**Not changed, for the owner to say.** The unit ids print "PC-01" where the paper's legend has "PC – 01" and its grid
+"PC - 01" (the paper is not of one mind; the ids are master data, §58). A visit holds one date of service for its
+thirteen lines, as the plant's registers show (3/08/26 on every unit); a unit cleaned on another day is a visit of
+that day. The register's Month & Year is the month chosen on its page, not a typed box.
+
+**Tests.** frontend/tests/hrPaperFormats.test.ts (5): the catalogue line, the original on file and the Word download;
+the thirteen places and the legend's pairs word for word; the seven headings on both pages; a visit's page rendered
+open for writing — the title, the Month & Year box bound, thirteen units with the five boxes each, the date of service
+on every line, no Location column, no note, nothing of the template's leftovers — and signed off, every box closed.
 
 ## §109 One AI key for both apps: ChatGPT (OpenAI), fast on the phone (12-Oct-2026)
 

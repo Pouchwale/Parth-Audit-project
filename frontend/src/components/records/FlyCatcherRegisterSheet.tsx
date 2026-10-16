@@ -20,8 +20,10 @@ import { BIND_RECORD_ATTR } from "../../engine/roundTrip/bindPath";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 
 // THE FLY CATCHER REGISTER IN ITS OWN FORMAT — F/HR/18 Rev 02, exactly as the
-// company prints it ("Fly catcher reports .pdf", and pages 5-6 of "Kapila mam
-// department reports .pdf"): a two-page MONTHLY register.
+// company prints it (the company's own Word original, source-documents/
+// F-HR-18_Fly Catcher Inspection & Cleaning Record.doc, sent 16-Oct-2026, and
+// the filled August-2026 register, "Fly catcher reports .pdf"; REQUIREMENTS
+// §111 part 9): a two-page MONTHLY register.
 //   Both pages — header (company / title / Format No. / Rev No. / Date /
 //                Page No.), the Month & Year box, and the PC location legend.
 //   Page 1 of 2 — PC-01 to PC-08.   Page 2 of 2 — PC-09 to PC-13.
@@ -83,6 +85,80 @@ export function paperDate(iso: string | null | undefined): string {
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return "";
   return `${Number(d)}/${m}/${y.slice(2)}`;
+}
+
+/** The seven column headings, in the paper's order and words. */
+export const FHR18_HEADINGS = [
+  "PC ID NO.",
+  "DATE OF SERVICE",
+  "FLIES CATCH COUNT APPROX.",
+  "DATE OF TUBE LIGHT INSTALLATION",
+  "DUE DATE FOR TUBE LIGHT REPLACEMENT",
+  "CLEANING DONE BY",
+  "VERIFIED BY",
+] as const;
+
+/**
+ * The legend's lines, paired as the paper pairs them. Any unit an admin has
+ * added beyond the printed thirteen goes on the end, paired up the same way.
+ */
+export function fhr18LegendRows(pcLocations: readonly PCLocation[]): [string | null, string | null][] {
+  const printed = new Set(FHR18_LEGEND_ROWS.flat().filter(Boolean) as string[]);
+  const extra = pcLocations.filter((pc) => !printed.has(pc.id)).map((pc) => pc.id);
+  const rows: [string | null, string | null][] = [...FHR18_LEGEND_ROWS];
+  if (extra.length) {
+    const last = rows[rows.length - 1];
+    if (last[1] === null) rows[rows.length - 1] = [last[0], extra.shift() ?? null];
+    for (let i = 0; i < extra.length; i += 2) rows.push([extra[i], extra[i + 1] ?? null]);
+  }
+  return rows;
+}
+
+/**
+ * The legend of the thirteen units and where they hang, as the paper prints
+ * it under "Month & Year" — on the register and on a visit's own page.
+ */
+export function Fhr18Legend({ pcLocations }: { pcLocations: readonly PCLocation[] }) {
+  const byId = new Map(pcLocations.map((pc) => [pc.id, pc]));
+  const label = (id: string | null) => (id && byId.get(id) ? locationLabel(byId.get(id)!) : "");
+  return (
+    <table className="register-grid fhr18-legend">
+      <tbody>
+        {fhr18LegendRows(pcLocations).map(([left, right], i) => (
+          <tr key={i}>
+            {/* The catcher numbers and the areas they hang in are master data, named as the plant names them (REQUIREMENTS §58). */}
+            <td className="pc-id notranslate" translate="no">
+              {left ?? ""}
+            </td>
+            <td className="pc-loc notranslate" translate="no">
+              {label(left)}
+            </td>
+            <td className="pc-id notranslate" translate="no">
+              {right ?? ""}
+            </td>
+            <td className="pc-loc notranslate" translate="no">
+              {label(right)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** The grid's heading line: the seven headings as the paper prints them. */
+export function Fhr18GridHead() {
+  return (
+    <thead>
+      <tr>
+        {FHR18_HEADINGS.map((heading, i) => (
+          <th key={heading} className={i === 0 ? "pc-head" : undefined}>
+            {heading}
+          </th>
+        ))}
+      </tr>
+    </thead>
+  );
 }
 
 /** 1 -> "01", as the specimen writes a count. */
@@ -177,18 +253,6 @@ export function FlyCatcherRegisterSheet({
   const monthYear = `${MONTH_NAMES[month].toUpperCase()}-${String(year).slice(2)}`;
   const monthName = `${MONTH_NAMES[month]} ${year}`;
   const rowsPerUnit = Math.max(MIN_ROWS_PER_UNIT, visits.length);
-  const byId = new Map(pcLocations.map((pc) => [pc.id, pc]));
-
-  // Any unit an admin has added beyond the printed thirteen goes on the end
-  // of the legend, paired up the same way.
-  const printed = new Set(FHR18_LEGEND_ROWS.flat().filter(Boolean) as string[]);
-  const extra = pcLocations.filter((pc) => !printed.has(pc.id)).map((pc) => pc.id);
-  const legendRows: [string | null, string | null][] = [...FHR18_LEGEND_ROWS];
-  if (extra.length) {
-    const last = legendRows[legendRows.length - 1];
-    if (last[1] === null) legendRows[legendRows.length - 1] = [last[0], extra.shift() ?? null];
-    for (let i = 0; i < extra.length; i += 2) legendRows.push([extra[i], extra[i + 1] ?? null]);
-  }
 
   const dataOf = (r: RecordInstance<FlyCatcherData>): FlyCatcherData => pending.current.get(r.id) ?? r.data;
 
@@ -284,44 +348,14 @@ export function FlyCatcherRegisterSheet({
         <span className="k">Month &amp; Year</span>
         <span className="v">{monthYear}</span>
       </div>
-      <table className="register-grid fhr18-legend">
-        <tbody>
-          {legendRows.map(([left, right], i) => (
-            <tr key={i}>
-              {/* The catcher numbers and the areas they hang in are master data, named as the plant names them (REQUIREMENTS §58). */}
-              <td className="pc-id notranslate" translate="no">
-                {left ?? ""}
-              </td>
-              <td className="pc-loc notranslate" translate="no">
-                {left && byId.get(left) ? locationLabel(byId.get(left)!) : ""}
-              </td>
-              <td className="pc-id notranslate" translate="no">
-                {right ?? ""}
-              </td>
-              <td className="pc-loc notranslate" translate="no">
-                {right && byId.get(right) ? locationLabel(byId.get(right)!) : ""}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <Fhr18Legend pcLocations={pcLocations} />
     </>
   );
 
   const grid = (units: PCLocation[]) => (
     <div className="doc-table register-grid-wrap">
       <table className="register-grid fhr18-grid">
-        <thead>
-          <tr>
-            <th className="pc-head">PC ID NO.</th>
-            <th>DATE OF SERVICE</th>
-            <th>FLIES CATCH COUNT APPROX.</th>
-            <th>DATE OF TUBE LIGHT INSTALLATION</th>
-            <th>DUE DATE FOR TUBE LIGHT REPLACEMENT</th>
-            <th>CLEANING DONE BY</th>
-            <th>VERIFIED BY</th>
-          </tr>
-        </thead>
+        <Fhr18GridHead />
         {units.map((pc) => {
           const rows = unitRows(pc.id);
           return (

@@ -1,11 +1,30 @@
 import React from "react";
-import type { DocumentDefinition, FlyCatcherData, RecordInstance } from "../../types";
+import type { DocumentDefinition, FlyCatcherData, FlyCatcherEntry, RecordInstance } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
+import { formatEditFor } from "../../data/formatEdits";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { formatDisplayDate } from "../../utils/date";
-import { bindProps, flyCatcherBind } from "../../engine/roundTrip/bindingsFor";
+import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
+import { FHR18_DATE, FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate } from "./FlyCatcherRegisterSheet";
+
+// A FLY CATCHER VISIT ON ITS OWN PAGE, LAID OUT AS F/HR/18 PRINTS — the
+// company's own Word original (source-documents/F-HR-18_Fly Catcher Inspection
+// & Cleaning Record.doc, sent 16-Oct-2026; REQUIREMENTS §111 part 9): the
+// header block, the "Month & Year" line, the legend of the thirteen units and
+// where they hang, then the grid — PC ID NO. | DATE OF SERVICE | FLIES CATCH
+// COUNT APPROX. | DATE OF TUBE LIGHT INSTALLATION | DUE DATE FOR TUBE LIGHT
+// REPLACEMENT | CLEANING DONE BY | VERIFIED BY — one line per unit for this
+// visit. (The monthly register, FlyCatcherRegisterSheet.tsx, draws the paper's
+// two lines per unit from the month's visits, PC-01..08 on its first page and
+// PC-09..13 on its second.) Every box the person fills on the paper is a box
+// here — the Month & Year, the count, both tube-light dates and the two names;
+// the date of service is the visit's own date, written as the paper writes it.
+// Nothing the paper does not print is drawn: no Location column, no note.
+// The print and the downloaded Word file are this sheet (utils/documentExport.ts).
+
+type EntryPatch = Partial<Omit<FlyCatcherEntry, "pcId">>;
 
 export function FlyCatcherRecordView({
   doc,
@@ -28,129 +47,154 @@ export function FlyCatcherRecordView({
     enabled: header?.enabled,
     record: recordHeaderEditing(header, record.headerBlock, headerDefaults),
   });
-  const pcLocations = masterRepository.get().pcLocations;
+  const master = masterRepository.get();
+  const pcLocations = master.pcLocations;
+  // The paper's own title and date — until the format itself is changed (§86).
+  const formatChanged = formatEditFor(doc.id);
 
-  const updateEntry = (pcId: string, patch: Partial<FlyCatcherData["entries"][number]>) => {
+  const updateEntry = (pcId: string, patch: EntryPatch) => {
     onChange({
       ...data,
       entries: data.entries.map((e) => (e.pcId === pcId ? { ...e, ...patch } : e)),
     });
   };
 
-  // Every value below carries where it lives in the record, so an edited Excel
-  // file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
+  // Every value below carries where it lives in the record, so an edited Word
+  // or Excel file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
+  const bound = (pcId: string, field: FlyEntryField) => bindProps(flyCatcherBind.entry(pcId, field));
+  const serviceDate = paperDate(record.dueDate);
+
   return (
-    <div data-bind-record={record.id}>
-      <DocumentHeader
-        doc={doc}
-        dateLabel={formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date)}
-        pageLabel={record.headerBlock?.page ?? headerDefaults.page}
-        edit={headerEdit}
-      />
-      {headerPanel}
+    <div className="fhr18-record" data-bind-record={record.id}>
+      <section className="register-page">
+        <DocumentHeader
+          doc={doc}
+          title={formatChanged?.name ? undefined : FHR18_TITLE}
+          dateLabel={record.headerBlock?.date ? formatDisplayDate(record.headerBlock.date) : formatChanged ? formatDisplayDate(headerDefaults.date) : FHR18_DATE}
+          pageLabel={record.headerBlock?.page ?? headerDefaults.page}
+          edit={headerEdit}
+        />
+        {headerPanel}
 
-      <div className="card mt-4">
-        <div className="card-pad">
-          <div className="field" style={{ maxWidth: 220 }}>
-            <label>Month &amp; Year</label>
-            <input className="input" {...bindProps(flyCatcherBind.monthYear())} value={data.monthYear} disabled={!editable} onChange={(e) => onChange({ ...data, monthYear: e.target.value })} />
-          </div>
-          <div className="mt-3 text-xs text-muted no-print">
-            PC ID and location are master data, auto-populated from the Fly Catcher master list — not re-entered each visit.
-          </div>
-          <div className="grid mt-2" style={{ gridTemplateColumns: "repeat(2, 1fr)", gap: "4px 24px" }}>
-            {pcLocations.map((pc) => (
-              <div key={pc.id} className="text-xs flex justify-between" style={{ borderBottom: "1px dotted var(--color-border)", padding: "3px 0" }}>
-                <span className="font-semibold">{pc.id}</span>
-                <span className="text-muted">
-                  {pc.location} ({pc.floor})
-                </span>
-              </div>
-            ))}
-          </div>
+        {/* "Month & Year ____": the underlined blank the person fills. */}
+        <div className="fhr18-month">
+          <label className="k" htmlFor="fhr18-month-year">
+            Month &amp; Year
+          </label>
+          <input
+            id="fhr18-month-year"
+            className="v fhr18-month-input notranslate"
+            translate="no"
+            {...bindProps(flyCatcherBind.monthYear())}
+            disabled={!editable}
+            value={data.monthYear}
+            onChange={(e) => onChange({ ...data, monthYear: e.target.value })}
+          />
         </div>
-      </div>
 
-      <div className="doc-table mt-4">
-        <table>
-          <thead>
-            <tr>
-              <th>PC ID No.</th>
-              <th>Location</th>
-              <th style={{ width: 130 }}>Flies Catch Count Approx.</th>
-              <th style={{ width: 150 }}>Tube Light Installed</th>
-              <th style={{ width: 150 }}>Tube Light Due</th>
-              <th style={{ width: 140 }}>Cleaning Done By</th>
-              <th style={{ width: 140 }}>Verified By</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Fhr18Legend pcLocations={pcLocations} />
+
+        <div className="doc-table register-grid-wrap">
+          <table className="register-grid fhr18-grid">
+            <Fhr18GridHead />
             {data.entries.map((e) => {
-              const loc = pcLocations.find((p) => p.id === e.pcId);
+              const label = `${e.pcId}, visit of ${formatDisplayDate(record.dueDate)}`;
               return (
-                <tr key={e.pcId}>
-                  <td className="font-semibold">{e.pcId}</td>
-                  <td className="text-sm text-muted">
-                    {loc?.location} ({loc?.floor})
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      min={0}
-                      className="input input-sm"
-                      {...bindProps(flyCatcherBind.entry(e.pcId, "catchCountApprox"))}
-                      disabled={!editable}
-                      value={e.catchCountApprox ?? ""}
-                      onChange={(ev) => updateEntry(e.pcId, { catchCountApprox: ev.target.value === "" ? null : Number(ev.target.value) })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="date"
-                      className="input input-sm"
-                      {...bindProps(flyCatcherBind.entry(e.pcId, "tubeLightInstallDate"))}
-                      // An empty date prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111).
-                      data-empty={e.tubeLightInstallDate ? undefined : ""}
-                      disabled={!editable}
-                      value={e.tubeLightInstallDate ?? ""}
-                      onChange={(ev) => updateEntry(e.pcId, { tubeLightInstallDate: ev.target.value || null })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="date"
-                      className="input input-sm"
-                      {...bindProps(flyCatcherBind.entry(e.pcId, "tubeLightDueDate"))}
-                      data-empty={e.tubeLightDueDate ? undefined : ""}
-                      disabled={!editable}
-                      value={e.tubeLightDueDate ?? ""}
-                      onChange={(ev) => updateEntry(e.pcId, { tubeLightDueDate: ev.target.value || null })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="input input-sm"
-                      {...bindProps(flyCatcherBind.entry(e.pcId, "cleaningDoneBy"))}
-                      disabled={!editable}
-                      value={e.cleaningDoneBy}
-                      onChange={(ev) => updateEntry(e.pcId, { cleaningDoneBy: ev.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="input input-sm"
-                      {...bindProps(flyCatcherBind.entry(e.pcId, "verifiedBy"))}
-                      disabled={!editable}
-                      value={e.verifiedBy}
-                      onChange={(ev) => updateEntry(e.pcId, { verifiedBy: ev.target.value })}
-                    />
-                  </td>
-                </tr>
+                <tbody key={e.pcId} className="fhr18-unit" data-pc={e.pcId}>
+                  <tr className="register-row">
+                    <td className="pc-cell notranslate" translate="no">
+                      {e.pcId}
+                    </td>
+                    {/* The visit's date, as the paper writes it (3/08/26). */}
+                    <td className="date-cell notranslate" translate="no">
+                      {serviceDate}
+                    </td>
+                    <td className="edit-cell">
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        className="input input-sm fhr18-input"
+                        data-field="count"
+                        {...bound(e.pcId, "catchCountApprox")}
+                        aria-label={`${label} — flies catch count approx.`}
+                        disabled={!editable}
+                        value={e.catchCountApprox ?? ""}
+                        onChange={(ev) => {
+                          const n = Number(ev.target.value);
+                          updateEntry(e.pcId, { catchCountApprox: ev.target.value === "" || !Number.isFinite(n) ? null : Math.max(0, n) });
+                        }}
+                      />
+                    </td>
+                    <td className="edit-cell">
+                      <input
+                        type="date"
+                        className="input input-sm fhr18-input"
+                        data-field="installed"
+                        {...bound(e.pcId, "tubeLightInstallDate")}
+                        // An empty date prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111).
+                        data-empty={e.tubeLightInstallDate ? undefined : ""}
+                        aria-label={`${label} — date of tube light installation`}
+                        disabled={!editable}
+                        value={e.tubeLightInstallDate ?? ""}
+                        onChange={(ev) => updateEntry(e.pcId, { tubeLightInstallDate: ev.target.value || null })}
+                      />
+                    </td>
+                    <td className="edit-cell">
+                      <input
+                        type="date"
+                        className="input input-sm fhr18-input"
+                        data-field="due"
+                        {...bound(e.pcId, "tubeLightDueDate")}
+                        data-empty={e.tubeLightDueDate ? undefined : ""}
+                        aria-label={`${label} — due date for tube light replacement`}
+                        disabled={!editable}
+                        value={e.tubeLightDueDate ?? ""}
+                        onChange={(ev) => updateEntry(e.pcId, { tubeLightDueDate: ev.target.value || null })}
+                      />
+                    </td>
+                    {/* The names signed read exactly as they were written, in either language (REQUIREMENTS §58). */}
+                    <td className="edit-cell">
+                      <input
+                        className="input input-sm fhr18-input notranslate"
+                        translate="no"
+                        list="fhr18-record-people"
+                        data-field="cleaning"
+                        {...bound(e.pcId, "cleaningDoneBy")}
+                        aria-label={`${label} — cleaning done by`}
+                        disabled={!editable}
+                        value={e.cleaningDoneBy}
+                        onChange={(ev) => updateEntry(e.pcId, { cleaningDoneBy: ev.target.value })}
+                      />
+                    </td>
+                    <td className="edit-cell">
+                      <input
+                        className="input input-sm fhr18-input notranslate"
+                        translate="no"
+                        list="fhr18-record-people"
+                        data-field="verified"
+                        {...bound(e.pcId, "verifiedBy")}
+                        aria-label={`${label} — verified by`}
+                        disabled={!editable}
+                        value={e.verifiedBy}
+                        onChange={(ev) => updateEntry(e.pcId, { verifiedBy: ev.target.value })}
+                      />
+                    </td>
+                  </tr>
+                </tbody>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      </section>
+
+      {editable && (
+        <datalist id="fhr18-record-people">
+          {master.employees.map((p) => (
+            <option key={p.id} value={p.name} />
+          ))}
+        </datalist>
+      )}
     </div>
   );
 }
