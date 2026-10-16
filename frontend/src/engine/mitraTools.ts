@@ -32,7 +32,7 @@ import { documentOpenRoute } from "./documentRoutes";
 import { createRecordForDocument } from "./recordCrud";
 import { computeReminders, routeForRecord } from "./reminders";
 import { applyAssistantPatch, lineValuesWords, normDate, type PatchRecord } from "./recordPatch";
-import { diffRecordData, lineChangeWords, ROW_REMOVED } from "./recordHistory";
+import { diffRecordData, lineChangeWords, NO_ROW, ROW_REMOVED } from "./recordHistory";
 import { canSampleFill, sampleFillAllowedFor, sampleFillDeclined, sampleFillRecord, SAMPLE_FILL_NOTE } from "./sampleFill";
 import { applyFormatCommand, type FormatCommand, type Place, type TargetRef } from "./formatCommands";
 import { canDesignGrid, commitFormatChange, draftOf, type BoxArea, type HeaderField } from "./formatOps";
@@ -667,6 +667,9 @@ export function linesLost(changes: FieldChange[]): { removed: string[]; cleared:
       if (words) removed.push(lowerFirst(words.replace(/ removed \(/, " (")));
       continue;
     }
+    // A line that did not exist before has nothing to clear: an added line, written empty to be filled in, diffs as
+    // "(no row)" → "" on every box and is never a clearing (e2e_mitra_format: "add 2 rows" asked "Clear (no row)…").
+    if (c.before === NO_ROW) continue;
     if (!blank(c.after) || blank(c.before)) continue;
     const row = c.field.match(/^(.*?\[#[^\]]+\])/);
     const line = row ? c.label.split(" · ").slice(0, -1).join(" · ") || c.label : c.label;
