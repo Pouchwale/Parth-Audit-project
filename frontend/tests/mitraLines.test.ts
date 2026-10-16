@@ -135,6 +135,15 @@ test("replaceList from the model is struck: a list sent whole with it keeps ever
   assert.deepEqual(p.removed, []);
 });
 
+test("two empty lines added are added, not cleared: a line that did not exist has nothing to clear", () => {
+  const before = freeSheet();
+  const p = previewPatch("log-sheet", FREE, before, { addItems: { rows: [{}, {}] } });
+  assert.deepEqual(p.cleared, [], "nothing is 'cleared' from a line that was not there");
+  assert.deepEqual(p.removed, []);
+  assert.equal(p.added.length, 2, "both lines are added");
+  assert.equal((p.data.rows as Obj[]).length, 5);
+});
+
 test("the dry run names the lines it would remove or clear in their own words, and writes nothing", () => {
   const before = freeSheet();
   const gone = previewPatch("log-sheet", FREE, before, { removeItems: { rows: [2] } });
