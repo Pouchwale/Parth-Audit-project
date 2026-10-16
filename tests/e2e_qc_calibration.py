@@ -436,7 +436,8 @@ with sync_playwright() as p:
     left = written_date.evaluate("e => ({ marked: e.classList.contains('print-as-text'), beside: !!(e.nextElementSibling && e.nextElementSibling.classList.contains('print-box-text')) })")
     check("...and after printing the box is the box again, the words gone", not left["marked"] and not left["beside"], left)
 
-    # F-QC-30: nothing above the grid, and the day's date in the Sr. No. of its first line only.
+    # F-QC-30: nothing above the grid; the Sr. No. numbers the lines and the day is the header's Date alone
+    # (the owner, 14-Oct-2026, with a phone picture: the date standing in the Sr. No. column was wrong).
     open_page(page, "#/library")
     page.locator("[data-action='new-record'][data-document='qc-viscosity']").first.evaluate("el => el.click()")
     page.wait_for_timeout(1400)
@@ -450,8 +451,8 @@ with sync_playwright() as p:
     # The header's Date cell, the record's own (the format's Rev Date stands beside it since s111 part 6).
     header_date = page.evaluate("() => { const c = Array.from(document.querySelectorAll('.doc-header .meta-cell')).find((m) => (m.querySelector('.k') || {}).textContent === 'Date'); return c ? c.querySelector('.v').innerText.trim() : ''; }")
     check(
-        "...the record's date in the Sr. No. of the first line, and nothing in the others (the paper's 6/9/26)",
-        len(sr) == 23 and sr[0] == header_date and re.match(r"^\d{2}-[A-Z][a-z]{2}-\d{4}$", sr[0] or "") is not None and all(x == "" for x in sr[1:]),
+        "...the Sr. No. numbers its 23 lines, and the day stands in the header's Date, never in the column",
+        len(sr) == 23 and sr == [str(i + 1) for i in range(23)] and re.match(r"^\d{2}-[A-Z][a-z]{2}-\d{4}$", header_date) is not None,
         (sr[:3], header_date),
     )
     text30 = page.locator("[data-print-doc]").first.evaluate("e => e.textContent")
