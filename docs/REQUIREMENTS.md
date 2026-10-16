@@ -8614,7 +8614,9 @@ not ok", and his later words on A4 printing and the header and footer:
   page is printed on one. (The print suite's first page counts of two for F/QC/11, F/QC/12 and F/QC/17 were the
   suite's own doing: its `printout()` left the page's media forced to "screen", and Playwright's PDF then rendered
   the SCREEN layout; measured under print media, in the app and offline, each is one page. The suite now prints under
-  print media.)
+  print media.) Under print media F/HR/15 is one landscape page, as its paper; F/HR/16 runs to two where its paper is
+  one (its lines at the paper's density still outrun a landscape page) — open, the suite reports the count; F/HR/08's
+  list of 154 names runs to three, the header block on each.
 
 What was looked at and left: a second-line entry's dotted rule and the header boxes' no-border look are the paper's;
 the preview on a document's page is the same sheet (the same component), so it follows. *The foot on every page:*

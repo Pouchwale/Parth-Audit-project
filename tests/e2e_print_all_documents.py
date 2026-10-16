@@ -149,9 +149,9 @@ PAPER_PAGES = {
     "qc-gsm-plate-calibration": ("landscape", 1),
     "qc-weight-scale-calibration": ("landscape", 1),
     "qc-ruler-verification": ("portrait", 1),
-    # F/HR/15 and F/HR/16 are one landscape page on paper; DCRS's sheets run to two and three (their rows at the paper's
-    # size do not fit one page) - the page count is open (REQUIREMENTS §117), the orientation is checked.
-    "hr-daily-cleaning": ("landscape", None),
+    "hr-daily-cleaning": ("landscape", 1),
+    # F/HR/16 is one landscape page on paper; DCRS's sheet runs to two (its rows at the paper's size do not fit one
+    # page) - the page count is open (REQUIREMENTS §117), the orientation is checked.
     "hr-monthly-cleaning": ("landscape", None),
 }
 TMP = tempfile.mkdtemp(prefix="dcrs-print-")
