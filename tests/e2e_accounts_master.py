@@ -320,7 +320,9 @@ with sync_playwright() as p:
             notice.count() == 1 and "changed this account's sign-in" in notice.inner_text(),
             notice.inner_text() if notice.count() else staff.locator(".auth-card").inner_text()[:300],
         )
-        ERRORS[:] = [e for e in ERRORS if "401" not in e]
+        # A 409 is the sync's own conflict path (frontend/src/data/serverSync.ts: merged with the database's copy and sent
+        # again) while the super admin changes accounts under it: the browser logs the status, the app recovers.
+        ERRORS[:] = [e for e in ERRORS if "401" not in e and "status of 409" not in e]
 
         # ==============================================================================================================
         # 2. The short sign-in name
@@ -355,17 +357,35 @@ with sync_playwright() as p:
         check("Removing is asked first, in plain words", "Nothing is deleted" in asked and "Nobody fills this" in asked, asked)
         admin.click("[data-action='confirm-ask']")
         admin.wait_for_selector("[data-section='users-note']", timeout=15000)
-        check("Removed: off Users & Access", users_row(admin, LEAVER).count() == 0, admin.locator("[data-section='users-note']").inner_text())
+        check(
+            "Removed: off Users & Access",
+            users_row(admin, LEAVER).count() == 0,
+            {"row": users_row(admin, LEAVER).first.inner_text()[:200] if users_row(admin, LEAVER).count() else None, "note": admin.locator("[data-section='users-note']").inner_text()[:200]},
+        )
         gone = accounts(admin).get(LEAVER) or {}
         check("...stamped removed and switched off, by the super admin", gone.get("removedAt") and gone.get("active") is False and gone.get("removedBy") == "Super Admin", gone)
         people = (api(admin, "GET", "/api/users/directory")["body"] or {}).get("people", [])
         check("...off the directory every list of people reads", not any(x.get("id") == leaver_id for x in people))
         go(admin, "/access", "[data-page='access'][data-state='ready']", 1200)
-        check("...off User access", admin.locator(f"tr[data-user='{LEAVER}']").count() == 0)
+        # The page keeps the overview it read before while it reads again: the leaver's line goes when the new reading lands.
+        # The day's sign-in history (REQUIREMENTS §84) keeps the leaver's line, as the activity log keeps theirs: only the
+        # tables of people (who may use what, who is signed in now) must be without them.
+        people_rows = f"tr[data-user='{LEAVER}']:not([data-table='access-history'] tr)"
+        try:
+            admin.wait_for_selector(people_rows, state="detached", timeout=15000)
+        except Exception:
+            pass
+        check(
+            "...off User access (the day's sign-in history keeps their line, as the log does)",
+            admin.locator(people_rows).count() == 0,
+            admin.locator(f"tr[data-user='{LEAVER}']").evaluate_all("els => els.map((e) => [(e.closest('[data-table]') || {}).getAttribute ? e.closest('[data-table]').getAttribute('data-table') : (e.closest('section') || {}).className, e.innerText.slice(0, 120)])"),
+        )
         staff.reload()
         staff.wait_for_selector("#login-email", timeout=60000)
         check("...its open session ended", staff.locator(".app-sidebar").count() == 0)
-        ERRORS[:] = [e for e in ERRORS if "401" not in e]
+        # A 409 is the sync's own conflict path (frontend/src/data/serverSync.ts: merged with the database's copy and sent
+        # again) while the super admin changes accounts under it: the browser logs the status, the app recovers.
+        ERRORS[:] = [e for e in ERRORS if "401" not in e and "status of 409" not in e]
         words, code = try_sign_in(staff, LEAVER, PASSWORD)
         check("...and its sign-in refused in words", code == "account-removed" and "removed" in words, (words, code))
         log = (api(admin, "GET", f"/api/activity?person={leaver_id}")["body"] or {}).get("lines", [])
