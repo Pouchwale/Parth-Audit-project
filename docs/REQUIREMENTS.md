@@ -8609,6 +8609,12 @@ not ok", and his later words on A4 printing and the header and footer:
   the columns before it empty.
 - *The HR module's own registers* (F/HR/17's three pages, F/HR/18's two) were already drawn one printed page each with
   the header block on every page (.register-page) and keep that.
+- *At the paper's density.* Printed, a log sheet's cards lose their room, its lines and boxes are the paper's height and
+  its words a size smaller (styles.css, "Print", the `.paper-sheet` density rules), so a sheet that fits the paper's one
+  page is printed on one. (The print suite's first page counts of two for F/QC/11, F/QC/12 and F/QC/17 were the
+  suite's own doing: its `printout()` left the page's media forced to "screen", and Playwright's PDF then rendered
+  the SCREEN layout; measured under print media, in the app and offline, each is one page. The suite now prints under
+  print media.)
 
 What was looked at and left: a second-line entry's dotted rule and the header boxes' no-border look are the paper's;
 the preview on a document's page is the same sheet (the same component), so it follows. *The foot on every page:*

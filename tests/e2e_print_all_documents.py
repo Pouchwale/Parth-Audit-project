@@ -171,8 +171,12 @@ def pdf_pages(page, name):
     page.evaluate(START_BROWSER_PRINT)
     try:
         pdf_path = os.path.join(TMP, f"{name}.pdf")
+        # printout() leaves the page's media forced to "screen"; Playwright's pdf then renders the SCREEN layout (its
+        # documented way to get a screen-media PDF), which put a one-page sheet on two pages. The PDF is the print's.
+        page.emulate_media(media="print")
         page.pdf(path=pdf_path, prefer_css_page_size=True, print_background=True)
     finally:
+        page.emulate_media(media="screen")
         page.evaluate(END_PRINT)
     with open(pdf_path, "rb") as f:
         pdf = f.read()
