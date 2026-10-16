@@ -116,8 +116,9 @@ test("F/QC/17 is a portrait page; F/QC/11's foot holds its PROCEDURE; a sheet wh
 
 test("the print rules: the parts are a table's header, body and footer groups, every grid cell is boxed in ink, and the parts stay whole", () => {
   const css = readFileSync(path.join(process.cwd(), "frontend", "src", "styles.css"), "utf8");
-  const print = css.slice(css.indexOf("@media print {\n  .app-sidebar"));
-  const block = print.slice(0, print.indexOf("\n}\n") + 3);
+  // The main print block, the measuring rule after it and the rules that follow, up to the next section.
+  const start = css.indexOf("@media print {\n  .app-sidebar");
+  const block = css.slice(start, css.indexOf("/* ---- CAPA", start));
   assert.ok(block.length > 1000, "the main print block is found");
   for (const rule of [
     ".paper-sheet { display: table; width: 100%;",
