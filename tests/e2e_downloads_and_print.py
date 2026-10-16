@@ -205,7 +205,9 @@ with sync_playwright() as p:
     lines = [[c[0] for c in r.values()] for r in rows.values()]
     three_a_line = [l for l in lines if len(l) == 6 and l[0].startswith("Device ID No")]
     check("...its boxes three to a line, the Device ID No first on the first line (s117)", bool(three_a_line) and three_a_line[0][2].startswith("Location") and three_a_line[0][4].startswith("Department"), lines[:8])
-    check("...and the weights 50 gm to 600 gm already on its line", all(any(w in l for l in lines) for w in ["50 gm", "100 gm", "200 gm", "500 gm", "600 gm"]), lines[-6:])
+    # The line is the last week of the plant's own 2024 page on file, carried (REQUIREMENTS §117): its weights and its
+    # tester, not the standard weights (those start a line only where no earlier page exists).
+    check("...and its line carried from the page on file: the last week's weights and tester", any("200.000gm" in l and "Anjali" in l for l in lines), lines[-6:])
     goto(page, "#/library")
     page.locator("[data-action='new-record'][data-document='qc-ruler-verification']").first.evaluate("el => el.click()")
     page.wait_for_timeout(1500)
