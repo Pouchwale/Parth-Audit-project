@@ -1228,11 +1228,17 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
      hairline under each line, nothing between cells), and the rules above strip the boxes' borders, so a printed
      sheet had no cell borders at all. The grid's web frame and rounded corners go. F/QC/12's entry keeps the dotted
      rule between its two lines, and a gap line between runs keeps its sides open. */
-  [data-print-doc]:not([data-print-doc="ui"]) .doc-table { border: none !important; border-radius: 0 !important; }
-  [data-print-doc]:not([data-print-doc="ui"]) .doc-table table th,
-  [data-print-doc]:not([data-print-doc="ui"]) .doc-table table td { border: 1px solid #000 !important; }
-  [data-print-doc]:not([data-print-doc="ui"]) .doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: dotted !important; }
-  [data-print-doc]:not([data-print-doc="ui"]) .doc-table table.log-sheet tr.log-gap-line td { border-left: none !important; border-right: none !important; }
+  .paper-sheet .doc-table { border: none; border-radius: 0; }
+  .paper-sheet .doc-table table th, .paper-sheet .doc-table table td { border: 1px solid #000; }
+}
+/* The same cell borders while the sheet is MEASURED for the page (utils/print.ts fitToPage runs under screen media,
+   with html.print-scoped on, before the print dialog opens): a border a side on every column made the grid wider than
+   it was measured, and F/HR/15's ran 7 mm past the page (REQUIREMENTS §117). Nobody sees it: the scope is on only for
+   the length of a print. */
+html.print-scoped .paper-sheet .doc-table table th, html.print-scoped .paper-sheet .doc-table table td { border: 1px solid #000; }
+@media print {
+  .paper-sheet .doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: dotted; }
+  .paper-sheet .doc-table table.log-sheet tr.log-gap-line td { border-left: none; border-right: none; }
   /* THE HEADER BLOCK AND THE PAPER'S FOOT LINES ON EVERY PAGE (§117): a log sheet is drawn in three parts
      (components/records/LogSheetRecordView.tsx: .paper-head, .paper-body, .paper-foot). Printed, they are a table's
      header, body and footer groups, which the browser repeats at the head and the foot of every page a sheet runs

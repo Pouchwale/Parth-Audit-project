@@ -124,8 +124,8 @@ test("the print rules: the parts are a table's header, body and footer groups, e
     ".paper-head { display: table-header-group; }",
     ".paper-body { display: table-row-group; }",
     ".paper-foot { display: table-footer-group; }",
-    '[data-print-doc]:not([data-print-doc="ui"]) .doc-table table td { border: 1px solid #000 !important; }',
-    '.doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: dotted !important; }',
+    ".paper-sheet .doc-table table th, .paper-sheet .doc-table table td { border: 1px solid #000; }",
+    '.paper-sheet .doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: dotted; }',
     ".doc-header { break-after: avoid; }",
     'thead { display: table-header-group; }',
     "tr, img { break-inside: avoid; }",
@@ -134,6 +134,7 @@ test("the print rules: the parts are a table's header, body and footer groups, e
   }
   assert.match(block, /\.paper-head, \.paper-foot, \[data-section="sheet-boxes"\][^{]*\{ break-inside: avoid; \}/, "the parts and the boxes stay whole");
   assert.ok(!css.slice(0, css.indexOf("@media print")).includes(".paper-head {"), "on screen the parts are plain blocks (no screen rule)");
+  assert.ok(css.includes("html.print-scoped .paper-sheet .doc-table table th, html.print-scoped .paper-sheet .doc-table table td { border: 1px solid #000; }"), "the borders are on while the sheet is measured for the page");
 });
 
 test("a Word file is set up on the paper's page whatever its grid's width; without a paper named, the width decides as before", async () => {

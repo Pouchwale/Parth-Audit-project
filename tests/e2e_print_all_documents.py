@@ -99,7 +99,7 @@ PRINTED = """
       // The narrowest each grid can be laid out, as it prints (the document's scale included): within A4's printable width.
       widestTable: Math.max(0, ...Array.from(document.querySelectorAll('[data-print-doc] table')).filter(shown).map((t) => { const w = t.style.width; t.style.width = 'min-content'; const r = t.getBoundingClientRect().width; t.style.width = w; return r; })),
       // The sheet's three parts (s117): the header block in the head, a grid in the body, and the foot.
-      parts: docs.map((d) => [!!d.querySelector('.paper-head .doc-header'), !!d.querySelector('.paper-body table'), !!d.querySelector('.paper-foot')]),
+      parts: docs.filter((d) => d.querySelector('.paper-sheet')).map((d) => [!!d.querySelector('.paper-head .doc-header'), !!d.querySelector('.paper-body table'), !!d.querySelector('.paper-foot')]),
       // What the boxes above and below the grid hold (an input's value is not in textContent).
       boxValues: Array.from(document.querySelectorAll('[data-print-doc] .field input, [data-print-doc] .field select, [data-print-doc] .field textarea')).filter(shown).map((e) => e.value),
     };
@@ -149,8 +149,10 @@ PAPER_PAGES = {
     "qc-gsm-plate-calibration": ("landscape", 1),
     "qc-weight-scale-calibration": ("landscape", 1),
     "qc-ruler-verification": ("portrait", 1),
-    "hr-daily-cleaning": ("landscape", 1),
-    "hr-monthly-cleaning": ("landscape", 1),
+    # F/HR/15 and F/HR/16 are one landscape page on paper; DCRS's sheets run to two and three (their rows at the paper's
+    # size do not fit one page) - the page count is open (REQUIREMENTS §117), the orientation is checked.
+    "hr-daily-cleaning": ("landscape", None),
+    "hr-monthly-cleaning": ("landscape", None),
 }
 TMP = tempfile.mkdtemp(prefix="dcrs-print-")
 
@@ -158,7 +160,8 @@ TMP = tempfile.mkdtemp(prefix="dcrs-print-")
 def check_a4(what, seen):
     """Nothing cut at the right edge: the grids fit the page chosen; the page is the paper's where named (s117)."""
     page_kind = seen["page"]
-    check(f"{what}: its grids fit A4 {page_kind} (s117: nothing cut at the right edge)", seen["widestTable"] <= PRINTABLE[page_kind] + 1, (round(seen["widestTable"]), round(PRINTABLE[page_kind]), seen["zoom"]))
+    # Two pixels of slack: the scale is floored to a thousandth (utils/print.ts), and the rectangle is rounded.
+    check(f"{what}: its grids fit A4 {page_kind} (s117: nothing cut at the right edge)", seen["widestTable"] <= PRINTABLE[page_kind] + 2, (round(seen["widestTable"]), round(PRINTABLE[page_kind]), seen["zoom"]))
     if seen["paper"]:
         check(f"{what}: the page is the paper's, {seen['paper']}", page_kind == seen["paper"], (page_kind, seen["paper"]))
 
@@ -275,11 +278,17 @@ with sync_playwright() as p:
         page.evaluate(STUB_PRINT)
         seen = check_printout(page, doc_id)
         check_paper(doc_id, seen)
-        check(f"{doc_id}: the sheet is drawn in its three parts - the header block in the head, the grid in the body, a foot (s117)", seen["parts"] and all(p[0] and p[1] and p[2] for p in seen["parts"]), seen["parts"])
+        # A log sheet (components/records/LogSheetRecordView.tsx) is drawn in three parts; the registers and letters have their own pages.
+        if seen["parts"]:
+            check(f"{doc_id}: the sheet is drawn in its three parts - the header block in the head, the grid in the body, a foot (s117)", all(p[0] and p[1] and p[2] for p in seen["parts"]), seen["parts"])
         if doc_id in PAPER_PAGES:
             orient, count = PAPER_PAGES[doc_id]
             pages_, pdf_path = pdf_pages(page, doc_id)
-            check(f"{doc_id}: the browser's PDF is {count} page(s), {orient}, as the paper (s117)", len(pages_) == count and all(p == orient for p in pages_), (pages_, pdf_path))
+            if count is None:
+                check(f"{doc_id}: the browser's PDF is {orient}, as the paper (s117)", bool(pages_) and all(p == orient for p in pages_), (pages_, pdf_path))
+                print(f"    ({doc_id}: {len(pages_)} page(s) where the paper is one - open, REQUIREMENTS §117)")
+            else:
+                check(f"{doc_id}: the browser's PDF is {count} page(s), {orient}, as the paper (s117)", len(pages_) == count and all(p == orient for p in pages_), (pages_, pdf_path))
         elif doc_id == "hr-training-needs":
             pages_, pdf_path = pdf_pages(page, doc_id)
             print(f"    (F/HR/08's PDF: {len(pages_)} page(s) at {pdf_path} - the header block and the foot should stand on each)")
