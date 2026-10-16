@@ -141,10 +141,14 @@ def agent_route(route):
     # REQUIREMENTS s113: the four operations on a record's lines, in the patch shapes the schema gives the model.
     elif "add a line" in low:
         route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c4", "edit_open_record", {"patch": {"addItems": {"rows": [{"time": "10:30", "viscosity": 20.4, "checkedBy": "Jeni"}]}}})]})
-    elif "delete line 4" in low:
-        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c5", "edit_open_record", {"patch": {"removeItems": {"rows": [4]}}})]})
-    elif "clear line 4" in low:
-        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c6", "edit_open_record", {"patch": {"clearItems": {"rows": [{"row": 4, "keys": ["viscosity"]}]}}})]})
+    # The line's number is read from the words, as the model reads it: how many lines a new record starts with
+    # moves with the real clock (16-Oct-2026 at 09:50 one line, so "delete line 2"; later in the day three, "line 4").
+    elif re.search(r"\bdelete line \d+", low):
+        line = int(re.search(r"\bdelete line (\d+)", low).group(1))
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c5", "edit_open_record", {"patch": {"removeItems": {"rows": [line]}}})]})
+    elif re.search(r"\bclear line \d+", low):
+        line = int(re.search(r"\bclear line (\d+)", low).group(1))
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c6", "edit_open_record", {"patch": {"clearItems": {"rows": [{"row": line, "keys": ["viscosity"]}]}}})]})
     elif "rodent" in low:
         route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c7", "edit_open_record", {"patch": {"addItems": {"rodentCatches": [{"trapBoxNo": "RB-27", "location": "Canteen", "count": 1}]}}})]})
     elif "open a new internal capa" in low:
