@@ -8560,17 +8560,75 @@ sheet nobody wrote on, and a page DCRS transcribed "as supplied" (the 2024 calib
 without a source the sheet starts as the paper's blank with its standards. The prepare's note says which sheet it was
 written from and that every box is the person's to change.
 
-**Still to do from the owner's list of 16-Oct-2026.** (1) Every part editable: F/QC/11's Device ID No, Location,
-Department and Manufacturer and F/QC/17's "Accetable tolerance" are printed by their papers (checked against the
-originals in source-documents/qc-originals-2026-10-13) and held read-only by §111's printed-box machinery; opening them
-as editable boxes that start with the paper's words needs that machinery's seven unit tests moved onto a layout of their
-own first. (2) The downloads and preview of every QC and HR format checked once against the paper, the A4 print rules
-(nothing cut at the edge or the foot, the header block and the paper's foot lines on every page, portrait or landscape
-as the paper is) and the header and footer fixed as the paper's in print and in every download: the header block is
-done by this section; the grid's borders and boxes in print, the page-break rules and the foot lines are the next
-piece. (3) F/HR/18 as its Word file (another fixer's).
+**Every part editable (done, the second fixer, 16-Oct-2026).** F/QC/11's Device ID No, Location, Department and
+Manufacturer and F/QC/17's "Accetable tolerance" are printed by their papers (checked against the originals in
+source-documents/qc-originals-2026-10-13) and were held read-only by §111's printed-box machinery (`LogHeaderField.
+printed`); the owner circled "Location: LAB" and asked for every part editable. Each is a box now whose START is the
+paper's words (`autoFill.default`: data/seed/qcCalibrationLayouts.ts GSM_PRINTED, qcRulerVerificationLayouts.ts
+RULER_TOLERANCE): a new sheet, the morning prepare and Demo Mode write them, the person writes over any of them, Mitra
+and an uploaded file may change them, nothing writes the paper's words back, and the next sheet carries what was
+written (carryForwardAll). F/QC/17's Difference is still judged by what the tolerance box holds (toleranceFrom), so a
+ruler's own tolerance judges it. The printed-box machinery stays for a designer who chooses it, and no issued format
+uses it: its tests (qcPaperFormats.test.ts, "a box the paper prints ...") run on a layout of their own — F/QC/11 as
+§111 had it, with its four boxes printed, held as a format edit for the length of the test. The sweep of every QC and
+HR layout found no other read-only box the person could need to change: what is `fixed` is the paper's own line words
+(Index, TEST PARAMETERS, SPECIFICATION, the checklists' questions, the cleaning areas), which stay.
 
-**Tests.** frontend/tests/qcCarryForward.test.ts (4): F/QC/12 one line a week, no Add line, the standard weights
+**On A4, as the paper (done, the second fixer).** The owner's "Download formatting reqd." and "After download setting
+not ok", and his later words on A4 printing and the header and footer:
+
+- *The paper's own page.* `LogSheetLayout.paper` names a format's orientation — F/QC/11, F/QC/12, F/HR/15 and
+  F/HR/16 landscape, F/QC/17 portrait, as their originals are — and the sheet carries it as `data-paper`. The print
+  and the server's PDF turn the page as it says and scale the sheet to that page's width (utils/print.ts paperOf,
+  fitToPage); a Word file is set up on it whatever its grid's width (utils/docx.ts DocxExtras.paper) and so is a
+  workbook (utils/documentExport.ts pageSetup). A layout that names none is printed by its width, as before (§54).
+- *Every grid cell boxed in print.* On screen a document's grid is the web's (a hairline under each line, nothing
+  between cells) and the print rules strip the boxes' borders, so the owner's printouts had no cell borders at all.
+  Printed, every th and td of a document's grid has a 1 px ink border and the grid's web frame and rounded corners
+  go (styles.css, "Print"); F/QC/12's entry keeps the dotted rule between its two lines.
+- *The header block and the paper's foot lines on every page.* A log sheet is drawn in three parts
+  (components/records/LogSheetRecordView.tsx): `.paper-head` (the header block), `.paper-body` (the boxes above the
+  grid, the grid, a photograph or chart the paper prints under it), `.paper-foot` (the paper's text below the grid —
+  F/QC/11's and F/QC/12's PROCEDURE — the boxes below the grid, the text at the foot). Printed, the three are a table's
+  header, body and footer groups, which the browser repeats at the head and the foot of every page a long sheet runs
+  to; on screen they are plain blocks, so nothing changes there, and the Excel and Word files read the parts in their
+  order. A sheet that prints a photograph or a chart under its grid (F/QC/29) keeps its text below the grid in the
+  body, above them.
+- *Nothing cut at the foot.* The header block stays with what follows it; the boxes above the grid, the paper's text
+  below it and its boxes below it each stay whole on one page; the grid's heading rows repeat and no line of it is
+  broken across pages (the thead and tr rules of §38).
+- *The boxes as many to a line as the paper draws them, in the files.* A sheet's boxes above the grid stand three
+  to a line on F/QC/11 and F/QC/12 (headerColumns); the Excel and Word files laid them one under another, label and
+  box. The export reads the sheet's `.sheet-boxes-paper` lines (ExportBlock "fields" `perLine`) and lays each line as
+  a row of label, box, label, box ... (Word: a table with every other column bold, never counted as a grid for the
+  page; Excel: six cells on the row), a box in its own column of the line (paperColumn, F/QC/11's Due Date) leaving
+  the columns before it empty.
+- *The HR module's own registers* (F/HR/17's three pages, F/HR/18's two) were already drawn one printed page each with
+  the header block on every page (.register-page) and keep that.
+
+What was looked at and left: a second-line entry's dotted rule and the header boxes' no-border look are the paper's;
+the preview on a document's page is the same sheet (the same component), so it follows.
+
+**Tests (the second fixer).** frontend/tests/a4Paper.test.ts (7): each paper's orientation on its layout and on its
+sheet; the three parts in order with the header block, the grid and the PROCEDURE each in its part; the print rules
+(the parts' table groups, the boxed cells, the dotted second line, the whole-part rules); a Word file and a workbook on
+the paper's page whatever the grid's width, and as before when none is named; the boxes three to a line in Word and
+Excel. Changed: qcPaperFormats.test.ts (the printed-box machinery's two tests on their own layout; a new test that
+F/QC/11's four boxes are editable, start with the paper's words, keep what is written and may be written by Mitra and a
+file; the "edited before §111" test expects no printed box and the paper's words as the start), qcFormats14Oct.test.ts
+(F/QC/17's tolerance a box with the paper's start), qcCarryForward.test.ts (F/QC/11's Device ID No carries what was
+written over it), qcPaperMarks.test.ts (the root's class). Browser suites: tests/e2e_print_all_documents.py (on every
+document: the grids laid out as narrow as they can be fit A4's printable width for the page chosen, the page is the
+paper's where named, the three parts are there; F/QC/11, F/QC/12, F/QC/17, F/HR/15 and F/HR/16 come out of the
+browser's PDF as one page each the paper's way round; F/QC/11's boxes read by their values), tests/
+e2e_downloads_and_print.py (F/QC/12's workbook landscape with its boxes three to a line and the weights on its line,
+F/QC/17's portrait with the paper's tolerance and six points), tests/e2e_qc_calibration.py (F/QC/11's four boxes as
+boxes holding the paper's words, Location written over and kept).
+
+**Still to do from the owner's list of 16-Oct-2026.** F/HR/18 as its Word file (another fixer's, merged); F-QC-30's own
+date, to be put to the owner (above).
+
+**Tests (the first fixer).** frontend/tests/qcCarryForward.test.ts (4): F/QC/12 one line a week, no Add line, the standard weights
 written and editable and not counted as readings, the device id first; F/QC/17's master readings editable, the
 Difference following what is written, the six points on a fresh sheet; a new F/QC/17 and the morning prepare written as
 the previous one was (boxes, lines, the master's own readings, the date the new day, the printed tolerance kept, the
