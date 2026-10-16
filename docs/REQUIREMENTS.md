@@ -8607,7 +8607,16 @@ not ok", and his later words on A4 printing and the header and footer:
   the header block on every page (.register-page) and keep that.
 
 What was looked at and left: a second-line entry's dotted rule and the header boxes' no-border look are the paper's;
-the preview on a document's page is the same sheet (the same component), so it follows.
+the preview on a document's page is the same sheet (the same component), so it follows. *The foot on every page:*
+measured on this machine's Chromium with a 120-line sheet printed to four pages (the fonts each page's content stream
+uses), a `display: table-header-group` div IS repeated at the head of every page, but a `display: table-footer-group`
+div is drawn once, at the end — the browser repeats a footer only for a real `<tfoot>` (proven: every page carries it)
+or a `position: fixed` foot (proven too, but it overlaps the last lines of a page unless room is reserved below
+them). So the paper's foot lines stand at the end of the sheet, once, and the header block on every page. Making the
+foot repeat means the sheet's root becoming a real table (thead | tfoot | tbody), which touches the "<thead"
+parsing of a dozen unit suites (qcPaperFormats, qcIncomingCoaPaper, qcPaperMarks ... each reads the first thead as the
+grid's) and the export's DOM walk (utils/documentExport.ts reads a table as a grid): the next piece, with those
+helpers pointed at the grid's own thead first.
 
 **Tests (the second fixer).** frontend/tests/a4Paper.test.ts (7): each paper's orientation on its layout and on its
 sheet; the three parts in order with the header block, the grid and the PROCEDURE each in its part; the print rules
