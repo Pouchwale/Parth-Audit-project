@@ -3,7 +3,7 @@ import { buildDocx, type DocxBlock, type DocxCell, type DocxRun } from "./docx";
 import { columnName, isoToSerial, xmlText, zipStored, customPropertiesXml, CUSTOM_PROPERTIES_PART, CUSTOM_PROPERTIES_REL, CUSTOM_PROPERTIES_TYPE } from "./xlsx";
 import { downloadBlob } from "./csv";
 import { formatDisplayDate, todayISO } from "./date";
-import { PRINT_PREPARE_EVENT } from "./print";
+import { PRINT_PREPARE_EVENT, paperOf } from "./print";
 import {
   BIND_APPEND_ATTR,
   BIND_ATTR,
@@ -147,7 +147,8 @@ export interface Cell {
 
 export type ExportBlock =
   | { kind: "text"; text: string; strong: boolean; title?: boolean; parts?: ExportSegment[] }
-  | { kind: "fields"; pairs: [string, Cell][] }
+  /** Boxes with their labels; `perLine`, how many the paper puts on one line (LogSheetLayout.headerColumns, REQUIREMENTS §117). */
+  | { kind: "fields"; pairs: [string, Cell][]; perLine?: number }
   | { kind: "table"; rows: Cell[][]; headerRows: number; bindTable?: ExportTableBinding; band?: true };
 
 const SKIP = "button, .btn, .no-print, datalist, script, style, svg, template, noscript, [hidden], [aria-hidden='true'], input[type='file'], input[type='hidden']";
@@ -472,10 +473,19 @@ function walk(el: Element, out: ExportBlock[]): void {
     for (const p of cell.parts ?? []) if (p.bind && !p.bind.label && name) p.bind.label = name;
     if (cell.bind && !cell.bind.label && name) cell.bind.label = name;
     const last = out[out.length - 1];
-    if (last?.kind === "fields") last.pairs.push([name, cell]);
-    else out.push({ kind: "fields", pairs: [[name, cell]] });
+    if (last?.kind === "fields" && !closedFields.has(last)) {
+      // A box in its column of the line (paperColumn: F/QC/11's Due Date at the right) leaves the columns before it empty.
+      const column = Number(el.getAttribute("data-paper-column")) || 0;
+      if (last.perLine && column > 1 && column <= last.perLine) while (last.pairs.length % last.perLine !== column - 1) last.pairs.push(["", { text: "" }]);
+      last.pairs.push([name, cell]);
+    } else out.push({ kind: "fields", pairs: [[name, cell]] });
     return;
   }
+  // THE BOXES AS MANY TO A LINE AS THE PAPER DRAWS THEM (REQUIREMENTS §117): a sheet's boxes above the grid stand three
+  // to a line on F/QC/12 and F/QC/11 (LogSheetLayout.headerColumns, drawn as .sheet-boxes-paper); the file lays them so.
+  const perLine = el.classList.contains("sheet-boxes-paper") ? Number((el as HTMLElement).style.getPropertyValue("--paper-box-columns")) || 0 : 0;
+  const lineBlock: ExportBlock | null = perLine > 1 ? { kind: "fields", pairs: [], perLine } : null;
+  if (lineBlock) out.push(lineBlock);
   const children = Array.from(el.children).filter((c) => !skipped(c));
   if (!children.some(structural)) {
     const marks: Marks = { found: [] };
@@ -506,7 +516,14 @@ function walk(el: Element, out: ExportBlock[]): void {
     } else inline += textOf(node, marks);
   }
   flush();
+  if (lineBlock) {
+    closedFields.add(lineBlock);
+    if (lineBlock.pairs.length === 0) out.splice(out.indexOf(lineBlock), 1);
+  }
 }
+
+/** The blocks of boxes whose line is complete: a box after them starts a block of its own. */
+const closedFields = new WeakSet<ExportBlock>();
 
 /** The documents given, read as blocks, in order. */
 export function documentBlocks(roots: Element[]): ExportBlock[] {
@@ -569,7 +586,7 @@ const NUMBER_RE = /^-?(?:0|[1-9]\d{0,14})(?:\.\d+)?$/;
  * name on each bound cell, the envelope in the custom properties) — the
  * visible sheet is the same either way.
  */
-export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], envelope?: RoundTripEnvelope): Uint8Array<ArrayBuffer> {
+export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape"): Uint8Array<ArrayBuffer> {
   type Anchor = { col: number; text: string; grid: number };
   type XCell = { text: string; style: number; date?: string; number?: boolean; pieces?: { bind: ExportBinding; pre: string; post: string }[]; anchor?: Anchor };
   const rows: XCell[][] = [];
@@ -597,13 +614,16 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       rows.push([{ text: block.text, style: block.title ? 2 : block.strong ? 1 : 7, pieces: piecesFor(block.parts) }]);
     } else if (block.kind === "fields") {
       gap();
-      for (const [label, cell] of block.pairs) {
-        measure(0, label);
-        measure(1, cell.text);
-        rows.push([
-          { text: label, style: 1 },
-          { text: cell.text, style: cell.date ? 5 : 3, date: cell.date, pieces: piecesFor(cell.parts) },
-        ]);
+      // As many boxes to a line as the paper draws them (REQUIREMENTS §117), a label and its box a pair of cells each.
+      const perLine = block.perLine && block.perLine > 1 ? block.perLine : 1;
+      for (let at = 0; at < block.pairs.length; at += perLine) {
+        const line: XCell[] = [];
+        block.pairs.slice(at, at + perLine).forEach(([label, cell], i) => {
+          measure(i * 2, label);
+          measure(i * 2 + 1, cell.text);
+          line.push({ text: label, style: 1 }, { text: cell.text, style: cell.date ? 5 : 3, date: cell.date, pieces: piecesFor(cell.parts) });
+        });
+        rows.push(line);
       }
     } else {
       gap();
@@ -768,7 +788,8 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<sheetData>${sheetData}</sheetData>` +
         `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
         // Printed from Excel: one page wide, as many pages down as it takes.
-        `<pageSetup paperSize="9" orientation="${columns > 6 ? "landscape" : "portrait"}" fitToWidth="1" fitToHeight="0"/>` +
+        // ...on the paper's own page where the layout names it (REQUIREMENTS §117), else as its width needs.
+        `<pageSetup paperSize="9" orientation="${paper ?? (columns > 6 ? "landscape" : "portrait")}" fitToWidth="1" fitToHeight="0"/>` +
         `</worksheet>`,
     ],
   ];
@@ -804,7 +825,14 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
       if (parts) block.parts = parts;
       return block;
     }
-    if (b.kind === "fields") return { type: "table", rows: b.pairs.map(([label, cell]) => [label, cellOfWord(cell, label)]), boldFirstColumn: true };
+    if (b.kind === "fields") {
+      const perLine = b.perLine && b.perLine > 1 ? b.perLine : 1;
+      if (perLine === 1) return { type: "table", rows: b.pairs.map(([label, cell]) => [label, cellOfWord(cell, label)]), boldFirstColumn: true };
+      // As many boxes to a line as the paper draws them (REQUIREMENTS §117): each line a row of label, box, label, box ...
+      const rows: DocxCell[][] = [];
+      for (let at = 0; at < b.pairs.length; at += perLine) rows.push(b.pairs.slice(at, at + perLine).flatMap(([label, cell]) => [label, cellOfWord(cell, label)]));
+      return { type: "table", rows, labelColumns: true };
+    }
     const rows = b.rows.map((r) => r.map((c) => cellOfWord(c)));
     const block: DocxBlock = { type: "table", rows, headerRows: b.headerRows, ...(b.band ? { band: true as const } : {}) };
     if (builder && b.bindTable) {
@@ -817,14 +845,15 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
 }
 
 /** The blocks as a Word document; given an envelope, with the map of its bound values. */
-export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTripEnvelope): Uint8Array<ArrayBuffer> {
-  if (!envelope) return buildDocx(wordBlocksFrom(blocks));
+export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape"): Uint8Array<ArrayBuffer> {
+  if (!envelope) return buildDocx(wordBlocksFrom(blocks), paper ? { paper } : {});
   const builder = new ExportMapBuilder();
   const docxBlocks = wordBlocksFrom(blocks, builder);
   const json = mapJson(envelope, builder.entries, builder.tables);
   return buildDocx(docxBlocks, {
     customXml: { xml: `<dcrsMap xmlns="${MAP_XML_NAMESPACE}">${xmlText(json)}</dcrsMap>`, schema: MAP_XML_NAMESPACE },
     customProperties: [[ENVELOPE_PROPERTY, envelopePropertyValue(envelope)]],
+    ...(paper ? { paper } : {}),
   });
 }
 
@@ -858,7 +887,9 @@ export function documentFileBytes(
   doc: Pick<DocumentDefinition, "id" | "name" | "formatNo" | "revisionNo">,
   blocks: ExportBlock[],
   recordIds: string[],
-  exportedAt?: string
+  exportedAt?: string,
+  /** The paper's own orientation (LogSheetLayout.paper, REQUIREMENTS §117), where the layout names it. */
+  paper?: "portrait" | "landscape"
 ): Uint8Array<ArrayBuffer> {
   // Every record the file holds: those given, and any a bound value belongs to.
   const ids = [...recordIds];
@@ -875,8 +906,8 @@ export function documentFileBytes(
   }
   const unique = Array.from(new Set(ids.filter(Boolean)));
   const envelope = unique.length ? makeEnvelope(kind, { documentId: doc.id, formatNo: doc.formatNo, revisionNo: doc.revisionNo }, unique, exportedAt) : undefined;
-  if (kind === "xlsx") return workbookFromBlocks(knownFormatNo(doc as DocumentDefinition) || doc.name, blocks, envelope);
-  return wordDocumentFromBlocks(blocks, envelope);
+  if (kind === "xlsx") return workbookFromBlocks(knownFormatNo(doc as DocumentDefinition) || doc.name, blocks, envelope, paper);
+  return wordDocumentFromBlocks(blocks, envelope, paper);
 }
 
 /** Puts every line of a long list on screen (utils/useProgressive.ts) and lets the page draw once. */
@@ -915,7 +946,9 @@ export async function downloadDocumentFile(doc: DocumentDefinition, roots: Eleme
     const live = roots.filter((r) => r.isConnected);
     const blocks = documentBlocks(live.length ? live : roots);
     const name = documentFileName(doc, dateISO);
-    const bytes = documentFileBytes(kind, doc, blocks, recordIdsIn(live.length ? live : roots));
+    // The paper's own page (§117), where the sheet names it.
+    const paper = (live.length ? live : roots).map(paperOf).find((p) => p !== null) ?? undefined;
+    const bytes = documentFileBytes(kind, doc, blocks, recordIdsIn(live.length ? live : roots), undefined, paper);
     downloadBlob(`${name}.${kind}`, new Blob([bytes], { type: kind === "xlsx" ? XLSX_TYPE : DOCX_TYPE }));
     return kind;
   } catch {

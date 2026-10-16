@@ -445,9 +445,17 @@ export function LogSheetRecordView({
 
   // A sheet whose paper writes its headings in its own letters prints them so (REQUIREMENTS §111, part 4): a
   // certificate's "Length(mm)", which the sheet's capitals made "LENGTH(MM)".
-  const rootClass = [asIssued ? "notranslate" : "", layout.headingsAsPrinted ? "headings-as-printed" : ""].filter(Boolean).join(" ");
+  const rootClass = ["paper-sheet", asIssued ? "notranslate" : "", layout.headingsAsPrinted ? "headings-as-printed" : ""].filter(Boolean).join(" ");
+  // THE SHEET AS A PRINTED PAGE (REQUIREMENTS §117, the owner, 16-Oct-2026): three parts — the header block, the body,
+  // and the paper's foot lines (its text below the grid, its boxes below the grid, its text at the foot). Printed, the
+  // parts are a table's header, body and footer groups (styles.css, "Print"), so the header block and the foot stand
+  // on every page a long sheet runs to; on screen they are plain blocks. The paper's text below the grid is a foot
+  // line unless the paper prints a photograph or a chart under it (F/QC/29), which keep their place in the body.
+  const notesBelow = layout.notesBelow && layout.notesBelow.length > 0 ? <NotesBelow lines={layout.notesBelow} /> : null;
+  const footHoldsNotes = !layout.photoBelowGrid && !(layout.charts?.length ?? 0);
   return (
-    <div className={rootClass || undefined} translate={asIssued ? "no" : undefined} data-bind-record={record.id}>
+    <div className={rootClass} translate={asIssued ? "no" : undefined} data-bind-record={record.id} data-paper={layout.paper}>
+      <div className="paper-head">
       <DocumentHeader
         doc={doc}
         // The title as the paper prints it, unless the plant has renamed the format since (REQUIREMENTS §111).
@@ -464,6 +472,8 @@ export function LogSheetRecordView({
         numberNotPrinted={!!layout.numberNotPrinted}
         printedWithNumber={layout.printedWithNumber}
       />
+      </div>
+      <div className="paper-body">
       {headerPanel}
       {/* A page kept on the revision it was written on says so (REQUIREMENTS §74). */}
       {superseded && (
@@ -692,8 +702,9 @@ export function LogSheetRecordView({
           <FiPlus size={13} /> Add Row
         </button>
       )}
-      {/* The paper's own text below the grid, word for word (REQUIREMENTS §111): F/QC/11's and F/QC/12's PROCEDURE. */}
-      {layout.notesBelow && layout.notesBelow.length > 0 && <NotesBelow lines={layout.notesBelow} />}
+      {/* The paper's own text below the grid, word for word (REQUIREMENTS §111): F/QC/11's and F/QC/12's PROCEDURE —
+          a foot line (below), unless a photograph or a chart follows it. */}
+      {!footHoldsNotes && notesBelow}
 
       {/* The photograph the paper prints under its table (F/QC/29's analysis report, REQUIREMENTS §111). */}
       {layout.photoBelowGrid && <SheetPhotos photos={data.photos ?? []} editable={editable} onChange={setPhotos} />}
@@ -702,6 +713,9 @@ export function LogSheetRecordView({
       {layout.charts?.map((chart, i) => (
         <SheetChart key={i} chart={chart} data={data} />
       ))}
+      </div>
+      <div className="paper-foot">
+      {footHoldsNotes && notesBelow}
 
       {(footerGroups.length > 0 || sayVerifyIsApproval) && (
         <div className="card mt-4">
@@ -740,6 +754,7 @@ export function LogSheetRecordView({
       )}
       {/* The paper's own text at the foot of the sheet, after every box (REQUIREMENTS §111): the certificates' "THIS IS A SYSTEM GENERATED DOCUMENT." */}
       {layout.notesAtFoot && layout.notesAtFoot.length > 0 && <NotesBelow lines={layout.notesAtFoot} section="notes-at-foot" />}
+      </div>
       {fetching && <HrMasterPeopleList />}
       {eqFetching && <EquipmentMachineList />}
       <datalist id="log-sheet-employees">

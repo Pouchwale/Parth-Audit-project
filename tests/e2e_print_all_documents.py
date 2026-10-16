@@ -19,11 +19,20 @@ the same way. On each one:
   * the four QC formats the owner named on 13-Oct-2026 print as their papers:
     F/QC/11 and F/QC/12 with the PROCEDURE below the grid and nothing of DCRS's
     above it, F/QC/12 with no Sr. No. and each entry on two lines, F-QC-30 with the
-    day's date in its Sr. No., F-QC-32 with its Date column (REQUIREMENTS §111).
+    day's date in its Sr. No., F-QC-32 with its Date column (REQUIREMENTS §111);
+  * on A4 (REQUIREMENTS §117, the owner, 16-Oct-2026): every document's grids,
+    laid out as narrow as they can be, fit the printable width of the page chosen
+    (portrait 186 mm, landscape 273 mm, A4 less the 12 mm each side), the page is
+    the paper's where the layout names it, the sheet is drawn in its three parts
+    (header block, body, foot), and F/QC/11, F/QC/12, F/QC/17, F/HR/15 and F/HR/16
+    come out of the browser's PDF as one page each, the paper's way round.
 
 Network-independent, and driven against the production build on :8842.
 """
+import os
+import re
 import sys
+import tempfile
 import time
 from playwright.sync_api import sync_playwright
 def settle_briefing(page):
@@ -83,6 +92,14 @@ PRINTED = """
         return !!n && !!t && shown(n) && !!(t.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING) ? n.textContent : null;
       })(),
       text: docs.map((d) => d.textContent).join(' '),
+      // The page chosen (utils/print.ts), the paper the sheet names (s117), and the document's scale.
+      page: document.documentElement.dataset.printPage || 'portrait',
+      paper: (() => { const el = document.querySelector('[data-print-doc][data-paper], [data-print-doc] [data-paper]'); return el ? el.getAttribute('data-paper') : null; })(),
+      zoom: docs.map((d) => d.style.zoom || ''),
+      // The narrowest each grid can be laid out, as it prints (the document's scale included): within A4's printable width.
+      widestTable: Math.max(0, ...Array.from(document.querySelectorAll('[data-print-doc] table')).filter(shown).map((t) => { const w = t.style.width; t.style.width = 'min-content'; const r = t.getBoundingClientRect().width; t.style.width = w; return r; })),
+      // The sheet's three parts (s117): the header block in the head, a grid in the body, and the foot.
+      parts: docs.map((d) => [!!d.querySelector('.paper-head .doc-header'), !!d.querySelector('.paper-body table'), !!d.querySelector('.paper-foot')]),
       // What the boxes above and below the grid hold (an input's value is not in textContent).
       boxValues: Array.from(document.querySelectorAll('[data-print-doc] .field input, [data-print-doc] .field select, [data-print-doc] .field textarea')).filter(shown).map((e) => e.value),
     };
@@ -125,10 +142,47 @@ def printout(page):
         page.evaluate(END_PRINT)
 
 
+# A4 less the 12 mm each side a printed document keeps for itself (utils/print.ts PRINTABLE_WIDTH), in CSS pixels.
+PRINTABLE = {"portrait": (210 - 24) * 96 / 25.4, "landscape": (297 - 24) * 96 / 25.4}
+# The papers whose page is named on their layout (s117), and how many pages each is.
+PAPER_PAGES = {
+    "qc-gsm-plate-calibration": ("landscape", 1),
+    "qc-weight-scale-calibration": ("landscape", 1),
+    "qc-ruler-verification": ("portrait", 1),
+    "hr-daily-cleaning": ("landscape", 1),
+    "hr-monthly-cleaning": ("landscape", 1),
+}
+TMP = tempfile.mkdtemp(prefix="dcrs-print-")
+
+
+def check_a4(what, seen):
+    """Nothing cut at the right edge: the grids fit the page chosen; the page is the paper's where named (s117)."""
+    page_kind = seen["page"]
+    check(f"{what}: its grids fit A4 {page_kind} (s117: nothing cut at the right edge)", seen["widestTable"] <= PRINTABLE[page_kind] + 1, (round(seen["widestTable"]), round(PRINTABLE[page_kind]), seen["zoom"]))
+    if seen["paper"]:
+        check(f"{what}: the page is the paper's, {seen['paper']}", page_kind == seen["paper"], (page_kind, seen["paper"]))
+
+
+def pdf_pages(page, name):
+    """The pages of the browser's own PDF of what is on screen, scoped as the Print button scopes it: their orientation each."""
+    page.evaluate(START_BROWSER_PRINT)
+    try:
+        pdf_path = os.path.join(TMP, f"{name}.pdf")
+        page.pdf(path=pdf_path, prefer_css_page_size=True, print_background=True)
+    finally:
+        page.evaluate(END_PRINT)
+    with open(pdf_path, "rb") as f:
+        pdf = f.read()
+    boxes = [tuple(float(x) for x in m.groups()) for m in re.finditer(rb"/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]", pdf)]
+    return ["landscape" if b[2] - b[0] > b[3] - b[1] else "portrait" for b in boxes], pdf_path
+
+
 def check_printout(page, what):
     """The document, and nothing around it."""
     seen = printout(page)
     check(f"{what}: the document is on the printout", seen["documents"] >= 1, seen)
+    if seen["documents"] >= 1:
+        check_a4(what, seen)
     check(
         f"{what}: and nothing around it — no panel, top bar, buttons, page title, history or assistant",
         not seen["sidebar"]
@@ -219,7 +273,16 @@ with sync_playwright() as p:
         page.wait_for_timeout(1300)
         close_assistant(page)
         page.evaluate(STUB_PRINT)
-        check_paper(doc_id, check_printout(page, doc_id))
+        seen = check_printout(page, doc_id)
+        check_paper(doc_id, seen)
+        check(f"{doc_id}: the sheet is drawn in its three parts - the header block in the head, the grid in the body, a foot (s117)", seen["parts"] and all(p[0] and p[1] and p[2] for p in seen["parts"]), seen["parts"])
+        if doc_id in PAPER_PAGES:
+            orient, count = PAPER_PAGES[doc_id]
+            pages_, pdf_path = pdf_pages(page, doc_id)
+            check(f"{doc_id}: the browser's PDF is {count} page(s), {orient}, as the paper (s117)", len(pages_) == count and all(p == orient for p in pages_), (pages_, pdf_path))
+        elif doc_id == "hr-training-needs":
+            pages_, pdf_path = pdf_pages(page, doc_id)
+            print(f"    (F/HR/08's PDF: {len(pages_)} page(s) at {pdf_path} - the header block and the foot should stand on each)")
 
     # ---- the reference documents, registers, reports and file lists ----
     pages = [

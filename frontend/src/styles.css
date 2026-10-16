@@ -1223,6 +1223,29 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
   /* The demo band is a coloured strip with white text: it has to print as
      one, or a demo printout would pass for a real record. */
   .demo-watermark::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* THE SHEET ON A4 (REQUIREMENTS §117; the owner's printouts of 16-Oct-2026, "Download formatting reqd."). Every
+     cell of a document's grid prints in a box, in ink, as the paper draws it: on screen the grid is the web's (a
+     hairline under each line, nothing between cells), and the rules above strip the boxes' borders, so a printed
+     sheet had no cell borders at all. The grid's web frame and rounded corners go. F/QC/12's entry keeps the dotted
+     rule between its two lines, and a gap line between runs keeps its sides open. */
+  [data-print-doc]:not([data-print-doc="ui"]) .doc-table { border: none !important; border-radius: 0 !important; }
+  [data-print-doc]:not([data-print-doc="ui"]) .doc-table table th,
+  [data-print-doc]:not([data-print-doc="ui"]) .doc-table table td { border: 1px solid #000 !important; }
+  [data-print-doc]:not([data-print-doc="ui"]) .doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: dotted !important; }
+  [data-print-doc]:not([data-print-doc="ui"]) .doc-table table.log-sheet tr.log-gap-line td { border-left: none !important; border-right: none !important; }
+  /* THE HEADER BLOCK AND THE PAPER'S FOOT LINES ON EVERY PAGE (§117): a log sheet is drawn in three parts
+     (components/records/LogSheetRecordView.tsx: .paper-head, .paper-body, .paper-foot). Printed, they are a table's
+     header, body and footer groups, which the browser repeats at the head and the foot of every page a sheet runs
+     to; on screen they are plain blocks. */
+  .paper-sheet { display: table; width: 100%; border-collapse: collapse; }
+  .paper-head { display: table-header-group; }
+  .paper-body { display: table-row-group; }
+  .paper-foot { display: table-footer-group; }
+  /* Nothing cut at the foot (§117): the header block stays with what follows it; the boxes above the grid, the
+     paper's text below it and its boxes below it each stay whole on one page; a grid's heading rows repeat (thead,
+     above) and no line of it is broken across pages (tr, above). */
+  .doc-header { break-after: avoid; }
+  .paper-head, .paper-foot, [data-section="sheet-boxes"], .sheet-boxes-paper, [data-section="notes-below"], [data-section="notes-at-foot"], .paper-foot .card { break-inside: avoid; }
 }
 
 /* ---- CAPA: in the AREA 4 section (REQUIREMENTS §90) ---- */

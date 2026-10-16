@@ -248,7 +248,8 @@ test("the '*' of a box that must be written is the screen's mark and does not pr
 test("the certificates print their headings in the paper's letters — 'Length(mm)', not 'LENGTH(MM)' — and the incoming records as before", async () => {
   for (const id of ["qc-coa-label", "qc-coa-sleeve", "qc-coa-corrugated"]) {
     assert.equal(layoutOf(id).headingsAsPrinted, true, id);
-    assert.match(await sheet(id), /<div class="headings-as-printed" data-bind-record="marks-/, id);
+    // The root is the printed page's three parts since §117 (paper-sheet); the paper's letters are its other class.
+    assert.match(await sheet(id), /<div class="paper-sheet headings-as-printed" data-bind-record="marks-/, id);
   }
   for (const id of INCOMING) assert.equal(layoutOf(id).headingsAsPrinted, undefined, `${id}: its paper prints its headings in capitals`);
   assert.match(css, /\.headings-as-printed \.doc-table th \{ text-transform: none; letter-spacing: 0; \}/);

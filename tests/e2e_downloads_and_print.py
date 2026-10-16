@@ -193,6 +193,29 @@ with sync_playwright() as p:
     rows, _, _ = workbook(path)
     check("The daily pest control register downloads as a workbook", fmt == "xlsx" and len(rows) > 5, (fmt, len(rows)))
 
+    # F/QC/12 and F/QC/17 as their papers (REQUIREMENTS s117, the owner, 16-Oct-2026: "Download formatting reqd.",
+    # "After download setting not ok"): the workbook on the paper's own page, the boxes as many to a line as the paper draws them.
+    goto(page, "#/library")
+    page.locator("[data-action='new-record'][data-document='qc-weight-scale-calibration']").first.evaluate("el => el.click()")
+    page.wait_for_timeout(1500)
+    close_assistant(page)
+    fmt, suggested, path = download(page, "fqc12")
+    rows, sheet_xml, _ = workbook(path)
+    check("F/QC/12 downloads as a landscape workbook, the paper's page (s117)", fmt == "xlsx" and 'orientation="landscape"' in sheet_xml, (fmt, suggested))
+    lines = [[c[0] for c in r.values()] for r in rows.values()]
+    three_a_line = [l for l in lines if len(l) == 6 and l[0].startswith("Device ID No")]
+    check("...its boxes three to a line, the Device ID No first on the first line (s117)", bool(three_a_line) and three_a_line[0][2].startswith("Location") and three_a_line[0][4].startswith("Department"), lines[:8])
+    check("...and the weights 50 gm to 600 gm already on its line", all(any(w in l for l in lines) for w in ["50 gm", "100 gm", "200 gm", "500 gm", "600 gm"]), lines[-6:])
+    goto(page, "#/library")
+    page.locator("[data-action='new-record'][data-document='qc-ruler-verification']").first.evaluate("el => el.click()")
+    page.wait_for_timeout(1500)
+    close_assistant(page)
+    fmt, suggested, path = download(page, "fqc17")
+    rows, sheet_xml, _ = workbook(path)
+    lines = [[c[0] for c in r.values()] for r in rows.values()]
+    check("F/QC/17 downloads as a portrait workbook, as its paper is (s117)", fmt == "xlsx" and 'orientation="portrait"' in sheet_xml, (fmt, suggested))
+    check("...with the paper's + / - 1 mm starting its tolerance box and its six points", any("+ / - 1 mm" in l for l in lines) and any("290 mm" in l for l in lines), lines[:20])
+
     # ==================================================================
     # 2. Forms and Word originals: Word
     # ==================================================================

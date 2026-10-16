@@ -34,7 +34,7 @@ export type DocxCell = string | DocxRun[];
 
 export type DocxBlock =
   | { type: "paragraph"; text: string; bold?: boolean; size?: number; center?: boolean; parts?: DocxRun[] }
-  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true };
+  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true };
 
 /** What a document carries besides its body. */
 export interface DocxExtras {
@@ -42,6 +42,8 @@ export interface DocxExtras {
   customXml?: { xml: string; schema?: string };
   /** Custom document properties (docProps/custom.xml). */
   customProperties?: [name: string, value: string][];
+  /** The paper's own orientation (LogSheetLayout.paper, REQUIREMENTS §117); without it the widest grid decides. */
+  paper?: "portrait" | "landscape";
 }
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -98,7 +100,8 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
       const header = ri < headerRows;
       const cells = Array.from({ length: columns }, (_, ci): DocxCell => row[ci] ?? "")
         .map((cell, ci) => {
-          const bold = header || (!!block.boldFirstColumn && ci === 0);
+          // A table of boxes laid several to a line (labelColumns) has a label in every other column.
+          const bold = header || (!!block.boldFirstColumn && ci === 0) || (!!block.labelColumns && ci % 2 === 0);
           const shade = header ? '<w:shd w:val="clear" w:color="auto" w:fill="E7E9EE"/>' : "";
           const rPr = `${bold ? "<w:b/>" : ""}<w:sz w:val="${fontSize}"/><w:szCs w:val="${fontSize}"/>`;
           return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${shade}</w:tcPr><w:p><w:pPr><w:spacing w:before="20" w:after="20"/></w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
@@ -136,7 +139,8 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
   // whatever the paper prints in it since REQUIREMENTS §111) does not.
   const columnsOf = (b: DocxBlock) => (b.type === "table" ? Math.max(0, ...b.rows.map((r) => r.length)) : 0);
   const widest = Math.max(0, ...blocks.map((b) => (b.type === "table" && !b.band && ((b.headerRows ?? 0) > 0 || columnsOf(b) > 8) ? columnsOf(b) : 0)));
-  const landscape = widest > 6;
+  // ...unless the paper itself says which way its page is (REQUIREMENTS §117).
+  const landscape = extras.paper ? extras.paper === "landscape" : widest > 6;
   const fontSize = widest > 12 ? 14 : widest > 8 ? 16 : 18;
   const controls = new Controls();
   const body = blocks.map((b) => (b.type === "paragraph" ? paragraph(controls, b.text, b) : table(controls, b, fontSize))).join("");

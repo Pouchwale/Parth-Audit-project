@@ -23,6 +23,11 @@
 // (to no less than 80%), a wider one turns the page to landscape and is scaled
 // down to that if it has to be — every column on the paper, and in the PDF.
 //
+// THE PAPER'S OWN ORIENTATION WINS (REQUIREMENTS §117). A layout that names its
+// paper (LogSheetLayout.paper: F/QC/11 and F/QC/12 landscape, F/QC/17 portrait)
+// carries it as data-paper on the sheet; the page is turned as it says and the
+// sheet scaled to that page's width, whatever its width would have chosen.
+//
 // AN EMPTY BOX PRINTS EMPTY (REQUIREMENTS §111). Chrome draws "dd-mm-yyyy" in a
 // date box with no date and "--:--" in a time box with no time, and a choice box
 // with nothing chosen shows its "Select…": none of it is on the paper, and the
@@ -127,11 +132,20 @@ function pageStyle(): HTMLStyleElement {
   return style;
 }
 
+/** The page a document's paper is (LogSheetLayout.paper, carried as data-paper on the sheet), or null where its layout says nothing. */
+export function paperOf(doc: Element): "portrait" | "landscape" | null {
+  const el = doc.matches("[data-paper]") ? doc : doc.querySelector("[data-paper]");
+  const v = el?.getAttribute("data-paper");
+  return v === "portrait" || v === "landscape" ? v : null;
+}
+
 function fitToPage(docs: Element[]): void {
   unfit();
   const needs = docs.map((d) => ({ doc: d as HTMLElement, width: narrowestWidth(d) }));
   const widest = Math.max(0, ...needs.map((n) => n.width));
-  const landscape = widest > PRINTABLE_WIDTH.portrait / PORTRAIT_SCALE;
+  // The paper's own orientation (§117); without one, the width decides (§54).
+  const asked = needs.map((n) => paperOf(n.doc)).find((p) => p !== null) ?? null;
+  const landscape = asked ? asked === "landscape" : widest > PRINTABLE_WIDTH.portrait / PORTRAIT_SCALE;
   const paper = landscape ? PRINTABLE_WIDTH.landscape : PRINTABLE_WIDTH.portrait;
   pageStyle().textContent = landscape ? "@page { size: A4 landscape; margin: 0; }" : "";
   document.documentElement.dataset.printPage = landscape ? "landscape" : "portrait";
