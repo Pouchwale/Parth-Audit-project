@@ -112,6 +112,8 @@ export function columnKind(col: LogColumn): Exclude<SlotKind, "standing"> | "fix
   if (col.fixed) return "fixed";
   // A paper's own Sr. No. column (F/QC/16, REQUIREMENTS §111): the line's place, written as the form numbers it, not observed.
   if (col.autoFill?.lineNumber) return "fixed";
+  // The standard the plant writes in every new line (F/QC/12's test weights, REQUIREMENTS §117): printed, though editable.
+  if (col.standard !== undefined) return "fixed";
   if (col.computed || col.linkedFrom) return "computed";
   if (col.autoFill?.dueDate) return "date";
   return "observation";

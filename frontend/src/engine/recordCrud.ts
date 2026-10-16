@@ -1,8 +1,11 @@
-import type { DocumentDefinition, RecordInstance } from "../types";
+import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { createDefaultData } from "./recordDefaults";
+import { carriedFrom, previousWrittenRecord } from "./carryForward";
+import { withComputedCells } from "./computedCells";
+import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
 import { periodKeyFor } from "./recordGenerator";
 import { historyOf, logRecordStarted } from "./recordHistory";
@@ -110,6 +113,20 @@ export function recordCoveringDate(doc: DocumentDefinition, dateISO: string, isD
   return inPeriod.find((r) => r.periodKey === ownKey) ?? inPeriod.slice().sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0))[0];
 }
 
+/**
+ * What a record starts with: the blank form (engine/recordDefaults.ts) — or, on a sheet written as the last one
+ * was (LogSheetLayout.carryForwardAll, REQUIREMENTS §117: QC's calibration and verification records), the
+ * document's previous sheet's entries over it, dated this day, its worked-out cells worked out again.
+ */
+export function startingData(doc: DocumentDefinition, dueDate: string, isDemo: boolean): unknown {
+  const blank = createDefaultData(doc, dueDate, masterRepository.get());
+  const layout = doc.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined;
+  if (!layout?.carryForwardAll) return blank;
+  const previous = previousWrittenRecord(doc.id, dueDate, isDemo, layout, blank as LogSheetData);
+  if (!previous) return blank;
+  return withComputedCells(doc.id, carriedFrom(layout, previous.data, blank as LogSheetData, dueDate));
+}
+
 /** Starts a record for this document and date — or returns the one already covering it. */
 export function createRecordForDocument(
   doc: DocumentDefinition,
@@ -141,7 +158,7 @@ export function createRecordForDocument(
     dueDate,
     status: "In Progress",
     isDemo,
-    data: createDefaultData(doc, dueDate, masterRepository.get()),
+    data: startingData(doc, dueDate, isDemo),
     createdAt: now,
     updatedAt: now,
   };

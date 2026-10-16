@@ -62,8 +62,15 @@ export const WEIGHT_SCALE_COLUMNS: LogColumn[] = [
   { key: "date", label: "Date", type: "date", width: 130, autoFill: { dueDate: true } },
   { key: "testedBy", label: "Tested By", type: "text", width: 130, autoFill: { sign: true } },
 ];
+/**
+ * THE STANDARD TEST WEIGHTS (REQUIREMENTS §117). The owner, 16-Oct-2026, on DCRS's printed sheet: "Weights should be
+ * fixed (default) (ex: 50, 100, 200)" — the five weights the laboratory places each week, written in the Weight cells
+ * of every new sheet, in the unit the plant writes on the paper ("gm"), and editable. The scale reads 0.1 gm to 600 gm.
+ */
+export const STANDARD_WEIGHTS = ["50 gm", "100 gm", "200 gm", "500 gm", "600 gm"];
+
 for (let i = 1; i <= 5; i++) {
-  WEIGHT_SCALE_COLUMNS.push(text(`weight${i}`, `Weight ${i}`, 110));
+  WEIGHT_SCALE_COLUMNS.push({ ...text(`weight${i}`, `Weight ${i}`, 110), standard: STANDARD_WEIGHTS[i - 1] });
   WEIGHT_SCALE_COLUMNS.push(text(`testedValue${i}`, `Tested Value ${i}`, 120));
   // On the entry's second line, under its Tested Value (REQUIREMENTS §111). Its
   // name says which weight it is: the paper heads the line "Deviation %" once.
@@ -141,9 +148,13 @@ const weightScale: LogSheetLayout = {
     { key: "acceptableTolerance", label: "Acceptable Tolerance", printedLabel: "Acceptable Tolerance:", type: "text", width: 140, autoFill: { carryForward: true } },
   ],
   columns: WEIGHT_SCALE_COLUMNS,
-  // One sheet a week, and one calibration on it: the week's (REQUIREMENTS §111, rule 3 — never
-  // four lines on one day). The supplied page carries four weeks because it is a month of paper.
-  rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
+  // ONE SHEET A WEEK, ONE CALIBRATION ON IT (REQUIREMENTS §111 rule 3, §117): the owner, 16-Oct-2026, on a sheet
+  // DCRS had printed with five weeks on it — "Weekly → for new record → New Record!". Every week is a new record
+  // of its own; the sheet is the week's one line (and its Deviation % line), with no line added to it. The supplied
+  // page of February–March 2024 keeps its four weeks, as written (data/seed/qcCalibrationRecords.ts).
+  rowMode: { kind: "single" },
+  // A new week's sheet is written as the last one was — every box and the line, editable (§117).
+  carryForwardAll: true,
   notesBelow: ["PROCEDURE:", CALIBRATION_PROCEDURE],
   specimenHeader: WEIGHT_SCALE_HEADER,
   specimenRows: WEIGHT_SCALE_SPECIMEN_LINES,
@@ -228,6 +239,8 @@ const gsmPlate: LogSheetLayout = {
   ],
   columns: gsmColumns,
   rowMode: { kind: "fixedRows", rows: GSM_ROWS.map((parameter) => ({ parameter })) },
+  // A new month's sheet is written as the last one was — every box and every line, editable (§117).
+  carryForwardAll: true,
   // Pass/Fail and Sign.: one cell under each plate, across its size and Deviation, as printed.
   groupCellLines: [GSM_ROWS.indexOf("Pass/Fail"), GSM_ROWS.indexOf("Sign.")],
   notesBelow: [`PROCEDURE: ${CALIBRATION_PROCEDURE}`],

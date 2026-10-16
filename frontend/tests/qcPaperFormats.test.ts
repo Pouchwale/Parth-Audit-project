@@ -225,7 +225,12 @@ test("an entry of two lines: the columns beneath are drawn on the second line un
   assert.match(rows[1].cells[9].attrs, /data-beneath="deviation4"/);
   assert.deepEqual(rows[1].cells.map((c) => (/data-beneath/.test(c.attrs) ? "dev" : c.text)), ["Deviation %", "", "", "dev", "", "dev", "", "dev", "", "dev", "", "dev", "", "", ""]);
   assert.match(rows[0].cells[9].html, /data-bind="rows\/@[^"]+\/testedValue4"/, "Tested Value 4 is the first line's box");
-  assert.match(html, /data-bind-second-line="Deviation %"/, "the grid tells a downloaded file what its second lines are headed");
+  // One calibration a sheet since §117 (a new week is a new record): no line is appended to it from a downloaded
+  // file, so the grid is not an appendable table and says nothing of its second lines; a free sheet of two-line
+  // entries would (the round-trip test below).
+  assert.doesNotMatch(html, /data-bind-append/, "no line is added to the week's sheet");
+  assert.doesNotMatch(html, /data-bind-second-line/);
+  assert.equal(layout.rowMode.kind, "single", "the week's one calibration");
 });
 
 // ---------------------------------------------------------------------------

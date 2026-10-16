@@ -994,7 +994,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Weekly",
     status: "Configured",
     description:
-      "Internal calibration of the laboratory weight scale (QC-76, 0.1 gm to 600 gm, acceptable tolerance 0.05%): each week the five test weights are placed and the value the scale shows is written beside each, with the deviation, Pass / Fail, the tester's sign and the next due date. One sheet carries several weeks; the four calibrations of Feb–Mar 2024 are on file as supplied. The deviation is entered as found — it is not calculated yet.",
+      "Internal calibration of the laboratory weight scale (QC-76, 0.1 gm to 600 gm, acceptable tolerance 0.05%): each week the five standard test weights (50, 100, 200, 500 and 600 gm, written on every new sheet) are placed and the value the scale shows is written beside each; the deviation is worked out, with Pass / Fail, the tester's sign and the next due date. One sheet a week, written as the last week's was; the four calibrations of Feb–Mar 2024 are on file as supplied.",
     sourceFile: "weekly and monthly internal calibration records.pdf (page 1, scanned)",
     schedule: { type: "weekly", weekday: 3 },
   },

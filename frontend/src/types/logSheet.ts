@@ -233,6 +233,14 @@ export interface LogColumn {
    * the record holds there, so a sheet with no tolerance written highlights nothing (engine/printedBands.ts).
    */
   toleranceFrom?: string;
+  /**
+   * THE STANDARD THE PLANT'S PRACTICE WRITES IN THIS CELL OF EVERY NEW LINE (REQUIREMENTS §117, the owner,
+   * 16-Oct-2026: "Weights should be fixed (default)"): F/QC/12's five test weights, 50 gm to 600 gm. Written into
+   * every new line — a new record's, Add line's, Mitra's (engine/recordDefaults.ts blankLogRow) — and the person
+   * may write another over it. Not a reading: for the morning prepare and the count of what waits it is a printed
+   * part of the line, as a fixed column is (engine/observations.ts), but it stays editable.
+   */
+  standard?: string;
   // Auto-fill behaviour for this column. Precedence in engine/autoFill.ts:
   //   dueDate → sign → nominal (random reading inside the band) → carryForward
   //   (copy the template value exactly) → jitter (template value ± jitter%) →
@@ -482,6 +490,16 @@ export interface LogSheetLayout {
    * boxes flow as many to a line as the screen holds.
    */
   headerColumns?: number;
+  /**
+   * THE NEW SHEET IS WRITTEN AS THE LAST ONE WAS (REQUIREMENTS §117, the owner, 16-Oct-2026: "once I have filled
+   * the data, same should be filled automatically as per previous & I will edit whichever filled reqd editing"):
+   * QC's calibration and verification records (F/QC/11, F/QC/12, F/QC/17). Every box and every line of the
+   * document's previous record is carried onto a new one — the person's own earlier entries, every one editable —
+   * but a date box or column answered with the record's day, which takes the new day, a box the paper prints,
+   * which stays the paper's, and the cells worked out, which are worked out again (engine/carryForward.ts).
+   * Without a previous record the sheet starts as the paper's blank, with its standards.
+   */
+  carryForwardAll?: true;
   /**
    * The paper's text AT THE FOOT of the sheet, after the boxes below the grid,
    * verbatim and in its order (REQUIREMENTS §111): F/QC/21's "This is a system

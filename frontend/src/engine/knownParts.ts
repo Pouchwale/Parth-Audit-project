@@ -11,7 +11,8 @@ import type {
 } from "../types";
 import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
-import { createDefaultData } from "./recordDefaults";
+import { blankLogRow, createDefaultData } from "./recordDefaults";
+import { carriedFrom, previousWrittenRecord } from "./carryForward";
 import { dayInfo } from "./holidays";
 import { withComputedCells } from "./computedCells";
 import { supersededRevisionOf, validateForSubmit } from "./validation";
@@ -232,6 +233,24 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
   // lot, another visitor, another position), so nothing of it is carried, not even a "standing" box.
   const scheduled = doc.schedule.type !== "as-required";
 
+  // A SHEET WRITTEN AS THE LAST ONE WAS (REQUIREMENTS §117): QC's calibration and verification records carry
+  // every box and every line of the document's previous sheet — the person's own entries, every one editable —
+  // dated this day, the worked-out cells worked out again (engine/carryForward.ts). The last sheet a person wrote
+  // on, confirmed or not, is the one carried: the owner fills a sheet and wants the next one to read the same.
+  if (layout.carryForwardAll) {
+    const written = previousWrittenRecord(doc.id, dueDate, false, layout, shell) ?? prior;
+    if (written) {
+      const data: LogSheetData = withComputedCells(doc.id, carriedFrom(layout, written.data, shell, dueDate));
+      return {
+        data,
+        notes: [
+          `Written as the sheet of ${formatDisplayDate(written.dueDate)} was: every box and every line is carried from it, and the record's date, ${formatDisplayDate(dueDate)}, is written in. Change whatever is different this time — every box is yours to edit.`,
+        ],
+        basedOn: `the ${doc.name} of ${formatDisplayDate(written.dueDate)}`,
+      };
+    }
+  }
+
   const header: Record<string, string> = {};
   const carried: string[] = [];
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
@@ -257,11 +276,8 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
     }
   }
 
-  const blankRow = (): LogSheetRow => {
-    const row: LogSheetRow = { id: generateId("row") };
-    for (const c of layout.columns) row[c.key] = c.type === "number" ? null : "";
-    return row;
-  };
+  // A blank line: "" and null in every cell but a standard the plant writes on every line (F/QC/12's weights, §117).
+  const blankRow = (): LogSheetRow => blankLogRow(layout, generateId("row"));
 
   // THE LINES. Printed lines (time slots, a single line, fixed rows) come from the blank form with their
   // printed words; a yearly list's lines from the last list a person confirmed, with who or what each
@@ -280,9 +296,12 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
       return row;
     });
   } else {
-    rows = shell.rows.map((r) => {
+    // The words a printed line holds on the blank form — a fixed column's, and what the form's own lines give a
+    // column that is still editable (F/QC/17's master calibrator readings, §117) — are known; nothing else is.
+    const printedLines = layout.rowMode.kind === "fixedRows" ? layout.rowMode.rows : [];
+    rows = shell.rows.map((r, i) => {
       const row = blankRow();
-      for (const c of layout.columns) if (columnKind(c) === "fixed" && r[c.key] !== undefined) row[c.key] = r[c.key];
+      for (const c of layout.columns) if ((columnKind(c) === "fixed" || printedLines[i]?.[c.key] !== undefined) && r[c.key] !== undefined) row[c.key] = r[c.key];
       if (layout.rowMode.kind === "timeSlots") row[layout.rowMode.slotKey] = r[layout.rowMode.slotKey] ?? "";
       return row;
     });

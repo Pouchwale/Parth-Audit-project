@@ -146,6 +146,27 @@ function observationsIn(doc: DocumentDefinition, data: unknown, dueDate: string,
 function logSheetObservations(doc: DocumentDefinition, d: LogSheetData, dueDate: string, prior: RecordInstance<LogSheetData> | undefined, say: (w: string) => void): void {
   const layout = getLogSheetLayout(doc.id)!;
   const scheduled = doc.schedule.type !== "as-required";
+  // A SHEET WRITTEN AS THE LAST ONE WAS (REQUIREMENTS §117: QC's calibration and verification records): every box and
+  // line is the previous sheet's own entry, carried for the person to edit — never anything the prepare made up. So
+  // each value written must be the previous sheet's, the record's date, or what the paper prints; nothing else.
+  if (layout.carryForwardAll && prior) {
+    const p = prior.data;
+    for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
+      const v = d.header?.[f.key];
+      if (blank(v) || f.computed) continue;
+      const allowed = f.autoFill?.dueDate ? dueDate : typeof f.printed === "string" ? f.printed : p.header?.[f.key];
+      if (v !== allowed) say(`"${f.label}" holds "${v}", which the sheet of ${prior.dueDate} did not (§117 carries only what was written)`);
+    }
+    for (const [i, row] of d.rows.entries()) {
+      for (const c of layout.columns) {
+        const v = row[c.key];
+        if (blank(v) || c.computed || c.linkedFrom) continue;
+        const allowed = c.autoFill?.dueDate ? dueDate : c.fixed || c.autoFill?.lineNumber ? v : p.rows?.[i]?.[c.key];
+        if (v !== allowed) say(`line ${i + 1} "${c.label}" holds "${v}", which the sheet of ${prior.dueDate} did not (§117 carries only what was written)`);
+      }
+    }
+    return;
+  }
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
     const v = d.header?.[f.key];
     if (blank(v) || f.computed) continue;
@@ -180,6 +201,13 @@ function logSheetObservations(doc: DocumentDefinition, d: LogSheetData, dueDate:
       if (c.fixed) {
         const printed = mode.kind === "fixedRows" ? mode.rows[i]?.[c.key] : mode.kind === "timeSlots" && c.key === mode.slotKey ? mode.slots[i] : undefined;
         if (v !== printed) say(`line ${i + 1} "${c.label}" holds "${v}", not the printed "${printed}"`);
+        continue;
+      }
+      // The standard the plant writes in every new line (F/QC/12's test weights), and what the form's own lines give a
+      // column the person may still write over (F/QC/17's six points): the paper's, not observed (REQUIREMENTS §117).
+      const given = c.standard ?? (mode.kind === "fixedRows" ? mode.rows[i]?.[c.key] : undefined);
+      if (given !== undefined) {
+        if (v !== given) say(`line ${i + 1} "${c.label}" holds "${v}", not the paper's "${given}"`);
         continue;
       }
       if (c.autoFill?.dueDate) {
@@ -275,13 +303,16 @@ test("the Daily Pest Control Monitoring Record waits for 12 readings on a workin
 
 test("what is known IS written: the date, the fixed rows, the standing values carried from the last confirmed sheet", () => {
   const byId = (id: string) => recordable.find((d) => d.id === id)!;
-  // An instrument's identity, from the last calibration a person confirmed.
+  // An instrument's identity, from the last calibration a person confirmed — and, since REQUIREMENTS §117 (the
+  // owner, 16-Oct-2026), the whole of that sheet: a calibration record is written as the last one was, the person's
+  // own earlier entries carried and every box editable (engine/carryForward.ts); only its date is the new day.
   const scale = byId("qc-weight-scale-calibration");
   const prior = confirmedBefore(scale, workDay) as RecordInstance<LogSheetData>;
   const cal = prepareKnownParts(scale, workDay, master, prior)!.data as LogSheetData;
   for (const key of ["deviceIdNo", "manufacturer", "serialNo", "calibrationExpiry", "acceptableTolerance"]) assert.equal(cal.header[key], prior.data.header[key], key);
   assert.ok(cal.rows.every((r) => r.date === workDay), "each line dated the record's day");
-  assert.ok(cal.rows.every((r) => r.testedValue1 === "" && r.passFail === "" && r.testedBy === ""), "no reading, result or tester");
+  assert.equal(cal.rows.length, prior.data.rows.length, "the last sheet's lines, carried");
+  assert.ok(cal.rows.every((r, i) => r.testedValue1 === prior.data.rows[i].testedValue1 && r.testedBy === prior.data.rows[i].testedBy), "the readings and the tester as last written, for the person to change (§117)");
   // The chemicals in use and the machine; never the operator, the batch or the shift.
   const pp = byId("prd-process-parameter");
   const ppPrior = confirmedBefore(pp, workDay) as RecordInstance<LogSheetData>;

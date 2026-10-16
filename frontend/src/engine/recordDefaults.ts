@@ -180,11 +180,13 @@ const isDecisionField = (key: string): boolean => key === "lotStatus" || key ===
  * writes only what a person said (REQUIREMENTS §98); a column's
  * autoFill.default is Demo Mode's (engine/autoFill.ts), never Add Row's. The
  * sheet's Add Row, the HR fetch's new line and Mitra's "add a row" all build
- * their line here.
+ * their line here. The one thing written: a column's `standard` — the test
+ * weight the plant's practice puts in F/QC/12's Weight cells (REQUIREMENTS
+ * §117) — which is the paper's own figure, not a reading, and stays editable.
  */
 export function blankLogRow(layout: LogSheetLayout, id: string = generateId("row")): LogSheetRow {
   const row: LogSheetRow = { id };
-  for (const c of layout.columns) row[c.key] = c.type === "number" ? null : "";
+  for (const c of layout.columns) row[c.key] = c.standard !== undefined ? c.standard : c.type === "number" ? null : "";
   return row;
 }
 

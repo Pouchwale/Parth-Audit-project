@@ -986,14 +986,14 @@ export function SheetDesigner({
           edit={{
             editing: renaming?.kind === "header" ? renaming.field : null,
             onEdit: (field) => {
-              // A record's own Date and Page No. (REQUIREMENTS §86) are never the format's: the designer offers neither.
-              if (field === "date" || field === "page") return;
+              // A record's own Page No. (REQUIREMENTS §86) is never the format's: the designer does not offer it.
+              if (field === "page") return;
               setMenu(null);
               setRenaming({ kind: "header", field });
             },
             values: { companyName: draft.companyName, formatNo: draft.formatNo, revisionNo: draft.revisionNo, revisionDate: draft.revisionDate },
             box: (field) =>
-              field === "date" || field === "page" ? null : (
+              field === "page" ? null : (
                 <RenameBox
                   field={`designer-${field}`}
                   label={{ companyName: "Company name", title: "Name of the format", formatNo: "Format No.", revisionNo: "Revision number", revisionDate: "Date of the revision" }[field]}

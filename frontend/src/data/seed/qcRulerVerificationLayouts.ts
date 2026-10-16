@@ -71,7 +71,10 @@ export const QC_RULER_VERIFICATION_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoLabel: "#",
     headerFields: [...master, ...ruler],
     columns: [
-      { key: "masterReading", label: "Master calibrator reading", type: "text", fixed: true, width: 170 },
+      // The six printed points start every line, and the person may write the master's own readings over them: the
+      // owner, 16-Oct-2026, "master cal. reading not available for 600 mm scale" (REQUIREMENTS §117). The Difference
+      // follows what is written (engine/calibration.ts).
+      { key: "masterReading", label: "Master calibrator reading", type: "text", width: 170 },
       { key: "observed", label: "Observed reading (mm)", type: "number", decimals: 0, required: true, width: 120 },
       { key: "difference", label: "Difference", type: "text", computed: true, toleranceFrom: "acceptableTolerance", width: 100 },
       // One Status and one name down the six lines, as the paper draws them.
@@ -79,6 +82,9 @@ export const QC_RULER_VERIFICATION_LAYOUTS: Record<string, LogSheetLayout> = {
       { key: "performedBy", label: "Calibration performed by", type: "text", required: true, merged: {}, autoFill: { sign: true }, width: 170 },
     ],
     rowMode: { kind: "fixedRows", rows: RULER_POINTS.map((mm) => ({ masterReading: `${mm} mm` })) },
+    // A new record is written as the last one was: the master's and the ruler's details, the readings — every box
+    // editable (REQUIREMENTS §117: "once I have filled the data, same should be filled automatically as per previous").
+    carryForwardAll: true,
     specimenSource: "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf (filled 24.09.2024, supplied 14-Oct-2026)",
     originalPages: [{ src: "/source/fqc17-ruler-internal-verification.jpg", caption: "F/QC/17 (00/01.12.2021) - Measuring Scale (Ruler) Internal Verification Record, the page of 24.09.2024 as supplied on 14-Oct-2026" }],
   },
