@@ -99,6 +99,11 @@ def shown_ids(page):
     return page.locator("[data-section='insights-list'] [data-insight]").evaluate_all("els => els.map((e) => e.getAttribute('data-insight'))")
 
 
+def shown_modules(page):
+    """The modules of the cards listed, for the module filter (section 2)."""
+    return sorted(set(page.locator("[data-section='insights-list'] [data-insight]").evaluate_all("els => els.map((e) => e.getAttribute('data-module'))")))
+
+
 def all_cards(page):
     """Every card, not only the first batch the progressive list draws."""
     for _ in range(20):
