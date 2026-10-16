@@ -621,6 +621,12 @@ with sync_playwright() as p:
                 print("    ", str(e)[:300])
             page.wait_for_timeout(600)
             check("...and Playwright can press it while the card shows", clicked, (url_before, page.url))
+            # The press started the guided tour: ended again here, so its overlay covers nothing the checks below click.
+            skip = page.locator("[data-action='tour-skip']")
+            if skip.count():
+                skip.first.click()
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
         else:
             centre = page.evaluate(
                 """(b) => { const el = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2); return !!(el && el.closest("[data-section='mitra-celebration']")); }""",
