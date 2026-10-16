@@ -88,7 +88,7 @@ export function DailyRegisterSheet({
   // prints the format's revision date, so that is the format's to change too.
   const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({
     doc: headerEditable ? doc : undefined,
-    formatFields: [...FORMAT_HEADER_FIELDS, "revisionDate"],
+    formatFields: FORMAT_HEADER_FIELDS,
   });
   const checkpoints = masterRepository.get().checkpoints;
   const dim = daysInMonth(year, month);

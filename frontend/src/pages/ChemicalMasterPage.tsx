@@ -85,7 +85,7 @@ export function ChemicalMasterPage() {
           download={<DownloadDocumentButton doc={doc} />}
         />
       </div>
-      <DocumentHeader doc={doc} dateLabel="Reference" edit={headerEdit} />
+      <DocumentHeader doc={doc} edit={headerEdit} />
       {headerPanel}
       <p className="text-muted mt-3 mb-4 no-print">
         {editing

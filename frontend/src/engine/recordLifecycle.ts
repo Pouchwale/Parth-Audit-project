@@ -4,7 +4,7 @@ import { validateForSubmit, validateForVerify, ValidationResult } from "./valida
 import { appendHistory, diffRecordData, makeEntry, recordLabel, withEditHistory } from "./recordHistory";
 import { REACTION_EVENT, type ReactionEvent } from "./reactions";
 import { computeReminders } from "./reminders";
-import { MONTH_NAMES, compareISO, formatDisplayDate, fromISODate, todayISO } from "../utils/date";
+import { compareISO, formatDisplayDate, todayISO } from "../utils/date";
 import { documentRepository } from "../data/repositories/documentRepository";
 
 // Scheduled -> Due -> In Progress -> Submitted -> Pending Verification -> Verified
@@ -114,15 +114,11 @@ export function saveHeaderBlock(record: RecordInstance, next: RecordHeaderBlock,
 
 /**
  * What a record's header prints where nothing was typed over (REQUIREMENTS §86): the record's own date, and
- * "1 of 1" — or, on a day of the daily register (F/HR/17), its row of the month's register. One rule
- * for the views and for the history of a correction, so both say what the header prints.
+ * "1 of 1". One rule for the views and for the history of a correction, so both say what the header prints.
+ * The Page No. holds a page number only (REQUIREMENTS §117, the owner, 16-Oct-2026, with "row 16 of the
+ * October register" crossed out on F/HR/17): never words of DCRS's own; "(digital)" was one (§111 part 6).
  */
 export function recordHeaderDefaults(record: Pick<RecordInstance, "documentId" | "dueDate">): HeaderDefaults {
-  if (documentRepository.getById(record.documentId)?.kind === "daily-pest-monitoring") {
-    const day = fromISODate(record.dueDate);
-    return { date: record.dueDate, page: `row ${day.getDate()} of the ${MONTH_NAMES[day.getMonth()]} register` };
-  }
-  // The page as the paper numbers it (REQUIREMENTS §111 part 6): "(digital)" was DCRS's own word on it.
   return { date: record.dueDate, page: "1 of 1" };
 }
 

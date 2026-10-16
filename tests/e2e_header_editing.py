@@ -19,8 +19,12 @@ on :8842, that:
   * a page kept on a superseded revision (F/MNT/11's 2024 round, Rev 00) takes
     no click anywhere on its header;
   * the program-drawn forms take it too: the daily pest monitoring record (its
-    Date cell is the format's revision date), the F/HR/17 and F/HR/18 registers
-    (their first page's header), and the customer complaint checklist.
+    Page No. a page number only), the F/HR/17 and F/HR/18 registers (their
+    first page's header), and the customer complaint checklist.
+
+Since 16-Oct-2026 (REQUIREMENTS s117) the header has NO Date cell of the
+record's own: it prints the paper's cells, Format No. | Rev No. | Rev Date |
+Page No., and only the Page No. is the record's to type over.
 """
 import re
 import sys
@@ -178,11 +182,14 @@ with sync_playwright() as p:
     rid = page.url.rstrip("/").split("/")[-1]
     rec = record_by_id(page, rid) or {}
     check("New on F/QC/33 opens its record", "#/record/" in page.url and rec.get("documentId") == DOC, page.url)
-    offered = {a: clickable(page, a) for a in ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-record-date", "rename-page-no")}
-    check("Its header offers every value to be typed over: the company, the title, the number, the revision, the Date and the Page No.", all(n == 1 for n in offered.values()), offered)
+    offered = {a: clickable(page, a) for a in ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-revision-date", "rename-page-no")}
+    check("Its header offers every value to be typed over: the company, the title, the number, the revision, its date and the Page No.", all(n == 1 for n in offered.values()), offered)
+    # The DATE cell DCRS added for the record's own date is gone (REQUIREMENTS s117, the owner, 16-Oct-2026).
+    check("...and no Date cell of the record's own: the header is the paper's", clickable(page, "rename-record-date") == 0 and "Date" not in header(page), header(page))
     before = header(page)
-    check("...headed as the paper is: F/QC/33, Rev 00, the record's date, 1 of 1",
-          before.get("Format No.") == "F/QC/33" and before.get("Rev No.") == "00" and before.get("Date") == shown_date(rec.get("dueDate", "2000-01-01")) and before.get("Page No.") == "1 of 1", before)
+    check("...headed as the paper is: F/QC/33, Rev 00, the revision's date, 1 of 1",
+          before.get("Format No.") == "F/QC/33" and before.get("Rev No.") == "00" and before.get("Rev Date") == "15-Dec-2024" and before.get("Page No.") == "1 of 1"
+          and list(before.keys()) == ["Format No.", "Rev No.", "Rev Date", "Page No."], before)
 
     initial = type_over(page, "rename-page-no", "header-page", "1 of 2")
     check("The Page No. is clicked and becomes a box, holding what the header prints", initial == "1 of 1", initial)
@@ -194,23 +201,12 @@ with sync_playwright() as p:
     lines = [(c.get("label"), c.get("before"), c.get("after")) for c in last.get("changes") or []]
     check("...with a line in its history naming what the header said before and after", ("Header · Page No.", "1 of 1", "1 of 2") in lines, last)
 
-    due = rec.get("dueDate", date.today().isoformat())
-    written = (datetime.strptime(due, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
-    page.locator("[data-print-doc] .doc-header [data-action='rename-record-date']").first.click()
-    page.wait_for_timeout(250)
-    date_box = page.locator("[data-field='header-date']")
-    check("The Date is a date box", date_box.count() == 1 and date_box.first.get_attribute("type") == "date")
-    if date_box.count():
-        date_box.first.fill(written)
-        date_box.first.press("Enter")
-        page.wait_for_timeout(700)
-    check("...typed over, the header prints the day before the record's own", header(page).get("Date") == shown_date(written), header(page))
     page.reload()
     page.wait_for_timeout(1500)
     dismiss(page)
     close_assistant(page)
     again = header(page)
-    check("Both are kept: the page read again prints them", again.get("Date") == shown_date(written) and again.get("Page No.") == "1 of 2", again)
+    check("It is kept: the page read again prints it, and still no Date cell", again.get("Page No.") == "1 of 2" and "Date" not in again, again)
 
     # ==================================================================
     print("\n==== The format's own header: asked why, then the next revision ====")
@@ -234,7 +230,7 @@ with sync_playwright() as p:
     check("...in the format's change history, with the reason",
           edit.get("formatNo") == "F/QC/33-A" and (edit.get("revisions") or [{}])[0].get("reason") == "The master list numbers it F/QC/33-A", edit)
     check("...the header alone - no copy of the sheet's layout", not edit.get("layout"), list(edit.keys()))
-    check("...and the record keeps its own Date and Page No.", now.get("Date") == shown_date(written) and now.get("Page No.") == "1 of 2", now)
+    check("...and the record keeps its own Page No.", now.get("Page No.") == "1 of 2", now)
 
     company = page.evaluate(HEADER_COMPANY)
     type_over(page, "rename-company", "header-companyName", "SOMEBODY ELSE PVT. LTD.")
@@ -270,7 +266,7 @@ with sync_playwright() as p:
     dismiss(page)
     rec = record_by_id(page, rid) or {}
     check("Filled with sample data and submitted", rec.get("status") in ("Submitted", "Pending Verification"), (rec.get("status"), reply[:200]))
-    check("...its own Date and Page No. take no click once submitted", clickable(page, "rename-page-no") == 0 and clickable(page, "rename-record-date") == 0)
+    check("...its own Page No. takes no click once submitted", clickable(page, "rename-page-no") == 0)
     check("...its format's cells still do - they are the format's, not the record's", clickable(page, "rename-format-no") == 1)
     page.locator("[data-action='correct']").first.click()
     page.wait_for_timeout(400)
@@ -302,11 +298,14 @@ with sync_playwright() as p:
     daily = next((r for r in records(page) if r["documentId"] == "daily-pest-monitoring" and not r.get("isDemo") and r["status"] in ("Due", "In Progress", "Scheduled")), None)
     if daily:
         open_page(page, f"#/record/{daily['id']}", settle=1300)
-        check("The daily pest monitoring record: its Page No. is its own, its Date cell is the format's revision date",
-              clickable(page, "rename-page-no") == 1 and clickable(page, "rename-revision-date") == 1 and clickable(page, "rename-record-date") == 0)
-        type_over(page, "rename-page-no", "header-page", "1 of 1")
+        daily_header = header(page)
+        check("The daily pest monitoring record: its Page No. is its own and a page number only (never its row of the register, s117), the Rev Date the format's",
+              clickable(page, "rename-page-no") == 1 and clickable(page, "rename-revision-date") == 1 and daily_header.get("Page No.") == "1 of 1" and "Date" not in daily_header, daily_header)
+        title = page.locator("[data-print-doc] .doc-header .doc-title").first.inner_text().strip()
+        check("...and its title is the paper's alone, with no date after it", title == "DAILY PEST CONTROL MONITORING RECORD", title)
+        type_over(page, "rename-page-no", "header-page", "1 of 3")
         stored = record_by_id(page, daily["id"]) or {}
-        check("...typed over, saved on that day's record", (stored.get("headerBlock") or {}).get("page") == "1 of 1", stored.get("headerBlock"))
+        check("...typed over, saved on that day's record", (stored.get("headerBlock") or {}).get("page") == "1 of 3", stored.get("headerBlock"))
     else:
         check("A daily pest monitoring record is on file to open", False, [r["status"] for r in records(page) if r["documentId"] == "daily-pest-monitoring"][:5])
 
@@ -320,8 +319,8 @@ with sync_playwright() as p:
     dismiss(page)
     close_assistant(page)
     cid = page.url.rstrip("/").split("/")[-1]
-    check("The customer complaint checklist: its Date and Page No. are its own too",
-          "/gap/complaint/" in page.url and clickable(page, "rename-page-no") == 1 and clickable(page, "rename-record-date") == 1, page.url)
+    check("The customer complaint checklist: its Page No. is its own too, and no Date cell",
+          "/gap/complaint/" in page.url and clickable(page, "rename-page-no") == 1 and "Date" not in header(page), (page.url, header(page)))
     type_over(page, "rename-page-no", "header-page", "1 of 3")
     check("...typed over, saved on the checklist", ((record_by_id(page, cid) or {}).get("headerBlock") or {}).get("page") == "1 of 3")
 

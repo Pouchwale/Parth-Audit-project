@@ -365,7 +365,7 @@ test("the header block prints the paper's lines under the company's name and its
   assert.equal(layoutOf("qc-inprocess-printing").titleAsPrinted, true);
 });
 
-test("the header's Rev No. prints the Master List's revision for the certificates, and nothing where none is given; the page is 1 of 1, beside the format's Rev Date", async () => {
+test("the header's Rev No. prints the Master List's revision for the certificates, and nothing where none is given; the page is 1 of 1, beside the format's Rev Date, and no Date cell (§117)", async () => {
   assert.deepEqual([docOf("qc-coa-label").revisionNo, docOf("qc-coa-label").revisionDate], ["00", "2021-12-01"]);
   assert.deepEqual([docOf("qc-coa-sleeve").revisionNo, docOf("qc-coa-sleeve").revisionDate], ["00", "2021-12-01"]);
   const label = await sheet("qc-coa-label", createDefaultData(docOf("qc-coa-label"), DAY, master) as LogSheetData);
@@ -375,9 +375,9 @@ test("the header's Rev No. prints the Master List's revision for the certificate
     ["Format No.", "F/QC/06"],
     ["Rev No.", "00"],
     ["Rev Date", "01-Dec-2021"],
-    ["Date", "14-Oct-2026"],
     ["Page No.", "1 of 1"],
   ]);
+  assert.ok(!/<span class="k">Date<\/span>/.test(label), "the DATE cell DCRS added is gone (the owner, 16-Oct-2026)");
   assert.ok(!label.includes("(digital)"));
   // F/QC/25's revision is not given anywhere: the screen says so, the print leaves the cell empty.
   assert.equal(docOf("qc-coa-corrugated").revisionNo, "TO BE CONFIRMED");

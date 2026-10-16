@@ -127,19 +127,19 @@ test("the format's header changed from a record is the header alone; a revision 
   assert.equal(restoreIssuedFormat(doc(id)), true);
 });
 
-test("a day of the daily register prints its row of the month's register, and Cancel edit's history says so", () => {
+test("the Page No. holds a page number only — a day of the daily register too (§117) — and Cancel edit's history says what the header prints again", () => {
   const r = freshRecord("daily-pest-monitoring", "2026-10-05");
   const defaults = recordHeaderDefaults(r);
-  assert.deepEqual(defaults, { date: "2026-10-05", page: "row 5 of the October register" });
+  assert.deepEqual(defaults, { date: "2026-10-05", page: "1 of 1" }, "never \"row 5 of the October register\" — the owner crossed it out, 16-Oct-2026");
   assert.equal(recordHeaderDefaults(freshRecord("disp-vehicle-cleaning", "2026-10-05")).page, "1 of 1", "any other record, as the paper numbers its page (§111 part 6)");
   const verified = recordRepository.upsert({ ...r, status: "Verified", verifiedBy: "QA", verifiedAt: new Date().toISOString() });
-  const changed = saveHeaderBlock(reopenForCorrection(verified, "Test Desk", "the page was wrong"), { page: "1 of 1" }, "Test Desk", defaults);
-  assert.equal(changed.headerBlock?.page, "1 of 1");
+  const changed = saveHeaderBlock(reopenForCorrection(verified, "Test Desk", "the page was wrong"), { page: "1 of 3" }, "Test Desk", defaults);
+  assert.equal(changed.headerBlock?.page, "1 of 3");
   const cancelled = cancelCorrection(changed, "Test Desk");
   assert.deepEqual(
     cancelled.history?.at(-1)?.changes?.map((c) => [c.label, c.before, c.after]),
-    [["Header · Page No.", "1 of 1", "row 5 of the October register"]],
-    "what the header prints again, not \"1 of 1\""
+    [["Header · Page No.", "1 of 3", "1 of 1"]],
+    "what the header prints again"
   );
 });
 

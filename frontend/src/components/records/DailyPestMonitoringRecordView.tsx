@@ -2,21 +2,19 @@ import React from "react";
 import { FiPlus, FiTrash2, FiAlertTriangle } from "react-icons/fi";
 import type { DailyPestMonitoringData, DocumentDefinition, RecordInstance, RodentCatch } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
-import { FORMAT_HEADER_FIELDS, recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
+import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { isCheckpointFinding } from "../../engine/checkpoints";
 import { dayInfo } from "../../engine/holidays";
 import { totalRodents } from "../../engine/rodentPattern";
 import { Link } from "../../store/router";
 import { FHR17_INSTRUCTION_1, FHR17_INSTRUCTION_2 } from "./DailyRegisterSheet";
-import { MONTH_NAMES, formatDisplayDate, fromISODate } from "../../utils/date";
+import { MONTH_NAMES, fromISODate } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { bindProps, dailyPestBind } from "../../engine/roundTrip/bindingsFor";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 
 const RODENT_AREA_CONTEXT = "service-report:Rodent Control Service";
-/** The register's Date cell prints the format's revision date, so it is the format's to change (REQUIREMENTS §86). */
-const DAILY_HEADER_FIELDS = [...FORMAT_HEADER_FIELDS, "revisionDate" as const];
 
 export function DailyPestMonitoringRecordView({
   doc,
@@ -33,13 +31,13 @@ export function DailyPestMonitoringRecordView({
   header?: RecordHeaderHost;
 }) {
   const data = record.data;
-  // The register's own header: its Date cell prints the format's revision date, and its
-  // page is the record's row of the month's register — typed over, the record's own (§86).
+  // The register's own header, as the paper prints it: Format No., Rev No., Rev Date and a
+  // page number — no date cell, no title suffixed with the day (§117); the page typed over is
+  // the record's own (§86).
   const headerDefaults = recordHeaderDefaults(record);
   const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({
     doc: header ? doc : undefined,
     enabled: header?.enabled,
-    formatFields: DAILY_HEADER_FIELDS,
     record: recordHeaderEditing(header, record.headerBlock, headerDefaults),
   });
   const master = masterRepository.get();
@@ -88,7 +86,7 @@ export function DailyPestMonitoringRecordView({
   // file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
   return (
     <div data-bind-record={record.id}>
-      <DocumentHeader doc={doc} extraTitle={formatDisplayDate(record.dueDate)} pageLabel={record.headerBlock?.page ?? headerDefaults.page} edit={headerEdit} />
+      <DocumentHeader doc={doc} pageLabel={record.headerBlock?.page ?? headerDefaults.page} edit={headerEdit} />
       {headerPanel}
       <div className="text-xs text-muted mt-2 no-print">
         This is one date row of the F/HR/17 monthly register (3 pages).{" "}

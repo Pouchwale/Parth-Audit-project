@@ -580,12 +580,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
       {/* The document itself — the part that prints (utils/print.ts) — and whose
           values a downloaded file binds to this record (REQUIREMENTS §81). */}
       <div data-print-doc data-bind-record={record.id}>
-      <DocumentHeader
-        doc={doc}
-        dateLabel={formatDisplayDate(record.headerBlock?.date ?? record.dueDate)}
-        pageLabel={record.headerBlock?.page ?? "1 of 1"}
-        edit={headerEdit}
-      />
+      <DocumentHeader doc={doc} pageLabel={record.headerBlock?.page ?? "1 of 1"} edit={headerEdit} />
       {headerPanel}
 
       {/* The checklist's own panel on the sheet is the app's, so its rail is the theme's accent (REQUIREMENTS §90). */}

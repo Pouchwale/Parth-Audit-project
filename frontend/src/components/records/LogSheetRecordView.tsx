@@ -163,7 +163,8 @@ export function LogSheetRecordView({
   // the form, so "Show" on any of them shows the criteria (REQUIREMENTS §68).
   const [showReference, setShowReference] = React.useState(false);
   // THE HEADER BLOCK, TYPED OVER ON THE RECORD (REQUIREMENTS §86): the format's
-  // company, title, number and revision, and this record's own Date and Page No.
+  // company, title, number, revision and its date, and this record's own Page No.
+  // (no Date cell of the record's own on the header, §117).
   const headerDefaults = recordHeaderDefaults(record);
   const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({
     doc: header ? doc : undefined,
@@ -456,7 +457,6 @@ export function LogSheetRecordView({
         titleAsPrinted={layout.titleAsPrinted}
         underCompany={layout.underCompany}
         letterhead={letterhead ? <div className="doc-letterhead"><PrintedTable table={letterhead} /></div> : undefined}
-        dateLabel={formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date)}
         pageLabel={record.headerBlock?.page ?? headerDefaults.page}
         revision={superseded ? { no: superseded.revisionNo, date: superseded.revisionDate } : undefined}
         edit={headerEdit}

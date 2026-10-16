@@ -4,7 +4,6 @@ import { DocumentHeader } from "../documents/DocumentHeader";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 import { masterRepository } from "../../data/repositories/masterRepository";
-import { formatDisplayDate } from "../../utils/date";
 import { bindProps, flyCatcherBind } from "../../engine/roundTrip/bindingsFor";
 
 export function FlyCatcherRecordView({
@@ -41,12 +40,7 @@ export function FlyCatcherRecordView({
   // file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
   return (
     <div data-bind-record={record.id}>
-      <DocumentHeader
-        doc={doc}
-        dateLabel={formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date)}
-        pageLabel={record.headerBlock?.page ?? headerDefaults.page}
-        edit={headerEdit}
-      />
+      <DocumentHeader doc={doc} pageLabel={record.headerBlock?.page ?? headerDefaults.page} edit={headerEdit} />
       {headerPanel}
 
       <div className="card mt-4">

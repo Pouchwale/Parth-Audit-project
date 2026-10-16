@@ -594,7 +594,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
       // bare grid with no heading is what made a printout look unfinished.
       <div className="register-sheet" data-print-doc>
         <section className="register-page">
-        {doc && <DocumentHeader doc={doc} extraTitle={`STATUS LIST — ${MONTH_NAMES[month].toUpperCase()} ${year}`} dateLabel={`${MONTH_NAMES[month]} ${year}`} edit={dailyHeader.edit} />}
+        {doc && <DocumentHeader doc={doc} extraTitle={`STATUS LIST — ${MONTH_NAMES[month].toUpperCase()} ${year}`} edit={dailyHeader.edit} />}
         {dailyHeader.panel}
         <div className="doc-table" style={{ border: "none" }}>
         <table>
@@ -773,7 +773,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
           so it carries the document's header block (REQUIREMENTS §38). */}
       <div className="register-sheet" data-print-doc>
         <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${year}`} dateLabel={String(year)} edit={visitHeader.edit} />
+        <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${year}`} edit={visitHeader.edit} />
         {visitHeader.panel}
         {/* data-table: a stable hook, since this page now also carries the
             company-format sheets, which are tables too. */}
@@ -1044,7 +1044,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
       // the list (REQUIREMENTS §38).
       <div className="register-sheet" data-print-doc>
         <section className="register-page">
-          {doc && <DocumentHeader doc={doc} extraTitle={`INSPECTION & CLEANING RECORDS ${year}`} dateLabel={String(year)} edit={flyHeader.edit} />}
+          {doc && <DocumentHeader doc={doc} extraTitle={`INSPECTION & CLEANING RECORDS ${year}`} edit={flyHeader.edit} />}
           {flyHeader.panel}
           <h3 className="text-lg no-print" style={{ marginTop: 10 }}>
             <FiActivity size={14} style={{ verticalAlign: -2 }} /> Inspection & cleaning records — {year}

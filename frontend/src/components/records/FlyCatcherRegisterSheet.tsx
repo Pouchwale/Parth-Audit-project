@@ -267,15 +267,15 @@ export function FlyCatcherRegisterSheet({
   const lastDay = `${year}-${pad2(month + 1)}-${pad2(daysInMonth(year, month))}`;
   const latestAllowed = lastDay < today ? lastDay : today;
 
-  // The paper's own title and date — until the format itself is changed (§86): a renamed
-  // or re-issued F/HR/18 is headed as it now stands, here as on its records.
+  // The paper's own title — until the format itself is changed (§86): a renamed or
+  // re-issued F/HR/18 is headed as it now stands, here as on its records. The header
+  // prints the paper's cells, no Date cell (§117).
   const formatChanged = formatEditFor(FLY_DOC_ID);
   const header = (page: string, first: boolean) => (
     <>
       <DocumentHeader
         doc={doc}
         title={formatChanged?.name ? undefined : FHR18_TITLE}
-        dateLabel={formatChanged ? formatDisplayDate(doc.revisionDate) : FHR18_DATE}
         pageLabel={page}
         edit={first ? headerEdit : undefined}
       />

@@ -43,17 +43,25 @@ import { isPlaceholder } from "../../engine/observations";
 //
 // AND ON EVERY RECORD (REQUIREMENTS §86): a record page passes `edit` as well,
 // with `fields` naming the cells that take a click there. The format's own
-// cells — the company, the title, the number, the revision — change the FORMAT
-// (a new revision, with a reason: components/documents/HeaderEditing.tsx); the
-// record's own Date and Page No. change that record alone and go in its
-// history. The designer passes no `fields`, so there the format's five do, as
-// before, and a record's date — never the form's — is not among them.
+// cells — the company, the title, the number, the revision and its date —
+// change the FORMAT (a new revision, with a reason: components/documents/
+// HeaderEditing.tsx); the record's own Page No. changes that record alone and
+// goes in its history. The designer passes no `fields`, so there the format's
+// five do, as before.
+//
+// NO DATE CELL (REQUIREMENTS §117). The owner, 16-Oct-2026, with the DATE cell
+// crossed out on every printed page: "remove date from all formats". The header
+// block prints what the paper prints — Format No. | Rev No. | Rev Date | Page
+// No. — and the record's own date stands only where the PAPER has a box for it
+// (a Date column, a "Date:" line, a Calibration Date). The cell DCRS added for
+// it is gone from the screen, the preview, the print and every download (which
+// are made from the header as drawn here), and no title is suffixed with a date.
 
 /** The parts of the header a format's designer can change — one type with the engine's (engine/formatOps.ts). */
 export type { HeaderField } from "../../engine/formatOps";
 
-/** The record's own cells of the header block: the date it is headed with and its page number (REQUIREMENTS §86). */
-export type RecordHeaderField = "date" | "page";
+/** The record's own cell of the header block: its page number (REQUIREMENTS §86; the Date cell is gone, §117). */
+export type RecordHeaderField = "page";
 export type AnyHeaderField = HeaderField | RecordHeaderField;
 
 const FORMAT_FIELDS: ReadonlySet<AnyHeaderField> = new Set<AnyHeaderField>(["companyName", "title", "formatNo", "revisionNo", "revisionDate"]);
@@ -76,7 +84,6 @@ const ACTIONS: Record<AnyHeaderField, string> = {
   formatNo: "rename-format-no",
   revisionNo: "rename-revision",
   revisionDate: "rename-revision-date",
-  date: "rename-record-date",
   page: "rename-page-no",
 };
 
@@ -114,7 +121,6 @@ function Cell({ field, edit, className, translate: noTranslate, children }: { fi
 export function DocumentHeader({
   doc,
   extraTitle,
-  dateLabel,
   pageLabel,
   companyName,
   letterhead,
@@ -128,8 +134,8 @@ export function DocumentHeader({
   printedWithNumber,
 }: {
   doc: DocumentDefinition;
+  /** Words after the title — a register's year, never a record's date (§117). */
   extraTitle?: string;
-  dateLabel?: string;
   pageLabel?: string;
   /** The company name exactly as THIS form prints it (spellings differ between forms). */
   companyName?: string;
@@ -226,12 +232,13 @@ export function DocumentHeader({
             </span>
           </div>
         ))}
-        {/* Where the Date cell is taken by the record's own date, the date the
-            revision was issued still has to be on the header — it is half of
-            what identifies the paper the record was written on, and the date the
-            paper itself prints there (§111 part 6). A superseded revision's takes
-            no click; the current one's changes the format, as its number does. */}
-        {revision && dateLabel !== undefined && (
+        {/* The date the revision was issued: half of what identifies the paper
+            the record was written on, and the date the paper itself prints in
+            its header (§111 part 6). A superseded revision's takes no click; the
+            current one's changes the format, as its number does. One the plant
+            has not given prints nothing (§111 part 6). No cell for the record's
+            own date stands beside it (§117). */}
+        {revision && (
           <div className="meta-cell" data-meta="revision-date">
             <span className="k">Rev Date</span>
             <span className="v notranslate" translate="no">
@@ -239,7 +246,7 @@ export function DocumentHeader({
             </span>
           </div>
         )}
-        {!revision && dateLabel !== undefined && revisionDate && (
+        {!revision && revisionDate && (
           <div className="meta-cell" data-meta="revision-date">
             <span className="k">Rev Date</span>
             <Cell field="revisionDate" edit={edit} className="v notranslate" translate>
@@ -247,19 +254,6 @@ export function DocumentHeader({
             </Cell>
           </div>
         )}
-        <div className="meta-cell">
-          <span className="k">Date</span>
-          {dateLabel !== undefined ? (
-            // The record's own date, typed over on the record (REQUIREMENTS §86).
-            <Cell field="date" edit={edit} className="v notranslate" translate>
-              {dateLabel}
-            </Cell>
-          ) : (
-            <Cell field="revisionDate" edit={edit} className="v notranslate" translate>
-              {formatDisplayDate(revisionDate)}
-            </Cell>
-          )}
-        </div>
         {pageLabel && (
           <div className="meta-cell">
             <span className="k">Page No.</span>

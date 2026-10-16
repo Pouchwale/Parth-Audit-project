@@ -27,9 +27,11 @@ const NO_FIELDS: readonly HeaderField[] = [];
 //     header is saved — never a copy of the sheet's layout — and it is built
 //     from the format as it stands at that moment, so a colleague's change made
 //     meanwhile is kept.
-//   · the Date and the Page No. are the RECORD's own: what this page is headed
-//     with. Changing one changes this record alone, at once, with a line in its
-//     history — and only while its boxes can be written on.
+//   · the Page No. is the RECORD's own: what this page is headed with. Changing
+//     it changes this record alone, at once, with a line in its history — and
+//     only while its boxes can be written on. The record's own Date cell is
+//     gone from the header (REQUIREMENTS §117, the owner, 16-Oct-2026): the
+//     header prints the paper's cells — Format No., Rev No., Rev Date, Page No.
 //
 // A record kept on a superseded revision (§74) is a page of the past: nothing
 // on its header takes a click.
@@ -40,24 +42,22 @@ const LABELS: Record<AnyHeaderField, string> = {
   formatNo: "Format No.",
   revisionNo: "Rev No.",
   revisionDate: "Date of the revision",
-  date: "Date",
   page: "Page No.",
 };
 
-/** The format's cells a header usually shows: the revision date only where its Date cell prints it (no record's own date). */
-export const FORMAT_HEADER_FIELDS: readonly HeaderField[] = ["companyName", "title", "formatNo", "revisionNo"];
+/** The format's cells every header shows — the revision's date among them, as the paper prints it (§117). */
+export const FORMAT_HEADER_FIELDS: readonly HeaderField[] = ["companyName", "title", "formatNo", "revisionNo", "revisionDate"];
 
 export interface RecordHeaderEditing {
   /** The record's own header values, where they were typed over. */
   block?: RecordHeaderBlock;
   /** Its boxes can be written on now. */
   editable: boolean;
-  /** What the header prints where nothing was typed: the record's date (ISO) and the view's page. */
-  defaultDate: string;
+  /** What the header prints where nothing was typed: the view's page. */
   defaultPage: string;
   /**
-   * Saves ONE of the record's header values — `{ date }` or `{ page }`, undefined for "what the header prints
-   * anyway". The page lays it over the record AS STORED, so the other cell keeps its newest value.
+   * Saves the record's own header value — `{ page }`, undefined for "what the header prints anyway". The page
+   * lays it over the record AS STORED, so nothing else on the record is touched.
    */
   save: (change: RecordHeaderBlock) => void;
 }
@@ -66,7 +66,7 @@ export interface RecordHeaderEditing {
  * What a record's page hands the view that draws its header (REQUIREMENTS §86):
  * whether the record's boxes can be written on, whether its header may be typed
  * over at all (never on a superseded revision), and how to save the record's own
- * Date and Page No. — with what the header prints where nothing was typed.
+ * Page No. — with what the header prints where nothing was typed.
  */
 export interface RecordHeaderHost {
   editable: boolean;
@@ -81,7 +81,7 @@ export function recordHeaderEditing(
   defaults: { date: string; page: string }
 ): RecordHeaderEditing | undefined {
   if (!host) return undefined;
-  return { block, editable: host.editable, defaultDate: defaults.date, defaultPage: defaults.page, save: (change) => host.save(change, defaults) };
+  return { block, editable: host.editable, defaultPage: defaults.page, save: (change) => host.save(change, defaults) };
 }
 
 export interface HeaderEditingOptions {
@@ -128,7 +128,7 @@ function headerDraft(doc: DocumentDefinition, field: HeaderField, value: string)
   }
 }
 
-const isRecordField = (f: AnyHeaderField): f is "date" | "page" => f === "date" || f === "page";
+const isRecordField = (f: AnyHeaderField): f is "page" => f === "page";
 
 /**
  * The header's in-place editing for one page: the `edit` to hand DocumentHeader,
@@ -143,16 +143,13 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
   const reasonId = useId();
   const { doc, record } = o;
   const enabled = o.enabled !== false && !!doc;
-  // The format's own values change the format: Edit on the document (REQUIREMENTS §96). The record's date and page need Write, as the record's boxes do.
+  // The format's own values change the format: Edit on the document (REQUIREMENTS §96). The record's page needs Write, as the record's boxes do.
   const formatFields = doc && !mayDo(doc.id, "format") ? NO_FIELDS : (o.formatFields ?? FORMAT_HEADER_FIELDS);
   const recordEditable = !!record?.editable;
 
   const fields = useMemo(() => {
     const set = new Set<AnyHeaderField>(formatFields);
-    if (record && recordEditable) {
-      set.add("date");
-      set.add("page");
-    }
+    if (record && recordEditable) set.add("page");
     return set;
   }, [formatFields, record, recordEditable]);
 
@@ -162,13 +159,8 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
       const value = typed.trim();
       if (isRecordField(field)) {
         if (!record || !record.editable) return;
-        if (field === "date") {
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
-          record.save({ date: value === record.defaultDate ? undefined : value });
-        } else {
-          // Rubbed out, the page number is the view's own again.
-          record.save({ page: !value || value === record.defaultPage ? undefined : value });
-        }
+        // Rubbed out, the page number is the view's own again.
+        record.save({ page: !value || value === record.defaultPage ? undefined : value });
         return;
       }
       // The format's own value: blank or unchanged keeps what is there; otherwise the page asks why.
@@ -212,13 +204,12 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
         setEditing(field);
       },
       box: (field) => {
-        const recordValue = (): string =>
-          field === "date" ? (record?.block?.date ?? record?.defaultDate ?? "") : (record?.block?.page ?? record?.defaultPage ?? "");
+        const recordValue = (): string => record?.block?.page ?? record?.defaultPage ?? "";
         return (
           <RenameBox
             field={`header-${field}`}
             label={LABELS[field]}
-            inputType={field === "date" || field === "revisionDate" ? "date" : undefined}
+            inputType={field === "revisionDate" ? "date" : undefined}
             initial={isRecordField(field) ? recordValue() : currentValue(doc, field)}
             onCommit={(v) => commit(field, v)}
             onCancel={() => setEditing(null)}

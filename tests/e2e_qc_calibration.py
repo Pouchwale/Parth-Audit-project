@@ -448,12 +448,12 @@ with sync_playwright() as p:
     headings = page.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("F-QC-30: Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By", headings == ["Sr. No.", "Date/Time", "Viscosity (20.0 ± 1.0 Sec.)", "Tested By"], headings)
     sr = page.locator("table.log-sheet tbody tr td[data-sr-no]").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    # The header's Date cell, the record's own (the format's Rev Date stands beside it since s111 part 6).
-    header_date = page.evaluate("() => { const c = Array.from(document.querySelectorAll('.doc-header .meta-cell')).find((m) => (m.querySelector('.k') || {}).textContent === 'Date'); return c ? c.querySelector('.v').innerText.trim() : ''; }")
+    # The header prints the paper's cells only - no DATE cell (s117, the owner, 16-Oct-2026).
+    header_cells = page.evaluate("() => Array.from(document.querySelectorAll('.doc-header .meta-cell .k')).map((k) => k.textContent.trim())")
     check(
-        "...the Sr. No. numbers its 23 lines, and the day stands in the header's Date, never in the column",
-        len(sr) == 23 and sr == [str(i + 1) for i in range(23)] and re.match(r"^\d{2}-[A-Z][a-z]{2}-\d{4}$", header_date) is not None,
-        (sr[:3], header_date),
+        "...the Sr. No. numbers its 23 lines, and the header has no Date cell: Format No. | Rev No. | Rev Date | Page No.",
+        len(sr) == 23 and sr == [str(i + 1) for i in range(23)] and header_cells == ["Format No.", "Rev No.", "Rev Date", "Page No."],
+        (sr[:3], header_cells),
     )
     text30 = page.locator("[data-print-doc]").first.evaluate("e => e.textContent")
     check("...and the specification line the owner crossed out is gone", "Viscosity specification" not in text30 and "round the clock" not in text30)
