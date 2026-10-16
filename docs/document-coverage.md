@@ -333,7 +333,7 @@ What the status words mean:
 | 125 | F-HR-15 | Daily cleaning record | **In DCRS** as `hr-daily-cleaning` "Daily Cleaning Record", Rev 01. Sent on 02-Oct-2026 (§86); its title line's "PACA1:AH16K" is printed as "PACK" (TBC 47). |
 | 126 | F-HR-16 | Monthly Cleaning record | **In DCRS** as `hr-monthly-cleaning` "Monthly Cleaning Record", Rev 01. Sent on 02-Oct-2026 (§86). |
 | 127 | F-HR-17 | Daily pest Control monitoring Record | **In DCRS** as `daily-pest-monitoring` "Daily Pest Control Monitoring Record", Rev 00. On the Pest Control shelf of Human Resources. |
-| 128 | F-HR-18 | Fly Catcher Inspection & Cleaning Record | **In DCRS** as `fly-catcher` "Fortnightly — Fly Catcher Inspection & Cleaning Record", Rev 02. On the Pest Control shelf of Human Resources. |
+| 128 | F-HR-18 | Fly Catcher Inspection & Cleaning Record | **In DCRS** as `fly-catcher` "Fortnightly — Fly Catcher Inspection & Cleaning Record", Rev 02 (15.12.2024). On the Pest Control shelf of Human Resources. The company's own Word original, sent 16-Oct-2026, is on file (source-documents/F-HR-18_Fly Catcher Inspection & Cleaning Record.doc); the monthly register and a visit's own page are laid out as it prints, and it downloads as Word (REQUIREMENTS §111 part 9). |
 | 129 | F-HR-19 | Monthly GMP Inspection record | **In DCRS** as `hr-gmp-checklist` "Monthly PRP Check List (GMP Inspection Record)", Rev 00 |
 | 130 | F-HR-20 | HARA pri | **In DCRS** as `hr-psc-survey` "Product Safety Culture Survey", Rev 00. The PDF prints "HARA pri" here; the workbook and the form say "Product Safety Culture Survey". |
 | 131 | F-HR-21 | Product Safety Culture Survey analysis record | **In DCRS** as `hr-psc-survey-analysis` "Product Safety Culture Survey — Analysis", Rev 00 |
