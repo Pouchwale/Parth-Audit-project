@@ -10,6 +10,7 @@ import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/dat
 import { recordRepository } from "../src/data/repositories/recordRepository";
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { STANDARD_WEIGHTS } from "../src/data/seed/qcCalibrationLayouts";
+import { SEED_GSM_PLATE_CALIBRATION, SEED_WEIGHT_SCALE_CALIBRATION } from "../src/data/seed/qcCalibrationRecords";
 import { blankLogRow, createDefaultData } from "../src/engine/recordDefaults";
 import { createRecordForDocument, startingData } from "../src/engine/recordCrud";
 import { entriesWaiting, prepareKnownParts } from "../src/engine/knownParts";
@@ -123,6 +124,31 @@ test("a new F/QC/17 is written as the previous one was: every box and line carri
   assert.match(prepared!.basedOn, /16-Oct-2026/);
   assert.equal(previousWrittenRecord(d.id, "2026-11-16", false, layoutOf(d.id), createDefaultData(d, "2026-11-16", master) as LogSheetData)?.id, next.id, "the latest sheet a person wrote on, confirmed or not");
   recordRepository.query({ documentId: d.id }).forEach((r) => recordRepository.remove(r.id));
+});
+
+test("the page on file is a previous sheet: a new F/QC/12 starts as the last week of the 2024 page, dated the new day; a new F/QC/11 as the page of 31.12.2024", () => {
+  const master = masterRepository.get();
+  const weight = doc("qc-weight-scale-calibration");
+  // The pages on file, as the app seeds them at start-up (data/bootstrap.ts).
+  for (const page of [SEED_WEIGHT_SCALE_CALIBRATION, SEED_GSM_PLATE_CALIBRATION]) if (!recordRepository.getById(page.id)) recordRepository.upsert(page);
+  const onFile = previousWrittenRecord(weight.id, "2026-10-14", false, layoutOf(weight.id), createDefaultData(weight, "2026-10-14", master) as LogSheetData);
+  assert.ok(onFile, "the page on file is found");
+  assert.match(onFile!.submittedBy ?? "", /as supplied/i, "the plant's own page, transcribed from the owner's paper");
+  assert.equal(onFile!.data.header.deviceIdNo, "QC-76");
+  const start = startingData(weight, "2026-10-14", false) as LogSheetData;
+  assert.equal(start.header.deviceIdNo, "QC-76", "the device carried");
+  assert.equal(start.header.acceptableTolerance, "0.05 %", "its tolerance carried");
+  assert.equal(start.rows.length, 1, "the week's one line");
+  const lastWeek = onFile!.data.rows[onFile!.data.rows.length - 1];
+  assert.equal(start.rows[0].date, "2026-10-14", "dated the new day");
+  assert.equal(start.rows[0].testedBy, lastWeek.testedBy, "the last week's line, carried");
+  assert.equal(start.rows[0].weight4, lastWeek.weight4, "the page's weights, not the standard");
+  assert.equal(start.rows[0].testedValue4, lastWeek.testedValue4);
+  const gsm = doc("qc-gsm-plate-calibration");
+  const gsmStart = startingData(gsm, "2026-10-31", false) as LogSheetData;
+  assert.equal(gsmStart.header.calibrationExpiry, "2025-09-22", "F/QC/11's page of 31.12.2024 carried");
+  assert.equal(gsmStart.header.calibrationDate, "2026-10-31", "the month's calibration date is the record's day");
+  assert.equal(gsmStart.rows.find((r) => r.parameter === "Sign.")?.p54, "Rashmi");
 });
 
 test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what was written over the paper's words; without a previous record the sheet is the paper's blank", () => {

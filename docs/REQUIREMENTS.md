@@ -8556,9 +8556,13 @@ hand, by Mitra or from the phone (engine/recordCrud.ts startingData) or prepared
 whole: every box above and below the grid and every cell of every line, the person's own earlier entries (§98 is kept:
 nothing is invented), every one editable. What is not carried: a box or column answered with the record's day, which
 takes the new day; a box the paper prints, which stays the paper's words; the worked-out cells, worked out again. A
-sheet nobody wrote on, and a page DCRS transcribed "as supplied" (the 2024 calibration pages), are never the source;
-without a source the sheet starts as the paper's blank with its standards. The prepare's note says which sheet it was
-written from and that every box is the person's to change.
+sheet nobody wrote on is never the source; a page DCRS holds "as supplied" (the plant's own 2024 calibration pages,
+transcribed from the owner's paper) IS one — "same should be filled automatically as per previous", and what it holds
+is the plant's, not invented (§98) — so a new F/QC/12 sheet starts as the last week of the page on file (a sheet of one
+line takes the previous sheet's last line) and a new F/QC/11 as the page of 31.12.2024; without any earlier page the
+sheet starts as the paper's blank with its standards. (Chunk 1 had excluded the pages on file, which left a new
+F/QC/12 holding the standard weights alone: tests/e2e_qc_calibration.py failed seven checks; put right by the second
+fixer.) The prepare's note says which sheet it was written from and that every box is the person's to change.
 
 **Every part editable (done, the second fixer, 16-Oct-2026).** F/QC/11's Device ID No, Location, Department and
 Manufacturer and F/QC/17's "Accetable tolerance" are printed by their papers (checked against the originals in

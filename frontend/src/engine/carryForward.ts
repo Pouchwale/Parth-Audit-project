@@ -15,8 +15,13 @@ import { generateId } from "../utils/id";
 // them stays editable on the new sheet. What is not: a box or column answered with the record's day
 // (it takes the new day), a box the paper prints (it stays the paper's words), and a cell worked out
 // from the others (it is worked out again by engine/computedCells.ts). The previous record is the
-// document's latest earlier one a person wrote on, whatever its status: a sheet prepared and never
-// touched carries nothing a person said.
+// document's latest earlier one with writing on it, whatever its status: a sheet prepared and never
+// touched carries nothing a person said. A page DCRS holds "as supplied" (the plant's own 2024
+// calibration pages, data/seed/qcCalibrationRecords.ts, transcribed from the owner's paper) IS a
+// previous page: "same should be filled automatically as per previous" — what it holds is the plant's,
+// not invented (§98), so a new F/QC/12 sheet starts as the last week of the page on file, and the
+// standard weights fill a line only where no earlier page exists. A sheet of one line (rowMode single)
+// takes the previous sheet's LAST line — the latest calibration on a page of several weeks.
 //
 // Two paths start a new sheet, and both come here: a record started by hand, by Mitra or by the phone
 // (engine/recordCrud.ts createRecordForDocument) and the morning prepare of a scheduled one
@@ -38,13 +43,10 @@ export function hasWriting(layout: LogSheetLayout, data: Partial<LogSheetData> |
   );
 }
 
-/** A paper DCRS transcribed as supplied (the 2024 calibration pages, data/seed/qcCalibrationRecords.ts): nobody wrote it here. */
-const transcribed = (r: RecordInstance): boolean => /as supplied/i.test(r.submittedBy ?? "");
-
-/** The document's latest record before `beforeISO` that a person wrote on in DCRS, Live or Demo as asked. */
+/** The document's latest record before `beforeISO` with writing on it — a person's in DCRS or the page on file — Live or Demo as asked. */
 export function previousWrittenRecord(documentId: string, beforeISO: string, isDemo: boolean, layout: LogSheetLayout, blank: LogSheetData): RecordInstance<LogSheetData> | undefined {
   return (recordRepository.queryUnscoped({ documentId, isDemo }) as RecordInstance<LogSheetData>[])
-    .filter((r) => compareISO(r.dueDate, beforeISO) < 0 && !transcribed(r) && hasWriting(layout, r.data, blank))
+    .filter((r) => compareISO(r.dueDate, beforeISO) < 0 && hasWriting(layout, r.data, blank))
     .sort((a, b) => compareISO(b.dueDate, a.dueDate))[0];
 }
 
@@ -65,10 +67,13 @@ export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blan
     const v = previous.header?.[f.key];
     if (written(v)) header[f.key] = String(v);
   }
-  const previousRows = Array.isArray(previous.rows) ? previous.rows : [];
-  // A sheet whose lines the paper prints keeps the paper's count of them; a previous sheet with another count (the
-  // format changed since) carries its boxes only.
-  const printedLines = layout.rowMode.kind !== "free";
+  const allPrevious = Array.isArray(previous.rows) ? previous.rows : [];
+  // A sheet of one line takes the previous sheet's last line (the latest week of a page of several); a sheet whose
+  // lines the paper prints keeps the paper's count of them, and a previous sheet with another count (the format
+  // changed since) carries its boxes only.
+  const single = layout.rowMode.kind === "single";
+  const previousRows = single ? allPrevious.slice(-1) : allPrevious;
+  const printedLines = layout.rowMode.kind !== "free" && !single;
   if (previousRows.length === 0 || (printedLines && previousRows.length !== blank.rows.length)) return { ...blank, header };
   const rows: LogSheetRow[] = previousRows.map((p, i) => {
     const row: LogSheetRow = blank.rows[i] ? { ...blank.rows[i], id: generateId("row") } : blankLogRow(layout);
