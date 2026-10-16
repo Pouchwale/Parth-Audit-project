@@ -744,17 +744,23 @@ with sync_playwright() as p:
         refusal.count() == 1 and "The Performance Scorecard is the super admin's" in refusal.inner_text() and page.locator("[data-section='performance-scorecard']").count() == 0,
         page.locator(".app-content").inner_text()[:300],
     )
+    # The person's own score card (s92) is a Live card: the Dashboard leaves it out in Demo Mode, so back to Live
+    # (the top bar's first pill) before reading it.
+    page.locator(".app-topbar .pill-tab").nth(0).click()
+    page.wait_for_timeout(600)
     open_page(page, "#/dashboard", settle=2500)
     try:
-        page.wait_for_selector("[data-section='my-day'] [data-field='my-day-score']", timeout=30000)
+        page.wait_for_selector("[data-section='my-day']:not([data-state='loading'])", timeout=30000)
     except Exception:
         pass
-    own = page.locator("[data-section='my-day'] [data-field='my-day-score']")
+    card = page.locator("[data-section='my-day']")
+    own = card.locator("[data-field='my-day-score']")
     check(
-        "...and keeps its own score card on its Dashboard, with a score of its own",
-        own.count() == 1 and (own.get_attribute("data-score") or "") != "",
-        page.locator("[data-section='my-day']").inner_text()[:300] if page.locator("[data-section='my-day']").count() else "no card",
+        "...and keeps its own score card on its Dashboard, with a score of its own once a record of its own is due",
+        card.count() == 1 and card.get_attribute("data-state") != "loading" and (own.count() == 0 or (own.get_attribute("data-score") or "") != ""),
+        (card.get_attribute("data-state"), card.inner_text()[:300]) if card.count() else "no card",
     )
+    demo_mode(page)
     check("...which lists no other person's minus score (s92: that list is the super admin's)", page.locator("[data-section='team-minus']").count() == 0)
     qc_listing = directory(page)
     qc_people = (json.loads(qc_listing["text"]) if qc_listing["status"] == 200 else {}).get("people") or []
