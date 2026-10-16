@@ -257,7 +257,12 @@ with sync_playwright() as p:
         kept[:200],
     )
     page.fill("input[placeholder='Name of checker']", "Vijay")
-    page.wait_for_timeout(1500)
+    # The save is awaited, not timed: on a loaded machine "Saving…" can outlast a fixed wait.
+    try:
+        page.wait_for_selector("[data-save-state='saved']", timeout=15000)
+    except Exception:
+        pass
+    page.wait_for_timeout(300)
     saved = page.locator("[data-save-state='saved']")
     check(
         'Text that changes after translation shows its new value, translated ("All changes saved")',

@@ -5,10 +5,12 @@ liveStartDate floor existed (e.g. from browsing old calendar months on a
 pre-fix build) -- injected directly into localStorage before the app's
 bootstrap() runs -- then reloaded, checking that:
   1. The login briefing does NOT show the old backlog as "ready for your OK".
-  2. The Dashboard cleanup banner reports the correct count.
-  3. Clicking "Clean up" actually removes it.
+  2. No profile is shown a "Found N blank records ... Clean up" banner and nothing
+     offers to remove them (REQUIREMENTS §115, 14-Oct-2026: the blank sheets from
+     before go-live are the SERVER's to move into the archive, never deleted).
+  3. The browser deletes nothing: the injected shells stay on file for the server.
   4. A record predating the injected backlog that a human already verified
-     is never touched, however the cleanup scopes its match.
+     is never touched.
 
 This is the direct proof for a bug an adversarial review caught in the
 backlog fix itself: prepareDueRecords() originally had no launch-date floor
@@ -163,29 +165,23 @@ def main():
             got_it.first.click()
         page.wait_for_timeout(300)
 
-        banner_text = page.locator(".card:has-text('Clean up')").inner_text() if page.locator(".card:has-text('Clean up')").count() else ""
-        check("Dashboard banner appears for the injected backlog", "Clean up" in page.content())
-        check("Dashboard banner reports the correct count (50)", "50" in banner_text)
-
-        cleanup_btn = page.locator("button:has-text('Clean up')")
-        if cleanup_btn.count() > 0:
-            cleanup_btn.click()
-            page.wait_for_timeout(300)
-            check("Cleanup confirmation shows 50 removed", "Removed 50" in page.content())
-
-            remaining = page.evaluate(
-                """() => {
-                  const records = JSON.parse(localStorage.getItem("dcrs:v1:records") || "[]");
-                  return {
-                    backlogLeft: records.filter(r => r.id.startsWith("backlog-")).length,
-                    verifiedStillThere: records.some(r => r.id === "human-verified-old" && r.status === "Verified"),
-                  };
-                }"""
-            )
-            check("All 50 injected backlog records actually removed", remaining["backlogLeft"] == 0)
-            check("Human-verified old record survived the cleanup untouched", remaining["verifiedStillThere"])
-        else:
-            check("Cleanup button was reachable", False)
+        # REQUIREMENTS §115 (14-Oct-2026): the blank sheets from before go-live are the SERVER's to move into the
+        # archive; no profile sees a "Found N blank records ... Clean up" banner and nothing offers to remove them.
+        # The browser deletes nothing: the injected shells stay on file, with the verified record, for the server.
+        body = page.content()
+        check("No clean-up banner on the Dashboard for the injected backlog (REQUIREMENTS s115)", "Clean up" not in body and "blank record" not in body)
+        check("No 'Clean up' or 'Remove them' button anywhere on the Dashboard", page.locator("button:has-text('Clean up')").count() == 0 and page.locator("button:has-text('Remove them')").count() == 0)
+        remaining = page.evaluate(
+            """() => {
+              const records = JSON.parse(localStorage.getItem("dcrs:v1:records") || "[]");
+              return {
+                backlogLeft: records.filter(r => r.id.startsWith("backlog-")).length,
+                verifiedStillThere: records.some(r => r.id === "human-verified-old" && r.status === "Verified"),
+              };
+            }"""
+        )
+        check("The browser removed nothing: the 50 injected shells are still on file for the server's archive to move", remaining["backlogLeft"] == 50)
+        check("Human-verified old record untouched", remaining["verifiedStillThere"])
 
         browser.close()
         if FAILURES:
