@@ -280,7 +280,8 @@ with sync_playwright() as p:
         check_paper(doc_id, seen)
         # A log sheet (components/records/LogSheetRecordView.tsx) is drawn in three parts; the registers and letters have their own pages.
         if seen["parts"]:
-            check(f"{doc_id}: the sheet is drawn in its three parts - the header block in the head, the grid in the body, a foot (s117)", all(p[0] and p[1] and p[2] for p in seen["parts"]), seen["parts"])
+            # ...a sheet of boxes alone (a memo, an agreement) has no grid in its body.
+            check(f"{doc_id}: the sheet is drawn in its three parts - the header block in the head, a body, a foot (s117)", all(p[0] and p[2] for p in seen["parts"]), seen["parts"])
         if doc_id in PAPER_PAGES:
             orient, count = PAPER_PAGES[doc_id]
             pages_, pdf_path = pdf_pages(page, doc_id)
