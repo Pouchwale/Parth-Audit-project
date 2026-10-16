@@ -21,6 +21,10 @@ insert only matters when a suite is run with -I.)
 SUPER_ADMIN_EMAIL = "super.admin.qa@example.com"
 SUPER_ADMIN_PASSWORD = "PlaywrightQA123"
 SUPER_ADMIN_NAME = "Super Admin QA"
+# The product server's seeded administrator (scripts/run-e2e.ts SEED_ACCOUNTS=1, PRODUCT_SEED_PASSWORD), on the
+# database both servers share: once a product suite has run, it is the super admin of :8842's database too.
+SEED_ADMIN_EMAIL = "admin@gpp.local"
+SEED_ADMIN_PASSWORD = "SeedQA@2026"
 
 
 def who_am_i(page):
@@ -68,6 +72,50 @@ def dismiss_briefing(page, wait_ms=8000):
         page.wait_for_timeout(200)
 
 
+def _sign_in(page, base, email, password):
+    """Signs in from the sign-in page; True once the app, or the forced first-password pop-up, is up."""
+    page.goto(f"{base}/index.html")
+    page.wait_for_selector("#login-email", timeout=60000)
+    page.wait_for_timeout(300)
+    page.fill("#login-email", email)
+    page.fill("#login-password", password)
+    page.click("button:has-text('Log In')")
+    page.wait_for_selector(".app-sidebar, [data-action='sign-out-instead'], .auth-error:not([data-section='signed-out-notice'])", timeout=60000)
+    page.wait_for_timeout(800)
+    return bool(page.locator(".app-sidebar").count() or page.locator("[data-action='sign-out-instead']").count())
+
+
+def promoted_by_seeded_administrator(page, base, dismiss=True):
+    """A product suite ran before this one on the database both servers share, so its seeded administrator is
+    the super admin and the account made here is staff: the seeded administrator makes it the super admin too
+    (POST /api/users/:id/role, as Users & Access does), and the page signs in to it again. Returns the role it
+    has then, or None when the seeded administrator is not on this server either."""
+    sign_out(page)
+    if not _sign_in(page, base, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD):
+        print(f"[NOTE] {SEED_ADMIN_EMAIL} is not on this server either: {SUPER_ADMIN_EMAIL} stays staff")
+        return None
+    result = page.evaluate(
+        """async (email) => {
+             const list = await fetch('/api/users', { credentials: 'include' }).then((r) => r.json()).catch(() => null);
+             const user = (((list || {}).users) || []).find((u) => String(u.email || '').toLowerCase() === email);
+             if (!user) return { error: 'not listed' };
+             const res = await fetch('/api/users/' + user.id + '/role', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'admin' }) });
+             return { status: res.status, body: await res.json().catch(() => null) };
+           }""",
+        SUPER_ADMIN_EMAIL,
+    )
+    print(f"[NOTE] {SEED_ADMIN_EMAIL} (seeded by a product suite that ran first) makes {SUPER_ADMIN_EMAIL} the super admin: {result}")
+    sign_out(page)
+    if not _sign_in(page, base, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD):
+        return None
+    page.wait_for_timeout(600)
+    if dismiss:
+        dismiss_briefing(page)
+    role = ((who_am_i(page) or {}).get("user") or {}).get("role")
+    print(f"[NOTE] Signed in again as {SUPER_ADMIN_EMAIL} ({SUPER_ADMIN_NAME}): role {role}")
+    return role
+
+
 def become_super_admin(page, base, dismiss=True):
     """Signs the page in as the run's super admin account, making it when this is the first suite of the run
     to ask. Returns the role the server gives it ("admin" when it is the super admin), printed as a [NOTE];
@@ -106,4 +154,10 @@ def become_super_admin(page, base, dismiss=True):
         dismiss_briefing(page)
     role = ((who_am_i(page) or {}).get("user") or {}).get("role")
     print(f"[NOTE] {'Made' if made else 'Signed in as'} {SUPER_ADMIN_EMAIL} ({SUPER_ADMIN_NAME}): role {role}")
+    if role != "admin":
+        # A product suite ran before this one on the database both servers share (scripts/run-e2e.ts): its seeded
+        # administrator is the super admin and the account made here is staff. The seeded administrator makes this
+        # account the super admin too, so the account every suite expects is the super admin in every order, a run
+        # resumed from a product suite included.
+        role = promoted_by_seeded_administrator(page, base, dismiss) or role
     return role
