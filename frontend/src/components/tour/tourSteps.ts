@@ -9,9 +9,10 @@
 //
 // Each step spotlights a real part of the screen AS THAT PERSON SEES IT — their own
 // sidebar and modules, their own day, their own bell — and says in two short lines
-// what it is for. The super admin's tour has five more steps: the pages only they
-// have. A step whose part is not on this person's screen at all is left out, so the
-// counter never counts a step that shows nothing.
+// what it is for. The super admin's tour has six more steps: Reports, Performance and
+// Insights (the System section is the super admin's, REQUIREMENTS §116) and the pages
+// only they have. A step whose part is not on this person's screen at all is left out,
+// so the counter never counts a step that shows nothing.
 
 export interface TourStep {
   /** A name for the step (data-step on the tour, for the suites). */
@@ -32,7 +33,7 @@ export interface TourStep {
 export interface TourPerson {
   /** The name the account goes by. */
   name: string;
-  /** The super admin (role "admin"): five more steps. */
+  /** The super admin (role "admin"): six more steps (REQUIREMENTS §116). */
   admin: boolean;
   /** The modules in this person's sidebar, as the sidebar names them, in its order. */
   modules: string[];
@@ -144,18 +145,20 @@ export function tourSteps(person: TourPerson): TourStep[] {
       title: "Sound and voice",
       text: "Chimes and Mitra's spoken reminders. One press mutes them all; press again to bring them back.",
       target: [".app-topbar [data-action='toggle-sound']"],
-    },
-    {
-      id: "reports",
-      title: "Reports, Performance and Insights",
-      text: "Monthly reports, trends and downloads. Performance shows who finished on time; Insights reads the records together.",
-      target: [...sidebarLink("/reports"), ...sidebarLink("/performance"), ...sidebarLink("/insights")],
-      fallback: MENU_BUTTON,
-      fallbackText: inMenu("Reports, Performance and Insights are at the bottom, under System"),
     }
   );
+  // THE SYSTEM SECTION IS THE SUPER ADMIN'S (REQUIREMENTS §116): Reports, Performance and Insights are not on
+  // anybody else's screen, so their step is the super admin's, before the pages only they have.
   if (person.admin) {
     steps.push(
+      {
+        id: "reports",
+        title: "Reports, Performance and Insights",
+        text: "Monthly reports, trends and downloads. Performance shows who finished on time; Insights reads the records together.",
+        target: [...sidebarLink("/reports"), ...sidebarLink("/performance"), ...sidebarLink("/insights")],
+        fallback: MENU_BUTTON,
+        fallbackText: inMenu("Reports, Performance and Insights are at the bottom, under System"),
+      },
       {
         id: "users",
         title: "Users & Access",

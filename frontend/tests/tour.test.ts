@@ -1,5 +1,5 @@
 // THE GUIDED TOUR OF THE WHOLE SOFTWARE (REQUIREMENTS §85), judged without a
-// browser: the steps each person gets (the super admin five more), in two short
+// browser: the steps each person gets (the super admin six more), in two short
 // lines each, pointing at parts of the screen that really carry those marks; when
 // it starts by itself (once a day, on the first Dashboard visit, until "Don't show
 // this again" — never under automation); where the spotlight and the card go; the
@@ -25,15 +25,16 @@ const MODULES = ["Human Resources (HR)", "CAPA (Corrective & Preventive Action)"
 const staff = tourSteps({ name: "Kapila Barad", admin: false, modules: MODULES });
 const admin = tourSteps({ name: "Super Admin", admin: true, modules: MODULES });
 const ids = (steps: TourStep[]) => steps.map((s) => s.id);
-const ADMIN_ONLY = ["users", "access", "database", "master", "activity"];
+// The System section is the super admin's (REQUIREMENTS s116): Reports, Performance and Insights among the pages only they have.
+const ADMIN_ONLY = ["reports", "users", "access", "database", "master", "activity"];
 
 test("every person's tour covers the whole software, in the order the owner named it", () => {
-  assert.deepEqual(ids(staff), ["welcome", "sidebar", "modules", "day", "search", "calendar", "library", "records", "mitra", "bell", "sound", "reports", "finish"]);
+  assert.deepEqual(ids(staff), ["welcome", "sidebar", "modules", "day", "search", "calendar", "library", "records", "mitra", "bell", "sound", "finish"]);
   assert.equal(staff[0].title, "Welcome to DCRS, Kapila", "the welcome names the person");
   for (const id of ADMIN_ONLY) assert.ok(!ids(staff).includes(id), `${id} is the super admin's alone`);
 });
 
-test("the super admin's tour adds their own pages: Users & Access, User access, Database overview, Master Data, the Activity Log", () => {
+test("the super admin's tour adds their own pages: Reports, Performance and Insights, Users & Access, User access, Database overview, Master Data, the Activity Log", () => {
   assert.deepEqual(ids(admin), [...ids(staff).slice(0, -1), ...ADMIN_ONLY, "finish"]);
   const byId = Object.fromEntries(admin.map((s) => [s.id, s]));
   assert.deepEqual(byId.users.target, ["#app-sidebar a[href='#/users']"]);

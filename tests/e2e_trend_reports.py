@@ -21,8 +21,11 @@ company's own report on every one of these sheets and are the same on every
 machine. Network-independent, against the production build on :8842.
 """
 import re
+import os
 import sys
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 def settle_briefing(page):
     """Mark today's briefing slots as already shown, so it cannot re-open part
     way through the run and intercept a click. The briefing shows itself once in
@@ -115,25 +118,10 @@ def close_assistant(page):
 
 
 def sign_in(page):
-    page.goto(f"{BASE}/index.html")
-    page.wait_for_timeout(500)
-    if page.locator(".app-sidebar").count():
-        dismiss(page)
-        return
-    page.fill("#login-email", "trend-qa@example.com")
-    page.fill("#login-password", "PlaywrightQA123")
-    page.click("button:has-text('Log In')")
-    page.wait_for_timeout(1500)
-    if not page.locator(".app-sidebar").count():
-        page.click("text=Sign up")
-        page.wait_for_timeout(300)
-        page.fill("#signup-name", "Trend QA")
-        page.fill("#signup-email", "trend-qa@example.com")
-        page.fill("#signup-password", "PlaywrightQA123")
-        page.fill("#signup-confirm", "PlaywrightQA123")
-        page.click("button:has-text('Create Account')")
-    page.wait_for_selector(".app-sidebar", timeout=30000)
-    page.wait_for_timeout(1200)
+    """The run's super admin (tests/_super_admin.py): Reports, opened below, is the super admin's (REQUIREMENTS s116)."""
+    role = become_super_admin(page, BASE)
+    check("Signed in as the run's super admin", role == "admin", role)
+    page.wait_for_timeout(600)
     dismiss(page)
 
 

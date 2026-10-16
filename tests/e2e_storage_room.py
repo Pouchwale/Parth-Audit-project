@@ -24,17 +24,18 @@ mark takes IndexedDB away from the page (an init script) and loads it again.
 
 Network-independent. Against the production build on :8842.
 """
+import os
 import re
 import sys
-import time
 from datetime import datetime
 
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 BASE = "http://localhost:8842"
-PASSWORD = "PlaywrightQA123"
 FAILURES = []
 BANNER = "[data-section='storage-nearly-full']"
 MARK = 4_000_000
@@ -115,18 +116,11 @@ with sync_playwright() as p:
     page.route("**/translate_a/**", lambda route: route.abort())
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    page.goto(f"{BASE}/index.html")
-    page.wait_for_selector("text=Sign up", timeout=60000)
+    # The Demo Mode page, whose note on the daily sheets' window is read below, is the super admin's
+    # (REQUIREMENTS s116): the run's super admin (tests/_super_admin.py). The Demo pill in the top bar is everybody's.
+    role = become_super_admin(page, BASE)
+    check("Signed in as the run's super admin", role == "admin", role)
     page.wait_for_timeout(800)
-    page.click("text=Sign up")
-    page.wait_for_selector("#signup-name", timeout=30000)
-    page.fill("#signup-name", "Room QA")
-    page.fill("#signup-email", f"room-{int(time.time() * 1000)}@example.com")
-    page.fill("#signup-password", PASSWORD)
-    page.fill("#signup-confirm", PASSWORD)
-    page.click("button:has-text('Create Account')")
-    page.wait_for_selector(".app-sidebar", timeout=60000)
-    page.wait_for_timeout(1500)
     dismiss(page)
 
     print("\n==== A fresh browser ====")

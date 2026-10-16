@@ -152,8 +152,29 @@ test("the schema set stays small: under 9,000 characters with a record open, eve
   assert.ok(page.has("change_format") && !page.has("edit_open_record"));
 });
 
+test("navigate refuses a staff account the System section in one line, and takes the super admin there (REQUIREMENTS §116)", async () => {
+  const staff = ctxOf({ role: "staff" });
+  for (const route of ["/reports", "/reports/2026/9/summary", "/master-data", "/activity", "/performance", "/insights", "/users", "/access", "/master-list", "/database-overview"]) {
+    const refused = await run(staff, "navigate", { route });
+    assert.equal(refused.ok, false, route);
+    assert.match(refused.content, /Only the super admin can open/, route);
+  }
+  assert.deepEqual(staff.navigated, [], "nobody is taken to a page they are refused");
+  assert.match((await run(staff, "navigate", { route: "/activity" })).content, /the Activity Log/);
+  // Without a role at all (an older host), the same refusal: the System section is the super admin's alone.
+  assert.equal((await run(ctxOf(), "navigate", { route: "/reports" })).ok, false);
+  // In Gujarati, in Gujarati.
+  assert.match((await run(ctxOf({ role: "staff", language: "gu" }), "navigate", { route: "/insights" })).content, /સુપર એડમિન/);
+  // Staff keep their own pages.
+  assert.equal((await run(staff, "navigate", { route: "/calendar" })).ok, true);
+  assert.deepEqual(staff.navigated, ["/calendar"]);
+  const admin = ctxOf({ role: "admin" });
+  for (const route of ["/reports", "/activity", "/performance", "/insights"]) assert.equal((await run(admin, "navigate", { route })).ok, true, route);
+  assert.deepEqual(admin.navigated, ["/reports", "/activity", "/performance", "/insights"]);
+});
+
 test("navigate opens only a page the router knows, and unreadable arguments are a failed result the model can read", async () => {
-  const ctx = ctxOf();
+  const ctx = ctxOf({ role: "admin" });
   const bad = await run(ctx, "navigate", { route: "/nowhere/at/all" });
   assert.equal(bad.ok, false);
   assert.match(bad.content, /not a page/);

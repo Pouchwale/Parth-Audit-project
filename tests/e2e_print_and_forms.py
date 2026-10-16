@@ -28,10 +28,13 @@ Drives the real UI against the production build on :8842, network-independent
 window.print is replaced by a counter, so no dialog opens; the printout is
 inspected with print media emulated, and 'afterprint' is sent by hand.
 """
+import os
 import sys
 import time
 from datetime import date, timedelta
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 def settle_briefing(page):
     """Mark today's briefing slots as already shown, so it cannot re-open part
     way through the run and intercept a click. The briefing shows itself once in
@@ -126,15 +129,9 @@ with sync_playwright() as p:
     page.route("**/translate_a/**", lambda route: route.abort())
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    page.goto(f"{BASE}/index.html")
-    page.wait_for_timeout(400)
-    page.click("text=Sign up")
-    page.fill("#signup-name", "Print QA")
-    page.fill("#signup-email", f"print-{int(time.time() * 1000)}@example.com")
-    page.fill("#signup-password", "PlaywrightQA123")
-    page.fill("#signup-confirm", "PlaywrightQA123")
-    page.click("button:has-text('Create Account')")
-    page.wait_for_timeout(1200)
+    # Reports, printed below, is the super admin's (REQUIREMENTS s116): the run's super admin (tests/_super_admin.py).
+    role = become_super_admin(page, BASE)
+    check("Signed in as the run's super admin", role == "admin", role)
     dismiss(page)
 
     # ---- 1. A service-report draft an older build left behind ----

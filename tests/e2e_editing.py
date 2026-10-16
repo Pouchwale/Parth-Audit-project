@@ -11,12 +11,15 @@ are understood locally, engine/recordPatch.ts):
     change and can undo it;
   * on a verified record the assistant asks before reopening it, and changes
     nothing until the user says yes;
-  * a Master Data row can be corrected in place, and deleting one takes two taps.
+  * a Master Data row can be corrected in place, and deleting one takes two taps
+    (as the super admin, whose page Master Data is, REQUIREMENTS s116).
 """
+import os
 import sys
-import time
 from datetime import date, timedelta
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 def settle_briefing(page):
     """Mark today's briefing slots as already shown, so it cannot re-open part
     way through the run and intercept a click. The briefing shows itself once in
@@ -81,15 +84,11 @@ with sync_playwright() as p:
     browser = p.chromium.launch()
     page = browser.new_page(viewport={"width": 1400, "height": 950})
     page.on("pageerror", lambda e: FAILURES.append(f"page error: {e}"))
-    page.goto(f"{BASE}/index.html")
-    page.wait_for_timeout(400)
-    page.click("text=Sign up")
-    page.fill("#signup-name", "Editing QA")
-    page.fill("#signup-email", f"editing-{int(time.time()*1000)}@example.com")
-    page.fill("#signup-password", "PlaywrightQA123")
-    page.fill("#signup-confirm", "PlaywrightQA123")
-    page.click("button:has-text('Create Account')")
-    page.wait_for_timeout(1200)
+    # Master Data, corrected in place at the end, is the super admin's (REQUIREMENTS s116): the run's super admin
+    # (tests/_super_admin.py), signed in before any sign-up of this suite's own.
+    role = become_super_admin(page, BASE)
+    check("Signed in as the run's super admin", role == "admin", role)
+    page.wait_for_timeout(600)
     dismiss(page)
 
     # The next WORKING day's Live daily record. On a closed day - the Thursday

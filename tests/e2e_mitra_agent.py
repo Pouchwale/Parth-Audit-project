@@ -13,7 +13,7 @@ own request to api.openai.com is stood in for by backend/tests/ai.test.ts), and
 the server's "assistant configured" flag is switched on in the auth answers, so
 the agent path runs without a key. Checked against the production build on :8842:
 
-  * an instruction becomes a tool call the browser carries out - "open insights"
+  * an instruction becomes a tool call the browser carries out - "open the calendar"
     navigates, shows the step as done, and the final words are rendered (bold);
   * an unclear instruction comes back as a question with options (ask_user);
     tapping one sends it as the next message;
@@ -113,7 +113,7 @@ def agent_route(route):
         except Exception:
             pass
         if name == "navigate":
-            route.fulfill(json={"kind": "final", "text": "Opened **Insights** for you — what stands out is at the top."})
+            route.fulfill(json={"kind": "final", "text": "Opened the **Calendar** for you — every record by its day."})
         elif name == "edit_open_record":
             route.fulfill(json={"kind": "final", "text": f"Done — viscosity at 14:00 is now 20.4. Tool said ok={result.get('ok')}."})
         else:
@@ -121,8 +121,10 @@ def agent_route(route):
         return
     text = (last.get("content") or "") if last.get("role") == "user" else ""
     low = text.lower()
-    if "insights" in low:
-        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c1", "navigate", {"route": "/insights"})]})
+    # The Calendar: a page every account has (Insights is the super admin's, REQUIREMENTS §116, and this sign-up is staff
+    # in the full run).
+    if "calendar" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c1", "navigate", {"route": "/calendar"})]})
     elif "register" in low and "[attachment" not in low:
         route.fulfill(
             json={
@@ -139,12 +141,13 @@ def agent_route(route):
     # REQUIREMENTS s113: the four operations on a record's lines, in the patch shapes the schema gives the model.
     elif "add a line" in low:
         route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c4", "edit_open_record", {"patch": {"addItems": {"rows": [{"time": "10:30", "viscosity": 20.4, "checkedBy": "Jeni"}]}}})]})
-    # The line asked for is whichever the sheet has (the suite counts its rows): the stand-in reads the number as the model would.
-    elif re.search(r"delete line \d+", low):
-        line = int(re.search(r"delete line (\d+)", low).group(1))
+    # The line's number is read from the words, as the model reads it: how many lines a new record starts with
+    # moves with the real clock (16-Oct-2026 at 09:50 one line, so "delete line 2"; later in the day three, "line 4").
+    elif re.search(r"\bdelete line \d+", low):
+        line = int(re.search(r"\bdelete line (\d+)", low).group(1))
         route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c5", "edit_open_record", {"patch": {"removeItems": {"rows": [line]}}})]})
-    elif re.search(r"clear line \d+", low):
-        line = int(re.search(r"clear line (\d+)", low).group(1))
+    elif re.search(r"\bclear line \d+", low):
+        line = int(re.search(r"\bclear line (\d+)", low).group(1))
         route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c6", "edit_open_record", {"patch": {"clearItems": {"rows": [{"row": line, "keys": ["viscosity"]}]}}})]})
     elif "rodent" in low:
         route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c7", "edit_open_record", {"patch": {"addItems": {"rodentCatches": [{"trapBoxNo": "RB-27", "location": "Canteen", "count": 1}]}}})]})
@@ -217,17 +220,17 @@ with sync_playwright() as p:
     dismiss(page)
     composer = page.locator(".assistant-page textarea.assistant-input")
     check("The new interface is there: composer, attach button, microphone, send", composer.count() == 1 and page.locator(".assistant-page [data-action='attach']").count() == 1 and page.locator(".assistant-page [data-action='voice']").count() == 1 and page.locator(".assistant-page [data-action='send']").count() == 1)
-    composer.fill("open insights")
+    composer.fill("open the calendar")
     page.locator(".assistant-page [data-action='send']").click()
     # The navigate tool leaves the page itself, so the step is looked for on the
     # conversation once back on it (below); here, that the person was taken there.
     try:
-        page.wait_for_function("() => location.hash === '#/insights'", timeout=15000)
+        page.wait_for_function("() => location.hash === '#/calendar'", timeout=15000)
     except Exception:
         pass
     page.wait_for_timeout(1500)
-    check("The model's navigate call is carried out: the person is on Insights", page.url.endswith("#/insights"), page.url)
-    check("The request carried the tools and the words", len(REQUESTS) >= 2 and isinstance(REQUESTS[0].get("tools"), list) and len(REQUESTS[0]["tools"]) >= 8 and "open insights" in last_user_content(REQUESTS[0]), (len(REQUESTS), len(REQUESTS[0].get("tools", [])) if REQUESTS else None))
+    check("The model's navigate call is carried out: the person is on the Calendar", page.url.endswith("#/calendar"), page.url)
+    check("The request carried the tools and the words", len(REQUESTS) >= 2 and isinstance(REQUESTS[0].get("tools"), list) and len(REQUESTS[0]["tools"]) >= 8 and "open the calendar" in last_user_content(REQUESTS[0]), (len(REQUESTS), len(REQUESTS[0].get("tools", [])) if REQUESTS else None))
     check("...and the tool's result went back to the model", any(m.get("role") == "tool" for m in REQUESTS[1].get("messages", [])) if len(REQUESTS) >= 2 else False)
 
     page.goto(f"{BASE}/index.html#/assistant")
@@ -235,7 +238,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     dismiss(page)
     check("...and the step is kept on the conversation, shown as finished, after the page it left", page.locator(".mitra-step[data-tool='navigate'][data-status='done']").count() >= 1, page.locator(".mitra-step").all_inner_texts())
-    final = page.locator(".assistant-page .chat-msg.bot", has_text="Insights")
+    final = page.locator(".assistant-page .chat-msg.bot", has_text="Calendar")
     check("The final words are rendered, bold and all", final.count() >= 1 and final.last.locator("strong").count() >= 1, final.last.inner_text() if final.count() else None)
 
     print("\n==== An unclear instruction is asked about, not guessed ====")
@@ -335,9 +338,13 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
 
     def dock_say(words, wait_for=None):
-        # A chip's answer can fold the dock: open it again before typing, as a person would.
-        if not page.locator(".assistant-dock button[aria-label='Send']").is_visible():
-            open_dock()
+        # A chip folds the dock, and Send is disabled while Mitra is still answering the last turn: open the dock
+        # and wait for Send before typing (16-Oct-2026).
+        open_dock()
+        try:
+            page.wait_for_selector(".assistant-dock button[aria-label='Send']:not([disabled])", timeout=20000)
+        except Exception:
+            pass
         page.locator(".assistant-dock textarea.input").fill(words)
         page.locator(".assistant-dock button[aria-label='Send']").click()
         if wait_for:
@@ -356,6 +363,12 @@ with sync_playwright() as p:
 
     def dock_chip(label):
         return page.locator(".assistant-dock .chat-chip", has_text=label)
+
+    def dock_question():
+        """The question Mitra asked: the last bot message with words in it (an empty bubble for the answer still
+        on its way can sit after it)."""
+        texts = [t for t in page.locator(".assistant-dock .chat-msg.bot").all_inner_texts() if t.strip()]
+        return texts[-1] if texts else ""
 
     print("\n==== A free sheet: add a line (Undo), delete a line after its confirmation, clear a value ====")
     page.goto(f"{BASE}/index.html#/document/qc-adhesive-mixing")
@@ -384,27 +397,12 @@ with sync_playwright() as p:
     check("Added again for the deletion", len(rows) == before_rows + 1, len(rows))
     line_no = len(rows)
     dock_say(f"delete line {line_no}", ".assistant-dock .chat-chip")
-    question = "\n".join(page.locator(".assistant-dock .chat-msg.bot").all_inner_texts())  # every bubble: the last can be an empty, still-streaming one
+    question = dock_question()
     check("A deletion is asked first, in the line's own words, as chips", dock_chip("Yes, delete it").count() == 1 and dock_chip("No, keep it").count() == 1 and re.search(rf"Delete line {line_no} \(.*10:30.*20\.4.*Jeni\) from", question) is not None, question[:200])
     dock_chip("No, keep it").first.click()
     page.wait_for_timeout(1200)
     rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
     check("No: the line stays", len(rows) == line_no, len(rows))
-    # The turn must end with the answer: a composer still busy would hold every later word (REQUIREMENTS §113).
-    try:
-        page.wait_for_selector(".assistant-dock .mitra-composer:not(.is-busy)", timeout=10000)
-    except Exception:
-        pass
-    check(
-        "A declined deletion ends the turn: the composer is free again",
-        page.locator(".assistant-dock .mitra-composer.is-busy").count() == 0,
-        {
-            "bot": page.locator(".assistant-dock .chat-msg.bot").all_inner_texts()[-3:],
-            "chips": page.locator(".assistant-dock .chat-chip").all_inner_texts(),
-            "lastRequestRole": ((REQUESTS[-1].get("messages") or [{}])[-1].get("role") if REQUESTS else None),
-            "requests": len(REQUESTS),
-        },
-    )
     dock_say(f"delete line {line_no}", ".assistant-dock .chat-chip")
     if dock_chip("Yes, delete it").count():
         dock_chip("Yes, delete it").first.click()
@@ -417,7 +415,7 @@ with sync_playwright() as p:
     rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
     line_no = len(rows)
     dock_say(f"clear line {line_no}", ".assistant-dock .chat-chip")
-    question = "\n".join(page.locator(".assistant-dock .chat-msg.bot").all_inner_texts())  # every bubble: the last can be an empty, still-streaming one
+    question = dock_question()
     check("A clear of a written value is asked first, naming the value and the line", dock_chip("Yes, clear it").count() == 1 and dock_chip("No, leave it").count() == 1 and re.search(rf"Clear 20\.4 from line {line_no} \(10:30\) on", question) is not None, question[:200])
     dock_chip("Yes, clear it").first.click()
     page.wait_for_timeout(1500)

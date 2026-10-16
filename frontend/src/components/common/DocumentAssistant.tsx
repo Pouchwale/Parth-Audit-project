@@ -1791,6 +1791,7 @@ export function DocumentAssistant() {
         isDemo,
         language: lang,
         userName: user?.name ?? currentUser,
+        role: user?.role,
         get currentRoute() {
           return pathRef.current;
         },
@@ -1945,9 +1946,20 @@ export function DocumentAssistant() {
   const send = async (raw?: string, spoken = false, edit?: { files: MitraAttachment[]; earlier: ChatMessage[] }) => {
     const text = (raw ?? input).trim();
     if (!text) return;
-    // While a turn runs nothing new is sent — except the answer to the question that turn is waiting on
-    // (a tool's confirm below): the turn holds until it is answered, so the answer must get through (REQUIREMENTS §113).
-    if (loading && !(pendingConfirmRef.current && !edit)) return;
+    // A tool's question waiting for its yes or no (REQUIREMENTS §80, §113): the chip's own words, or a plain
+    // yes/no typed or spoken — in English or Gujarati — answer it. Answered BEFORE the guard below that keeps a
+    // second question out while Mitra answers: it is that very turn that waits for the answer, so with the guard
+    // first the chip's words were dropped and the turn never ended (16-Oct-2026).
+    if (!edit && pendingConfirmRef.current) {
+      const p = pendingConfirmRef.current;
+      pendingConfirmRef.current = null;
+      setInput("");
+      setHint(null);
+      me(text);
+      p.resolve(text === p.yes || /^(?:yes|yeah|yep|ok|okay|sure|go\s+ahead|do\s+it|save(?:\s+it)?|delete\s+it|correct\s+it|fill\s+it|હા|હાં|ha|haa)\b/i.test(text));
+      return;
+    }
+    if (loading) return;
     autoOpenedRef.current = false;
     if (!edit) {
       setInput("");
@@ -1960,16 +1972,6 @@ export function DocumentAssistant() {
       if (spoken || speakReplies) readAloud(reply);
     };
     echoedRef.current = !!edit;
-
-    // A tool's question waiting for its yes or no (REQUIREMENTS §80): the chip's own
-    // words, or a plain yes/no typed or spoken — in English or Gujarati — answer it.
-    if (!edit && pendingConfirmRef.current) {
-      const p = pendingConfirmRef.current;
-      pendingConfirmRef.current = null;
-      me(text);
-      p.resolve(text === p.yes || /^(?:yes|yeah|yep|ok|okay|sure|go\s+ahead|do\s+it|save(?:\s+it)?|delete\s+it|correct\s+it|fill\s+it|હા|હાં|ha|haa)\b/i.test(text));
-      return;
-    }
 
     // A delete waiting for its reason: the next thing typed (or said) is it.
     if (!edit && pendingDelete?.needsReason && t2?.remove && t2.recordId === pendingDelete.recordId) {

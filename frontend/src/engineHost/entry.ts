@@ -1719,6 +1719,7 @@ function toolContext(target: AssistantTarget, who: Who, words: string, attachmen
     isDemo: false,
     language: "en",
     userName: who.userName,
+    role: who.role,
     currentRoute: routeForRecord(documentRepository.getById(target.documentId), target.recordId),
     navigate: () => undefined,
     target,

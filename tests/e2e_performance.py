@@ -16,11 +16,12 @@
     CSV and prints alone;
   * the accounts come from GET /api/users/directory, which never carries an
     email or a password: an account with no departments is listed without a
-    score, an account kept to Quality Control is scored on QC's documents,
-    sees QC only, and is handed only the accounts that share QC;
+    score; the scorecard is the super admin's (REQUIREMENTS s116) - an account
+    kept to Quality Control is refused it in the page's words, keeps its own
+    score card on its Dashboard, and is handed only the accounts that share QC;
   * where a department has two accounts a submitted record counts for whoever
-    submitted it and an unsubmitted one against both, and a person who also
-    answers for a department the viewer cannot see is marked as part-scored
+    submitted it and an unsubmitted one against both, and nobody is marked as
+    part-scored on the super admin's scorecard, which sees every department
     (the page is handed a made-up directory for this; the records are real);
   * the minus score (REQUIREMENTS s92), as FMS counts it: every line, card, the
     plant's tile and the CSV carry the share of the records due never done,
@@ -49,12 +50,14 @@ import io
 import json
 import math
 import os
+import os
 import sys
 import tempfile
-import time
 from datetime import date, datetime
 
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin, SUPER_ADMIN_EMAIL, SUPER_ADMIN_NAME  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -62,11 +65,9 @@ BASE = os.environ.get("DCRS_BASE", "http://localhost:8842").rstrip("/")
 # The minus score is written with a true minus sign (U+2212) on screen.
 MINUS = "\u2212"
 PASSWORD = "PlaywrightQA123"
-# The seeded administrator and what scripts/run-e2e.ts gives the server as SEED_ACCOUNT_PASSWORD (tests/e2e_escalation.py).
-ADMIN_EMAIL = "admin@gpp.local"
-SEED_PASSWORD = "SeedQA@2026"
-# Names with no word in them that is also a button's label.
-VIEWER = "Tally QA"
+# The viewer is the run's super admin (tests/_super_admin.py): the Performance Scorecard is the super admin's
+# (REQUIREMENTS s116). Names with no word in them that is also a button's label.
+VIEWER = SUPER_ADMIN_NAME
 QC_PERSON = "Meena Tally"
 QC_EMAIL = "meena.tally@example.com"
 FAILURES = []
@@ -389,11 +390,9 @@ with sync_playwright() as p:
     page.route("**/translate_a/**", lambda route: route.abort())
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    email = f"tally-{int(time.time() * 1000)}@example.com"
-    page.goto(f"{BASE}/index.html")
-    page.wait_for_selector("text=Sign up", timeout=60000)
-    page.wait_for_timeout(800)
-    sign_up(page, VIEWER, email)
+    email = SUPER_ADMIN_EMAIL
+    role = become_super_admin(page, BASE)
+    check("Signed in as the run's super admin, whose scorecard this is", role == "admin", role)
 
     # ==================================================================
     # 0. A demo year to score: hundreds of records, on time, late and never done
@@ -406,8 +405,9 @@ with sync_playwright() as p:
     records = stored(page, "records") or []
     demo = [r for r in records if r.get("isDemo")]
     check("Demo Mode holds hundreds of records to score", len(demo) >= 300, len(demo))
-    # Every person's minus score is the administrator's and the super admin's to see (s92, 9-Oct-2026): this account is staff.
-    check("A staff account's dashboard has no list of every person's minus score", page.locator("[data-section='team-minus']").count() == 0)
+    # Every person's minus score is the administrator's and the super admin's to see (s92, 9-Oct-2026): this account is
+    # the super admin, so its dashboard has the list (read in section 12); a staff account's has none (section 8).
+    check("The super admin's dashboard has the list of every person's minus score", page.locator("[data-section='team-minus']").count() == 1)
 
     today = date.today()
     today_iso = today.isoformat()
@@ -714,8 +714,11 @@ with sync_playwright() as p:
     check("...alone: no sidebar, no top bar, no period picker and no buttons on the paper", not any(seen[k] for k in ("sidebar", "topbar", "period", "exportButton", "printButton")), seen)
 
     # ==================================================================
-    # 8. An account kept to Quality Control: scored, and shown QC only
+    # 8. An account kept to Quality Control: refused the scorecard, its own score card on the Dashboard
     # ==================================================================
+    # The Performance Scorecard is the super admin's (REQUIREMENTS s116): a QC account made by sign-up has no link
+    # to it, is refused it by its address in the page's words, and keeps its own score card on its Dashboard (s92),
+    # which lists no other person. What the server hands it about the accounts is read as before.
     page.wait_for_timeout(2500)  # what was generated goes to the database before the session ends
     page.locator("button[title='Log Out']").first.click()
     # Every log-out asks about the day's work first (REQUIREMENTS s72).
@@ -732,42 +735,33 @@ with sync_playwright() as p:
         sign_up(page, QC_PERSON, QC_EMAIL, "QC")
     page.wait_for_timeout(2500)
     dismiss(page)
+    check("A QC account has no Performance Scorecard in its sidebar, and no Reports", page.locator(".app-sidebar a[href='#/performance']").count() == 0 and page.locator(".app-sidebar a[href='#/reports']").count() == 0)
     demo_mode(page)
-    open_page(page, "#/performance", settle=3000)
-    if EARLY:
-        select_period(page, FOCUS)
-    scope = page.locator("[data-section='performance-scope']")
-    check("A QC account is told it is seeing Quality Control only", scope.count() == 1 and "Quality Control" in scope.evaluate("el => el.textContent"))
-    qc_departments = table_rows(page, "performance-departments")
-    check("...its department table holds Quality Control and nothing else", [r["key"] for r in qc_departments] == ["QC"], qc_departments)
-    page.wait_for_timeout(800)
-    qc_documents = table_rows(page, "performance-documents")
-    check("...and its documents are QC's own", len(qc_documents) >= 20 and all(r["key"].startswith("qc-") for r in qc_documents), [r["key"] for r in qc_documents if not r["key"].startswith("qc-")])
-    check("...with records to score, handed out by the server for that department", bool(qc_departments) and (THIN or qc_departments[0]["due"] > 0) and not adds_up(qc_departments), qc_departments)
-    me = page.locator(f"[data-person='{QC_PERSON}']")
-    check("The QC account has a card of its own, with a score", me.count() == 1 and me.get_attribute("data-scored") == "yes" and me.locator("[data-field='person-score']").count() == 1)
-    if me.count() == 1 and qc_departments:
-        figures = card_figures(me)
-        dept = qc_departments[0]
-        # The demo year's records were submitted by the plant's operators, who are
-        # not accounts, so they count for every account of the department.
-        check(
-            "...answering for every QC record due: the card's counts are the department's",
-            (figures["onTime"], figures["late"], figures["overdue"]) == (dept["onTime"], dept["late"], dept["overdue"]) and figures["score"] == dept["score"],
-            (figures, dept),
-        )
-        check(
-            "...with the decision as a plain sentence built from those numbers",
-            (f"{dept['onTime']} of {dept['due']} on time" in figures["decision"] if dept["due"] > 0 else "due" in figures["decision"])
-            and figures["grade"] == grade_for(expected_score(dept["onTime"], dept["late"], dept["overdue"])),
-            figures["decision"],
-        )
-        check("...and no warning of a part score: every department it answers for is on its own screen", figures["partial"] == "", figures["partial"])
-        check(
-            "...with QC's minus score and QC's records still open today",
-            figures["minus"] == dept["minus"] == minus_for(dept["overdue"], dept["due"]) and figures["minusText"] == dept["minusText"] and figures["openToday"] == dept["openToday"],
-            (figures, dept),
-        )
+    open_page(page, "#/performance", settle=1500)
+    refusal = page.locator("[data-section='super-admin-only'][data-page='performance']")
+    check(
+        "A QC account is refused the scorecard by its address, in the page's words",
+        refusal.count() == 1 and "The Performance Scorecard is the super admin's" in refusal.inner_text() and page.locator("[data-section='performance-scorecard']").count() == 0,
+        page.locator(".app-content").inner_text()[:300],
+    )
+    # The person's own score card (s92) is a Live card: the Dashboard leaves it out in Demo Mode, so back to Live
+    # (the top bar's first pill) before reading it.
+    page.locator(".app-topbar .pill-tab").nth(0).click()
+    page.wait_for_timeout(600)
+    open_page(page, "#/dashboard", settle=2500)
+    try:
+        page.wait_for_selector("[data-section='my-day']:not([data-state='loading'])", timeout=30000)
+    except Exception:
+        pass
+    card = page.locator("[data-section='my-day']")
+    own = card.locator("[data-field='my-day-score']")
+    check(
+        "...and keeps its own score card on its Dashboard, with a score of its own once a record of its own is due",
+        card.count() == 1 and card.get_attribute("data-state") != "loading" and (own.count() == 0 or (own.get_attribute("data-score") or "") != ""),
+        (card.get_attribute("data-state"), card.inner_text()[:300]) if card.count() else "no card",
+    )
+    demo_mode(page)
+    check("...which lists no other person's minus score (s92: that list is the super admin's)", page.locator("[data-section='team-minus']").count() == 0)
     qc_listing = directory(page)
     qc_people = (json.loads(qc_listing["text"]) if qc_listing["status"] == 200 else {}).get("people") or []
     # The directory is read by the modules a person sees (REQUIREMENTS s96; backend/index.ts GET /api/users/directory): a QC
@@ -782,12 +776,12 @@ with sync_playwright() as p:
         qc_people,
     )
     check("...still without an address in it", "@" not in qc_listing["text"], qc_listing["text"][:300])
-    unrestricted_card = page.locator(f"[data-person='{VIEWER}']")
-    check(
-        "...so the unrestricted account has a card on a QC account's scorecard too, listed without a score",
-        unrestricted_card.count() == 1 and unrestricted_card.get_attribute("data-scored") == "no" and unrestricted_card.locator("[data-field='person-score']").count() == 0,
-        unrestricted_card.first.evaluate("el => el.textContent") if unrestricted_card.count() else None,
-    )
+    # The scorecard again, as the super admin: sections 9 to 11 read it with Meena Tally among the accounts.
+    check("Signed in as the run's super admin again", become_super_admin(page, BASE) == "admin")
+    demo_mode(page)
+    open_page(page, "#/performance", settle=3000)
+    if EARLY:
+        select_period(page, FOCUS)
 
     # ==================================================================
     # 9. Two accounts in one department: a record counts for whoever submitted it
@@ -796,9 +790,9 @@ with sync_playwright() as p:
     # the page is handed a directory that has: the person who submits most of
     # this month's QC records (QC's lab executive of HR Master Data on the day
     # shift, REQUIREMENTS s111 part 6, engine/qcPaperSamples.ts qcShiftSigner -
-    # read from the records themselves, and typed differently) and somebody who
-    # answers for QC and HR both. Only the list of accounts is made up; the
-    # records and the scoring are the real ones.
+    # read from the records themselves, and typed differently) and a second
+    # account of QC. Only the list of accounts is made up; the records and the
+    # scoring are the real ones.
     qc_master = stored(page, "master")
     signers = [
         (r.get("submittedBy") or "").strip().lower()
@@ -810,7 +804,7 @@ with sync_playwright() as p:
     made_up = {
         "people": [
             {"id": "made-up-1", "name": SUBMITTER, "role": "staff", "departments": ["QC"]},
-            {"id": "made-up-2", "name": BOTH, "role": "staff", "departments": ["QC", "HR"]},
+            {"id": "made-up-2", "name": BOTH, "role": "staff", "departments": ["QC"]},
         ]
     }
     page.route("**/api/users/directory", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(made_up)))
@@ -859,9 +853,11 @@ with sync_playwright() as p:
             all(c["score"] == minus_text(minus_for(c["overdue"], card_due(c))) for c in (hers, theirs)),
             (hers, theirs),
         )
+        # The super admin sees every department (s116), so nobody on its scorecard is scored on part of their work;
+        # the part-score mark for a department the viewer cannot see was a staff view, now out of reach.
         check(
-            "Somebody who also answers for a department this account cannot see is marked as scored on part of their work",
-            "Human Resources" in theirs["partial"] and hers["partial"] == "",
+            "The super admin sees every department, so neither is marked as scored on part of their work",
+            hers["partial"] == "" and theirs["partial"] == "",
             (theirs["partial"], hers["partial"]),
         )
     page.unroute("**/api/users/directory")
@@ -879,7 +875,8 @@ with sync_playwright() as p:
     unavailable = page.locator("[data-section='performance-people-unavailable']")
     check("When the accounts cannot be read, the people section says why", unavailable.count() == 1 and "could not be read" in unavailable.evaluate("el => el.textContent") and page.locator("[data-person]").count() == 0)
     offline_departments = table_rows(page, "performance-departments")
-    check("...and the department, module and document tables still show", [r["key"] for r in offline_departments] == ["QC"] and (THIN or offline_departments[0]["due"] > 0) and len(table_rows(page, "performance-modules")) >= 1, offline_departments)
+    offline_qc = next((r for r in offline_departments if r["key"] == "QC"), None)
+    check("...and the department, module and document tables still show", offline_qc is not None and (THIN or offline_qc["due"] > 0) and len(table_rows(page, "performance-modules")) >= 1, offline_departments)
     page.unroute("**/api/users/directory")
     page.click("[data-action='performance-retry-directory']")
     page.wait_for_timeout(1500)
@@ -959,32 +956,11 @@ with sync_playwright() as p:
     # Signed in as the seeded administrator: the dashboard lists every account, worst first, each with the
     # Performance page's own figure for this month, and the plant's line is the page's tile.
     page.unroute("**/api/users/directory")
-    log_out = page.locator(".app-topbar button[title='Log Out']")
-    if log_out.count():
-        log_out.first.click()
-        # Every log-out asks about the day's work first (REQUIREMENTS s72).
-        page.wait_for_timeout(500)
-        _review_ok = page.locator("[data-action='logout-review-confirm']")
-        if _review_ok.count():
-            _review_ok.first.click()
-        page.wait_for_selector("#login-email", timeout=30000)
-    page.goto(f"{BASE}/index.html")
-    page.wait_for_selector("#login-email", timeout=60000)
-    page.wait_for_timeout(400)
-    page.fill("#login-email", ADMIN_EMAIL)
-    page.fill("#login-password", SEED_PASSWORD)
-    page.click("button:has-text('Log In')")
-    # The suites' server on :8842 seeds no account (scripts/run-e2e.ts SEED_ACCOUNTS=0: the first sign-up is the super
-    # admin), so the seeded administrator is there only when an earlier suite of the run made it. Refused, this part is
-    # left out and said so; the dashboard's list itself is proved by frontend/tests/teamMinusScore.test.ts.
-    page.wait_for_selector(".app-sidebar, .auth-error", timeout=60000)
-    administrator = page.locator(".app-sidebar").count() == 1
-    if not administrator:
-        print(f"[NOTE] The administrator's dashboard (section 12) is left out: {ADMIN_EMAIL} is not on this server in this run (" + (page.locator('.auth-error').inner_text() or '').strip()[:120] + ")")
-    else:
-        page.wait_for_timeout(1500)
-        dismiss(page)
-        close_assistant(page)
+    # The run's super admin (tests/_super_admin.py), whose dashboard the list is (s92, s116): signed in afresh, so
+    # the dashboard is read on a clean load.
+    administrator = become_super_admin(page, BASE) == "admin"
+    check("Signed in as the run's super admin for its dashboard's list", administrator)
+    close_assistant(page)
     if administrator:
         # The demo year generated above is what there is to score: the administrator looks at it too.
         demo_mode(page)

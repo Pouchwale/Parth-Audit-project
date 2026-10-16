@@ -1082,6 +1082,50 @@ Seven scripts live in `tests/`:
   (e2e_every_record_starts, e2e_mobile_mitra_api, e2e_mitra_agent, e2e_realism, e2e_access_levels and the others that
   name them), which read no part of their layout this changes but the phone's layout's new `printed`/`value` on a
   header box, `beneath`, `srNoShowsDate`, `secondLine` and `notesBelow`.
+- **The System section is the super admin's** (REQUIREMENTS §116, 15-Oct-2026: "remove last part of System where
+  report, master data, activity, performance and other is store from all id accept Superadmin"). New:
+  `frontend/src/engine/systemSection.ts` (the pages by address, the words in three languages),
+  `frontend/src/components/common/SuperAdminOnly.tsx` (the refusal each page shows), `frontend/tests/systemSection.test.ts`
+  (4). Changed: `Sidebar.tsx` (no System group, no heading, for anybody but the super admin), the six pages (Reports,
+  Master Data, Activity Log, Performance, Insights, Demo Mode: a wrapper that refuses by role), `engine/mitraTools.ts`
+  (navigate refuses a staff account the System pages in one line; the tool context carries the role from the widget, the
+  Ask Mitra page and the server's engine host), `backend/activityRoutes.ts` (both readings 403 for staff),
+  `frontend/tests/mitraTools.test.ts`, `mitraAgent.test.ts`, `mitraCopyEdit.test.ts`, `minusScoreWords.test.ts` (run as
+  the super admin, whose pages these are), `backend/tests/activityRoutes.test.ts` (a staff account refused both
+  readings). Browser suites: those that opened these pages as a staff account made by sign-up are listed in REQUIREMENTS
+  §116 and brought over one by one — each either signs in as the run's super admin or checks the refusal; the checks
+  that a staff account's sidebar has no System group, that each address answers it with the refusal and that the super
+  admin has them all are `tests/e2e_user_access.py`'s (section 9b); `tests/e2e_tour.py` (the staff tour has no Reports step, the super admin's has it before their own pages) and `tests/e2e_mitra_agent.py` (the mocked model opens the Calendar, a page every account has) are brought over. *The run's super admin on the test server :8842* (part 2, 14-Oct-2026): `scripts/run-e2e.ts`
+  starts :8842 with SEED_ACCOUNTS=0, so the run's super admin is whoever signs up FIRST and every later sign-up is
+  staff. New: `tests/_super_admin.py` — `become_super_admin(page, base)` signs in as `super.admin.qa@example.com`
+  ("Super Admin QA"), making the account when it is not on the server yet, and returns the role the server gives
+  it, printed as a [NOTE]; a suite that needed the super admin and did not get it fails its first check saying so.
+  THE RULE: a :8842 suite that needs the super admin becomes it FIRST, before any sign-up of its own, so the account
+  is the first on the server in every order (the full run, a run resumed from a later suite, a suite alone) and the
+  suite's own sign-ups are staff. Brought to it: `e2e_smoke` (first in the runner's order, it makes the account; its
+  random "Playwright QA" account is staff, refused Reports in the page's words, and Demo Mode, Reports and Master
+  Data from section 6 on are the super admin's), `e2e_translate`, `e2e_print_and_forms`, `e2e_print_all_documents`,
+  `e2e_trend_reports`, `e2e_sys_module`, `e2e_sheet_designer`, `e2e_voice_languages`, `visual_qa`, `e2e_departments`
+  (the account that covers every department is the super admin; the QC account is refused Master Data),
+  `e2e_portal_controls` (the Activity Log read as the super admin; Portal QA is staff in every order, its password
+  the super admin's), `e2e_insights` (section 6: a Maintenance and a QC account are refused Insights and the
+  Management Summary, and keep their own search), `e2e_voice_and_sounds` (the person of Production for sections 1
+  to 4; the super admin for Master Data's voice card from 4b on), `e2e_performance` (sections 1–7 and 9–12 as the
+  super admin; section 8: a QC account is refused the scorecard, keeps its own score card on the Dashboard with no
+  list of every person's, and is handed the directory as before; section 9's made-up second account is QC's, and
+  nobody is part-scored on the super admin's scorecard; section 12 uses the helper's account, the admin@gpp.local
+  fallback gone); and on the product server `e2e_working_hours` (a member of staff is refused Master Data; the API
+  refusal of a forged write as before). Found after the brief's grep, which named the five page routes and not Demo
+  Mode's: `e2e_editing` (Master Data's row corrected in place), `e2e_pm_link` (Insights read after the PM date),
+  `e2e_mitra_format` (the Activity Log of section 8) and `e2e_storage_room` (the Demo Mode page's note on the daily
+  sheets' window) run as the super admin, and on the product server `e2e_database_overview` checks that a member of
+  staff has neither the Activity Log nor the Database overview in the sidebar. `e2e_files` and `e2e_realism` stay a
+  staff sign-up: the top bar's Demo pill is everybody's and the demo year comes from the Dashboard, and e2e_realism's
+  click on the Demo page's Generate is guarded; `e2e_mitra_copy_edit`'s navigate to Insights arrives after Stop and is
+  never carried out either way. `e2e_theme` opens every page as a staff sign-up, the refusals in dark among
+  them, unchanged. `npm run typecheck` clean; `npm run test:unit`: frontend 1152
+  (one voice-timing test flaky under the full run's load, green alone), backend 636 (4 skipped, as before).
+  *Browser run of 16-Oct-2026* (E2E_SKIP_UNIT=1, the touched suites in the runner's order, resumed from the failing suite each time, the unit tests run on their own): green - e2e_smoke, e2e_editing, e2e_translate, e2e_print_and_forms, e2e_print_all_documents, e2e_departments, e2e_trend_reports, e2e_pm_link, e2e_sys_module, e2e_storage_room, e2e_mitra_agent, e2e_voice_and_sounds, e2e_insights (shown_modules put back: section 2's filter still read it), e2e_portal_controls (the Activity Log's search box emptied before the chips: the words of an earlier reading stayed in it and filtered on after Clear chips), e2e_sheet_designer, e2e_no_demo_mode, e2e_login_only, e2e_voice_languages, e2e_theme, e2e_performance (the QC account's own score card read in Live mode, since the Dashboard leaves it out in Demo Mode), e2e_database_overview, e2e_user_access, e2e_working_hours and e2e_tour; the run's super admin made by the first suite of each resumed run (role admin) and signed in by the rest, the staff refusals in the page's words. Two things of the product mended on the way: the tour's Reports, Performance and Insights step is the super admin's (frontend/src/components/tour/tourSteps.ts, a staff tour pointed at links it no longer has), and Mitra's tool question is answered while its turn still runs (components/common/DocumentAssistant.tsx send(): the loading guard came before the answer to a pending question, so the "No, keep it" chip was dropped and the turn never ended - found by e2e_mitra_agent, which also had its mocked model answer the literal "delete line 4" alone while at 09:50 a fresh record held one line, and read a question from an empty bubble; the mock reads the number from the words now, dock_say reopens the dock and waits for Send, and the question is the last bot message with words). Found by a run resumed from e2e_no_demo_mode: a product suite seeds admin@gpp.local into the database both servers share, so the account the next :8842 suite made was staff - the helper now has the seeded administrator make it the super admin (POST /api/users/:id/role) and signs in to it again; that path is not yet seen green in a browser (every later run started with a :8842 suite). Still failing on its own account, not on §116: e2e_mitra_format - sections 1 to 5 pass as the super admin, then "add 2 rows" on the Register of Obsolete Artwork is answered with a clear-first question ("Clear (no row) from line 2 and (no row) from line 3") instead of two lines added, the engine's §113 confirm taking empty new rows for cleared values, so its Activity Log section was not reached. visual_qa was not run (not wired into the runner).
 - **The blank sheets from before go-live moved to the archive, never deleted** (REQUIREMENTS §115, 14-Oct-2026: the
   "Found 3457 blank records ... Clean up" banner on every profile; the owner: "without any loss of any records or any
   modules"). New: `backend/recordsArchive.ts` (the `records_archive` table, the two-step move at start-up, the super

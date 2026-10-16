@@ -12,7 +12,8 @@ superintelligent system not only basic audit project".
   * an insight is RAISED AS A CAPA only on a click: the finding lands on this
     month's internal CAPA report, remembers the insight it came from, and the
     same insight is not offered again while it is open;
-  * a department account reads only its own documents' insights.
+  * a department account is refused Insights and the Management Summary, the super admin's
+    (REQUIREMENTS s116), and keeps a search that reaches only its own records.
 
 Anchored on insight ids (data-insight), never on counts: other suites add their
 own records, and "days ago" moves with the real clock.
@@ -20,10 +21,13 @@ own records, and "days ago" moves with the real clock.
 Network-independent (Google Translate is blocked; the server has no model key).
 Against the production build on :8842.
 """
+import os
 import sys
 import time
 
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -96,6 +100,7 @@ def shown_ids(page):
 
 
 def shown_modules(page):
+    """The modules of the cards listed, for the module filter (section 2)."""
     return sorted(set(page.locator("[data-section='insights-list'] [data-insight]").evaluate_all("els => els.map((e) => e.getAttribute('data-module'))")))
 
 
@@ -196,7 +201,10 @@ with sync_playwright() as p:
     # 1. The page, for an account that sees every department
     # ==================================================================
     print("\n==== Insights, every department ====")
-    sign_up(page, "Insights All QA", "")
+    # The account that sees every department is the run's super admin (tests/_super_admin.py): Insights, Reports
+    # and the Performance Scorecard are the super admin's (REQUIREMENTS s116).
+    role = become_super_admin(page, BASE)
+    check("Signed in as the run's super admin", role == "admin", role)
     check("Insights is in the sidebar", page.locator(".app-sidebar a[href='#/insights']").count() == 1)
     page.locator(".app-sidebar a[href='#/insights']").first.click()
     page.wait_for_selector("[data-page='insights']", timeout=15000)
@@ -370,30 +378,24 @@ with sync_playwright() as p:
     page.emulate_media(media="screen")
 
     # ==================================================================
-    # 6. A department account reads only its own
+    # 6. A department account is refused Insights and the Management Summary (REQUIREMENTS s116)
     # ==================================================================
     print("\n==== Scope ====")
+    # Insights and the Management Summary are the super admin's (REQUIREMENTS s116): a department account made by
+    # sign-up has no link to either, is refused both by their addresses in the page's words, and keeps its own
+    # search, which does not reach into another department's records.
+    def refused(page, route, system_page, name):
+        open_page(page, route, settle=800)
+        box = page.locator(f"[data-section='super-admin-only'][data-page='{system_page}']")
+        return box.count() == 1 and f"{name} is the super admin's" in box.inner_text() and page.locator("[data-section='insights-list'], [data-section='monthly-summary']").count() == 0
+
     sign_up(page, "Insights MNT QA", "MNT")
-    open_insights(page)
-    all_cards(page)
-    ids = shown_ids(page)
-    mods = shown_modules(page)
-    check("A Maintenance account sees the lux and M-68 insights", LUX_CABINET in ids and OUT_OF_STEP in ids, ids)
-    check("...and nothing of any other module", mods == ["Maintenance"], mods)
-    # The internal CAPA report is Quality Assurance's (documentDepartments.ts):
-    # an account that cannot open it is not offered to write on it.
-    check("...and is not offered Raise CAPA on a report it cannot open", page.locator("[data-action='raise-capa']").count() == 0 and page.locator("[data-section='insight-suggested-capa']").count() == 0)
-    summary = open_summary(page, 2025, 7)
-    shown = [n for n in ["capa", "quality", "purchase", "pest"] if part(page, n).count()]
-    check("Its Management Summary has Maintenance's parts and no other department's", not shown and part(page, "maintenance").count() == 1, shown)
-    check("...and says whose it is", summary.get_attribute("data-scope") == "Maintenance" and "in Maintenance only" in part(page, "headline").inner_text(), part(page, "headline").inner_text()[:300])
+    check("A Maintenance account has no Insights or Reports in its sidebar", page.locator(".app-sidebar a[href='#/insights'], .app-sidebar a[href='#/reports']").count() == 0)
+    check("...and Insights by its address refuses it, in the page's words", refused(page, "#/insights", "insights", "Insights"), page.locator(".app-content").inner_text()[:300])
+    check("...as does a month's Management Summary", refused(page, "#/reports/2025/7/summary", "reports", "Reports"), page.locator(".app-content").inner_text()[:300])
+    check("...and it is not offered Raise CAPA anywhere", page.locator("[data-action='raise-capa']").count() == 0 and page.locator("[data-section='insight-suggested-capa']").count() == 0)
     sign_up(page, "Insights QC QA", "QC")
-    open_insights(page)
-    all_cards(page)
-    ids = shown_ids(page)
-    check("A Quality Control account sees none of Maintenance's", not any(i.startswith(("m1|", "m2|", "m3|", "m4|", "m5|", "m6|", "m7|")) for i in ids), ids)
-    empty = page.locator("[data-section='insights-empty']").count()
-    check("...and when it has none, the page says so honestly instead of showing a blank", len(ids) > 0 or empty == 1, (ids, empty))
+    check("A Quality Control account is refused Insights the same way", refused(page, "#/insights", "insights", "Insights"), page.locator(".app-content").inner_text()[:300])
     hits = search(page, "usimeca")
     check("...and its search does not reach into Maintenance's records", not hits and "No matches." in page.locator(".app-content").inner_text(), hits[:5])
 

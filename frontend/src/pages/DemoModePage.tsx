@@ -1,13 +1,22 @@
 import React, { useState } from "react";
 import { FiPlayCircle, FiTrash2, FiCalendar, FiAlertTriangle } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
+import { useAuth } from "../store/AuthContext";
+import { SuperAdminOnly } from "../components/common/SuperAdminOnly";
 import { useRouter } from "../store/router";
 import { generateDemoRecordsForMonth, clearAllDemoData, demoDailySheetWindow, DAILY_SHEET_MONTHS_BACK } from "../data/demoGenerator";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { MONTH_NAMES } from "../utils/date";
 import { useT } from "../i18n";
 
+// DEMO MODE IS THE SUPER ADMIN'S (REQUIREMENTS §116): anybody else who reaches the page by its address is refused it.
 export function DemoModePage() {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <SuperAdminOnly page="demo" />;
+  return <DemoModeForSuperAdmin />;
+}
+
+function DemoModeForSuperAdmin() {
   const t = useT();
   const { mode, setMode, bump } = useAppStore();
   const { navigate } = useRouter();

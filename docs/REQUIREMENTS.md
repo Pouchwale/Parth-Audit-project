@@ -3014,6 +3014,9 @@ and its departments'.
   The named accounts are checked against the real database at start-up rather than in the suite, which runs
   with them off.
 
+**Who may open the Activity Log now (15-Oct-2026, §116).** The super admin alone: the page and the server refuse anybody
+else, and Mitra says so in one line instead of opening it.
+
 ## 63. An eye beside every password box (19-Sep-2026)
 
 ```
@@ -3214,6 +3217,9 @@ department filter); it now reads them unscoped, like the documents beside it.
 
 - Covered by `tests/e2e_sheet_designer.py`, `tests/e2e_mitra_format.py` and `tests/e2e_performance.py`, and by
   `tests/e2e_portal_controls.py`, which now reaches the §62 dialog through *More options…*.
+
+**Who may open the Performance Scorecard now (15-Oct-2026, §116).** The super admin alone: the page refuses anybody
+else, and Mitra says so in one line. Each person's own score card stays on their Dashboard (§92).
 
 ## 65. The company's own mark, no Demo Mode in the portal, and a colleague's work never saved over (23-Sep-2026)
 
@@ -4258,6 +4264,10 @@ reads the log and its archive together, with the same filters, paging and search
 per-person tally reads a day-by-day copy of the log (`activity_daily`) for closed days and the lines themselves for the
 last two: at a million lines "Everything" went from 1.7 s to 0.13 s, with identical counts, and the copy is checked
 against the lines before each day is added.
+
+**Who may open Insights and the Monthly summary now (15-Oct-2026, §116).** The super admin alone: the Insights page and
+Reports (the Monthly summary among its tabs) refuse anybody else, and Mitra says so in one line instead of opening them.
+The Dashboard's own insight cards stay as they were.
 
 ## 76. The System / Management module — the PSTL's own formats, every one editable, and read together (25-Sep-2026)
 
@@ -8460,6 +8470,38 @@ made them, moved by the super admin's run, the written sheet and every earlier r
 clean-up for the super admin or staff; the old copy's PUT kept out; the Master Data card, Bring them back exact and
 through the sync, the archive then empty, the server never moving them again; staff see no card and the routes refuse
 them; the activity lines).
+
+## §116 The System section is the super admin's (15-Oct-2026)
+
+**The owner, 15-Oct-2026:** "remove last part of System where report, master data, activity, performance and other is
+store from all id accept Superadmin".
+
+**What changed.** The sidebar's System group — Reports, Master Data, the Activity Log, the Performance Scorecard,
+Insights, Demo Mode where the server has it, and the super admin's own Users & Access, Master list, User access and
+Database overview — is shown to the super admin (role `admin`) only; everybody else gets no group and no heading
+(`components/layout/Sidebar.tsx`). Each of the six pages refuses anybody else who reaches it by its address, the way
+Users & Access and the User access dashboard already did: an `empty-state` with `data-state="not-admin"` and
+`data-section="super-admin-only"`, headed "Only the super admin can open this", with the page's own line in English,
+Gujarati or Hindi (`components/common/SuperAdminOnly.tsx`; the words live once, in `engine/systemSection.ts`). The
+server refuses staff the Activity Log's two readings too (`GET /api/activity`, `GET /api/activity/summary`: 403, "Only
+the super admin can open the Activity Log."); the reports, the scorecard and the insights are worked out in the browser
+from the records the account may see (§96), so they have no route of their own to refuse. Mitra, asked by a staff
+account to open Reports, the Activity Log, the scorecard or Insights (the `navigate` tool), answers in one line instead
+— "Only the super admin can open the Activity Log." — in the language asked (`engine/mitraTools.ts`; the tool context
+now carries the account's role from the widget, the Ask Mitra page and the server's engine host).
+
+**What staff keep.** Their own Dashboard with their own score card (§92: the minus score), their modules and documents,
+Search, Mitra, the notifications and their profile. The Dashboard's "Minus score of every person" list was the
+administrator's already (§92 part 6). The Monthly report and the Insights a staff account could open until now are the
+super admin's from here on.
+
+**Tests.** `frontend/tests/systemSection.test.ts` (4: every System page known by its address and no other; only
+`admin` may see the section; every sentence in the three languages with the same `{page}` and no em dash; the page's
+line and Mitra's line name the page in the language asked); `frontend/tests/mitraTools.test.ts` (navigate refuses a
+staff account every System page in one line, takes the super admin there, and keeps staff their own pages);
+`backend/tests/activityRoutes.test.ts` (a member of QC, or an account with every department, is refused both readings
+with nothing read). The browser suites that opened these pages as a staff account made by sign-up sign in as the super
+admin instead, or check the refusal (docs/TESTING.md).
 
 ## Master data provenance summary
 

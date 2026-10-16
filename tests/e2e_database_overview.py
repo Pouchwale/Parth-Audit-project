@@ -434,7 +434,8 @@ with sync_playwright() as p:
     staff.on("request", lambda r: overview_calls.append(r.url) if "/api/overview" in r.url else None)
     sign_in(staff, STAFF)
     staff_errors.clear()  # the sign-in page's 401, as above
-    check("A member of staff has the Activity Log but no Database overview in the sidebar", staff.locator(".app-sidebar a[href='#/activity']").count() == 1 and staff.locator(".app-sidebar a[href='#/database-overview']").count() == 0)
+    # The System section is the super admin's (REQUIREMENTS s116): neither the Activity Log nor the Database overview is in a member of staff's sidebar.
+    check("A member of staff has neither the Activity Log nor the Database overview in the sidebar", staff.locator(".app-sidebar a[href='#/activity']").count() == 0 and staff.locator(".app-sidebar a[href='#/database-overview']").count() == 0)
     goto(staff, "#/database-overview")
     check("...and the address typed in says the page is the super admin's", staff.locator("[data-page='database-overview'][data-state='not-admin']").count() == 1, staff.locator(".app-content").inner_text()[:300])
     check("...without asking the server for any of it", not overview_calls, overview_calls[:3])

@@ -2,6 +2,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "
 import { FiArchive, FiDownload, FiRefreshCw, FiSearch, FiX } from "react-icons/fi";
 import { activityArchiveApi, api, ApiError, usersApi, type ActivityArchivePreview } from "../api/client";
 import { useAuth } from "../store/AuthContext";
+import { SuperAdminOnly } from "../components/common/SuperAdminOnly";
 import { useT } from "../i18n";
 import { DEPARTMENTS } from "../data/seed/departments";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -54,7 +55,15 @@ function formatNumbers(): { formatNo: string; name: string }[] {
     .map((d) => ({ formatNo: d.formatNo, name: d.name }));
 }
 
+// THE ACTIVITY LOG IS THE SUPER ADMIN'S (REQUIREMENTS §116): anybody else who reaches the page by its address is
+// refused it, and the server refuses them its readings too (backend/activityRoutes.ts).
 export function ActivityLogPage() {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <SuperAdminOnly page="activity" />;
+  return <ActivityLogForSuperAdmin />;
+}
+
+function ActivityLogForSuperAdmin() {
   const { user } = useAuth();
   const t = useT();
   const [lines, setLines] = useState<Line[]>([]);

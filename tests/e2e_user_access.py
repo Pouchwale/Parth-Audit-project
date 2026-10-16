@@ -612,6 +612,36 @@ with sync_playwright() as p:
         check("Each change of her modules is a line, saying from what to what", len(kap_changes) >= 2 and any("QC, HR" in (l.get("detail") or "") for l in kap_changes), [l.get("detail") for l in kap_changes][:3])
 
         # ==============================================================
+        # 9b. The System section is the super admin's (REQUIREMENTS §116)
+        # ==============================================================
+        print("\n==== The System section is the super admin's ====")
+        system_pages = ["reports", "master-data", "activity", "performance", "insights", "users", "master-list", "access", "database-overview"]
+        sign_in(staff, CLERK, CLERK_PASSWORD)
+        links = staff.locator(".app-sidebar a").evaluate_all("els => els.map((e) => e.getAttribute('href'))")
+        check("A member of staff has no System group in the sidebar", staff.locator(".app-sidebar .nav-section-label").filter(has_text="System").count() == 0, staff.locator(".app-sidebar").inner_text()[-300:])
+        check("...and no link to any of its pages", not [h for h in links if h and h.split("/")[1:2] and h.split("/")[1] in system_pages], links[-12:])
+        for route in ["reports", "reports/2026/9/summary", "master-data", "activity", "performance", "insights"]:
+            staff.goto(f"{BASE}/index.html#/{route}")
+            staff.wait_for_timeout(1200)
+            refusal = staff.locator("[data-section='super-admin-only'][data-state='not-admin']")
+            check(f"#/{route} typed in answers her with the refusal", refusal.count() == 1 and "Only the super admin can open this" in refusal.inner_text(), staff.locator(".app-content").inner_text()[:200])
+        check("...which names the page in plain words", "The Performance Scorecard is the super admin's" in staff.locator(".app-content").inner_text() or "Insights is the super admin's" in staff.locator(".app-content").inner_text(), staff.locator(".app-content").inner_text()[:200])
+        refused = [get(staff, r) for r in ["/api/activity?limit=5", "/api/activity/summary"]]
+        check("The server refuses her the activity log's readings too (403, saying whose it is)", all(r["status"] == 403 and "super admin" in ((r.get("body") or {}).get("error") or "") for r in refused), [(r["status"], r.get("body")) for r in refused])
+        staff.goto(f"{BASE}/index.html#/dashboard")
+        staff.wait_for_timeout(1500)
+        close_assistant(staff)
+        check("Her own Dashboard is still hers", staff.locator("[data-section='super-admin-only']").count() == 0 and staff.locator(".app-content").inner_text().strip() != "", staff.locator(".app-content").inner_text()[:200])
+        sign_out(staff)
+        admin.goto(f"{BASE}/index.html#/dashboard")
+        admin.wait_for_timeout(1200)
+        admin_links = admin.locator(".app-sidebar a").evaluate_all("els => els.map((e) => e.getAttribute('href'))")
+        check("The super admin has the System group with every page in it", admin.locator(".app-sidebar .nav-section-label").filter(has_text="System").count() == 1 and all(f"#/{p}" in admin_links for p in system_pages), [h for h in admin_links if h and h.split("/")[1:2] and h.split("/")[1] in system_pages])
+        admin.goto(f"{BASE}/index.html#/activity")
+        admin.wait_for_timeout(1500)
+        check("...and the Activity Log opens for them", admin.locator("[data-page='activity-log']").count() == 1 and admin.locator("[data-section='super-admin-only']").count() == 0)
+
+        # ==============================================================
         # 10. Who may do what (REQUIREMENTS §96): the super admin's rules, held by the server
         # ==============================================================
         print("\n==== Who may do what ====")

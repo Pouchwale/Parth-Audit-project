@@ -1,14 +1,14 @@
 """Visual QA pass: screenshots of key screens + deeper interaction checks
 for Fly Catcher, Service Report, GAP creation, Training creation, and print.
 """
+import os
 import sys
-import time
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 
 BASE = "http://localhost:8842"
 FAILURES = []
-TEST_EMAIL = f"e2e-visual-{int(time.time() * 1000)}@example.com"
-TEST_PASSWORD = "PlaywrightQA123"
 
 
 def check(label, condition):
@@ -27,25 +27,24 @@ def main():
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
 
-        page.goto(f"{BASE}/index.html")
-        page.wait_for_timeout(300)
-        page.click("text=Sign up")
-        page.wait_for_timeout(150)
-        page.fill("#signup-name", "Visual QA")
-        page.fill("#signup-email", TEST_EMAIL)
-        page.fill("#signup-password", TEST_PASSWORD)
-        page.fill("#signup-confirm", TEST_PASSWORD)
-        page.click("button:has-text('Create Account')")
-        page.wait_for_timeout(600)
+        # Reports and Master Data, photographed below, are the super admin's (REQUIREMENTS s116): the run's
+        # super admin (tests/_super_admin.py), its briefing left on screen to photograph.
+        check("Signed in as the run's super admin", become_super_admin(page, BASE, dismiss=False) == "admin")
         # The assistant's login briefing (a blocking overlay) is the first
-        # thing a user sees -- capture it, then dismiss it.
-        check("Assistant briefing shown on login", "ready for your OK" in page.content())
+        # thing a user sees -- capture it, then dismiss it. It comes up once
+        # the day's records are prepared, so wait for it rather than miss it.
+        try:
+            page.wait_for_function("() => /Good (morning|afternoon|evening)/.test(document.body.innerText)", timeout=15000)
+        except Exception:
+            pass
+        page.wait_for_timeout(300)
+        check("Assistant briefing shown on login", any(g in page.content() for g in ("Good morning", "Good afternoon", "Good evening")))
         page.screenshot(path="tests/shots/00_briefing.png")
         got_it = page.locator("button:has-text('Got it')")
         if got_it.count():
             got_it.first.click()
             page.wait_for_timeout(200)
-        check("Signed up and reached the dashboard", "Digital Controlled Record System" in page.content())
+        check("Signed in and reached the dashboard", "Digital Controlled Record System" in page.content())
         page.screenshot(path="tests/shots/01_dashboard.png", full_page=True)
 
         page.click("text=Record Calendar")
