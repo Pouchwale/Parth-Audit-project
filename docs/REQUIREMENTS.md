@@ -8461,6 +8461,85 @@ clean-up for the super admin or staff; the old copy's PUT kept out; the Master D
 through the sync, the archive then empty, the server never moving them again; staff see no card and the routes refuse
 them; the activity lines).
 
+## §117 The QC and HR documents exactly as their papers: no DATE cell, a page number only, F/QC/12 a record a week, F/QC/17's master readings, a new sheet written as the last one was (16-Oct-2026)
+
+**The request.** The owner, 16-Oct-2026, with five photographs of DCRS's printed pages marked in pen (F/QC/12 twice,
+F/HR/17, F/QC/17, F/QC/11) and the Word file of F/HR/18: "there are lots of mistakes in format ... I want perfect
+as-it-is format only, which I have already given to you ... remove date from all formats ... make each and every part
+of document editable ... in QC and HR module ... when user downloads or takes a preview it should also come in [the
+same]". On the photographs: the header's DATE cell crossed out on every page; F/HR/17's PAGE NO. reading "row 16 of the
+October register" crossed out; on F/QC/12 "Weekly → for new record → New Record!", "Weights should be fixed (default)
+(ex: 50, 100, 200)", the Device ID No marked "First", and "Download formatting reqd."; on F/QC/17 "master cal. reading
+not available for 600 mm scale", "After download setting not ok" and "once I have filled the data, same should be
+filled automatically as per previous & I will edit whichever filled reqd editing"; on F/QC/11 "Location: LAB" circled.
+Later the same day he added: every QC and HR document printed on A4 complete (nothing cut, the header block and the
+paper's foot lines on every page, portrait or landscape as the paper is), and the header and footer of every QC and HR
+document fixed as the paper's, on screen, in the preview, in print and in every download.
+
+**No DATE cell (done).** The header block of every document (components/documents/DocumentHeader.tsx, the one
+component every record view, register, preview, print, server PDF, Word and Excel file draws it from) prints the paper's
+cells and no other: Format No. | Rev No. | Rev Date | Page No. The cell DCRS had added for the record's own date is gone
+from the screen, the preview, the printout and every download; the record's own date stands only where the PAPER has a
+box for it (a Date column, a "Date:" line, a Calibration Date). The Rev Date is the format's own cell: it takes a click
+wherever the format's cells do (components/documents/HeaderEditing.tsx FORMAT_HEADER_FIELDS), and a superseded revision's
+prints as text. The record's own Page No. is still typed over on the record (§86); the record's own Date no longer is
+(RecordHeaderField is "page" alone; a date a record holds in its headerBlock from before is kept but not drawn). No title
+is suffixed with a date: F/HR/17's day record is headed "DAILY PEST CONTROL MONITORING RECORD", not "— 16-Oct-2026".
+F-QC-30, whose day stood in the header's DATE since 14-Oct-2026 (§111 part 6), now prints no date of its own anywhere
+on the sheet — to be put to the owner (the paper writes it in the Sr. No. column, which he numbered on 14-Oct).
+
+**A page number only (done).** The Page No. of every record prints "1 of 1" where nobody has typed over it
+(engine/recordLifecycle.ts recordHeaderDefaults) — F/HR/17's day record included, which read "row 16 of the October
+register". Typed over, it prints what was typed, as before.
+
+**F/QC/12, a record a week (done).** The sheet is the week's one calibration: `rowMode: { kind: "single" }`, so no
+line is added to it (engine/recordLines.ts says why), and the next week is a new record under the schedule's own
+period (engine/recordCrud.ts, §93). The five Weight cells of every new line are written with the standard test weights
+50 gm, 100 gm, 200 gm, 500 gm and 600 gm (`LogColumn.standard`, data/seed/qcCalibrationLayouts.ts STANDARD_WEIGHTS;
+engine/recordDefaults.ts blankLogRow writes them on a new record's line, Add line's and Mitra's) and stay editable; for
+the morning prepare and the count of what waits they are a printed part of the line, not a reading
+(engine/observations.ts columnKind). The Device ID No is the first box, as on the paper. The supplied page of
+February–March 2024 keeps its four weeks as written. The print and the Word and Excel files were already landscape for
+this sheet (utils/print.ts fitToPage, utils/docx.ts, utils/documentExport.ts); "Download formatting reqd." is read with
+the owner's later words on A4 printing below.
+
+**F/QC/17's master calibrator readings (done).** The Master calibrator reading column is no longer `fixed`: the six
+printed points (50 to 290 mm) start every new sheet and the person writes a 600 mm master's own readings over them; the
+Difference is the observed reading less the master reading as written (engine/calibration.ts rulerRows).
+
+**A new sheet written as the last one was (done, general for QC's calibration and verification records).**
+`LogSheetLayout.carryForwardAll` on F/QC/11, F/QC/12 and F/QC/17 (engine/carryForward.ts): a new record — started by
+hand, by Mitra or from the phone (engine/recordCrud.ts startingData) or prepared by the morning job
+(engine/knownParts.ts) — is the document's latest earlier sheet a person wrote on in DCRS, confirmed or not, carried
+whole: every box above and below the grid and every cell of every line, the person's own earlier entries (§98 is kept:
+nothing is invented), every one editable. What is not carried: a box or column answered with the record's day, which
+takes the new day; a box the paper prints, which stays the paper's words; the worked-out cells, worked out again. A
+sheet nobody wrote on, and a page DCRS transcribed "as supplied" (the 2024 calibration pages), are never the source;
+without a source the sheet starts as the paper's blank with its standards. The prepare's note says which sheet it was
+written from and that every box is the person's to change.
+
+**Still to do from the owner's list of 16-Oct-2026.** (1) Every part editable: F/QC/11's Device ID No, Location,
+Department and Manufacturer and F/QC/17's "Accetable tolerance" are printed by their papers (checked against the
+originals in source-documents/qc-originals-2026-10-13) and held read-only by §111's printed-box machinery; opening them
+as editable boxes that start with the paper's words needs that machinery's seven unit tests moved onto a layout of their
+own first. (2) The downloads and preview of every QC and HR format checked once against the paper, the A4 print rules
+(nothing cut at the edge or the foot, the header block and the paper's foot lines on every page, portrait or landscape
+as the paper is) and the header and footer fixed as the paper's in print and in every download: the header block is
+done by this section; the grid's borders and boxes in print, the page-break rules and the foot lines are the next
+piece. (3) F/HR/18 as its Word file (another fixer's).
+
+**Tests.** frontend/tests/qcCarryForward.test.ts (4): F/QC/12 one line a week, no Add line, the standard weights
+written and editable and not counted as readings, the device id first; F/QC/17's master readings editable, the
+Difference following what is written, the six points on a fresh sheet; a new F/QC/17 and the morning prepare written as
+the previous one was (boxes, lines, the master's own readings, the date the new day, the printed tolerance kept, the
+Difference worked out again, from the latest sheet a person wrote on); F/QC/12 and F/QC/11 the same, F/QC/11's printed
+boxes kept, nothing carried without a previous record. Changed: recordHeader.test.ts (a page number only, F/HR/17 too),
+qcPaperFindings.test.ts (the header's four cells, no Date cell), qcPaperFormats.test.ts (the week's one line, no line
+appended), truthfulPrepare.test.ts (a carried sheet holds only what its source held; a standard or a printed line's
+value is the paper's). Browser suites changed, to be run with the next full run: tests/e2e_header_editing.py (no Date
+cell, the Rev Date the format's, F/HR/17's page "1 of 1" and its title alone), tests/e2e_qc_calibration.py (F-QC-30's
+header cells).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

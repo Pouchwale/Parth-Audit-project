@@ -485,6 +485,18 @@ Seven scripts live in `tests/`:
   `session-end.test.ts` (the warning's timing and words) and tests in `chat-session.test.ts` (a message refused because the
   session ended, kept for the same person's next sign-in in its chat), `dcrs-app.test.ts` (`expiresAt` at sign-in and in
   /me) and `dcrs-connector.test.ts` (open_record on a day with two records).
+- **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
+  `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
+  (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;
+  a new F/QC/17, F/QC/12 or F/QC/11 written as the document's last sheet a person wrote on (`carryForwardAll`,
+  `engine/carryForward.ts`), by hand and by the morning prepare, the date the new day, the printed boxes kept, nothing
+  carried without a source. Changed: `recordHeader.test.ts` (the Page No. a page number only, F/HR/17's day too),
+  `qcPaperFindings.test.ts` (the header's cells Format No. | Rev No. | Rev Date | Page No., no Date cell),
+  `qcPaperFormats.test.ts` (the week's one line, nothing appended), `truthfulPrepare.test.ts` (a carried sheet holds
+  only what its source held). Browser suites changed and NOT yet run on this branch: `tests/e2e_header_editing.py` (no
+  Date cell; the Rev Date takes the format's click; F/HR/17's page "1 of 1", its title alone) and
+  `tests/e2e_qc_calibration.py` (F-QC-30's header cells) — run them, and `e2e_qc_formats`, `e2e_hr_module`,
+  `e2e_print_all_documents`, `e2e_downloads_and_print`, with the next full run.
 - **The five formats of 02-Oct-2026 and the header block on every document** (REQUIREMENTS §86). New browser suite:
   `tests/e2e_header_editing.py` (demo server, the fill suite's account): on an F/QC/33 record the Page No. and the Date are
   typed over, kept on that record with a history line and after a reload; the format number typed over asks why first,
