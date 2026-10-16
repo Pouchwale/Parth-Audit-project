@@ -1068,11 +1068,13 @@ with sync_playwright() as p:
     open_page(page, "#/document/qc-ruler-verification")
     shot("fqc17-ruler-verification")
     body = printed_text(page)
+    # The tolerance is a box since s117 (every part editable): the paper's "+ / - 1 mm" is its value, not the sheet's text.
+    tolerance_box = page.locator("[data-section='document-preview'] input[data-bind='header/acceptableTolerance'], [data-print-doc] input[data-bind='header/acceptableTolerance']")
     check(
-        "F/QC/17: Measuring Scale (Ruler) Internal Verification Record in its letters, the master's and the ruler's tables, + / - 1 mm printed",
+        "F/QC/17: Measuring Scale (Ruler) Internal Verification Record in its letters, the master's and the ruler's tables, + / - 1 mm starting its box",
         "Measuring Scale (Ruler) Internal Verification Record" in page.locator(".app-content").evaluate("e => e.textContent")
         and body.find("Master Measuring Scale (Ruler) Details") < body.find("Measuring Scale (Ruler) under calibration details")
-        and "Accetable tolerance" in body and "+ / - 1 mm" in body and "Calibration report number" in body,
+        and "Accetable tolerance" in body and tolerance_box.count() >= 1 and tolerance_box.first.input_value() == "+ / - 1 mm" and "Calibration report number" in body,
         body[:700],
     )
     check(
