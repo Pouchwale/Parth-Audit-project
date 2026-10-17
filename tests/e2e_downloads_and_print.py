@@ -217,6 +217,16 @@ with sync_playwright() as p:
     lines = [[c[0] for c in r.values()] for r in rows.values()]
     check("F/QC/17 downloads as a portrait workbook, as its paper is (s117)", fmt == "xlsx" and 'orientation="portrait"' in sheet_xml, (fmt, suggested))
     check("...with the paper's + / - 1 mm starting its tolerance box and its six points", any("+ / - 1 mm" in l for l in lines) and any("290 mm" in l for l in lines), lines[:20])
+    # F/QC/17's second page, the 300 mm scale's (REQUIREMENTS s117, 17-Oct-2026): the same workbook, its own two values.
+    goto(page, "#/library")
+    page.locator("[data-action='new-record'][data-document='qc-ruler-verification-300']").first.evaluate("el => el.click()")
+    page.wait_for_timeout(1500)
+    close_assistant(page)
+    fmt, suggested, path = download(page, "fqc17-300")
+    rows, sheet_xml, _ = workbook(path)
+    lines = [[c[0] for c in r.values()] for r in rows.values()]
+    check("F/QC/17 of the 300 mm scale downloads as a portrait workbook too, as its paper is (s117)", fmt == "xlsx" and 'orientation="portrait"' in sheet_xml, (fmt, suggested))
+    check("...with the 300 mm paper's GP-3/MS/42 and 0-300 mm, the + / - 1 mm and the six points", any("GP-3/MS/42" in l for l in lines) and any("0-300 mm" in l for l in lines) and any("+ / - 1 mm" in l for l in lines) and any("290 mm" in l for l in lines), lines[:24])
 
     # ==================================================================
     # 2. Forms and Word originals: Word

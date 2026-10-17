@@ -24,8 +24,9 @@ the same way. On each one:
     laid out as narrow as they can be, fit the printable width of the page chosen
     (portrait 186 mm, landscape 273 mm, A4 less the 12 mm each side), the page is
     the paper's where the layout names it, the sheet is drawn in its three parts
-    (header block, body, foot), and F/QC/11, F/QC/12, F/QC/17, F/HR/15 and F/HR/16
-    come out of the browser's PDF as one page each, the paper's way round.
+    (header block, body, foot), and F/QC/11, F/QC/12, F/QC/17 (both its pages, the 600 mm
+    and the 300 mm scale's, 17-Oct-2026), F/HR/15 and F/HR/16 come out of the browser's PDF as
+    one page each, the paper's way round.
 
 Network-independent, and driven against the production build on :8842.
 """
@@ -149,6 +150,8 @@ PAPER_PAGES = {
     "qc-gsm-plate-calibration": ("landscape", 1),
     "qc-weight-scale-calibration": ("landscape", 1),
     "qc-ruler-verification": ("portrait", 1),
+    # F/QC/17's second page, the 300 mm scale's (REQUIREMENTS s117, 17-Oct-2026): the same paper.
+    "qc-ruler-verification-300": ("portrait", 1),
     "hr-daily-cleaning": ("landscape", 1),
     # F/HR/16 is one landscape page on paper; DCRS's sheet runs to two (its rows at the paper's size do not fit one
     # page) - the page count is open (REQUIREMENTS §117), the orientation is checked.

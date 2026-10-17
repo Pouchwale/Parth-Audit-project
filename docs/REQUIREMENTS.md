@@ -8661,6 +8661,63 @@ value is the paper's). Browser suites changed, to be run with the next full run:
 cell, the Rev Date the format's, F/HR/17's page "1 of 1" and its title alone), tests/e2e_qc_calibration.py (F-QC-30's
 header cells).
 
+**F/QC/17's second page, the 300 mm scale's (17-Oct-2026).** The owner, 17-Oct-2026, with a new PDF ("Copy of
+F-QC-17-Updated Scale (Ruler) internal verification record-300.pdf", now in source-documents/): "this PDF is for QC17 for
+300mm. So add this also." (his earlier word on every QC paper stands: the same format as his paper, nothing more or
+less, every part editable). The plant verifies two scales against the master scale, and each has its own page of the one
+format. The new paper and the one DCRS held (the 600 mm scale's, supplied 14-Oct-2026, §111 part 8) were read with
+pdfplumber, text and rules, and are the same page line for line (title, F/QC/17 (00/01.12.2021), the master Kristeen
+QC-44 0 - 600 mm 1 mm calibrated 23.09.2024 due 22.09.2025 report CAL/LPI/GP-23/23, the scale under calibration Ajanta
+1 mm 24.09.2024 due 23.09.2025 "Accetable tolerance + / - 1 mm", the six readings 50 to 290 mm, Pass, Kapila Barad)
+except two values in the scale under calibration: the 600 mm paper reads Serial number GP-3/MS/04 and Range 0-600 mm,
+the 300 mm paper Serial number GP-3/MS/42 and Range 0-300 mm.
+
+- *A document of its own.* `qc-ruler-verification-300`, F/QC/17 Rev 00 of 01.12.2021, section Calibration, QC, as
+  required, Kapila Barad's (the owner's table by number), role keyword Internal Calibration, downloads as a workbook as
+  the first does. The existing `qc-ruler-verification` keeps its id, its records and its behaviour; the two are told
+  apart by their names, "Measuring Scale (Ruler) Internal Verification Record — 600 mm" and "... — 300 mm", in the
+  library, Search, the assistant and the master list, while the title printed on the sheet stays the paper's
+  (`LogSheetLayout.paperTitle`, the only change to the first document's layout).
+- *One definition for both.* data/seed/qcRulerVerificationLayouts.ts builds both layouts with one function,
+  `rulerVerificationLayout(scale)`, from a `RulerScale` that holds only what differs: the scale's Serial number and
+  Range, whether the paper's two values start a new record's boxes, and the page each is shown against ("Show original":
+  fqc17-300-ruler-internal-verification.jpg, cut from the new PDF as the first is). Everything else is shared: the
+  boxes and their tables, the columns, the six printed points, the Difference judged by the printed tolerance, portrait
+  A4, no DATE cell, every box editable with the paper's words as its start, carry-forward from the previous record OF
+  ITS OWN document (the 600 mm and the 300 mm records never carry into each other), the date handling, the sample fill,
+  Mitra, the phone and the downloads. engine/calibration.ts, engine/autoFill.ts (the sample and its summary) and the
+  sample verification read F/QC/17 by its two ids (`isRulerVerification`), not by one.
+- *The two values.* A new 300 mm record starts with Serial number GP-3/MS/42 and Range 0-300 mm, as its paper prints
+  them, and Demo Mode's and the sample fill write its own scale's, never the other's. The 600 mm document starts with
+  its paper's GP-3/MS/04 and 0-600 mm in the same two boxes (17-Oct-2026, the same day: a document per scale exists
+  to carry that scale's own details, so the two start alike; each is written over at will and carried forward to the
+  next record of its own document; it was a single flag, `startsWithThem` on its `RulerScale`).
+- *Found and named.* F/QC/17 is carried by two documents, as F-QC-14, F/QC/19, 20, 21, 29 and 30 are: a number, said
+  any way, names both (Search lists both, Mitra asks which) and the master list's one line F-QC-17 is held by both. The
+  bare words ("ruler verification", "measuring scale") name both; a length said with them ("300 mm ruler
+  verification", "ruler verification 600 mm") names its own (engine/assistantLocal.ts).
+- *The library holds 136 documents* (Quality Control 53, its Inspection Records module 47, the Calibration section three:
+  F/QC/11, F/QC/12 and both F/QC/17).
+- *Printed as a person prints it* (the browser's own PDF, both documents filled with their paper's values, read with
+  pdfplumber beside the owner's PDF): the 300 mm page is the 600 mm page to the hundredth of a millimetre, every word
+  and all 175 rules, but for GP-3/MS/42 and 0-300 mm; and against the owner's PDF the two print alike, with the same
+  open difference that was already there for the 600 mm page and is the print renderer's, not this document's: the
+  words are the paper's (the company's one name, DCRS's standard header cells and its date form 23-Sep-2024 for 23.09.2024
+  aside), but DCRS draws the sheet across A4's printable width with its own row heights, so the positions are not within
+  1.5 mm of the paper's. Left to the print-fidelity work on the QC renderers, which changes both documents together.
+
+**Tests (the 300 mm scale).** frontend/tests/qcRuler300.test.ts (8): the two documents are one format wired alike
+(department, group, who answers, role, download kind, the PDF and the picture on disk); both layouts are what the one
+function builds and are equal but for the id, the two starting values and the page; the sheet is the paper (title,
+tables, six points, GP-3/MS/42 and 0-300 mm as input values, the 600 mm sheet as it was); a new record starts as its
+paper's blank; a new record is written as the last of its own document; the Difference and the Status work as on the
+first; the sample is its own scale's; Mitra finds each by its length. Changed only because the document was added:
+accessRules.test.ts (the owner's table), formats.test.ts (F/QC/17 among the numbers two papers share), a4Paper.test.ts
+(portrait for both), qcFormats14Oct.test.ts (F/QC/17 names two documents). Browser suites changed: e2e_smoke.py and
+e2e_hr_module.py (136 documents), e2e_departments.py (QC's 53), e2e_qc_formats.py (F/QC/17 of the 300 mm scale opened,
+started, filled with sample data and submitted; Search finds both), e2e_print_all_documents.py (portrait, one page),
+e2e_downloads_and_print.py (its workbook).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

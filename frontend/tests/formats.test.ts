@@ -45,6 +45,9 @@ const SHARED_BY_THE_COMPANY: Record<string, string[]> = {
   // REQUIREMENTS §111: F-QC-14 is one workbook of two sheets, one per product, the Label sheet headed "F-QC-14/00"
   // and the Sleeve sheet with no number of its own. Each sheet is a document; both are F-QC-14.
   "QC-14": ["qc-test-reliability-label", "qc-test-reliability-sleeve"],
+  // REQUIREMENTS §117, the owner, 17-Oct-2026: the plant verifies two scales against the master and each has its own
+  // page of F/QC/17 (the 600 mm scale's, the 300 mm scale's). Both pages print F/QC/17 (00/01.12.2021).
+  "QC-17": ["qc-ruler-verification", "qc-ruler-verification-300"],
   // The minutes of meetings print F/QC/30; the master list gives F-QC-30 to the
   // Lamination Adhesive Viscosity Record.
   "QC-30": ["qc-viscosity", "qc-minutes-of-meetings"],
