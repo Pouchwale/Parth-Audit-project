@@ -246,6 +246,27 @@ function listAdjustmentDays(today: string): string {
 // (parseDateRange) — both must find something, or this stays silent and the
 // message goes to the model like anything else.
 
+/**
+ * What a person says to name ONE of F/QC/17's two documents by its scale's length — "300 mm ruler verification", "ruler
+ * verification 300 mm", "the 600mm measuring scale" (REQUIREMENTS §117). Each is longer than the words both documents
+ * answer to, and the longer alias wins (matchDocuments), so a length said names its own document and the bare words
+ * still name both.
+ */
+function rulerScaleAliases(mm: string): string[] {
+  return [`${mm} mm`, `${mm}mm`].flatMap((len) => [
+    `${len} ruler verification`,
+    `${len} ruler`,
+    `${len} measuring scale`,
+    `${len} measuring scale verification`,
+    `${len} scale ruler`,
+    `ruler verification ${len}`,
+    `ruler verification record ${len}`,
+    `ruler calibration ${len}`,
+    `ruler ${len}`,
+    `measuring scale ${len}`,
+  ]);
+}
+
 // Longer/more specific phrases are matched with the same weight as short
 // ones (all via word-boundary regex against the whole message) — a message
 // can name more than one, e.g. "rat and mice", which is fine: their ids just
@@ -489,11 +510,24 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "qc-inprocess-printing", aliases: ["in process quality control", "in-process quality control", "in process printing", "f/qc/13"] },
   { id: "qc-weight-scale-calibration", aliases: ["weight scale calibration", "weighing balance", "weight scale", "weighing scale", "f/qc/12"] },
   { id: "qc-gsm-plate-calibration", aliases: ["gsm cutting plate", "cutting plate", "gsm plate", "f/qc/11"] },
-  // F/QC/17 (REQUIREMENTS §111, part 8): never a bare "scale", which is F/QC/12's weighing scale.
+  // F/QC/17 (REQUIREMENTS §111, part 8): never a bare "scale", which is F/QC/12's weighing scale. Two documents hold it
+  // (§117, 17-Oct-2026): the 600 mm scale's and the 300 mm scale's. The words both answer to name both, and Mitra asks
+  // which; a scale's length said with them ("300 mm ruler verification") names its own, because the longer alias wins.
   {
     id: "qc-ruler-verification",
-    aliases: ["ruler verification", "ruler internal verification", "ruler calibration", "measuring scale", "measuring scale verification", "scale ruler", "scale (ruler)", "ruler record"],
+    aliases: [
+      "ruler verification",
+      "ruler internal verification",
+      "ruler calibration",
+      "measuring scale",
+      "measuring scale verification",
+      "scale ruler",
+      "scale (ruler)",
+      "ruler record",
+      ...rulerScaleAliases("600"),
+    ],
   },
+  { id: "qc-ruler-verification-300", aliases: ["ruler verification", "ruler internal verification", "ruler calibration", "measuring scale", "measuring scale verification", "scale ruler", "scale (ruler)", "ruler record", ...rulerScaleAliases("300")] },
   // Quality Control's formats supplied on 18-Sep-2026 (REQUIREMENTS §57). Every
   // one is also found by its format number, which needs no alias at all
   // (engine/formatNumbers.ts) — these are the words people say instead.

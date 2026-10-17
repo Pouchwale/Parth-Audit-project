@@ -1,6 +1,6 @@
 import type { LogSheetData, LogSheetRow } from "../types";
 import { GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
-import { RULER_POINTS } from "../data/seed/qcRulerVerificationLayouts";
+import { RULER_POINTS, isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 
 // THE DEVIATION ON THE TWO INTERNAL CALIBRATION RECORDS IS WORKED OUT, NOT
 // TYPED (REQUIREMENTS §61).
@@ -126,10 +126,10 @@ function rulerRows(rows: LogSheetRow[], tolerance: number | null): LogSheetRow[]
 
 /** The record's data with every deviation worked out; any other document's data is returned as it is. */
 export function withCalibration<T>(documentId: string | undefined, data: T): T {
-  if (documentId !== "qc-weight-scale-calibration" && documentId !== "qc-gsm-plate-calibration" && documentId !== "qc-ruler-verification") return data;
+  if (documentId !== "qc-weight-scale-calibration" && documentId !== "qc-gsm-plate-calibration" && !isRulerVerification(documentId)) return data;
   const d = data as unknown as LogSheetData | undefined;
   if (!d || !Array.isArray(d.rows)) return data;
-  if (documentId === "qc-ruler-verification") {
+  if (isRulerVerification(documentId)) {
     // "+ / - 1 mm": the figure printed in the box (engine/printedBands.ts reads it the same way for the highlight).
     const m = String(d.header?.acceptableTolerance ?? "").match(/\d+(?:\.\d+)?/);
     const worked = rulerRows(d.rows, m ? Number(m[0]) : null);

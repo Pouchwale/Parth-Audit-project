@@ -46,6 +46,7 @@ import { documentTextIn } from "../i18n/documentText";
 import { LINE_CLEARANCE_REGISTERS, lineClearanceChangeovers } from "./lineClearanceSample";
 import { RELIABILITY_DOCUMENTS, testReliabilitySample } from "./testReliabilitySample";
 import { rulerVerificationSample } from "./rulerVerificationSample";
+import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { OBSOLETE_ARTWORK_LINES } from "../data/seed/qcRegisterLayouts";
 
 // DEMO MODE AND SAMPLE DATA ONLY (REQUIREMENTS §98, 8-Oct-2026). This is a
@@ -956,10 +957,11 @@ function fillLogSheet(
     }
   }
 
-  if (doc.id === "qc-ruler-verification") {
+  if (isRulerVerification(doc.id)) {
     // F/QC/17 as a real verification (engine/rulerVerificationSample.ts, REQUIREMENTS §111 part 8): the master's
-    // current certificate, the ruler verified that day and its six readings; not the page of 24.09.2024 copied.
-    const verification = rulerVerificationSample(dueDate);
+    // current certificate, the ruler verified that day and its six readings; not the page of 24.09.2024 copied. Each
+    // of its two documents (the 600 mm and the 300 mm scale's, §117) is verified as its own scale.
+    const verification = rulerVerificationSample(dueDate, doc.id);
     Object.assign(header, verification.header);
     rows = rows.map((row, i) => ({ ...row, observed: verification.observed[i] ?? null }));
   }
@@ -1186,7 +1188,8 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
         signers.length ? `Each reading signed under it by the tester on shift: ${signers.join(" / ")}.` : "Each reading is signed under it by whoever takes it.",
       ];
     }
-    case "qc-ruler-verification": {
+    case "qc-ruler-verification":
+    case "qc-ruler-verification-300": {
       const off = rows.filter((r) => String(r.difference ?? "") !== "" && String(r.difference) !== "0.0").length;
       return [
         `Verified ${h.make || "the ruler"} ${h.serialNo || ""} against the master ${h.masterSerialNo || ""} at the six printed points: ${off === 0 ? "every reading on the master's figure" : `${off} off the master's figure`}, ${rows[0]?.status || "no verdict yet"} against + / - 1 mm.`.replace(/\s+/g, " "),

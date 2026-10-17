@@ -88,6 +88,7 @@ test("each paper's orientation is named on its layout: F/QC/11, F/QC/12, F/HR/15
   assert.equal(paper("hr-daily-cleaning"), "landscape");
   assert.equal(paper("hr-monthly-cleaning"), "landscape");
   assert.equal(paper("qc-ruler-verification"), "portrait");
+  assert.equal(paper("qc-ruler-verification-300"), "portrait", "F/QC/17's second page, the 300 mm scale's, is the same paper");
   assert.equal(paper("qc-viscosity"), undefined, "F-QC-30 says nothing: its width decides, as before");
 });
 
@@ -106,6 +107,7 @@ test("a sheet is drawn in three parts, head, body and foot, the paper's orientat
 
 test("F/QC/17 is a portrait page; F/QC/11's foot holds its PROCEDURE; a sheet whose layout names no paper carries none", async () => {
   assert.match(await blankSheet("qc-ruler-verification"), /class="paper-sheet[^"]*"[^>]*data-paper="portrait"/);
+  assert.match(await blankSheet("qc-ruler-verification-300"), /class="paper-sheet[^"]*"[^>]*data-paper="portrait"/);
   const gsm = await blankSheet("qc-gsm-plate-calibration");
   assert.match(gsm, /data-paper="landscape"/);
   assert.ok(gsm.indexOf('data-section="notes-below"') > gsm.indexOf('class="paper-foot"'));

@@ -393,7 +393,13 @@ test("F/QC-09 and F/QC-38 print their table's own marks — •, ❖ and ✓ —
 // Mitra and Search find each by its number and its words
 
 test("Mitra finds the three by their numbers and words; the number without its letter and 'temperature monitoring' name the three of F-QC-40", () => {
-  for (const q of ["F QC 17", "FQC17", "F/QC/17", "f-qc-17", "qc 17"]) assert.equal(findDocument(q)?.id, "qc-ruler-verification", q);
+  // F/QC/17 is carried by two documents since 17-Oct-2026 (the 600 mm and the 300 mm scale's, REQUIREMENTS §117): the
+  // number names both, as F-QC-14's two sheets are named, and Mitra asks which.
+  const rulers = ["qc-ruler-verification", "qc-ruler-verification-300"];
+  for (const q of ["F QC 17", "FQC17", "F/QC/17", "f-qc-17", "qc 17"]) {
+    assert.deepEqual(matchDocuments(q.toLowerCase()).sort(), rulers, q);
+    assert.equal(findDocument(q), undefined, `${q}: two documents, so not one`);
+  }
   for (const q of ["F-QC-40.A", "F QC 40 A", "fqc40a", "F/QC/40A"]) assert.equal(findDocument(q)?.id, "qc-temperature-humidity", q);
   for (const q of ["F-QC-40.B", "F QC 40 B", "fqc40b"]) assert.equal(findDocument(q)?.id, "qc-temperature-sleeve", q);
   assert.equal(findDocument("F-QC-40.C")?.id, "qc-temperature");
@@ -403,11 +409,16 @@ test("Mitra finds the three by their numbers and words; the number without its l
   assert.deepEqual(matchDocuments("fill the sleeve division temperature"), ["qc-temperature-sleeve"]);
   assert.deepEqual(matchDocuments("open hot room temperature monitoring"), ["qc-temperature"]);
   assert.deepEqual(matchDocuments("temperature and humidity monitoring for the ink kitchen"), ["qc-temperature-humidity"]);
-  assert.deepEqual(matchDocuments("open the ruler verification record"), ["qc-ruler-verification"]);
+  assert.deepEqual(matchDocuments("open the ruler verification record").sort(), ["qc-ruler-verification", "qc-ruler-verification-300"], "no length said: both pages of F/QC/17");
+  assert.deepEqual(matchDocuments("open the 600 mm ruler verification record"), ["qc-ruler-verification"]);
+  assert.deepEqual(matchDocuments("open the 300 mm ruler verification record"), ["qc-ruler-verification-300"]);
   assert.deepEqual(matchDocuments("weighing scale calibration"), ["qc-weight-scale-calibration"], "F/QC/12's scale is not the ruler");
   // The Master List of Formats no longer says any of the four is "not in DCRS yet": each number finds the document.
-  for (const [listed, id] of [["F-QC-17", "qc-ruler-verification"], ["F-QC-10", "soc-shrink-sleeves"], ["F-QC-40. A", "qc-temperature-humidity"], ["F-QC-40. B", "qc-temperature-sleeve"]]) {
+  for (const [listed, id] of [["F-QC-10", "soc-shrink-sleeves"], ["F-QC-40. A", "qc-temperature-humidity"], ["F-QC-40. B", "qc-temperature-sleeve"]]) {
     const found = findDocuments(listed);
     assert.ok(found.length === 1 && found[0].kind !== "master" && found[0].doc.id === id, `${listed}: ${found.map((f) => (f.kind === "master" ? `master ${f.format.formatNo}` : f.doc.id)).join(", ")}`);
   }
+  // F-QC-17 is the master list's one line and two documents hold it (the 600 mm and the 300 mm scale's): both are found, neither as "not in DCRS yet".
+  const seventeen = findDocuments("F-QC-17");
+  assert.deepEqual(seventeen.map((f) => (f.kind === "master" ? `master ${f.format.formatNo}` : f.doc.id)).sort(), ["qc-ruler-verification", "qc-ruler-verification-300"]);
 });

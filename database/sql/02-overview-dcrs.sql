@@ -137,7 +137,9 @@ AS $$
       -- The owner's formats of 13 and 14-Oct-2026 (REQUIREMENTS §111 parts 5 and 8): F-QC-14's two sheets,
       -- F-QC-40.A and .B, F/QC/17 and F/QC-10, the shrink sleeves' Statement of Compliance.
       'qc-test-reliability-label', 'qc-test-reliability-sleeve', 'qc-temperature-humidity', 'qc-temperature-sleeve',
-      'qc-ruler-verification', 'soc-shrink-sleeves'
+      'qc-ruler-verification', 'soc-shrink-sleeves',
+      -- F/QC/17's second page, the 300 mm scale's (REQUIREMENTS §117, 17-Oct-2026).
+      'qc-ruler-verification-300'
     ) THEN 'QC'
     WHEN document_id IN (
       'gap-inspection'
