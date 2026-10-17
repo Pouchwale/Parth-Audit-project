@@ -98,7 +98,7 @@ def library_new_record_ids(page, base):
     return page.eval_on_selector_all("[data-action='new-record']", "els => els.map(e => e.getAttribute('data-document'))")
 
 
-def open_document(page, base, doc):
+def open_document(page, base, doc, pages=("#/record/",)):
     """Opens the document as a person does; returns how ('new-record' | 'statement' | 'document-page') or raises."""
     if doc["kind"] == "compliance-statement":
         page.goto(f"{base}/index.html#/soc/{doc['id']}")
@@ -126,7 +126,7 @@ def open_document(page, base, doc):
     page.wait_for_timeout(1400)
     dismiss(page)
     page.evaluate(STUB_PRINT)
-    if "#/record/" not in page.url:
+    if not any(p in page.url for p in pages):
         # a refusal or a notice instead of a sheet
         raise RuntimeError(f"the record did not open (at {page.url.split('#', 1)[-1]})")
     return how

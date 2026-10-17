@@ -29,13 +29,16 @@ python -I tests/qc_visual/run.py --docs qc-bopp-film,qc-coa-label --port PORT --
 # reuse the reference renders / the built frontend
 python -I tests/qc_visual/run.py --docs qc-bopp-film --skip-reference --no-build
 
+# no server: compare the captures already in DIR/dcrs again (after the comparison or the references changed)
+python -I tests/qc_visual/run.py --compare-only
+
 # REGRESSION GUARD: a digest of every non-QC document's words and rules geometry
 python -I tests/qc_visual/run.py --make-baseline      # on the code BEFORE a change (writes DIR/guard/baseline.json)
 python -I tests/qc_visual/run.py --guard              # after: lists every non-QC document whose digest changed; exit 1 if any
 python -I tests/qc_visual/run.py --with-guard         # the comparison, then the guard (writes the baseline first if there is none)
 ```
 
-Options: `--docs a,b,c`, `--port N` (default a free one; never 3000, 4000, 4100, 5432, 5433, 8081, 8090, 8842, 8843), `--out DIR`
+Options: `--docs a,b,c`, `--compare-only`, `--port N` (default a free one; never 3000, 4000, 4100, 5432, 5433, 8081, 8090, 8842, 8843), `--out DIR`
 (default: this session's scratchpad `qc-visual`; the output is never committed), `--skip-reference`, `--no-build`.
 
 The pieces, each also runnable alone:
@@ -51,6 +54,15 @@ The pieces, each also runnable alone:
 | `compare.py` | (d) per document and page: page count, orientation, content box; words matched by text and reading order; rules; header-block cell boundaries; fonts; grid lines; score; the mismatches in words; the side-by-side image |
 | `guard.py` | (e) the regression guard |
 | `run.py` | the orchestrating command |
+
+## Reading the numbers
+
+* Several papers are **filled specimens** (the line-clearance sheets, F/QC/16's thirteen lines, the COAs, F-QC-14): what is written on them is
+  reported as words "not in DCRS", because the DCRS record compared is blank. Judge those by the printed frame (headings, columns, rules).
+* A blank new record carries what its layout fills by itself (the date of the day, carry-forward, F/QC/12's standard weights): reported
+  as words "in DCRS not on the paper".
+* A word found at another place counts as matched with a large dx/dy (it is in the wrong place), not as missing.
+* A 4-page paper held against a 1-page print (F-QC-19's tolerance card) scores low on the page count first: look at the pictures.
 
 ## Output (DIR)
 

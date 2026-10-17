@@ -7,6 +7,7 @@ preparation) must not change HR or any other non-QC output.
 A date or time in a blank record is masked in the digest (only its place counts), so the digest is the same from one day to the next.
 """
 import os
+import re
 import sys
 import tempfile
 import time
@@ -38,13 +39,14 @@ def render_target(page, base, kind, ident, route=None):
             capture.dismiss(page)
             page.evaluate(capture.STUB_PRINT)
         else:
-            capture.open_document(page, base, {"id": ident, "kind": "log-sheet"})
+            capture.open_document(page, base, {"id": ident, "kind": "log-sheet"}, pages=("#/record/", "#/gap/", "#/training/"))
         pdf = os.path.join(tempfile.gettempdir(), "dcrs-qcvis-guard.pdf")
         capture.print_pdf(page, pdf)
         pages = common.extract_pdf(pdf)
         return {"pages": len(pages), "words": sum(len(p["words"]) for p in pages), "rules": sum(len(p["rules"]) for p in pages), "digest": common.digest_geometry(pages), "geometry": pages}
     except Exception as e:
-        return {"error": f"{type(e).__name__}: {str(e)[:200]}"}
+        # a record id in the text would differ from one run to the next
+        return {"error": re.sub(r"rec-[\w-]+", "rec-ID", f"{type(e).__name__}: {str(e)[:200]}")}
 
 
 def render_all(srv, out_root, qc_ids):
