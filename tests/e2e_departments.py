@@ -107,6 +107,8 @@ QC_DOCUMENT_IDS = {
     "qc-temperature-humidity",
     "qc-temperature-sleeve",
     "qc-ruler-verification",
+    # The owner's of 17-Oct-2026 (REQUIREMENTS s117): F/QC/17's second page, the 300 mm scale's.
+    "qc-ruler-verification-300",
 }
 
 UNSCOPED = ("dept-all@example.com", "Dept All QA", "")
@@ -382,8 +384,8 @@ with sync_playwright() as p:
 
     qc_docs = library_documents(page)
     check(
-        "Its Document Library holds only Quality Control's fifty-two documents",
-        len(qc_docs) == 52 and len(qc_docs) < len(all_docs),
+        "Its Document Library holds only Quality Control's fifty-three documents",
+        len(qc_docs) == 53 and len(qc_docs) < len(all_docs),
         {"count": len(qc_docs), "docs": qc_docs},
     )
     ids = page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.dataset.document)")

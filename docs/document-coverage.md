@@ -15,9 +15,10 @@ copies are not present in our software of every module."
 
 Checked against the company's workbook of F/SYS/02 (141 lines, the list DCRS keeps), using its own **Method of
 Recording** column: "Hard copy" (117 lines), "SAP" (11), "SAP/ Hard copy" (6), not stated (6, the newest lines), and
-one marked "Obsolate on 25.06.25". DCRS holds 135 documents: F-QC-14, supplied on 13-Oct-2026, and F-QC-10, F-QC-17,
-F-QC-40. A and F-QC-40. B, supplied on 14-Oct-2026, are in DCRS since (§111 parts 5 and 8); the other gaps are the same
-as below, now split by how each format is kept.
+one marked "Obsolate on 25.06.25". DCRS holds 136 documents: F-QC-14, supplied on 13-Oct-2026, and F-QC-10, F-QC-17,
+F-QC-40. A and F-QC-40. B, supplied on 14-Oct-2026, are in DCRS since (§111 parts 5 and 8), and F-QC-17's second page,
+the 300 mm scale's, sent on 17-Oct-2026 (§117); the other gaps are the same as below, now split by how each format is
+kept.
 
 **Complete:** System / Management, Store, Maintenance and Dispatch: every hard copy on the list is in DCRS.
 
@@ -144,8 +145,8 @@ department code; DCRS files it under Quality Control.
 **Lines only in the workbook** (not on the PDF): Marketing has 2 more (F-MKT-05 and F-MKT-06, both in DCRS) and
 Production has 4 more (F-PRD-27 to F-PRD-30, not supplied yet).
 
-**The other way round:** DCRS holds 135 documents. 109 of them are formats on the list (F-QC-14, F-QC-15 and F-MNT-05
-each have two DCRS documents). The other 26 are not on the PDF list; they are explained in "DCRS documents that are not
+**The other way round:** DCRS holds 136 documents. 109 of them are formats on the list (F-QC-14, F-QC-15, F-MNT-05 and,
+since 17-Oct-2026, F-QC-17 each have two DCRS documents). The other 26 are not on the PDF list; they are explained in "DCRS documents that are not
 on the master list" below.
 
 ## Every format on the list, by department
@@ -237,7 +238,7 @@ What the status words mean:
 | 49 | F-QC-15 - F | Area Line Clearance - SHRINK SLEEVE GLUING | **In DCRS** as `qc-line-clearance-sleeve-gluing` "Area Line Clearance Report - Shrink Sleeve Gluing", Rev 00 |
 | 50 | F-QC-15 - G | Area Line Clearance - SHRINK SLEEVE CUTTING | **In DCRS** as `qc-line-clearance-sleeve-cutting` "Area Line Clearance Report - Shrink Sleeve Cutting", Rev 00 |
 | 51 | F-QC-16 | OBSOLETE ARTWORK & SHADE CARD RECORD | **In DCRS** as `qc-obsolete-artwork` "Register of Obsolete Artwork", Rev 00 |
-| 52 | F-QC-17 | Scale / Ruler internal calibration record | **In DCRS** as `qc-ruler-verification` "Measuring Scale (Ruler) Internal Verification Record" (F/QC/17), Rev 00, supplied 14-Oct-2026 (§111 part 8). |
+| 52 | F-QC-17 | Scale / Ruler internal calibration record | **In DCRS** as `qc-ruler-verification` "Measuring Scale (Ruler) Internal Verification Record — 600 mm" (F/QC/17), Rev 00, supplied 14-Oct-2026 (§111 part 8), and as `qc-ruler-verification-300` "... — 300 mm", the 300 mm scale's page of the same format, sent on 17-Oct-2026 (§117). |
 | 53 | F-QC-21 | _Inspection record for Flexo Ink | **In DCRS** as `qc-flexo-ink` "Inspection Record – Flexo Ink", Rev 00. A second supplied paper also prints F/QC/21 (the lamination film adhesive record, see below). |
 | 54 | F-QC-30 | Lamination Adhesive Viscosity Record | **In DCRS** as `qc-viscosity` "Lamination Adhesive Viscosity Record", Rev 00. Shown in the "Lamination — Quality Control" module. |
 | 55 | F-QC-31 | COA Pouch | **Not supplied yet.** |

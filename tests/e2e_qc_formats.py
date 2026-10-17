@@ -5,7 +5,8 @@ give you all documents which you have put in QC Module and make sure each and
 every document will be editable and bot will perform task according to user
 query". REQUIREMENTS s57. So this suite checks that:
 
-  * the Quality Control module holds all forty-six documents, shelved in the
+  * the Quality Control module holds all forty-seven documents (F/QC/17's second page, the 300 mm
+    scale's, of 17-Oct-2026, made it forty-seven), shelved in the
     department's seven sections;
   * every one of the thirty-two new formats, F/QC/15-B, F/QC/33 and F/QC/36, opens on a page of
     its own, headed by its own format number;
@@ -140,6 +141,8 @@ NEW_FORMATS = {
     "qc-temperature-humidity": "F-QC-40.A",
     "qc-temperature-sleeve": "F-QC-40.B",
     "qc-ruler-verification": "F/QC/17",
+    # Supplied on 17-Oct-2026 (REQUIREMENTS s117): F/QC/17's second page, the 300 mm scale's - the same number, a document of its own.
+    "qc-ruler-verification-300": "F/QC/17",
 }
 
 
@@ -537,11 +540,11 @@ with sync_playwright() as p:
     sign_in(page)
 
     # ==================================================================
-    # 1. The module holds all forty-six, in the department's seven sections
+    # 1. The module holds all forty-seven, in the department's seven sections
     # ==================================================================
     open_page(page, "#/library/quality-control-inspection-records")
     rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-    check("Quality Control - Inspection Records holds forty-six documents", rows.count() == 46, rows.count())
+    check("Quality Control - Inspection Records holds forty-seven documents", rows.count() == 47, rows.count())
     sections = page.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved in the department's seven sections, in order", sections == QC_SECTIONS, sections)
     text = page.locator(".app-content").inner_text()
@@ -1103,6 +1106,53 @@ with sync_playwright() as p:
     page.locator("[data-action='submit']").first.click()
     page.wait_for_timeout(1600)
     check("...and it is submitted", (record(page, rid) or {}).get("status") in ("Submitted", "Pending Verification"), (record(page, rid) or {}).get("status"))
+
+    # F/QC/17's second page, the 300 mm scale's (REQUIREMENTS s117, the owner, 17-Oct-2026: "this PDF is for QC17 for
+    # 300mm. So add this also."): the same layout and behaviour, the 300 mm paper's Serial number and Range starting its boxes.
+    def box_value(key):
+        box = page.locator(f"[data-section='document-preview'] input[data-bind='header/{key}'], [data-print-doc] input[data-bind='header/{key}']")
+        return box.first.input_value() if box.count() else None
+
+    open_page(page, "#/document/qc-ruler-verification-300")
+    shot("fqc17-300-ruler-verification")
+    body = printed_text(page)
+    check(
+        "F/QC/17 for the 300 mm scale: the paper's title in its letters, the two tables, + / - 1 mm, GP-3/MS/42 and 0-300 mm starting its boxes",
+        "Measuring Scale (Ruler) Internal Verification Record" in page.locator(".app-content").evaluate("e => e.textContent")
+        and body.find("Master Measuring Scale (Ruler) Details") < body.find("Measuring Scale (Ruler) under calibration details")
+        and "Accetable tolerance" in body and "Calibration report number" in body
+        and box_value("acceptableTolerance") == "+ / - 1 mm" and box_value("serialNo") == "GP-3/MS/42" and box_value("range") == "0-300 mm" and box_value("masterSerialNo") == "QC-44",
+        (body[:500], box_value("serialNo"), box_value("range")),
+    )
+    check(
+        "...the same six columns and the six points 50 to 290 mm",
+        heads(page) == ["#", "Master calibrator reading", "Observed reading (mm)", "Difference", "Status (Pass/Fail)", "Calibration performed by"]
+        and [cell_texts(page, i)[1] for i in range(sheet_rows(page).count())] == ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"],
+        (heads(page), sheet_rows(page).count()),
+    )
+    rid300 = start_record(page, "qc-ruler-verification-300")
+    started = record(page, rid300) or {}
+    started_header = started.get("data", {}).get("header", {})
+    check(
+        "A new F/QC/17 of the 300 mm scale holds its own two values, the master's identity, the day and the tolerance - nothing of the 600 mm record just written, nor of the 2024 page",
+        started_header.get("serialNo") == "GP-3/MS/42" and started_header.get("range") == "0-300 mm" and started_header.get("masterSerialNo") == "QC-44"
+        and started_header.get("acceptableTolerance") == "+ / - 1 mm" and not started_header.get("make") and not started_header.get("masterCalibrationReportNo")
+        and "2024" not in json.dumps(started.get("data", {})) and "GP-3/MS/04" not in json.dumps(started.get("data", {})),
+        started_header,
+    )
+    fill_with_sample_data(page)
+    filled = record(page, rid300) or {}
+    filled_rows = filled.get("data", {}).get("rows", [])
+    filled_header = filled.get("data", {}).get("header", {})
+    check(
+        "...Mitra's sample data is the 300 mm scale's own: GP-3/MS/42, 0-300 mm, each Difference worked out, the scale passed",
+        len(filled_rows) == 6 and all(str(r.get("difference", "")) in ("0.0", "1.0", "-1.0") for r in filled_rows) and filled_rows[0].get("status") == "Pass"
+        and filled_header.get("serialNo") == "GP-3/MS/42" and filled_header.get("range") == "0-300 mm",
+        (filled_header, filled_rows[:2]),
+    )
+    page.locator("[data-action='submit']").first.click()
+    page.wait_for_timeout(1600)
+    check("...and it is submitted", (record(page, rid300) or {}).get("status") in ("Submitted", "Pending Verification"), (record(page, rid300) or {}).get("status"))
     open_page(page, "#/soc/soc-shrink-sleeves")
     if os.environ.get("QC_PAPER_SHOTS"):
         os.makedirs(os.environ["QC_PAPER_SHOTS"], exist_ok=True)
@@ -1355,6 +1405,12 @@ with sync_playwright() as p:
     check(
         "Searching F/QC/21 finds both formats the company numbered F/QC/21",
         "Inspection Record – Flexo Ink" in found and "Inspection Record – Lamination Film Adhesive" in found,
+        found[:400],
+    )
+    found = search_documents("F/QC/17")
+    check(
+        "Searching F/QC/17 finds both pages of it, the 600 mm scale's and the 300 mm scale's (s117)",
+        "Internal Verification Record — 600 mm" in found and "Internal Verification Record — 300 mm" in found and "not in DCRS yet" not in found,
         found[:400],
     )
 
