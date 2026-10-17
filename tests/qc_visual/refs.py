@@ -154,13 +154,22 @@ GRID_RENDERER = {
     "qc-inprocess-printing": "log-sheet table + PrintedTable (the grade criteria reference table)",
 }
 
-# The folder name of a reference's rendering, e.g. "F-QC-01_Inspection record for BOPP Film (2)" -> a short safe key.
-def ref_key(ref):
+def _base_key(ref):
     stem = ref["file"].rsplit(".", 1)[0]
     safe = "".join(c if c.isalnum() else "_" for c in stem)
     while "__" in safe:
         safe = safe.replace("__", "_")
     return safe.strip("_")
+
+
+def ref_key(ref):
+    """The folder name of a reference's rendering: its file name made safe; two names that come to the same ("F-QC-29 Analysis report" and
+    "F-QC-29 _ Analysis report") are told apart by a short hash of the exact name."""
+    import hashlib
+
+    base = _base_key(ref)
+    clash = sum(1 for r in REFERENCES + EXTRA_PHOTOS if _base_key(r) == base) > 1
+    return base + ("_" + hashlib.sha1(ref["file"].encode("utf-8")).hexdigest()[:5] if clash else "")
 
 
 def all_references():
