@@ -1090,9 +1090,9 @@ with sync_playwright() as p:
     started = record(page, rid) or {}
     started_header = started.get("data", {}).get("header", {})
     check(
-        "A new F/QC/17 holds the master scale's identity, the day and the printed tolerance, and nothing of the 2024 page",
+        "A new F/QC/17 (600 mm) holds the master scale's identity, its own scale's serial and range, the day and the printed tolerance, and nothing of the 2024 page",
         started_header.get("masterSerialNo") == "QC-44" and started_header.get("acceptableTolerance") == "+ / - 1 mm"
-        and not started_header.get("serialNo") and "2024" not in json.dumps(started.get("data", {})),
+        and started_header.get("serialNo") == "GP-3/MS/04" and started_header.get("range") == "0-600 mm" and "2024" not in json.dumps(started.get("data", {})),
         started_header,
     )
     fill_with_sample_data(page)

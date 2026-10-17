@@ -67,7 +67,7 @@ export const RULER_SCALES: readonly RulerScale[] = [
     lengthMm: 600,
     serialNo: "GP-3/MS/04",
     range: "0-600 mm",
-    startsWithThem: false,
+    startsWithThem: true,
     specimenSource: "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf (filled 24.09.2024, supplied 14-Oct-2026)",
     page: {
       src: "/source/fqc17-ruler-internal-verification.jpg",

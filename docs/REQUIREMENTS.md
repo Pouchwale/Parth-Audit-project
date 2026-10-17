@@ -8688,10 +8688,10 @@ the 300 mm paper Serial number GP-3/MS/42 and Range 0-300 mm.
   Mitra, the phone and the downloads. engine/calibration.ts, engine/autoFill.ts (the sample and its summary) and the
   sample verification read F/QC/17 by its two ids (`isRulerVerification`), not by one.
 - *The two values.* A new 300 mm record starts with Serial number GP-3/MS/42 and Range 0-300 mm, as its paper prints
-  them, and Demo Mode's and the sample fill write its own scale's, never the other's. The 600 mm document starts those
-  two boxes empty, as it always did (§111 part 8: the ruler's own details are the person's to write, then carried);
-  that is the one place the pair differ beyond their paper, and it is a single flag (`startsWithThem` on its
-  `RulerScale`) if the owner wants the 600 mm paper's GP-3/MS/04 and 0-600 mm to start its boxes too.
+  them, and Demo Mode's and the sample fill write its own scale's, never the other's. The 600 mm document starts with
+  its paper's GP-3/MS/04 and 0-600 mm in the same two boxes (17-Oct-2026, the same day: a document per scale exists
+  to carry that scale's own details, so the two start alike; each is written over at will and carried forward to the
+  next record of its own document; it was a single flag, `startsWithThem` on its `RulerScale`).
 - *Found and named.* F/QC/17 is carried by two documents, as F-QC-14, F/QC/19, 20, 21, 29 and 30 are: a number, said
   any way, names both (Search lists both, Mitra asks which) and the master list's one line F-QC-17 is held by both. The
   bare words ("ruler verification", "measuring scale") name both; a length said with them ("300 mm ruler

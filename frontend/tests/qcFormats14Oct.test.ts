@@ -283,7 +283,7 @@ test("F/QC/17: a sample verification is today's, never the page of 2024; a Live 
   const known = live(id);
   assert.deepEqual(
     Object.fromEntries(Object.entries(known.header).filter(([, v]) => String(v ?? "") !== "")),
-    { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", calibrationDate: DAY, acceptableTolerance: "+ / - 1 mm" }
+    { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", calibrationDate: DAY, acceptableTolerance: "+ / - 1 mm", serialNo: "GP-3/MS/04", range: "0-600 mm" }
   );
   assert.ok(known.rows.every((r) => (r.observed === null || r.observed === "") && r.status === "" && r.performedBy === "" && r.difference === ""));
 });

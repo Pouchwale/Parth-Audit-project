@@ -164,8 +164,8 @@ test("both layouts come from one definition and differ only in the two starting 
   const box = (id: string, key: string) => layoutOf(id).headerFields.find((f) => f.key === key)!;
   assert.equal(box(RULER_300_ID, "serialNo").autoFill?.default, "GP-3/MS/42");
   assert.equal(box(RULER_300_ID, "range").autoFill?.default, "0-300 mm");
-  assert.equal(box(RULER_600_ID, "serialNo").autoFill, undefined, "the 600 mm document starts with the box empty, as it always did");
-  assert.equal(box(RULER_600_ID, "range").autoFill, undefined);
+  assert.equal(box(RULER_600_ID, "serialNo").autoFill?.default, "GP-3/MS/04", "the 600 mm document starts with its own scale's serial, as the 300 mm one does (the owner, 17-Oct-2026)");
+  assert.equal(box(RULER_600_ID, "range").autoFill?.default, "0-600 mm");
   // The same print settings, editable boxes, carry-forward and no Date cell of the sheet's own.
   for (const id of BOTH) {
     const l = layoutOf(id);
@@ -198,7 +198,7 @@ test("the 300 mm sheet is the paper: its title in its own letters, the two table
   }
   assert.ok(shows(narrow, "GP-3/MS/42") && shows(narrow, "0-300 mm"), "the 300 mm paper's two values start its boxes");
   assert.ok(!shows(narrow, "GP-3/MS/04") && !shows(narrow, "0-600 mm"), "and none of the other page's");
-  assert.ok(!shows(wide, "GP-3/MS/42") && !shows(wide, "0-300 mm") && !shows(wide, "GP-3/MS/04"), "the 600 mm document starts those two boxes empty, as it did");
+  assert.ok(shows(wide, "GP-3/MS/04") && shows(wide, "0-600 mm") && !shows(wide, "GP-3/MS/42") && !shows(wide, "0-300 mm"), "the 600 mm document starts those two boxes with its own scale's values, and none of the other page's");
   // The boxes are editable inputs holding the paper's words as their start.
   const editable = await sheet(RULER_300_ID, blank(RULER_300_ID), true);
   assert.ok(editable.includes('<input') && editable.includes('value="GP-3/MS/42"'), "an input, not words");
@@ -209,7 +209,7 @@ test("a new record starts as its paper's blank with its standards: the master's 
   clear();
   const standard = { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", calibrationDate: DAY, acceptableTolerance: "+ / - 1 mm" };
   const written = (d: LogSheetData) => Object.fromEntries(Object.entries(d.header).filter(([, v]) => String(v ?? "") !== ""));
-  assert.deepEqual(written(live(RULER_600_ID)), standard, "the 600 mm document: exactly as before");
+  assert.deepEqual(written(live(RULER_600_ID)), { ...standard, serialNo: "GP-3/MS/04", range: "0-600 mm" }, "the 600 mm document: its own scale's two values start the boxes, as the 300 mm one's do");
   assert.deepEqual(written(live(RULER_300_ID)), { ...standard, serialNo: "GP-3/MS/42", range: "0-300 mm" });
   const { calibrationDate: _day, ...paperBlank } = standard;
   assert.deepEqual(written(blank(RULER_300_ID)), { ...paperBlank, serialNo: "GP-3/MS/42", range: "0-300 mm" }, "the paper's blank: the day is written when the record is started");
