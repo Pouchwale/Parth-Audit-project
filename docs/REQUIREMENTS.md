@@ -8696,7 +8696,15 @@ the 300 mm paper Serial number GP-3/MS/42 and Range 0-300 mm.
   any way, names both (Search lists both, Mitra asks which) and the master list's one line F-QC-17 is held by both. The
   bare words ("ruler verification", "measuring scale") name both; a length said with them ("300 mm ruler
   verification", "ruler verification 600 mm") names its own (engine/assistantLocal.ts).
-- *The library holds 136 documents* (Quality Control 53, the Calibration section three: F/QC/11, F/QC/12 and both F/QC/17).
+- *The library holds 136 documents* (Quality Control 53, its Inspection Records module 47, the Calibration section three:
+  F/QC/11, F/QC/12 and both F/QC/17).
+- *Printed as a person prints it* (the browser's own PDF, both documents filled with their paper's values, read with
+  pdfplumber beside the owner's PDF): the 300 mm page is the 600 mm page to the hundredth of a millimetre, every word
+  and all 175 rules, but for GP-3/MS/42 and 0-300 mm; and against the owner's PDF the two print alike, with the same
+  open difference that was already there for the 600 mm page and is the print renderer's, not this document's: the
+  words are the paper's (the company's one name, DCRS's standard header cells and its date form 23-Sep-2024 for 23.09.2024
+  aside), but DCRS draws the sheet across A4's printable width with its own row heights, so the positions are not within
+  1.5 mm of the paper's. Left to the print-fidelity work on the QC renderers, which changes both documents together.
 
 **Tests (the 300 mm scale).** frontend/tests/qcRuler300.test.ts (8): the two documents are one format wired alike
 (department, group, who answers, role, download kind, the PDF and the picture on disk); both layouts are what the one
