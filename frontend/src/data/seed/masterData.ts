@@ -102,7 +102,7 @@ export const SEED_MASTER_DATA: MasterData = {
     { id: "area-rcs-1", name: "Printing machine - Ground Floor", context: "service-report:Rodent Control Service" },
     { id: "area-rcs-2", name: "Anilox cleaning area - Ground floor", context: "service-report:Rodent Control Service" },
     { id: "area-rcs-3", name: "Store - Label stock & PVC / PET Films - Ground floor", context: "service-report:Rodent Control Service" },
-    { id: "area-rcs-4", name: "Ink store - Ground floor", context: "service-report:Rodent Control Service" },
+    { id: "area-rcs-4", name: "First floor - Ink store", context: "service-report:Rodent Control Service" },
     { id: "area-rcs-5", name: "RM Inward & FG Dispatch room - Ground floor", context: "service-report:Rodent Control Service" },
     { id: "area-rcs-6", name: "Walkways - Ground Floor", context: "service-report:Rodent Control Service" },
     { id: "area-rcs-7", name: "First floor - Walkways", context: "service-report:Rodent Control Service" },

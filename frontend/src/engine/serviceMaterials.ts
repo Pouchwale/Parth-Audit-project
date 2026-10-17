@@ -17,15 +17,28 @@ const VARIANT_DEFAULTS: Record<string, FixedMaterial> = {
   "Fly Control Services": { materialName: "Beta-Cyfluthrin 2.45% SC", methodOfApplication: "Spraying" },
 };
 
-// One documented exception: the Dec-2023/April-2026 specimens show this
-// specific Rodent Control area baited with Bromadiolone Cake rather than the
-// glue boards used everywhere else on the same visit.
-const AREA_OVERRIDES: Record<string, FixedMaterial> = {
-  "First floor - Offline punching & QC Inspection": { materialName: "Bromadiolone Cake", methodOfApplication: "Baiting" },
+// THE RODENT REPORT'S STANDARD LAYOUT (the owner, 17-Oct-2026, from the contractor's March-2026 report): the
+// first eight areas carry the glue boards and the last eight the bait. The two groups are two merged blocks on the
+// paper, each with its own material, quantity and method. (The April-2026 file the report was first built from
+// merges the same two blocks of eight; one of its lines being typed in the bait block was read as "one bait area".)
+// Keyed by the service and the area, because the same area name is also on the other two services ("Canteen").
+const RODENT_BAIT_AREAS = [
+  "First floor - Offline punching & QC Inspection",
+  "First floor - Printing machine",
+  "First floor - Ink Kitchen",
+  "First floor - Shrink Sleeve production",
+  "First floor - Intermediate Store",
+  "Change room & Locker room - Ground Floor",
+  "QC Lab",
+  "Canteen",
+];
+const BAIT: FixedMaterial = { materialName: "Bromadiolone Cake", methodOfApplication: "Baiting" };
+const AREA_OVERRIDES: Record<string, Record<string, FixedMaterial>> = {
+  "Rodent Control Service": Object.fromEntries(RODENT_BAIT_AREAS.map((a) => [a, BAIT])),
 };
 
 export function fixedMaterialForServiceArea(variantKey: string | undefined, areaName: string): FixedMaterial {
-  const override = AREA_OVERRIDES[areaName];
+  const override = variantKey ? AREA_OVERRIDES[variantKey]?.[areaName] : undefined;
   if (override) return override;
   return variantKey && VARIANT_DEFAULTS[variantKey] ? VARIANT_DEFAULTS[variantKey] : { materialName: "", methodOfApplication: "" };
 }
@@ -34,9 +47,9 @@ export function fixedMaterialForServiceArea(variantKey: string | undefined, area
 // quantity and method on the first area row only, standing for every area
 // treated with it (REQUIREMENTS §5). So on the form the quantity is typed on
 // the first line of each material, and every other line with that material
-// carries the same quantity. On the Rat / Mice report the one bait area
-// (Bromadiolone Cake, weighed in grams) is the first line of its own material
-// and keeps a quantity of its own; every Glue Board line shares the first one's.
+// carries the same quantity. On the Rat / Mice report the bait block
+// (Bromadiolone Cake, weighed in grams) starts at its own first line and keeps a
+// quantity of its own; every Glue Board line shares the first one's.
 
 const qtyOf = (l: ServiceReportAreaLine): string => String(l.qtyUsed ?? "");
 
@@ -79,4 +92,25 @@ export function normalizeServiceLines(
 export function isQuantityLine(lines: ServiceReportAreaLine[], index: number): boolean {
   const material = lines[index]?.materialName;
   return lines.findIndex((l) => l.materialName === material) === index;
+}
+
+/** A run of neighbouring lines with the same material: the paper draws its material, quantity and method as ONE merged cell. */
+export interface ServiceGroup {
+  /** Index of the run's first line in the report's lines. */
+  first: number;
+  /** How many lines the run covers. */
+  size: number;
+  materialName: string;
+  methodOfApplication: string;
+}
+
+/** The report's lines as the paper's merged blocks, in order (contiguous lines with one material, as the contractor's sheet merges them). */
+export function serviceGroups(lines: ServiceReportAreaLine[]): ServiceGroup[] {
+  const groups: ServiceGroup[] = [];
+  lines.forEach((l, i) => {
+    const last = groups[groups.length - 1];
+    if (last && last.materialName === l.materialName && last.methodOfApplication === l.methodOfApplication) last.size += 1;
+    else groups.push({ first: i, size: 1, materialName: l.materialName, methodOfApplication: l.methodOfApplication });
+  });
+  return groups;
 }

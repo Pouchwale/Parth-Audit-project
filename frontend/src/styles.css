@@ -2974,6 +2974,64 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
 
 /* ==== end of §110 ==== */
 
+/* HR-DOCS begin */
+/* THE SERVICE REPORT AS THE CONTRACTOR'S SHEET (REQUIREMENTS §118, the owner, 17-Oct-2026): one printed grid in Calibri,
+   the paper's measures (data/seed/serviceReportPaper.ts: 569 px across, so one CSS pixel is one Excel point of the
+   original and the print is the PDF's size). Cells are drawn in ink on white in every theme; the boxes you type in sit
+   inline in the paper's cells with no box of their own on the sheet (a dotted rule under them on screen only). */
+.svc-paper-wrap { max-width: 100%; overflow-x: auto; }
+table.svc-paper {
+  border-collapse: collapse; table-layout: fixed; width: 569px; background: #fff; color: #000;
+  font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 11px; line-height: 13.5px;
+}
+.svc-paper td { border: 1px solid #000; padding: 0 3px; vertical-align: middle; text-align: center; overflow-wrap: break-word; background: #fff; color: #000; font-size: 11px; }
+.svc-paper td.svc-left { text-align: left; }
+.svc-paper .svc-title { font-size: 24px; font-weight: 700; line-height: 28px; height: 28px; text-align: left; padding: 0 2px; border: 2px solid #000; border-bottom-width: 1px; }
+.svc-paper .svc-band { font-weight: 700; height: 18px; border-right-width: 1px; }
+.svc-paper .svc-unit-row .svc-band { height: 28px; }
+.svc-paper .svc-band:first-child { border-left: 2px solid #000; }
+.svc-paper .svc-date-label { border: 2px solid #000; text-align: left; }
+.svc-paper .svc-date-value { border-right: 2px solid #000; text-align: left; }
+.svc-paper .svc-head-row td { font-weight: 700; height: 26px; border-bottom: 2px solid #000; }
+.svc-paper .svc-head-row td:first-child { border-left: 2px solid #000; }
+.svc-paper .svc-head-row td:last-child { border-right: 2px solid #000; }
+.svc-paper tr[data-line] > td { font-size: 11px; }
+.svc-paper tr[data-line] > td.svc-no { height: 13.5px; }
+.svc-paper tr[data-line] > td.svc-area { font-size: 12px; text-align: left; border-width: 0 1px 1px 1px; }
+.svc-paper tr[data-line] > td.svc-no { border-left: 2px solid #000; border-width: 0 1px 1px 2px; }
+.svc-paper tr.svc-group-start > td { border-top: 1px solid #000; }
+.svc-paper tr.svc-tall > td.svc-area { height: 28px; }
+.svc-paper td.svc-merged { border: 1px solid #000; }
+.svc-paper td.svc-remarks { border-right: 2px solid #000; border-bottom: 2px solid #000; }
+.svc-paper tr:has(+ .svc-sign-space) > td { border-bottom: 2px solid #000; }
+.svc-paper td.svc-merged:nth-last-child(1) { border-bottom: 2px solid #000; }
+.svc-paper .svc-none { text-align: left; height: 28px; border-left: 2px solid #000; border-right: 2px solid #000; border-bottom: 2px solid #000; }
+.svc-paper .svc-words { white-space: pre-wrap; display: inline-block; }
+.svc-paper .svc-more { margin-top: 6px; font-size: 10px; text-align: left; white-space: pre-wrap; }
+.svc-paper input, .svc-paper textarea {
+  font: inherit; color: #000; width: 100%; border: 0; border-radius: 0; background: transparent; padding: 0; margin: 0; text-align: center; outline: 0; min-height: 0;
+}
+.svc-paper textarea { resize: none; field-sizing: content; min-height: 40px; line-height: 13.5px; overflow: hidden; }
+.svc-paper input::placeholder, .svc-paper textarea::placeholder { color: #8a8f98; }
+@media screen {
+  .svc-paper input:not(:disabled), .svc-paper textarea:not(:disabled) { border-bottom: 1px dotted #6b7280; background: #fffdf0; }
+  .svc-paper input:not(:disabled):focus, .svc-paper textarea:not(:disabled):focus { background: #fff7cc; border-bottom: 1px solid #1f2937; }
+}
+.svc-paper .svc-sign-space td, .svc-paper .svc-sign-captions td { border: 0; }
+.svc-paper .svc-sign-space { height: 34px; }
+.svc-paper .svc-sign-space .svc-sign { vertical-align: bottom; padding: 0 6px 1px; }
+.svc-paper .svc-sign-input { text-align: center; font-size: 12px; }
+.svc-paper .svc-edge { border-left: 2px solid #000; }
+.svc-paper .svc-edge-right { border-left: 0; border-right: 2px solid #000; }
+.svc-paper .svc-sign-captions .svc-caption { border-top: 1px solid #000; font-size: 12px; height: 17px; }
+.svc-paper .svc-sign-captions .svc-foot { border-bottom: 2px solid #000; }
+.svc-paper .svc-sign-captions .svc-caption { border-bottom: 2px solid #000; }
+@media print {
+  .svc-paper-wrap { overflow: visible; }
+  .svc-paper td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+/* HR-DOCS end */
+
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,
    so this has to come after the rules it switches off or the cascade simply
