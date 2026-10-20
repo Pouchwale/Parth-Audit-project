@@ -52,7 +52,6 @@ export const NOT_YET = new Set([
   "sys-audit-nc",
   "sys-nc-car",
   "pur-supplier-registration",
-  "disp-vehicle-cleaning",
 ]);
 
 const cache = new Map<string, ArrayBuffer>();

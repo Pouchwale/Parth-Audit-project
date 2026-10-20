@@ -558,6 +558,22 @@ Seven scripts live in `tests/`:
   (20-Oct-2026, a holiday; REQUIREMENTS §117's note: date-bound, unproven). `e2e_upload_changes` was changed (a line typed into the
   paper's empty ruled row) but not run within this branch's time box; the originals check's (c) read every one of the 104
   downloads back through the page's own Upload changes.
+- **Every download is the owner's own file, round 2, 20-Oct-2026** (REQUIREMENTS §119, round 2). `frontend/tests/originalFill.test.ts`
+  gained four tests (14): a paper with no heading row over its questions (each line found by its own words, YES / NO struck as
+  on paper, the reading in its blank cell, read back unchanged), a box the paper has no place for (written as "Label: value" on
+  the line under the box before it, listed in the report's `outside`), boxes DCRS numbers in groups (filling the paper's table of
+  them, a row added for the third), and a workbook's period in the title's own brackets with the example's merged Designation
+  split. Offline, the filler was run on every captured page of round 1 after each change (scratchpad r2/fillr.mjs) and the 53
+  documents that were the owner's file already were compared word for word with round 1's files: no change but two trailing
+  spaces gone (F/QC/20 printing aids, F/SYS/03).
+  *Runs of 20-Oct-2026 (branch originals-download-20oct).* `npm run typecheck` clean and `npm run test:unit` frontend 1223 of 1223,
+  backend 632 of 636 (4 skipped) before each commit. The originals check (port 4300) on the round's documents, in four runs: every
+  one the owner's own file, every value of the sample-filled record in it, the map whole, Upload changes "nothing to apply" -
+  F/HR/04 98, F/HR/07 4 (one position sheet against his five), F/HR/08 80, F/HR/11 19 and F/HR/14 7 (a page more: the values
+  are longer than the paper's lines), F/HR/19 56, F/HR/21 98 (run 1, and F/HR/19 and F/HR/21 again in run 2); F/SYS/02 99,
+  F/PUR/02 63, F/PUR/05 94, F/SYS/12 14 (three pages against two), F/DISP/01 98, F/HR/09 94, F/MNT/01 98, F/MNT/03 94 (303 of 303
+  in run 3, after a text value's "18.10" was written as 18.1), F/STR/02 43 (run 2); F/DISP/02 97, F/MKT/05 58 (run 3); F/SYS/13 98,
+  F/DISP/04, and F/QC/01 and F/HR/06 again after the reader's change (run 4).
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
   (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;

@@ -543,7 +543,10 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       const s = similarity(paraText(p), model.title);
       if (s > 0.6 && (!best || s > best.s)) best = { p, s };
     }
-    if (best && !same(paraText(best.p), model.title)) {
+    // The paper printing the title already, word for word (on a line that also holds a box, F/DISP/04's header): no other
+    // line takes it ("Protocol for Cleaning ..." stays).
+    const printed = candidates.some((p) => norm(paraText(p)).startsWith(norm(model.title)));
+    if (best && !printed && !same(paraText(best.p), model.title)) {
       report.replaced.push(`title -> ${model.title.slice(0, 40)}`);
       setParagraphText(best.p, model.title);
     }
@@ -699,7 +702,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         const drop = to >= text.length ? tabs.length : Math.min(tabs.length - 1, Math.ceil((value.length + 1) / 8));
         for (const i of tabs.slice(0, Math.max(0, drop)).reverse()) replaceRange(p, i, i + 1, "");
         // A blank of spaces before a closing bracket ("Vehicle number:      ]"): as many go as the value takes.
-        if (!tabs.length && /^ {4,}$/.test(room) && /[\])]/.test(text[to] ?? "")) replaceRange(p, f.at, f.at + Math.min(room.length - 1, value.length + 1), "");
+        if (!tabs.length && /^ {4,}$/.test(room) && /[\])]/.test(text[to] ?? "")) replaceRange(p, f.at, f.at + room.length - 1, "");
       }
       const rPr = firstRunProps(p);
       const spaced = (tookPlace && lead > 0) || /\s$/.test(paraText(p).slice(0, f.at));

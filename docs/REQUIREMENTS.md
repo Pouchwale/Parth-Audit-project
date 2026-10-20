@@ -8922,6 +8922,98 @@ challenge test. Their download stays the file made from the page, as before. A d
 record (a structure the paper does not have, e.g. a grid DCRS keeps as columns where the paper keeps rows) falls back the same
 way, and the check names it. Of the 105 documents with a Word or Excel original, the all-documents pass of 20-Oct-2026 gave 53 downloads as the owner's own file (27 QC, 9 Production, 8 HR, 3 Maintenance, 3 System, 2 Purchase and the GAP report) and 45 as the generic file, the filler refusing its own result for one of three reasons (the six hand-drawn files of §118 are counted apart, and the chemical chart, which has no Download on its document page, was not captured): (1) a box DCRS shows has no place the matcher finds on the paper (the paper words it differently, prints it inside a sentence, or not at all: F/HR/04's Sex beside Male / Female in one cell, F/HR/08's Period, F/HR/21's Overall achieved, F/HR/19's areas and team, the analysis and utility reports' Testing By / Approved By written over two lines, the statements of compliance's Format / Rev and their declaration as one paragraph, the dispatch and purchase forms' boxes, F/SYS/04-A to F/SYS/13's boxes, F/QC/14's inspectors); (2) a grid of the page has no heading row on the paper (F/HR/07's responsibilities, the question tables of F/HR/11 and F/HR/14, F/HR/09's months as Plan and Actual columns against the paper's Plan and Actual rows, F/QC/17's two box groups, the COAs' Specified Size grid, F/QC/30's key points, F/MNT/03's schedule, F/STR/02, F/QC/21 Flexo Ink whose Word file is lines of text with no table at all); (3) the read-back of the filled file lost values (F/PUR/05, F/SYS/02), the safety net doing its job. Each can be fitted later with a per-document hint (utils/originalFill/hints.ts) or a better match; until then the download is the file made from the page, as before. **Open questions for the owner.** (1) F/PRD/22 and F/PRD/24: his folder holds a newer Rev 01 of 01.01.2026 (TIo2 coated trimming blade / razor blade stock and monitoring) than the Rev 00 DCRS was built from and downloads; and F/PRD/10's newer "DAILY SCISSOR ISSUE & RETURN INTEGRITY MONITORING RECORD" (Rev 01) beside the Rev 00 sheet used: which should DCRS follow? (2) F/QC/12's own foot prints "F/QC/13 (01/01.01.2022)": the download prints DCRS's F/QC/12 - right? (3) F/MNT/02's only Word original is the PM schedule filled for one machine (DCM sleeve seaming, GALLOPS); a blank one would be better. (4) F/HR/07 came as two position sheets of one layout; the first is used. (5) The papers' own company spellings are replaced by the one name in the downloads too (2-Oct-2026). (6) The boxes and grids DCRS shows that his papers do not print (above): add them to the paper, or leave those documents' downloads generic?
 
+### §119, round 2: the documents that still fell back (20-Oct-2026)
+
+**What changed.** The filler (utils/originalFill) learnt the papers' own ways, each rule general, a hint (hints.ts) only where the
+paper cannot tell:
+- *A grid with no heading row of its own* (F/HR/04's questions, F/HR/14's conditions, F/HR/11's evaluation points, F/PUR/02's
+  audit points in eight section tables): each line is found by its own words in the paper's rows (the column of words that finds
+  the most lines; a line's own number tells two lines of the same words apart, 1.1 and 6.1 "Specification suitability"); a choice
+  is marked where its words are printed - one to a cell (the chosen ticked and bound, the others boxed), together in one cell
+  ("YES / NO": the other word struck through, as a person strikes it, so the narrow cell keeps its one line), or as the headings
+  of a row above (F/HR/11's "Excellent ... Poor" over "Maintained your interest"); a yes / no in the paper's own tick box (F/HR/04's
+  Word check boxes) is that box ticked or empty; the other values go into the row's blank cell or the blank line under it; a line
+  the paper does not print is written on a row added after the line before it (F/SYS/12's two new attributes).
+- *A heading printed apart from its lines*: in a table of its own with the lines in the tables after it (F/SYS/12's two pages),
+  or in the page header, on every page (F/STR/02). *Boxes DCRS numbers in groups* ("Attendance 3 - Name", "NC 2 - Section", "HARA
+  Review Team 5 - Designation") fill the paper's table of them, a row a number. *A line written on two rows*, Plan then Actual,
+  under one heading per month (F/HR/09's training calendar, F/MNT/03's yearly PM schedule; months matched by name, or by month and
+  year on a date cell): each of DCRS's Plan and Actual columns goes to its own row.
+- *Words*: the cell under a label is never another box's label (F/HR/04's "Sex   Male / Female" had taken the Name); a separator
+  after blanks is the label's ("Signature\t:"); an empty value keeps the paper's blank line to write on, a written one takes the
+  example's place after the paper's own arrow (F/HR/07's "Position -> Executive"); the tabs or spaces that spaced an empty box out
+  make room for its value so the line's next label keeps its place; cells a table draws past the page's margin are never a value's
+  place; quotes and apostrophes are no word break ("Trainee's" and the paper's "Trainee’s"); a label's own closing marks stay
+  ("Product Traced % :"); a choice's own line is found before a line that only repeats its words (F/PUR/02's criteria against its
+  section headings and summary), and a choice word inside another ("Limited" in "Private Limited") is found after it; a group's
+  name printed over its column ("For, GUJARAT ..." over "Name of the person", "Location" under "Customer Information"); only a
+  paragraph's changed words are replaced (F/DISP/01's bold company name before plain words stays as it was); a title the paper
+  prints already, word for word, is never set over another line; each grid of the page takes its own table (F/MKT/05's five
+  sections); a value of a grid column the paper does not print goes into the line's remarks cell as "Heading: value" (F/MKT/05's
+  Done); a box the paper prints in its page header is filled there ("[ Vehicle number: ]", F/DISP/04), and the upload's reader
+  (engine/roundTrip/readFile.ts) reads the controls of the headers and footers the document shows, after the body's.
+- *Workbooks*: merged cells of the owner's example inside a grid are split where DCRS writes two values into them (F/HR/08's two
+  people sharing one Designation, F/SYS/02's three columns joined: round 1's "lost on read-back"); a note printed across the grid
+  between its heading and its lines is passed over, and the rows between the heading and the first line are never read as new
+  lines (F/PUR/05's "Enter value based on above criteria": round 1's "lost 40 values"); the owner's own formulas in a column DCRS
+  keeps nothing in stay (F/HR/21's "=C5*7"); a heading in the very same words is matched before one only like it (F/MNT/01's
+  machine "Serial No." against DCRS's "Sr. No."); a text value that only looks like a number keeps its own writing (F/MNT/03's
+  "18.10"); a value inside the paper's own brackets keeps them ("SURVEY (JANUARY 2026)", "Calender (01.04.2026 ~ 31.03.2027) (Rev.
+  00 / 07.03.2022)"); boxes the paper has one area for are written there, a line "Label: value" each (F/SYS/13's "Information of
+  the product").
+- *Hints* (hints.ts, each with its reason): F/HR/07 - the responsibilities one to a row of the position's table, and the four
+  further filled position sheets in his Word file left out (his examples); F/HR/21 - the overall result into N20; F/SYS/12 - the
+  meeting date to "Review date"; F/SYS/13 - the product's details into its "Information of the product" box and the telephonic
+  conversation into its "Response from Customer" box; F/DISP/01 - the contract dates into the sentence that printed the owner's
+  example period; F/DISP/02 - the paper is in Gujarati: each box and heading by its Gujarati words; F/PUR/01 - its headings without
+  the notes DCRS joins to them, and its second employees box by its own word.
+- Documents the filler can now fill but that are not yet held against their paper, or whose result is not yet right, keep the
+  generic download (NOT_YET in utils/originalFill/index.ts); the QC ones wait for the QC print round 2.
+
+**The result.** Twenty of the 45 now download as the owner's own file, each held against its paper by the originals check (own
+file, every value present, the map whole, Upload changes "nothing to apply", the side-by-side picture looked at; the score of
+(b) in brackets, a page more where the record's values are longer than the paper's lines): F/HR/04 (98), F/HR/07 (4: one
+position sheet against his file's five), F/HR/08 (80), F/HR/09 (94), F/HR/11 (19: three pages against two, the first page's rows
+grow with the values), F/HR/14 (7: two pages against one, a long purpose of visit wraps), F/HR/19 (56), F/HR/21 (98), F/SYS/02
+(99), F/SYS/12 (14: three pages against two), F/SYS/13 (98), F/PUR/02 (63), F/PUR/05 (94), F/MNT/01 (98), F/MNT/03 (94),
+F/DISP/01 (98), F/DISP/02 (97), F/DISP/04, F/STR/02 (43: two pages against one, long descriptions wrap), F/MKT/05 (58).
+
+**Values placed outside the paper's boxes** (the filler's report lists each as `outside`; the owner decides - open question 1):
+- F/HR/19: "Location Guide - areas covered: ..." on the line under "Responsibility / Date" (the paper's area boxes are drawn
+  shapes, not ticked); "Inspection team - Name / Department / Process / Designation (one per line): ..." on the line under the
+  checklist.
+- F/MKT/05: each activity's "Done: ☐ / ☑" in its Comments cell (the paper has no Done column).
+- F/HR/04, F/HR/11, F/HR/14: a line's detail with no cell of its own (F/HR/14's "Reading / detail" for questions 1-8, F/HR/04's
+  details for the 06 conditions in one row, F/HR/11's general evaluation of points a-e and rating of the three trainer
+  questions): beside the line's own words - nothing shows while it is empty, "Label: value" once written.
+- F/SYS/13: the product's details as lines in its "Information of the product" box, the telephonic conversation in its "Response
+  from Customer" box (the paper's own boxes for them, without a label each).
+- F/HR/08's period goes into the title's own brackets, where his paper prints it - not outside.
+
+**Still the generic download, and why.** F/SYS/04-A - his only Word original is the meeting RECORD (F/SYS/04 of 2020-21), not the
+agenda and notification DCRS keeps (built from the July-2025 PDF); F/SYS/04 - DCRS keeps the July-2025 record (Rev 01, nine pages,
+an action-item table per agenda point) and his Word file is the 2021 Rev 00 of six; F/SYS/05 - his workbook is another schedule
+(fourteen activities, no Plan / Actual, no format number) than DCRS's Rev 01 BRCGS schedule; F/SYS/06 - his Word file is Rev 00,
+without the Acknowledge and audit-summary columns of DCRS's Rev 01; F/SYS/08 - his Word file is the "Internal Audit Findings &
+observation Report", DCRS's F/SYS/08 the 25-page "Audit Checklist Compliance Report" (another document); F/SYS/10 and F/SYS/11 - a
+choice printed without a label ("☐ Non-Conformance ☐ Observation") and a label running from a note into a box, inside floating
+tables: not yet right; F/PUR/01 - its employee numbers' boxes are drawn text boxes, and a value written after the label would sit
+under them; F/MNT/02 - his only Word file is the PM record filled for one machine (DCM sleeve seaming, GALLOPS), its monthly lines
+with no rows for DCRS's; F/MKT/02 - the paper keeps each attribute on two areas (the ratings, then the satisfied % and further
+action) and its evaluation period as one cell "from ... to"; F/MKT/04 - the complaint counts by period have no grid on his summary
+sheet; the training record - his file is the pest contractor's filled training letter, not a blank form; the thirteen QC
+documents (F/QC/06, 07, 09, 10, 38, F-QC-14 x2, F/QC/17 x2, F/QC/21 flexo, F/QC/29 x2, F/QC/30) - after the QC print round 2
+(their pages are changing; most fill offline already). The six hand-drawn downloads of §118 stay hand-drawn: their templates
+were filled and held against their papers, and none is yet at least as good - the service reports' sheet places none of the
+record's values, F/HR/15's own company line reads "GUJARAT PRINT PACA1:AH16K" and its title cell is taken by the Month & Year,
+F/HR/16 scores 27 with two rows added, F/HR/18's fortnight lines land on the paper's other PC rows.
+
+**Open questions for the owner (round 2).** (1) The values above written outside the paper's boxes: keep them so, or add a box
+for them to the paper? (2) F/SYS/04-A, F/SYS/04, F/SYS/05, F/SYS/06 and F/SYS/08: his Word and Excel files are older revisions or
+another document than the PDFs DCRS follows - please send the current revisions' Word / Excel files. (3) F/MNT/02 and the training
+record: a blank Word form would let them download as his file. (4) F/HR/15's workbook prints "GUJARAT PRINT PACA1:AH16K" in its
+company line: a slip in his file? (5) F/HR/07: the download is one position sheet (his file holds five).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
