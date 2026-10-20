@@ -153,18 +153,31 @@ PAPER_PAGES = {
     # F/QC/17's second page, the 300 mm scale's (REQUIREMENTS s117, 17-Oct-2026): the same paper.
     "qc-ruler-verification-300": ("portrait", 1),
     "hr-daily-cleaning": ("landscape", 1),
-    # F/HR/16 is one landscape page on paper; DCRS's sheet runs to two (its rows at the paper's size do not fit one
-    # page) - the page count is open (REQUIREMENTS §117), the orientation is checked.
-    "hr-monthly-cleaning": ("landscape", None),
+    # The contractor's service reports (REQUIREMENTS section 118): one A4 portrait page each, as the March paper is one page.
+    "service-report-rodent": ("portrait", 1),
+    "service-report-general": ("portrait", 1),
+    "service-report-fly": ("portrait", 1),
+    # F/HR/16 is one landscape page on paper and one here (REQUIREMENTS section 118): its cleaning cell holds the paper's two lines
+    # (what is cleaned, "Cleaning by"), no longer three, so its eighteen areas fit; it ran to two pages before.
+    "hr-monthly-cleaning": ("landscape", 1),
 }
 TMP = tempfile.mkdtemp(prefix="dcrs-print-")
+try:
+    import pdfplumber
+except ImportError:  # the measured checks below are skipped, and said to be
+    pdfplumber = None
 
 
 def check_a4(what, seen):
     """Nothing cut at the right edge: the grids fit the page chosen; the page is the paper's where named (s117)."""
     page_kind = seen["page"]
     # Two pixels of slack: the scale is floored to a thousandth (utils/print.ts), and the rectangle is rounded.
-    check(f"{what}: its grids fit A4 {page_kind} (s117: nothing cut at the right edge)", seen["widestTable"] <= PRINTABLE[page_kind] + 2, (round(seen["widestTable"]), round(PRINTABLE[page_kind]), seen["zoom"]))
+    printable = PRINTABLE[page_kind]
+    if "fly-catcher" in what.lower() or "F/HR/18" in what:
+        # F/HR/18's Word page has its own margins (REQUIREMENTS section 118): its band is 538 pt across from 28.7 pt in, so it is wider than the 12 mm
+        # every other document keeps; it is whole on the page all the same (the A4 page is 794 px, the band ends at 752).
+        printable = 794 - 38.3 - 20
+    check(f"{what}: its grids fit A4 {page_kind} (s117: nothing cut at the right edge)", seen["widestTable"] <= printable + 2, (round(seen["widestTable"]), round(printable), seen["zoom"]))
     if seen["paper"]:
         check(f"{what}: the page is the paper's, {seen['paper']}", page_kind == seen["paper"], (page_kind, seen["paper"]))
 
@@ -297,6 +310,19 @@ with sync_playwright() as p:
                 print(f"    ({doc_id}: {len(pages_)} page(s) where the paper is one - open, REQUIREMENTS §117)")
             else:
                 check(f"{doc_id}: the browser's PDF is {count} page(s), {orient}, as the paper (s117)", len(pages_) == count and all(p == orient for p in pages_), (pages_, pdf_path))
+            if doc_id.startswith("service-report-") and pdfplumber:
+                # The contractor's sheet measured on the PDF (section 118): the table is the paper's 432 pt across (the March PDF's), whole inside the page.
+                with pdfplumber.open(pdf_path) as pdf:
+                    pg = pdf.pages[0]
+                    # (the page's own white background is a rectangle too)
+                    drawn = [r for r in pg.rects if r["x1"] - r["x0"] < pg.width - 5 or r["bottom"] - r["top"] < pg.height - 5]
+                    xs = [r["x0"] for r in drawn] + [r["x1"] for r in drawn]
+                    ys = [r["top"] for r in drawn] + [r["bottom"] for r in drawn]
+                    wide = max(xs) - min(xs)
+                    words_ = pg.extract_words()
+                    check(f"{doc_id}: on the PDF the table is the paper's 432 pt across (the March sheet) and nothing is cut at the page's edge",
+                          abs(wide - 432.1) <= 4 and min(xs) >= 20 and max(xs) <= pg.width - 20 and max(ys) <= pg.height - 20 and all(w["x1"] <= pg.width - 15 and w["bottom"] <= pg.height - 15 for w in words_),
+                          (round(wide, 1), round(min(xs)), round(max(xs)), round(max(ys)), pg.width))
         elif doc_id == "hr-training-needs":
             pages_, pdf_path = pdf_pages(page, doc_id)
             print(f"    (F/HR/08's PDF: {len(pages_)} page(s) at {pdf_path} - the header block and the foot should stand on each)")
@@ -328,6 +354,43 @@ with sync_playwright() as p:
             check(f"{label}: a document is on the page to print", False, seen)
             continue
         check_printout(page, label)
+
+    # ---- F/HR/18's register and F/HR/17's: the pages and the places, on the browser's own PDF (REQUIREMENTS section 118) ----
+    page.goto(f"{BASE}/index.html#/pest/trend/fly-catcher")
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    close_assistant(page)
+    page.evaluate(STUB_PRINT)
+    orients, fly_pdf = pdf_pages(page, "fhr18-register")
+    check("F/HR/18's register prints on two A4 portrait pages, as the paper is (section 118)", orients == ["portrait", "portrait"], orients)
+    if pdfplumber:
+        # The owner's PDF of the Word original, measured in points (A4, 595 x 842): the band, the legend, the heading box and the units.
+        with pdfplumber.open(fly_pdf) as pdf:
+            first, second = pdf.pages[0], pdf.pages[1]
+
+            def rows_of(pg):
+                return sorted({round((r["top"] + r["bottom"]) / 2) for r in pg.rects if r["bottom"] - r["top"] < 3 and r["x1"] - r["x0"] > 60 and r["top"] > 300})
+
+            def units_of(pg):
+                return [w["text"] for w in pg.extract_words() if re.fullmatch(r"PC-\d\d", w["text"]) and w["top"] > 330]
+
+            check("...PC-01 to PC-08 on the first page, PC-09 to PC-13 on the second (the break after PC-08)", units_of(first) == [f"PC-{n:02d}" for n in range(1, 9)] and units_of(second) == [f"PC-{n:02d}" for n in range(9, 14)], (units_of(first), units_of(second)))
+            xs = sorted({round((r["x0"] + r["x1"]) / 2) for r in first.rects if r["x1"] - r["x0"] < 3 and r["bottom"] - r["top"] > 20 and r["top"] > 330})
+            paper_columns = [37, 100, 172, 246, 334, 423, 499, 572]
+            check("...the grid's eight vertical rules at the paper's places (within 3 pt)", len(xs) >= 8 and all(any(abs(x - c) <= 3 for x in xs) for c in paper_columns), xs)
+            grid_rows = [y for y in rows_of(first)]
+            pitch = [b - a for a, b in zip(grid_rows, grid_rows[1:]) if 25 <= b - a <= 32]
+            check("...two lines to a unit, each the paper's 28.9 pt (the rules are read to the point: 28.9 within 0.7 on average, no line 2 pt out)", len(pitch) >= 14 and abs(sum(pitch) / len(pitch) - 28.9) <= 0.7 and all(abs(d - 28.9) <= 2 for d in pitch), pitch)
+            check("...nothing cut at the page's edge", all(w["x1"] <= first.width - 15 and w["bottom"] <= first.height - 15 for w in first.extract_words() + second.extract_words()), None)
+    else:
+        print("    (pdfplumber is not installed: F/HR/18's printed places are not measured)")
+    page.goto(f"{BASE}/index.html#/pest/daily")
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    close_assistant(page)
+    page.evaluate(STUB_PRINT)
+    orients, _ = pdf_pages(page, "fhr17-register")
+    check("F/HR/17's register prints on three A4 portrait pages, as the paper is (section 118)", orients == ["portrait"] * 3, orients)
 
     # ---- an inspection findings report (CAPA Internal keeps its own page) ----
     gap_id = page.evaluate(

@@ -454,7 +454,7 @@ export function LogSheetRecordView({
   const notesBelow = layout.notesBelow && layout.notesBelow.length > 0 ? <NotesBelow lines={layout.notesBelow} /> : null;
   const footHoldsNotes = !layout.photoBelowGrid && !(layout.charts?.length ?? 0);
   return (
-    <div className={rootClass} translate={asIssued ? "no" : undefined} data-bind-record={record.id} data-paper={layout.paper}>
+    <div className={rootClass} translate={asIssued ? "no" : undefined} data-bind-record={record.id} data-paper={layout.paper} data-sheet={doc.id}>
       <div className="paper-head">
       <DocumentHeader
         doc={doc}
