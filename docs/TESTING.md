@@ -485,6 +485,26 @@ Seven scripts live in `tests/`:
   `session-end.test.ts` (the warning's timing and words) and tests in `chat-session.test.ts` (a message refused because the
   session ended, kept for the same person's next sign-in in its chat), `dcrs-app.test.ts` (`expiresAt` at sign-in and in
   /me) and `dcrs-connector.test.ts` (open_record on a day with two records).
+- **The service reports as the contractor's March sheet, F/HR/18 as its Word page, real downloads, A4, the daily pest record's rule, 17-Oct-2026** (REQUIREMENTS §118).
+  New unit test files: `frontend/tests/serviceReportPaper.test.ts` (15: the rodent plan, areas 1-8 Glue Board / Trouble gum placement and 9-16
+  Bromadiolone Cake / Baiting, `serviceGroups` two blocks of eight, the quantity typed once for each, the paper date 07.03.2026, a blank record carrying
+  none of the specimen, the daily preparation writing the areas only, General and Fly unchanged, "Canteen" bait on the rodent report only, the Ink store's
+  stored name corrected while it reads the old seed's words and a name the plant wrote left alone), `frontend/tests/paperSheetExport.test.ts` (7: the sheet
+  writer - the contractor's merged ranges, widths in Excel characters, row heights, Calibri 24 / 11 / 12, thin and medium rules, A4 portrait one page wide,
+  numbers kept numbers - and the Word "paper" page: fixed widths, spans, vertical merges, 20 / 14 / 12 / 10 pt, margins, the page break) and
+  `frontend/tests/dailyPestRecord.test.ts` (12: the daily preparation of F/HR/17 writes the known parts only - the date, a closed day marked as the calendar
+  says, nothing answered, no time, no checker, no catch, nothing carried from a confirmed record - a new catch row empty, Submit refusing a row without a
+  place or a count, and the place list being the service report's own sixteen areas plus any the plant adds). Changed: `roundTripExport.test.ts` (the two
+  block-reading helpers know the new block kinds), `sampleFillLive.test.ts` (its Live records are opened on a working day: on 20-Oct-2026, a holiday, it
+  failed on the clock). Browser suites changed: `tests/e2e_print_and_forms.py` (the old page's row counts, one bait line and the last line's own quantity cell
+  are now the paper's merged blocks, Canteen is bait; the master data is waited for), `tests/e2e_print_all_documents.py` (the three service reports and F/HR/16
+  one A4 page each, the service report's table 432 pt across and whole, the March data entered and the print held against the contractor's PDF in
+  `source-documents/` - every one of its 23 horizontal and 7 vertical rules within 2 pt and every word but the company's spelling and the date -, F/HR/18's register two portrait pages with
+  PC-01..08 then PC-09..13, its eight vertical rules and 28.9 pt lines at the paper's places, F/HR/17 three pages), `tests/e2e_downloads_and_print.py` (section 4: the three
+  service reports, F/HR/15 and F/HR/16 read back and compared with `Service Report-April 2026.xls` and the two cleaning records' .xls - merged ranges,
+  widths, rows, fonts, orientation - and F/HR/18's Word page, bands, unit tables and page break), `tests/e2e_hr_module.py` (F/HR/17's catch row starts empty,
+  offers the sixteen real areas and "Another place...", is refused by Submit without a place and a count and keeps what is written).
+  `source-documents/Service Report- March 2026.pdf` is the contractor's report the print is held against.
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
   (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;

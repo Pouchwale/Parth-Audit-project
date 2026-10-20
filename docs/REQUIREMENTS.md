@@ -8805,6 +8805,14 @@ its date and its ten check points, so the round takes a minute to write down, an
 **Date-dependent test fixed.** `sampleFillLive.test.ts` opened its Live records on today's date; on 20-Oct-2026 (a holiday) the daily register is only marked so
 and nothing is left to fill: it opens them on a working day now.
 
+**Open questions of §118 (one line each).**
+1. Is the company's name on the contractor's sheet and on F/HR/18 to be the owner's spelling of 02-Oct-2026 (as now: "GUJARAT PRINT PACK PUBLICATIONS PVT LTD") or the sheet's own ("GUJARAT PRINTPACK PUBLICATION PRIVATE LIMITED" / "...PUBLICATION PRIVATE LIMITED")? It is one constant (COMPANY.name).
+2. The March sheet's Date is the record's own date (the visit's scheduled date, 04th and 18th); should the person be able to write the date the contractor actually came?
+3. F/HR/18 prints "PC-01" where the Word file mixes "PC – 01", "PC - 11" and "PC - 13": kept as the master data names them, one spelling.
+4. F/HR/18's two tube-light dates and the ditto mark print on every line (§44, the owner's own dates); the Word original leaves those cells blank.
+5. The Word and Excel files were checked as files (their XML read back, merges, widths, rows, faces and page set-up compared with the supplied originals); no copy of Word or Excel is on this computer to open them, so how they look on the owner's screen is the one thing left to look at.
+6. F/HR/01 to F/HR/13, F/HR/19, F/HR/21 and F/HR/22 and the daily register's original were supplied as PDFs only, so they download in the generic grid (§54); send their Word or Excel originals to have them laid on their own grids as F/HR/15, F/HR/16, F/HR/18 and the service reports now are. "Training - Yrl (1).doc" is held as the training record's Word original and its download was not compared cell by cell.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
