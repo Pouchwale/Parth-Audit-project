@@ -2974,25 +2974,6 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
 
 /* ==== end of §110 ==== */
 
-/* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
-   At the END of the stylesheet on purpose: a media query adds no specificity,
-   so this has to come after the rules it switches off or the cascade simply
-   ignores it — which is exactly what happened when it was written further up,
-   and what reading the browser's own computed style caught. Mitra still says
-   everything it says; it just stops moving: the ring round its face while it
-   answers stands still, and so does the listening dot. */
-@media (prefers-reduced-motion: reduce) {
-  .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
-  .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,
-  .mitra-hero-face, .mitra-hero-text, .assistant-suggestion, .mitra-step, .mitra-phone-body { animation: none !important; }
-  .mitra-thinking { opacity: 0.8; }
-  .chat-avatar.is-thinking::after { opacity: 0.5; transform: none; }
-  .chat-chip, .assistant-pill, .mitra-composer, .assistant-suggestion { transition: none; }
-  .chat-chip:hover, .chat-chip:active, .assistant-pill:hover, .assistant-pill:active, .assistant-suggestion:hover, .assistant-suggestion:active { transform: none; }
-  /* The two lifts of REQUIREMENTS §90 stand still too. */
-  .card-clickable, .calendar-cell { transition: none; }
-}
-
 /* ---- THE FRAMED PAGE OF THE QC PAPERS (REQUIREMENTS §117, QC visual parity of 20-Oct-2026) ----
    The owner: "I need same format in my audit software in QC module." F/QC/01 to 05, 18 to 24, 29, 30, 33 and 36 are
    Word files printed to a FRAMED page: three rules round the page (a heavy one and two hairlines), the company's logo
@@ -3083,4 +3064,23 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   /* The paper's grid is Calibri 11 pt, the density of a Word table. */
   .paper-sheet[data-frame] .doc-table table th, .paper-sheet[data-frame] .doc-table table td,
   .paper-sheet[data-frame] .doc-table table.log-sheet td .cell-text { font-size: calc(11 * var(--pt)); }
+}
+
+/* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
+   At the END of the stylesheet on purpose: a media query adds no specificity,
+   so this has to come after the rules it switches off or the cascade simply
+   ignores it — which is exactly what happened when it was written further up,
+   and what reading the browser's own computed style caught. Mitra still says
+   everything it says; it just stops moving: the ring round its face while it
+   answers stands still, and so does the listening dot. */
+@media (prefers-reduced-motion: reduce) {
+  .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
+  .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,
+  .mitra-hero-face, .mitra-hero-text, .assistant-suggestion, .mitra-step, .mitra-phone-body { animation: none !important; }
+  .mitra-thinking { opacity: 0.8; }
+  .chat-avatar.is-thinking::after { opacity: 0.5; transform: none; }
+  .chat-chip, .assistant-pill, .mitra-composer, .assistant-suggestion { transition: none; }
+  .chat-chip:hover, .chat-chip:active, .assistant-pill:hover, .assistant-pill:active, .assistant-suggestion:hover, .assistant-suggestion:active { transform: none; }
+  /* The two lifts of REQUIREMENTS §90 stand still too. */
+  .card-clickable, .calendar-cell { transition: none; }
 }
