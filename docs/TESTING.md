@@ -574,6 +574,12 @@ Seven scripts live in `tests/`:
   F/PUR/02 63, F/PUR/05 94, F/SYS/12 14 (three pages against two), F/DISP/01 98, F/HR/09 94, F/MNT/01 98, F/MNT/03 94 (303 of 303
   in run 3, after a text value's "18.10" was written as 18.1), F/STR/02 43 (run 2); F/DISP/02 97, F/MKT/05 58 (run 3); F/SYS/13 98,
   F/DISP/04, and F/QC/01 and F/HR/06 again after the reader's change (run 4).
+  Browser suites, one at a time with the ports free: `e2e_upload_changes` 547 of 547 (its first run since round 1; the
+  every-document pass reads every download back through Upload changes, the owner's files among them), run again on the final
+  code: 547 of 547; `e2e_print_all_documents` 766 of 766; `e2e_downloads_and_print` 54 of 56 on its first run - F/HR/09's check
+  still read the generic 29-column sheet (F/HR/09 now downloads as his own calendar: the check reads his workbook, each topic on
+  its Plan and Actual rows) and F/QC/12's "line carried from the page on file", which fails on 20-Oct-2026 (a holiday) on every
+  branch -; again on the final code: 55 of 56, F/QC/12's holiday check the one failing.
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
   (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;
