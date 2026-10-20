@@ -105,6 +105,11 @@ const PX_PER_MM = 96 / 25.4;
 // (styles.css, "Print"; the page itself has no margin, so that the browser
 // cannot print the date and the time in it — REQUIREMENTS §59).
 const PRINTABLE_WIDTH = { portrait: (210 - 24) * PX_PER_MM, landscape: (297 - 24) * PX_PER_MM };
+// A FRAMED PAPER (data-frame on the sheet, LogSheetRecordView / data/seed/qcPageFrames.ts) is drawn to 8.446 mm of the
+// page's edge, as the owner's Word files are, so its page keeps that margin and not the 12 mm of every other document.
+const FRAMED_MARGIN_MM = 8.446;
+const FRAMED_WIDTH = { portrait: (210 - 2 * FRAMED_MARGIN_MM) * PX_PER_MM, landscape: (297 - 2 * FRAMED_MARGIN_MM) * PX_PER_MM };
+const isFramed = (doc: Element): boolean => doc.matches("[data-frame]") || doc.querySelector("[data-frame]") !== null;
 const SMALLEST_SCALE = 0.3;
 // A form a little too wide for a portrait page stays portrait, slightly smaller.
 const PORTRAIT_SCALE = 0.8;
@@ -146,18 +151,25 @@ function fitToPage(docs: Element[]): void {
   // The paper's own orientation (§117); without one, the width decides (§54).
   const asked = needs.map((n) => paperOf(n.doc)).find((p) => p !== null) ?? null;
   const landscape = asked ? asked === "landscape" : widest > PRINTABLE_WIDTH.portrait / PORTRAIT_SCALE;
-  const paper = landscape ? PRINTABLE_WIDTH.landscape : PRINTABLE_WIDTH.portrait;
+  const widths = needs.every((n) => isFramed(n.doc)) ? FRAMED_WIDTH : PRINTABLE_WIDTH;
+  const paper = landscape ? widths.landscape : widths.portrait;
   pageStyle().textContent = landscape ? "@page { size: A4 landscape; margin: 0; }" : "";
   document.documentElement.dataset.printPage = landscape ? "landscape" : "portrait";
   for (const { doc, width } of needs) {
     if (width <= paper) continue;
-    doc.style.zoom = String(Math.max(SMALLEST_SCALE, Math.floor((paper / width) * 1000) / 1000));
+    const zoom = Math.max(SMALLEST_SCALE, Math.floor((paper / width) * 1000) / 1000);
+    doc.style.zoom = String(zoom);
+    // A framed page is as tall as the paper (styles.css): the zoom shrinks its millimetres, so it says by how much.
+    doc.style.setProperty("--print-zoom", String(zoom));
     fitted.push(doc);
   }
 }
 
 function unfit(): void {
-  for (const doc of fitted) doc.style.zoom = "";
+  for (const doc of fitted) {
+    doc.style.zoom = "";
+    doc.style.removeProperty("--print-zoom");
+  }
   fitted = [];
   const style = document.getElementById(PAGE_STYLE_ID);
   if (style) style.textContent = "";

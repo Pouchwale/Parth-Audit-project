@@ -165,7 +165,8 @@ test("F08: F/QC/30 is revision 00 of 01.01.2022, as the owner's original prints 
   const doc = docOf("qc-minutes-of-meetings");
   assert.deepEqual([doc.revisionNo, doc.revisionDate, doc.sourceFile], ["00", "2022-01-01", "F-QC-30 MOM.pdf"]);
   const html = await sheet("qc-minutes-of-meetings", seeded("qc-minutes-of-meetings-2022-06").data);
-  assert.match(text(between(html, 'class="doc-header"', 'class="card')), /Rev No\. 00/);
+  // The framed paper prints its number and revision in the foot line of the page: "Format number: - F/QC/30 (00 / 01.01.2022)".
+  assert.match(text(between(html, 'data-section="page-foot"', 'data-section="notes-at-foot"')), /Format number: - F\/QC\/30 \(\s*00 \/ 01\.01\.2022\s*\)/);
 });
 
 // ---------------------------------------------------------------------------
@@ -297,7 +298,8 @@ test("F28: the Date stands at the right on F/QC/20 and both F/QC/29 papers; F/QC
   const layout = layoutOf("qc-printing-aids-destruction");
   assert.equal(layout.notesBelow, undefined, "not under the grid");
   const html = await sheet("qc-printing-aids-destruction", blank("qc-printing-aids-destruction"));
-  const head = text(between(html, 'class="doc-header"', 'class="card'));
+  // On the paper they stand in the foot of the page, under its format number (ordinals set small: "1<sup>st</sup>").
+  const head = text(between(html, 'data-section="page-foot"', 'data-section="notes-at-foot"')).replace(/(\d) (st|nd|rd|th) /g, "$1$2 ");
   assert.ok(head.includes("Current Issue date 1st January 2022") && head.includes("Next Review date 31st December 2024"), head);
 });
 

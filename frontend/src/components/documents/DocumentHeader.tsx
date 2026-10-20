@@ -1,5 +1,5 @@
 import React from "react";
-import { TBC, type DocumentDefinition } from "../../types";
+import { TBC, type DocumentDefinition, type PageFrame } from "../../types";
 import type { HeaderField } from "../../engine/formatOps";
 import { COMPANY } from "../../data/seed/masterData";
 import { documentTextIn } from "../../i18n/documentText";
@@ -118,6 +118,12 @@ function Cell({ field, edit, className, translate: noTranslate, children }: { fi
   );
 }
 
+/** An ISO date as the framed papers print it: 16.02.2022. */
+function dottedDate(iso: string | null | undefined): string {
+  const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
+}
+
 export function DocumentHeader({
   doc,
   extraTitle,
@@ -132,8 +138,17 @@ export function DocumentHeader({
   language,
   numberNotPrinted,
   printedWithNumber,
+  frame,
+  part = "head",
 }: {
   doc: DocumentDefinition;
+  /**
+   * THE PAPER'S FRAMED PAGE (PageFrame, §117): the head is the company's logo and the title in a heavy-bordered band, and
+   * the Format number and Page number move to a line of their own at the foot of the page (`part` "foot"), as on the paper.
+   */
+  frame?: PageFrame;
+  /** Which part of a framed paper is drawn: its head, or the bordered Format number / Page line of its foot. */
+  part?: "head" | "foot";
   /** Words after the title — a register's year, never a record's date (§117). */
   extraTitle?: string;
   pageLabel?: string;
@@ -171,6 +186,111 @@ export function DocumentHeader({
   const formatNo = edit?.values.formatNo ?? doc.formatNo;
   const revisionNo = revision ? revision.no : (edit?.values.revisionNo ?? doc.revisionNo);
   const revisionDate = revision ? revision.date : (edit?.values.revisionDate ?? doc.revisionDate);
+  // THE FRAMED PAPER (§117). Foot: "Format number: - F/QC/01 (01 / 16.02.2022)" and "Page 1 of 1" in a bordered line, each
+  // value as clickable as it is in the header block. Head: the logo, which carries the company's name, and the title.
+  if (frame && part === "foot") {
+    const pages = (pageLabel ?? "").split(" of ");
+    const pageCell = (
+      <>
+        {pageLabel ? (
+          <>
+            Page{" "}
+            <Cell field="page" edit={edit} translate>
+              {pages.length === 2 ? (
+                <>
+                  <b>{pages[0]}</b> of <b>{pages[1]}</b>
+                </>
+              ) : (
+                <b>{pageLabel}</b>
+              )}
+            </Cell>
+          </>
+        ) : null}
+      </>
+    );
+    // A paper that prints its issue and review dates with its number (F/QC/20's destruction record, printedWithNumber) has a
+    // foot of two lines: Format number | Rev. no. | Page, then each date under them. The words are the paper's, as issued.
+    if (printedWithNumber && printedWithNumber.length === 2) {
+      const ordinal = (v: string) => {
+        const m = /^(\d+)(st|nd|rd|th)( .*)$/.exec(v);
+        return m ? (
+          <>
+            {m[1]}
+            <sup>{m[2]}</sup>
+            {m[3]}
+          </>
+        ) : (
+          v
+        );
+      };
+      return (
+        <div className="page-foot page-foot-dated" data-section="page-foot">
+          <div className="pf-format notranslate" translate="no">
+            Format number: -{" "}
+            <Cell field="formatNo" edit={edit} translate>
+              {asPrinted(formatNo)}
+            </Cell>
+          </div>
+          <div className="pf-cell notranslate" translate="no">
+            Rev. no. -{" "}
+            <Cell field="revisionNo" edit={edit} translate>
+              {asPrinted(revisionNo)}
+            </Cell>
+          </div>
+          <div className="pf-cell pf-page notranslate" translate="no">
+            {pageCell}
+          </div>
+          {printedWithNumber.map((m, i) => (
+            <React.Fragment key={m.label}>
+              <div className={`pf-cell${i === 0 ? " pf-first" : ""} notranslate`} translate="no">
+                {m.label}
+              </div>
+              <div className="pf-cell notranslate" translate="no">
+                {ordinal(m.value)}
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div className="page-foot" data-section="page-foot">
+        <div className="pf-format notranslate" translate="no">
+          Format number: -{" "}
+          <Cell field="formatNo" edit={edit} translate>
+            {asPrinted(formatNo)}
+          </Cell>{" "}
+          (
+          <Cell field="revisionNo" edit={edit} translate>
+            {asPrinted(revisionNo)}
+          </Cell>{" "}
+          /{" "}
+          <Cell field="revisionDate" edit={edit} translate>
+            {dottedDate(revisionDate)}
+          </Cell>
+          )
+        </div>
+        <div className="pf-page notranslate" translate="no">
+          {pageCell}
+        </div>
+      </div>
+    );
+  }
+  if (frame) {
+    return (
+      <div className="doc-header doc-header-frame" data-frame-head="">
+        <div className="dhf-logo">
+          <img src="brand/gpp-paper-logo.png" width={206} height={69} alt={company} draggable={false} />
+        </div>
+        <div className={`dhf-title ${frame.titleAlign}`} style={frame.title ? ({ "--title-pt": frame.title.size, color: frame.title.color } as React.CSSProperties) : undefined}>
+          <Cell field="title" edit={edit}>
+            {documentTextIn(title ?? doc.name, lang).toUpperCase()}
+            {extraTitle ? ` — ${extraTitle}` : ""}
+          </Cell>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="doc-header">
       {letterhead ?? (

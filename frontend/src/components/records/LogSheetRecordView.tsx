@@ -2,6 +2,7 @@ import React from "react";
 import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance, SheetPhoto } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
+import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 import { getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
@@ -358,6 +359,8 @@ export function LogSheetRecordView({
   // own among the boxes (tableAbove — the certificates' TOLERANCE, REQUIREMENTS §111), which are drawn there, open.
   const placed = placedTables(layout);
   const letterhead = letterheadTable(layout);
+  // The framed page the paper is drawn on (data/seed/qcPageFrames.ts, §117): its logo and title head, its foot at the page's bottom.
+  const frame = pageFrameFor(layout.documentId);
   const topTables = (layout.referenceTables ?? []).filter((t) => !placed.has(t.title));
 
   const mode = layout.rowMode;
@@ -453,25 +456,62 @@ export function LogSheetRecordView({
   // line unless the paper prints a photograph or a chart under it (F/QC/29), which keep their place in the body.
   const notesBelow = layout.notesBelow && layout.notesBelow.length > 0 ? <NotesBelow lines={layout.notesBelow} /> : null;
   const footHoldsNotes = !layout.photoBelowGrid && !(layout.charts?.length ?? 0);
+  const headerProps = {
+    doc: doc,
+    // The title as the paper prints it, unless the plant has renamed the format since (REQUIREMENTS §111).
+    title: layout.paperTitle && !formatEditFor(doc.id)?.name ? layout.paperTitle : undefined,
+    // The paper's letters, its lines under the company's name and its own letterhead in place of the company's
+    // line (F/QC/25), before the title, as the paper prints them (REQUIREMENTS §111 part 6).
+    titleAsPrinted: layout.titleAsPrinted,
+    underCompany: layout.underCompany,
+    letterhead: letterhead ? <div className="doc-letterhead"><PrintedTable table={letterhead} /></div> : undefined,
+    pageLabel: record.headerBlock?.page ?? headerDefaults.page,
+    revision: superseded ? { no: superseded.revisionNo, date: superseded.revisionDate } : undefined,
+    edit: headerEdit,
+    language: lang,
+    numberNotPrinted: !!layout.numberNotPrinted,
+    printedWithNumber: layout.printedWithNumber,
+  };
+  // The paper's boxes below its grid (lot status, the signatures): the page's foot on a screen form, the body's last block on a framed page.
+  const footerCard = (footerGroups.length > 0 || sayVerifyIsApproval) && (
+        <div className="card mt-4">
+          <div className="card-pad">
+            {/* Lines (or a table) the paper prints across the sheet above a box start a group of their
+                own, drawn under them: F/MNT/08's hand-over in the paper's two columns (REQUIREMENTS §93), a
+                certificate's COATING, FINISHING and TOLERANCE (§111); every other form's boxes are as they were. */}
+            {footerGroups.map((group, gi) =>
+              group.lead ? (
+                <BoxLine key={gi} group={group} minWidth={220}>
+                  {group.boxes.map(({ field, index }) => footerBox(field, index))}
+                </BoxLine>
+              ) : (
+                <PrintedGroup key={gi} area="footer" group={group} className={gi > 0 ? "mt-3" : ""}>
+                  {group.boxes.map(({ field, index }, bi) => footerBox(field, index, inBoxTable(group, bi)))}
+                </PrintedGroup>
+              )
+            )}
+            {/* The QA Manager's approval is a QC form's own box, so the line
+                about it belongs under QC forms only: under a Maintenance or a
+                Purchase footer it named a signature those forms do not have
+                (REQUIREMENTS §74). */}
+            {/* ...and only where the form has no APPROVED BY box of its own to write it in (§111), no box of the QA
+                Manager's own (F/QC/25's "Sign By (QA Manager)") and does not print that it needs no signature (the
+                certificates of analysis' "IT DOES NOT REQUIRE A SIGNATURE."): there the line named an approval the
+                paper does not have. */}
+            {/* ...and, since the review of 13-Oct-2026, only under a paper that prints an approval DCRS stamps on Verify
+                (approvedOnVerify: F/QC/34, /35, /37): F-QC-14 and F/QC/13 print none, and the line named one. */}
+            {sayVerifyIsApproval && (
+              <div className={`text-xs text-muted no-print${footerGroups.length > 0 ? " mt-3" : ""}`}>
+                "Approved by (QA Manager)" on the paper form is the <strong>Verify</strong> step here — the verifier's name and time are stamped automatically.
+              </div>
+            )}
+          </div>
+        </div>
+      );
   return (
-    <div className={rootClass} translate={asIssued ? "no" : undefined} data-bind-record={record.id} data-paper={layout.paper}>
+    <div className={rootClass} translate={asIssued ? "no" : undefined} data-bind-record={record.id} data-paper={layout.paper ?? (frame ? "portrait" : undefined)} data-frame={frame ? "" : undefined}>
       <div className="paper-head">
-      <DocumentHeader
-        doc={doc}
-        // The title as the paper prints it, unless the plant has renamed the format since (REQUIREMENTS §111).
-        title={layout.paperTitle && !formatEditFor(doc.id)?.name ? layout.paperTitle : undefined}
-        // The paper's letters, its lines under the company's name and its own letterhead in place of the company's
-        // line (F/QC/25), before the title, as the paper prints them (REQUIREMENTS §111 part 6).
-        titleAsPrinted={layout.titleAsPrinted}
-        underCompany={layout.underCompany}
-        letterhead={letterhead ? <div className="doc-letterhead"><PrintedTable table={letterhead} /></div> : undefined}
-        pageLabel={record.headerBlock?.page ?? headerDefaults.page}
-        revision={superseded ? { no: superseded.revisionNo, date: superseded.revisionDate } : undefined}
-        edit={headerEdit}
-        language={lang}
-        numberNotPrinted={!!layout.numberNotPrinted}
-        printedWithNumber={layout.printedWithNumber}
-      />
+      <DocumentHeader {...headerProps} frame={frame} />
       </div>
       <div className="paper-body">
       {headerPanel}
@@ -713,47 +753,20 @@ export function LogSheetRecordView({
       {layout.charts?.map((chart, i) => (
         <SheetChart key={i} chart={chart} data={data} />
       ))}
+      {frame && footerCard}
       </div>
       <div className="paper-foot">
       {footHoldsNotes && notesBelow}
 
-      {(footerGroups.length > 0 || sayVerifyIsApproval) && (
-        <div className="card mt-4">
-          <div className="card-pad">
-            {/* Lines (or a table) the paper prints across the sheet above a box start a group of their
-                own, drawn under them: F/MNT/08's hand-over in the paper's two columns (REQUIREMENTS §93), a
-                certificate's COATING, FINISHING and TOLERANCE (§111); every other form's boxes are as they were. */}
-            {footerGroups.map((group, gi) =>
-              group.lead ? (
-                <BoxLine key={gi} group={group} minWidth={220}>
-                  {group.boxes.map(({ field, index }) => footerBox(field, index))}
-                </BoxLine>
-              ) : (
-                <PrintedGroup key={gi} area="footer" group={group} className={gi > 0 ? "mt-3" : ""}>
-                  {group.boxes.map(({ field, index }, bi) => footerBox(field, index, inBoxTable(group, bi)))}
-                </PrintedGroup>
-              )
-            )}
-            {/* The QA Manager's approval is a QC form's own box, so the line
-                about it belongs under QC forms only: under a Maintenance or a
-                Purchase footer it named a signature those forms do not have
-                (REQUIREMENTS §74). */}
-            {/* ...and only where the form has no APPROVED BY box of its own to write it in (§111), no box of the QA
-                Manager's own (F/QC/25's "Sign By (QA Manager)") and does not print that it needs no signature (the
-                certificates of analysis' "IT DOES NOT REQUIRE A SIGNATURE."): there the line named an approval the
-                paper does not have. */}
-            {/* ...and, since the review of 13-Oct-2026, only under a paper that prints an approval DCRS stamps on Verify
-                (approvedOnVerify: F/QC/34, /35, /37): F-QC-14 and F/QC/13 print none, and the line named one. */}
-            {sayVerifyIsApproval && (
-              <div className={`text-xs text-muted no-print${footerGroups.length > 0 ? " mt-3" : ""}`}>
-                "Approved by (QA Manager)" on the paper form is the <strong>Verify</strong> step here — the verifier's name and time are stamped automatically.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {!frame && footerCard}
+      {/* A framed page's own foot (qcPageFrames.ts): the Format number and the Page number in a bordered line, the address under it. */}
+      {frame && <DocumentHeader {...headerProps} frame={frame} part="foot" />}
       {/* The paper's own text at the foot of the sheet, after every box (REQUIREMENTS §111): the certificates' "THIS IS A SYSTEM GENERATED DOCUMENT." */}
-      {layout.notesAtFoot && layout.notesAtFoot.length > 0 && <NotesBelow lines={layout.notesAtFoot} section="notes-at-foot" />}
+      {layout.notesAtFoot && layout.notesAtFoot.length > 0 ? (
+        <NotesBelow lines={layout.notesAtFoot} section="notes-at-foot" />
+      ) : (
+        frame?.address && <NotesBelow lines={[frame.address]} section="notes-at-foot" />
+      )}
       </div>
       {fetching && <HrMasterPeopleList />}
       {eqFetching && <EquipmentMachineList />}

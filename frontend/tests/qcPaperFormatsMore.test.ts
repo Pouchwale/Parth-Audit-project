@@ -338,7 +338,7 @@ test("F/QC/20 destruction record: titled DESTRUCTION RECORD, PRINTING AIDS DESTR
   ]);
   const html = await sheet(id, createDefaultData(docOf(id), DAY, master) as LogSheetData);
   assert.ok(!text(html).includes("The form's footer prints"), "DCRS's own line is gone");
-  assert.ok(text(html).includes("DESTRUCTION RECORD") && text(html).includes("Next Review date 31st December 2024"));
+  assert.ok(text(html).includes("DESTRUCTION RECORD") && text(html).replace(/(\d) (st|nd|rd|th) /g, "$1$2 ").includes("Next Review date 31st December 2024"));
 });
 
 test("F/QC/29 analysis report and utility test, and F/QC/30 minutes: the paper's words, nothing of DCRS's above the grid", async () => {

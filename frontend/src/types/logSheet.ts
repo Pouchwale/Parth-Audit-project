@@ -315,6 +315,22 @@ export interface ReferenceTable {
   printed?: true;
 }
 
+/**
+ * THE PAGE THE PAPER IS DRAWN ON (REQUIREMENTS §117, QC visual parity, 20-Oct-2026): the incoming-material inspection
+ * records and the report forms of the same make (F/QC/01 to 05, 18 to 24, 29, 30, 33, 36) are printed on a FRAMED page: the
+ * company's logo in a cell with the title beside it, in heavy borders, at the head; the Format number and the Page number
+ * in a bordered line of their own, and the address, at the foot of the PAGE (not under the grid); Calibri throughout.
+ * Named by document in data/seed/qcPageFrames.ts, so no other module's output changes.
+ */
+export interface PageFrame {
+  /** Where the title stands in its cell: the incoming records start it at the left, the reports centre it. */
+  titleAlign: "left" | "center";
+  /** The title's own size (pt) and colour where the paper does not set it in the Word default (navy 20 pt): the destruction record's is black 18 pt. */
+  title?: { size: number; color: string };
+  /** The address the paper prints at the foot of its page where the layout holds none of its own (notesAtFoot): the reports and the destruction record. */
+  address?: string;
+}
+
 export interface LogSheetLayout {
   documentId: string;
   /**

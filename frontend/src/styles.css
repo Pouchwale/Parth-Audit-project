@@ -2992,3 +2992,95 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   /* The two lifts of REQUIREMENTS §90 stand still too. */
   .card-clickable, .calendar-cell { transition: none; }
 }
+
+/* ---- THE FRAMED PAGE OF THE QC PAPERS (REQUIREMENTS §117, QC visual parity of 20-Oct-2026) ----
+   The owner: "I need same format in my audit software in QC module." F/QC/01 to 05, 18 to 24, 29, 30, 33 and 36 are
+   Word files printed to a FRAMED page: three rules round the page (a heavy one and two hairlines), the company's logo
+   and the title in a heavy-bordered band, the Format number and the Page number in a bordered line and the address at
+   the foot of the PAGE, all in Calibri. Only a sheet that carries data-frame (data/seed/qcPageFrames.ts) is drawn so.
+   Measured from the owner's PDFs, in millimetres from the page's edge: the frame at 8.446, the band 12.75 to 38.7 and 10.75
+   to 199.35, the logo cell 56.8 wide, the foot line 271.45 to 277.75. */
+
+/* The sheet is fitted to the page by a zoom (utils/print.ts, which says it in --print-zoom): the paper's own millimetres and
+   points are divided by it, so the frame, the band, the foot and the margin come out at the paper's size at any zoom. */
+.paper-sheet[data-frame], .page-foot {
+  --u: calc(1mm / var(--print-zoom, 1)); --pt: calc(1pt / var(--print-zoom, 1));
+  /* Chrome draws a border a whole number of pixels wide (a width under 2 px is 1): the paper's 1.44 pt rules are 2 px, its 0.72 pt rules 1 px. */
+  --b2: calc(2.05px / var(--print-zoom, 1)); --b1: calc(1.05px / var(--print-zoom, 1));
+}
+.paper-sheet[data-frame] {
+  position: relative;
+  box-sizing: border-box;
+  background: #fff;
+  color: #000;
+  font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  border: var(--b2) solid #000;
+  padding: calc(3.8 * var(--u)) calc(1.8 * var(--u)) 0;
+}
+.paper-sheet[data-frame]::before,
+.paper-sheet[data-frame]::after { content: ""; position: absolute; border: var(--b1) solid #000; pointer-events: none; }
+.paper-sheet[data-frame]::before { inset: calc(0.019 * var(--u)); }
+.paper-sheet[data-frame]::after { inset: calc(0.319 * var(--u)); }
+.doc-header.doc-header-frame {
+  display: flex;
+  box-sizing: border-box;
+  height: calc(25.9 * var(--u));
+  border: var(--b2) solid #000;
+  border-radius: 0;
+  overflow: hidden;
+  background: #fff;
+}
+.doc-header-frame .dhf-logo {
+  flex: 0 0 30.2%;
+  box-sizing: border-box;
+  border-right: var(--b2) solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.doc-header-frame .dhf-logo img { width: 96%; height: auto; aspect-ratio: 54.4 / 18.3; display: block; }
+.doc-header-frame .dhf-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 calc(1.6 * var(--u));
+  font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  font-size: calc(20 * var(--pt));
+  font-weight: 700;
+  line-height: 1.15;
+  color: #002060;
+  text-align: left;
+}
+.doc-header-frame .dhf-title.center { justify-content: center; text-align: center; }
+.page-foot {
+  display: grid;
+  grid-template-columns: 3.14fr 1fr;
+  box-sizing: border-box;
+  margin: calc(5 * var(--u)) calc(1.5 * var(--u)) 0 calc(2.2 * var(--u));
+  border: var(--b2) solid #000;
+  font-size: calc(12 * var(--pt));
+  line-height: calc(5.3 * var(--u));
+}
+.doc-header-frame .dhf-title { font-size: calc(var(--title-pt, 20) * var(--pt)); }
+/* F/QC/20's foot: two lines of cells (Format number | Rev. no. | Page, then the issue and the review dates), the paper's own. */
+.page-foot.page-foot-dated { grid-template-columns: 45.5fr 52.1fr 41.8fr 45.4fr; font-size: calc(12 * var(--pt)); }
+.page-foot-dated > .pf-format { grid-column: span 2; text-align: left; padding-left: calc(1.9 * var(--u)); }
+.page-foot-dated > .pf-cell { box-sizing: border-box; border-right: var(--b2) solid #000; padding-left: calc(1.9 * var(--u)); text-align: left; }
+.page-foot-dated > .pf-cell:nth-child(n+4) { border-top: var(--b2) solid #000; }
+.page-foot-dated > .pf-format { border-right: var(--b2) solid #000; }
+.page-foot-dated > .pf-cell:last-child, .page-foot-dated > .pf-page { border-right: none; }
+.page-foot .pf-format { box-sizing: border-box; border-right: var(--b2) solid #000; text-align: center; }
+.page-foot .pf-page { padding-left: calc(1.9 * var(--u)); }
+.paper-sheet[data-frame] .paper-foot [data-section="notes-at-foot"] { margin: 0; padding: 0 0 calc(3.4 * var(--u)); text-align: center; }
+.paper-sheet[data-frame] .paper-foot [data-section="notes-at-foot"] p.text-sm { margin: calc(0.7 * var(--u)) 0 0; font-size: calc(14 * var(--pt)); line-height: 1.2; }
+@media print {
+  [data-print-doc]:has(.paper-sheet[data-frame]) { --u: calc(1mm / var(--print-zoom, 1)); padding: calc(8.446 * var(--u)); }
+  .paper-sheet[data-frame] { display: flex; flex-direction: column; min-height: calc(279.4 * var(--u)); }
+  .paper-sheet[data-frame] .paper-head { display: block; flex: none; }
+  .paper-sheet[data-frame] .paper-body { display: block; flex: 1 1 auto; }
+  .paper-sheet[data-frame] .paper-foot { display: block; flex: none; }
+  /* The paper's grid is Calibri 11 pt, the density of a Word table. */
+  .paper-sheet[data-frame] .doc-table table th, .paper-sheet[data-frame] .doc-table table td,
+  .paper-sheet[data-frame] .doc-table table.log-sheet td .cell-text { font-size: calc(11 * var(--pt)); }
+}
