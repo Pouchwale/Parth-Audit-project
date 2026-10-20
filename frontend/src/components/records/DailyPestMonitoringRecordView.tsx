@@ -7,6 +7,7 @@ import { masterRepository } from "../../data/repositories/masterRepository";
 import { isCheckpointFinding } from "../../engine/checkpoints";
 import { dayInfo } from "../../engine/holidays";
 import { totalRodents } from "../../engine/rodentPattern";
+import { newRodentCatch, rodentAreaNames } from "../../engine/rodentCatches";
 import { Link } from "../../store/router";
 import { FHR17_INSTRUCTION_1, FHR17_INSTRUCTION_2 } from "./DailyRegisterSheet";
 import { MONTH_NAMES, fromISODate } from "../../utils/date";
@@ -14,7 +15,8 @@ import { generateId } from "../../utils/id";
 import { bindProps, dailyPestBind } from "../../engine/roundTrip/bindingsFor";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 
-const RODENT_AREA_CONTEXT = "service-report:Rodent Control Service";
+// The choice that says the person writes the place in their own words.
+const OTHER_PLACE = "__other__";
 
 export function DailyPestMonitoringRecordView({
   doc,
@@ -42,7 +44,9 @@ export function DailyPestMonitoringRecordView({
   });
   const master = masterRepository.get();
   const checkpoints = master.checkpoints;
-  const rodentAreas = master.areas.filter((a) => a.context === RODENT_AREA_CONTEXT).map((a) => a.name);
+  const rodentAreas = rodentAreaNames(master);
+  // Rows whose place the person chose to write in their own words (the choice box says "Another place…").
+  const [otherPlace, setOtherPlace] = React.useState<Set<string>>(new Set());
   const anyFinding = checkpoints.some((cp) => isCheckpointFinding(cp, data.checkpoints[cp.no]?.value));
   const rodentTrapped = data.checkpoints[7]?.value === "Yes";
   const catches = data.rodentCatches ?? [];
@@ -59,17 +63,17 @@ export function DailyPestMonitoringRecordView({
         [no]: { ...(data.checkpoints[no] ?? { value: null }), ...patch },
       },
     };
-    // Answering "Yes" to checkpoint 7 opens the catch-details table with
-    // one row ready to fill — the count and location are what get reported.
+    // Answering "Yes" to checkpoint 7 opens the catch-details table with one EMPTY row: the person chooses the place
+    // and writes the number - nothing is chosen or counted for them (REQUIREMENTS §98, §118).
     if (no === 7 && patch.value === "Yes" && (next.rodentCatches ?? []).length === 0) {
-      next.rodentCatches = [{ id: generateId("rc"), trapBoxNo: "", location: rodentAreas[0] ?? "", count: 1 }];
+      next.rodentCatches = [newRodentCatch()];
     }
     onChange(next);
   };
 
   const updateCatch = (id: string, patch: Partial<RodentCatch>) =>
     setField("rodentCatches", catches.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  const addCatch = () => setField("rodentCatches", [...catches, { id: generateId("rc"), trapBoxNo: "", location: rodentAreas[0] ?? "", count: 1 }]);
+  const addCatch = () => setField("rodentCatches", [...catches, newRodentCatch()]);
   const removeCatch = (id: string) => setField("rodentCatches", catches.filter((c) => c.id !== id));
 
   const addAction = () => {
@@ -229,10 +233,70 @@ export function DailyPestMonitoringRecordView({
                       <input className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "trapBoxNo"))} placeholder="RB-27" disabled={!editable} value={c.trapBoxNo} onChange={(e) => updateCatch(c.id, { trapBoxNo: e.target.value })} />
                     </td>
                     <td>
-                      <input className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "location"))} list="rodent-areas" disabled={!editable} value={c.location} onChange={(e) => updateCatch(c.id, { location: e.target.value })} />
+                      {/* The place is a choice of the factory's real areas (the Rodent Control Service report's own list, Master Data),
+                          with a way to write another place. */}
+                      {(() => {
+                        const listed = rodentAreas.includes(c.location);
+                        const writing = !listed && (c.location !== "" || otherPlace.has(c.id));
+                        const bound = bindProps(dailyPestBind.rodentCatch(c, ci, "location"));
+                        return (
+                          <>
+                            <select
+                              className="input input-sm"
+                              data-field="catch-location"
+                              aria-label={`Rodent catch ${ci + 1}: location`}
+                              {...(writing ? {} : bound)}
+                              disabled={!editable}
+                              value={listed ? c.location : writing ? OTHER_PLACE : ""}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (v === OTHER_PLACE) {
+                                  setOtherPlace(new Set(otherPlace).add(c.id));
+                                  updateCatch(c.id, { location: listed ? "" : c.location });
+                                } else {
+                                  const next = new Set(otherPlace);
+                                  next.delete(c.id);
+                                  setOtherPlace(next);
+                                  updateCatch(c.id, { location: v });
+                                }
+                              }}
+                            >
+                              <option value="">Choose the place…</option>
+                              {rodentAreas.map((a) => (
+                                <option key={a} value={a}>
+                                  {a}
+                                </option>
+                              ))}
+                              <option value={OTHER_PLACE}>Another place…</option>
+                            </select>
+                            {writing && (
+                              <input
+                                className="input input-sm mt-1"
+                                data-field="catch-location-other"
+                                aria-label={`Rodent catch ${ci + 1}: the place, in your words`}
+                                {...bound}
+                                placeholder="Write the place"
+                                disabled={!editable}
+                                value={c.location}
+                                onChange={(e) => updateCatch(c.id, { location: e.target.value })}
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
                     </td>
                     <td>
-                      <input type="number" min={1} className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "count"))} disabled={!editable} value={c.count} onChange={(e) => updateCatch(c.id, { count: Math.max(0, Number(e.target.value) || 0) })} />
+                      <input
+                        type="number"
+                        min={1}
+                        className="input input-sm"
+                        data-field="catch-count"
+                        aria-label={`Rodent catch ${ci + 1}: number of rodents`}
+                        {...bindProps(dailyPestBind.rodentCatch(c, ci, "count"))}
+                        disabled={!editable}
+                        value={c.count >= 1 ? c.count : ""}
+                        onChange={(e) => updateCatch(c.id, { count: Math.max(0, Number(e.target.value) || 0) })}
+                      />
                     </td>
                     {editable && (
                       <td>
@@ -246,11 +310,6 @@ export function DailyPestMonitoringRecordView({
               </tbody>
             </table>
           </div>
-          <datalist id="rodent-areas">
-            {rodentAreas.map((a) => (
-              <option key={a} value={a} />
-            ))}
-          </datalist>
         </div>
       )}
 
