@@ -7,7 +7,7 @@ import { formatEditFor } from "../../data/formatEdits";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { formatDisplayDate } from "../../utils/date";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
-import { FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate } from "./FlyCatcherRegisterSheet";
+import { FHR18_PAPER_CELLS, FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate } from "./FlyCatcherRegisterSheet";
 
 // A FLY CATCHER VISIT ON ITS OWN PAGE, LAID OUT AS F/HR/18 PRINTS — the
 // company's own Word original (source-documents/F-HR-18_Fly Catcher Inspection
@@ -72,6 +72,8 @@ export function FlyCatcherRecordView({
           title={formatChanged?.name ? undefined : FHR18_TITLE}
           pageLabel={record.headerBlock?.page ?? headerDefaults.page}
           edit={headerEdit}
+          labels={FHR18_PAPER_CELLS}
+          dotDates
         />
         {headerPanel}
 
@@ -96,6 +98,11 @@ export function FlyCatcherRecordView({
         <div className="doc-table register-grid-wrap">
           <table className="register-grid fhr18-grid">
             <Fhr18GridHead />
+            <tbody className="fhr18-gap" data-gap="first" aria-hidden="true">
+              <tr>
+                <td colSpan={7} />
+              </tr>
+            </tbody>
             {data.entries.map((e) => {
               const label = `${e.pcId}, visit of ${formatDisplayDate(record.dueDate)}`;
               return (

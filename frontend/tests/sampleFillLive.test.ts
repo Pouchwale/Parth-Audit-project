@@ -24,6 +24,7 @@ import { SAMPLE_FILL_LIVE_DECLINED, SAMPLE_FILL_NOTE, sampleFillAllowedFor, samp
 import { answerIn } from "../src/i18n";
 import { LIZARD_NOT_REPORTED_SOURCE, LIZARD_PATTERN_SOURCE, lizardTrendRows } from "../src/data/selectors";
 import { todayISO } from "../src/utils/date";
+import { nextWorkingDay } from "../src/engine/holidays";
 
 ensureDocumentsSeeded();
 ensureMasterSeeded();
@@ -34,6 +35,9 @@ if (typeof (globalThis as { location?: unknown }).location === "undefined") {
 }
 
 const today = todayISO();
+// The records opened below are for a WORKING day: on a holiday or the weekly off the daily register is only marked so and there is nothing to fill
+// (the real clock made this suite fail on 20-Oct-2026, Navratri Navam).
+const workDay = nextWorkingDay(today, masterRepository.get());
 const env = (globalThis as { process: { env: Record<string, string | undefined> } }).process.env;
 
 // The plant: no Demo Mode, no switch. Every test starts there.
@@ -62,7 +66,7 @@ function ctxWith(target: AssistantTarget, isDemo: boolean, userWords = "fill it 
 
 function openRecord(documentId: string, isDemo: boolean) {
   const doc = documentRepository.getById(documentId)!;
-  const { record } = createRecordForDocument(doc, { dateISO: today, isDemo });
+  const { record } = createRecordForDocument(doc, { dateISO: workDay, isDemo });
   let current = record.data;
   const commits: { data: unknown; note: string }[] = [];
   const target: AssistantTarget = {

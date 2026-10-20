@@ -231,7 +231,7 @@ function setText(parts: Map<string, string>, ref: string, text: string): void {
 }
 
 const boundTexts = (blocks: ExportBlock[]) =>
-  blocks.flatMap((b) => (b.kind === "text" ? (b.parts ?? []) : b.kind === "fields" ? b.pairs.flatMap(([, c]) => c.parts ?? []) : b.rows.flatMap((r) => r.flatMap((c) => c.parts ?? [])))).filter((p) => p.bind).map((p) => [p.bind!.path, p.bind!.text]);
+  blocks.flatMap((b) => (b.kind === "text" ? (b.parts ?? []) : b.kind === "fields" ? b.pairs.flatMap(([, c]) => c.parts ?? []) : b.kind === "sheet" ? b.cells.flatMap((c) => c.parts ?? []) : b.kind === "paper" ? b.rows.flatMap((r) => r.cells.flatMap((c) => c.parts ?? [])) : b.rows.flatMap((r) => r.flatMap((c) => c.parts ?? [])))).filter((p) => p.bind).map((p) => [p.bind!.path, p.bind!.text]);
 
 // ---------------------------------------------------------------------------
 // the GAP report's header block (pages/GapPage.tsx): one box holds two values
@@ -427,7 +427,7 @@ test("the paper's own marks stay out of the downloaded file: LOT STATUS reads th
   ]);
   // The words the file shows (not the bindings, which carry the choice box's options as they always did).
   const shown = blocks
-    .flatMap((b) => (b.kind === "text" ? [b.text] : b.kind === "fields" ? b.pairs.flatMap(([name, cell]) => [name, cell.text]) : b.rows.flatMap((r) => r.map((c) => c.text))))
+    .flatMap((b) => (b.kind === "text" ? [b.text] : b.kind === "fields" ? b.pairs.flatMap(([name, cell]) => [name, cell.text]) : b.kind === "sheet" ? b.cells.map((c) => c.text) : b.kind === "paper" ? b.rows.flatMap((r) => r.cells.map((c) => c.text)) : b.rows.flatMap((r) => r.map((c) => c.text))))
     .join("\n");
   for (const words of ["ACCEPTED ON DEVIATION", "QA INSPECTOR", "before usage.", "*"]) assert.ok(!shown.includes(words), `${words} is the paper's, not the file's`);
 

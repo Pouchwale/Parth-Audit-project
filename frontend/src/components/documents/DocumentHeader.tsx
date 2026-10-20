@@ -154,6 +154,8 @@ export function DocumentHeader({
   frame,
   part = "head",
   lineClearance,
+  labels,
+  dotDates = false,
 }: {
   doc: DocumentDefinition;
   /**
@@ -192,6 +194,10 @@ export function DocumentHeader({
   numberNotPrinted?: boolean;
   /** The paper's own lines printed with its format number (F/QC/20's issue and review dates, REQUIREMENTS §111), after the revision. */
   printedWithNumber?: { label: string; value: string }[];
+  /** The words the paper puts in its four cells where they are not the header's ("Format No.:", "Rev No:", "Date:", "Page No.:" on F/HR/18, REQUIREMENTS §118). */
+  labels?: { formatNo?: string; revNo?: string; revDate?: string; page?: string };
+  /** The revision date as the paper writes it, 15.12.2024, not 15-Dec-2024 (F/HR/18). */
+  dotDates?: boolean;
 }) {
   // A form issued in Gujarati carries its Gujarati title; with English chosen
   // the title reads in English like the rest of it (REQUIREMENTS §58) — unless
@@ -350,6 +356,7 @@ export function DocumentHeader({
       </div>
     );
   }
+  const dateWords = (iso: string) => (dotDates && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso.slice(8)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : formatDisplayDate(iso));
   return (
     <div className="doc-header">
       {letterhead ?? (
@@ -376,13 +383,13 @@ export function DocumentHeader({
       </div>
       <div className="meta-row">
         <div className="meta-cell">
-          <span className="k">Format No.</span>
+          <span className="k">{labels?.formatNo ?? "Format No."}</span>
           <Cell field="formatNo" edit={edit} className="v notranslate" translate>
             {asPrinted(formatNo)}
           </Cell>
         </div>
         <div className="meta-cell">
-          <span className="k">Rev No.</span>
+          <span className="k">{labels?.revNo ?? "Rev No."}</span>
           {edit?.editing === "revisionNo" ? (
             edit.box("revisionNo")
           ) : (
@@ -419,23 +426,23 @@ export function DocumentHeader({
             own date stands beside it (§117). */}
         {revision && (
           <div className="meta-cell" data-meta="revision-date">
-            <span className="k">Rev Date</span>
+            <span className="k">{labels?.revDate ?? "Rev Date"}</span>
             <span className="v notranslate" translate="no">
-              {formatDisplayDate(revision.date)}
+              {dateWords(revision.date)}
             </span>
           </div>
         )}
         {!revision && revisionDate && (
           <div className="meta-cell" data-meta="revision-date">
-            <span className="k">Rev Date</span>
+            <span className="k">{labels?.revDate ?? "Rev Date"}</span>
             <Cell field="revisionDate" edit={edit} className="v notranslate" translate>
-              {formatDisplayDate(revisionDate)}
+              {dateWords(revisionDate)}
             </Cell>
           </div>
         )}
         {pageLabel && (
           <div className="meta-cell">
-            <span className="k">Page No.</span>
+            <span className="k">{labels?.page ?? "Page No."}</span>
             <Cell field="page" edit={edit} className="v notranslate" translate>
               {pageLabel}
             </Cell>

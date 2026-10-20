@@ -8749,6 +8749,101 @@ the utility test (the narrower centred table); the minutes; F-QC-30, 32 and 40.A
 lines, the header); the two reliability records (overlapping blocks); the two statements of compliance (the title alone, the
 pale-blue label column, the foot line, the page breaks).
 
+## §118 The service reports as the contractor's March sheet, F/HR/18 as its Word page, real Excel and Word downloads, A4 print, and the daily pest record's rule (17-Oct-2026)
+
+**The request.** The owner, 17-Oct-2026, with two files (the contractor's "Service Report- March 2026.pdf" and the Word original's PDF of
+F/HR/18): "So now I will give you some HR module documents. So fix it also as per I given document to you. And make sure whenever user
+download the Excel file or Word file, it should be real, which I have supplied to you. And make sure whenever user take print on A4 size
+paper, then each and everything on that document should be printed properly. Do it fast, perfectly, and commit and push ... there is
+record called DAILY PEST CONTROL MONITORING RECORD in which system should fill it daily and user will verify and submit it and make sure
+it seem to be real and not system generated also there is questions about rat so make sure in that mention any location name in factory
+of Gujarat print pack publications pvt ltd." Then, with a screenshot of DCRS's service report (a form of boxes, a trash can a line, Add
+Area, glue boards on fifteen lines and the bait on one): "So this is the report where you need to do work. Bromadiolone Cake: as you know
+I have already provided [the March PDF], so make sure it looks like it only, so do work on it."
+
+**A. The service report is the contractor's sheet (done; 0426e42, ba9089d, 1d3e6bb).** One printed grid in Calibri
+(components/records/ServiceReportRecordView.tsx, measures in data/seed/serviceReportPaper.ts, the CSS in the HR-DOCS block of styles.css):
+the title at the left (24 px, the PDF's 18 pt), the band GURUDEV PEST CONTROL | Service Name | Date, the Unit line, six columns
+(Sl.No, Area, Material Name, Qty used Nos/Grams, Method of Application, Remarks) at the contractor's widths, the material, the quantity and
+the method ONE merged cell for each block of areas, the Remarks one merged cell for the visit, the two names over their rule at the foot
+(GPC Technician Sign, Customer's representative sign). The values a person writes sit inline in the paper's cells (no boxes, no trash can,
+no Add Area on the sheet: an area the plant adds or drops is a Master Data change). The date prints as the paper writes it, 07.03.2026.
+The same page serves the three services, each with its own service name and pests line, its areas and its material rules, unchanged.
+**The rodent report's standard plan is the March paper's** (engine/serviceMaterials.ts): areas 1-8 on Glue Board / Trouble gum placement,
+areas 9-16 (Offline punching & QC Inspection to Canteen) on Bromadiolone Cake / Baiting, keyed by service AND area because "Canteen" is also
+an area of the other two services. The quantity is typed once on the first line of each block ("3", "50 gramms" on the specimen). The
+fourth area is "First floor - Ink store" (master data area-rcs-4 and a draft still holding the old "Ink store - Ground floor" are corrected
+while they read exactly as the old seed wrote them). A NEW BLANK RECORD CARRIES NOTHING OF THE SPECIMEN: no quantity, no remark ("No Rodent
+Trapped" is the contractor's observation, entered from their paper), no signature. Printed on A4 it is the March PDF within 1.5 pt on all 23
+horizontal and 7 vertical rules. The remark is the first line's and one cell for the report; a remark written against another line
+(Mitra's, an earlier build's) is shown under it, never dropped. Open questions 17 and 18 of the list below are answered by this: the March
+plan is the standing one, and the Ink store is on the first floor.
+Tests: `frontend/tests/serviceReportPaper.test.ts` (the plan, the two blocks, the date, a blank record, the daily preparation, the other two
+services, the area rename), `tests/e2e_print_and_forms.py` (the old page's row counts and one-bait-line checks now read the merged blocks),
+`tests/e2e_print_all_documents.py` (one A4 portrait page each, the table 432 pt across and whole).
+
+**C. Real Excel and Word downloads (done for the service report, F/HR/15, F/HR/16 and F/HR/18; 437df8d, d921e0a).** A table marked
+`data-paper-sheet` is read as a sheet (utils/documentExport.ts `sheetBlock`): each cell at its place with the cells it merges over, the words'
+size, weight and alignment, the four edges as the page draws them, the column widths in Excel characters (`data-xl-w`) and the row heights in
+points. The writer lays it as the contractor's workbook: `mergeCells`, `cols`, row heights, Calibri in the paper's sizes, thin and medium
+rules, a number a person wrote kept a number, A4 portrait fitted one page wide, the sheet's own name; the map that lets an edited file be read
+back (§81) is written from the same cells. Read back with openpyxl against `Service Report-April 2026.xls` (the same grid as the March
+sheet), all three services: every merged cell of the contractor's workbook is in the download (the title, the band, the unit line, the
+material, quantity and method blocks, the remarks; the foot is a names row and a captions row, each merged over three columns, where the
+workbook has one caption row after three blank ones), the six widths 9.29 / 32.86 / 18.29 / 12.86 / 15 / 15.86, Calibri 24 / 11 / 12.
+`utils/paperSheets.ts` redraws two registers on their supplied workbooks: F/HR/15 on 34 columns (the title row merged across, "Month & Year",
+the title and "F/HR/15 (01/15.12.2024)" in three merged cells, the NOTE merged across, the numbered heading, a row to an area, the two foot rows
+merged over three columns; widths 5 / 42.89 / 40.66 / 5.66 x 31, heights 39 / 42 / 42 / 45 / 39) and F/HR/16 on 16 columns ("Area" and "Date"
+merged over three columns, what is cleaned and "Cleaning by" in the two cells the workbook has, the foot merged over four); their merged
+ranges are exactly the supplied workbooks' own (7 and 8) and their widths and row counts equal. F/HR/18 downloads as a Word page of its own
+(utils/docx.ts "paper" tables laid in points): A4 portrait with the paper's margins, the framed band (the company's name 20 pt, the title 14 pt,
+the four cells 12 pt), the Month and Year box, the legend in four columns, the heading box, two lines to a unit with the unit's number merged
+down, and a page break between PC-08 and PC-09. The paper's space row (a part of the page that is not a row of the record) no longer reaches a
+file as an empty row. Left as the generic grid: the other HR formats that have no workbook or Word original among the supplied files (their
+originals were supplied as PDFs only); F/HR/18's visit page downloads its one page in the same Word page (13 units, one line each).
+Tests: `frontend/tests/paperSheetExport.test.ts` (the writer, the Word page), `tests/e2e_downloads_and_print.py` section 4 (the downloads read
+back and compared with the supplied originals: merges, widths, rows, fonts, orientation; the Word file's page, bands, units and break).
+
+**B. F/HR/18 printed as its PDF (done; 419c386).** The register's printed page, and a visit's own page which draws the same band, month
+box, legend and headings, are laid in points off the owner's two-page PDF: the framed band, the four cells in the paper's words ("Format No.:",
+"Rev No:", "Date:", "Page No.:", the date as 15.12.2024, the page number in Times bold), the Month and Year box with its underline, the legend in
+four columns, the heading box, the paper's space before the units, seven columns at the paper's widths and two 28.9 pt lines to a unit, no shading,
+PC-01 to PC-08 on the first page and PC-09 to PC-13 on the second. Measured on the printed PDF against the paper, page by page: the words 1.1 mm
+(x) and 0.2 mm (y) off at the median, the font size ratio 1.004, every rule within 1.5 pt but the outer frame's (drawn as a border the
+checker does not read). What still differs, on purpose: the company's name is spelled as the owner gave it on 02-Oct-2026 (§ company name), the
+two tube-light dates and the ditto mark are printed on every line (§44: the register's own fixed dates), the legend and the units are "PC-01"
+where the Word file mixes "PC – 01" and "PC - 11", and the month of the register is written on the Month and Year line (the paper leaves it
+blank). DocumentHeader takes two additive options for this (`labels`, `dotDates`).
+
+**D. A4 print complete for every HR document with a supplied original (done).** Measured on the browser's own PDF
+(`tests/e2e_print_all_documents.py`): the three service reports one A4 portrait page, 432 pt across, nothing cut; F/HR/15 one landscape page;
+**F/HR/16 now one landscape page, as the paper (it ran to two: its cleaning cell wrapped to three lines, now the paper's two)**; F/HR/17's register
+three portrait pages, as the paper; F/HR/18's register two portrait pages, PC-01 to PC-08 then PC-09 to PC-13, its eight vertical rules and 28.9 pt
+lines at the paper's places, nothing cut at the edge. A `data-sheet` attribute (the document's id) on a log sheet lets a paper's print rule be its own.
+
+**E. The daily pest control monitoring record (F/HR/17): the legitimate part only (done; 93ebf8e).** The owner asked for the system to fill the record
+every day, "so it seem to be real and not system generated", with a rodent location. **That is not built.** It would write answers, rodent catches,
+locations and times that nobody observed and make them look hand-made: the same refusal as 8-Oct-2026 (§98): a Live record never carries an answer,
+a count, a location, a time or a signature a person did not enter, and no setting or request turns that on. What is built: (1) the daily preparation
+writes the KNOWN parts only (the date, a closed day marked as the plant's calendar says, the ten check points listed and unanswered, no time, no
+checker, no catch, nothing carried forward from a confirmed record), proved for F/HR/17 by `frontend/tests/dailyPestRecord.test.ts` as well as by
+`truthfulPrepare.test.ts` for every document; (2) a rodent catch row starts EMPTY (it began with the first area and a count of 1): the person chooses
+the place and writes the number, and Submit refuses a row without either; (3) the place is a choice of the factory's real areas, the contractor's sixteen
+areas of the Rodent Control Service report (one list, Master Data, shared by the daily register and that report, with any area the plant adds), with
+"Another place…" to write another; (4) nothing else writes answers, counts, times or sample data into a Live F/HR/17 (Demo Mode keeps its simulation,
+and a test server its ALLOW_SAMPLE_FILL). What the owner can have instead of an invented record: the record prepared and waiting each working day with
+its date and its ten check points, so the round takes a minute to write down, and the place chosen from a list in two touches.
+**Date-dependent test fixed.** `sampleFillLive.test.ts` opened its Live records on today's date; on 20-Oct-2026 (a holiday) the daily register is only marked so
+and nothing is left to fill: it opens them on a working day now.
+
+**Open questions of §118 (one line each).**
+1. Is the company's name on the contractor's sheet and on F/HR/18 to be the owner's spelling of 02-Oct-2026 (as now: "GUJARAT PRINT PACK PUBLICATIONS PVT LTD") or the sheet's own ("GUJARAT PRINTPACK PUBLICATION PRIVATE LIMITED" / "...PUBLICATION PRIVATE LIMITED")? It is one constant (COMPANY.name).
+2. The March sheet's Date is the record's own date (the visit's scheduled date, 04th and 18th); should the person be able to write the date the contractor actually came?
+3. F/HR/18 prints "PC-01" where the Word file mixes "PC – 01", "PC - 11" and "PC - 13": kept as the master data names them, one spelling.
+4. F/HR/18's two tube-light dates and the ditto mark print on every line (§44, the owner's own dates); the Word original leaves those cells blank.
+5. The Word and Excel files were checked as files (their XML read back, merges, widths, rows, faces and page set-up compared with the supplied originals); no copy of Word or Excel is on this computer to open them, so how they look on the owner's screen is the one thing left to look at.
+6. F/HR/01 to F/HR/13, F/HR/19, F/HR/21 and F/HR/22 and the daily register's original were supplied as PDFs only, so they download in the generic grid (§54); send their Word or Excel originals to have them laid on their own grids as F/HR/15, F/HR/16, F/HR/18 and the service reports now are. "Training - Yrl (1).doc" is held as the training record's Word original and its download was not compared cell by cell.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -8813,9 +8908,11 @@ pale-blue label column, the foot line, the page breaks).
     Offline punching & QC Inspection through Canteen, at 50 gramms, with rows 1–8 on Glue Board
     at 3. Left as it is rather than changed on one specimen — the field is editable per area and
     per visit — but if rows 9–16 are the standing arrangement, that is a one-line change.
+    **Answered, 17-Oct-2026 (§118):** the owner, with the March PDF: "make sure it looks like it only" — rows 9–16 are the standing plan.
 18. **Which floor the Ink store is on.** The master list of Rodent Control areas has "Ink store -
     Ground floor" as row 4; the March-2026 specimen prints "First floor - Ink store" in that
     position. Master data, corrected in Master Data → Service Areas once confirmed.
+    **Answered, 17-Oct-2026 (§118):** the March paper is the owner's reference: the area is "First floor - Ink store" now.
 19. **F/HR/08's topic ticks** (§46). The 154 names and designations of the 01.04.2026 ~ 31.03.2027
     Training Need Identification Record are on file; the X marks against the seventeen topics did
     not survive the PDF's text layer unambiguously and are not guessed. The record is seeded

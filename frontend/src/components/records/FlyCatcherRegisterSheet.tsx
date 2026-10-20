@@ -52,6 +52,8 @@ export { FLY_DOC_ID };
 // the owner gave it on 02-Oct-2026 (COMPANY.name), as on every format.
 export const FHR18_TITLE = "FORTNIGHTLY – FLY CATCHER INSPECTION & CLEANING RECORD";
 export const FHR18_DATE = "15.12.2024";
+/** The words of the paper's four cells (the Word original, REQUIREMENTS §118): its Rev cell reads "Rev No:" and its date cell "Date:". */
+export const FHR18_PAPER_CELLS = { formatNo: "Format No.:", revNo: "Rev No:", revDate: "Date:", page: "Page No.:" };
 
 // The location legend, in the order the form prints it: two columns, the
 // first four rows pairing PC-01..04 with PC-05..08, then PC-09/10, 11/12, 13.
@@ -342,6 +344,8 @@ export function FlyCatcherRegisterSheet({
         title={formatChanged?.name ? undefined : FHR18_TITLE}
         pageLabel={page}
         edit={first ? headerEdit : undefined}
+        labels={FHR18_PAPER_CELLS}
+        dotDates
       />
       {first && headerPanel}
       <div className="fhr18-month">
@@ -352,10 +356,16 @@ export function FlyCatcherRegisterSheet({
     </>
   );
 
-  const grid = (units: PCLocation[]) => (
+  const grid = (units: PCLocation[], firstPage = false) => (
     <div className="doc-table register-grid-wrap">
       <table className="register-grid fhr18-grid">
         <Fhr18GridHead />
+        {/* The paper's space between the headings and the units (the first page's a line taller, as its Word page is). */}
+        <tbody className="fhr18-gap" data-gap={firstPage ? "first" : "next"} aria-hidden="true">
+          <tr>
+            <td colSpan={7} />
+          </tr>
+        </tbody>
         {units.map((pc) => {
           const rows = unitRows(pc.id);
           return (
@@ -599,7 +609,7 @@ export function FlyCatcherRegisterSheet({
       <div ref={sheetRef} className="register-sheet fhr18-sheet" data-print-doc data-editing={editing ? "true" : undefined}>
         <section className="register-page">
           {header("1 of 2", true)}
-          {grid(pageOne)}
+          {grid(pageOne, true)}
         </section>
         <section className="register-page">
           {header("2 of 2", false)}

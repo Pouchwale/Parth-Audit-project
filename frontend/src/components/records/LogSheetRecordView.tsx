@@ -541,6 +541,7 @@ export function LogSheetRecordView({
       data-bind-record={record.id}
       data-paper={layout.paper ?? (frame ? "portrait" : lc ? "landscape" : undefined)}
       data-frame={frame ? "" : undefined}
+      data-sheet={doc.id}
       data-paper-form={pf ? "incoming" : lc ? "lineclear" : undefined}
       style={lc ? ({ "--lc-w": `calc(${lcWidth} * var(--u))` } as React.CSSProperties) : pf ? ({ "--pf-lh": `calc(${pf.lh} * var(--u))`, "--pf-par": `calc(${pf.par} * var(--u))`, "--pf-sr": `calc(${pf.sr} * var(--u))` } as React.CSSProperties) : undefined}
     >

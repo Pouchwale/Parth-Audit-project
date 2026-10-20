@@ -35,6 +35,13 @@ const SEED_CORRECTIONS: { id: string; fromRole: string }[] = [
   { id: "emp-mukesh", fromRole: "Staff — pest control awareness trainee" },
 ];
 
+/**
+ * Seeded service areas the seed has since corrected from the contractor's own report (the owner, 17-Oct-2026): the
+ * rodent report's fourth area reads "First floor - Ink store" on the March-2026 paper, not "Ink store - Ground
+ * floor". Brought up only while the stored line still reads exactly as the old seed wrote it.
+ */
+const AREA_CORRECTIONS: { id: string; fromName: string }[] = [{ id: "area-rcs-4", fromName: "Ink store - Ground floor" }];
+
 export function ensureSeeded(): void {
   const raw = readJSON<MasterData | null>(KEY, null as unknown as MasterData);
   if (!raw) {
@@ -82,6 +89,13 @@ export function ensureSeeded(): void {
     const to = SEED_MASTER_DATA.employees.find((e) => e.id === fix.id);
     if (i >= 0 && to) {
       next.employees = next.employees.map((e, j) => (j === i ? { ...e, role: to.role, department: to.department } : e));
+      changed = true;
+    }
+  }
+  for (const fix of AREA_CORRECTIONS) {
+    const to = SEED_MASTER_DATA.areas.find((a) => a.id === fix.id);
+    if (to && next.areas.some((a) => a.id === fix.id && a.name === fix.fromName)) {
+      next.areas = next.areas.map((a) => (a.id === fix.id ? { ...a, name: to.name } : a));
       changed = true;
     }
   }

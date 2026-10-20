@@ -296,6 +296,88 @@ with sync_playwright() as p:
     check("A form only a little wider than the paper (F/HR/05) stays portrait, scaled no smaller than 80%", fit["page"] == "portrait" and (fit["zoom"] == "" or 0.8 <= float(fit["zoom"]) <= 1), fit)
     page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
 
+    # ==================================================================
+    # 4. The papers supplied as Excel and Word download as THEIR OWN sheet and page (REQUIREMENTS section 118; the owner,
+    #    17-Oct-2026: "whenever user download the Excel file or Word file, it should be real, which I have supplied to you")
+    # ==================================================================
+    SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "source-documents")
+
+    def col_name(i):
+        s = ""
+        i += 1
+        while i:
+            i, r = divmod(i - 1, 26)
+            s = chr(65 + r) + s
+        return s
+
+    def original(name, sheet=0):
+        """The merged ranges, column widths (Excel characters) and row count of a supplied .xls; None where xlrd is not installed."""
+        try:
+            import xlrd
+        except ImportError:
+            return None
+        sh = xlrd.open_workbook(os.path.join(SRC, name), formatting_info=True).sheets()[sheet]
+        merges = {f"{col_name(c1)}{r1 + 1}:{col_name(c2 - 1)}{r2}" for (r1, r2, c1, c2) in sh.merged_cells}
+        widths = [round(sh.colinfo_map[c].width / 256.0, 2) for c in range(sh.ncols) if c in sh.colinfo_map]
+        return merges, widths, sh.nrows, sh.ncols
+
+    def made(sheet_xml):
+        merges = set(re.findall(r'<mergeCell ref="([A-Z]+\d+:[A-Z]+\d+)"', sheet_xml))
+        widths = [round(float(w), 2) for w in re.findall(r'<col min="\d+" max="\d+" width="([\d.]+)" customWidth="1"/>', sheet_xml)]
+        return merges, widths
+
+    def new_record(doc_id):
+        goto(page, "#/library")
+        page.locator(f"[data-action='new-record'][data-document='{doc_id}']").first.evaluate("el => el.click()")
+        page.wait_for_timeout(1500)
+        close_assistant(page)
+
+    # The three service reports: the contractor's sheet (Service Report-April 2026.xls holds the same grid as the March paper).
+    for doc_id, sheet_no, label in (("service-report-rodent", 0, "Rodent Control"), ("service-report-general", 2, "General Pest Control"), ("service-report-fly", 4, "Fly Control")):
+        new_record(doc_id)
+        fmt, suggested, path = download(page, doc_id)
+        rows, sheet_xml, book_xml = workbook(path)
+        got_merges, got_widths = made(sheet_xml)
+        want = original("Service Report-April 2026.xls", sheet_no)
+        check(f"The {label} service report downloads as a workbook on the A4 page, one page wide", fmt == "xlsx" and 'orientation="portrait"' in sheet_xml and 'paperSize="9"' in sheet_xml and 'fitToWidth="1"' in sheet_xml, suggested)
+        if want:
+            # The contractor's workbook's merged cells are all in the download, but its foot: one merged caption row after three blank ones, where
+            # the download has the names row and the captions row (each C:E merged).
+            wanted = {m for m in want[0] if not re.fullmatch(r"C\d+:E\d+", m)}
+            check(f"...every merged cell of the contractor's workbook is merged in it: the title, the band, the unit line, the material, quantity and method blocks, the remarks", wanted <= got_merges, sorted(wanted - got_merges))
+            check("...its six columns at the contractor's own widths", got_widths[:6] == want[1][:6], (got_widths[:6], want[1][:6]))
+        check("...in Calibri, with the paper's 24 bold title and medium and thin rules", 'name val="Calibri"' in zipfile.ZipFile(path).read("xl/styles.xml").decode() and 'sz val="24"' in zipfile.ZipFile(path).read("xl/styles.xml").decode() and 'style="medium"' in zipfile.ZipFile(path).read("xl/styles.xml").decode(), None)
+        if doc_id == "service-report-rodent":
+            check("...the rodent report's two blocks of eight: glue boards on areas 1-8, bait on 9-16", {"C5:C12", "D5:D12", "E5:E12", "C13:C20", "D13:D20", "E13:E20", "F5:F20"} <= got_merges, sorted(got_merges))
+            texts = all_text(rows)
+            check("...and the March sheet's words, no quantity or remark pre-written", "Glue Board" in texts and "Bromadiolone Cake" in texts and "Trouble gum placement" in texts and "Baiting" in texts and "No Rodent Trapped" not in texts, texts[:30])
+
+    # F/HR/15 and F/HR/16: the cleaning records, on the grids of their supplied workbooks.
+    for doc_id, source, label in (("hr-daily-cleaning", "F-HR-15_Daily Cleaning record_01_15.12.2024.xls", "F/HR/15"), ("hr-monthly-cleaning", "F-HR-16_Monthly Cleaning record_01_15.12.2024.xls", "F/HR/16")):
+        new_record(doc_id)
+        fmt, suggested, path = download(page, doc_id)
+        rows, sheet_xml, book_xml = workbook(path)
+        got_merges, got_widths = made(sheet_xml)
+        want = original(source)
+        check(f"{label} downloads as a landscape workbook, one page wide", fmt == "xlsx" and 'orientation="landscape"' in sheet_xml and 'fitToWidth="1"' in sheet_xml, suggested)
+        if want:
+            check(f"...with every merged cell of the supplied workbook ({len(want[0])}) and no other", got_merges == want[0], (sorted(want[0] - got_merges), sorted(got_merges - want[0])))
+            check("...its columns at the supplied widths", got_widths == want[1], (got_widths[:6], want[1][:6]))
+            check("...and as many rows and columns as the supplied sheet", max(rows) == want[2] and max(len(r) for r in rows.values()) <= want[3] + 1, (max(rows), want[2], want[3]))
+
+    # F/HR/18: the Word original's page - A4 portrait, the framed band, the legend, the heading box, two lines a unit.
+    goto(page, "#/pest/trend/fly-catcher")
+    fmt, suggested, path = download(page, "fhr18")
+    names_, xml, paragraphs, tables = word(path)
+    texts18 = [c for t in tables for r in t for c in r]
+    check("F/HR/18 downloads as a Word document", fmt == "docx" and suggested.endswith(".docx") and "word/document.xml" in names_, suggested)
+    check("...on A4 portrait, as the paper is, with its margins", 'w:orient="landscape"' not in xml and '<w:pgSz w:w="11906" w:h="16838"/>' in xml and 'w:left="574"' in xml, xml[-300:])
+    check("...the band's four cells as the paper words them, on both pages", all(any(t == w for t in texts18) for w in ("Format No.: F/HR/18", "Rev No: 02", "Date: 15.12.2024", "Page No.: 1 of 2", "Page No.: 2 of 2")), texts18[:12])
+    unit_tables = [[r[0] for r in t if r and r[0].startswith("PC-")] for t in tables if len(t[0]) == 7 and t[0][0].startswith("PC-")]
+    check("...two pages: PC-01 to PC-08 on the first, PC-09 to PC-13 on the second, a page break between", xml.count('<w:br w:type="page"/>') == 1 and unit_tables == [[f"PC-{n:02d}" for n in range(1, 9)], [f"PC-{n:02d}" for n in range(9, 14)]], (unit_tables, xml.count('<w:br w:type="page"/>')))
+    check("...the unit's number merged down its two lines, the band's name spanning its four cells", xml.count('w:vMerge w:val="restart"') == 13 and '<w:gridSpan w:val="4"/>' in xml, (xml.count('w:vMerge w:val="restart"'), xml.count("gridSpan")))
+    check("...Calibri at the paper's sizes: 20 pt name, 14 pt title, 12 pt cells, 10 pt grid", all(f'<w:sz w:val="{n}"/>' in xml for n in (40, 28, 24, 20)), None)
+
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()
 

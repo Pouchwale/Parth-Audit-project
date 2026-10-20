@@ -636,6 +636,46 @@ with sync_playwright() as p:
     page.wait_for_timeout(1300)
     check("The competence register opens for Human Resources", sheet_rows(page).count() == 80, sheet_rows(page).count())
 
+    # ---- F/HR/17's rodent catch row (REQUIREMENTS section 118; the owner's ask for a record the system fills daily is NOT built) ----
+    open_library(page)
+    page.locator("[data-action='new-record'][data-document='daily-pest-monitoring']").first.evaluate("el => el.click()")
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    close_assistant(page)
+    holiday = page.locator("input[type='checkbox']").first
+    if holiday.count() and holiday.is_checked():
+        holiday.evaluate("el => el.click()")  # the day's calendar may have marked it a holiday: the round is being written as worked
+        page.wait_for_timeout(300)
+    page.locator("tr:has-text('Any pest trapped in rodent trap box') select").first.select_option("Yes")
+    page.wait_for_timeout(500)
+    where = page.locator("[data-field='catch-location']")
+    how_many = page.locator("[data-field='catch-count']")
+    check("Answering Yes to check point 7 opens ONE catch row, with no place chosen and no count written", where.count() == 1 and where.first.input_value() == "" and how_many.count() == 1 and how_many.first.input_value() == "", (where.count(), where.first.input_value() if where.count() else None))
+    options = where.first.locator("option").all_inner_texts()
+    areas = [o for o in options if o not in ("Choose the place…", "Another place…")]
+    check("...the place a choice of the factory's sixteen real areas (the Rodent Control Service report's own list), and another place may be written", len(areas) == 16 and "First floor - Ink store" in areas and "Canteen" in areas and "Another place…" in options, options)
+    page.locator("button[data-action='submit']").first.click()
+    page.wait_for_timeout(700)
+    problems = page.locator(".app-content").inner_text()
+    check("Submit refuses the empty row, naming the place and the number", "Rodent catch #1: location is required" in problems and "Rodent catch #1: number of rodents must be at least 1" in problems, problems[:400])
+    where.first.select_option(label="Canteen")
+    how_many.first.fill("2")
+    page.wait_for_timeout(500)
+    page.locator("button[data-action='submit']").first.click()
+    page.wait_for_timeout(700)
+    problems = page.locator(".app-content").inner_text()
+    check("...and a row with a place and a count is no longer refused", "Rodent catch #1" not in problems, problems[:300])
+    where.first.select_option(label="Another place…")
+    page.wait_for_timeout(300)
+    other = page.locator("[data-field='catch-location-other']")
+    check("'Another place...' opens a box to write the place in", other.count() == 1, other.count())
+    other.first.fill("Scrap yard")
+    page.wait_for_timeout(1200)
+    rid = page.url.split("/record/")[-1].split("?")[0].split("#")[0]
+    rec = page.evaluate("(id) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find((r) => r.id === id) || null", rid)
+    saved = ((rec or {}).get("data") or {}).get("rodentCatches") or []
+    check("...and the place written is the record's, the count too - nothing was filled in for the person", len(saved) == 1 and saved[0]["location"] == "Scrap yard" and saved[0]["count"] == 2, saved)
+
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()
 

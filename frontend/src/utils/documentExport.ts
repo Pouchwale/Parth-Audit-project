@@ -4,6 +4,7 @@ import { columnName, isoToSerial, xmlText, zipStored, customPropertiesXml, CUSTO
 import { downloadBlob } from "./csv";
 import { formatDisplayDate, todayISO } from "./date";
 import { PRINT_PREPARE_EVENT, paperOf } from "./print";
+import { paperMarginsOf, paperPageOf, paperSheetBlocks, paperWordBlocks } from "./paperSheets";
 import {
   BIND_APPEND_ATTR,
   BIND_ATTR,
@@ -145,8 +146,54 @@ export interface Cell {
   parts?: ExportSegment[];
 }
 
+/**
+ * How a cell of a paper sheet is drawn (data-paper-sheet, REQUIREMENTS §118): the size and weight of its words, where they
+ * sit in the cell, whether they wrap, and the four edges as the paper rules them (0 none, 1 thin, 2 medium): left, right, top, bottom.
+ */
+export interface SheetStyle {
+  size: number;
+  bold: boolean;
+  align: "left" | "center" | "right";
+  valign: "top" | "center" | "bottom";
+  wrap: boolean;
+  borders: [number, number, number, number];
+  /** The words underlined (the company's name and the title on F/HR/15's workbook). */
+  underline?: boolean;
+}
+
+/** A cell of a paper sheet: its place on the sheet's grid (0-based), the cells it merges over, and how it is drawn. */
+export interface SheetCell extends Cell {
+  row: number;
+  col: number;
+  rowSpan: number;
+  colSpan: number;
+  style: SheetStyle;
+}
+
+/** A cell of a table drawn as the company's own Word page (utils/paperSheets.ts, utils/docx.ts "paper"): its words, set in the paper's face and edged as the paper edges it. */
+export interface PaperCellSpec extends Cell {
+  colSpan?: number;
+  vMerge?: "restart" | "continue";
+  /** Half-points. */
+  size: number;
+  bold: boolean;
+  align: "left" | "center" | "right";
+  valign: "top" | "center";
+  underline?: boolean;
+  font?: string;
+  /** left, right, top, bottom, in eighths of a point. */
+  borders: [number, number, number, number];
+}
+
 export type ExportBlock =
   | { kind: "text"; text: string; strong: boolean; title?: boolean; parts?: ExportSegment[] }
+  /** A table laid in points as the company's Word original draws it: widths (pt), rows with heights (pt) and merged cells. For a Word file only. */
+  | { kind: "paper"; widths: number[]; rows: { height?: number; cells: PaperCellSpec[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number }
+  /**
+   * A sheet drawn as the company's own Excel paper: merged cells, the paper's column widths (Excel characters) and row
+   * heights (points), fonts, borders. Read from a table marked data-paper-sheet (utils/documentExport.ts sheetBlock).
+   */
+  | { kind: "sheet"; name: string; widths: number[]; heights: (number | undefined)[]; rowCount: number; cells: SheetCell[] }
   /** Boxes with their labels; `perLine`, how many the paper puts on one line (LogSheetLayout.headerColumns, REQUIREMENTS §117). */
   | { kind: "fields"; pairs: [string, Cell][]; perLine?: number }
   | { kind: "table"; rows: Cell[][]; headerRows: number; bindTable?: ExportTableBinding; band?: true };
@@ -375,7 +422,7 @@ function tableBlock(table: HTMLTableElement): ExportBlock | null {
   Array.from(table.rows).forEach((tr, ri) => {
     const taken = held.get(ri);
     held.delete(ri);
-    if (skipped(tr)) return;
+    if (skipped(tr) || tr.closest("[aria-hidden='true']")) return;
     const cells: Cell[] = [];
     const skipHeld = () => {
       while (taken?.has(cells.length)) cells.push({ text: "" });
@@ -425,6 +472,67 @@ function tableBlock(table: HTMLTableElement): ExportBlock | null {
   return bindTable ? { kind: "table", rows, headerRows, bindTable } : { kind: "table", rows, headerRows };
 }
 
+// A TABLE DRAWN AS THE COMPANY'S EXCEL PAPER (REQUIREMENTS §118). A table marked data-paper-sheet is read as the sheet
+// it is: its cells at their place with the cells they merge over (colSpan, rowSpan), the words' size, weight and
+// alignment and the four edges of each cell as the page draws them, the column widths the <col>s name in Excel characters
+// (data-xl-w) and each row's height. The sheet's own measure of a point is the table's data-xl-pt-per-px (the page draws the
+// paper at its print size, so one pixel is one point of the original; 0.75 where it says nothing).
+const edge = (width: string, style: string): number => {
+  const w = parseFloat(width);
+  if (!(w > 0) || style === "none" || style === "hidden") return 0;
+  return w > 1.5 ? 2 : 1;
+};
+
+function sheetBlock(table: HTMLTableElement): ExportBlock | null {
+  const pt = Number(table.getAttribute("data-xl-pt-per-px")) || 0.75;
+  const widths = Array.from(table.querySelectorAll(":scope > colgroup > col")).map((c) => Number(c.getAttribute("data-xl-w")) || 8.43);
+  const cells: SheetCell[] = [];
+  const heights: (number | undefined)[] = [];
+  const held = new Map<number, Set<number>>();
+  const rows = Array.from(table.rows);
+  rows.forEach((tr, ri) => {
+    const taken = held.get(ri);
+    held.delete(ri);
+    let col = 0;
+    for (const cell of Array.from(tr.cells)) {
+      while (taken?.has(col)) col++;
+      const across = Math.max(1, cell.colSpan);
+      const down = Math.max(1, cell.rowSpan);
+      const hidden = skipped(cell);
+      const read = hidden ? { text: "" } : cellOf(cell);
+      const cs = getComputedStyle(cell);
+      const align = cs.textAlign === "center" ? "center" : cs.textAlign === "right" || cs.textAlign === "end" ? "right" : "left";
+      const valign = cs.verticalAlign === "top" ? "top" : cs.verticalAlign === "bottom" ? "bottom" : "center";
+      cells.push({
+        ...read,
+        row: ri,
+        col,
+        rowSpan: down,
+        colSpan: across,
+        style: {
+          size: Math.round(parseFloat(cs.fontSize) * pt * 4) / 4 || 11,
+          bold: /^(bold|[6-9]00)$/.test(cs.fontWeight),
+          align,
+          valign,
+          wrap: true,
+          borders: [edge(cs.borderLeftWidth, cs.borderLeftStyle), edge(cs.borderRightWidth, cs.borderRightStyle), edge(cs.borderTopWidth, cs.borderTopStyle), edge(cs.borderBottomWidth, cs.borderBottomStyle)],
+        },
+      });
+      for (let d = 1; d < down; d++) {
+        const below = held.get(ri + d) ?? new Set<number>();
+        for (let c = col; c < col + across; c++) below.add(c);
+        held.set(ri + d, below);
+      }
+      col += across;
+    }
+    heights[ri] = Math.round(tr.getBoundingClientRect().height * pt * 4) / 4 || undefined;
+  });
+  if (cells.length === 0) return null;
+  const columns = Math.max(widths.length, ...cells.map((c) => c.col + c.colSpan));
+  while (widths.length < columns) widths.push(8.43);
+  return { kind: "sheet", name: table.getAttribute("data-xl-sheet") ?? "", widths, heights, rowCount: rows.length, cells };
+}
+
 function structural(el: Element): boolean {
   return el.tagName === "TABLE" || el.classList.contains("field") || el.classList.contains("doc-header") || !!el.querySelector("table, .field, .doc-header") || blockish(el);
 }
@@ -432,7 +540,7 @@ function structural(el: Element): boolean {
 function walk(el: Element, out: ExportBlock[]): void {
   if (skipped(el)) return;
   if (el instanceof HTMLTableElement) {
-    const block = tableBlock(el);
+    const block = el.hasAttribute("data-paper-sheet") ? sheetBlock(el) : tableBlock(el);
     if (block) out.push(block);
     return;
   }
@@ -591,6 +699,36 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
   type XCell = { text: string; style: number; date?: string; number?: boolean; pieces?: { bind: ExportBinding; pre: string; post: string }[]; anchor?: Anchor };
   const rows: XCell[][] = [];
   const widths: number[] = [];
+  // A paper sheet's own measures: merged ranges, row heights (points), and the cell formats it needs beyond the eight below.
+  const merges: string[] = [];
+  const heightsAt = new Map<number, number>();
+  const fixedWidths: number[] = [];
+  const paperFonts: { size: number; bold: boolean; underline: boolean }[] = [];
+  const paperBorders: string[] = [];
+  const paperXfs: string[] = [];
+  const paperXfAt = new Map<string, number>();
+  let sheetTitle = "";
+  const BASE_XFS = 8;
+  const BASE_FONTS = 3;
+  const BASE_BORDERS = 2;
+  const ink = '<color rgb="FF000000"/>';
+  const edgeXml = (tag: string, level: number) => (level === 0 ? `<${tag}/>` : `<${tag} style="${level === 1 ? "thin" : "medium"}">${ink}</${tag}>`);
+  const paperXf = (st: SheetStyle, edges: [number, number, number, number], numberCell: boolean): number => {
+    const key = JSON.stringify([st.size, st.bold, !!st.underline, st.align, st.valign, st.wrap, edges, numberCell]);
+    const known = paperXfAt.get(key);
+    if (known !== undefined) return known;
+    let font = paperFonts.findIndex((f) => f.size === st.size && f.bold === st.bold && f.underline === !!st.underline);
+    if (font < 0) font = paperFonts.push({ size: st.size, bold: st.bold, underline: !!st.underline }) - 1;
+    const borderXml = `<border>${edgeXml("left", edges[0])}${edgeXml("right", edges[1])}${edgeXml("top", edges[2])}${edgeXml("bottom", edges[3])}<diagonal/></border>`;
+    let border = paperBorders.indexOf(borderXml);
+    if (border < 0) border = paperBorders.push(borderXml) - 1;
+    const alignment = `<alignment horizontal="${st.align}" vertical="${st.valign === "center" ? "center" : st.valign}"${st.wrap ? ' wrapText="1"' : ""}/>`;
+    // A number a person wrote stays a number (the Sl.No, "3 glue boards"); everything else is text, so a code like 0101 keeps its zero.
+    const xf = `<xf numFmtId="${numberCell ? 0 : 49}" fontId="${BASE_FONTS + font}" fillId="0" borderId="${BASE_BORDERS + border}" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1">${alignment}</xf>`;
+    paperXfs.push(xf);
+    paperXfAt.set(key, BASE_XFS + paperXfs.length - 1);
+    return BASE_XFS + paperXfs.length - 1;
+  };
   const measure = (ci: number, text: string) => {
     const longest = Math.max(0, ...text.split("\n").map((l) => l.length));
     widths[ci] = Math.min(48, Math.max(widths[ci] ?? 8, longest + 2));
@@ -612,6 +750,32 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     if (block.kind === "text") {
       if (previous && previous !== "text") gap();
       rows.push([{ text: block.text, style: block.title ? 2 : block.strong ? 1 : 7, pieces: piecesFor(block.parts) }]);
+    } else if (block.kind === "paper") {
+      continue;
+    } else if (block.kind === "sheet") {
+      gap();
+      const base = rows.length;
+      if (block.name) sheetTitle = block.name;
+      for (let r = 0; r < block.rowCount; r++) rows.push([]);
+      block.widths.forEach((w, ci) => (fixedWidths[ci] = w));
+      block.heights.forEach((h, ri) => h !== undefined && heightsAt.set(base + ri, h));
+      for (const c of block.cells) {
+        const lastRow = c.row + c.rowSpan - 1;
+        const lastCol = c.col + c.colSpan - 1;
+        if (c.rowSpan > 1 || c.colSpan > 1) merges.push(`${columnName(c.col)}${base + c.row + 1}:${columnName(lastCol)}${base + lastRow + 1}`);
+        // A merged cell draws its edges on the cells around the range, as Excel does.
+        for (let r = c.row; r <= lastRow; r++) {
+          for (let k = c.col; k <= lastCol; k++) {
+            const edges: [number, number, number, number] = [k === c.col ? c.style.borders[0] : 0, k === lastCol ? c.style.borders[1] : 0, r === c.row ? c.style.borders[2] : 0, r === lastRow ? c.style.borders[3] : 0];
+            const origin = r === c.row && k === c.col;
+            const isNumber = origin && !c.date && NUMBER_RE.test(c.text);
+            rows[base + r][k] = origin
+              ? { text: c.text, style: paperXf(c.style, edges, isNumber), date: undefined, number: isNumber, pieces: piecesFor(c.parts) }
+              : { text: "", style: paperXf(c.style, edges, false) };
+          }
+        }
+      }
+      for (let r = 0; r < block.rowCount; r++) for (let k = 0; k < block.widths.length; k++) if (!rows[base + r][k]) rows[base + r][k] = { text: "", style: 0 };
     } else if (block.kind === "fields") {
       gap();
       // As many boxes to a line as the paper draws them (REQUIREMENTS §117), a label and its box a pair of cells each.
@@ -669,8 +833,13 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     if (!c.text) return `<c r="${ref}" s="${c.style}"/>`;
     return `<c r="${ref}" s="${c.style}" t="inlineStr"><is><t xml:space="preserve">${xmlText(c.text)}</t></is></c>`;
   };
-  const sheetData = rows.map((r, ri) => `<row r="${ri + 1}">${r.map((c, ci) => cellXml(c, `${columnName(ci)}${ri + 1}`)).join("")}</row>`).join("");
-  const safeName = (sheetName.replace(/[\\/?*[\]:]/g, "-").slice(0, 31) || "Document").replace(/'/g, "");
+  const sheetData = rows
+    .map((r, ri) => {
+      const h = heightsAt.get(ri);
+      return `<row r="${ri + 1}"${h ? ` ht="${h}" customHeight="1"` : ""}>${r.map((c, ci) => cellXml(c, `${columnName(ci)}${ri + 1}`)).join("")}</row>`;
+    })
+    .join("");
+  const safeName = ((sheetTitle || sheetName).replace(/[\\/?*[\]:]/g, "-").slice(0, 31) || "Document").replace(/'/g, "");
   const lastRef = `${columnName(columns - 1)}${Math.max(1, rows.length)}`;
   const MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
   const REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -760,11 +929,13 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       "xl/styles.xml",
       `<styleSheet xmlns="${MAIN}">` +
         `<numFmts count="1"><numFmt numFmtId="164" formatCode="[$-409]dd\\-mmm\\-yyyy"/></numFmts>` +
-        `<fonts count="3"><font><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="12"/><name val="Calibri"/><family val="2"/></font></fonts>` +
+        `<fonts count="${BASE_FONTS + paperFonts.length}"><font><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="12"/><name val="Calibri"/><family val="2"/></font>` +
+        paperFonts.map((f) => `<font>${f.bold ? "<b/>" : ""}${f.underline ? "<u/>" : ""}<sz val="${f.size}"/><name val="Calibri"/><family val="2"/></font>`).join("") +
+        `</fonts>` +
         `<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7E9EE"/><bgColor indexed="64"/></patternFill></fill></fills>` +
-        `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border>${thin}</border></borders>` +
+        `<borders count="${BASE_BORDERS + paperBorders.length}"><border><left/><right/><top/><bottom/><diagonal/></border><border>${thin}</border>${paperBorders.join("")}</borders>` +
         `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-        `<cellXfs count="8">` +
+        `<cellXfs count="${BASE_XFS + paperXfs.length}">` +
         `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
         `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` +
         `<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>` +
@@ -773,6 +944,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>` +
         `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>` +
         `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top"/></xf>` +
+        paperXfs.join("") +
         `</cellXfs>` +
         `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
         `</styleSheet>`,
@@ -784,8 +956,9 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<dimension ref="A1:${lastRef}"/>` +
         `<sheetViews><sheetView workbookViewId="0"/></sheetViews>` +
         `<sheetFormatPr defaultRowHeight="14"/>` +
-        `<cols>${Array.from({ length: columns }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${widths[i] ?? 10}" customWidth="1"/>`).join("")}</cols>` +
+        `<cols>${Array.from({ length: columns }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${fixedWidths[i] ?? widths[i] ?? 10}" customWidth="1"/>`).join("")}</cols>` +
         `<sheetData>${sheetData}</sheetData>` +
+        (merges.length ? `<mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>` : "") +
         `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
         // Printed from Excel: one page wide, as many pages down as it takes.
         // ...on the paper's own page where the layout names it (REQUIREMENTS §117), else as its width needs.
@@ -833,6 +1006,22 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
       for (let at = 0; at < b.pairs.length; at += perLine) rows.push(b.pairs.slice(at, at + perLine).flatMap(([label, cell]) => [label, cellOfWord(cell, label)]));
       return { type: "table", rows, labelColumns: true };
     }
+    if (b.kind === "paper") {
+      return {
+        type: "paper",
+        widths: b.widths,
+        rows: b.rows.map((r) => ({ height: r.height, cells: r.cells.map((c) => ({ ...c, text: cellOfWord(c) })) })),
+        indent: b.indent,
+        pageBreakBefore: b.pageBreakBefore,
+        spaceAfter: b.spaceAfter,
+      };
+    }
+    if (b.kind === "sheet") {
+      // A sheet in a Word file: its rows of cells in their columns, the words of each merged cell in its first cell.
+      const grid: DocxCell[][] = Array.from({ length: b.rowCount }, () => Array.from({ length: b.widths.length }, () => "" as DocxCell));
+      for (const c of b.cells) grid[c.row][c.col] = cellOfWord(c);
+      return { type: "table", rows: grid.filter((r) => r.some((x) => (typeof x === "string" ? x : "x") !== "")), headerRows: 0 };
+    }
     const rows = b.rows.map((r) => r.map((c) => cellOfWord(c)));
     const block: DocxBlock = { type: "table", rows, headerRows: b.headerRows, ...(b.band ? { band: true as const } : {}) };
     if (builder && b.bindTable) {
@@ -845,8 +1034,8 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
 }
 
 /** The blocks as a Word document; given an envelope, with the map of its bound values. */
-export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape"): Uint8Array<ArrayBuffer> {
-  if (!envelope) return buildDocx(wordBlocksFrom(blocks), paper ? { paper } : {});
+export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape", margins?: { top: number; right: number; bottom: number; left: number }): Uint8Array<ArrayBuffer> {
+  if (!envelope) return buildDocx(wordBlocksFrom(blocks), { ...(paper ? { paper } : {}), ...(margins ? { margins } : {}) });
   const builder = new ExportMapBuilder();
   const docxBlocks = wordBlocksFrom(blocks, builder);
   const json = mapJson(envelope, builder.entries, builder.tables);
@@ -854,6 +1043,7 @@ export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTr
     customXml: { xml: `<dcrsMap xmlns="${MAP_XML_NAMESPACE}">${xmlText(json)}</dcrsMap>`, schema: MAP_XML_NAMESPACE },
     customProperties: [[ENVELOPE_PROPERTY, envelopePropertyValue(envelope)]],
     ...(paper ? { paper } : {}),
+    ...(margins ? { margins } : {}),
   });
 }
 
@@ -899,6 +1089,8 @@ export function documentFileBytes(
   for (const b of blocks) {
     if (b.kind === "text") note(b.parts);
     else if (b.kind === "fields") for (const [, c] of b.pairs) note(c.parts);
+    else if (b.kind === "sheet") for (const c of b.cells) note(c.parts);
+    else if (b.kind === "paper") for (const r of b.rows) for (const c of r.cells) note(c.parts);
     else {
       for (const r of b.rows) for (const c of r) note(c.parts);
       if (b.bindTable) ids.push(b.bindTable.recordId);
@@ -907,7 +1099,8 @@ export function documentFileBytes(
   const unique = Array.from(new Set(ids.filter(Boolean)));
   const envelope = unique.length ? makeEnvelope(kind, { documentId: doc.id, formatNo: doc.formatNo, revisionNo: doc.revisionNo }, unique, exportedAt) : undefined;
   if (kind === "xlsx") return workbookFromBlocks(knownFormatNo(doc as DocumentDefinition) || doc.name, blocks, envelope, paper);
-  return wordDocumentFromBlocks(blocks, envelope, paper);
+  // A page drawn as the company's Word original names its own margins (the "paper" blocks, utils/paperSheets.ts).
+  return wordDocumentFromBlocks(blocks, envelope, paper, blocks.some((b) => b.kind === "paper") ? paperMarginsOf(doc.id) : undefined);
 }
 
 /** Puts every line of a long list on screen (utils/useProgressive.ts) and lets the page draw once. */
@@ -944,10 +1137,12 @@ export async function downloadDocumentFile(doc: DocumentDefinition, roots: Eleme
   try {
     await everyLineDrawn();
     const live = roots.filter((r) => r.isConnected);
-    const blocks = documentBlocks(live.length ? live : roots);
+    const read = documentBlocks(live.length ? live : roots);
+    // A document supplied as a workbook downloads on its original's own grid (utils/paperSheets.ts, REQUIREMENTS §118).
+    const blocks = (kind === "xlsx" ? paperSheetBlocks(doc.id, read) : paperWordBlocks(doc.id, read)) ?? read;
     const name = documentFileName(doc, dateISO);
     // The paper's own page (§117), where the sheet names it.
-    const paper = (live.length ? live : roots).map(paperOf).find((p) => p !== null) ?? undefined;
+    const paper = paperPageOf(doc.id) ?? (live.length ? live : roots).map(paperOf).find((p) => p !== null) ?? undefined;
     const bytes = documentFileBytes(kind, doc, blocks, recordIdsIn(live.length ? live : roots), undefined, paper);
     downloadBlob(`${name}.${kind}`, new Blob([bytes], { type: kind === "xlsx" ? XLSX_TYPE : DOCX_TYPE }));
     return kind;
