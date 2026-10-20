@@ -3,6 +3,8 @@ import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance, SheetPhoto } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
+import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
+import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 import { getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
@@ -337,6 +339,7 @@ export function LogSheetRecordView({
         onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : undefined}
         inTable={inTable}
         outOfBand={boxOutOfBand(f, data.header)}
+        ordinals={!!pf}
       />
     );
   };
@@ -361,6 +364,14 @@ export function LogSheetRecordView({
   const letterhead = letterheadTable(layout);
   // The framed page the paper is drawn on (data/seed/qcPageFrames.ts, §117): its logo and title head, its foot at the page's bottom.
   const frame = pageFrameFor(layout.documentId);
+  // THE PAPER'S OWN TABLES (data/seed/qcIncomingGeometry.ts, §117): an incoming-material record is drawn on the Word tables of its paper.
+  const pf = frame ? incomingGeometryFor(layout.documentId) : undefined;
+  // The area line clearance reports (F/QC/15-A to G) are drawn on their paper's own frame, note box and ten lines.
+  const lc = !frame ? lineClearanceGeometryFor(layout.documentId) : undefined;
+  const lcWidth = lc ? lc.cols.reduce((a, b) => a + b, 0) : 0;
+  // The grid's columns and rows in the paper's millimetres, on either paper form.
+  const gridCols = pf?.grid.cols ?? lc?.cols;
+  const gridRowHeight = (i: number): number | undefined => (pf ? pf.grid.rows[i] : lc ? (i === 0 ? LINE_CLEARANCE_ROWS.heading : LINE_CLEARANCE_ROWS.line) : undefined);
   const topTables = (layout.referenceTables ?? []).filter((t) => !placed.has(t.title));
 
   const mode = layout.rowMode;
@@ -434,13 +445,18 @@ export function LogSheetRecordView({
   // the paper prints its boxes above its paragraph (F/QC/15-A to G's machine box, the review of 13-Oct-2026) they come first.
   const boxesFirst = !!layout.boxesAboveInstructions;
   const wordsAbove = (layout.instructions?.length ?? 0) > 0 || topTables.length > 0;
-  const headerBoxes = boxGroupsBesideGrid(layout).map((group, gi) =>
+  const headerBoxes = (lc ? [] : boxGroupsBesideGrid(layout)).map((group, gi) =>
     group.lead ? (
-      <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={!boxesFirst && wordsAbove ? "mt-3" : ""}>
-        {group.boxes.map(({ field, index }) => headerBox(field, index))}
+      <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={!boxesFirst && wordsAbove ? "mt-3" : ""} paper={pf ? paperGridOf(pf, "head") : undefined}>
+        {group.boxes.map(({ field, index }) => (
+          <React.Fragment key={field.key}>
+            {pf && field.paperColumn && field.paperColumn > 1 && Array.from({ length: (field.paperColumn - 1) * 2 }, (_, k) => <span key={k} className="pf-blank" aria-hidden="true" />)}
+            {headerBox(field, index)}
+          </React.Fragment>
+        ))}
       </BoxLine>
     ) : (
-      <PrintedGroup key={gi} area="header" group={group} className={gi > 0 || (!boxesFirst && wordsAbove) ? "mt-3" : ""}>
+      <PrintedGroup key={gi} area="header" group={group} className={gi > 0 || (!boxesFirst && wordsAbove) ? "mt-3" : ""} paper={pf?.headMore ? paperGridOf(pf, "head-more") : undefined}>
         {group.boxes.map(({ field, index }, bi) => headerBox(field, index, inBoxTable(group, bi)))}
       </PrintedGroup>
     )
@@ -471,6 +487,16 @@ export function LogSheetRecordView({
     language: lang,
     numberNotPrinted: !!layout.numberNotPrinted,
     printedWithNumber: layout.printedWithNumber,
+    lineClearance: lc
+      ? {
+          machine: (() => {
+            const at = layout.headerFields.findIndex((f) => f.key === "machineName");
+            return at >= 0 ? headerBox(layout.headerFields[at], at) : null;
+          })(),
+          cols: [lc.cols.slice(0, 4), lc.cols.slice(4, 9), lc.cols.slice(9)].map((g) => g.reduce((a, b) => a + b, 0)),
+          machineWidth: LINE_CLEARANCE_MACHINE_WIDTH,
+        }
+      : undefined,
   };
   // The paper's boxes below its grid (lot status, the signatures): the page's foot on a screen form, the body's last block on a framed page.
   const footerCard = (footerGroups.length > 0 || sayVerifyIsApproval) && (
@@ -481,11 +507,11 @@ export function LogSheetRecordView({
                 certificate's COATING, FINISHING and TOLERANCE (§111); every other form's boxes are as they were. */}
             {footerGroups.map((group, gi) =>
               group.lead ? (
-                <BoxLine key={gi} group={group} minWidth={220}>
+                <BoxLine key={gi} group={group} minWidth={220} paper={pf ? paperGridOf(pf, group.boxes[0]?.field.key === "lotStatus" ? "lot" : "sign") : undefined}>
                   {group.boxes.map(({ field, index }) => footerBox(field, index))}
                 </BoxLine>
               ) : (
-                <PrintedGroup key={gi} area="footer" group={group} className={gi > 0 ? "mt-3" : ""}>
+                <PrintedGroup key={gi} area="footer" group={group} className={gi > 0 ? "mt-3" : ""} paper={pf ? paperGridOf(pf, group.boxes[0]?.field.key === "lotStatus" ? "lot" : "sign") : undefined}>
                   {group.boxes.map(({ field, index }, bi) => footerBox(field, index, inBoxTable(group, bi)))}
                 </PrintedGroup>
               )
@@ -509,7 +535,15 @@ export function LogSheetRecordView({
         </div>
       );
   return (
-    <div className={rootClass} translate={asIssued ? "no" : undefined} data-bind-record={record.id} data-paper={layout.paper ?? (frame ? "portrait" : undefined)} data-frame={frame ? "" : undefined}>
+    <div
+      className={rootClass}
+      translate={asIssued ? "no" : undefined}
+      data-bind-record={record.id}
+      data-paper={layout.paper ?? (frame ? "portrait" : lc ? "landscape" : undefined)}
+      data-frame={frame ? "" : undefined}
+      data-paper-form={pf ? "incoming" : lc ? "lineclear" : undefined}
+      style={lc ? ({ "--lc-w": `calc(${lcWidth} * var(--u))` } as React.CSSProperties) : pf ? ({ "--pf-lh": `calc(${pf.lh} * var(--u))`, "--pf-par": `calc(${pf.par} * var(--u))`, "--pf-sr": `calc(${pf.sr} * var(--u))` } as React.CSSProperties) : undefined}
+    >
       <div className="paper-head">
       <DocumentHeader {...headerProps} frame={frame} />
       </div>
@@ -535,7 +569,7 @@ export function LogSheetRecordView({
                 key={i}
                 className={`text-sm ${i === 0 ? "font-semibold" : "text-muted"} ${i < (layout.instructions?.length ?? 0) - 1 ? "mb-1" : ""}${boxesFirst && i === 0 ? " mt-3" : ""}`}
               >
-                {line}
+                {lc && i === 0 ? underlinedLead(line) : line}
               </p>
             ))}
             {topTables.map((t) => (
@@ -647,11 +681,22 @@ export function LogSheetRecordView({
 
       {hasGrid && !layout.gridAcross && !answerAcross && !panels && (
       <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
-        <table className={editable ? "compact log-sheet is-editing" : "compact log-sheet"} {...gridBind}>
+        <table
+          className={editable ? "compact log-sheet is-editing" : "compact log-sheet"}
+          style={gridCols ? ({ "--pf-w": `calc(${gridCols.reduce((a, b) => a + b, 0)} * var(--u))` } as React.CSSProperties) : undefined}
+          {...gridBind}
+        >
+          {gridCols && (
+            <colgroup>
+              {gridCols.map((c, ci) => (
+                <col key={ci} style={{ "--pf-col": `calc(${c} * var(--u))` } as React.CSSProperties} />
+              ))}
+            </colgroup>
+          )}
           <thead>
-            <tr>
+            <tr style={paperRowStyle(gridRowHeight(0))}>
               {numbered && (
-                <th style={{ width: layout.srNoShowsDate ? 96 : 44 }} rowSpan={headRows}>
+                <th style={gridCols ? undefined : { width: layout.srNoShowsDate ? 96 : 44 }} rowSpan={headRows}>
                   {/* "SR NO" on F-QC-40.C, nothing over F/QC/30's numbered points (REQUIREMENTS §111). */}
                   {layout.srNoLabel ?? "Sr. No."}
                 </th>
@@ -662,7 +707,7 @@ export function LogSheetRecordView({
               {headRuns.map((run, ri) => (
                 <React.Fragment key={`${run.group ?? "column"}-${ri}`}>
                   {run.group === undefined ? (
-                    run.columns.map((c) => <ColumnHead key={c.key} col={c} rowSpan={headRows} bound={freeRows} />)
+                    run.columns.map((c) => <ColumnHead key={c.key} col={c} rowSpan={headRows} bound={freeRows} paper={!!gridCols} />)
                   ) : (
                     <th className="col-group" colSpan={run.columns.length} rowSpan={headless(run) ? headRows : undefined} data-group-alone={headless(run) ? "" : undefined}>
                       {run.group}
@@ -670,7 +715,7 @@ export function LogSheetRecordView({
                   )}
                 </React.Fragment>
               ))}
-              {canRemoveRows && <th style={{ width: 36 }} rowSpan={headRows}></th>}
+              {canRemoveRows && <th className="pf-remove" style={{ width: 36 }} rowSpan={headRows}></th>}
             </tr>
             {headRows === 2 && (
               <tr>
@@ -711,8 +756,8 @@ export function LogSheetRecordView({
                 groupCells={groupCells?.includes(i)}
                 numbered={numbered}
                 srNo={numbered ? srNoText(layout, i, recordDate, joinedLines) : undefined}
-                spanDown={joined.get(i + 1)}
-                joinsAbove={joined.get(i)}
+                spanDown={pf ? undefined : joined.get(i + 1)}
+                joinsAbove={pf ? undefined : joined.get(i)}
                 editable={editable}
                 lang={lang}
                 employees={employeeNames}
@@ -721,6 +766,9 @@ export function LogSheetRecordView({
                 machineKey={eqFetching && eqLink?.where === "rows" ? eqLink.idField : undefined}
                 linked={rowLinks?.get(row.id)}
                 canRemove={canRemoveRows}
+                height={gridRowHeight(i + 1)}
+                paper={!!pf}
+                arial={pf?.arial?.filter(([line]) => line === i).map(([, c]) => c - 1)}
                 onCell={onCell}
                 onPersonBlur={onPersonBlur}
                 onMachineBlur={onMachineBlur}
@@ -728,6 +776,15 @@ export function LogSheetRecordView({
               />
               </React.Fragment>
             ))}
+            {/* The ten ruled lines the paper prints to write in (F/QC/15-A to G): the blank ones are on the page, not in the record. */}
+            {lc &&
+              Array.from({ length: Math.max(0, LINE_CLEARANCE_ROWS.lines - data.rows.length) }, (_, k) => (
+                <tr key={`pad-${k}`} className="pf-pad" aria-hidden="true" style={paperRowStyle(LINE_CLEARANCE_ROWS.line)}>
+                  {lines.first.map((c) => (
+                    <td key={c.key} />
+                  ))}
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -965,9 +1022,12 @@ function ColumnHead({
   rowSpan,
   colSpan,
   bound,
+  paper,
 }: {
   col: LogColumn;
   rowSpan?: number;
+  /** A paper form's columns are the paper's own widths (qcIncomingGeometry.ts): no minimum of the sheet's. */
+  paper?: boolean;
   /** A heading over the columns one answer stands across (answerAcross, REQUIREMENTS §111 part 4). */
   colSpan?: number;
   /** A free-row sheet's heading names the box of a line it holds (REQUIREMENTS §81). */
@@ -977,13 +1037,13 @@ function ColumnHead({
   return (
     <th
       {...(b ? bindColAttrs(b.key, b.type, b.options) : undefined)}
-      style={col.width ? { minWidth: col.width } : undefined}
+      style={col.width && !paper ? { minWidth: col.width } : undefined}
       rowSpan={rowSpan}
       colSpan={colSpan}
       title={col.nominal !== undefined ? `Nominal ${col.nominal}${col.unit ? " " + col.unit : ""}; band ${col.min}–${col.max}` : undefined}
     >
       {/* The paper's own heading, "" where it prints none (F/QC/25's descriptions, REQUIREMENTS §111). */}
-      {columnHeading(col)}
+      {paper && /^Line Clearance\*/.test(columnHeading(col)) ? underlinedLead(columnHeading(col), /^Line Clearance\*/) : columnHeading(col)}
     </th>
   );
 }
@@ -1005,15 +1065,45 @@ export function paperHasItsOwnApproval(layout: { footerFields?: { label: string 
  * ONE RUN OF BOXES, as many to a line as the paper puts there (REQUIREMENTS §111) or, where it does not
  * say, as many as the screen holds. A phone takes them one under another (styles.css .sheet-boxes-paper).
  */
-function BoxLine({ group, minWidth, section, className, children }: { group: BoxGroup; minWidth: number; section?: string; className?: string; children: React.ReactNode }) {
+/** A table of the paper's own (qcIncomingGeometry.ts): the boxes are its cells, in columns and rows of the paper's millimetres. */
+interface PaperGrid {
+  kind: "head" | "head more" | "lot" | "sign";
+  cols: number[];
+  rows: number[];
+  /** The blank space above the table, in millimetres. */
+  gap: number;
+}
+
+/** The head of the paper's tables: the header boxes' table, the LOT STATUS table, the signature table. */
+const PAPER_GAP_ABOVE_HEAD = 3.84;
+function paperGridOf(pf: IncomingGeometry, kind: "head" | "head-more" | "lot" | "sign"): PaperGrid {
+  if (kind === "head") return { kind: "head", cols: pf.head.cols, rows: pf.headMore ? pf.head.rows.slice(0, -1) : pf.head.rows, gap: PAPER_GAP_ABOVE_HEAD };
+  // The header's last line, a box of its own the width of the table (F/QC/36's 1st Pass / 2nd Pass / 3rd Pass), under the others with no space between.
+  if (kind === "head-more") return { kind: "head more", cols: pf.head.cols, rows: pf.head.rows.slice(-1), gap: 0 };
+  if (kind === "lot") return { kind: "lot", cols: LOT_COLS, rows: pf.lotRows, gap: pf.lotGap };
+  return { kind: "sign", cols: SIGN_COLS, rows: pf.signRows, gap: pf.signGap };
+}
+
+const paperRowStyle = (height: number | undefined): React.CSSProperties | undefined =>
+  height === undefined ? undefined : ({ "--pf-h": `calc(${height} * var(--u))` } as React.CSSProperties);
+
+function BoxLine({ group, minWidth, section, className, paper, children }: { group: BoxGroup; minWidth: number; section?: string; className?: string; paper?: PaperGrid; children: React.ReactNode }) {
+  const paperVars = paper
+    ? ({
+        "--pf-cols": paper.cols.map((c) => `calc(${c} * var(--u))`).join(" "),
+        "--pf-rows": paper.rows.map((r) => `calc(${r} * var(--u))`).join(" "),
+        "--pf-gap": `calc(${paper.gap} * var(--u))`,
+      } as React.CSSProperties)
+    : undefined;
   return (
     <div
       className={`grid${className ? ` ${className}` : ""}${group.perLine ? " sheet-boxes-paper" : ""}`}
       data-section={section}
+      data-pf={paper?.kind}
       style={
         group.perLine
-          ? ({ "--paper-box-columns": group.perLine, gap: "10px 16px" } as React.CSSProperties)
-          : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: "10px 16px" }
+          ? ({ "--paper-box-columns": group.perLine, gap: paper ? 0 : "10px 16px", ...paperVars } as React.CSSProperties)
+          : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: paper ? 0 : "10px 16px", ...paperVars }
       }
     >
       {children}
@@ -1027,7 +1117,7 @@ function BoxLine({ group, minWidth, section, className, children }: { group: Box
  * LABEL STOCK, COATING, FINISHING, its notes), then its boxes — as the paper's table where it prints them as
  * one (boxTable: a certificate's Specified Size, LABEL STOCK, SLEEVE FILM and Minimum Gloss line).
  */
-function PrintedGroup({ area, group, className, children }: { area: "header" | "footer"; group: BoxGroup; className?: string; children: React.ReactNode }) {
+function PrintedGroup({ area, group, className, paper, children }: { area: "header" | "footer"; group: BoxGroup; className?: string; paper?: PaperGrid; children: React.ReactNode }) {
   return (
     <div className={className || undefined} data-section="printed-group" data-area={area}>
       {group.table && <PrintedTable table={group.table} />}
@@ -1039,7 +1129,7 @@ function PrintedGroup({ area, group, className, children }: { area: "header" | "
       {group.boxTable ? (
         <BoxTable table={group.boxTable} cells={React.Children.toArray(children)} />
       ) : (
-        <BoxLine group={group} minWidth={area === "header" ? 200 : 220}>
+        <BoxLine group={group} minWidth={area === "header" ? 200 : 220} paper={paper}>
           {children}
         </BoxLine>
       )}
@@ -1495,6 +1585,9 @@ const SheetRow = React.memo(function SheetRow({
   machineKey,
   linked,
   canRemove,
+  height,
+  paper,
+  arial,
   onCell,
   onPersonBlur,
   onMachineBlur,
@@ -1533,6 +1626,12 @@ const SheetRow = React.memo(function SheetRow({
   /** The line's cells read from another document (REQUIREMENTS §82), by column key; never stored on the line. */
   linked?: RowLinks;
   canRemove: boolean;
+  /** The height the paper gives this line (qcIncomingGeometry.ts), in millimetres. */
+  height?: number;
+  /** The line is drawn on the paper's own table: its printed paragraphs stand as the paper sets them. */
+  paper?: boolean;
+  /** The columns of this line the paper sets in Arial 10 pt (qcIncomingGeometry.ts). */
+  arial?: number[];
   onCell: (rowId: string, key: string, value: string | number | null) => void;
   onPersonBlur: (rowId: string | null, value: string) => void;
   onMachineBlur: (rowId: string | null, value: string) => void;
@@ -1545,7 +1644,7 @@ const SheetRow = React.memo(function SheetRow({
   // day — runs down both lines, as the one cell of the paper holds the reading and the sign.
   const leadSpans = !!second && second.label === "";
   const firstLine = (
-    <tr data-line={second ? "first" : undefined} data-continues={joinsAbove ? "" : undefined}>
+    <tr data-line={second ? "first" : undefined} data-continues={joinsAbove ? "" : undefined} style={paperRowStyle(height)}>
       {numbered && !joinsAbove && (
         <td className="text-muted" rowSpan={spanDown ? 2 : lineSpan} data-sr-no="">
           {srNo ?? index + 1}
@@ -1580,6 +1679,7 @@ const SheetRow = React.memo(function SheetRow({
             colSpan={across > 1 ? across : undefined}
             rowSpan={rowSpan}
             data-merged={span !== undefined && span > 1 ? String(span) : undefined}
+            data-pf-arial={arial?.includes(ci) ? "" : undefined}
           >
             <CellInput
               col={col}
@@ -1590,6 +1690,7 @@ const SheetRow = React.memo(function SheetRow({
               // a written one reads exactly as it was written. Its own number is the Sr. No.'s (§102).
               value={col.fixed ? documentTextIn(numbered ? withoutLineNumber(printedCell(row, c.key, fixedRow), index + 1) : printedCell(row, c.key, fixedRow), lang) : row[c.key]}
               editable={editable && !col.fixed && !col.computed}
+              paper={paper}
               onChange={(v) => onCell(row.id, c.key, v)}
               employees={employees}
               list={personKey === c.key ? "hr-master-people" : machineKey === c.key ? "equipment-machines" : (lists?.[c.key] ?? c.list)}
@@ -1599,7 +1700,7 @@ const SheetRow = React.memo(function SheetRow({
         );
       })}
       {canRemove && (
-        <td rowSpan={lineSpan}>
+        <td className="pf-remove" rowSpan={lineSpan}>
           <button className="btn btn-ghost btn-sm btn-icon" onClick={() => onRemove(row.id)} title="Remove row">
             <FiTrash2 size={13} />
           </button>
@@ -1663,6 +1764,7 @@ const SheetBox = React.memo(function SheetBox({
   onBoxBlur,
   inTable,
   outOfBand,
+  ordinals,
 }: {
   field: LogHeaderField;
   issuedLabel: string;
@@ -1677,6 +1779,8 @@ const SheetBox = React.memo(function SheetBox({
   inTable?: boolean;
   /** Outside the paper's tolerance of the box it is judged against (LogHeaderField.within, REQUIREMENTS §111 rule 2). */
   outOfBand?: boolean;
+  /** The paper sets "1st", "2nd" as small raised letters (a paper form's boxes). */
+  ordinals?: boolean;
 }) {
   return (
     <HeaderFieldInput
@@ -1690,6 +1794,7 @@ const SheetBox = React.memo(function SheetBox({
       onBlur={onBoxBlur ? (v) => onBoxBlur(null, v) : undefined}
       inTable={inTable}
       outOfBand={outOfBand}
+      ordinals={ordinals}
     />
   );
 });
@@ -1705,6 +1810,7 @@ function HeaderFieldInput({
   onBlur,
   inTable = false,
   outOfBand = false,
+  ordinals = false,
 }: {
   field: LogHeaderField;
   /** The label AS ISSUED — which boxes offer the employee list cannot depend on the language being read (REQUIREMENTS §58). */
@@ -1720,6 +1826,8 @@ function HeaderFieldInput({
   inTable?: boolean;
   /** Outside the paper's tolerance (LogHeaderField.within): highlighted as a reading outside its band is. */
   outOfBand?: boolean;
+  /** The paper sets "1st", "2nd" as small raised letters (a paper form's boxes). */
+  ordinals?: boolean;
 }) {
   // A CELL OF THE PAPER'S TABLE OF BOXES (REQUIREMENTS §111) — F/QC/06's LABEL STOCK — is headed by the
   // table's own words, so it draws no label of its own: its name is what a screen reader says. Every other
@@ -1787,7 +1895,7 @@ function HeaderFieldInput({
   const required = field.required ? <span className="no-print"> *</span> : null;
   const label = (
     <label>
-      {field.inSentence ? field.inSentence.before : (field.printedLabel ?? field.label)}
+      {field.inSentence ? field.inSentence.before : ordinals ? withOrdinals(field.printedLabel ?? field.label) : (field.printedLabel ?? field.label)}
       {required}
     </label>
   );
@@ -1905,6 +2013,36 @@ function ParagraphInput({ value, editable, onChange, bind }: { value: string; ed
   return <textarea ref={box} className="input input-sm input-paragraph" {...bind} rows={2} value={value} onChange={(e) => onChange(e.target.value)} />;
 }
 
+/** The paper underlines the words that open a line (F/QC/15's "Line Clearance *", and the "Line Clearance*" heading). */
+function underlinedLead(text: string, lead: RegExp = /^Line Clearance \*/): React.ReactNode {
+  const m = lead.exec(text);
+  return m ? (
+    <>
+      <u>{m[0]}</u>
+      {text.slice(m[0].length)}
+    </>
+  ) : (
+    text
+  );
+}
+
+/** "1st SUBSTRATE", "2nd Pass": the paper sets st / nd / rd after a figure as small raised letters. */
+function withOrdinals(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const find = /(\d)(st|nd|rd|th)\b/g;
+  let last = 0;
+  for (let m = find.exec(text); m; m = find.exec(text)) {
+    parts.push(text.slice(last, m.index + 1), <sup key={m.index}>{m[2]}</sup>);
+    last = m.index + 1 + m[2].length;
+  }
+  if (last === 0) return text;
+  parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
+/** A line of a printed cell that the paper sets in bold: capitals ending in a colon ("PVC BLOWN:", "PET:"). */
+const PAPER_HEADING_LINE = /^[A-Z][A-Z .&/+-]*:$/;
+
 function CellInput({
   col,
   issuedLabel,
@@ -1915,6 +2053,7 @@ function CellInput({
   list,
   onBlur,
   bind,
+  paper,
 }: {
   col: LogColumn;
   /** As in HeaderFieldInput: the issued label, so a signature column is one in either language. */
@@ -1927,7 +2066,20 @@ function CellInput({
   onBlur?: (v: string) => void;
   /** Where the cell's value lives in the record (REQUIREMENTS §81) — on the box, and on the words a locked sheet shows. None on a printed cell. */
   bind?: Record<string, string>;
+  /** On the paper's own table: a printed cell's lines are the paper's paragraphs, a heading of a few capitals ending in a colon in bold (F/QC/05's PVC BLOWN:). */
+  paper?: boolean;
 }) {
+  if (col.fixed && paper) {
+    return (
+      <span className="pf-text">
+        {String(value ?? "").split("\n").map((line, i) => (
+          <span key={i} className={PAPER_HEADING_LINE.test(line) ? "pf-par pf-bold" : "pf-par"}>
+            {withOrdinals(line)}
+          </span>
+        ))}
+      </span>
+    );
+  }
   if (col.fixed) return <span className={`text-sm ${col.key === "specification" || col.key === "testChart" ? "text-muted" : "font-semibold"}`} style={{ whiteSpace: "pre-line" }}>{value ?? ""}</span>;
   // A sheet that cannot be written on (a preview, a submitted or verified record)
   // shows what is written as text: the same words, without a greyed-out box —

@@ -57,6 +57,19 @@ import { isPlaceholder } from "../../engine/observations";
 // it is gone from the screen, the preview, the print and every download (which
 // are made from the header as drawn here), and no title is suffixed with a date.
 
+/** A title the paper breaks after its dash: "INSPECTION RECORD –" over "SOLVENT BASE LAMINATION FILM". */
+function brokenAfterDash(text: string): React.ReactNode {
+  const at = text.indexOf(" – ");
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at + 2)}
+      <br />
+      {text.slice(at + 3)}
+    </>
+  );
+}
+
 /** The parts of the header a format's designer can change — one type with the engine's (engine/formatOps.ts). */
 export type { HeaderField } from "../../engine/formatOps";
 
@@ -140,8 +153,15 @@ export function DocumentHeader({
   printedWithNumber,
   frame,
   part = "head",
+  lineClearance,
 }: {
   doc: DocumentDefinition;
+  /**
+   * THE AREA LINE CLEARANCE REPORTS' FRAME (F/QC/15-A to G, §117): the company's name; the title with the machine's name
+   * written in at its right (`machine`, the record's box); Format no. / Rev. no. / Effective date in three cells
+   * (`cols`: their widths in millimetres). No Page No. cell: the paper has none.
+   */
+  lineClearance?: { machine: React.ReactNode; cols: number[]; machineWidth: number };
   /**
    * THE PAPER'S FRAMED PAGE (PageFrame, §117): the head is the company's logo and the title in a heavy-bordered band, and
    * the Format number and Page number move to a line of their own at the foot of the page (`part` "foot"), as on the paper.
@@ -276,6 +296,45 @@ export function DocumentHeader({
       </div>
     );
   }
+  if (lineClearance) {
+    return (
+      <div className="doc-header doc-header-lc" data-lc-head="">
+        <div className="lc-company notranslate" translate="no">
+          <Cell field="companyName" edit={edit}>
+            {company.toUpperCase()}
+          </Cell>
+        </div>
+        <div className="lc-titlerow" style={{ "--lc-machine": `calc(${lineClearance.machineWidth} * var(--u))` } as React.CSSProperties}>
+          <div className="lc-title">
+            <Cell field="title" edit={edit}>
+              {documentTextIn(title ?? doc.name, lang).toUpperCase()}
+            </Cell>
+          </div>
+          <div className="lc-machine">{lineClearance.machine}</div>
+        </div>
+        <div className="lc-meta notranslate" translate="no" style={{ "--lc-meta": lineClearance.cols.map((c) => `calc(${c} * var(--u))`).join(" ") } as React.CSSProperties}>
+          <div>
+            Format no. -{" "}
+            <Cell field="formatNo" edit={edit} translate>
+              {asPrinted(formatNo)}
+            </Cell>
+          </div>
+          <div>
+            Rev. no. -{" "}
+            <Cell field="revisionNo" edit={edit} translate>
+              {asPrinted(revisionNo)}
+            </Cell>
+          </div>
+          <div>
+            Effective date :{" "}
+            <Cell field="revisionDate" edit={edit} translate>
+              {dottedDate(revisionDate)}
+            </Cell>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (frame) {
     return (
       <div className="doc-header doc-header-frame" data-frame-head="">
@@ -284,7 +343,7 @@ export function DocumentHeader({
         </div>
         <div className={`dhf-title ${frame.titleAlign}`} style={frame.title ? ({ "--title-pt": frame.title.size, color: frame.title.color } as React.CSSProperties) : undefined}>
           <Cell field="title" edit={edit}>
-            {documentTextIn(title ?? doc.name, lang).toUpperCase()}
+            {frame.titleBreak ? brokenAfterDash(documentTextIn(title ?? doc.name, lang).toUpperCase()) : documentTextIn(title ?? doc.name, lang).toUpperCase()}
             {extraTitle ? ` — ${extraTitle}` : ""}
           </Cell>
         </div>

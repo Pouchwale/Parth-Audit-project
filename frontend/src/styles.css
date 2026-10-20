@@ -3066,6 +3066,179 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .paper-sheet[data-frame] .doc-table table.log-sheet td .cell-text { font-size: calc(11 * var(--pt)); }
 }
 
+/* ---- THE PAPER FORM OF THE INCOMING-MATERIAL RECORDS (REQUIREMENTS §117, QC visual parity of 20-Oct-2026) ----
+   The owner: "reproduce the same layout, not a redesign ... I need same format in my audit software in QC module."
+   F/QC/01 to 05, 18 to 24, 33 and 36 are Word tables: a ruled table of the header boxes (four equal columns, a label then its
+   box), the grid with its grey heading row and the heights Word gave its lines, the LOT STATUS table (its four statuses
+   across, the REASON row under it, an outline arrow after each label) and the table of the two signatures. The sheet
+   draws them in the paper's own millimetres (data/seed/qcIncomingGeometry.ts, read off the owner's PDFs, put on the
+   sheet by components/records/LogSheetRecordView.tsx as --pf-cols, --pf-rows, --pf-col, --pf-h ...), in Calibri 11 pt
+   black. Only a sheet that carries data-paper-form is drawn so; a phone keeps the stacked boxes it always had. */
+.paper-sheet[data-paper-form] .pf-blank { display: none; }
+@media print, (min-width: 760px) {
+  .paper-sheet[data-paper-form] {
+    --pf-bd: var(--b1) solid #000;
+    --pf-fs: calc(11 * var(--pt));
+    --pf-pad: calc(1.9 * var(--u));
+    --pf-font: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+    --pf-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 154 45' preserveAspectRatio='none'%3E%3Cpath d='M2 13 H97 V2 L152 22.5 L97 43 V32 H2 Z' fill='white' stroke='black' stroke-width='3' stroke-linejoin='miter'/%3E%3C/svg%3E");
+  }
+  /* The cards the boxes stood in on the web carry no frame here: the paper's tables are the frame. */
+  .paper-sheet[data-paper-form] .paper-body > .card { margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+  .paper-sheet[data-paper-form] .paper-body > .card > .card-pad { padding: 0; }
+  .paper-sheet[data-paper-form] [data-section="printed-group"] { margin-top: 0; }
+  .paper-sheet[data-paper-form] [data-pf] {
+    display: grid; gap: 0; box-sizing: border-box; padding: 0; width: max-content; max-width: none;
+    margin: var(--pf-gap) 0 0 calc(0.62 * var(--u));
+    grid-template-columns: var(--pf-cols); grid-template-rows: var(--pf-rows);
+  }
+  .paper-sheet[data-paper-form] [data-pf~="head"], .paper-sheet[data-paper-form] [data-pf~="sign"] { border-top: var(--pf-bd); border-left: var(--pf-bd); }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] { border-top: var(--pf-bd); border-left: var(--pf-bd); }
+  /* a box of the header's last line (F/QC/36's 1st Pass / 2nd Pass / 3rd Pass): its label, then one box across the rest of the table */
+  .paper-sheet[data-paper-form] [data-pf~="more"] { border-top: 0; }
+  .paper-sheet[data-paper-form] [data-pf~="more"] .field > .input { grid-column: 2 / span 3; }
+  .paper-sheet[data-paper-form] [data-pf] sup, .paper-sheet[data-paper-form] .doc-table table.log-sheet td sup { font-size: calc(7 * var(--pt)); line-height: 0; position: relative; top: calc(-0.9 * var(--u)); vertical-align: baseline; }
+  .paper-sheet[data-paper-form] [data-pf~="sign"] { grid-auto-flow: column; }
+  .paper-sheet[data-paper-form] [data-pf] .field { display: contents; }
+  /* a label, a blank cell, the words under a signature, a choice of the LOT STATUS: one cell of a table */
+  .paper-sheet[data-paper-form] [data-pf] .field > label,
+  .paper-sheet[data-paper-form] [data-pf] .pf-blank,
+  .paper-sheet[data-paper-form] [data-pf] .box-printed-below,
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .choice-across {
+    display: block; box-sizing: border-box; min-width: 0; overflow: hidden; margin: 0; padding: 0 var(--pf-pad);
+    border: 0; border-right: var(--pf-bd); border-bottom: var(--pf-bd); border-radius: 0;
+    font-family: var(--pf-font); font-size: var(--pf-fs); font-weight: 700; line-height: calc(5.46 * var(--u)); letter-spacing: 0; text-transform: none; color: #000; background: transparent;
+  }
+  .paper-sheet[data-paper-form] [data-pf] .field > .input,
+  .paper-sheet[data-paper-form] [data-pf] .field > select.input {
+    display: block; box-sizing: border-box; width: 100%; min-width: 0; height: auto; min-height: 0; margin: 0; padding: 0; text-indent: var(--pf-pad);
+    border: 0; border-right: var(--pf-bd) !important; border-bottom: var(--pf-bd) !important; border-radius: 0; background: transparent; box-shadow: none;
+    font-family: var(--pf-font); font-size: var(--pf-fs); line-height: calc(5.46 * var(--u)); color: #000;
+  }
+  .paper-sheet[data-paper-form] [data-pf] .field > .input:focus { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  /* LOT STATUS: no rule over it; its label and its four statuses are the first row, the arrow under the label. */
+  .paper-sheet[data-paper-form] [data-pf~="lot"] > .field > label { padding: calc(1.05 * var(--u)) calc(1 * var(--u)) 0; }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .field-choices-across > label { grid-column: 1; grid-row: 1; }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .field-choices-across > label::after {
+    content: ""; display: block; width: calc(15.4 * var(--u)); height: calc(4.5 * var(--u)); margin: calc(0.5 * var(--u)) 0 0 calc(11.3 * var(--u));
+    background: var(--pf-arrow) no-repeat 0 0 / 100% 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .choices-across { display: contents; }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .choice-across { grid-row: 1; padding: calc(1.05 * var(--u)) calc(1 * var(--u)) 0; text-align: center; }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .choice-across.is-chosen { outline: var(--b2) solid #000; outline-offset: calc(-1.4 * var(--u)); border-radius: calc(2 * var(--u)); }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .field.field-choices-across > select.input { display: none; }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .field:not(.field-choices-across) > label {
+    grid-column: 1 / span 2; grid-row: 2; font-size: calc(10 * var(--pt)); line-height: calc(4.95 * var(--u));
+  }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .field:not(.field-choices-across) > label::after {
+    content: ""; display: inline-block; width: calc(15.5 * var(--u)); height: calc(4.4 * var(--u)); margin-left: calc(4 * var(--u)); vertical-align: calc(-0.8 * var(--u));
+    background: var(--pf-arrow) no-repeat 0 0 / 100% 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .field:not(.field-choices-across) > .input { grid-column: 3 / span 3; grid-row: 2; }
+  /* the signatures: INSPECTED BY over the space it is signed in over QA INSPECTOR, APPROVED BY beside it */
+  .paper-sheet[data-paper-form] [data-pf~="sign"] .field > label, .paper-sheet[data-paper-form] [data-pf~="sign"] .box-printed-below { padding: calc(1.05 * var(--u)) calc(1 * var(--u)) 0; text-align: center; }
+  .paper-sheet[data-paper-form] [data-pf~="sign"] .box-printed-below { font-weight: 400; }
+  .paper-sheet[data-paper-form] [data-pf~="sign"] .field > .input { text-align: center; }
+  /* the grid */
+  .paper-sheet[data-paper-form] .paper-body > .doc-table { width: auto; overflow: visible; border: 0; border-radius: 0; background: transparent; margin: calc(4.2 * var(--u)) 0 0 calc(0.62 * var(--u)); }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet { width: var(--pf-w); table-layout: fixed; border-collapse: collapse; }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet col { width: var(--pf-col); }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet tr { height: var(--pf-h); }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet th,
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td {
+    box-sizing: border-box; border: var(--pf-bd); color: #000; font-family: var(--pf-font); font-size: var(--pf-fs); letter-spacing: 0;
+    line-height: var(--pf-lh); text-align: left; vertical-align: top; white-space: normal; overflow: hidden;
+  }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet th {
+    padding: 0 var(--pf-pad); background: #e7e6e6; font-weight: 700; line-height: calc(5.46 * var(--u));
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td {
+    padding: calc(0.85 * var(--u) - (var(--pf-lh) - 3.88 * var(--u)) / 2) var(--pf-pad) 0; font-weight: 400; background: transparent;
+  }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td[data-sr-no] { padding-left: var(--pf-sr); text-align: left; }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet tr:hover td { background: transparent; }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td .pf-text,
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td .cell-text { display: block; min-width: 0; color: #000; font-size: var(--pf-fs); font-weight: 400; line-height: var(--pf-lh); white-space: pre-wrap; }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td .pf-par { display: block; min-height: var(--pf-lh); margin-bottom: var(--pf-par); }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td .pf-par:last-child { margin-bottom: 0; }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td .pf-bold { font-weight: 700; }
+  /* a cell the paper sets in Arial 10 pt */
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td[data-pf-arial] { --pf-lh: calc(4.06 * var(--u)); font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(10 * var(--pt)); padding-top: calc(0.73 * var(--u)); }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td[data-pf-arial] .pf-text,
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td[data-pf-arial] .cell-text { font-family: inherit; font-size: calc(10 * var(--pt)); }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td { position: relative; }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td .input {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: block; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; text-indent: var(--pf-pad);
+    border: 0; border-radius: 0; background: transparent; box-shadow: none; font-family: var(--pf-font); font-size: var(--pf-fs); line-height: var(--pf-lh); color: #000;
+  }
+}
+@media screen and (min-width: 760px) {
+  /* Open for writing the LOT STATUS is a choice box (the words are for the print and for a sheet signed off). */
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .field.field-choices-across.is-editable > select.input { display: block; grid-column: 2 / span 4; grid-row: 1; height: auto; margin: 0; border: 0; border-right: var(--pf-bd); border-bottom: var(--pf-bd); border-radius: 0; background: transparent; }
+  .paper-sheet[data-paper-form] [data-pf~="lot"] .field-choices-across.is-editable .choices-across { display: none; }
+  .paper-sheet[data-paper-form] [data-pf] .field > .input:hover, .paper-sheet[data-paper-form] .doc-table table.log-sheet td .input:hover { background: var(--color-primary-light); }
+}
+
+/* ---- THE AREA LINE CLEARANCE REPORTS, F/QC/15-A to 15-G (REQUIREMENTS §117, QC visual parity of 20-Oct-2026) ----
+   One Word template: a heavy frame in three rows (the company; the title with the machine's name written in at its right; the
+   Format no. / Rev. no. / Effective date in three cells), the Line Clearance note in a ruled box, the heading row, and ten ruled
+   lines to write in, Calibri 8.5 pt (data/seed/qcLineClearanceGeometry.ts, read off the owner's PDFs). The paper has no Page No.
+   cell. The ten lines are on the printed page, not in the record: a blank record prints the paper's ten ruled lines and holds one. */
+.paper-sheet[data-paper-form="lineclear"] .pf-pad { display: none; }
+@media print, (min-width: 760px) {
+  .paper-sheet[data-paper-form="lineclear"] {
+    --u: calc(1mm / var(--print-zoom, 1)); --pt: calc(1pt / var(--print-zoom, 1));
+    --b1: calc(1.05px / var(--print-zoom, 1)); --b2: calc(2.05px / var(--print-zoom, 1));
+    --pf-bd: var(--b1) solid #000; --pf-hv: var(--b2) solid #000;
+    --pf-font: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+    width: var(--lc-w); font-family: var(--pf-font); color: #000;
+  }
+  .paper-sheet[data-paper-form="lineclear"] .doc-header-lc { display: block; box-sizing: border-box; width: var(--lc-w); margin: 0; padding: 0; border: 0; border-radius: 0; background: #fff; font-family: var(--pf-font); color: #000; }
+  .doc-header-lc .lc-company { display: flex; align-items: center; justify-content: center; box-sizing: border-box; height: calc(7.56 * var(--u)); border: var(--pf-hv); font-size: calc(12.8 * var(--pt)); font-weight: 700; letter-spacing: 0; text-transform: none; }
+  .doc-header-lc .lc-titlerow { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--lc-machine); box-sizing: border-box; height: calc(7.09 * var(--u)); border-left: var(--pf-hv); border-right: var(--pf-hv); border-bottom: var(--pf-hv); }
+  .doc-header-lc .lc-title { display: flex; align-items: center; justify-content: center; font-size: calc(11.4 * var(--pt)); font-weight: 700; text-decoration: underline; text-underline-offset: calc(0.5 * var(--u)); }
+  .doc-header-lc .lc-machine { display: flex; align-items: center; box-sizing: border-box; height: calc(100% + var(--b1)); margin-top: calc(-1 * var(--b1)); padding: calc(0.5 * var(--u)) calc(1.2 * var(--u)) 0; border-top: var(--pf-hv); }
+  .doc-header-lc .lc-machine .field { display: flex; flex-direction: row; align-items: baseline; gap: calc(1 * var(--u)); width: 100%; }
+  .doc-header-lc .lc-machine .field > label { margin: 0; font-size: calc(8.5 * var(--pt)); font-weight: 700; line-height: 1.2; color: #000; white-space: nowrap; text-transform: none; letter-spacing: 0; }
+  .doc-header-lc .lc-machine .field > .input { flex: 1 1 auto; min-width: 0; width: auto; height: auto; min-height: 0; padding: 0; border: 0; border-bottom: var(--pf-bd) !important; border-radius: 0; background: transparent; box-shadow: none; font-family: var(--pf-font); font-size: calc(8.5 * var(--pt)); line-height: 1.2; color: #000; }
+  .doc-header-lc .lc-meta { display: grid; grid-template-columns: var(--lc-meta); box-sizing: border-box; height: calc(7.07 * var(--u)); border-left: var(--pf-hv); border-right: var(--pf-hv); border-bottom: var(--pf-hv); font-size: calc(8.5 * var(--pt)); font-weight: 700; color: #000; }
+  .doc-header-lc .lc-meta > div { display: flex; align-items: center; justify-content: center; box-sizing: border-box; white-space: pre; }
+  .doc-header-lc .lc-meta > div:not(:last-child) { border-right: var(--pf-hv); }
+  /* the Line Clearance note: a ruled box the width of the grid, bold black */
+  .paper-sheet[data-paper-form="lineclear"] .paper-body > .card { box-sizing: border-box; width: var(--lc-w); margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+  .paper-sheet[data-paper-form="lineclear"] .paper-body > .card > .card-pad { box-sizing: border-box; min-height: calc(13.7 * var(--u)); padding: calc(1 * var(--u)) calc(0.5 * var(--u)) 0; border-left: var(--pf-hv); border-right: var(--pf-hv); border-bottom: var(--pf-bd); }
+  .paper-sheet[data-paper-form="lineclear"] .paper-body > .card p { margin: 0; font-family: var(--pf-font); font-size: calc(8.5 * var(--pt)); font-weight: 700; line-height: calc(3.95 * var(--u)); color: #000; }
+  /* the grid */
+  .paper-sheet[data-paper-form="lineclear"] .paper-body > .doc-table { width: auto; margin: 0; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet { width: var(--pf-w); table-layout: fixed; border-collapse: collapse; }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet col { width: var(--pf-col); }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet tr { height: var(--pf-h); }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet th,
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td {
+    box-sizing: border-box; padding: 0 calc(0.3 * var(--u)); border: var(--pf-bd); background: transparent;
+    font-family: var(--pf-font); font-size: calc(8.5 * var(--pt)); letter-spacing: 0; text-transform: none; text-align: center; vertical-align: middle; color: #000; white-space: normal;
+  }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet th { font-weight: 700; line-height: calc(3.9 * var(--u)); }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td { font-weight: 400; line-height: 1.2; }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet th, .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td { position: relative; overflow: visible; }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):is(:nth-child(4), :nth-child(6), :nth-child(10), :nth-child(12))::after,
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):first-child::before { content: ""; position: absolute; top: calc(-1 * var(--b1)); bottom: calc(-1 * var(--b1)); width: var(--b2); background: #000; }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):is(:nth-child(4), :nth-child(6), :nth-child(10), :nth-child(12))::after { right: calc(-0.5 * var(--b2)); }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):first-child::before { left: calc(-0.5 * var(--b2)); }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet tr:last-child td { border-bottom: var(--pf-bd); }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td { position: relative; }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td .input {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: block; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; text-align: center;
+    border: 0; border-radius: 0; background: transparent; box-shadow: none; font-family: var(--pf-font); font-size: calc(8.5 * var(--pt)); line-height: 1.2; color: #000;
+  }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td .cell-text { display: block; min-width: 0; font-size: calc(8.5 * var(--pt)); line-height: 1.2; color: #000; }
+}
+@media print {
+  .paper-sheet[data-paper-form="lineclear"] .pf-pad { display: table-row; }
+  .paper-sheet[data-paper-form="lineclear"] .pf-remove { display: none; }
+}
+
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,
    so this has to come after the rules it switches off or the cascade simply

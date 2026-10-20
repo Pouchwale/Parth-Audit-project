@@ -12,6 +12,8 @@ import { INCOMING_ADDRESS } from "./qcIncomingLayouts";
 
 const left: PageFrame = { titleAlign: "left" };
 const centre: PageFrame = { titleAlign: "center" };
+// F/QC/36's title stands on two lines, broken after its dash.
+const leftBroken: PageFrame = { titleAlign: "left", titleBreak: true };
 // The analysis reports, the minutes and the destruction record print the same address at the foot of the page, which their layouts do not hold.
 const reportCentre: PageFrame = { titleAlign: "center", address: INCOMING_ADDRESS };
 // F/QC/20's destruction record sets its title in black, 18 pt.
@@ -26,7 +28,7 @@ export const QC_PAGE_FRAMES: Record<string, PageFrame> = {
   "qc-offset-ink": left,
   "qc-duplex-board": left,
   "qc-incoming-lamination-film": left,
-  "qc-inspection-sb-lamination": left,
+  "qc-inspection-sb-lamination": leftBroken,
   "qc-kraft-paper": centre,
   "qc-lamination-adhesive-inspection": centre,
   "qc-side-pasting-adhesive": centre,

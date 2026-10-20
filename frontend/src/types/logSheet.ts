@@ -329,6 +329,8 @@ export interface PageFrame {
   title?: { size: number; color: string };
   /** The address the paper prints at the foot of its page where the layout holds none of its own (notesAtFoot): the reports and the destruction record. */
   address?: string;
+  /** The paper breaks its title after the dash (F/QC/36: "INSPECTION RECORD –" over "SOLVENT BASE LAMINATION FILM"). */
+  titleBreak?: true;
 }
 
 export interface LogSheetLayout {

@@ -241,7 +241,9 @@ test("F25: F/QC/15-A to G and the Gujarati checklists print their boxes above th
   for (const [id, words] of Object.entries(paragraph)) {
     assert.equal(layoutOf(id).boxesAboveInstructions, true, id);
     const html = await sheet(id, blank(id));
-    const boxes = html.indexOf('data-section="sheet-boxes"');
+    // F/QC/15-A to G (REQUIREMENTS §117): the machine's name is written in the header's title row, above the paragraph; the
+    // Gujarati checklists keep their boxes in a line of their own above it.
+    const boxes = id.startsWith("qc-line-clearance-materials") || id.startsWith("qc-line-clearance-quality") ? html.indexOf('data-section="sheet-boxes"') : html.indexOf('data-bind="header/machineName"');
     assert.ok(boxes >= 0 && html.indexOf(words) > boxes, `${id}: the boxes before the paragraph`);
   }
   assert.deepEqual(layoutOf("qc-line-clearance-printing").headerFields.map((f) => f.label), ["PRINTING MACHINE NAME : -"]);
