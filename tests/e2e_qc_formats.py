@@ -910,7 +910,8 @@ with sync_playwright() as p:
     shot("fqc20-destruction")
     body = printed_text(page)
     whole = page.locator(".app-content").evaluate("e => e.textContent")
-    head = page.locator("[data-section='document-preview'] .doc-header").first.evaluate("e => e.textContent")
+    # On the paper (framed page, s117) the Format number, the Rev. no., the Page and the issue and review dates are the bordered foot's, the title the head's.
+    head = page.locator("[data-section='document-preview'] :is(.doc-header, .page-foot)").evaluate_all("els => els.map((e) => e.textContent).join(' ')")
     check(
         "F/QC/20 is headed DESTRUCTION RECORD, PRINTING AIDS DESTRUCTION RECORD above its Date:, the issue and review dates with its format number",
         "DESTRUCTION RECORD" in whole.upper() and "PRINTING AIDS DESTRUCTION RECORD" in body and "Next Review date" in head and "31st December 2024" in head

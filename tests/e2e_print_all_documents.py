@@ -94,6 +94,8 @@ PRINTED = """
       })(),
       text: docs.map((d) => d.textContent).join(' '),
       // The page chosen (utils/print.ts), the paper the sheet names (s117), and the document's scale.
+      // A QC paper drawn on its framed page (data/seed/qcPageFrames.ts, s117) keeps the paper's own 8.446 mm margin.
+      framed: docs.length > 0 && docs.every((d) => d.matches('[data-frame]') || d.querySelector('[data-frame]') !== null),
       page: document.documentElement.dataset.printPage || 'portrait',
       paper: (() => { const el = document.querySelector('[data-print-doc][data-paper], [data-print-doc] [data-paper]'); return el ? el.getAttribute('data-paper') : null; })(),
       zoom: docs.map((d) => d.style.zoom || ''),
@@ -145,6 +147,8 @@ def printout(page):
 
 # A4 less the 12 mm each side a printed document keeps for itself (utils/print.ts PRINTABLE_WIDTH), in CSS pixels.
 PRINTABLE = {"portrait": (210 - 24) * 96 / 25.4, "landscape": (297 - 24) * 96 / 25.4}
+# A framed QC paper's page keeps 8.446 mm each side, as the owner's PDFs do (their frame is 8.446 mm from the edge; utils/print.ts FRAMED_MARGIN_MM).
+PRINTABLE_FRAMED = {"portrait": (210 - 2 * 8.446) * 96 / 25.4, "landscape": (297 - 2 * 8.446) * 96 / 25.4}
 # The papers whose page is named on their layout (s117), and how many pages each is.
 PAPER_PAGES = {
     "qc-gsm-plate-calibration": ("landscape", 1),
@@ -164,7 +168,8 @@ def check_a4(what, seen):
     """Nothing cut at the right edge: the grids fit the page chosen; the page is the paper's where named (s117)."""
     page_kind = seen["page"]
     # Two pixels of slack: the scale is floored to a thousandth (utils/print.ts), and the rectangle is rounded.
-    check(f"{what}: its grids fit A4 {page_kind} (s117: nothing cut at the right edge)", seen["widestTable"] <= PRINTABLE[page_kind] + 2, (round(seen["widestTable"]), round(PRINTABLE[page_kind]), seen["zoom"]))
+    limit = (PRINTABLE_FRAMED if seen.get("framed") else PRINTABLE)[page_kind]
+    check(f"{what}: its grids fit A4 {page_kind} (s117: nothing cut at the right edge)", seen["widestTable"] <= limit + 2, (round(seen["widestTable"]), round(limit), seen["zoom"], "framed page" if seen.get("framed") else ""))
     if seen["paper"]:
         check(f"{what}: the page is the paper's, {seen['paper']}", page_kind == seen["paper"], (page_kind, seen["paper"]))
 
