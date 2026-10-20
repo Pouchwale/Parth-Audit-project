@@ -1,0 +1,575 @@
+{
+ "blocks": [
+  {
+   "kind": "text",
+   "text": "GUJARAT PRINT PACK PUBLICATIONS PVT LTD",
+   "strong": true,
+   "title": true
+  },
+  {
+   "kind": "text",
+   "text": "DOCUMENT CHANGE REQUEST & APPROVAL NOTE",
+   "strong": true,
+   "title": true
+  },
+  {
+   "kind": "table",
+   "rows": [
+    [
+     {
+      "text": "Format No."
+     },
+     {
+      "text": "F/SYS/03"
+     },
+     {
+      "text": "Rev No."
+     },
+     {
+      "text": "01"
+     },
+     {
+      "text": "Rev Date"
+     },
+     {
+      "text": "01-Dec-2021"
+     },
+     {
+      "text": "Page No."
+     },
+     {
+      "text": "1 of 1"
+     }
+    ]
+   ],
+   "headerRows": 0,
+   "band": true
+  },
+  {
+   "kind": "text",
+   "text": "DOCUMENT CHANGE / INTRODUCTION / REMOVAL REQUEST NOTE",
+   "strong": true
+  },
+  {
+   "kind": "fields",
+   "pairs": [
+    [
+     "This is a request for",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/requestType",
+         "type": "select",
+         "label": "This is a request for",
+         "options": [
+          {
+           "value": "Existing Document Change",
+           "label": "Existing Document Change"
+          },
+          {
+           "value": "New Document Introduction",
+           "label": "New Document Introduction"
+          },
+          {
+           "value": "Existing Document Removal",
+           "label": "Existing Document Removal"
+          }
+         ],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/requestType",
+       "type": "select",
+       "label": "This is a request for",
+       "options": [
+        {
+         "value": "Existing Document Change",
+         "label": "Existing Document Change"
+        },
+        {
+         "value": "New Document Introduction",
+         "label": "New Document Introduction"
+        },
+        {
+         "value": "Existing Document Removal",
+         "label": "Existing Document Removal"
+        }
+       ],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Date of Change request:",
+     {
+      "text": "20-Oct-2026",
+      "parts": [
+       {
+        "text": "20-Oct-2026",
+        "bind": {
+         "path": "header/dateOfChangeRequest",
+         "type": "date",
+         "label": "Date of Change request:",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": "20-Oct-2026"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/dateOfChangeRequest",
+       "type": "date",
+       "label": "Date of Change request:",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": "20-Oct-2026"
+      },
+      "date": "2026-10-20"
+     }
+    ],
+    [
+     "Current document no. (Not Applicable for New Document Introduction)",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/currentDocumentNo",
+         "type": "text",
+         "label": "Current document no. (Not Applicable for New Document Introduction)",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/currentDocumentNo",
+       "type": "text",
+       "label": "Current document no. (Not Applicable for New Document Introduction)",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Current Revision no.",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/currentRevisionNo",
+         "type": "text",
+         "label": "Current Revision no.",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/currentRevisionNo",
+       "type": "text",
+       "label": "Current Revision no.",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Current Date",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/currentDate",
+         "type": "date",
+         "label": "Current Date",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/currentDate",
+       "type": "date",
+       "label": "Current Date",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Document Title",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/documentTitle",
+         "type": "text",
+         "label": "Document Title",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/documentTitle",
+       "type": "text",
+       "label": "Document Title",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Document no.",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/documentNo",
+         "type": "text",
+         "label": "Document no.",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/documentNo",
+       "type": "text",
+       "label": "Document no.",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Revision no.",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/revisionNo",
+         "type": "text",
+         "label": "Revision no.",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/revisionNo",
+       "type": "text",
+       "label": "Revision no.",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Effective date",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/effectiveDate",
+         "type": "date",
+         "label": "Effective date",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/effectiveDate",
+       "type": "date",
+       "label": "Effective date",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Description of change",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/descriptionOfChange",
+         "type": "paragraph",
+         "label": "Description of change",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/descriptionOfChange",
+       "type": "paragraph",
+       "label": "Description of change",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Reason for the Change / Introduction / Removal of Document",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/reasonForChange",
+         "type": "paragraph",
+         "label": "Reason for the Change / Introduction / Removal of Document",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/reasonForChange",
+       "type": "paragraph",
+       "label": "Reason for the Change / Introduction / Removal of Document",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Change requested by — Name",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/requestedByName",
+         "type": "text",
+         "label": "Change requested by — Name",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/requestedByName",
+       "type": "text",
+       "label": "Change requested by — Name",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Change requested by — Designation",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/requestedByDesignation",
+         "type": "text",
+         "label": "Change requested by — Designation",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/requestedByDesignation",
+       "type": "text",
+       "label": "Change requested by — Designation",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Change requested by — Sign",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/requestedBySign",
+         "type": "text",
+         "label": "Change requested by — Sign",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/requestedBySign",
+       "type": "text",
+       "label": "Change requested by — Sign",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Change request verified by (Sign.) (PSTL)",
+     {
+      "text": "Ms. Kapila Barad",
+      "parts": [
+       {
+        "text": "Ms. Kapila Barad",
+        "bind": {
+         "path": "header/verifiedBy",
+         "type": "text",
+         "label": "Change request verified by (Sign.) (PSTL)",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": "Ms. Kapila Barad"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/verifiedBy",
+       "type": "text",
+       "label": "Change request verified by (Sign.) (PSTL)",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": "Ms. Kapila Barad"
+      }
+     }
+    ],
+    [
+     "Product safety team leader’s comments if any",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/pstlComments",
+         "type": "paragraph",
+         "label": "Product safety team leader’s comments if any",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/pstlComments",
+       "type": "paragraph",
+       "label": "Product safety team leader’s comments if any",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Change / Introduction / Removal request approved",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/requestApproved",
+         "type": "yesno",
+         "label": "Change / Introduction / Removal request approved",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/requestApproved",
+       "type": "yesno",
+       "label": "Change / Introduction / Removal request approved",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ],
+    [
+     "Date of approval & implementation:",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/dateOfApproval",
+         "type": "date",
+         "label": "Date of approval & implementation:",
+         "options": [],
+         "recordId": "rec-mvgodlnc-20-247osg",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/dateOfApproval",
+       "type": "date",
+       "label": "Date of approval & implementation:",
+       "options": [],
+       "recordId": "rec-mvgodlnc-20-247osg",
+       "text": ""
+      }
+     }
+    ]
+   ]
+  }
+ ],
+ "recordIds": [
+  "rec-mvgodlnc-20-247osg"
+ ]
+}

@@ -1,0 +1,603 @@
+{
+ "blocks": [
+  {
+   "kind": "text",
+   "text": "GUJARAT PRINT PACK PUBLICATIONS PVT LTD",
+   "strong": true,
+   "title": true
+  },
+  {
+   "kind": "text",
+   "text": "REGISTER OF OBSOLETE ARTWORK",
+   "strong": true,
+   "title": true
+  },
+  {
+   "kind": "table",
+   "rows": [
+    [
+     {
+      "text": "Format No."
+     },
+     {
+      "text": "F/QC/16"
+     },
+     {
+      "text": "Rev No."
+     },
+     {
+      "text": "00"
+     },
+     {
+      "text": "Rev Date"
+     },
+     {
+      "text": "01-Dec-2021"
+     },
+     {
+      "text": "Page No."
+     },
+     {
+      "text": "1 of 1"
+     }
+    ]
+   ],
+   "headerRows": 0,
+   "band": true
+  },
+  {
+   "kind": "table",
+   "rows": [
+    [
+     {
+      "text": "Sr. No."
+     },
+     {
+      "text": "Customer name"
+     },
+     {
+      "text": "Job name"
+     },
+     {
+      "text": "Artwork number / Master Shade card number (FG Code)"
+     },
+     {
+      "text": "Sales Person"
+     },
+     {
+      "text": "Reason for artwork obsolete"
+     },
+     {
+      "text": "Date of obsolete"
+     },
+     {
+      "text": "Updated by - QC In-charge"
+     },
+     {
+      "text": "Remarks"
+     },
+     {
+      "text": ""
+     }
+    ],
+    [
+     {
+      "text": "1",
+      "parts": [
+       {
+        "text": "1",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-16-9zekdj/srNo",
+         "type": "text",
+         "label": "Row 1 · Sr. No.",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "1"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-16-9zekdj/srNo",
+       "type": "text",
+       "label": "Row 1 · Sr. No.",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "1"
+      }
+     },
+     {
+      "text": "Shreeji Agchem Pvt. Ltd",
+      "parts": [
+       {
+        "text": "Shreeji Agchem Pvt. Ltd",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-16-9zekdj/customerName",
+         "type": "text",
+         "label": "Row 1 · Customer name",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "Shreeji Agchem Pvt. Ltd"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-16-9zekdj/customerName",
+       "type": "text",
+       "label": "Row 1 · Customer name",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "Shreeji Agchem Pvt. Ltd"
+      }
+     },
+     {
+      "text": "Wilbond 3gm Label",
+      "parts": [
+       {
+        "text": "Wilbond 3gm Label",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-16-9zekdj/jobName",
+         "type": "text",
+         "label": "Row 1 · Job name",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "Wilbond 3gm Label"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-16-9zekdj/jobName",
+       "type": "text",
+       "label": "Row 1 · Job name",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "Wilbond 3gm Label"
+      }
+     },
+     {
+      "text": "FGLA8542",
+      "parts": [
+       {
+        "text": "FGLA8542",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-16-9zekdj/artworkNumber",
+         "type": "text",
+         "label": "Row 1 · Artwork number / Master Shade card number (FG Code)",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "FGLA8542"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-16-9zekdj/artworkNumber",
+       "type": "text",
+       "label": "Row 1 · Artwork number / Master Shade card number (FG Code)",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "FGLA8542"
+      }
+     },
+     {
+      "text": "Keyur Sathwara",
+      "parts": [
+       {
+        "text": "Keyur Sathwara",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-16-9zekdj/salesPerson",
+         "type": "text",
+         "label": "Row 1 · Sales Person",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "Keyur Sathwara"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-16-9zekdj/salesPerson",
+       "type": "text",
+       "label": "Row 1 · Sales Person",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "Keyur Sathwara"
+      }
+     },
+     {
+      "text": "A/W Change",
+      "parts": [
+       {
+        "text": "A/W Change",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-16-9zekdj/reasonObsolete",
+         "type": "text",
+         "label": "Row 1 · Reason for artwork obsolete",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "A/W Change"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-16-9zekdj/reasonObsolete",
+       "type": "text",
+       "label": "Row 1 · Reason for artwork obsolete",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "A/W Change"
+      }
+     },
+     {
+      "text": "20-Oct-2026",
+      "parts": [
+       {
+        "text": "20-Oct-2026",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-16-9zekdj/dateOfObsolete",
+         "type": "date",
+         "label": "Row 1 · Date of obsolete",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "20-Oct-2026"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-16-9zekdj/dateOfObsolete",
+       "type": "date",
+       "label": "Row 1 · Date of obsolete",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "20-Oct-2026"
+      },
+      "date": "2026-10-20"
+     },
+     {
+      "text": "Kapila Barad",
+      "parts": [
+       {
+        "text": "Kapila Barad",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-16-9zekdj/updatedBy",
+         "type": "text",
+         "label": "Row 1 · Updated by - QC In-charge",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "Kapila Barad"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-16-9zekdj/updatedBy",
+       "type": "text",
+       "label": "Row 1 · Updated by - QC In-charge",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "Kapila Barad"
+      }
+     },
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-16-9zekdj/remarks",
+         "type": "text",
+         "label": "Row 1 · Remarks",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-16-9zekdj/remarks",
+       "type": "text",
+       "label": "Row 1 · Remarks",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": ""
+      }
+     },
+     {
+      "text": ""
+     }
+    ],
+    [
+     {
+      "text": "2",
+      "parts": [
+       {
+        "text": "2",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-17-934zq9/srNo",
+         "type": "text",
+         "label": "Row 2 · Sr. No.",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "2"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-17-934zq9/srNo",
+       "type": "text",
+       "label": "Row 2 · Sr. No.",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "2"
+      }
+     },
+     {
+      "text": "Aculife Healthcare Pvt. Ltd./ Nirma",
+      "parts": [
+       {
+        "text": "Aculife Healthcare Pvt. Ltd./ Nirma",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-17-934zq9/customerName",
+         "type": "text",
+         "label": "Row 2 · Customer name",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "Aculife Healthcare Pvt. Ltd./ Nirma"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-17-934zq9/customerName",
+       "type": "text",
+       "label": "Row 2 · Customer name",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "Aculife Healthcare Pvt. Ltd./ Nirma"
+      }
+     },
+     {
+      "text": "RL 500ml label",
+      "parts": [
+       {
+        "text": "RL 500ml label",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-17-934zq9/jobName",
+         "type": "text",
+         "label": "Row 2 · Job name",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "RL 500ml label"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-17-934zq9/jobName",
+       "type": "text",
+       "label": "Row 2 · Job name",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "RL 500ml label"
+      }
+     },
+     {
+      "text": "FGLA8665",
+      "parts": [
+       {
+        "text": "FGLA8665",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-17-934zq9/artworkNumber",
+         "type": "text",
+         "label": "Row 2 · Artwork number / Master Shade card number (FG Code)",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "FGLA8665"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-17-934zq9/artworkNumber",
+       "type": "text",
+       "label": "Row 2 · Artwork number / Master Shade card number (FG Code)",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "FGLA8665"
+      }
+     },
+     {
+      "text": "Savan Sathwara",
+      "parts": [
+       {
+        "text": "Savan Sathwara",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-17-934zq9/salesPerson",
+         "type": "text",
+         "label": "Row 2 · Sales Person",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "Savan Sathwara"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-17-934zq9/salesPerson",
+       "type": "text",
+       "label": "Row 2 · Sales Person",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "Savan Sathwara"
+      }
+     },
+     {
+      "text": "A/W Change",
+      "parts": [
+       {
+        "text": "A/W Change",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-17-934zq9/reasonObsolete",
+         "type": "text",
+         "label": "Row 2 · Reason for artwork obsolete",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "A/W Change"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-17-934zq9/reasonObsolete",
+       "type": "text",
+       "label": "Row 2 · Reason for artwork obsolete",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "A/W Change"
+      }
+     },
+     {
+      "text": "20-Oct-2026",
+      "parts": [
+       {
+        "text": "20-Oct-2026",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-17-934zq9/dateOfObsolete",
+         "type": "date",
+         "label": "Row 2 · Date of obsolete",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "20-Oct-2026"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-17-934zq9/dateOfObsolete",
+       "type": "date",
+       "label": "Row 2 · Date of obsolete",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "20-Oct-2026"
+      },
+      "date": "2026-10-20"
+     },
+     {
+      "text": "Kapila Barad",
+      "parts": [
+       {
+        "text": "Kapila Barad",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-17-934zq9/updatedBy",
+         "type": "text",
+         "label": "Row 2 · Updated by - QC In-charge",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": "Kapila Barad"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-17-934zq9/updatedBy",
+       "type": "text",
+       "label": "Row 2 · Updated by - QC In-charge",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": "Kapila Barad"
+      }
+     },
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "rows/@row-mvgocz5d-17-934zq9/remarks",
+         "type": "text",
+         "label": "Row 2 · Remarks",
+         "options": [],
+         "recordId": "rec-mvgocxdv-11-31b51r",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocz5d-17-934zq9/remarks",
+       "type": "text",
+       "label": "Row 2 · Remarks",
+       "options": [],
+       "recordId": "rec-mvgocxdv-11-31b51r",
+       "text": ""
+      }
+     },
+     {
+      "text": ""
+     }
+    ]
+   ],
+   "headerRows": 1,
+   "bindTable": {
+    "recordId": "rec-mvgocxdv-11-31b51r",
+    "listPath": "rows",
+    "columns": [
+     {
+      "key": "srNo",
+      "type": "text",
+      "options": [],
+      "col": 0,
+      "label": "Sr. No."
+     },
+     {
+      "key": "customerName",
+      "type": "text",
+      "options": [],
+      "col": 1,
+      "label": "Customer name"
+     },
+     {
+      "key": "jobName",
+      "type": "text",
+      "options": [],
+      "col": 2,
+      "label": "Job name"
+     },
+     {
+      "key": "artworkNumber",
+      "type": "text",
+      "options": [],
+      "col": 3,
+      "label": "Artwork number / Master Shade card number (FG Code)"
+     },
+     {
+      "key": "salesPerson",
+      "type": "text",
+      "options": [],
+      "col": 4,
+      "label": "Sales Person"
+     },
+     {
+      "key": "reasonObsolete",
+      "type": "text",
+      "options": [],
+      "col": 5,
+      "label": "Reason for artwork obsolete"
+     },
+     {
+      "key": "dateOfObsolete",
+      "type": "date",
+      "options": [],
+      "col": 6,
+      "label": "Date of obsolete"
+     },
+     {
+      "key": "updatedBy",
+      "type": "text",
+      "options": [],
+      "col": 7,
+      "label": "Updated by - QC In-charge"
+     },
+     {
+      "key": "remarks",
+      "type": "text",
+      "options": [],
+      "col": 8,
+      "label": "Remarks"
+     }
+    ]
+   }
+  }
+ ],
+ "recordIds": [
+  "rec-mvgocxdv-11-31b51r"
+ ]
+}

@@ -5,6 +5,7 @@ import { downloadBlob } from "./csv";
 import { formatDisplayDate, todayISO } from "./date";
 import { PRINT_PREPARE_EVENT, paperOf } from "./print";
 import { paperMarginsOf, paperPageOf, paperSheetBlocks, paperWordBlocks } from "./paperSheets";
+import { originalFileBytes, originalFileOf } from "./originalFill";
 import {
   BIND_APPEND_ATTR,
   BIND_ATTR,
@@ -124,6 +125,9 @@ const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-re
 
 export function documentFileKind(doc: DocumentDefinition | null | undefined): DocumentFileKind {
   if (!doc) return "pdf";
+  // The owner's own file, where he supplied one as Word or Excel (REQUIREMENTS §119): the download is that kind of file.
+  const original = originalFileOf(doc.id);
+  if (original) return original.kind;
   const source = doc.sourceFile ?? "";
   if (/\.xlsx?\b/i.test(source)) return "xlsx";
   if (/\.docx?\b/i.test(source)) return "docx";
@@ -1068,6 +1072,32 @@ export function documentFileName(doc: DocumentDefinition, dateISO?: string): str
     .slice(0, 150);
 }
 
+/** The envelope of a file holding these blocks: every record given, and any a bound value belongs to; undefined when none. */
+export function envelopeFor(
+  kind: "xlsx" | "docx",
+  doc: Pick<DocumentDefinition, "id" | "formatNo" | "revisionNo">,
+  blocks: ExportBlock[],
+  recordIds: string[],
+  exportedAt?: string
+): RoundTripEnvelope | undefined {
+  const ids = [...recordIds];
+  const note = (parts: ExportSegment[] | undefined) => {
+    for (const p of parts ?? []) if (p.bind?.recordId) ids.push(p.bind.recordId);
+  };
+  for (const b of blocks) {
+    if (b.kind === "text") note(b.parts);
+    else if (b.kind === "fields") for (const [, c] of b.pairs) note(c.parts);
+    else if (b.kind === "sheet") for (const c of b.cells) note(c.parts);
+    else if (b.kind === "paper") for (const r of b.rows) for (const c of r.cells) note(c.parts);
+    else {
+      for (const r of b.rows) for (const c of r) note(c.parts);
+      if (b.bindTable) ids.push(b.bindTable.recordId);
+    }
+  }
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  return unique.length ? makeEnvelope(kind, { documentId: doc.id, formatNo: doc.formatNo, revisionNo: doc.revisionNo }, unique, exportedAt) : undefined;
+}
+
 /**
  * The file's bytes for these blocks: the workbook or the Word document, with
  * the map of the bound values when any record is in it.
@@ -1141,6 +1171,17 @@ export async function downloadDocumentFile(doc: DocumentDefinition, roots: Eleme
     // A document supplied as a workbook downloads on its original's own grid (utils/paperSheets.ts, REQUIREMENTS §118).
     const blocks = (kind === "xlsx" ? paperSheetBlocks(doc.id, read) : paperWordBlocks(doc.id, read)) ?? read;
     const name = documentFileName(doc, dateISO);
+    // THE OWNER'S OWN FILE (REQUIREMENTS §119): where he supplied the document as Word or Excel, the download is his file
+    // filled with what the page shows. Anything it cannot do falls back to the file made from the page below.
+    try {
+      const own = await originalFileBytes(doc.id, read, envelopeFor(kind, doc, read, recordIdsIn(live.length ? live : roots)));
+      if (own && own.kind === kind) {
+        downloadBlob(`${name}.${kind}`, new Blob([own.bytes], { type: kind === "xlsx" ? XLSX_TYPE : DOCX_TYPE }));
+        return kind;
+      }
+    } catch {
+      /* the generic download below */
+    }
     // The paper's own page (§117), where the sheet names it.
     const paper = paperPageOf(doc.id) ?? (live.length ? live : roots).map(paperOf).find((p) => p !== null) ?? undefined;
     const bytes = documentFileBytes(kind, doc, blocks, recordIdsIn(live.length ? live : roots), undefined, paper);

@@ -1,0 +1,572 @@
+{
+ "blocks": [
+  {
+   "kind": "text",
+   "text": "GUJARAT PRINT PACK PUBLICATIONS PVT LTD",
+   "strong": true,
+   "title": true
+  },
+  {
+   "kind": "text",
+   "text": "INSPECTION RECORD - BOPP FILM",
+   "strong": true,
+   "title": true
+  },
+  {
+   "kind": "table",
+   "rows": [
+    [
+     {
+      "text": "Format No."
+     },
+     {
+      "text": "F/QC/01"
+     },
+     {
+      "text": "Rev No."
+     },
+     {
+      "text": "01"
+     },
+     {
+      "text": "Rev Date"
+     },
+     {
+      "text": "16-Feb-2022"
+     },
+     {
+      "text": "Page No."
+     },
+     {
+      "text": "1 of 1"
+     }
+    ]
+   ],
+   "headerRows": 0,
+   "band": true
+  },
+  {
+   "kind": "fields",
+   "pairs": [
+    [
+     "Supplier Name",
+     {
+      "text": "Sample Supplier C",
+      "parts": [
+       {
+        "text": "Sample Supplier C",
+        "bind": {
+         "path": "header/supplierName",
+         "type": "text",
+         "label": "Supplier Name",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "Sample Supplier C"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/supplierName",
+       "type": "text",
+       "label": "Supplier Name",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "Sample Supplier C"
+      }
+     }
+    ],
+    [
+     "Report number",
+     {
+      "text": "IR/26-27/2182",
+      "parts": [
+       {
+        "text": "IR/26-27/2182",
+        "bind": {
+         "path": "header/reportNumber",
+         "type": "text",
+         "label": "Report number",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "IR/26-27/2182"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/reportNumber",
+       "type": "text",
+       "label": "Report number",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "IR/26-27/2182"
+      }
+     }
+    ],
+    [
+     "Product Description",
+     {
+      "text": "BOPP Plain Transparent Film 20 mic x 1020 mm",
+      "parts": [
+       {
+        "text": "BOPP Plain Transparent Film 20 mic x 1020 mm",
+        "bind": {
+         "path": "header/productDescription",
+         "type": "text",
+         "label": "Product Description",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "BOPP Plain Transparent Film 20 mic x 1020 mm"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/productDescription",
+       "type": "text",
+       "label": "Product Description",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "BOPP Plain Transparent Film 20 mic x 1020 mm"
+      }
+     }
+    ],
+    [
+     "SAP Batch number",
+     {
+      "text": "25802/19642/1",
+      "parts": [
+       {
+        "text": "25802/19642/1",
+        "bind": {
+         "path": "header/batchNumber",
+         "type": "text",
+         "label": "SAP Batch number",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "25802/19642/1"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/batchNumber",
+       "type": "text",
+       "label": "SAP Batch number",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "25802/19642/1"
+      }
+     }
+    ],
+    [
+     "GRN Qty.",
+     {
+      "text": "1450 kg",
+      "parts": [
+       {
+        "text": "1450 kg",
+        "bind": {
+         "path": "header/grnQty",
+         "type": "text",
+         "label": "GRN Qty.",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "1450 kg"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/grnQty",
+       "type": "text",
+       "label": "GRN Qty.",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "1450 kg"
+      }
+     }
+    ],
+    [
+     "GRN number",
+     {
+      "text": "25802",
+      "parts": [
+       {
+        "text": "25802",
+        "bind": {
+         "path": "header/grnNumber",
+         "type": "text",
+         "label": "GRN number",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "25802"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/grnNumber",
+       "type": "text",
+       "label": "GRN number",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "25802"
+      }
+     }
+    ],
+    [
+     "",
+     {
+      "text": ""
+     }
+    ],
+    [
+     "Date of Inspection",
+     {
+      "text": "20-Oct-2026",
+      "parts": [
+       {
+        "text": "20-Oct-2026",
+        "bind": {
+         "path": "header/dateOfInspection",
+         "type": "date",
+         "label": "Date of Inspection",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "20-Oct-2026"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/dateOfInspection",
+       "type": "date",
+       "label": "Date of Inspection",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "20-Oct-2026"
+      },
+      "date": "2026-10-20"
+     }
+    ]
+   ],
+   "perLine": 2
+  },
+  {
+   "kind": "table",
+   "rows": [
+    [
+     {
+      "text": "Sr. No."
+     },
+     {
+      "text": "TEST PARAMETERS"
+     },
+     {
+      "text": "SPECIFICATION"
+     },
+     {
+      "text": "OBSERVATION"
+     }
+    ],
+    [
+     {
+      "text": "1."
+     },
+     {
+      "text": "SIZE (mm)"
+     },
+     {
+      "text": "Should be as per P.O. (+ 2/- 0.0)"
+     },
+     {
+      "text": "1021",
+      "parts": [
+       {
+        "text": "1021",
+        "bind": {
+         "path": "rows/@row-mvgocjt8-k-ntyndr/observation",
+         "type": "text",
+         "label": "Row 1 (SIZE (mm)) · OBSERVATION",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "1021"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocjt8-k-ntyndr/observation",
+       "type": "text",
+       "label": "Row 1 (SIZE (mm)) · OBSERVATION",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "1021"
+      }
+     }
+    ],
+    [
+     {
+      "text": "2."
+     },
+     {
+      "text": "COLOUR"
+     },
+     {
+      "text": "Transparent"
+     },
+     {
+      "text": "Transparent",
+      "parts": [
+       {
+        "text": "Transparent",
+        "bind": {
+         "path": "rows/@row-mvgocjt8-l-qlgitx/observation",
+         "type": "text",
+         "label": "Row 2 (COLOUR) · OBSERVATION",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "Transparent"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocjt8-l-qlgitx/observation",
+       "type": "text",
+       "label": "Row 2 (COLOUR) · OBSERVATION",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "Transparent"
+      }
+     }
+    ],
+    [
+     {
+      "text": "3."
+     },
+     {
+      "text": "THICKNESS OF FILM (µm)"
+     },
+     {
+      "text": "As per P.O. (Max.± 1 micron)"
+     },
+     {
+      "text": "19.5",
+      "parts": [
+       {
+        "text": "19.5",
+        "bind": {
+         "path": "rows/@row-mvgocjt8-m-pawwxb/observation",
+         "type": "text",
+         "label": "Row 3 (THICKNESS OF FILM (µm)) · OBSERVATION",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "19.5"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocjt8-m-pawwxb/observation",
+       "type": "text",
+       "label": "Row 3 (THICKNESS OF FILM (µm)) · OBSERVATION",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "19.5"
+      }
+     }
+    ],
+    [
+     {
+      "text": "4."
+     },
+     {
+      "text": "CORONA TREATMENT (Dynes)"
+     },
+     {
+      "text": "Both side Minimum 36 dynes"
+     },
+     {
+      "text": "Both side 40 dynes",
+      "parts": [
+       {
+        "text": "Both side 40 dynes",
+        "bind": {
+         "path": "rows/@row-mvgocjt8-n-nkx9xb/observation",
+         "type": "text",
+         "label": "Row 4 (CORONA TREATMENT (Dynes)) · OBSERVATION",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "Both side 40 dynes"
+        }
+       }
+      ],
+      "bind": {
+       "path": "rows/@row-mvgocjt8-n-nkx9xb/observation",
+       "type": "text",
+       "label": "Row 4 (CORONA TREATMENT (Dynes)) · OBSERVATION",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "Both side 40 dynes"
+      }
+     }
+    ]
+   ],
+   "headerRows": 1
+  },
+  {
+   "kind": "fields",
+   "pairs": [
+    [
+     "LOT STATUS",
+     {
+      "text": "ACCEPTED",
+      "parts": [
+       {
+        "text": "ACCEPTED",
+        "bind": {
+         "path": "header/lotStatus",
+         "type": "select",
+         "label": "LOT STATUS",
+         "options": [
+          {
+           "value": "ACCEPTED",
+           "label": "ACCEPTED"
+          },
+          {
+           "value": "REJECT & SEND BACK TO SUPPLIER / SCRAP",
+           "label": "REJECT & SEND BACK TO SUPPLIER / SCRAP"
+          },
+          {
+           "value": "SEGREGATION",
+           "label": "SEGREGATION"
+          },
+          {
+           "value": "ACCEPTED ON DEVIATION",
+           "label": "ACCEPTED ON DEVIATION"
+          }
+         ],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "ACCEPTED"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/lotStatus",
+       "type": "select",
+       "label": "LOT STATUS",
+       "options": [
+        {
+         "value": "ACCEPTED",
+         "label": "ACCEPTED"
+        },
+        {
+         "value": "REJECT & SEND BACK TO SUPPLIER / SCRAP",
+         "label": "REJECT & SEND BACK TO SUPPLIER / SCRAP"
+        },
+        {
+         "value": "SEGREGATION",
+         "label": "SEGREGATION"
+        },
+        {
+         "value": "ACCEPTED ON DEVIATION",
+         "label": "ACCEPTED ON DEVIATION"
+        }
+       ],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "ACCEPTED"
+      }
+     }
+    ],
+    [
+     "REASON FOR DEVIATION / REJECTION / SEGREGATION",
+     {
+      "text": "",
+      "parts": [
+       {
+        "text": "",
+        "bind": {
+         "path": "header/deviationReason",
+         "type": "text",
+         "label": "REASON FOR DEVIATION / REJECTION / SEGREGATION",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": ""
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/deviationReason",
+       "type": "text",
+       "label": "REASON FOR DEVIATION / REJECTION / SEGREGATION",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": ""
+      }
+     }
+    ]
+   ]
+  },
+  {
+   "kind": "fields",
+   "pairs": [
+    [
+     "INSPECTED BY",
+     {
+      "text": "Roshni Senma",
+      "parts": [
+       {
+        "text": "Roshni Senma",
+        "bind": {
+         "path": "header/inspectedBy",
+         "type": "text",
+         "label": "INSPECTED BY (QA INSPECTOR)",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "Roshni Senma"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/inspectedBy",
+       "type": "text",
+       "label": "INSPECTED BY (QA INSPECTOR)",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "Roshni Senma"
+      }
+     }
+    ],
+    [
+     "APPROVED BY",
+     {
+      "text": "Kapila Barad",
+      "parts": [
+       {
+        "text": "Kapila Barad",
+        "bind": {
+         "path": "header/approvedBy",
+         "type": "text",
+         "label": "APPROVED BY (QA MANAGER)",
+         "options": [],
+         "recordId": "rec-mvgochy4-c-g9qery",
+         "text": "Kapila Barad"
+        }
+       }
+      ],
+      "bind": {
+       "path": "header/approvedBy",
+       "type": "text",
+       "label": "APPROVED BY (QA MANAGER)",
+       "options": [],
+       "recordId": "rec-mvgochy4-c-g9qery",
+       "text": "Kapila Barad"
+      }
+     }
+    ]
+   ],
+   "perLine": 2
+  },
+  {
+   "kind": "text",
+   "text": "308/9, GIDC, DEDIYASAN, MEHSANA, GUAJRAT, INDIA - 384002",
+   "strong": false
+  }
+ ],
+ "recordIds": [
+  "rec-mvgochy4-c-g9qery"
+ ]
+}
