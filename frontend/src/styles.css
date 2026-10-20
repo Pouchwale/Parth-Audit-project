@@ -3646,7 +3646,8 @@ table.svc-paper {
    framed page's; here their own words, places and grids, read off the owner's PDFs: the sub-title centred and underlined,
    the Date at the right, the narrower table at the paper's columns and heights with its headings centred on white, the
    signatures' words over the name and the role under it. The grids' widths and heights are data/seed/qcReportGeometry.ts
-   (--pf-col, --pf-h); the utility test's nine ruled lines print blank where nothing is written. */
+   (--pf-col, --pf-h); the utility test's nine ruled lines print blank where nothing is written. F/QC/30's minutes, which
+   have no grid of the paper's, are set by their own rules at the end of the print block. */
 .paper-sheet[data-paper-form="report"] .pf-pad { display: none; }
 /* F/QC/20's foot (the one dated foot): the Format number at the left of its cell, as its own rule says (the plain foot's
    centring came later in the sheet and won), and the "st" of 1st January raised without making its line taller */
@@ -3743,6 +3744,55 @@ table.svc-paper {
   .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field { margin-left: calc(26.57 * var(--u)); }
   .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > :is(label, .box-printed-below) { font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); }
   .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .input { height: calc(4.44 * var(--u)); font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(4.44 * var(--u)); }
+  /* F/QC/30's minutes (the framed page, no grid of the paper's): Client Name, Location and Date a ruled table of two columns
+     in Calibri 12 pt, the words bold; Subject: and Participants : on lines of their own under it, unruled; the key points
+     under their heading, bold and underlined, each point a paragraph with its number, no rules */
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .paper-body > .card { margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .paper-body > .card > .card-pad { padding: 0; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] { display: block; width: calc(174.8 * var(--u)); margin: calc(8.43 * var(--u)) 0 0 calc(7.05 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field {
+    display: grid; grid-template-columns: calc(35.27 * var(--u)) minmax(0, 1fr); gap: 0; box-sizing: border-box; height: calc(10.5 * var(--u)); margin: 0;
+    border: var(--b1) solid #000; border-top: 0; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); color: #000;
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:first-child { border-top: var(--b1) solid #000; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field > label {
+    grid-column: 1; grid-row: 1; box-sizing: border-box; height: 100%; margin: 0; padding: calc(0.93 * var(--u)) 0 0 calc(1.95 * var(--u)); border-right: var(--b1) solid #000;
+    font: inherit; font-weight: 700; color: #000; text-transform: none; letter-spacing: 0; white-space: nowrap;
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field > :is(.input, .print-box-text) {
+    grid-column: 2; grid-row: 1; box-sizing: border-box; width: 100%; height: auto; min-height: 0; margin: 0; padding: calc(0.93 * var(--u)) 0 0 calc(1.88 * var(--u));
+    border: 0; border-radius: 0; background: transparent; box-shadow: none; font: inherit; color: #000;
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field > .input.print-as-text { display: none; }
+  /* (a printed box keeps the print's 2 px padding: its line is placed by its height and margin, its words by their indent) */
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field > .input {
+    align-self: start; height: calc(5.29 * var(--u)); margin-top: calc(0.4 * var(--u)); line-height: calc(4.23 * var(--u)); text-indent: calc(1.88 * var(--u));
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(n+4) { display: flex; align-items: baseline; height: auto; border: 0; padding: 0 0 0 calc(1.95 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(4) { height: calc(4.23 * var(--u)); margin-top: calc(10.17 * var(--u)); overflow: visible; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(4) > .input { align-self: baseline; margin-top: 0; text-indent: calc(1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(5) { display: block; margin-top: calc(6.1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(n+4) > label { height: auto; padding: 0; border: 0; flex: none; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(n+4) > :is(.input, .print-box-text) { flex: 1 1 auto; padding: 0 0 0 calc(1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(5) > :is(.input, .print-box-text) { display: block; margin-top: calc(5.16 * var(--u)); padding: 0; line-height: calc(5.16 * var(--u)); resize: none; overflow: hidden; }
+  /* the paper's place for the participants, a name to a line: five lines, as its meeting lists them */
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(5) > textarea.input { min-height: calc(25.8 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .paper-body > .doc-table { width: calc(174.8 * var(--u)); margin: calc(10.4 * var(--u)) 0 0 calc(7.05 * var(--u)); padding-left: calc(1.95 * var(--u)); box-sizing: border-box; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet,
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet :is(thead, tbody) { display: block; width: 100%; border: 0; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tr { display: flex; align-items: baseline; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet :is(th, td) {
+    display: block; box-sizing: border-box; padding: 0; border: 0; background: transparent; color: #000; text-align: left; letter-spacing: 0; text-transform: none;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: calc(12 * var(--pt)); line-height: calc(5.16 * var(--u)); font-weight: 400;
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet thead th:first-child { display: none; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet thead th {
+    font-size: calc(14.04 * var(--pt)); line-height: calc(14.04 * var(--pt)); font-weight: 700; text-decoration: underline; text-decoration-thickness: calc(0.34 * var(--u)); text-underline-offset: calc(0.9 * var(--u));
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody tr { margin-top: calc(5.2 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td[data-sr-no] { flex: none; width: auto; padding-right: calc(1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td:not([data-sr-no]) { flex: 1 1 auto; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td .input { width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; font: inherit; color: #000; }
 }
 /* QC-REPORTS end */
 
