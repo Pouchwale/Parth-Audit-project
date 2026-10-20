@@ -3374,6 +3374,96 @@ table.svc-paper {
 }
 /* HR-DOCS end */
 
+/* QC-PAPER-TABLES begin */
+/* THE QC PAPERS DRAWN AS THEIR OWN WORD TABLE (REQUIREMENTS §117, round 2 of 20-Oct-2026). The owner: "reproduce the same
+   layout, not a redesign". components/records/PaperTableSheet.tsx draws a paper's rows (data/seed/qcPaperTables.ts: the
+   certificates of analysis) as the paper's one table: three tables on the same columns (the header block, the body, the
+   foot), each row the paper's height, each cell its width, the paper's rules (hairlines, and the heavier rules it draws
+   under its letterhead and its title), its faces and sizes, in millimetres and points at the print's zoom (--u, --pt). A
+   box of the record fills its cell; a printed word stands where the paper prints it. Ink on white in every theme. Only a
+   sheet that carries data-paper-form="table" is drawn so: every other document's output is as it was. */
+.paper-sheet[data-paper-form="table"] {
+  --u: calc(1mm / var(--print-zoom, 1)); --pt: calc(1pt / var(--print-zoom, 1));
+  --pt-bd: calc(1.05px / var(--print-zoom, 1)) solid #000;
+  --pt-hv: calc(2.05px / var(--print-zoom, 1)) solid #000;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.paper-sheet[data-paper-form="table"] .doc-header.doc-header-paper { border: 0; border-radius: 0; overflow: visible; background: transparent; }
+.paper-sheet[data-paper-form="table"] .doc-header-paper .doc-letterhead { padding: 0; }
+/* The format's number, revision and page, which the paper does not print: on the screen only, to be typed over (§86). */
+.paper-sheet[data-paper-form="table"] .doc-header-paper .pt-number-strip { width: calc(var(--pt-strip-w, 193.4) * var(--u)); max-width: 100%; box-sizing: border-box; margin: 6px 0 8px; border: 1px dashed var(--color-border-strong); border-radius: 4px; }
+.pt-table { box-sizing: border-box; width: calc(var(--pt-w) * var(--u)); table-layout: fixed; border-collapse: collapse; border-left: var(--pt-bd); background: #fff; color: #000; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; }
+.pt-table.pt-head { border-top: var(--pt-bd); }
+.pt-table col { width: calc(var(--pt-col) * var(--u)); }
+.pt-table tr { height: calc(var(--pt-h) * var(--u)); }
+.pt-table td.pt-c {
+  position: relative; box-sizing: border-box; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u));
+  border: 0; border-right: var(--pt-bd); border-bottom: var(--pt-bd); background: transparent; color: #000;
+  font-size: calc(var(--pt-size) * var(--pt)); line-height: calc(var(--pt-lh) * var(--u)); font-weight: 400; letter-spacing: 0; text-transform: none;
+  text-align: left; vertical-align: top; white-space: pre-wrap; overflow: visible;
+}
+.pt-table td.pt-c.pt-or { border-right: 0; }
+.pt-table td.pt-c.pt-ob { border-bottom: 0; }
+.pt-table td.pt-c.pt-hb { border-bottom: var(--pt-hv); }
+.pt-table td.pt-c.pt-hr { border-right: var(--pt-hv); }
+.pt-table td.pt-c.pt-b { font-weight: 700; }
+.pt-table td.pt-c.pt-ac { text-align: center; padding-left: calc(var(--pt-pl, 0) * var(--u)); padding-right: calc(var(--pt-pr, 0) * var(--u)); }
+.pt-table td.pt-c.pt-ar { text-align: right; }
+.pt-table td.pt-c.pt-f-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
+.pt-table td.pt-c.pt-f-times { font-family: "Times New Roman", Times, serif; }
+.pt-table .pt-words { display: block; }
+/* The paper's degree sign: a small raised ring after the figure. */
+.pt-table .pt-ring { display: inline-block; width: calc(1.3 * var(--u)); height: calc(1.3 * var(--u)); margin-left: calc(0.9 * var(--u)); border: calc(0.75px / var(--print-zoom, 1)) solid #000; border-radius: 50%; vertical-align: calc(1.6 * var(--u)); box-sizing: border-box; }
+/* A line in its own face and size where the paper prints it (the letterhead: the company's name in Arial bold over its three lines). */
+.pt-table td.pt-c .pt-at { position: absolute; left: 0; right: 0; top: calc(var(--pt-ay) * var(--u)); display: block; padding: 0 calc(var(--pt-x) * var(--u)); font-size: calc(var(--pt-size) * var(--pt)); line-height: calc(var(--pt-lh) * var(--u)); font-weight: 400; text-align: inherit; white-space: pre; }
+.pt-table td.pt-c .pt-at.pt-b { font-weight: 700; }
+.pt-table td.pt-c .pt-at.pt-f-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
+.pt-table td.pt-c .pt-at.pt-f-times { font-family: "Times New Roman", Times, serif; }
+.pt-table .pt-img { position: absolute; left: calc(var(--pt-ix) * var(--u)); top: calc(var(--pt-iy) * var(--u)); width: calc(var(--pt-iw) * var(--u)); height: calc(var(--pt-ih) * var(--u)); object-fit: fill; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+/* A bulleted line: the paper's round bullet, where its bullet picture stands. */
+.pt-table .pt-bullet { display: block; position: relative; }
+.pt-table .pt-bullet::before {
+  content: ""; position: absolute; left: calc((var(--pt-bx) + 1.05) * var(--u)); top: calc(50% - 1.15 * var(--u)); width: calc(2.3 * var(--u)); height: calc(2.3 * var(--u));
+  border-radius: 50%; background: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+/* A box of the record fills its cell: the paper's cell is the box. */
+.pt-table td.pt-c > .field-in-table, .pt-table td.pt-c > .pt-box { position: absolute; inset: 0; display: block; margin: 0; padding: 0; }
+.pt-table td.pt-c > .field-in-table > .input, .pt-table td.pt-c > .pt-box > .input {
+  position: absolute; inset: 0; box-sizing: border-box; display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0;
+  text-indent: calc(var(--pt-x) * var(--u)); border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000;
+  font: inherit; text-align: inherit;
+}
+.pt-table td.pt-c > .field-in-table.pt-lines > textarea.input { padding-top: calc(var(--pt-y) * var(--u)); resize: none; overflow: hidden; white-space: pre-wrap; text-indent: 0; padding-left: calc(var(--pt-x) * var(--u)); }
+.pt-table td.pt-c > .pt-box > .cell-text { display: block; min-width: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; }
+/* A written date prints as its words in the place of its box (utils/print.ts), in the cell's own face and place. */
+.pt-table td.pt-c > .field-in-table > .print-box-text { position: absolute; inset: 0; display: block; margin: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; text-align: inherit; }
+/* The box written inside the paper's sentence ("This material should be retested on ... before usage."). */
+.pt-table .pt-sentence .field-in-table { position: relative; display: inline-block; width: calc(var(--pt-bw) * var(--u)); height: calc(var(--pt-lh) * var(--u)); margin: 0; padding: 0; vertical-align: top; }
+.pt-table .pt-sentence .field-in-table > .input {
+  position: absolute; inset: 0; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000; font: inherit; text-align: center;
+}
+.pt-table .pt-sentence .field-in-table > .print-box-text { display: inline; padding: 0; color: #000; font: inherit; }
+.pt-table .field-out-of-band > .input, .pt-table .cell-out-of-band > .input { background: var(--color-warning-bg); }
+@media screen {
+  .pt-table td.pt-c > .field-in-table > .input:not(:disabled), .pt-table td.pt-c > .pt-box > .input:not(:disabled), .pt-table .pt-sentence .field-in-table > .input:not(:disabled) { background: #fffdf0; }
+  .pt-table td.pt-c > .field-in-table > .input:not(:disabled):hover, .pt-table td.pt-c > .pt-box > .input:not(:disabled):hover { background: #fff7cc; }
+  .pt-table .input:focus { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  .pt-table .pt-sentence .field-in-table > .input:not(:disabled) { box-shadow: inset 0 -1px 0 0 #6b7280; }
+}
+@media print {
+  /* The page keeps the paper's own margin: the table's corner stands where the paper's does (mm from the page's edges). */
+  [data-print-doc]:has(.paper-sheet[data-paper-form="table"]) { padding: 0; }
+  /* (padding, not a margin: a margin at the top of the page sent the sheet's last pixel onto a blank second page) */
+  .paper-sheet[data-paper-form="table"] { display: table; width: auto; overflow: visible; margin: 0; border-collapse: separate; border-spacing: 0; padding: calc(var(--pt-top) * var(--u)) 0 0 calc(var(--pt-left) * var(--u)); }
+  .paper-sheet[data-paper-form="table"] .doc-header.doc-header-paper { border: 0; }
+  .pt-table td.pt-c > .field-in-table > .input, .pt-table td.pt-c > .pt-box > .input { padding: 0; }
+  /* An empty date in the sentence leaves the paper's own blank, not the width of a box to type in. */
+  .pt-table .pt-sentence .field-in-table:has(> .input[data-empty]) { width: calc(2.6 * var(--u)); }
+}
+/* QC-PAPER-TABLES end */
+
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,
    so this has to come after the rules it switches off or the cascade simply

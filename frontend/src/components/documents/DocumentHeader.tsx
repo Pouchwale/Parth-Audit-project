@@ -131,8 +131,21 @@ function Cell({ field, edit, className, translate: noTranslate, children }: { fi
   );
 }
 
+/**
+ * A value of the header where the paper draws it in a table of its own (components/records/PaperTableSheet.tsx, §117
+ * round 2): the certificate's company and title in its letterhead. The same click, the same box and the same reason
+ * asked for as in the header block (REQUIREMENTS §77, §86).
+ */
+export function HeaderWord({ field, edit, children }: { field: AnyHeaderField; edit?: HeaderEdit; children: React.ReactNode }) {
+  return (
+    <Cell field={field} edit={edit} translate>
+      {children}
+    </Cell>
+  );
+}
+
 /** An ISO date as the framed papers print it: 16.02.2022. */
-function dottedDate(iso: string | null | undefined): string {
+export function dottedDate(iso: string | null | undefined): string {
   const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
   return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
 }

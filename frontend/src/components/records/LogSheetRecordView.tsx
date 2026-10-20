@@ -1,10 +1,13 @@
 import React from "react";
 import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance, SheetPhoto } from "../../types";
-import { DocumentHeader } from "../documents/DocumentHeader";
+import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHeader";
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
+import { paperTableFor, type PaperCell } from "../../data/seed/qcPaperTables";
+import { PaperTablePart, type PaperTableParts } from "./PaperTableSheet";
+import { COMPANY } from "../../data/seed/masterData";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 import { getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
@@ -368,6 +371,9 @@ export function LogSheetRecordView({
   const pf = frame ? incomingGeometryFor(layout.documentId) : undefined;
   // The area line clearance reports (F/QC/15-A to G) are drawn on their paper's own frame, note box and ten lines.
   const lc = !frame ? lineClearanceGeometryFor(layout.documentId) : undefined;
+  // A paper that is one Word table from its letterhead to its foot (the certificates of analysis, data/seed/qcPaperTables.ts,
+  // §117 round 2) is drawn as that table, row by row, in the paper's millimetres (components/records/PaperTableSheet.tsx).
+  const pt = !frame && !lc ? paperTableFor(layout.documentId) : undefined;
   const lcWidth = lc ? lc.cols.reduce((a, b) => a + b, 0) : 0;
   // The grid's columns and rows in the paper's millimetres, on either paper form.
   const gridCols = pf?.grid.cols ?? lc?.cols;
@@ -534,6 +540,168 @@ export function LogSheetRecordView({
           </div>
         </div>
       );
+  // THE PAPER AS ITS OWN WORD TABLE (§117 round 2): the certificates of analysis, row by row, on one portrait page. The
+  // record's boxes are the cells' boxes (the same SheetBox, bound as everywhere: the downloads read them so), its colour
+  // lines the PRINTING cells; the header's company and title are typed over in the letterhead; the format's number,
+  // which this paper does not print, is shown on the screen only, to be typed over there (REQUIREMENTS §86).
+  if (pt) {
+    const fieldAt = (key: string): { field: LogHeaderField; index: number; footer: boolean } | null => {
+      const hi = layout.headerFields.findIndex((f) => f.key === key);
+      if (hi >= 0) return { field: layout.headerFields[hi], index: hi, footer: false };
+      const fi = (layout.footerFields ?? []).findIndex((f) => f.key === key);
+      return fi >= 0 ? { field: layout.footerFields![fi], index: fi, footer: true } : null;
+    };
+    const paperBox = (key: string, cell: PaperCell): React.ReactNode => {
+      const at = fieldAt(key);
+      if (!at) return null;
+      // A box written inside the paper's sentence (the retest date) is drawn by the sentence; its words are the cell's.
+      const field = at.field.inSentence ? { ...at.field, inSentence: undefined } : at.field;
+      if (cell.lines && field.type === "text") {
+        return (
+          <div className={`field field-in-table pt-lines${boxOutOfBand(at.field, data.header) ? " field-out-of-band" : ""}`} data-box={field.key}>
+            <textarea
+              className="input input-sm"
+              {...bindProps(logHeaderBind(field))}
+              aria-label={field.label}
+              rows={2}
+              disabled={!editable}
+              value={data.header?.[field.key] ?? ""}
+              onChange={(e) => onBox(field.key, e.target.value)}
+            />
+          </div>
+        );
+      }
+      return at.footer ? footerBox(field, at.index, true) : headerBox(field, at.index, true);
+    };
+    const paperGridCell = (line: number, key: string): React.ReactNode => {
+      const row = data.rows[line];
+      const ci = layout.columns.findIndex((c) => c.key === key);
+      if (!row || ci < 0) return null;
+      const c = layout.columns[ci];
+      const fixedRow = mode.kind === "fixedRows" ? mode.rows[line] : undefined;
+      const col = effectiveColumn(c, fixedRow);
+      if (col.fixed) return <span className="pt-words">{documentTextIn(printedCell(row, key, fixedRow), lang)}</span>;
+      return (
+        <div className={`pt-box${judge(row, c, fixedRow) ? " cell-out-of-band" : ""}`}>
+          <CellInput
+            col={col}
+            bind={bindProps(logCellBind(row, line, col, logRowName(row, layout.columns)))}
+            issuedLabel={issued?.columns[ci]?.label ?? c.label}
+            value={row[key]}
+            editable={editable && !col.computed}
+            onChange={(v) => onCell(row.id, key, v)}
+            employees={employeeNames}
+            list={lists?.[key] ?? c.list}
+          />
+        </div>
+      );
+    };
+    // The header's words as this paper prints them: the company in the paper's own letters (the owner's name for it,
+    // "Gujarat Print Pack Publications Pvt Ltd", unless the plant has renamed it), the title as the paper sets it.
+    const companyWords = headerEdit?.values.companyName ?? doc.companyName ?? COMPANY.shortName;
+    const titleWords = documentTextIn(headerProps.title ?? doc.name, lang);
+    const revisionNo = superseded ? superseded.revisionNo : (headerEdit?.values.revisionNo ?? doc.revisionNo);
+    const revisionDate = superseded ? superseded.revisionDate : (headerEdit?.values.revisionDate ?? doc.revisionDate);
+    const ptParts: PaperTableParts = {
+      form: pt,
+      layout,
+      words: { companyName: companyWords, title: titleWords, formatNo: headerEdit?.values.formatNo ?? doc.formatNo, revisionNo, revisionDate: dottedDate(revisionDate), page: headerProps.pageLabel },
+      edit: headerEdit,
+      box: paperBox,
+      gridCell: paperGridCell,
+    };
+    return (
+      <div
+        className={`${rootClass} paper-table-sheet`}
+        translate={asIssued ? "no" : undefined}
+        data-bind-record={record.id}
+        data-paper={pt.page}
+        data-paper-left={pt.left}
+        data-sheet={doc.id}
+        data-paper-form="table"
+        style={{ "--pt-left": String(pt.left), "--pt-top": String(pt.top) } as React.CSSProperties}
+      >
+        <div className="paper-head">
+          <div className="doc-header doc-header-paper">
+            <div className="doc-letterhead">
+              <PaperTablePart part="head" parts={ptParts} />
+            </div>
+            {/* The format's own number, revision and page: not on this paper, so never printed; typed over here (§86). */}
+            {pt.numberOffPaper && (
+              <div className="meta-row pt-number-strip no-print" data-section="number-off-paper">
+                <div className="meta-cell">
+                  <span className="k">Format No.</span>
+                  <span className="v notranslate" translate="no">
+                    <HeaderWord field="formatNo" edit={headerEdit}>
+                      {ptParts.words.formatNo}
+                    </HeaderWord>
+                  </span>
+                </div>
+                <div className="meta-cell">
+                  <span className="k">Rev No.</span>
+                  <span className="v notranslate" translate="no" data-revision={superseded ? superseded.revisionNo : undefined}>
+                    <HeaderWord field="revisionNo" edit={headerEdit}>
+                      {revisionNo}
+                    </HeaderWord>
+                  </span>
+                </div>
+                {revisionDate && (
+                  <div className="meta-cell" data-meta="revision-date">
+                    <span className="k">Rev Date</span>
+                    <span className="v notranslate" translate="no">
+                      <HeaderWord field="revisionDate" edit={headerEdit}>
+                        {formatDisplayDate(revisionDate)}
+                      </HeaderWord>
+                    </span>
+                  </div>
+                )}
+                {headerProps.pageLabel && (
+                  <div className="meta-cell">
+                    <span className="k">Page No.</span>
+                    <span className="v notranslate" translate="no">
+                      <HeaderWord field="page" edit={headerEdit}>
+                        {headerProps.pageLabel}
+                      </HeaderWord>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="paper-body">
+          {headerPanel}
+          {superseded && (
+            <div className="card mt-4 no-print" data-superseded-revision={superseded.revisionNo}>
+              <div className="card-pad text-sm">
+                Filled on Rev {superseded.revisionNo} of this format ({formatDisplayDate(superseded.revisionDate)}), which Rev {doc.revisionNo} has since replaced. It is shown as it was
+                written, on the revision it was written on, and is kept as it is.
+                {superseded.note ? ` ${superseded.note}` : ""}
+              </div>
+            </div>
+          )}
+          {outOfBand > 0 && (
+            <div className="card mt-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
+              <div className="card-pad text-sm">
+                <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> {outOfBand} reading{outOfBand === 1 ? " is" : "s are"} outside the printed acceptance band (highlighted). Add a remark
+                explaining the deviation and inform the shift in-charge.
+              </div>
+            </div>
+          )}
+          <PaperTablePart part="body" parts={ptParts} />
+        </div>
+        <div className="paper-foot">
+          <PaperTablePart part="foot" parts={ptParts} />
+        </div>
+        <datalist id="log-sheet-employees">
+          {employees.map((e) => (
+            <option key={e.id} value={e.name} />
+          ))}
+        </datalist>
+        <div className="text-xs text-faint mt-3 no-print">Specimen source: {layout.specimenSource}</div>
+      </div>
+    );
+  }
   return (
     <div
       className={rootClass}

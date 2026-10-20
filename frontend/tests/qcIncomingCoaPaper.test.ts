@@ -164,17 +164,15 @@ test("a table printed among the boxes is drawn open in its place, and the text a
   assert.deepEqual([...placedTables(layout)], ["TOLERANCE"]);
   const html = await sheet("qc-coa-label");
   assert.ok(!/>(Show|Hide) TOLERANCE</.test(html), "not behind Show above the sheet");
-  const table = html.indexOf('data-section="printed-table" data-table="TOLERANCE"');
-  const finishing = html.indexOf("Over All Quality Remarks");
-  // The retest sentence, its date written inside it (part 4).
-  const retest = html.indexOf('class="field field-in-sentence"');
-  const foot = html.indexOf('data-section="notes-at-foot"');
-  assert.ok(finishing > 0 && table > finishing && retest > table && foot > retest, JSON.stringify({ finishing, table, retest, foot }));
-  assert.ok(text(html.slice(table)).includes("Field Length Width Face Material Adhesive Release Liner + 2 mm 2 mm 10 % 2 GSM 5 % - 2 mm 2 mm 10 % 2 GSM 5 %"));
-  // The foot is drawn after the last box below the grid.
-  const lastBox = html.lastIndexOf('<div class="field');
-  assert.ok(foot > lastBox);
-  assert.match(html.slice(foot), /<strong>THIS IS A SYSTEM GENERATED DOCUMENT\. {4}IT DOES NOT REQUIRE A SIGNATURE\.<\/strong>/, "printed in capitals, bold, its own spacing kept");
+  // Since §117 round 2 the certificate is drawn as its own Word table (components/records/PaperTableSheet.tsx): the
+  // TOLERANCE heading and its three rows open in the body's rows, after FINISHING, before the notes and the retest
+  // sentence (its date written inside it), and the foot - the system line - after every box.
+  const body = text(between(html, 'data-paper-part="body"', "</table>"));
+  const at = ["Over All Quality Remarks", "TOLERANCE Field Length Width Face Material Adhesive Release Liner + 2 mm 2 mm 10 % 2 GSM 5 % - 2 mm 2 mm 10 % 2 GSM 5 %", GRADE_SCALE_NOTE, "This material should be retested on"].map((w) => body.indexOf(w));
+  assert.ok(at.every((a, i) => a >= 0 && (i === 0 || at[i - 1] < a)), JSON.stringify(at));
+  const foot = html.indexOf('data-paper-part="foot"');
+  assert.ok(foot > html.lastIndexOf('<div class="field'), "the foot after the last box");
+  assert.match(html.slice(foot), /<td class="pt-c pt-b pt-ac pt-hb"[^>]*><span class="pt-words">THIS IS A SYSTEM GENERATED DOCUMENT\. {4}IT DOES NOT REQUIRE A SIGNATURE\.<\/span>/, "printed in capitals, bold, its own spacing kept");
 });
 
 test("a heading the paper leaves out is drawn empty, and the column keeps its name for Mitra and the history", async () => {
@@ -211,28 +209,32 @@ test("boxes as the paper's table: a row of boxes at a time under its headings, e
   assert.deepEqual([inBoxTable(coating, 0), inBoxTable(coating, 1), inBoxTable(coating, 5)], [false, true, true], "the corner box keeps its own label");
   const plain = boxGroups(layoutOf("qc-coa-label"), "footer")[0];
   assert.equal(inBoxTable(plain, 0), false);
-  // The sheet open for writing: each cell is the box itself, bound where the record keeps it, with no label of its own.
+  // The sheet open for writing (drawn as the paper's own table since §117 round 2): each cell of LABEL STOCK is the box
+  // itself, bound where the record keeps it, with no label of its own - the table's words head it, and its name is what a
+  // screen reader says.
   const html = await sheet("qc-coa-label");
-  const stock = between(html, "LABEL STOCK", "</table>");
-  assert.match(stock, /data-section="box-table"/);
+  const body = between(html, 'data-paper-part="body"', "</table>");
+  const stock = between(body, ">LABEL STOCK<", ">PRINTING<");
   assert.equal((stock.match(/<label>/g) ?? []).length, 0, "the table's words head the boxes");
   for (const key of ["faceMaterialRequired", "adhesiveTested", "releaseLinerObserved"]) assert.match(stock, new RegExp(`data-bind="header/${key}"`), key);
   assert.match(stock, /aria-label="Face Material — Required"/);
-  // The corner box: "Coating Done :" over its box, on the table's first line, a line like any other (not a heading a file keeps as words).
-  const coatingTable = between(html, ">COATING<", "</table>");
-  assert.ok(!coatingTable.includes("<thead"), "no heading row: the corner holds a box");
-  assert.match(coatingTable, /<th class="paper-box-table-corner"><div class="field"><label>Coating Done :<\/label><input[^>]*data-bind="header\/coatingDone"/);
+  // The corner: "Coating Done :" and its box beside it, in the table's first line (a line like any other, not a heading).
+  const coatingCells = between(body, ">COATING<", ">FINISHING<");
+  assert.match(coatingCells, /<td class="pt-c pt-or"[^>]*><span class="pt-words">Coating Done :<\/span><\/td><td class="pt-c"[^>]*><div class="field field-in-table" data-box="coatingDone"><input[^>]*data-bind="header\/coatingDone"/);
 });
 
 test("the grid printed across: each line a column, each column a line, the record's cells bound as on any grid, no Sr. No.", async () => {
   const layout = layoutOf("qc-coa-label");
   assert.equal(layout.gridAcross, true);
   const html = await sheet("qc-coa-label");
-  const [printing] = tablesWith(html, "data-across");
+  // The paper's own rows (§117 round 2): PRINTING, then the numbers 1 to 10 across, then a line of boxes under each.
+  const rows = tablesWith(html, 'data-paper-part="body"')[0];
+  const at = rows.findIndex((r) => r.length === 1 && r[0] === "PRINTING");
+  const printing = rows.slice(at, at + 4);
   assert.deepEqual(printing[0], ["PRINTING"]);
   assert.deepEqual(printing[1], ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
   assert.deepEqual(printing.slice(2).map((r) => [r[0], r.length]), [["Given By Client", 11], ["Color Shade Verified", 11]]);
-  const across = between(html, "data-across", "</table>");
+  const across = between(html, ">PRINTING<", ">Shade Match Grade<");
   assert.equal((across.match(/data-bind="rows\/@[^"]+\/givenByClient"/g) ?? []).length, 10, "a box per colour, bound to its own line");
   assert.equal((across.match(/data-bind="rows\/@[^"]+\/colorShadeVerified"/g) ?? []).length, 10);
   assert.ok(!/data-bind="rows\/@[^"]+\/colorNo"/.test(across), "the printed numbers are printed, not boxes");
@@ -576,36 +578,57 @@ test("F/QC/06 Certificate of Analysis [COA] For Label: every block under its own
   );
   assert.deepEqual(layout.notesAtFoot, [SYSTEM_GENERATED_NOTE, ...CORPORATE_OFFICE]);
 
-  // The supplied certificate of 04/01/2022, drawn signed off: its tables read as the paper's, every block in the paper's order.
+  // The supplied certificate of 04/01/2022, drawn signed off, as the paper's own table (§117 round 2): every row of the
+  // owner's PDF, cell by cell, in its order - the printed words, and what each box holds.
   const html = await sheet("qc-coa-label", certificate(COA_LABEL_SPECIMEN_HEADER, COA_LABEL_SPECIMEN_ROWS), false);
-  assert.deepEqual(tablesWith(html, 'data-section="box-table"'), [
-    [
-      ["Specified Size", "Length(mm)", "Width(mm)"],
-      ["Client's Specified Size", "70", "115"],
-      ["Tested Size", "70", "115"],
-    ],
-    [
-      ["Material", "Face Material", "Adhesive", "Release Liner"],
-      ["Required", "80 GSM /Microns", "27 GSM", "60 GSM"],
-      ["Tested", "80 GSM/Microns", "26 GSM", "59 GSM"],
-      ["Type Required", "Chromo", "HotMelt", "Glassine"],
-      ["Observed", "Chromo", "Rubber Based (Hot Melt)", "Glassine Paper"],
-    ],
-    [
-      ["Coating Done : Gloss UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
-      ["Minimum Gloss Required at 60°", "35%", "72%", "75%", "84.00%", "2 lbs, 100 rounds Okay"],
-    ],
+  assert.deepEqual(tablesWith(html, 'data-paper-part="head"')[0], [
+    ["", `Gujarat Print Pack Publications Pvt Ltd ${COA_LETTERHEAD.map((l) => l.replace(/\s+/g, " ")).join(" ")}`],
+    ["Certificate of Analysis [COA] For Label"],
   ]);
-  assert.deepEqual(tablesWith(html, "data-across"), [
-    [
-      ["PRINTING"],
-      ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
-      ["Given By Client", "Cyan", "Magenta", "Yellow", "Black", "Blue", "P.151C", "", "", "", ""],
-      ["Color Shade Verified", "OK", "OK", "OK", "OK", "OK", "OK", "", "", "", ""],
-    ],
+  assert.deepEqual(tablesWith(html, 'data-paper-part="body"')[0], [
+    ["Production Order No.", "33858", "Delivery No.", "", "COA Date :", "2022-01-04"],
+    ["Client Name", "Weener Empire Plastic P Ltd.[Masat]"],
+    ["GP3 Code", "FGLA8400", "Client Item Code 1", "PMLB0070", "Client Item Code 2", "1463000707006001"],
+    ["Product Name", "Dr. fixit 301 URP pidicrete 1kg F & B Label Rev3"],
+    ["Specified Size", "Length(mm)", "Width(mm)", ""],
+    ["Client's Specified Size", "70", "115", ""],
+    ["Tested Size", "70", "115", ""],
+    ["LABEL STOCK"],
+    ["Material", "Face Material", "Adhesive", "Release Liner"],
+    ["Required", "80 GSM /Microns", "27 GSM", "60 GSM"],
+    ["Tested", "80 GSM/Microns", "26 GSM", "59 GSM"],
+    ["Type Required", "Chromo", "HotMelt", "Glassine"],
+    ["Observed", "Chromo", "Rubber Based (Hot Melt)", "Glassine Paper"],
+    ["PRINTING"],
+    ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+    ["Given By Client", "Cyan", "Magenta", "Yellow", "Black", "Blue", "P.151C", "", "", "", ""],
+    ["Color Shade Verified", "OK", "OK", "OK", "OK", "OK", "OK", "", "", "", ""],
+    ["Shade Match Grade", "4", "Remarks For Shade :", "Shade found to be a satisfactory match against sample"],
+    ["Text Matter Verification With Specified Art Work", "Pass", "Remarks For Text Verification", "Text matter verified to be matching with control samples"],
+    ["Bar Code Grade", "", "Bar Code Remarks", ""],
+    ["COATING"],
+    ["Coating Done :", "Gloss UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+    ["Minimum Gloss Required at 60", "35%", "72%", "75%", "84.00%", "2 lbs, 100 rounds Okay"],
+    ["FINISHING"],
+    ["Finishing Quality Grade", "4", "Die Cutting Type", "Rectangle with radius corner"],
+    ["Die Cutting", "Okay", "Rewinding Quality", "Okay"],
+    ["Emboss", "Not Applicable", "Packing Quality", "Okay"],
+    ["Foil Stamping", "Not Applicable", "Slitting Quality", "Okay"],
+    ["Remarks For Finishing Quality", "Finishing Quality Found to Be Satisfactory"],
+    ["Final Inspection", "Passed"],
+    ["Over All Quality Remarks", "Overall quality found to be satisfactory"],
+    ["TOLERANCE"],
+    ["Field", "Length", "Width", "Face Material", "Adhesive", "Release Liner"],
+    ["+", "2 mm", "2 mm", "10 %", "2 GSM", "5 %"],
+    ["-", "2 mm", "2 mm", "10 %", "2 GSM", "5 %"],
+    [`${GRADE_SCALE_NOTE} ${SUPPLIER_COA_NOTE}`],
+    ["This material should be retested on before usage. 2022-07-03"],
   ]);
+  assert.deepEqual(tablesWith(html, 'data-paper-part="foot"')[0], [[SYSTEM_GENERATED_NOTE.replace(/\s+/g, " ")], [""]]);
+  // The corporate office strip is the paper's own picture (its words are the picture's: no letters on the paper).
+  assert.match(html, /<img class="pt-img" src="brand\/gpp-corporate-office\.png" alt="Corporate Office : 201, Harsh Avenue/);
   assert.ok(
-    ascending(order(html, [COA_LETTERHEAD[2], "Production Order No.", "Product Name", "Specified Size", "LABEL STOCK", "Observed", "PRINTING", "Shade Match Grade", "Bar Code Remarks", "COATING", "Scuff Test", "FINISHING", "Over All Quality Remarks", "TOLERANCE", GRADE_SCALE_NOTE, SUPPLIER_COA_NOTE, "This material should be retested on", "THIS IS A SYSTEM GENERATED DOCUMENT.", "Corporate Office :"]))
+    ascending(order(html, [COA_LETTERHEAD[2], "Production Order No.", "Product Name", "Specified Size", "LABEL STOCK", "Observed", "PRINTING", "Shade Match Grade", "Bar Code Remarks", "COATING", "Scuff Test", "FINISHING", "Over All Quality Remarks", "TOLERANCE", GRADE_SCALE_NOTE, SUPPLIER_COA_NOTE, "This material should be retested on", "THIS IS A SYSTEM GENERATED DOCUMENT."]))
   );
   const t = text(html);
   for (const w of DCRS_WORDS) assert.ok(!w.test(t), String(w));
@@ -652,27 +675,46 @@ test("F/QC/07 Certificate of Analysis [COA] For Shrink Sleeves: its Specified Si
     ["Minimum Gloss Required at 60° — Aqueous", "Minimum Gloss Required at 60° — U.V", "Minimum Gloss Required at 60° — Lamination"],
     "the words the paper prints in front of the three"
   );
+  // The supplied certificate for order 33814, as the paper's own table (§117 round 2): every row, cell by cell.
   const html = await sheet("qc-coa-sleeve", certificate(COA_SLEEVE_SPECIMEN_HEADER, COA_SLEEVE_SPECIMEN_ROWS), false);
-  assert.deepEqual(tablesWith(html, 'data-section="box-table"'), [
-    [
-      ["Specified Size", "Cut Length(mm)", "Open Width(mm)"],
-      ["Client's Specified Size", "152.40", "168.00"],
-      ["Tested Size", "152", "168"],
-    ],
-    [
-      ["Material", "Thickness(Microns)", "Shrinkage Ratio (%)", "Type"],
-      ["Required", "40", "50", "Centroiid Plastopack PVC Blown 40 mic 200 mm"],
-      ["Tested", "40", "49", "PVC Blown"],
-    ],
-    [
-      ["Coating Done : Matt UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
-      ["Minimum Gloss Required at 60°", "35%", "72%", "75%", "50%", "2 lbs, 100 rounds Okay"],
-    ],
-  ]);
-  assert.deepEqual(tablesWith(html, "data-across")[0].slice(1), [
+  assert.deepEqual(tablesWith(html, 'data-paper-part="head"')[0][1], ["Certificate of Analysis [COA] For Shrink Sleeves"]);
+  assert.deepEqual(tablesWith(html, 'data-paper-part="body"')[0], [
+    ["Production Order No.", "33814", "Delivery No.", "", "COA Date :", ""],
+    ["Client Name", "The Unjha Pharmacy"],
+    ["GP3 Code", "FGSL0395", "Client Item Code 1", "", "Client Item Code 2", ""],
+    ["Product Name", "Narogi Churana 100g Sleeve Rev-1"],
+    ["Specified Size", "Cut Length(mm)", "Open Width(mm)", ""],
+    ["Client's Specified Size", "152.40", "168.00", ""],
+    ["Tested Size", "152", "168", ""],
+    ["SLEEVE FILM"],
+    ["Material", "Thickness(Microns)", "Shrinkage Ratio (%)", "Type"],
+    ["Required", "40", "50", "Centroiid Plastopack PVC Blown 40 mic 200 mm"],
+    ["Tested", "40", "49", "PVC Blown"],
+    ["PRINTING"],
     ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
     ["Given By Client", "Cyan", "Magenta", "Yellow", "Black", "Gold", "", "", "", "", ""],
     ["Color Shade Verified", "OK", "OK", "OK", "OK", "OK", "", "", "", "", ""],
+    ["Shade Match Grade", "4", "Remarks For Shade :", "Shade found to be a satisfactory match against sample"],
+    ["Text Matter Verification", "4", "Remarks For Text Verification", "Text matter verified to be matching with control samples"],
+    ["Bar Code Grade", "4", "Bar Code Remarks", "Bar Code Scanned and Quality Found to be Satisfactory"],
+    ["COATING"],
+    ["Coating Done :", "Matt UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+    ["Minimum Gloss Required at 60", "35%", "72%", "75%", "50%", "2 lbs, 100 rounds Okay"],
+    ["FINISHING"],
+    ["Finishing Quality Grade", "4", ""],
+    ["Perforation Quality", "Not Applicable", "Rewinding Quality", "Not Applicable"],
+    ["Holding Glue Quality", "Okay", "Packing Quality", "Okay"],
+    ["White Opacity", "Not Applicable", "Slitting Quality", "Okay"],
+    ["Remarks For Finishing Quality", "Finishing Quality Found to Be Satisfactory"],
+    ["Final Inspection", "Passed"],
+    ["Over All Quality Remarks", "Overall quality found to be satisfactory"],
+    ["TOLERANCE"],
+    ["Field", "Cut Length", "Open Width", "Shrinkage Ration", "Microns"],
+    ["+", "2 mm", "2 mm", "5 %", "10 %"],
+    ["-", "2 mm", "2 mm", "5 %", "10 %"],
+    [`${GRADE_SCALE_NOTE} ${SUPPLIER_COA_NOTE}`],
+    [HEAT_SENSITIVE_NOTE],
+    ["This material should be retested on before usage."],
   ]);
   assert.ok(ascending(order(html, ["SLEEVE FILM", "PRINTING", "COATING", "FINISHING", "TOLERANCE", HEAT_SENSITIVE_NOTE, "This material should be retested on", "THIS IS A SYSTEM GENERATED DOCUMENT."])));
   const t = text(html);

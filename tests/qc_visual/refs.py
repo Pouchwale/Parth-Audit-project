@@ -145,8 +145,8 @@ for _id in (
 
 # The sub-renderer inside LogSheetRecordView that draws the grid, where it is not the plain log-sheet table.
 GRID_RENDERER = {
-    "qc-coa-label": "AcrossGrid (gridAcross) + BoxTable / PrintedTable for LABEL STOCK and TOLERANCE",
-    "qc-coa-sleeve": "AcrossGrid (gridAcross) + BoxTable / PrintedTable for SLEEVE FILM and TOLERANCE",
+    "qc-coa-label": "PaperTableSheet: the paper's own Word table, row by row (qcPaperTables.ts, s117 round 2)",
+    "qc-coa-sleeve": "PaperTableSheet: the paper's own Word table, row by row (qcPaperTables.ts, s117 round 2)",
     "qc-coa-corrugated": "AnswerAcrossGrid (answerAcross) + the letterhead PrintedTable",
     "qc-test-reliability-label": "PanelGrid (panels)",
     "qc-test-reliability-sleeve": "PanelGrid (panels)",
