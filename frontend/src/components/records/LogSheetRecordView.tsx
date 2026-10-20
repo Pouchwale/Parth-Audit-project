@@ -7,6 +7,7 @@ import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from 
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
 import { paperTableFor, type PaperCell } from "../../data/seed/qcPaperTables";
 import { calibrationGeometryFor } from "../../data/seed/qcCalibrationGeometry";
+import { reportGeometryFor } from "../../data/seed/qcReportGeometry";
 import { PaperTablePart, type PaperTableParts } from "./PaperTableSheet";
 import { COMPANY } from "../../data/seed/masterData";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
@@ -379,13 +380,30 @@ export function LogSheetRecordView({
   // §117 round 2): the sheet as it is drawn (its boxes, its grid, its PROCEDURE), in the paper's millimetres; the number
   // printed alone at the foot of the page.
   const cal = !frame && !lc && !pt ? calibrationGeometryFor(layout.documentId) : undefined;
+  // THE REPORTS ON THE FRAMED PAGE (F/QC/20, F/QC/29's two; data/seed/qcReportGeometry.ts, §117 round 2): their grids at the papers' columns and heights.
+  const rep = frame && !pf ? reportGeometryFor(layout.documentId) : undefined;
   // A line of the calibration grid: F/QC/12's entries take two lines each (the first, then its Deviation % line).
   const calLine = (i: number, second = false): number | undefined => (cal ? cal.grid.lines[(lines.second ? 2 * i + (second ? 1 : 0) : i)] : undefined);
   const lcWidth = lc ? lc.cols.reduce((a, b) => a + b, 0) : 0;
   // The grid's columns and rows in the paper's millimetres, on either paper form.
-  const gridCols = pf?.grid.cols ?? lc?.cols ?? cal?.grid.cols;
+  const gridCols = pf?.grid.cols ?? lc?.cols ?? cal?.grid.cols ?? rep?.grid.cols;
+  const repLine = (i: number): number | undefined => (rep ? rep.grid.lines[Math.min(i, rep.grid.lines.length - 1)] : undefined);
   const gridRowHeight = (i: number): number | undefined =>
-    pf ? pf.grid.rows[i] : lc ? (i === 0 ? LINE_CLEARANCE_ROWS.heading : LINE_CLEARANCE_ROWS.line) : cal ? (i === 0 ? cal.grid.head[0] : calLine(i - 1)) : undefined;
+    pf
+      ? pf.grid.rows[i]
+      : lc
+        ? i === 0
+          ? LINE_CLEARANCE_ROWS.heading
+          : LINE_CLEARANCE_ROWS.line
+        : cal
+          ? i === 0
+            ? cal.grid.head[0]
+            : calLine(i - 1)
+          : rep
+            ? i === 0
+              ? rep.grid.head[0]
+              : repLine(i - 1)
+            : undefined;
   const topTables = (layout.referenceTables ?? []).filter((t) => !placed.has(t.title));
 
   const mode = layout.rowMode;
@@ -719,7 +737,7 @@ export function LogSheetRecordView({
       data-paper-left={cal ? cal.left : undefined}
       data-frame={frame ? "" : undefined}
       data-sheet={doc.id}
-      data-paper-form={pf ? "incoming" : lc ? "lineclear" : cal ? "calib" : undefined}
+      data-paper-form={pf ? "incoming" : lc ? "lineclear" : cal ? "calib" : rep ? "report" : undefined}
       style={
         lc
           ? ({ "--lc-w": `calc(${lcWidth} * var(--u))` } as React.CSSProperties)
@@ -904,7 +922,7 @@ export function LogSheetRecordView({
               {canRemoveRows && <th className="pf-remove" style={{ width: 36 }} rowSpan={headRows}></th>}
             </tr>
             {headRows === 2 && (
-              <tr style={paperRowStyle(cal?.grid.head[1])}>
+              <tr style={paperRowStyle(cal?.grid.head[1] ?? rep?.grid.head[1])}>
                 {headRuns
                   .filter((run) => run.group !== undefined && !headless(run))
                   .flatMap((run) => run.columns)
@@ -982,6 +1000,16 @@ export function LogSheetRecordView({
                   </React.Fragment>
                 );
               })}
+            {/* The utility test's paper rules nine lines (qcReportGeometry.ts pad): the ones not written print blank, never stored. */}
+            {rep?.pad &&
+              Array.from({ length: Math.max(0, rep.pad - data.rows.length) }, (_, k) => (
+                <tr key={`rep-pad-${k}`} className="pf-pad" aria-hidden="true" style={paperRowStyle(repLine(data.rows.length + k))}>
+                  {numbered && <td data-sr-no="" />}
+                  {lines.first.map((c) => (
+                    <td key={c.key} />
+                  ))}
+                </tr>
+              ))}
             {/* The ten ruled lines the paper prints to write in (F/QC/15-A to G): the blank ones are on the page, not in the record. */}
             {lc &&
               Array.from({ length: Math.max(0, LINE_CLEARANCE_ROWS.lines - data.rows.length) }, (_, k) => (

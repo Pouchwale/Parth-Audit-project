@@ -3640,6 +3640,112 @@ table.svc-paper {
 }
 /* QC-SOC end */
 
+/* QC-REPORTS begin */
+/* THE QC REPORTS ON THE FRAMED PAGE AS THEIR PAPERS (REQUIREMENTS §117, round 2 of 20-Oct-2026): F/QC/20's destruction
+   record, F/QC/29's analysis report and the Nivea utility test on the minutes format. Their page, band and foot are the
+   framed page's; here their own words, places and grids, read off the owner's PDFs: the sub-title centred and underlined,
+   the Date at the right, the narrower table at the paper's columns and heights with its headings centred on white, the
+   signatures' words over the name and the role under it. The grids' widths and heights are data/seed/qcReportGeometry.ts
+   (--pf-col, --pf-h); the utility test's nine ruled lines print blank where nothing is written. */
+.paper-sheet[data-paper-form="report"] .pf-pad { display: none; }
+/* F/QC/20's foot (the one dated foot): the Format number at the left of its cell, as its own rule says (the plain foot's
+   centring came later in the sheet and won), and the "st" of 1st January raised without making its line taller */
+.paper-sheet[data-frame] .page-foot.page-foot-dated > .pf-format { text-align: left; }
+.paper-sheet[data-frame] .page-foot.page-foot-dated sup { position: relative; top: -0.42em; vertical-align: baseline; font-size: 0.7em; line-height: 0; }
+@media print, (min-width: 760px) {
+  .paper-sheet[data-paper-form="report"] { --pf-bd: var(--b1) solid #000; --pf-lh: calc(4.23 * var(--u)); --pf-pad: calc(1.93 * var(--u)); }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet th,
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td {
+    box-sizing: border-box; border: var(--pf-bd); background: transparent; color: #000; text-align: center; vertical-align: top; letter-spacing: 0; text-transform: none; white-space: normal;
+  }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td[data-sr-no] { padding-left: 0; text-align: center; }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td .input { text-align: center; text-indent: 0; font: inherit; color: #000; }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td .cell-text,
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td .pf-text { font: inherit; color: #000; }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td span { font-size: inherit; font-weight: inherit; color: inherit; }
+  /* F/QC/20: Calibri bold 12 pt throughout the table, its headings centred in a tall row. */
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-table table.log-sheet th,
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-table table.log-sheet td { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: calc(12 * var(--pt)); font-weight: 700; line-height: calc(7.75 * var(--u)); padding: 0 calc(1.9 * var(--u)); }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-table table.log-sheet th { line-height: calc(12 * var(--pt)); padding-top: calc(0.54 * var(--u)); }
+  /* F/QC/29's analysis report: Arial 9.96 pt, Sr. No. and Observation centred, Description at the left. */
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet th,
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet td { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); padding: calc(0.4 * var(--u)) calc(1.93 * var(--u)) 0; font-weight: 400; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet th { font-weight: 700; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet :is(th, td):nth-child(2) { text-align: left; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet td:nth-child(2) .input { text-align: left; }
+  /* The utility test: Arial 9 pt, its two heading rows bold and centred, Job Name at the left. */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet th,
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet td { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(9 * var(--pt)); line-height: calc(9 * var(--pt)); padding: calc(0.4 * var(--u)) calc(1.96 * var(--u)) 0; font-weight: 400; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet th { font-weight: 700; padding-top: calc(0.35 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet tbody td:nth-child(2) { text-align: left; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet tbody td:nth-child(2) .input { text-align: left; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet td select.input { text-align-last: center; }
+}
+@media print {
+  .paper-sheet[data-paper-form="report"] .pf-pad { display: table-row; }
+  /* the boxes above the table: the Date at the right of its line, its words and its value on one line */
+  .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field { display: flex; flex-direction: row; align-items: baseline; gap: calc(1 * var(--u)); }
+  .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field > label { margin: 0; color: #000; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field > .input,
+  .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field > .print-box-text { width: calc(32 * var(--u)); padding: 0; color: #000; }
+  /* F/QC/20: a taller band; the sub-title centred, bold, underlined; Date: bold at the right; the table at the paper's place */
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-header.doc-header-frame { height: calc(27.65 * var(--u)); }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .paper-body > .card > .card-pad > p {
+    margin: calc(23.04 * var(--u)) 0 0; text-align: center; color: #000; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+    font-size: calc(14.04 * var(--pt)); line-height: calc(14.04 * var(--pt)); font-weight: 700; text-decoration: underline; text-decoration-thickness: calc(0.34 * var(--u)); text-underline-offset: calc(0.7 * var(--u));
+  }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] [data-section="sheet-boxes"] { margin-top: calc(15.99 * var(--u)); }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] [data-section="sheet-boxes"] > .field { padding-left: calc(4.9 * var(--u)); }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] [data-section="sheet-boxes"] > .field > :is(label, .input, .print-box-text) { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .paper-body > .doc-table { margin: calc(14.6 * var(--u)) 0 0 calc(6.86 * var(--u)); }
+  /* its band's title stands a little above the band's middle, as the paper sets it */
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-header-frame .dhf-title { padding-bottom: calc(3.4 * var(--u)); }
+  /* and its address follows the dated foot closer than the plain foot's: the foot's lines stand where the paper rules them */
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .paper-foot [data-section="notes-at-foot"] p.text-sm { margin-top: calc(-0.5 * var(--u)); }
+  /* F/QC/29's analysis report: Date : at the right, the report's heading centred and bold, the table, the photograph, and
+     the signatures at the paper's place above the foot */
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body { display: flex; flex-direction: column; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:first-of-type [data-section="sheet-boxes"]:first-child { margin-top: calc(4.3 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] [data-section="sheet-boxes"] > .field[data-paper-column="3"] { padding-left: calc(19.3 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] [data-section="sheet-boxes"] > .field > :is(label, .input, .print-box-text) { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 400; }
+  .paper-sheet[data-sheet="qc-analysis-report"] [data-section="printed-group"], .paper-sheet[data-sheet="qc-analysis-report"] [data-section="sheet-boxes"] + [data-section="sheet-boxes"] { margin-top: calc(4.69 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .field-as-heading { padding-left: calc(7.2 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .field-as-heading > .input { width: 100%; text-align: center; font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .doc-table { margin: calc(5.65 * var(--u)) 0 0 calc(6.86 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child { margin: auto 0 calc(19.78 * var(--u)); }
+  /* the utility test: its heading bold and underlined in Times, DATE: at the right, the table, the signatures under it */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card > .card-pad > p {
+    margin: calc(8.51 * var(--u)) 0 0; padding-left: calc(60.6 * var(--u)); text-align: left; white-space: pre; color: #000; font-family: "Times New Roman", Times, serif;
+    font-size: calc(14.04 * var(--pt)); line-height: calc(14.04 * var(--pt)); font-weight: 700; text-decoration: underline; text-decoration-thickness: calc(0.47 * var(--u)); text-underline-offset: calc(0.8 * var(--u));
+  }
+  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] { margin-top: calc(11.97 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field { padding-left: calc(16.1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field > :is(label, .input, .print-box-text) { font-family: "Times New Roman", Times, serif; font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 400; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field > label { font-weight: 700; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .doc-table { margin: calc(3.94 * var(--u)) 0 0 calc(8.77 * var(--u)); }
+  /* the signatures of both reports: the words over the space a name is written in, the role under it, two blocks apart
+     (the row keeps the 16 px gap its BoxLine sets, so the second block's margin is 4.23 mm less) */
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper { display: flex; gap: 0; }
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper > .field { display: flex; flex-direction: column; align-items: center; margin: 0; padding: 0; text-align: center; }
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > label,
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .box-printed-below { margin: 0; padding: 0; color: #000; text-transform: none; letter-spacing: 0; white-space: nowrap; font-weight: 400; }
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .input { width: 100%; min-height: 0; padding: 0; text-align: center; color: #000; }
+  /* the utility test's Approved By stands right of its role, as the paper sets them */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field > label { position: relative; left: calc(7.6 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field > .box-printed-below { position: relative; left: calc(-6.1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field { width: calc(60.4 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field { margin-left: calc(45.67 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > :is(label, .box-printed-below) { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(14.04 * var(--pt)); line-height: calc(11.4 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .input { height: calc(7.6 * var(--u)); font-family: "Times New Roman", Times, serif; font-size: calc(14.04 * var(--pt)); line-height: calc(11.4 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child { margin-top: calc(4.12 * var(--u)); }
+  /* the utility test's words and role stand one line apart: the name is written in that line */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field { width: calc(78.4 * var(--u)); gap: 0; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field { margin-left: calc(26.57 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > :is(label, .box-printed-below) { font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .input { height: calc(4.44 * var(--u)); font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(4.44 * var(--u)); }
+}
+/* QC-REPORTS end */
+
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,
    so this has to come after the rules it switches off or the cascade simply
