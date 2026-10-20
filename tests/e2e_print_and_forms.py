@@ -162,6 +162,9 @@ with sync_playwright() as p:
           });
           const fresh = lines.map((l) => ({ ...l }));
           lines[3].materialName = 'Rat poison';
+          // An earlier seed wrote the contractor's fourth area as "Ink store - Ground floor"; the March-2026 sheet reads
+          // "First floor - Ink store" (REQUIREMENTS section 118): the draft takes the sheet's name.
+          lines[3].areaName = 'Ink store - Ground floor';
           const now = new Date().toISOString();
           const later = new Date(Date.parse(now) + 60000).toISOString();
           const records = JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]');
@@ -190,12 +193,14 @@ with sync_playwright() as p:
     lines = r["data"]["lines"]
     glue = [l for l in lines if l["materialName"] == "Glue Board"]
     bait = [l for l in lines if l["materialName"] == "Bromadiolone Cake"]
+    # The contractor's March-2026 plan (REQUIREMENTS section 118): areas 1-8 on glue boards, areas 9-16 on the bait.
     check(
-        "An older draft is brought into line at start-up: every Glue Board line carries the first line's quantity",
-        len(lines) == 16 and len(glue) == 15 and all(l["qtyUsed"] == "2" for l in glue),
+        "An older draft is brought into line at start-up: the eight Glue Board lines (areas 1-8) carry the first line's quantity",
+        len(lines) == 16 and len(glue) == 8 and all(l["qtyUsed"] == "2" for l in glue) and all(l["materialName"] == "Glue Board" for l in lines[:8]),
         [l["qtyUsed"] for l in lines],
     )
-    check("...the bait area keeps a quantity of its own (grams, not glue boards)", len(bait) == 1 and bait[0]["qtyUsed"] == "35 grams", bait)
+    check("...the eight bait lines (areas 9-16) keep a quantity of their own (grams, not glue boards)", len(bait) == 8 and all(l["qtyUsed"] == "35 grams" for l in bait), bait)
+    check("...the fourth area takes the contractor's name, 'First floor - Ink store'", lines[3]["areaName"] == "First floor - Ink store", lines[3]["areaName"])
     check("...a material typed over is set back to the fixed one", lines[3]["materialName"] == "Glue Board" and lines[3]["methodOfApplication"] == "Trouble gum placement", lines[3])
     history = r.get("history") or []
     check(
@@ -222,11 +227,13 @@ with sync_playwright() as p:
     page.wait_for_timeout(900)
     dismiss(page)
     table = "table[data-table='service-lines']"
+    # The sheet is the contractor's grid: the material, the quantity and the method are ONE merged cell for each block of areas.
     check(
-        "Material and method are fixed text on the form — there is no box to type them in",
-        page.locator(f"{table} tbody tr").count() == 16
+        "Material and method are fixed text on the form - there is no box to type them in; one merged cell for each block of eight areas",
+        page.locator(f"{table} tr[data-line]").count() == 16
         and page.locator(f"{table} td[data-cell='material'] input, {table} td[data-cell='method'] input").count() == 0
-        and page.locator(f"{table} tr[data-line='16'] td[data-cell='material']").inner_text().strip() == "Glue Board",
+        and [t.strip() for t in page.locator(f"{table} td[data-cell='material']").all_inner_texts()] == ["Glue Board", "Bromadiolone Cake"]
+        and page.locator(f"{table} td[data-cell='material']").evaluate_all("els => els.map(e => e.rowSpan)") == [8, 8],
     )
     check(
         "The quantity is typed on the first line of each material only (line 1 for the glue boards, the bait line for the cake)",
@@ -238,8 +245,12 @@ with sync_playwright() as p:
     lines = stored(page, rid)["data"]["lines"]
     check("Typing it on line 1 gives every Glue Board line the same quantity", all(l["qtyUsed"] == "5" for l in lines if l["materialName"] == "Glue Board"), [l["qtyUsed"] for l in lines])
     check("...and leaves the bait line's quantity alone", next(l for l in lines if l["materialName"] == "Bromadiolone Cake")["qtyUsed"] == "35 grams")
-    shown = page.locator(f"{table} tr[data-line='16'] td[data-cell='qty'] input").input_value()
-    check("The last line shows that same quantity on screen", shown == "5", shown)
+    shown = page.locator(f"{table} td[data-cell='qty']").first.locator("input").input_value()
+    check(
+        "The quantity stands once in the block's merged cell, spanning all eight glue-board lines (no quantity cell on line 8)",
+        shown == "5" and page.locator(f"{table} tr[data-line='8'] td[data-cell='qty']").count() == 0 and page.locator(f"{table} td[data-cell='qty']").first.evaluate("e => e.rowSpan") == 8,
+        shown,
+    )
 
     # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
     if page.locator("button:has-text('Ask Mitra')").count():
@@ -251,7 +262,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(900)
     reply = page.locator(".chat-msg.bot").last.inner_text()
     lines = stored(page, rid)["data"]["lines"]
-    check("The assistant won't change a fixed material, and says why", "fixed" in reply and lines[15]["materialName"] == "Glue Board", reply)
+    check("The assistant won't change a fixed material, and says why", "fixed" in reply and lines[15]["materialName"] == "Bromadiolone Cake", reply)
     box.fill("quantity is 6")
     box.press("Enter")
     page.wait_for_timeout(900)
@@ -270,7 +281,7 @@ with sync_playwright() as p:
           printed: window.__printed,
           scoped: document.documentElement.classList.contains('print-scoped'),
           form: shown('[data-print-doc]'),
-          rows: document.querySelectorAll('[data-print-doc] table[data-table="service-lines"] tbody tr').length,
+          rows: document.querySelectorAll('[data-print-doc] table[data-table="service-lines"] tr[data-line]').length,
           banner: shown('.prepared-banner'),
           sidebar: shown('.app-sidebar'),
           submit: shown('button[data-action="submit"]'),

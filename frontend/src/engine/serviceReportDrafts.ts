@@ -18,6 +18,9 @@ import { mayWriteRecordsOf } from "./departmentScope";
 export const SERVICE_RULE_NOTE =
   "Brought into line with the service's fixed rules: material and method are the fixed values for each area, and the quantity is entered once per material — the same on every line with that material.";
 
+const OLD_INK_STORE = "Ink store - Ground floor";
+const INK_STORE = "First floor - Ink store";
+
 export function alignServiceReportDrafts(): number {
   const variants = new Map(
     documentRepository
@@ -31,7 +34,11 @@ export function alignServiceReportDrafts(): number {
     if (!variants.has(r.documentId) || !isEditableStatus(r.status) || !mayWriteRecordsOf(r.documentId)) continue;
     const data = r.data as ServiceReportData;
     if (!Array.isArray(data?.lines) || data.lines.length === 0) continue;
-    const lines = normalizeServiceLines(variants.get(r.documentId), data.lines, { fillBlankLead: true });
+    const variant = variants.get(r.documentId);
+    // The rodent report's fourth area is "First floor - Ink store" on the contractor's sheet (the owner, 17-Oct-2026), where an
+    // earlier seed wrote "Ink store - Ground floor": a draft still holding the old name takes the contractor's.
+    const named = variant === "Rodent Control Service" ? data.lines.map((l) => (l.areaName === OLD_INK_STORE ? { ...l, areaName: INK_STORE } : l)) : data.lines;
+    const lines = normalizeServiceLines(variant, named, { fillBlankLead: true });
     if (lines.every((l, i) => l === data.lines[i])) continue;
     // Keep the timeline the panel showed before (e.g. "prepared by the
     // assistant", derived from the stamps) ahead of this entry.
