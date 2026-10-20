@@ -105,6 +105,7 @@ component (the header block, the sheet's CSS, the print preparation) must leave 
 
 ## Not covered
 
-F-QC-14 (Excel), F/QC-09 (Word), F-QC-30's and F-QC-40.C's photographs, F/QC/34, 35, 37 and the camera challenge test have no paper in
-the owner's folder: they are captured but not compared (the map lists them). There is no Word/Excel converter on this machine: a Word or
-Excel original is compared through the PDF the owner made from it.
+F-QC-14 (Excel), F-QC-30's and F-QC-40.C's photographs, F/QC/34, 35, 37 and the camera challenge test have no paper in the owner's
+folder: they are captured but not compared (the map lists them). A Word or Excel original is compared through the PDF the owner made
+from it; where he sent none, through the PDF Word or Excel makes of his original on this PC (Office 16 is installed; round 2 of
+20-Oct-2026): F/QC-09's is kept in source-documents/qc-office-exports-2026-10-20/ and named in refs.py.
