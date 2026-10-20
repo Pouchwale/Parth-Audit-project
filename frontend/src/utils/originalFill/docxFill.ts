@@ -490,6 +490,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         const ps = kids(c.tc, "p");
         for (const p of ps) paraSiblings.set(p, ps);
       }
+  // The page headers the document shows (not a spare one left in the file): a box the paper prints there (F/DISP/04).
+  const shownHeaderParas = shownHeaders(pkg, docPart, body).flatMap((part) => all(part, "p"));
   // A box the paper has no place for goes on the blank line under the box placed before it (REQUIREMENTS §119 round 2).
   const up = parents(body);
   const outsideFields: { field: ModelField; after: XmlElement | null }[] = [];
@@ -509,7 +511,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       continue;
     }
     const example = Object.entries(hints.exampleOf ?? {}).find(([, l]) => same(l, field.label))?.[0];
-    const at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null);
+    const at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas);
     if (!at) {
       const order = field.order ?? -1;
       const grid = gridAnchors.filter((g) => g.order < order).sort((a, b) => b.order - a.order)[0];
@@ -536,7 +538,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     let best: { p: XmlElement; s: number } | null = null;
     const candidates = [...headerParts.flatMap((n) => all(pkg.xml(n)!, "p")), ...paragraphs, ...tables.filter((t) => t.index < firstGridTable).flatMap((t) => all(t.tbl, "p"))];
     for (const p of candidates) {
-      if (usedParas.has(p)) continue;
+      // A line holding a box's value (F/DISP/04's header "... RECORD [ Vehicle number: ]") keeps its words.
+      if (usedParas.has(p) || lineSpans.has(p)) continue;
       const s = similarity(paraText(p), model.title);
       if (s > 0.6 && (!best || s > best.s)) best = { p, s };
     }
@@ -695,6 +698,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         const tabs = Array.from(room).map((ch, i) => (ch === "\t" ? f.at + i : -1)).filter((i) => i >= 0);
         const drop = to >= text.length ? tabs.length : Math.min(tabs.length - 1, Math.ceil((value.length + 1) / 8));
         for (const i of tabs.slice(0, Math.max(0, drop)).reverse()) replaceRange(p, i, i + 1, "");
+        // A blank of spaces before a closing bracket ("Vehicle number:      ]"): as many go as the value takes.
+        if (!tabs.length && /^ {4,}$/.test(room) && /[\])]/.test(text[to] ?? "")) replaceRange(p, f.at, f.at + Math.min(room.length - 1, value.length + 1), "");
       }
       const rPr = firstRunProps(p);
       const spaced = (tookPlace && lead > 0) || /\s$/.test(paraText(p).slice(0, f.at));
@@ -1204,6 +1209,37 @@ function findWords(text: string, words: string, from: number): { from: number; t
 let paraSiblings = new Map<XmlElement, XmlElement[]>();
 /** The own words of DCRS's grouped labels ("Non-Technical" of "NO. OF EMPLOYEES - Non-Technical"): a line's next box starts there. */
 let labelSubs = new Set<string>();
+
+/** The header parts the document's sections show. */
+function shownHeaders(pkg: Pkg, docPart: string, body: XmlElement): XmlElement[] {
+  const rels = pkg.relsOf(docPart).tree;
+  const ids = new Set(all(body, "headerReference").map((r) => r.attrs["r:id"] ?? ""));
+  const out: XmlElement[] = [];
+  for (const r of kids(rels, "Relationship")) {
+    if (!ids.has(r.attrs.Id ?? "") || !/\/header$/.test(r.attrs.Type ?? "")) continue;
+    const part = pkg.xml(`word/${(r.attrs.Target ?? "").replace(/^\/?(word\/)?/, "")}`);
+    if (part) out.push(part);
+  }
+  return out;
+}
+
+/**
+ * A box the paper prints in its page header ("... RECORD [ Vehicle number: ________ ]", F/DISP/04): the value after its label,
+ * up to the header's closing bracket. Read back with the body's (engine/roundTrip/readFile.ts).
+ */
+function headerAt(field: ModelField, paras: XmlElement[]): { kind: "after"; field: ModelField; p: XmlElement; at: number; to: number } | null {
+  for (const p of paras) {
+    const text = paraText(p);
+    const hit = findWords(text, field.label, 0);
+    if (!hit) continue;
+    let at = hit.to;
+    while (at < text.length && /[:\-–=]/.test(text[at])) at++;
+    const close = text.slice(at).search(/[\])]/);
+    lineSpans.set(p, [...(lineSpans.get(p) ?? []), { from: hit.from, to: at }]);
+    return { kind: "after", field, p, at, to: close === -1 ? text.length : at + close };
+  }
+  return null;
+}
 
 /** The owner's example words in a sentence of the paper, the place of a box (hints.ts exampleOf): the value takes their place. */
 function exampleAt(field: ModelField, words: string, paragraphs: XmlElement[], tables: Table[]): { kind: "after"; field: ModelField; p: XmlElement; at: number; to: number } | null {

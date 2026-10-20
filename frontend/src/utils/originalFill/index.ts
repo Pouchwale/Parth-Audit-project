@@ -51,7 +51,6 @@ export const NOT_YET = new Set([
   "sys-mrm-record",
   "sys-audit-nc",
   "sys-nc-car",
-  "sys-mock-recall",
   "pur-supplier-registration",
   "disp-vehicle-cleaning",
 ]);

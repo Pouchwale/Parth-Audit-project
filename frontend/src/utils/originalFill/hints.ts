@@ -18,6 +18,14 @@ export const FILL_HINTS: Record<string, FillHints> = {
   // F/DISP/01: the agreement's period is written inside its own sentence ("valid for the period of 01.04.2025 to 31.03.2026"),
   // the owner's dates being his example: DCRS's contract dates take their place.
   "disp-safe-transporter-agreement": { exampleOf: { "01.04.2025": "Contract valid from", "31.03.2026": "Contract valid to" } },
+  // F/SYS/13: the product's details have one box on the paper, "Information of the product (Information that we are looking
+  // for)", and the customer's answer one, "Response from Customer": each value a line in its box, as a person writes there.
+  "sys-mock-recall": {
+    areaOf: {
+      "Information of the product": ["FG code", "Production order number", "Sales order number", "Job name", "Dispatch Date", "Invoice number", "Dispatched Quantity", "Mock Recall scenario considered"],
+      "Response from Customer": ["Telephonic conversation"],
+    },
+  },
   // F/PUR/01: DCRS joins each heading to the note printed under it ("... OFFERED (Please attach a separate sheet if
   // required)"); the paper's place for the answer is under its heading.
   "pur-supplier-registration": {

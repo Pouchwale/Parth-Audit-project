@@ -34,6 +34,11 @@ export interface FillHints {
    * of 01.04.2025 to 31.03.2026"): the example's exact words -> DCRS's label. The value takes those words' place.
    */
   exampleOf?: Record<string, string>;
+  /**
+   * xlsx: boxes the paper has one area for, written there as lines "Label: value" (F/SYS/13's "Information of the product"):
+   * the area's heading -> DCRS's labels.
+   */
+  areaOf?: Record<string, string[]>;
 }
 
 export interface FillReport {

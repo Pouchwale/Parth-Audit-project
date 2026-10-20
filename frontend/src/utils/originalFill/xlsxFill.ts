@@ -632,7 +632,8 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     }
   }
   // The title, where the plant changed it: the cell reading most like DCRS's title, above the first grid.
-  if (model.title) {
+  // The paper printing the title already, word for word (a box's label though it be, F/SYS/13's): no other cell takes it.
+  if (model.title && !all1.some((m) => m.r < firstHeading && same(m.text.replace(/[\s:\-–=]+$/, ""), model.title))) {
     let best: { r: number; c: number; text: string; s: number } | null = null;
     for (const m of all1) {
       if (m.r >= firstHeading || taken.has(key(m.r, m.c))) continue;
@@ -673,6 +674,27 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
       place.rowOf.set(line, last + 1 + i);
       place.body.push(last + 1 + i);
     });
+  }
+
+  // ---- boxes the paper writes as lines in an area of its own (hints.ts areaOf): "Label: value", a line each, under the
+  // area's heading and its note, as a person writes in the box
+  for (const [heading, wanted] of Object.entries(hints.areaOf ?? {})) {
+    const head = all1.find((m) => same(m.text, heading));
+    const fields = wanted.map((l) => outside.find((f) => same(f.label, l))).filter((f): f is ModelField => !!f);
+    if (!head || fields.length === 0) continue;
+    let r = belowMaster(sheet, head.r, head.c);
+    if (r === null) continue;
+    // The area's own note at its top ("(Information that we are looking for)") stays: the lines go under it.
+    if (sheet.text(r, head.c).trim()) r++;
+    for (const f of fields) {
+      while (r <= sheet.maxRow() && (sheet.covered(r, head.c) || sheet.text(r, head.c).trim() || taken.has(key(r, head.c)))) r++;
+      const label = (f.shown ?? f.label).replace(/[\s:\-–—=]+$/, "").trim();
+      taken.add(key(r, head.c));
+      fieldPlaces.push({ field: f, r, c: head.c, pre: `${label}: `, post: "", mode: "same" });
+      outside.splice(outside.indexOf(f), 1);
+      report.outside.push(`${label}: a line of the paper's "${heading}" box (${columnName(head.c)}${r})`);
+      r++;
+    }
   }
 
   // ---- a box the paper has no place for (REQUIREMENTS §119 round 2), written where a person filling the paper by hand would:
@@ -1318,7 +1340,11 @@ function placeField(
   const { group, sub } = headingParts(label);
   if (group) {
     const g = cells.find((m) => same(m.text, group) || afterLabel(m.text, group) !== null);
-    const s = g ? cells.find((m) => m.r === g.r && m.c > g.c && !taken.has(key(m.r, m.c)) && (same(m.text, sub) || same(m.text.replace(/[\s:\-–_.=]+$/, ""), sub))) : undefined;
+    const isSub = (m: { r: number; c: number; text: string }) => !taken.has(key(m.r, m.c)) && (same(m.text, sub) || same(m.text.replace(/[\s:\-–_.=]+$/, ""), sub));
+    // On the group's line after it, else in the rows under the group's heading, within its columns (F/SYS/13's "Location"
+    // under "Customer Information", "Position" under "Contact Person").
+    const gm = g ? sheet.mergeOf(g.r, g.c) : undefined;
+    const s = g ? (cells.find((m) => m.r === g.r && m.c > g.c && isSub(m)) ?? cells.find((m) => m.r > g.r && m.r <= g.r + 8 && m.c >= g.c && m.c <= (gm ? gm.c2 : g.c) && isSub(m))) : undefined;
     if (s) {
       taken.add(key(s.r, s.c));
       const right = nextMaster(sheet, s.r, s.c, maxCol0);

@@ -1001,11 +1001,20 @@ async function readDocx(pkg: Package, documentPath: string): Promise<ReadResult>
   const doc = await pkg.xml(documentPath);
   if (!doc) return fail("damaged");
 
-  // The first control carrying each tag holds its value; a later one is a copy (a row copied and pasted).
+  // The first control carrying each tag holds its value; a later one is a copy (a row copied and pasted). The body first, then
+  // the page headers and footers the document uses (a value the paper prints in its header, F/DISP/04's vehicle number).
   const first = new Map<number, XmlElement>();
-  for (const sdt of descendants(doc, "sdt")) {
-    const i = sdtTag(sdt);
-    if (i !== null && !first.has(i)) first.set(i, sdt);
+  const headers: XmlElement[] = [];
+  for (const r of rels.values()) {
+    if (r.external || !/\/(header|footer)$/.test(r.type)) continue;
+    const part = await pkg.xml(r.target);
+    if (part) headers.push(part);
+  }
+  for (const root of [doc, ...headers]) {
+    for (const sdt of descendants(root, "sdt")) {
+      const i = sdtTag(sdt);
+      if (i !== null && !first.has(i)) first.set(i, sdt);
+    }
   }
   const values = new Map<number, UploadedValue>();
   const missing: number[] = [];
