@@ -419,14 +419,17 @@ test("F/QC/18's DRYING TEST stands over its two printed lines, the second unnumb
   const rows = bodyRows(html);
   const at = rows.findIndex((r) => r.some((c) => text(c.html).includes("DRYING TEST")));
   assert.equal(at, 5);
-  // The DRYING TEST line: its number and its parameter stand down over the next line.
-  assert.match(rows[at][0].attrs, /rowSpan="2"/i);
+  // The DRYING TEST line: its number and its parameter stand in the line, as the paper's table rules it (REQUIREMENTS §117: the
+  // owner's PDF of F/QC/18 rules the second paragraph off under empty number and parameter cells).
+  assert.doesNotMatch(rows[at][0].attrs, /rowSpan/i);
   assert.equal(text(rows[at][0].html).trim(), "6.");
-  assert.match(rows[at][1].attrs, /rowSpan="2"/i);
-  // The "On Glass surface" line: its specification and its own observation box, nothing else.
-  assert.equal(rows[at + 1].length, 2);
-  assert.ok(text(rows[at + 1][0].html).includes("On Glass surface"));
-  assert.match(rows[at + 1][1].html, /data-bind="rows\/[^"]+\/observation"/);
+  assert.doesNotMatch(rows[at][1].attrs, /rowSpan/i);
+  // The "On Glass surface" line: the empty number and parameter cells, then its specification and its own observation box.
+  assert.equal(rows[at + 1].length, 4);
+  assert.equal(text(rows[at + 1][0].html).trim(), "");
+  assert.equal(text(rows[at + 1][1].html).trim(), "");
+  assert.ok(text(rows[at + 1][2].html).includes("On Glass surface"));
+  assert.match(rows[at + 1][3].html, /data-bind="rows\/[^"]+\/observation"/);
   // ALKALI RESISTANCE is "7.", as printed.
   assert.equal(text(rows[at + 2][0].html).trim(), "7.");
   // A sample lot writes both observations.

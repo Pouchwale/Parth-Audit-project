@@ -38,12 +38,22 @@ FAILURES = []
 # The account the assistant-fill suite signs up (the server limits sign-ups per network).
 ACCOUNT = ("fill-suite@example.com", "PlaywrightQA123", "Fill QA")
 DOC = "qc-incoming-lamination-film"
-HEADER = """() => Object.fromEntries(Array.from(document.querySelectorAll('[data-print-doc] .doc-header .meta-cell'))
-  .map((c) => [(c.querySelector('.k') || {}).textContent?.trim(), (c.querySelector('.v') || {}).textContent?.trim()]))"""
+# A framed QC paper (data/seed/qcPageFrames.ts, s117) prints no header block: the logo and the title in a band, and the
+# Format number, Rev. no., Rev. date and Page in a bordered line at the foot of the page, as the owner's PDFs do.
+HEADER = """() => {
+  const cells = Array.from(document.querySelectorAll('[data-print-doc] .doc-header .meta-cell'));
+  if (cells.length) return Object.fromEntries(cells.map((c) => [(c.querySelector('.k') || {}).textContent?.trim(), (c.querySelector('.v') || {}).textContent?.trim()]));
+  const foot = document.querySelector('[data-print-doc] .page-foot');
+  const m = foot && /Format number:\\s*-\\s*(.+?)\\s*\\(\\s*(.+?)\\s*\\/\\s*(.+?)\\s*\\)\\s*Page\\s+(.+)$/.exec(foot.textContent.replace(/\\s+/g, ' ').trim());
+  return m ? { 'Format No.': m[1], 'Rev No.': m[2], 'Rev Date': m[3], 'Page No.': m[4] } : {};
+}"""
 HEADER_COMPANY = "() => (document.querySelector('[data-print-doc] .doc-header .company-name') || {}).textContent?.trim()"
+HEADER_TITLE = "() => (document.querySelector('[data-print-doc] .doc-header .dhf-title, [data-print-doc] .doc-header .doc-title') || {}).textContent?.trim()"
+# Where a cell of the header is clicked: the header block, or on a framed paper the head's title and the foot's line.
+HEAD = "[data-print-doc] :is(.doc-header, .page-foot)"
 CLICKABLE = "(sel) => document.querySelectorAll(sel).length"
 # The document page's preview of its latest record: its header's cells, read exactly.
-PREVIEW_HEADER = HEADER.replace("[data-print-doc] .doc-header", '[data-section="document-preview"] .doc-header')
+PREVIEW_HEADER = HEADER.replace("[data-print-doc]", '[data-section="document-preview"]')
 
 
 def check(label, cond, detail=None):
@@ -107,12 +117,12 @@ def header(page):
 
 
 def clickable(page, action):
-    return page.evaluate(CLICKABLE, f"[data-print-doc] .doc-header [data-action='{action}']")
+    return page.evaluate(CLICKABLE, f"{HEAD} [data-action='{action}']")
 
 
 def type_over(page, action, field, value):
     """Click a header value and type over it; Enter keeps it."""
-    page.locator(f"[data-print-doc] .doc-header [data-action='{action}']").first.click()
+    page.locator(f"{HEAD} [data-action='{action}']").first.click()
     page.wait_for_timeout(250)
     box = page.locator(f"[data-field='{field}']")
     initial = box.first.input_value() if box.count() else None
@@ -183,12 +193,14 @@ with sync_playwright() as p:
     rec = record_by_id(page, rid) or {}
     check("New on F/QC/33 opens its record", "#/record/" in page.url and rec.get("documentId") == DOC, page.url)
     offered = {a: clickable(page, a) for a in ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-revision-date", "rename-page-no")}
-    check("Its header offers every value to be typed over: the company, the title, the number, the revision, its date and the Page No.", all(n == 1 for n in offered.values()), offered)
+    # The paper's head is the logo (which carries the company's name) and the title; its foot line holds the number, revision, date and Page.
+    check("Its header offers every value to be typed over: the title in the head, the number, the revision, its date and the Page No. in the foot line (the company is the logo's picture on the paper, with no text to type over)",
+          all(n == 1 for a, n in offered.items() if a != "rename-company") and offered["rename-company"] == 0, offered)
     # The DATE cell DCRS added for the record's own date is gone (REQUIREMENTS s117, the owner, 16-Oct-2026).
     check("...and no Date cell of the record's own: the header is the paper's", clickable(page, "rename-record-date") == 0 and "Date" not in header(page), header(page))
     before = header(page)
-    check("...headed as the paper is: F/QC/33, Rev 00, the revision's date, 1 of 1",
-          before.get("Format No.") == "F/QC/33" and before.get("Rev No.") == "00" and before.get("Rev Date") == "15-Dec-2024" and before.get("Page No.") == "1 of 1"
+    check("...footed as the paper is: F/QC/33 (00 / 15.12.2024), Page 1 of 1",
+          before.get("Format No.") == "F/QC/33" and before.get("Rev No.") == "00" and before.get("Rev Date") == "15.12.2024" and before.get("Page No.") == "1 of 1"
           and list(before.keys()) == ["Format No.", "Rev No.", "Rev Date", "Page No."], before)
 
     initial = type_over(page, "rename-page-no", "header-page", "1 of 2")
@@ -232,13 +244,14 @@ with sync_playwright() as p:
     check("...the header alone - no copy of the sheet's layout", not edit.get("layout"), list(edit.keys()))
     check("...and the record keeps its own Page No.", now.get("Page No.") == "1 of 2", now)
 
-    company = page.evaluate(HEADER_COMPANY)
-    type_over(page, "rename-company", "header-companyName", "SOMEBODY ELSE PVT. LTD.")
-    check("The company's name typed over asks why too", panel.count() == 1)
+    # F/QC/33's head is the logo and the title: the title is the format's cell typed over here (the daily pest record below keeps a header block, and its company cell is typed over there).
+    title_was = page.evaluate(HEADER_TITLE)
+    type_over(page, "rename-title", "header-title", "SOMETHING ELSE")
+    check("The title typed over asks why too", panel.count() == 1)
     page.click("[data-action='header-change-cancel']")
     page.wait_for_timeout(400)
-    check("'Keep the header as it is' changes nothing", panel.count() == 0 and page.evaluate(HEADER_COMPANY) == company and len((format_edit(page, DOC) or {}).get("revisions") or []) == 1,
-          page.evaluate(HEADER_COMPANY))
+    check("'Keep the header as it is' changes nothing", panel.count() == 0 and page.evaluate(HEADER_TITLE) == title_was and len((format_edit(page, DOC) or {}).get("revisions") or []) == 1,
+          page.evaluate(HEADER_TITLE))
 
     initial = type_over(page, "rename-revision", "header-revisionNo", "02")
     check("The revision number is typed over, holding 01", initial == "01", initial)
@@ -252,7 +265,7 @@ with sync_playwright() as p:
     open_page(page, f"#/document/{DOC}", settle=1300)
     preview = page.evaluate(PREVIEW_HEADER)
     check("The document's own page is headed F/QC/33-A, Rev 02", preview.get("Format No.") == "F/QC/33-A" and preview.get("Rev No.") == "02", preview)
-    check("...and its preview of the latest record is not typed over there", page.evaluate(CLICKABLE, ".doc-header [data-action^='rename-']") == 0)
+    check("...and its preview of the latest record is not typed over there", page.evaluate(CLICKABLE, ":is(.doc-header, .page-foot) [data-action^='rename-']") == 0)
 
     # ==================================================================
     print("\n==== A submitted record, and Edit then Cancel edit ====")
@@ -303,6 +316,13 @@ with sync_playwright() as p:
               clickable(page, "rename-page-no") == 1 and clickable(page, "rename-revision-date") == 1 and daily_header.get("Page No.") == "1 of 1" and "Date" not in daily_header, daily_header)
         title = page.locator("[data-print-doc] .doc-header .doc-title").first.inner_text().strip()
         check("...and its title is the paper's alone, with no date after it", title == "DAILY PEST CONTROL MONITORING RECORD", title)
+        company = page.evaluate(HEADER_COMPANY)
+        type_over(page, "rename-company", "header-companyName", "SOMEBODY ELSE PVT. LTD.")
+        asked = panel.count() == 1
+        page.click("[data-action='header-change-cancel']")
+        page.wait_for_timeout(400)
+        check("...a header block's company name typed over asks why, and 'Keep the header as it is' changes nothing",
+              asked and panel.count() == 0 and page.evaluate(HEADER_COMPANY) == company, (asked, page.evaluate(HEADER_COMPANY), company))
         type_over(page, "rename-page-no", "header-page", "1 of 3")
         stored = record_by_id(page, daily["id"]) or {}
         check("...typed over, saved on that day's record", (stored.get("headerBlock") or {}).get("page") == "1 of 3", stored.get("headerBlock"))
