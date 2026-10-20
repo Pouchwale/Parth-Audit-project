@@ -1102,8 +1102,8 @@ function BoxLine({ group, minWidth, section, className, paper, children }: { gro
       data-pf={paper?.kind}
       style={
         group.perLine
-          ? ({ "--paper-box-columns": group.perLine, gap: paper ? 0 : "10px 16px", ...paperVars } as React.CSSProperties)
-          : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: paper ? 0 : "10px 16px", ...paperVars }
+          ? ({ "--paper-box-columns": group.perLine, gap: paper ? "var(--pf-gap-rc, 10px 16px)" : "10px 16px", ...paperVars } as React.CSSProperties)
+          : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: paper ? "var(--pf-gap-rc, 10px 16px)" : "10px 16px", ...paperVars }
       }
     >
       {children}

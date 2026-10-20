@@ -3088,7 +3088,7 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .paper-sheet[data-paper-form] .paper-body > .card > .card-pad { padding: 0; }
   .paper-sheet[data-paper-form] [data-section="printed-group"] { margin-top: 0; }
   .paper-sheet[data-paper-form] [data-pf] {
-    display: grid; gap: 0; box-sizing: border-box; padding: 0; width: max-content; max-width: none;
+    display: grid; --pf-gap-rc: 0; box-sizing: border-box; padding: 0; width: max-content; max-width: none;
     margin: var(--pf-gap) 0 0 calc(0.62 * var(--u));
     grid-template-columns: var(--pf-cols); grid-template-rows: var(--pf-rows);
   }
