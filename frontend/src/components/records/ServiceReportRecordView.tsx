@@ -4,6 +4,7 @@ import { COMPANY } from "../../data/seed/masterData";
 import {
   SERVICE_PAPER_COLUMNS,
   SERVICE_PAPER_LABELS,
+  SERVICE_PAPER_NARROW_AREAS,
   SERVICE_PAPER_PESTS,
   SERVICE_PAPER_PX_PER_CHAR,
   SERVICE_PAPER_TALL_AREAS,
@@ -52,6 +53,7 @@ export function ServiceReportRecordView({
   const groups = serviceGroups(lines);
   const groupAt = new Map(groups.map((g) => [g.first, g]));
   const tall = new Set(SERVICE_PAPER_TALL_AREAS[doc.variantKey ?? ""] ?? []);
+  const narrow = new Set(SERVICE_PAPER_NARROW_AREAS[doc.variantKey ?? ""] ?? []);
   const pests = SERVICE_PAPER_PESTS[doc.variantKey ?? ""] ?? SERVICE_PAPER_PESTS[data.serviceName] ?? "";
   const lead = lines[0];
   const others = lines.slice(1).filter((l) => l.remarks.trim() && l.remarks.trim() !== (lead?.remarks ?? "").trim());
@@ -79,7 +81,7 @@ export function ServiceReportRecordView({
             <td colSpan={3} className="svc-band svc-left notranslate" translate="no">
               {SERVICE_PAPER_LABELS.provider}
             </td>
-            <td colSpan={2} className="svc-band">
+            <td colSpan={2} className="svc-band svc-left">
               {SERVICE_PAPER_LABELS.serviceName}
             </td>
             <td className="svc-band svc-date-label">{SERVICE_PAPER_LABELS.date}</td>
@@ -89,7 +91,7 @@ export function ServiceReportRecordView({
             <td colSpan={3} className="svc-band svc-left notranslate" translate="no" data-cell="unit">
               {SERVICE_PAPER_LABELS.unit} {COMPANY.name}, {COMPANY.address.toUpperCase().replace("–", "-")}
             </td>
-            <td colSpan={2} className="svc-band" data-cell="service-name">
+            <td colSpan={2} className="svc-band svc-left" data-cell="service-name">
               {data.serviceName}
               {pests && (
                 <>
@@ -122,7 +124,7 @@ export function ServiceReportRecordView({
             const qtyBind = bindProps(serviceReportBind.qty(lines, i));
             const sharing = lines.filter((x) => x.materialName === l.materialName);
             return (
-              <tr key={l.slNo} data-line={l.slNo} className={`${group ? "svc-group-start" : ""}${tall.has(l.areaName) ? " svc-tall" : ""}`}>
+              <tr key={l.slNo} data-line={l.slNo} className={`${group ? "svc-group-start" : ""}${tall.has(l.areaName) ? " svc-tall" : ""}${narrow.has(l.areaName) ? " svc-narrow" : ""}`}>
                 <td className="svc-no">{l.slNo}</td>
                 <td className="svc-area" data-cell="area">
                   <span {...bindProps(serviceReportBind.line(l, "areaName"))}>{l.areaName}</span>

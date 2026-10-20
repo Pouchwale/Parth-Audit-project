@@ -2981,26 +2981,27 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
    inline in the paper's cells with no box of their own on the sheet (a dotted rule under them on screen only). */
 .svc-paper-wrap { max-width: 100%; overflow-x: auto; }
 table.svc-paper {
-  border-collapse: collapse; table-layout: fixed; width: 569px; background: #fff; color: #000;
+  border-collapse: collapse; table-layout: fixed; width: 576px; background: #fff; color: #000;
   font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 11px; line-height: 13.5px;
 }
 .svc-paper td { border: 1px solid #000; padding: 0 3px; vertical-align: middle; text-align: center; overflow-wrap: break-word; background: #fff; color: #000; font-size: 11px; }
 .svc-paper td.svc-left { text-align: left; }
 .svc-paper .svc-title { font-size: 24px; font-weight: 700; line-height: 28px; height: 28px; text-align: left; padding: 0 2px; border: 2px solid #000; border-bottom-width: 1px; }
-.svc-paper .svc-band { font-weight: 700; height: 18px; border-right-width: 1px; }
-.svc-paper .svc-unit-row .svc-band { height: 28px; }
+.svc-paper .svc-band { font-weight: 700; height: 19px; border-right-width: 1px; }
+.svc-paper .svc-unit-row .svc-band { height: 29px; }
 .svc-paper .svc-band:first-child { border-left: 2px solid #000; }
 .svc-paper .svc-date-label { border: 2px solid #000; text-align: left; }
 .svc-paper .svc-date-value { border-right: 2px solid #000; text-align: left; }
-.svc-paper .svc-head-row td { font-weight: 700; height: 26px; border-bottom: 2px solid #000; }
+.svc-paper .svc-head-row td { font-weight: 700; height: 25px; border-bottom: 2px solid #000; }
 .svc-paper .svc-head-row td:first-child { border-left: 2px solid #000; }
 .svc-paper .svc-head-row td:last-child { border-right: 2px solid #000; }
 .svc-paper tr[data-line] > td { font-size: 11px; }
 .svc-paper tr[data-line] > td.svc-no { height: 13.5px; }
-.svc-paper tr[data-line] > td.svc-area { font-size: 12px; text-align: left; border-width: 0 1px 1px 1px; }
+.svc-paper tr[data-line] > td.svc-area { font-size: 12px; text-align: left; border-width: 0 1px 1px 1px; padding: 0 1px 0 2px; }
 .svc-paper tr[data-line] > td.svc-no { border-left: 2px solid #000; border-width: 0 1px 1px 2px; }
 .svc-paper tr.svc-group-start > td { border-top: 1px solid #000; }
-.svc-paper tr.svc-tall > td.svc-area { height: 28px; }
+.svc-paper tr.svc-tall > td.svc-area { height: 29px; }
+.svc-paper tr.svc-narrow > td.svc-area { padding-right: 6px; }
 .svc-paper td.svc-merged { border: 1px solid #000; }
 .svc-paper td.svc-remarks { border-right: 2px solid #000; border-bottom: 2px solid #000; }
 .svc-paper tr:has(+ .svc-sign-space) > td { border-bottom: 2px solid #000; }
@@ -3018,17 +3019,21 @@ table.svc-paper {
   .svc-paper input:not(:disabled):focus, .svc-paper textarea:not(:disabled):focus { background: #fff7cc; border-bottom: 1px solid #1f2937; }
 }
 .svc-paper .svc-sign-space td, .svc-paper .svc-sign-captions td { border: 0; }
-.svc-paper .svc-sign-space { height: 34px; }
+.svc-paper .svc-sign-space { height: 37px; }
 .svc-paper .svc-sign-space .svc-sign { vertical-align: bottom; padding: 0 6px 1px; }
 .svc-paper .svc-sign-input { text-align: center; font-size: 12px; }
 .svc-paper .svc-edge { border-left: 2px solid #000; }
 .svc-paper .svc-edge-right { border-left: 0; border-right: 2px solid #000; }
-.svc-paper .svc-sign-captions .svc-caption { border-top: 1px solid #000; font-size: 12px; height: 17px; }
+.svc-paper .svc-sign-captions .svc-caption { border-top: 1px solid #000; font-size: 12px; height: 18px; }
 .svc-paper .svc-sign-captions .svc-foot { border-bottom: 2px solid #000; }
 .svc-paper .svc-sign-captions .svc-caption { border-bottom: 2px solid #000; }
+/* The frame runs down the foot too (a rule of the same weight as the zeroed borders above it, so it wins). */
+.svc-paper .svc-sign-space td.svc-edge, .svc-paper .svc-sign-captions td.svc-edge { border-left: 2px solid #000; }
+.svc-paper .svc-sign-space td.svc-edge-right, .svc-paper .svc-sign-captions td.svc-edge-right { border-left: 0; border-right: 2px solid #000; }
 @media print {
   .svc-paper-wrap { overflow: visible; }
   .svc-paper td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .svc-paper input::placeholder, .svc-paper textarea::placeholder { color: transparent; opacity: 0; }
 }
 /* HR-DOCS end */
 

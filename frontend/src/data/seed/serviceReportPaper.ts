@@ -8,7 +8,7 @@
 export const SERVICE_PAPER_COLUMNS = [9.29, 32.86, 18.29, 12.86, 15, 15.86];
 
 /** CSS pixels a screen draws for one Excel character at the paper's print scale (the PDF's columns, 569 px across). */
-export const SERVICE_PAPER_PX_PER_CHAR = 5.45;
+export const SERVICE_PAPER_PX_PER_CHAR = 5.528;
 
 /**
  * The paper's title and the pests its Service Name cell names, one line under the service (the contractor's own
@@ -37,7 +37,20 @@ export const SERVICE_PAPER_LABELS = {
  * was set by hand in the workbook). The rest of the paper's rows follow their words.
  */
 export const SERVICE_PAPER_TALL_AREAS: Record<string, string[]> = {
-  "Rodent Control Service": ["Anilox cleaning area - Ground floor", "First floor - Shrink Sleeve production"],
+  // The two one-line names the workbook gave a tall row, and the four names that run to two lines on the paper (each row 22 pt).
+  "Rodent Control Service": [
+    "Anilox cleaning area - Ground floor",
+    "First floor - Shrink Sleeve production",
+    "Store - Label stock & PVC / PET Films - Ground floor",
+    "RM Inward & FG Dispatch room - Ground floor",
+    "First floor - Offline punching & QC Inspection",
+    "Change room & Locker room - Ground Floor",
+  ],
+};
+
+/** Names the workbook breaks one word earlier than the browser would (Excel measures its text a little wider): their cell keeps a wider right margin. */
+export const SERVICE_PAPER_NARROW_AREAS: Record<string, string[]> = {
+  "Rodent Control Service": ["Store - Label stock & PVC / PET Films - Ground floor"],
 };
 
 /** The paper's date as it writes it: 07.03.2026. */
