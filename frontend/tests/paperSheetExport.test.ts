@@ -87,3 +87,53 @@ test("the workbook's sheet name is the sheet's own", async () => {
   const wb = await part(workbookFromBlocks("F-HR-99 a very long name that Excel would cut", [marchSheet()]), "xl/workbook.xml");
   assert.match(wb, /<sheet name="Service Report"/);
 });
+
+// ---------------------------------------------------------------------------
+// The Word original's page (F/HR/18): a table laid in points, merged cells, the paper's faces and edges, A4 portrait.
+
+import { wordDocumentFromBlocks, type PaperCellSpec } from "../src/utils/documentExport";
+import { paperMarginsOf, paperPageOf } from "../src/utils/paperSheets";
+
+const pcell = (words: string, o: Partial<PaperCellSpec> = {}): PaperCellSpec => ({ text: words, size: 20, bold: false, align: "left", valign: "top", borders: [4, 4, 4, 4], ...o });
+
+test("a paper table is written in points: fixed widths, row heights, spanned and vertically merged cells, the paper's sizes", async () => {
+  const blocks: ExportBlock[] = [
+    {
+      kind: "paper",
+      widths: [160, 121, 126, 131],
+      spaceAfter: 12.5,
+      rows: [
+        { height: 34.2, cells: [pcell("GUJARAT PRINT PACK PUBLICATIONS PVT LTD", { colSpan: 4, size: 40, bold: true, align: "center", borders: [12, 12, 12, 4] })] },
+        { height: 20.8, cells: ["Format No.: F/HR/18", "Rev No: 02", "Date: 15.12.2024", "Page No.: 1 of 2"].map((w) => pcell(w, { size: 24, align: "center", valign: "center" })) },
+      ],
+    },
+    {
+      kind: "paper",
+      widths: [63.7, 71.9],
+      indent: 7.9,
+      pageBreakBefore: true,
+      rows: [
+        { height: 28.9, cells: [pcell("PC-01", { bold: true, vMerge: "restart" }), pcell("")] },
+        { height: 28.9, cells: [pcell("", { vMerge: "continue" }), pcell("")] },
+      ],
+    },
+  ];
+  const xml = new TextDecoder().decode(await (await unzip(wordDocumentFromBlocks(blocks, undefined, "portrait", { top: 18, right: 27.4, bottom: 18, left: 28.7 }).slice().buffer)).get("word/document.xml")!());
+  assert.ok(xml.includes('<w:pgSz w:w="11906" w:h="16838"/>'), "A4 portrait");
+  assert.ok(xml.includes('<w:pgMar w:top="360" w:right="548" w:bottom="360" w:left="574"'), "the paper's margins in twentieths of a point");
+  assert.ok(xml.includes('<w:gridCol w:w="3200"/><w:gridCol w:w="2420"/><w:gridCol w:w="2520"/><w:gridCol w:w="2620"/>'), "the band's four columns at the paper's widths");
+  assert.ok(xml.includes('<w:gridSpan w:val="4"/>'), "the company's name spans the four cells");
+  assert.ok(xml.includes('<w:trHeight w:val="684" w:hRule="atLeast"/>'), "a row 34.2 pt tall");
+  assert.ok(xml.includes('<w:sz w:val="40"/>'), "the name at 20 pt");
+  assert.ok(xml.includes('<w:vMerge w:val="restart"/>') && xml.includes("<w:vMerge/>"), "the unit's number merged down its two lines");
+  assert.ok(xml.includes('<w:tblInd w:w="158" w:type="dxa"/>'), "the grid 7.9 pt in from the margin");
+  assert.ok(xml.includes('<w:br w:type="page"/>'), "the second page starts a page");
+  assert.ok(xml.includes('<w:top w:val="single" w:sz="12"'), "the frame is a point and a half");
+});
+
+test("F/HR/18 names its own page: A4 portrait with the paper's margins; other documents name none", () => {
+  assert.equal(paperPageOf("fly-catcher"), "portrait");
+  assert.deepEqual(paperMarginsOf("fly-catcher"), { top: 18, right: 27.4, bottom: 18, left: 28.7 });
+  assert.equal(paperPageOf("hr-daily-cleaning"), undefined);
+  assert.equal(paperMarginsOf("service-report-rodent"), undefined);
+});

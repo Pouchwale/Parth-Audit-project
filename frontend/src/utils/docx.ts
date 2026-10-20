@@ -32,8 +32,32 @@ export interface DocxRun {
 
 export type DocxCell = string | DocxRun[];
 
+/** A cell of a table drawn as the company's own Word page (type "paper"): its words, how they are set, and its four edges. */
+export interface DocxPaperCell {
+  text: DocxCell;
+  /** Columns it spans (w:gridSpan). */
+  colSpan?: number;
+  /** The first cell of a vertical merge ("restart") or one it covers ("continue"). */
+  vMerge?: "restart" | "continue";
+  /** Half-points, as Word writes them (20 = 10 pt). */
+  size: number;
+  bold: boolean;
+  align: "left" | "center" | "right";
+  valign: "top" | "center";
+  underline?: boolean;
+  /** A face other than the document's (the page number of F/HR/18 is Times New Roman). */
+  font?: string;
+  /** left, right, top, bottom in eighths of a point (0 none; 4 is half a point, 12 a point and a half). */
+  borders: [number, number, number, number];
+}
+
 export type DocxBlock =
   | { type: "paragraph"; text: string; bold?: boolean; size?: number; center?: boolean; parts?: DocxRun[] }
+  /**
+   * A table laid in points, as the company's Word original draws it: fixed column widths, row heights, merged cells, a face
+   * and size to each cell, edges to each cell. `indent` is its distance from the margin, `pageBreakBefore` starts a page.
+   */
+  | { type: "paper"; widths: number[]; rows: { height?: number; cells: DocxPaperCell[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number }
   | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true };
 
 /** What a document carries besides its body. */
@@ -44,6 +68,8 @@ export interface DocxExtras {
   customProperties?: [name: string, value: string][];
   /** The paper's own orientation (LogSheetLayout.paper, REQUIREMENTS §117); without it the widest grid decides. */
   paper?: "portrait" | "landscape";
+  /** The page's margins in points, where the paper's are not the default 12.7 mm (F/HR/18: 18 pt above, 28.7 pt at the left). */
+  margins?: { top: number; right: number; bottom: number; left: number };
 }
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -120,6 +146,44 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
   );
 }
 
+function paperTable(controls: Controls, block: Extract<DocxBlock, { type: "paper" }>): string {
+  const tw = (pt: number) => Math.round(pt * 20);
+  const total = block.widths.reduce((a, b) => a + b, 0);
+  const edge = (side: string, eighths: number) => (eighths > 0 ? `<w:${side} w:val="single" w:sz="${eighths}" w:space="0" w:color="000000"/>` : `<w:${side} w:val="nil"/>`);
+  const grid = block.widths.map((w) => `<w:gridCol w:w="${tw(w)}"/>`).join("");
+  const rows = block.rows
+    .map((row) => {
+      let at = 0;
+      const cells = row.cells
+        .map((c) => {
+          const span = c.colSpan ?? 1;
+          const width = block.widths.slice(at, at + span).reduce((a, b) => a + b, 0);
+          at += span;
+          const [l, r, t, b] = c.borders;
+          const rPr =
+            `${c.font ? `<w:rFonts w:ascii="${c.font}" w:hAnsi="${c.font}" w:cs="${c.font}"/>` : ""}${c.bold ? "<w:b/>" : ""}` +
+            `<w:sz w:val="${c.size}"/><w:szCs w:val="${c.size}"/>${c.underline ? '<w:u w:val="single"/>' : ""}`;
+          const tcPr =
+            `<w:tcPr><w:tcW w:w="${tw(width)}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ""}` +
+            `${c.vMerge === "restart" ? '<w:vMerge w:val="restart"/>' : c.vMerge === "continue" ? "<w:vMerge/>" : ""}` +
+            `<w:tcBorders>${edge("top", t)}${edge("left", l)}${edge("bottom", b)}${edge("right", r)}</w:tcBorders>` +
+            `<w:vAlign w:val="${c.valign}"/></w:tcPr>`;
+          const para = `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="${c.align}"/></w:pPr>${controls.cell(c.text, rPr)}</w:p>`;
+          return `<w:tc>${tcPr}${para}</w:tc>`;
+        })
+        .join("");
+      return `<w:tr><w:trPr><w:cantSplit/>${row.height ? `<w:trHeight w:val="${tw(row.height)}" w:hRule="atLeast"/>` : ""}</w:trPr>${cells}</w:tr>`;
+    })
+    .join("");
+  const lead = block.pageBreakBefore ? `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>` : "";
+  return (
+    lead +
+    `<w:tbl><w:tblPr><w:tblW w:w="${tw(total)}" w:type="dxa"/><w:tblInd w:w="${tw(block.indent ?? 0)}" w:type="dxa"/><w:tblLayout w:type="fixed"/>` +
+    `<w:tblCellMar><w:left w:w="108" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${rows}</w:tbl>` +
+    `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="${Math.max(20, tw(block.spaceAfter ?? 1))}" w:lineRule="exact"/></w:pPr></w:p>`
+  );
+}
+
 /** A GUID in braces, as Office writes a data-store item's id. */
 function guid(): string {
   const bytes = new Uint8Array(16);
@@ -143,10 +207,12 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
   const landscape = extras.paper ? extras.paper === "landscape" : widest > 6;
   const fontSize = widest > 12 ? 14 : widest > 8 ? 16 : 18;
   const controls = new Controls();
-  const body = blocks.map((b) => (b.type === "paragraph" ? paragraph(controls, b.text, b) : table(controls, b, fontSize))).join("");
+  const body = blocks.map((b) => (b.type === "paragraph" ? paragraph(controls, b.text, b) : b.type === "paper" ? paperTable(controls, b) : table(controls, b, fontSize))).join("");
   // A4, 12.7 mm margins; landscape swaps the sides.
   const [w, h] = landscape ? [16838, 11906] : [11906, 16838];
-  const section = `<w:sectPr><w:pgSz w:w="${w}" w:h="${h}"${landscape ? ' w:orient="landscape"' : ""}/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr>`;
+  const mm = extras.margins;
+  const margin = mm ? { top: Math.round(mm.top * 20), right: Math.round(mm.right * 20), bottom: Math.round(mm.bottom * 20), left: Math.round(mm.left * 20) } : { top: 720, right: 720, bottom: 720, left: 720 };
+  const section = `<w:sectPr><w:pgSz w:w="${w}" w:h="${h}"${landscape ? ' w:orient="landscape"' : ""}/><w:pgMar w:top="${margin.top}" w:right="${margin.right}" w:bottom="${margin.bottom}" w:left="${margin.left}" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr>`;
   const declaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   const props = extras.customProperties?.length ? extras.customProperties : null;
   const custom = extras.customXml ?? null;

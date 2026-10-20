@@ -145,6 +145,8 @@ with sync_playwright() as p:
     # the second draft below).
     rid = "rec-legacy-rodent-draft"
     untouched = "rec-legacy-rodent-untouched"
+    # The master data is in the browser's store once the app has started: on a busy computer 1.2 s is not always enough.
+    page.wait_for_function("() => !!localStorage.getItem('dcrs:v1:master')", timeout=30000)
     page.evaluate(
         """([rid, untouched, today]) => {
           const master = JSON.parse(localStorage.getItem('dcrs:v1:master'));
