@@ -3802,6 +3802,10 @@ table.svc-paper {
    is cut its own way ("F-QC-21- Flexo INk.pdf"): one hairline frame 15.58 mm from the left and 4.76 mm from the top, 180.44 mm
    wide, the band and the foot inside it, the tables from edge to edge of the frame, the grid's headings on white, Calibri
    10.56 and 9.48 pt, the foot's empty Page cell, the address in Tahoma bold and the system line under the frame. */
+/* its face on the screen too, so its narrower first column holds its words (Product Description, Date of Inspection) */
+@media print, (min-width: 760px) {
+  .paper-sheet[data-frame][data-sheet="qc-flexo-ink"] { --pf-fs: calc(10.56 * var(--pt)); }
+}
 @media print {
   [data-print-doc]:has(.paper-sheet[data-sheet="qc-flexo-ink"]) { padding: calc(4.76 * var(--u)) 0 0 calc(15.58 * var(--u)); }
   .paper-sheet[data-frame][data-sheet="qc-flexo-ink"] {
