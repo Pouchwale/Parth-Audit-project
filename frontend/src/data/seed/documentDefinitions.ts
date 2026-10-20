@@ -1645,7 +1645,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     id: "qc-ruler-verification",
     kind: "log-sheet",
     section: "Calibration",
-    name: "Measuring Scale (Ruler) Internal Verification Record",
+    // The name says which scale's page it is (the owner sent a second, the 300 mm scale's, on 17-Oct-2026, REQUIREMENTS
+    // §117); the sheet's own title stays the paper's (layout.paperTitle).
+    name: "Measuring Scale (Ruler) Internal Verification Record — 600 mm",
     formatNo: "F/QC/17",
     revisionNo: "00",
     revisionDate: "2021-12-01",
@@ -1657,6 +1659,26 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
       "A measuring scale (ruler) verified against the master scale (Kristeen, QC-44, 0 - 600 mm): the master's and the ruler's details and calibration dates, then the ruler read at 50, 100, 150, 200, 250 and 290 mm, each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
     sourceFile:
       "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf (the page of 24.09.2024, as supplied 14-Oct-2026); the company's own original is Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    schedule: { type: "as-required" },
+  },
+  // F/QC/17's second page, the 300 mm scale's (REQUIREMENTS §117, the owner, 17-Oct-2026): the same format and the same
+  // layout (qcRulerVerificationLayouts.ts builds both), its own records.
+  {
+    id: "qc-ruler-verification-300",
+    kind: "log-sheet",
+    section: "Calibration",
+    name: "Measuring Scale (Ruler) Internal Verification Record — 300 mm",
+    formatNo: "F/QC/17",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Quality Control",
+    module: "Quality Control — Inspection Records",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The 300 mm measuring scale (Ajanta, GP-3/MS/42, 0-300 mm) verified against the master scale (Kristeen, QC-44, 0 - 600 mm): the master's and the scale's details and calibration dates, then the scale read at 50, 100, 150, 200, 250 and 290 mm, each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
+    sourceFile:
+      "Copy of F-QC-17-Updated Scale (Ruler) internal verification record-300.pdf (the page of 24.09.2024 for the 300 mm scale, as supplied 17-Oct-2026)",
     schedule: { type: "as-required" },
   },
   {

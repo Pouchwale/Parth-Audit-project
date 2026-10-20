@@ -312,6 +312,7 @@ export const SEED_MASTER_DATA: MasterData = {
     "qc-temperature-humidity": "QC Tester",
     "qc-temperature-sleeve": "QC Tester",
     "qc-ruler-verification": "Internal Calibration",
+    "qc-ruler-verification-300": "Internal Calibration",
     "qc-analysis-report": "QA Inspector",
     "qc-utility-test-report": "QA Inspector",
     "qc-minutes-of-meetings": "QA",

@@ -131,7 +131,8 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "qc-test-reliability-sleeve": "QC", // F-QC-14, its Sleeve sheet
   "qc-temperature-humidity": "QC", // F-QC-40.A
   "qc-temperature-sleeve": "QC", // F-QC-40.B
-  "qc-ruler-verification": "QC", // F/QC/17
+  "qc-ruler-verification": "QC", // F/QC/17, the 600 mm scale
+  "qc-ruler-verification-300": "QC", // F/QC/17, the 300 mm scale
   "qc-analysis-report": "QC", // F/QC/29
   "qc-utility-test-report": "QC", // F/QC/29 (on the MOM format)
   "qc-minutes-of-meetings": "QC", // F/QC/30
