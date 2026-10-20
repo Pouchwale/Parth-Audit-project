@@ -3112,7 +3112,7 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .paper-sheet[data-paper-form] [data-pf] .field > .input,
   .paper-sheet[data-paper-form] [data-pf] .field > select.input {
     display: block; box-sizing: border-box; width: 100%; min-width: 0; height: auto; min-height: 0; margin: 0; padding: 0; text-indent: var(--pf-pad);
-    border: 0; border-right: var(--pf-bd) !important; border-bottom: var(--pf-bd) !important; border-radius: 0; background: transparent; box-shadow: none;
+    border: 0; border-radius: 0; background: transparent; box-shadow: inset calc(-1 * var(--b1)) calc(-1 * var(--b1)) 0 0 #000;
     font-family: var(--pf-font); font-size: var(--pf-fs); line-height: calc(5.46 * var(--u)); color: #000;
   }
   .paper-sheet[data-paper-form] [data-pf] .field > .input:focus { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
@@ -3209,7 +3209,7 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .doc-header-lc .lc-machine { display: flex; align-items: center; box-sizing: border-box; height: calc(100% + var(--b1)); margin-top: calc(-1 * var(--b1)); padding: calc(0.5 * var(--u)) calc(1.2 * var(--u)) 0; border-top: var(--pf-hv); }
   .doc-header-lc .lc-machine .field { display: flex; flex-direction: row; align-items: baseline; gap: calc(1 * var(--u)); width: 100%; }
   .doc-header-lc .lc-machine .field > label { margin: 0; font-size: calc(8.5 * var(--pt)); font-weight: 700; line-height: 1.2; color: #000; white-space: nowrap; text-transform: none; letter-spacing: 0; }
-  .doc-header-lc .lc-machine .field > .input { flex: 1 1 auto; min-width: 0; width: auto; height: auto; min-height: 0; padding: 0; border: 0; border-bottom: var(--pf-bd) !important; border-radius: 0; background: transparent; box-shadow: none; font-family: var(--pf-font); font-size: calc(8.5 * var(--pt)); line-height: 1.2; color: #000; }
+  .doc-header-lc .lc-machine .field > .input { flex: 1 1 auto; min-width: 0; width: auto; height: auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: inset 0 calc(-1 * var(--b1)) 0 0 #000; font-family: var(--pf-font); font-size: calc(8.5 * var(--pt)); line-height: 1.2; color: #000; }
   .doc-header-lc .lc-meta { display: grid; grid-template-columns: var(--lc-meta); box-sizing: border-box; height: calc(7.07 * var(--u)); border-left: var(--pf-hv); border-right: var(--pf-hv); border-bottom: var(--pf-hv); font-size: calc(8.5 * var(--pt)); font-weight: 700; color: #000; }
   .doc-header-lc .lc-meta > div { display: flex; align-items: center; justify-content: center; box-sizing: border-box; white-space: pre; }
   .doc-header-lc .lc-meta > div:not(:last-child) { border-right: var(--pf-hv); }
