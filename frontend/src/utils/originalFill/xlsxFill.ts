@@ -494,6 +494,8 @@ interface GridPlace {
   /** The first row after the grid (its foot), or undefined when the grid runs to the sheet's end. */
   next?: number;
   fixedGrid: boolean;
+  /** A grid holding no value of the record: its paper's grid kept as it is ("keep"), or only cleared of the example ("blank"). */
+  unbound?: "keep" | "blank";
 }
 
 export interface XlsxFillOptions {
@@ -581,6 +583,8 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
   const dcrsRevDate = bandValue(model, "revDate");
   const dcrsPage = bandValue(model, "page");
   const textEdits: { r: number; c: number; text: string }[] = [];
+  // The band's rows: those carrying the format's number or a "Format no." label and the lines next to them (a revision history's heading row further down is not one).
+  const bandRows = new Set(all1.filter((m) => FORMAT_NO_RE.test(m.text) || /format\s*no/i.test(m.text)).flatMap((m) => [m.r - 1, m.r, m.r + 1]));
   const blanks: { r: number; c: number }[] = [];
   for (const m of all1) {
     if (taken.has(key(m.r, m.c))) continue;
@@ -592,7 +596,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
       text = replaceFormat(text, ownNumber, dcrsFormat, dcrsRev, dcrsRevDate);
     }
     // A band cell by its label: "Rev. no. - 00", "Effective date : 16.02.2022", "Page No. : 1 Of 1", "Date: ...".
-    if (m.r < firstHeading) {
+    if (m.r < firstHeading && bandRows.has(m.r)) {
       const band = bandEdit(text, { formatNo: dcrsFormat, revNo: dcrsRev, revDate: dcrsRevDate, page: dcrsPage });
       if (band === null) {
         blanks.push({ r: m.r, c: m.c });
@@ -654,6 +658,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
 
   // ---- clear what the owner wrote as an example (REQUIREMENTS §98): the grid bodies, the boxes' values
   for (const place of places) {
+    if (place.unbound === "keep") continue;
     const cols = Array.from(new Set(place.colOf.values())).sort((a, b) => a - b);
     const boundCols = new Set<number>();
     place.grid.rows.slice(place.grid.headerRows).forEach((row) => row.forEach((cell, ci) => isBound(cell) && place.colOf.has(ci) && boundCols.add(place.colOf.get(ci)!)));
@@ -978,13 +983,14 @@ function placeGrid(
   const stopWords = new Set<string>([...labels]);
   for (const t of model.texts) stopWords.add(norm(t));
   for (const g of model.grids) if (g !== grid) for (const h of headingTexts(g)) if (h) stopWords.add(norm(h));
-  const own = new Set(heads.map(norm));
+  const own = new Set([...heads.map(norm), ...printedWords(grid)]);
   const body: number[] = [];
   const lastRow = sheet.maxRow();
   const fixedLines = grid.rows.slice(grid.headerRows).filter((row) => fixedKey(row) !== null).length;
   for (let r = start; r <= lastRow + 1 && body.length < 4000; r++) {
     const texts = cols.map((c) => (sheet.covered(r, c) ? "" : sheet.text(r, c)));
-    const rowWords = sheet.rowTexts(r);
+    // Only the grid's own columns: a table beside it (F/SYS/07's rating legend) is not its foot.
+    const rowWords = cols.length ? Array.from({ length: cols[cols.length - 1] - cols[0] + 1 }, (_, k) => cols[0] + k).filter((c) => !sheet.covered(r, c)).map((c) => sheet.text(r, c)).filter(Boolean) : sheet.rowTexts(r);
     // A row of the paper's foot: a label DCRS prints outside this grid, or the words a foot starts with.
     const stop =
       rowWords.some((t) => {
@@ -1029,6 +1035,8 @@ function placeGrid(
     if (f < free.length) rowOf.set(i, free[f++]);
     else extra.push(i);
   });
+  const unbound = unboundGrid(lines, body.flatMap((r) => cols.map((c) => sheet.text(r, c))));
+  if (unbound) return { grid, gridNo, headingRow: bestRow, colOf, body, rowOf: new Map(), extra: [], next: next <= lastRow ? next : undefined, fixedGrid: false, unbound };
   return { grid, gridNo, headingRow: bestRow, colOf, body, rowOf, extra, next: next <= lastRow ? next : undefined, fixedGrid: fixedLines > 0 };
 }
 
@@ -1041,6 +1049,20 @@ function printedWords(grid: ModelGrid): Set<string> {
       if (!isBound(c) && t && !/^[\d.\s]+$/.test(t)) out.add(norm(t));
     }
   return out;
+}
+
+/**
+ * A grid of the page that holds no value of the record (a fixed list, or "No findings added." on a register with no line yet):
+ * "keep" when its lines are the paper's own lines (F/SYS/07's audit scopes, printed on the paper too) - the paper's grid is
+ * left as it is; "blank" otherwise - the paper's body is cleared of the owner's example and nothing is written.
+ */
+function unboundGrid(lines: Cell[][], paperTexts: string[]): "keep" | "blank" | null {
+  if (lines.some((row) => row.some(isBound))) return null;
+  const keys = lines.map((row) => row.map((c) => c.text.trim()).filter((t) => t && !/^[\d.\s]+$/.test(t)).sort((a, b) => b.length - a.length)[0]).filter((t): t is string => !!t);
+  if (keys.length === 0) return "blank";
+  const paper = new Set(paperTexts.map(norm).filter(Boolean));
+  const found = keys.filter((k) => paper.has(norm(k))).length;
+  return found / keys.length >= 0.6 ? "keep" : "blank";
 }
 
 /** A line's fixed words: its longest cell that holds no bound value and is not only a number ("SIZE (mm)"), with its column. */

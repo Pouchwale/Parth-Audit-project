@@ -546,7 +546,12 @@ Seven scripts live in `tests/`:
   files in that pass would not open in Word or Excel (three Word files of Word 2003's compatibility mode with a table caption, and
   F/SYS/01 with shared formulas): fixed (a hidden bookmark marks the grid, shared formulas are written out), the four filled again
   open and export (F/HR/13 92, F/QC/20 printing aids 87, F/SYS/01 79, F/HR/06 28 with its 20 added rows), and
-  `originalFill.test.ts` gained the bookmark's read-back (10 tests). The browser suites `e2e_downloads_and_print` and
+  `originalFill.test.ts` gained the bookmark's read-back (10 tests). Three more fixes from the pictures, the files filled again and
+  judged: a grid holding no value of the record keeps the paper's grid when its lines are the paper's own (F/SYS/07's audit
+  scopes) and only clears the example otherwise; a grid's foot is looked for in its own columns only (F/SYS/07's rating legend
+  beside it had cut its body to ten rows: 36 rows were added, now 2); a band cell is one on the format number's line or next to
+  it (F/MNT/09's revision-history heading had taken the revision's date) and a line the grid prints itself is never its foot
+  (F/MNT/09's CHECKED BY and VERIFIED BY lines): F/MNT/09 now scores 99, two pages as the paper. The browser suites `e2e_downloads_and_print` and
   `e2e_upload_changes` were changed but not run: another worktree's run held port 8842 through this branch's time box.
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable

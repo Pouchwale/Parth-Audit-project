@@ -447,7 +447,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     for (const row of t.rows)
       for (const c of row.cells) {
         if (usedCells.has(c.tc)) continue;
-        for (const p of kids(c.tc, "p")) if (!usedParas.has(p)) fixWords(p, t.index < firstGridTable && isBandRow(row));
+        for (const p of kids(c.tc, "p")) if (!usedParas.has(p)) fixWords(p, t.index < firstGridTable && isBandRow(row) && row.cells.some((x) => FORMAT_NO_RE.test(cellText(x)) || /format\s*no/i.test(cellText(x))));
       }
   }
   for (const p of paragraphs) if (!usedParas.has(p)) fixWords(p, false);
@@ -484,6 +484,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
 
   // ---- clear the owner's example entries (REQUIREMENTS §98), then write
   for (const place of gridPlaces) {
+    if (place.unbound === "keep") continue;
     const boundCols = new Set<number>();
     place.grid.rows.slice(place.grid.headerRows).forEach((row) => row.forEach((cell, ci) => isBound(cell) && place.colOf.has(ci) && boundCols.add(place.colOf.get(ci)!)));
     const placedRows = new Set(Array.from(place.rowOf.values()));
@@ -725,6 +726,8 @@ interface GridPlaceW {
   rowOf: Map<number, TRow>;
   extra: number[];
   fixedGrid: boolean;
+  /** A grid holding no value of the record: its paper's grid kept as it is ("keep"), or only cleared of the example ("blank"). */
+  unbound?: "keep" | "blank";
 }
 
 function headingTexts(grid: ModelGrid): string[] {
@@ -749,6 +752,20 @@ export function printedWords(grid: ModelGrid): Set<string> {
       if (!isBound(c) && t && !/^[\d.\s]+$/.test(t)) out.add(norm(t));
     }
   return out;
+}
+
+/**
+ * A grid of the page that holds no value of the record (a fixed list, or "No findings added." on a register with no line yet):
+ * "keep" when its lines are the paper's own lines (F/SYS/07's audit scopes, printed on the paper too) - the paper's grid is
+ * left as it is; "blank" otherwise - the paper's body is cleared of the owner's example and nothing is written.
+ */
+function unboundGrid(lines: Cell[][], paperTexts: string[]): "keep" | "blank" | null {
+  if (lines.some((row) => row.some(isBound))) return null;
+  const keys = lines.map((row) => row.map((c) => c.text.trim()).filter((t) => t && !/^[\d.\s]+$/.test(t)).sort((a, b) => b.length - a.length)[0]).filter((t): t is string => !!t);
+  if (keys.length === 0) return "blank";
+  const paper = new Set(paperTexts.map(norm).filter(Boolean));
+  const found = keys.filter((k) => paper.has(norm(k))).length;
+  return found / keys.length >= 0.6 ? "keep" : "blank";
 }
 
 function fixedKey(row: Cell[]): { col: number; text: string } | null {
@@ -834,7 +851,7 @@ function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Se
   // The body: the rows under the heading, to the table's end or a foot row.
   const stopWords = new Set<string>([...labels]);
   for (const t of model.texts) stopWords.add(norm(t));
-  const own = new Set(heads.map(norm));
+  const own = new Set([...heads.map(norm), ...printedWords(grid)]);
   const body: TRow[] = [];
   for (const row of table.rows.slice(ri + 1)) {
     const words = row.cells.map(cellText);
@@ -887,6 +904,8 @@ function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Se
     else extra.push(i);
   });
   const headRows = upper && headingTextsMatch(upper, heads) ? [upper, headRow] : [headRow];
+  const unbound = unboundGrid(lines, body.flatMap((r) => r.cells.map(cellText)));
+  if (unbound) return { grid, gridNo, table, headRows, colOf, body, rowOf: new Map(), extra: [], fixedGrid: false, unbound };
   return { grid, gridNo, table, headRows, colOf, body, rowOf, extra, fixedGrid: fixedLines > 0 };
 }
 
