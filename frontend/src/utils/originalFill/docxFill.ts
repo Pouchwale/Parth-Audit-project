@@ -511,7 +511,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       continue;
     }
     const example = Object.entries(hints.exampleOf ?? {}).find(([, l]) => same(l, field.label))?.[0];
-    const at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas);
+    const at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas) ?? choiceCellsAnywhere(field, tables, usedCells);
     if (!at) {
       const order = field.order ?? -1;
       const grid = gridAnchors.filter((g) => g.order < order).sort((a, b) => b.order - a.order)[0];
@@ -617,7 +617,19 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     if (f.kind === "cell" && clearCell(f.cell)) report.cleared++;
   }
 
-  for (const f of fieldAts) {
+  // Two choices on one line (F/SYS/11's "Actions Found ... CPAR ..."): the right one marked first, the left one's places kept.
+  const choiceSlots = fieldAts.map((f, i) => (f.kind === "choiceText" ? i : -1)).filter((i) => i >= 0);
+  const firstOnLine = new Map<XmlElement, number>();
+  for (const i of choiceSlots) {
+    const f = fieldAts[i] as Extract<FieldAt, { kind: "choiceText" }>;
+    if (!firstOnLine.has(f.p)) firstOnLine.set(f.p, i);
+  }
+  const choicesInOrder = choiceSlots
+    .map((i) => fieldAts[i] as Extract<FieldAt, { kind: "choiceText" }>)
+    .sort((a, b) => firstOnLine.get(a.p)! - firstOnLine.get(b.p)! || b.at - a.at);
+  const writeOrder = [...fieldAts];
+  choiceSlots.forEach((slot, k) => (writeOrder[slot] = choicesInOrder[k]));
+  for (const f of writeOrder) {
     if (f.kind === "cell") writeCell(f.cell, f.field.cell, controls, f.field.label);
     else if (f.kind === "choiceCells") {
       // The chosen word marked and bound, the others boxed (LOT STATUS | ACCEPTED | REJECT ... ); none: the value after the label.
@@ -1213,6 +1225,23 @@ let paraSiblings = new Map<XmlElement, XmlElement[]>();
 /** The own words of DCRS's grouped labels ("Non-Technical" of "NO. OF EMPLOYEES - Non-Technical"): a line's next box starts there. */
 let labelSubs = new Set<string>();
 
+/**
+ * A choice whose own words the paper prints one to a cell, every one of them, with no label (F/SYS/10 and 11's
+ * "Non-Conformance | Observation"): marked there. Looked for last, after the page header.
+ */
+function choiceCellsAnywhere(field: ModelField, tables: Table[], usedCells: Set<XmlElement>): { kind: "choiceCells"; field: ModelField; label: TCell; options: { cell: TCell; text: string }[] } | null {
+  const choice = choiceWords(field.cell);
+  if (choice.length < 2) return null;
+  for (const t of tables)
+    for (const row of t.rows) {
+      const options = row.cells.filter((o) => !o.cont && !usedCells.has(o.tc) && choice.some((w) => same(w, cellText(o).replace(MARKS_RE, "").trim())));
+      if (options.length !== choice.length) continue;
+      for (const o of options) usedCells.add(o.tc);
+      return { kind: "choiceCells", field, label: options[0], options: options.map((o) => ({ cell: o, text: cellText(o).replace(MARKS_RE, "").trim() })) };
+    }
+  return null;
+}
+
 /** The header parts the document's sections show. */
 function shownHeaders(pkg: Pkg, docPart: string, body: XmlElement): XmlElement[] {
   const rels = pkg.relsOf(docPart).tree;
@@ -1317,9 +1346,14 @@ function placeFieldW(field: ModelField, tables: Table[], paragraphs: XmlElement[
       while (at < text.length && /[:\-–—=.)\]]/.test(text[at])) at++;
       const occurrences = choiceOccurrences(p, at, choice);
       if (occurrences.length < 2) continue;
+      // Only the label's and the choice's own words are taken: a second box on the same line is still found (F/SYS/11's CPAR).
       spans.push({ from: hit.from, to: at });
       lineSpans.set(p, spans);
-      for (const o of occurrences) usedParas.add(o.p);
+      for (const o of occurrences) {
+        const own = lineSpans.get(o.p) ?? [];
+        own.push({ from: o.from, to: o.to });
+        lineSpans.set(o.p, own);
+      }
       return { kind: "choiceText", field, p, at, occurrences };
     }
   }
@@ -1551,10 +1585,17 @@ function markChoiceCells(options: TCell[], cell: Cell, controls: Controls, label
     const p = kids(o.tc, "p").find((x) => paraText(x).trim()) ?? kids(o.tc, "p")[0];
     if (!p) continue;
     const rPr = firstRunProps(p);
-    if (o === chosen) {
+    // The paper's own box before the word (a symbol, a check box, a drawn square, F/SYS/11's): kept, never a second one added.
+    const ownBox = all(o.tc, "sym").length + all(o.tc, "checkBox").length + all(o.tc, "drawing").length + all(o.tc, "pict").length > 0;
+    const text = paraText(p);
+    const from = text.length - text.replace(/^\s+/, "").length;
+    if (o === chosen && ownBox) {
+      replaceRange(p, from, text.length, "");
+      insertAt(p, from, [runOf(TICK, rPr), ...controls.runs(cell, rPr, label)]);
+    } else if (o === chosen) {
       emptyParagraph(p);
       p.children.push(runOf(CHECKED, rPr), ...controls.runs(cell, rPr, label));
-    } else insertAt(p, paraText(p).length - paraText(p).replace(/^\s+/, "").length, [runOf(UNCHECKED, rPr)]);
+    } else if (!ownBox) insertAt(p, from, [runOf(UNCHECKED, rPr)]);
   }
   if (!chosen) {
     const p = kids(none.tc, "p").find((x) => paraText(x).trim()) ?? kids(none.tc, "p")[0];

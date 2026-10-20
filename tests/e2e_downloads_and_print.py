@@ -203,9 +203,14 @@ with sync_playwright() as p:
 
     goto(page, "#/hr/training-calendar")
     fmt, suggested, path = download(page, "training-calendar")
-    rows, sheet_xml, _ = workbook(path)
-    widest = max(len(r) for r in rows.values())
-    check("F/HR/09's 29-column training calendar downloads as a workbook with every column", fmt == "xlsx" and widest >= 29 and any("Mar-27 — Actual" in t for t in all_text(rows)), widest)
+    rows, sheet_xml, book_xml = workbook(path)
+    texts = all_text(rows)
+    # The owner's own workbook (REQUIREMENTS section 119, round 2): his calendar writes each topic on two rows, Plan and Actual
+    # (his column G says which), under one column per month; DCRS's Plan and Actual columns of a month go to their own rows.
+    check("F/HR/09's training calendar downloads as the owner's own workbook: each topic on its Plan and Actual rows under his months",
+          fmt == "xlsx" and 'name="_dcrs"' in book_xml and any(t.startswith("Training Plan Calender") for t in texts)
+          and sum(1 for t in texts if t.strip() == "Plan") >= 19 and sum(1 for t in texts if t.strip() == "Actual") >= 19 and any("BRCGS" in t for t in texts),
+          (suggested, texts[:16]))
 
     goto(page, "#/gap/gap-2023-12-13")
     fmt, suggested, path = download(page, "gap")

@@ -26,6 +26,15 @@ export const FILL_HINTS: Record<string, FillHints> = {
       "Response from Customer": ["Telephonic conversation"],
     },
   },
+  // F/SYS/11: DCRS joins the note printed above the root cause's box to its label; the paper's box is headed by the label alone.
+  "sys-nc-car": {
+    labelAs: { "Note : The following Root Cause Analysis shall be done by the Auditee for the Detected Non-Conformance only. ROOT CAUSE(S) (Carryout a Root Cause Analysis in terms of WHY attributing to as follows,": "ROOT CAUSE(S) (Carryout a Root Cause Analysis in terms of WHY attributing to as follows," },
+  },
+  // F/SYS/10: DCRS keeps one "correction & corrective action" box; the paper prints CORRECTION ACTION and CORRECTIVE ACTION
+  // side by side - the value goes under CORRECTIVE ACTION.
+  "sys-audit-nc": {
+    labelAs: { "CORRECTION & CORRECTIVE ACTION (Action Taken to Prevent Recurrence) (Mention in detail the actions taken to prevent the recurrence of this detected problem based on the Root Cause Analysis carried out above. Please mention here only those actions which have been taken and found effective after implementing": "CORRECTIVE ACTION" },
+  },
   // F/PUR/01: DCRS joins each heading to the note printed under it ("... OFFERED (Please attach a separate sheet if
   // required)"); the paper's place for the answer is under its heading.
   "pur-supplier-registration": {

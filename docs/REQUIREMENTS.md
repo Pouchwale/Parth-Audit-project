@@ -8950,7 +8950,7 @@ paper cannot tell:
   paragraph's changed words are replaced (F/DISP/01's bold company name before plain words stays as it was); a title the paper
   prints already, word for word, is never set over another line; each grid of the page takes its own table (F/MKT/05's five
   sections); a value of a grid column the paper does not print goes into the line's remarks cell as "Heading: value" (F/MKT/05's
-  Done); a box the paper prints in its page header is filled there ("[ Vehicle number: ]", F/DISP/04), and the upload's reader
+  Done); a choice the paper prints as its own words one to a cell, with no label, is marked there (F/SYS/11's "Non-Conformance | Observation"), the paper's own box beside a word is never doubled, and two choices on one line are marked each on its own words (F/SYS/11's "Actions Found ... CPAR ..."); a box the paper prints in its page header is filled there ("[ Vehicle number: ]", F/DISP/04), and the upload's reader
   (engine/roundTrip/readFile.ts) reads the controls of the headers and footers the document shows, after the body's.
 - *Workbooks*: merged cells of the owner's example inside a grid are split where DCRS writes two values into them (F/HR/08's two
   people sharing one Designation, F/SYS/02's three columns joined: round 1's "lost on read-back"); a note printed across the grid
