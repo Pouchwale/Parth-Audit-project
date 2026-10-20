@@ -10,7 +10,8 @@ export function norm(s: string): string {
   return (s ?? "")
     .normalize("NFKC")
     .toLowerCase()
-    .replace(/[\u2018\u2019\u201c\u201d]/g, "")
+    // Quotes and apostrophes, curly or straight, are no word break: "Trainee's Name" and the paper's "Trainee\u2019s Name" match.
+    .replace(/[\u2018\u2019\u201c\u201d'"`]/g, "")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }

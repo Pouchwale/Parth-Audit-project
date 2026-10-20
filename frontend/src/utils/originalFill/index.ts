@@ -27,6 +27,45 @@ export { originalFileOf } from "../../data/seed/originalFiles";
  */
 export const HAND_DRAWN = new Set(["service-report-rodent", "service-report-general", "service-report-fly", "hr-daily-cleaning", "hr-monthly-cleaning", "fly-catcher"]);
 
+/**
+ * Documents whose own file the filler can now fill but that are not yet verified against their paper by the originals check
+ * (tests/originals_check), or whose Word or Excel original is not the document DCRS keeps (REQUIREMENTS §119 round 2): they
+ * keep the generic download until each is checked. The QC ones wait for the QC print round 2 (their pages are changing);
+ * F/SYS/04-A's only Word original is the meeting RECORD (F/SYS/04), not the agenda and notification DCRS keeps (its PDF).
+ */
+export const NOT_YET = new Set([
+  "qc-coa-label",
+  "qc-coa-sleeve",
+  "soc-labels",
+  "soc-shrink-sleeves",
+  "soc-flexible-packaging",
+  "qc-test-reliability-label",
+  "qc-test-reliability-sleeve",
+  "qc-ruler-verification",
+  "qc-ruler-verification-300",
+  "qc-flexo-ink",
+  "qc-analysis-report",
+  "qc-utility-test-report",
+  "qc-minutes-of-meetings",
+  "sys-mrm-agenda",
+  "sys-mrm-record",
+  "sys-audit-nc",
+  "sys-nc-car",
+  "sys-mock-recall",
+  "pur-supplier-registration",
+  "disp-vehicle-cleaning",
+  // filled and read back whole offline, waiting for their originals check
+  "sys-format-list",
+  "pur-supplier-audit-report",
+  "pur-supplier-performance",
+  "sys-hara-monthly",
+  "disp-safe-transporter-agreement",
+  "hr-training-calendar",
+  "mnt-equipment-list",
+  "mnt-yearly-pm-schedule",
+  "str-sharp-metal-objects",
+]);
+
 const cache = new Map<string, ArrayBuffer>();
 
 async function template(file: OriginalFile): Promise<ArrayBuffer> {
@@ -69,7 +108,7 @@ export async function fillTemplate(
 /** The document's own file filled with what the page shows, or null where it has no template (or it cannot be filled). */
 export async function originalFileBytes(documentId: string, blocks: ExportBlock[], envelope: RoundTripEnvelope | undefined): Promise<{ bytes: Uint8Array<ArrayBuffer>; kind: "xlsx" | "docx"; report: FillReport } | null> {
   const file = originalFileOf(documentId);
-  if (!file || HAND_DRAWN.has(documentId)) return null;
+  if (!file || HAND_DRAWN.has(documentId) || NOT_YET.has(documentId)) return null;
   const buffer = await template(file);
   const { bytes, report } = await fillTemplate(file, buffer, blocks, envelope, documentId);
   return { bytes, kind: file.kind, report };

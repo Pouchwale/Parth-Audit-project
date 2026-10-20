@@ -36,7 +36,7 @@ import {
 } from "../../engine/roundTrip/exportMap";
 import { Pkg, setCustomProperty } from "./pkg";
 import { el, kid, kids, all, attrOf, clone, type XmlElement } from "./xml";
-import { modelOf, bandValue, labelsOf, type DcrsModel, type ModelField, type ModelGrid } from "./model";
+import { modelOf, bandValue, labelsOf, withPaperWords, type DcrsModel, type ModelField, type ModelGrid } from "./model";
 import { COMPANY_RE, FORMAT_NO_RE, REVISION_AFTER_RE, afterLabel, bandWordOf, dotted, headingPrefix, isBlankish, isSerialHeading, isoOf, norm, same, similarity } from "./text";
 import { emptyReport, type FillHints, type FillReport } from "./types";
 
@@ -496,6 +496,12 @@ interface GridPlace {
   fixedGrid: boolean;
   /** A grid holding no value of the record: its paper's grid kept as it is ("keep"), or only cleared of the example ("blank"). */
   unbound?: "keep" | "blank";
+  /** The paper's note rows between the heading and the lines: never a line. */
+  notes?: number[];
+  /** A line written on several rows (Plan, then Actual): each of DCRS's columns' cell, by line and column. */
+  cellOf?: (line: number, col: number) => { r: number; c: number } | undefined;
+  /** The cells of those rows the owner's example is cleared from. */
+  exampleCells?: { r: number; c: number }[];
 }
 
 export interface XlsxFillOptions {
@@ -532,9 +538,9 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
   // Every shared formula written out in full first, so a cell cleared or written never leaves its neighbours' formulas
   // pointing at a master that is gone (Excel calls such a file damaged).
   unshareFormulas(sheet);
-  const model = modelOf(blocks);
-  const labels = labelsOf(model);
   const hints = opts.hints ?? {};
+  const model = withPaperWords(modelOf(blocks), hints.labelAs);
+  const labels = labelsOf(model);
 
   // Cells taken by something already: a grid's heading or body, a box's label or value.
   const taken = new Set<number>();
@@ -554,7 +560,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
   const places: GridPlace[] = [];
   model.grids.forEach((grid, gridNo) => {
     if (hints.skipGrids?.includes(gridNo)) return;
-    const place = placeGrid(sheet, grid, gridNo, all1, taken, labels, model, hints.headingRow?.[gridNo]);
+    const place = placeGrid(sheet, grid, gridNo, all1, taken, labels, model, hints.headingRow?.[gridNo]) ?? placeTwoRowGrid(sheet, grid, gridNo, all1, taken);
     if (place) places.push(place);
     else if (grid.rows.length > grid.headerRows && grid.headerRows > 0) report.gridsMissed.push(grid.rows[0]?.map((c) => c.text).filter(Boolean).slice(0, 3).join(" | ") ?? "");
   });
@@ -562,15 +568,27 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
 
   // ---- boxes
   const fieldPlaces: FieldPlace[] = [];
+  const outside: ModelField[] = [];
   for (const field of model.fields) {
     if (!isBound(field.cell)) continue;
     if (hints.notOnPaper?.some((l) => same(l, field.label))) {
       report.leftOut.push(field.label);
       continue;
     }
+    // A box the paper has a cell for but no label (hints.ts cellOf).
+    const cellHint = Object.entries(hints.cellOf ?? {}).find(([l]) => same(l, field.label))?.[1];
+    const hinted = cellHint ? /^([A-Z]+)(\d+)$/.exec(cellHint) : null;
+    if (hinted) {
+      const r = Number(hinted[2]);
+      const c = columnIndex(hinted[1]);
+      taken.add(key(r, c));
+      fieldPlaces.push({ field, r, c, pre: "", post: "", mode: "cell" });
+      continue;
+    }
     const at = placeField(sheet, field, all1, taken, labels);
     if (!at) {
-      report.notPlaced.push(field.label || field.cell.text);
+      // No place on the paper: written in its empty space as "Label: value" (below, once the rows are settled).
+      outside.push(field);
       continue;
     }
     fieldPlaces.push(at);
@@ -643,6 +661,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
       if (p === place) continue;
       p.headingRow = down(p.headingRow);
       p.body = p.body.map(down);
+      if (p.notes) p.notes = p.notes.map(down);
       for (const [i, r] of p.rowOf) p.rowOf.set(i, down(r));
       if (p.next !== undefined) p.next = down(p.next);
     }
@@ -656,14 +675,91 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     });
   }
 
+  // ---- a box the paper has no place for (REQUIREMENTS §119 round 2), written where a person filling the paper by hand would:
+  // a box above the grids beside the title, a box after a grid on the free line under it - as "Label: value"
+  const titleAt = model.title ? all1.filter((m) => m.r < firstHeading && (same(m.text, model.title) || norm(m.text).startsWith(norm(model.title)) || similarity(m.text, model.title) > 0.6)).sort((a, b) => similarity(b.text, model.title) - similarity(a.text, model.title))[0] : undefined;
+  let titleUsed = false;
+  for (const field of outside) {
+    const label = (field.shown ?? field.label).replace(/[\s:\-–—=]+$/, "").trim();
+    const after = places.filter((p) => (p.grid.order ?? -1) < (field.order ?? -1)).sort((a, b) => (b.grid.order ?? 0) - (a.grid.order ?? 0))[0];
+    let spot: { r: number; c: number; pre: string; where: string } | null = null;
+    if (!after && titleAt && !titleUsed && !fieldPlaces.some((f) => f.r === titleAt.r && f.c === titleAt.c)) {
+      const edit = textEdits.findIndex((e) => e.r === titleAt.r && e.c === titleAt.c);
+      const title = edit >= 0 ? textEdits[edit].text : titleAt.text;
+      titleUsed = true;
+      // The paper's own brackets in its title for it ("... RECORD ( 01.04.2026 ~ 31.03.2027 )", F/HR/08): the value there.
+      const own = titleAt.text;
+      const bracket = /\(\s*([^()]*\d[^()]*?)\s*\)/.exec(own);
+      if (bracket) {
+        if (edit >= 0) textEdits.splice(edit, 1);
+        taken.add(key(titleAt.r, titleAt.c));
+        fieldPlaces.push({ field, r: titleAt.r, c: titleAt.c, pre: `${own.slice(0, bracket.index)}( `, post: ` )${own.slice(bracket.index + bracket[0].length)}`, mode: "same" });
+        continue;
+      }
+      if (edit >= 0) textEdits.splice(edit, 1);
+      spot = { r: titleAt.r, c: titleAt.c, pre: `${title.replace(/\s+$/, "")}   ${label}: `, where: `beside the title (${columnName(titleAt.c)}${titleAt.r})` };
+    } else {
+      const grid = after ?? places[places.length - 1];
+      const lo = grid ? Math.min(...grid.colOf.values()) : 0;
+      const from = grid ? (grid.body.length ? grid.body[grid.body.length - 1] : grid.headingRow) + 1 : 1;
+      const free = (r: number, c: number) => !sheet.covered(r, c) && !sheet.text(r, c).trim() && !taken.has(key(r, c)) && !fieldPlaces.some((f) => f.r === r && f.c === c);
+      for (let r = from; r <= sheet.maxRow() + 2 && !spot; r++) if ([0, 1, 2].every((k) => free(r, lo + k))) spot = { r, c: lo, pre: `${label}: `, where: `on the free line under the grid (${columnName(lo)}${r})` };
+    }
+    if (!spot) {
+      report.notPlaced.push(field.label || field.cell.text);
+      continue;
+    }
+    taken.add(key(spot.r, spot.c));
+    fieldPlaces.push({ field, r: spot.r, c: spot.c, pre: spot.pre, post: "", mode: "same" });
+    report.outside.push(`${label}: ${spot.where}`);
+  }
+
+  // ---- merged cells of the owner's example inside a grid's body (two of his lines sharing one Designation, three columns
+  // joined for one remark): split, so each of DCRS's lines and columns has a cell of its own and reads back
+  for (const place of places) {
+    if (place.unbound) continue;
+    // The cells DCRS writes a value into: a merge holding two of them would keep only one.
+    const targets: [number, number][] = [];
+    place.grid.rows.slice(place.grid.headerRows).forEach((row, i) => {
+      const r = place.rowOf.get(i);
+      if (r === undefined) return;
+      row.forEach((cell, ci) => {
+        const c = place.colOf.get(ci);
+        if (c !== undefined && isBound(cell)) targets.push([r, c]);
+      });
+    });
+    const mc = kid(root, "mergeCells");
+    if (!mc) continue;
+    const before = mc.children.length;
+    mc.children = mc.children.filter((m) => {
+      if (typeof m === "string" || m.local !== "mergeCell") return true;
+      const g = /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(m.attrs.ref ?? "");
+      if (!g) return true;
+      const r1 = Number(g[2]);
+      const r2 = Number(g[4]);
+      const c1 = columnIndex(g[1]);
+      const c2 = columnIndex(g[3]);
+      return targets.filter(([r, c]) => r >= r1 && r <= r2 && c >= c1 && c <= c2).length < 2;
+    });
+    if (mc.children.length !== before) {
+      mc.attrs.count = String(kids(mc, "mergeCell").length);
+      sheet.index();
+    }
+  }
+
   // ---- clear what the owner wrote as an example (REQUIREMENTS §98): the grid bodies, the boxes' values
   for (const place of places) {
     if (place.unbound === "keep") continue;
+    if (place.exampleCells) {
+      for (const { r, c } of place.exampleCells) if (!sheet.covered(r, c) && sheet.clear(r, c)) report.cleared++;
+      continue;
+    }
     const cols = Array.from(new Set(place.colOf.values())).sort((a, b) => a - b);
     const boundCols = new Set<number>();
     place.grid.rows.slice(place.grid.headerRows).forEach((row) => row.forEach((cell, ci) => isBound(cell) && place.colOf.has(ci) && boundCols.add(place.colOf.get(ci)!)));
     const lo = cols[0] ?? 0;
     const hi = cols[cols.length - 1] ?? 0;
+    const colSet = new Set(cols);
     const printed = printedWords(place.grid);
     for (const r of place.body) {
       for (let c = lo; c <= hi; c++) {
@@ -672,6 +768,8 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
         if (place.fixedGrid && !boundCols.has(c) && !Array.from(place.rowOf.values()).includes(r)) continue;
         // Words the grid's lines print themselves (an entry's second line's heading, a parameter) stay printed.
         if (printed.has(norm(sheet.text(r, c)))) continue;
+        // The paper's own working in a column DCRS keeps nothing in (F/HR/21's "=C5*7"): its formula stays, worked out again.
+        if (!colSet.has(c) && sheet.hasFormula(r, c)) continue;
         if (sheet.clear(r, c)) report.cleared++;
       }
     }
@@ -729,12 +827,14 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
       const a = anchors[i];
       const anchor = a && seen.get(rowSignature([a.text])) === 1 ? a : undefined;
       row.forEach((cell, ci) => {
-        const c = place.colOf.get(ci);
+        const two = place.cellOf?.(i, ci);
+        const c = two ? two.c : place.colOf.get(ci);
         if (c === undefined) {
           for (const p of boundPieces(cell.parts)) report.notPlaced.push(p.bind.label ?? p.bind.path);
           return;
         }
-        const at = sheet.covered(r, c) ? sheet.mergeOf(r, c)! : { r1: r, c1: c };
+        const rr = two ? two.r : r;
+        const at = sheet.covered(rr, c) ? sheet.mergeOf(rr, c)! : { r1: rr, c1: c };
         if (isBound(cell)) writeCell(at.r1, at.c1, cell, "", "", anchor);
         else if (cell.text.trim() && !same(sheet.text(at.r1, at.c1), cell.text)) sheet.write(at.r1, at.c1, cell.text, { plainText: true });
       });
@@ -945,8 +1045,10 @@ function placeGrid(
   const rows = Array.from({ length: depth + 1 }, (_, k) => bestRow - k).filter((x) => x >= 1);
   const colOf = new Map<number, number>();
   const used = new Set<number>();
-  // The deepest headings first (they name the columns), then the ones above.
-  for (const { h, i } of named) {
+  // The deepest headings first (they name the columns), then the ones above; a heading the paper prints in the very same words
+  // before one only like it (F/MNT/01's "Serial No." of a machine, not DCRS's "Sr. No.").
+  const exactly = (h: string) => rows.some((r) => (byRow.get(r) ?? []).some((m) => same(m.text, headingParts(h).full)));
+  for (const { h, i } of [...named].sort((a, b) => Number(exactly(b.h)) - Number(exactly(a.h)))) {
     const hit = matchIn([bestRow], h, used) ?? matchIn(rows, h, used);
     if (hit && !Array.from(colOf.values()).includes(hit.c)) {
       colOf.set(i, hit.c);
@@ -985,6 +1087,7 @@ function placeGrid(
   for (const g of model.grids) if (g !== grid) for (const h of headingTexts(g)) if (h) stopWords.add(norm(h));
   const own = new Set([...heads.map(norm), ...printedWords(grid)]);
   const body: number[] = [];
+  const notes: number[] = [];
   const lastRow = sheet.maxRow();
   const fixedLines = grid.rows.slice(grid.headerRows).filter((row) => fixedKey(row) !== null).length;
   for (let r = start; r <= lastRow + 1 && body.length < 4000; r++) {
@@ -997,7 +1100,15 @@ function placeGrid(
         const n = norm(t);
         return n.length > 2 && stopWords.has(n) && !own.has(n);
       }) || rowWords.some((t) => FOOT_RE.test(t.trim()) && !own.has(norm(t)));
-    if (stop) break;
+    if (stop) {
+      // A note DCRS prints too, written across the grid between its heading and its lines (F/PUR/05's "Enter value based on
+      // above criteria in the following cells"): passed over, not the grid's end.
+      if (body.length === 0 && rowWords.length > 0 && rowWords.every((t) => model.texts.some((x) => same(x, t)))) {
+        notes.push(r);
+        continue;
+      }
+      break;
+    }
     const ruled = cols.some((c) => sheet.ruled(r, c));
     const any = texts.some((t) => t.trim());
     if (!ruled && !any) break;
@@ -1036,8 +1147,119 @@ function placeGrid(
     else extra.push(i);
   });
   const unbound = unboundGrid(lines, body.flatMap((r) => cols.map((c) => sheet.text(r, c))));
-  if (unbound) return { grid, gridNo, headingRow: bestRow, colOf, body, rowOf: new Map(), extra: [], next: next <= lastRow ? next : undefined, fixedGrid: false, unbound };
-  return { grid, gridNo, headingRow: bestRow, colOf, body, rowOf, extra, next: next <= lastRow ? next : undefined, fixedGrid: fixedLines > 0 };
+  if (unbound) return { grid, gridNo, headingRow: bestRow, colOf, body, rowOf: new Map(), extra: [], next: next <= lastRow ? next : undefined, fixedGrid: false, unbound, notes };
+  return { grid, gridNo, headingRow: bestRow, colOf, body, rowOf, extra, next: next <= lastRow ? next : undefined, fixedGrid: fixedLines > 0, notes };
+}
+
+const MONTHS3 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/** A month (and its year, when written) a heading names: "Apr-26", "Jan ", "Mar.", "21-Apr-2026" (a date cell). */
+function monthOf(t: string): { m: number; y?: number } | null {
+  const words = norm(t).split(" ");
+  const m = words.findIndex((w) => MONTHS3.includes(w.slice(0, 3)) && /^[a-z]{3,9}$/.test(w) && (w.length === 3 || w.startsWith(MONTHS3[MONTHS3.indexOf(w.slice(0, 3))])));
+  if (m === -1) return null;
+  const y = words.find((w) => /^\d{2}(\d{2})?$/.test(w) && w !== words[m - 1]);
+  return { m: MONTHS3.indexOf(words[m].slice(0, 3)), ...(y ? { y: Number(y) % 100 } : {}) };
+}
+
+/**
+ * A line the paper writes on two (or more) rows - "Plan", then "Actual", a column of the paper saying which - under one
+ * heading per month (F/HR/09's training calendar, F/MNT/03's yearly PM schedule), where DCRS keeps one line with a Plan and an
+ * Actual column under each month. Each of DCRS's columns goes to the row its word names, under its month; the line's own
+ * columns (its number, machine, frequency) to its first row.
+ */
+function placeTwoRowGrid(sheet: XSheet, grid: ModelGrid, gridNo: number, cells: { r: number; c: number; text: string }[], taken: Set<number>): GridPlace | null {
+  if (grid.headerRows !== 1 && grid.headerRows !== 2) return null;
+  // A heading of two rows, or of one written "Apr-26 — Plan" (headingParts): the month above, the word under it.
+  const split = grid.headerRows === 1 ? (grid.rows[0] ?? []).map((c) => headingParts(c.text)) : null;
+  const top: Cell[] = split ? split.map((h) => ({ text: h.group || h.full })) : (grid.rows[0] ?? []);
+  const sub: Cell[] = split ? split.map((h) => ({ text: h.group ? h.sub : "" })) : (grid.rows[1] ?? []);
+  const width = Math.max(top.length, sub.length);
+  // The words under each month (Plan, Actual): each at least twice.
+  const counts = new Map<string, number>();
+  for (const c of sub) if (c?.text.trim()) counts.set(norm(c.text), (counts.get(norm(c.text)) ?? 0) + 1);
+  const words = [...counts.entries()].filter(([, n]) => n >= 2).map(([w]) => w);
+  if (words.length < 2) return null;
+  // Each DCRS column: under a month (its group, its word) or a column of the line itself (its heading).
+  const groupOf: (string | null)[] = [];
+  let group = "";
+  for (let c = 0; c < width; c++) {
+    const t = (top[c]?.text ?? "").trim();
+    const w = norm(sub[c]?.text ?? "");
+    if (t && words.includes(w)) group = t;
+    else if (t) group = "";
+    groupOf.push(words.includes(w) && group ? group : null);
+  }
+  const free = cells.filter((m) => !taken.has(key(m.r, m.c)));
+  // The paper's heading row: the one naming most of the months.
+  const months = Array.from(new Set(groupOf.filter((g): g is string => !!g)));
+  let best: { r: number; cols: Map<string, number> } | null = null;
+  const rows = Array.from(new Set(free.map((m) => m.r))).sort((a, b) => a - b);
+  for (const r of rows) {
+    const cols = new Map<string, number>();
+    for (const g of months) {
+      const want = monthOf(g);
+      const hit = free.find((m) => m.r === r && !Array.from(cols.values()).includes(m.c) && (same(m.text, g) || (!!want && (() => {
+        const have = monthOf(m.text);
+        return !!have && have.m === want.m && (have.y === undefined || want.y === undefined || have.y === want.y);
+      })())));
+      if (hit) cols.set(g, hit.c);
+    }
+    if (cols.size >= Math.max(3, months.length * 0.75) && (!best || cols.size > best.cols.size)) best = { r, cols };
+  }
+  if (!best) return null;
+  const headingRow = best.r;
+  // The line's own columns, by their headings in the rows about the heading row.
+  const colOf = new Map<number, number>();
+  const used = new Set<number>(best.cols.values());
+  for (let c = 0; c < width; c++) {
+    if (groupOf[c]) continue;
+    const h = ((top[c]?.text ?? "").trim() || (sub[c]?.text ?? "").trim());
+    if (!h) continue;
+    const hit = free.find((m) => m.r >= headingRow - 2 && m.r <= headingRow + 1 && !used.has(m.c) && (same(m.text, h) || (isSerialHeading(h) && isSerialHeading(m.text)) || similarity(m.text, h) >= 0.8));
+    if (hit) {
+      colOf.set(c, hit.c);
+      used.add(hit.c);
+    }
+  }
+  // The column saying which row is which: under the heading row, the words alternating.
+  let wordCol = -1;
+  for (let c = 0; c <= sheet.maxCol() && wordCol === -1; c++) {
+    if (used.has(c)) continue;
+    let seen = 0;
+    for (let r = headingRow + 1; r <= Math.min(sheet.maxRow(), headingRow + 12); r++) if (words.includes(norm(sheet.text(r, c)))) seen++;
+    if (seen >= 4) wordCol = c;
+  }
+  if (wordCol === -1) return null;
+  // The paper's lines: from a row with the first word, its other words on the rows after it.
+  const lineRows: Map<string, number>[] = [];
+  for (let r = headingRow + 1; r <= sheet.maxRow(); r++) {
+    const w = norm(sheet.text(r, wordCol));
+    if (!words.includes(w)) continue;
+    if (w === words[0] || lineRows.length === 0) lineRows.push(new Map([[w, r]]));
+    else if (!lineRows[lineRows.length - 1].has(w)) lineRows[lineRows.length - 1].set(w, r);
+  }
+  const lines = grid.rows.slice(grid.headerRows);
+  if (lineRows.length < lines.length) return null;
+  const first = (i: number) => Math.min(...lineRows[i].values());
+  const rowOf = new Map<number, number>(lines.map((_, i) => [i, first(i)]));
+  const cellOf = (line: number, col: number) => {
+    const g = groupOf[col];
+    if (!g) return colOf.has(col) ? { r: first(line), c: colOf.get(col)! } : undefined;
+    const r = lineRows[line].get(norm(sub[col]?.text ?? ""));
+    const c = best!.cols.get(g);
+    return r !== undefined && c !== undefined ? { r, c } : undefined;
+  };
+  // The owner's example under the months, on the rows of DCRS's lines (the paper's other lines are left as they are).
+  const exampleCells: { r: number; c: number }[] = [];
+  lineRows.slice(0, lines.length).forEach((m) => {
+    for (const r of m.values()) for (const c of best!.cols.values()) exampleCells.push({ r, c });
+  });
+  for (const m of lineRows.slice(0, lines.length)) for (const r of m.values()) for (const c of [...best.cols.values(), ...colOf.values(), wordCol]) taken.add(key(r, c));
+  const body = lineRows.slice(0, lines.length).flatMap((m) => [...m.values()]).sort((a, b) => a - b);
+  const allCols = [...colOf.entries(), ...groupOf.map((g, c) => [c, g ? best!.cols.get(g) : undefined] as [number, number | undefined]).filter((x): x is [number, number] => x[1] !== undefined)];
+  const next = body.length ? body[body.length - 1] + 1 : headingRow + 1;
+  return { grid, gridNo, headingRow, colOf: new Map(allCols), body, rowOf, extra: [], next: next <= sheet.maxRow() ? next : undefined, fixedGrid: true, cellOf, exampleCells };
 }
 
 /** The words a grid's lines print themselves (not a value, not a number): an entry's second line's heading, a parameter. */
@@ -1126,6 +1348,11 @@ function placeField(
       const inside = labelInside(m.text, label);
       if (inside) {
         taken.add(key(m.r, m.c));
+        // The paper's own brackets round its example ("SURVEY  (JANUARY 2026)", "Calender (01.04.2026 ~ 31.03.2027) (Rev. 00
+        // / 07.03.2022)"): the value inside them, the words after them kept.
+        const open = /^\s*\(/.exec(inside.rest);
+        const close = open ? inside.rest.indexOf(")") : -1;
+        if (open && close > 0) return { field, r: m.r, c: m.c, pre: inside.head + open[0], post: inside.rest.slice(close).replace(/\s+$/, ""), mode: "same" };
         return { field, r: m.r, c: m.c, pre: inside.head, post: "", mode: "same" };
       }
     }
@@ -1159,6 +1386,11 @@ function placeField(
     // A label with a written value after it in its cell, and an empty cell to its right that is not ruled as a box: the cell's own.
     if (!(rightEmpty && right !== null && sheet.ruled(hit.r, right) && isBlankish(split.rest))) {
       const head = /[\s:\-–=]$/.test(split.head) ? split.head : `${split.head} `;
+      // The paper's own brackets round its example ("Calender (01.04.2026 ~ 31.03.2027) ( Rev. 00 / 07.03.2022 )"): the value
+      // inside them, the words after them kept.
+      const open = /^\s*\(/.exec(split.rest);
+      const close = open ? split.rest.indexOf(")") : -1;
+      if (open && close > 0) return { field, r: hit.r, c: hit.c, pre: head + open[0], post: split.rest.slice(close).replace(/\s+$/, ""), mode: "same" };
       return { field, r: hit.r, c: hit.c, pre: head, post: "", mode: "same" };
     }
   }
@@ -1255,7 +1487,9 @@ function writeMap(pkg: Pkg, workbook: XmlElement, wbRels: XmlElement, sheet: XSh
     const last = mine.length ? Math.max(...mine.filter((r) => written.some((w) => w.r === r)), header) : header;
     const next = place.next;
     // Every row of the grid's place that holds no value of DCRS's and has words (the paper's own, a printed number): not a new line.
-    const fixed: string[] = [header, ...place.body].filter((r) => !occupied.has(r)).map((r) => rowSignature(sheet.rowTexts(r))).filter(Boolean);
+    // The paper's own rows between the heading and the first line too (a heading's second row of weights, a note across it).
+    const between = place.body.length ? Array.from({ length: Math.max(0, place.body[0] - header - 1) }, (_, k) => header + 1 + k) : [];
+    const fixed: string[] = [header, ...between, ...(place.notes ?? []), ...place.body].filter((r) => !occupied.has(r)).map((r) => rowSignature(sheet.rowTexts(r))).filter(Boolean);
     const stop = next ?? sheet.maxRow() + 1;
     for (let r = (place.body[place.body.length - 1] ?? header) + 1; r < stop; r++) {
       const sig = rowSignature(sheet.rowTexts(r));
