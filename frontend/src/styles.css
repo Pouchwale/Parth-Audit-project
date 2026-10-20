@@ -3459,10 +3459,122 @@ table.svc-paper {
   .paper-sheet[data-paper-form="table"] { display: table; width: auto; overflow: visible; margin: 0; border-collapse: separate; border-spacing: 0; padding: calc(var(--pt-top) * var(--u)) 0 0 calc(var(--pt-left) * var(--u)); }
   .paper-sheet[data-paper-form="table"] .doc-header.doc-header-paper { border: 0; }
   .pt-table td.pt-c > .field-in-table > .input, .pt-table td.pt-c > .pt-box > .input { padding: 0; }
+  /* A written date prints as its words in its place (utils/print.ts), the box itself not. */
+  .pt-table td.pt-c > .field-in-table > .input.print-as-text, .pt-table .pt-sentence .field-in-table > .input.print-as-text, .pt-table td.pt-c > .pt-box > .input.print-as-text { display: none; }
+  /* An empty choice box prints nothing at all (not its hidden first option). */
+  .pt-table select[data-empty] { visibility: hidden; }
   /* An empty date in the sentence leaves the paper's own blank, not the width of a box to type in. */
   .pt-table .pt-sentence .field-in-table:has(> .input[data-empty]) { width: calc(2.6 * var(--u)); }
 }
 /* QC-PAPER-TABLES end */
+
+/* QC-CALIBRATION begin */
+/* THE TWO INTERNAL CALIBRATION RECORDS ON THEIR PAPERS, F/QC/11 AND F/QC/12 (REQUIREMENTS §117, round 2 of 20-Oct-2026).
+   The owner's papers: a ruled box with the company's name (underlined), the line under it, a rule, the title (underlined);
+   the ruled table of the device's boxes; the grid; the PROCEDURE; the number alone at the foot of the page. The sheet keeps
+   its boxes, its grid and its words (the downloads read them as before) and is drawn on the papers' millimetres
+   (data/seed/qcCalibrationGeometry.ts, put on the sheet as --cal-*, --pf-cols, --pf-col, --pf-h by LogSheetRecordView).
+   On the screen the header keeps its Format No. / Rev No. / Page No. row to be typed over (§86); printed, the number
+   stands at the foot of the page as the paper prints it. A phone keeps the stacked boxes it always had. */
+.paper-sheet[data-paper-form="calib"] .page-foot-number { display: none; }
+.paper-sheet[data-paper-form="calib"] .pf-pad { display: none; }
+@media print, (min-width: 760px) {
+  .paper-sheet[data-paper-form="calib"] {
+    --u: calc(1mm / var(--print-zoom, 1)); --pt: calc(1pt / var(--print-zoom, 1));
+    --b1: calc(1.05px / var(--print-zoom, 1)); --b2: calc(2.05px / var(--print-zoom, 1));
+    --pf-bd: var(--b1) solid #000;
+    --cal-arial: Arial, "Liberation Sans", Helvetica, sans-serif;
+    --cal-times: "Times New Roman", Times, serif;
+    color: #000;
+  }
+  /* the header box: the company's name and the line under it, a rule, the title */
+  .paper-sheet[data-paper-form="calib"] .doc-header { box-sizing: border-box; width: var(--cal-w); border: var(--pf-bd); border-radius: 0; overflow: visible; background: #fff; color: #000; font-family: var(--cal-arial); }
+  .paper-sheet[data-paper-form="calib"] .doc-header .company-name { margin: 0; padding: var(--cal-head-co-y) 0 0; border: 0; font-family: var(--cal-arial); font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; letter-spacing: 0; text-align: center; color: #000; }
+  .paper-sheet[data-paper-form="calib"] .doc-header .company-name > span { text-decoration: underline; text-decoration-thickness: calc(0.42 * var(--u)); text-underline-offset: calc(0.6 * var(--u)); }
+  .paper-sheet[data-paper-form="calib"] .doc-header .company-lines {
+    box-sizing: border-box; height: calc(var(--cal-head-co) - var(--cal-head-co-y) - 12 * var(--pt)); margin: 0; padding: var(--cal-head-gap) 0 0; border-bottom: var(--pf-bd);
+    font-family: var(--cal-arial); font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 700; text-align: center; color: #000;
+  }
+  .paper-sheet[data-paper-form="calib"] .doc-header .doc-title {
+    box-sizing: border-box; height: var(--cal-head-title); margin: 0; padding: var(--cal-head-title-y) 0 0; border: 0;
+    font-family: var(--cal-arial); font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; letter-spacing: 0; text-align: center; color: #000;
+    text-decoration: underline; text-decoration-thickness: calc(0.42 * var(--u)); text-underline-offset: calc(0.6 * var(--u));
+  }
+  .paper-sheet[data-paper-form="calib"] .doc-header .meta-row { border-top: var(--pf-bd); }
+  /* the device's boxes: the paper's ruled table, each box's words at the top of its cell and the box under them */
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] { margin: 0; width: var(--cal-w); }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field {
+    display: flex; flex-direction: column; justify-content: flex-start; box-sizing: border-box; min-width: 0; margin: 0; padding: 0 var(--cal-box-x);
+    border: 0; border-right: var(--pf-bd); border-bottom: var(--pf-bd); overflow: hidden;
+  }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field:nth-child(3n+1) { border-left: var(--pf-bd); }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > label {
+    display: block; margin: 0; padding: var(--cal-box-label-y) 0 0; border: 0; background: transparent; color: #000;
+    font-family: var(--cal-arial); font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; letter-spacing: 0; text-transform: none; white-space: nowrap;
+  }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > label { flex: none; }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > .input,
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > select.input,
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > .print-box-text {
+    flex: none; display: block; box-sizing: border-box; width: 100%; min-width: 0; height: calc(12 * var(--pt) * 1.25); min-height: 0; margin: var(--cal-box-value-y) 0 0; padding: 0;
+    border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000; font-family: var(--cal-arial); font-size: calc(11 * var(--pt)); line-height: calc(12 * var(--pt) * 1.25); text-align: left;
+  }
+  /* F/QC/11: each box's words and its value centred in their cell, in the paper's faces; its Calibration Date two columns
+     wide and its Due Date beside it, after the paper's space, words at the left. */
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field { padding: 0; align-items: stretch; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > label { font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 400; text-align: center; font-family: var(--cal-arial); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(-n+3) > label { font-family: var(--cal-times); padding-top: calc(0.44 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > .input,
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > .print-box-text { font-family: var(--cal-times); font-size: calc(9.96 * var(--pt)); height: calc(9.96 * var(--pt) * 1.25); line-height: calc(9.96 * var(--pt) * 1.25); text-align: center; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(7) { grid-row: 4; grid-column: 1 / span 2; border-top: var(--pf-bd); flex-direction: row; align-items: flex-start; gap: calc(2 * var(--u)); padding-left: calc(1.88 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(8) { grid-row: 4; grid-column: 3; border-top: var(--pf-bd); flex-direction: row; align-items: flex-start; gap: calc(2 * var(--u)); padding-left: calc(3.7 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > label { text-align: left; flex: none; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > .input,
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > .print-box-text { width: calc(40 * var(--u)); margin-top: calc(0.4 * var(--u)); text-align: left; font-family: var(--cal-arial); }
+  /* the grid */
+  .paper-sheet[data-paper-form="calib"] .paper-body > .doc-table { width: auto; margin: var(--cal-grid-gap) 0 0 0; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet th,
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td {
+    box-sizing: border-box; border: var(--pf-bd); background: transparent; color: #000; text-transform: none; letter-spacing: 0; text-align: center; vertical-align: top; overflow: hidden;
+  }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td span { font-size: inherit; font-weight: inherit; color: inherit; }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td .input { text-align: center; text-indent: 0; font-family: inherit; font-size: inherit; color: #000; }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td .cell-text { display: block; font-size: inherit; line-height: inherit; color: #000; }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: solid; }
+  /* F/QC/11: Times New Roman 12 pt, the headings centred, "Index" larger at the left over the two heading rows; the line's
+     name at the right of its cell (Tasted-1, 2 ... Sign.). */
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet th,
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet td { font-family: var(--cal-times); font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 400; padding: calc(0.6 * var(--u)) calc(0.5 * var(--u)) 0; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet thead tr + tr th { padding-top: calc(0.47 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet thead tr:first-child th:first-child { font-size: calc(14.04 * var(--pt)); line-height: calc(14.04 * var(--pt)); text-align: left; padding: calc(0.57 * var(--u)) 0 0 calc(1.88 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet tbody td:first-child { text-align: right; padding: calc(0.47 * var(--u)) calc(1.86 * var(--u)) 0 0; }
+  /* F/QC/12: Arial; the headings bold 11 pt, centred, wrapped as the paper's narrow cells wrap them; "Deviation %" small at the left. */
+  .paper-sheet[data-sheet="qc-weight-scale-calibration"] .doc-table table.log-sheet th { font-family: var(--cal-arial); font-size: calc(11.04 * var(--pt)); line-height: calc(4.45 * var(--u)); font-weight: 700; padding: calc(2 * var(--u)) calc(1.9 * var(--u)) 0; white-space: normal; }
+  .paper-sheet[data-sheet="qc-weight-scale-calibration"] .doc-table table.log-sheet td { font-family: var(--cal-arial); font-size: calc(11 * var(--pt)); line-height: calc(4.45 * var(--u)); font-weight: 400; padding: calc(1.9 * var(--u)) calc(0.5 * var(--u)) 0; }
+  .paper-sheet[data-sheet="qc-weight-scale-calibration"] .doc-table table.log-sheet td.second-line-label { font-size: calc(9 * var(--pt)); line-height: calc(9 * var(--pt)); text-align: left; padding: calc(2.21 * var(--u)) 0 0 calc(1.79 * var(--u)); white-space: nowrap; }
+  /* the PROCEDURE, under the grid as the paper prints it */
+  .paper-sheet[data-paper-form="calib"] [data-section="notes-below"] { box-sizing: border-box; width: var(--cal-w); margin: var(--cal-notes-gap) 0 0; padding: 0 0 0 var(--cal-notes-x); }
+  .paper-sheet[data-paper-form="calib"] [data-section="notes-below"] p { margin: 0; font-family: var(--cal-arial); font-size: calc(11.04 * var(--pt)); line-height: var(--cal-notes-pitch); color: #000; }
+}
+@media print {
+  /* A written date prints as its words, the box itself not (utils/print.ts): the paper forms' box rules above show a box. */
+  .paper-sheet[data-paper-form] [data-pf] > .field > .input.print-as-text, .paper-sheet[data-paper-form] .doc-table table.log-sheet td .input.print-as-text { display: none; }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td .print-box-text { display: block; padding: 0; font: inherit; color: #000; text-align: inherit; }
+  /* An empty choice box prints nothing at all (not its hidden first option). */
+  .paper-sheet[data-paper-form] select[data-empty] { visibility: hidden; }
+  /* The page keeps the paper's own margin and its number stands at the paper's place at the foot of the page. */
+  [data-print-doc]:has(.paper-sheet[data-paper-form="calib"]) { padding: 0; }
+  .paper-sheet[data-paper-form="calib"] { display: block; position: relative; box-sizing: border-box; width: auto; min-height: calc(205 * var(--u)); padding: var(--cal-top) 0 0 var(--cal-left); border-collapse: separate; }
+  .paper-sheet[data-paper-form="calib"] .paper-head, .paper-sheet[data-paper-form="calib"] .paper-body, .paper-sheet[data-paper-form="calib"] .paper-foot { display: block; }
+  .paper-sheet[data-paper-form="calib"] .doc-header .meta-row { display: none; }
+  .paper-sheet[data-paper-form="calib"] .pf-pad { display: table-row; }
+  .paper-sheet[data-paper-form="calib"] .page-foot-number {
+    display: block; position: absolute; top: var(--cal-foot-y); left: var(--cal-left); width: var(--cal-w); margin: 0; text-align: center; color: #000;
+    font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(11.04 * var(--pt)); line-height: calc(11.04 * var(--pt));
+  }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .page-foot-number { font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); }
+}
+/* QC-CALIBRATION end */
 
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,

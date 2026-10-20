@@ -6,6 +6,7 @@ import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
 import { paperTableFor, type PaperCell } from "../../data/seed/qcPaperTables";
+import { calibrationGeometryFor } from "../../data/seed/qcCalibrationGeometry";
 import { PaperTablePart, type PaperTableParts } from "./PaperTableSheet";
 import { COMPANY } from "../../data/seed/masterData";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
@@ -374,10 +375,17 @@ export function LogSheetRecordView({
   // A paper that is one Word table from its letterhead to its foot (the certificates of analysis, data/seed/qcPaperTables.ts,
   // §117 round 2) is drawn as that table, row by row, in the paper's millimetres (components/records/PaperTableSheet.tsx).
   const pt = !frame && !lc ? paperTableFor(layout.documentId) : undefined;
+  // THE TWO INTERNAL CALIBRATION RECORDS ON THEIR PAPERS' MEASURES (F/QC/11, F/QC/12; data/seed/qcCalibrationGeometry.ts,
+  // §117 round 2): the sheet as it is drawn (its boxes, its grid, its PROCEDURE), in the paper's millimetres; the number
+  // printed alone at the foot of the page.
+  const cal = !frame && !lc && !pt ? calibrationGeometryFor(layout.documentId) : undefined;
+  // A line of the calibration grid: F/QC/12's entries take two lines each (the first, then its Deviation % line).
+  const calLine = (i: number, second = false): number | undefined => (cal ? cal.grid.lines[(lines.second ? 2 * i + (second ? 1 : 0) : i)] : undefined);
   const lcWidth = lc ? lc.cols.reduce((a, b) => a + b, 0) : 0;
   // The grid's columns and rows in the paper's millimetres, on either paper form.
-  const gridCols = pf?.grid.cols ?? lc?.cols;
-  const gridRowHeight = (i: number): number | undefined => (pf ? pf.grid.rows[i] : lc ? (i === 0 ? LINE_CLEARANCE_ROWS.heading : LINE_CLEARANCE_ROWS.line) : undefined);
+  const gridCols = pf?.grid.cols ?? lc?.cols ?? cal?.grid.cols;
+  const gridRowHeight = (i: number): number | undefined =>
+    pf ? pf.grid.rows[i] : lc ? (i === 0 ? LINE_CLEARANCE_ROWS.heading : LINE_CLEARANCE_ROWS.line) : cal ? (i === 0 ? cal.grid.head[0] : calLine(i - 1)) : undefined;
   const topTables = (layout.referenceTables ?? []).filter((t) => !placed.has(t.title));
 
   const mode = layout.rowMode;
@@ -453,7 +461,7 @@ export function LogSheetRecordView({
   const wordsAbove = (layout.instructions?.length ?? 0) > 0 || topTables.length > 0;
   const headerBoxes = (lc ? [] : boxGroupsBesideGrid(layout)).map((group, gi) =>
     group.lead ? (
-      <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={!boxesFirst && wordsAbove ? "mt-3" : ""} paper={pf ? paperGridOf(pf, "head") : undefined}>
+      <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={!boxesFirst && wordsAbove ? "mt-3" : ""} paper={pf ? paperGridOf(pf, "head") : cal ? { kind: "calib", cols: cal.boxes.cols, rows: cal.boxes.rows, gap: 0 } : undefined}>
         {group.boxes.map(({ field, index }) => (
           <React.Fragment key={field.key}>
             {pf && field.paperColumn && field.paperColumn > 1 && Array.from({ length: (field.paperColumn - 1) * 2 }, (_, k) => <span key={k} className="pf-blank" aria-hidden="true" />)}
@@ -708,10 +716,19 @@ export function LogSheetRecordView({
       translate={asIssued ? "no" : undefined}
       data-bind-record={record.id}
       data-paper={layout.paper ?? (frame ? "portrait" : lc ? "landscape" : undefined)}
+      data-paper-left={cal ? cal.left : undefined}
       data-frame={frame ? "" : undefined}
       data-sheet={doc.id}
-      data-paper-form={pf ? "incoming" : lc ? "lineclear" : undefined}
-      style={lc ? ({ "--lc-w": `calc(${lcWidth} * var(--u))` } as React.CSSProperties) : pf ? ({ "--pf-lh": `calc(${pf.lh} * var(--u))`, "--pf-par": `calc(${pf.par} * var(--u))`, "--pf-sr": `calc(${pf.sr} * var(--u))` } as React.CSSProperties) : undefined}
+      data-paper-form={pf ? "incoming" : lc ? "lineclear" : cal ? "calib" : undefined}
+      style={
+        lc
+          ? ({ "--lc-w": `calc(${lcWidth} * var(--u))` } as React.CSSProperties)
+          : pf
+            ? ({ "--pf-lh": `calc(${pf.lh} * var(--u))`, "--pf-par": `calc(${pf.par} * var(--u))`, "--pf-sr": `calc(${pf.sr} * var(--u))` } as React.CSSProperties)
+            : cal
+              ? (calibrationStyle(cal) as React.CSSProperties)
+              : undefined
+      }
     >
       <div className="paper-head">
       <DocumentHeader {...headerProps} frame={frame} />
@@ -887,7 +904,7 @@ export function LogSheetRecordView({
               {canRemoveRows && <th className="pf-remove" style={{ width: 36 }} rowSpan={headRows}></th>}
             </tr>
             {headRows === 2 && (
-              <tr>
+              <tr style={paperRowStyle(cal?.grid.head[1])}>
                 {headRuns
                   .filter((run) => run.group !== undefined && !headless(run))
                   .flatMap((run) => run.columns)
@@ -936,6 +953,7 @@ export function LogSheetRecordView({
                 linked={rowLinks?.get(row.id)}
                 canRemove={canRemoveRows}
                 height={gridRowHeight(i + 1)}
+                height2={calLine(i, true)}
                 paper={!!pf}
                 arial={pf?.arial?.filter(([line]) => line === i).map(([, c]) => c - 1)}
                 onCell={onCell}
@@ -945,6 +963,25 @@ export function LogSheetRecordView({
               />
               </React.Fragment>
             ))}
+            {/* F/QC/12's paper prints four entries of two lines; a week's record is one (§117): the others print as the paper's blank
+                ruled lines, its "Deviation %" on each second line - on the page, never in the record. */}
+            {cal?.entries &&
+              lines.second &&
+              Array.from({ length: Math.max(0, cal.entries - data.rows.length) }, (_, k) => {
+                const at = data.rows.length + k;
+                return (
+                  <React.Fragment key={`cal-pad-${k}`}>
+                    <tr className="pf-pad" aria-hidden="true" data-line="first" style={paperRowStyle(calLine(at))}>
+                      {lines.first.map((c) => (
+                        <td key={c.key} />
+                      ))}
+                    </tr>
+                    <tr className="pf-pad log-second-line" aria-hidden="true" data-line="second" style={paperRowStyle(calLine(at, true))}>
+                      {lines.first.map((c, ci) => (ci === 0 ? <td key={c.key} className="second-line-label">{lines.second?.label}</td> : <td key={c.key} />))}
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
             {/* The ten ruled lines the paper prints to write in (F/QC/15-A to G): the blank ones are on the page, not in the record. */}
             {lc &&
               Array.from({ length: Math.max(0, LINE_CLEARANCE_ROWS.lines - data.rows.length) }, (_, k) => (
@@ -987,6 +1024,8 @@ export function LogSheetRecordView({
       {!frame && footerCard}
       {/* A framed page's own foot (qcPageFrames.ts): the Format number and the Page number in a bordered line, the address under it. */}
       {frame && <DocumentHeader {...headerProps} frame={frame} part="foot" />}
+      {/* The calibration papers print their number alone, centred at the foot of the page: F/QC/11 (01/01.01.2022). */}
+      {cal && <DocumentHeader {...headerProps} numberFoot part="foot" />}
       {/* The paper's own text at the foot of the sheet, after every box (REQUIREMENTS §111): the certificates' "THIS IS A SYSTEM GENERATED DOCUMENT." */}
       {layout.notesAtFoot && layout.notesAtFoot.length > 0 ? (
         <NotesBelow lines={layout.notesAtFoot} section="notes-at-foot" />
@@ -1236,7 +1275,7 @@ export function paperHasItsOwnApproval(layout: { footerFields?: { label: string 
  */
 /** A table of the paper's own (qcIncomingGeometry.ts): the boxes are its cells, in columns and rows of the paper's millimetres. */
 interface PaperGrid {
-  kind: "head" | "head more" | "lot" | "sign";
+  kind: "head" | "head more" | "lot" | "sign" | "calib";
   cols: number[];
   rows: number[];
   /** The blank space above the table, in millimetres. */
@@ -1251,6 +1290,31 @@ function paperGridOf(pf: IncomingGeometry, kind: "head" | "head-more" | "lot" | 
   if (kind === "head-more") return { kind: "head more", cols: pf.head.cols, rows: pf.head.rows.slice(-1), gap: 0 };
   if (kind === "lot") return { kind: "lot", cols: LOT_COLS, rows: pf.lotRows, gap: pf.lotGap };
   return { kind: "sign", cols: SIGN_COLS, rows: pf.signRows, gap: pf.signGap };
+}
+
+/** The calibration paper's measures as the sheet's own CSS variables (styles.css, the calibration paper form). */
+function calibrationStyle(cal: NonNullable<ReturnType<typeof calibrationGeometryFor>>): Record<string, string> {
+  const mm = (v: number) => `calc(${v} * var(--u))`;
+  return {
+    "--cal-left": mm(cal.left),
+    "--cal-top": mm(cal.top),
+    "--cal-w": mm(cal.width),
+    "--cal-head-co": mm(cal.head.company),
+    "--cal-head-co-y": mm(cal.head.companyY),
+    "--cal-head-gap": mm(cal.head.linesGap),
+    "--cal-head-title": mm(cal.head.title),
+    "--cal-head-title-y": mm(cal.head.titleY),
+    "--cal-box-cols": cal.boxes.cols.map(mm).join(" "),
+    "--cal-box-rows": cal.boxes.rows.map(mm).join(" "),
+    "--cal-box-x": mm(cal.boxes.x[0]),
+    "--cal-box-label-y": mm(cal.boxes.labelY[0]),
+    "--cal-box-value-y": mm(cal.boxes.valueY[0]),
+    "--cal-grid-gap": mm(cal.grid.gapAbove),
+    "--cal-notes-gap": mm(cal.notes.gapAbove),
+    "--cal-notes-pitch": mm(cal.notes.pitch),
+    "--cal-notes-x": mm(cal.notes.x),
+    "--cal-foot-y": mm(cal.foot.y - 0.2),
+  };
 }
 
 const paperRowStyle = (height: number | undefined): React.CSSProperties | undefined =>
@@ -1755,6 +1819,7 @@ const SheetRow = React.memo(function SheetRow({
   linked,
   canRemove,
   height,
+  height2,
   paper,
   arial,
   onCell,
@@ -1797,6 +1862,8 @@ const SheetRow = React.memo(function SheetRow({
   canRemove: boolean;
   /** The height the paper gives this line (qcIncomingGeometry.ts), in millimetres. */
   height?: number;
+  /** The height the paper gives the entry's second line (F/QC/12's Deviation % line, qcCalibrationGeometry.ts). */
+  height2?: number;
   /** The line is drawn on the paper's own table: its printed paragraphs stand as the paper sets them. */
   paper?: boolean;
   /** The columns of this line the paper sets in Arial 10 pt (qcIncomingGeometry.ts). */
@@ -1884,7 +1951,7 @@ const SheetRow = React.memo(function SheetRow({
   return (
     <>
       {firstLine}
-      <tr data-line="second" className="log-second-line">
+      <tr data-line="second" className="log-second-line" style={paperRowStyle(height2)}>
         {columns.map((c, ci) => {
           if (ci === 0) {
             if (leadSpans) return null;
