@@ -551,8 +551,13 @@ Seven scripts live in `tests/`:
   scopes) and only clears the example otherwise; a grid's foot is looked for in its own columns only (F/SYS/07's rating legend
   beside it had cut its body to ten rows: 36 rows were added, now 2); a band cell is one on the format number's line or next to
   it (F/MNT/09's revision-history heading had taken the revision's date) and a line the grid prints itself is never its foot
-  (F/MNT/09's CHECKED BY and VERIFIED BY lines): F/MNT/09 now scores 99, two pages as the paper. The browser suites `e2e_downloads_and_print` and
-  `e2e_upload_changes` were changed but not run: another worktree's run held port 8842 through this branch's time box.
+  (F/MNT/09's CHECKED BY and VERIFIED BY lines): F/MNT/09 now scores 99, two pages as the paper. Browser suites (one at a time, ports free): `e2e_downloads_and_print`
+  56 of 57 checks pass - F/HR/01 as the owner's workbook, F/QC/12 as his landscape Word file with the boxes three to a line,
+  F/HR/05 his Word page, F/QC/17 both scales, the hand-drawn service reports, F/HR/15, F/HR/16 and F/HR/18 unchanged -; the one
+  failing is F/QC/12's "line carried from the page on file", the same check that failed on the generic file earlier the same day
+  (20-Oct-2026, a holiday; REQUIREMENTS §117's note: date-bound, unproven). `e2e_upload_changes` was changed (a line typed into the
+  paper's empty ruled row) but not run within this branch's time box; the originals check's (c) read every one of the 104
+  downloads back through the page's own Upload changes.
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
   (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;
