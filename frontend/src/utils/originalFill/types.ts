@@ -22,6 +22,8 @@ export interface FillReport {
   notPlaced: string[];
   /** Values of boxes the paper does not print (hints.ts notOnPaper), left out on purpose, by their label. */
   leftOut: string[];
+  /** Grids of the page (with lines) whose headings were not found on the paper: their first heading's words. */
+  gridsMissed: string[];
   /** Grids: how many lines DCRS has, how many rows the paper gave them, how many were added. */
   grids: { rows: number; paperRows: number; added: number; where: string }[];
   /** Cells or paragraphs of the owner's example entries cleared. */
@@ -32,4 +34,4 @@ export interface FillReport {
   dateCellsBlanked: number;
 }
 
-export const emptyReport = (kind: "xlsx" | "docx"): FillReport => ({ kind, placed: 0, notPlaced: [], leftOut: [], grids: [], cleared: 0, replaced: [], dateCellsBlanked: 0 });
+export const emptyReport = (kind: "xlsx" | "docx"): FillReport => ({ kind, placed: 0, notPlaced: [], leftOut: [], gridsMissed: [], grids: [], cleared: 0, replaced: [], dateCellsBlanked: 0 });

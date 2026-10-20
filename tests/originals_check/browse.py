@@ -137,8 +137,11 @@ def download(page, out_dir, timeout=30000):
     with page.expect_download(timeout=timeout) as info:
         btn.first.evaluate("el => el.click()")
     d = info.value
-    path = os.path.join(out_dir, d.suggested_filename)
+    # Kept under a short name (a Windows path is at most 260 characters); the name the browser offered is returned too.
+    ext = os.path.splitext(d.suggested_filename)[1] or f".{kind}"
+    path = os.path.join(out_dir, f"file{ext}")
     d.save_as(path)
+    download.suggested = d.suggested_filename
     return path, kind
 
 

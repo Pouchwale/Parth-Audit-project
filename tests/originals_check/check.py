@@ -84,6 +84,7 @@ def capture(srv, docs, out, fill=True, headless=True):
                     browse.write_json(os.path.join(d, "blocks.json"), shown)
                     path, kind = browse.download(page, os.path.join(d, "download"))
                     info["download"] = os.path.basename(path) if path else None
+                    info["suggestedName"] = getattr(browse.download, "suggested", None)
                     info["downloadKind"] = kind
                     if path:
                         info["upload"] = browse.upload_back(page, path)

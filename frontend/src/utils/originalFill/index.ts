@@ -53,6 +53,9 @@ export async function fillTemplate(
   // A value DCRS shows that found no place on the paper: the file would not be the record, so it is not handed over (the
   // generic download is made instead) - unless the paper is known not to print it (hints.ts notOnPaper).
   if (out.report.notPlaced.length) throw new Error(`no place on the paper for: ${out.report.notPlaced.slice(0, 5).join(", ")}`);
+  // A grid of the page the paper has no headings for: its lines (bound or not) would be lost, and the paper's own example
+  // lines under some other heading might stay - the file is not the record.
+  if (out.report.gridsMissed.length) throw new Error(`no grid on the paper for: ${out.report.gridsMissed.slice(0, 3).join(" / ")}`);
   if (envelope) {
     // Read back as an upload would be: every value where the map says, no line of the paper's own taken for a new one.
     const read = await readUploadedFile(out.bytes.slice().buffer, `check.${file.kind}`);

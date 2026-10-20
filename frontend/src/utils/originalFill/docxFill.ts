@@ -21,7 +21,7 @@ import { ENVELOPE_PROPERTY, ExportMapBuilder, MAP_XML_NAMESPACE, envelopePropert
 import { Pkg, setCustomProperty } from "./pkg";
 import { el, kid, kids, all, clone, insertAfter, removeChild, type XmlElement, type XmlNode } from "./xml";
 import { modelOf, bandValue, labelsOf, type DcrsModel, type ModelField, type ModelGrid } from "./model";
-import { COMPANY_RE, FORMAT_NO_RE, afterLabel, bandWordOf, isBlankish, isSerialHeading, norm, same, similarity } from "./text";
+import { COMPANY_RE, FORMAT_NO_RE, afterLabel, bandWordOf, headingPrefix, isBlankish, isSerialHeading, norm, same, similarity } from "./text";
 import { bandEdit, choiceWords, labelInside, replaceFormat } from "./xlsxFill";
 import { emptyReport, type FillHints, type FillReport } from "./types";
 
@@ -401,6 +401,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   model.grids.forEach((grid, gridNo) => {
     if (hints.skipGrids?.includes(gridNo)) return;
     const place = placeGridW(tables, grid, gridNo, labels, model, hints.table?.[gridNo]);
+    if (!place && grid.rows.length > grid.headerRows && grid.headerRows > 0) report.gridsMissed.push(grid.rows[0]?.map((c) => c.text).filter(Boolean).slice(0, 3).join(" | ") ?? "");
     if (place) {
       gridPlaces.push(place);
       for (const r of place.headRows) for (const c of r.cells) usedCells.add(c.tc);
@@ -411,13 +412,14 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   // ---- boxes
   type FieldAt =
     | { field: ModelField; kind: "cell"; cell: TCell }
-    | { kind: "after"; field: ModelField; p: XmlElement; at: number }
+    | { kind: "after"; field: ModelField; p: XmlElement; at: number; to?: number }
     | { kind: "under"; field: ModelField; cell: TCell; p: XmlElement }
     | { kind: "choiceCells"; field: ModelField; label: TCell; options: { cell: TCell; text: string }[] }
     | { kind: "choiceText"; field: ModelField; p: XmlElement; at: number; occurrences: { p: XmlElement; from: number; to: number; text: string }[] };
   const fieldAts: FieldAt[] = [];
   // Each paragraph's neighbours (the body's own, or a cell's): where a choice's words written on the next lines are found.
   paraSiblings = new Map<XmlElement, XmlElement[]>();
+  lineSpans = new Map<XmlElement, { from: number; to: number }[]>();
   for (const p of paragraphs) paraSiblings.set(p, paragraphs);
   for (const t of tables)
     for (const row of t.rows)
@@ -538,9 +540,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         insertAt(f.p, at, [runOf(" ", firstRunProps(f.p)), ...controls.runs(f.field.cell, firstRunProps(f.p), f.field.label)]);
       }
     } else if (f.kind === "after") {
-      if (cutAfter(f.p, f.at)) report.cleared++;
-      const rPr = firstRunProps(f.p);
-      f.p.children.push(...controls.runs(f.field.cell, rPr, f.field.label));
+      // Written with the others of its line, from the right (below).
+      continue;
     } else {
       // Under the label, in the same frame: the paragraphs after the label's emptied, the value in the first of them.
       const ps = kids(f.cell.tc, "p");
@@ -552,6 +553,27 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         insertAfter(f.cell.tc, f.p, target);
       }
       target.children.push(...controls.runs(f.field.cell, firstRunProps(f.p), f.field.label));
+    }
+  }
+  // Values after their labels, line by line, from the right so the places on the left stay where they are: the region's blank
+  // ("____") or the owner's example taken out, its tabs kept, the value right after the label.
+  const afters = fieldAts.filter((f): f is Extract<FieldAt, { kind: "after" }> => f.kind === "after");
+  const byLine = new Map<XmlElement, Extract<FieldAt, { kind: "after" }>[]>();
+  for (const f of afters) byLine.set(f.p, [...(byLine.get(f.p) ?? []), f]);
+  for (const [p, fs] of byLine) {
+    for (const f of [...fs].sort((a, b) => b.at - a.at)) {
+      const text = paraText(p);
+      const to = Math.min(f.to ?? text.length, text.length);
+      const region = text.slice(f.at, to);
+      const lead = region.length - region.replace(/^\s+/, "").length;
+      const tail = region.length - region.replace(/\s+$/, "").length;
+      const middle = region.slice(lead, region.length - tail);
+      if (middle) {
+        if (/[^_.\s]/.test(middle)) report.cleared++;
+        replaceRange(p, f.at + lead, to - tail, "");
+      }
+      const rPr = firstRunProps(p);
+      insertAt(p, f.at, [runOf(" ", valueProps(rPr)), ...controls.runs(f.field.cell, rPr, f.field.label)]);
     }
   }
   const tableBinds: { place: GridPlaceW; bind: ExportTableBinding }[] = [];
@@ -604,7 +626,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       }
       tblPr.children = tblPr.children.filter((c) => typeof c === "string" || c.local !== "tblCaption");
       // tblCaption comes after the table's look and layout settings (its place in CT_TblPr).
-      const after = ["tblCellMar", "tblLook", "tblLayout", "shd", "tblBorders", "tblInd", "jc", "tblCellSpacing", "tblW"].map((l) => kid(tblPr!, l)).find(Boolean);
+      const after = ["tblLook", "tblCellMar", "tblLayout", "shd", "tblBorders", "tblInd", "tblCellSpacing", "jc", "tblW", "tblStyleColBandSize", "tblStyleRowBandSize", "bidiVisual", "tblOverlap", "tblpPr", "tblStyle"].map((l) => kid(tblPr!, l)).find(Boolean);
       const caption = el("w:tblCaption", { "w:val": `dcrs:t${table.t}` });
       if (after) insertAfter(tblPr, after, caption);
       else tblPr.children.push(caption);
@@ -730,7 +752,7 @@ function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Se
   const heads = headingTexts(grid);
   const named = heads.map((h, i) => ({ h, i })).filter((x) => x.h);
   if (named.length < 2) return null;
-  const score = (t: string, h: string) => (isSerialHeading(h) && isSerialHeading(t) ? 1 : same(t.split("\n")[0], h) || same(t, h) ? 1 : similarity(t, h));
+  const score = (t: string, h: string) => (isSerialHeading(h) && isSerialHeading(t) ? 1 : same(t.split("\n")[0], h) || same(t, h) ? 1 : Math.max(similarity(t, h), headingPrefix(t, h)));
   let best = null as { table: Table; ri: number; s: number } | null;
   for (const table of tableHint !== undefined ? tables.filter((t) => t.index === tableHint) : tables) {
     table.rows.forEach((row, ri) => {
@@ -876,6 +898,8 @@ function findWords(text: string, words: string, from: number): { from: number; t
 }
 
 let paraSiblings = new Map<XmlElement, XmlElement[]>();
+/** The labels found on each line so far: a second box on the same line is looked for outside them. */
+let lineSpans = new Map<XmlElement, { from: number; to: number }[]>();
 
 function placeFieldW(field: ModelField, tables: Table[], paragraphs: XmlElement[], usedCells: Set<XmlElement>, usedParas: Set<XmlElement>, labels: Set<string>): unknown {
   const label = field.label;
@@ -944,18 +968,29 @@ function placeFieldW(field: ModelField, tables: Table[], paragraphs: XmlElement[
   for (const p of [...paragraphs, ...cellParas]) {
     if (usedParas.has(p)) continue;
     const text = paraText(p);
-    const lead = text.length - text.replace(/^\s+/, "").length;
-    let split = afterLabel(text.slice(lead), group ? sub : label);
-    let headAt = lead;
-    if (!split) {
-      // The label after other words of the line ("... Reviewed as on 01.10.2026").
-      const inside = labelInside(text, group ? sub : label);
-      if (!inside) continue;
-      split = inside;
-      headAt = 0;
+    // A line may hold several boxes ("NAME:  ...  DESIGNATION:", "Signed: ____  Date : ____"): the label at a word's start,
+    // outside the labels already found on it.
+    const spans = lineSpans.get(p) ?? [];
+    let hit: { from: number; to: number } | null = null;
+    for (let from = 0; from < text.length; ) {
+      const found = findWords(text, group ? sub : label, from);
+      if (!found) break;
+      if (!spans.some((x) => found.from < x.to && x.from < found.to)) {
+        hit = found;
+        break;
+      }
+      from = found.from + 1;
     }
-    usedParas.add(p);
-    const at = headAt + split.head.length;
+    if (!hit) continue;
+    // The label ends with its own marks (":", " - ", ")"), never the blanks after it.
+    let at = hit.to;
+    while (at < text.length && /[:\-\u2013\u2014=.)\]]/.test(text[at])) at++;
+    if (text[at] === " " && /[:\-\u2013=]/.test(text[at + 1] ?? "")) {
+      at++;
+      while (at < text.length && /[:\-\u2013\u2014=]/.test(text[at])) at++;
+    }
+    spans.push({ from: hit.from, to: at });
+    lineSpans.set(p, spans);
     // A choice written on the label's line and the lines after it ("This is a request for  Existing Document Change" ...).
     const words = choiceWords(field.cell);
     if (words.length >= 2) {
@@ -977,9 +1012,15 @@ function placeFieldW(field: ModelField, tables: Table[], paragraphs: XmlElement[
         return { kind: "choiceText", field, p, at, occurrences };
       }
     }
-    // The words after the label are a blank or the owner's example: the value takes their place.
+    // The words after the label up to the line's next label are a blank or the owner's example: the value takes their place.
+    let to = text.length;
+    for (const other of labels) {
+      if (!other || other === norm(label)) continue;
+      const next = findWords(text, other, at);
+      if (next && next.from >= at && next.from < to && !/^[\s_.]*$/.test(other)) to = next.from;
+    }
     void isBlankish;
-    return { kind: "after", field, p, at: split.head.length && !/[\s:\-–=]$/.test(split.head) ? at : at };
+    return { kind: "after", field, p, at, to };
   }
   // The nearest words, for a label the plant edited.
   let best: { p: XmlElement; s: number } | null = null;

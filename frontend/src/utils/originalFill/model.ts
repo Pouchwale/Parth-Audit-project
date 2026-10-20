@@ -80,7 +80,11 @@ export function modelOf(blocks: ExportBlock[]): DcrsModel {
     } else if (b.kind === "table") {
       if (b.band) {
         const row = b.rows[0] ?? [];
-        for (let i = 0; i + 1 < row.length; i += 2) model.band.push({ label: row[i].text.trim(), cell: row[i + 1] });
+        for (let i = 0; i + 1 < row.length; i += 2) {
+          model.band.push({ label: row[i].text.trim(), cell: row[i + 1] });
+          // A value of the record written in the band (a page number typed over, a report's date in its letterhead) is a box too.
+          if (isBound(row[i + 1])) model.fields.push({ label: row[i].text.trim(), cell: row[i + 1] });
+        }
         continue;
       }
       // A table of one line of label-and-box pairs and no heading (a letterhead's boxes) reads as boxes, not as a grid.

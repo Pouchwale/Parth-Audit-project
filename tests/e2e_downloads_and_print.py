@@ -117,20 +117,37 @@ def download(page, name):
 
 
 def workbook(path):
-    """The first sheet as {row: {column: (text, style)}}, plus the sheet XML and the workbook XML."""
+    """The visible sheet as {row: {column: (text, style)}}, plus the sheet XML and the workbook XML. The owner's own workbook
+    (REQUIREMENTS section 119) keeps his words in Excel's shared-strings table and his sheet under its own name: both read."""
     with zipfile.ZipFile(path) as z:
-        sheet_xml = z.read("xl/worksheets/sheet1.xml").decode("utf-8")
         book_xml = z.read("xl/workbook.xml").decode("utf-8")
+        rels = z.read("xl/_rels/workbook.xml.rels").decode("utf-8")
+        target = "worksheets/sheet1.xml"
+        for tag in re.findall(r"<sheet\b[^>]*>", book_xml):
+            if 'state="hidden"' in tag or 'state="veryHidden"' in tag:
+                continue
+            rid = re.search(r'r:id="([^"]+)"', tag).group(1)
+            t = re.search(r'Id="%s"[^>]*Target="([^"]+)"' % re.escape(rid), rels) or re.search(r'Target="([^"]+)"[^>]*Id="%s"' % re.escape(rid), rels)
+            if t:
+                target = t.group(1)
+            break
+        sheet_xml = z.read("xl/" + target.lstrip("/").replace("xl/", "", 1)).decode("utf-8")
         z.read("xl/styles.xml")
+        shared = []
+        if "xl/sharedStrings.xml" in z.namelist():
+            for si in ET.fromstring(z.read("xl/sharedStrings.xml")).iter(f"{MAIN}si"):
+                shared.append("".join(t.text or "" for t in si.iter(f"{MAIN}t")))
     rows = {}
     for row in ET.fromstring(sheet_xml).iter(f"{MAIN}row"):
         cells = {}
         for c in row.iter(f"{MAIN}c"):
             col = re.match(r"[A-Z]+", c.get("r")).group(0)
+            v = c.find(f"{MAIN}v")
             if c.get("t") == "inlineStr":
                 text = "".join(t.text or "" for t in c.iter(f"{MAIN}t"))
+            elif c.get("t") == "s" and v is not None:
+                text = shared[int(v.text)] if v.text and int(v.text) < len(shared) else ""
             else:
-                v = c.find(f"{MAIN}v")
                 text = v.text if v is not None else ""
             cells[col] = (text, c.get("s"))
         rows[int(row.get("r"))] = cells
@@ -142,11 +159,16 @@ def all_text(rows):
 
 
 def word(path):
+    """The Word file's names, its body XML, its paragraphs (the page headers' and footers' too: the owner's own Word files
+    print their band there, REQUIREMENTS section 119) and its tables as rows of cell texts."""
     with zipfile.ZipFile(path) as z:
         names = z.namelist()
         xml = z.read("word/document.xml").decode("utf-8")
+        heads = [z.read(n).decode("utf-8") for n in names if re.match(r"word/(header|footer)\d*\.xml$", n)]
     root = ET.fromstring(xml)
     paragraphs = ["".join(t.text or "" for t in p.iter(f"{WORD}t")) for p in root.iter(f"{WORD}p")]
+    for h in heads:
+        paragraphs += ["".join(t.text or "" for t in p.iter(f"{WORD}t")) for p in ET.fromstring(h).iter(f"{WORD}p")]
     tables = []
     for tbl in root.iter(f"{WORD}tbl"):
         tables.append([["".join(t.text or "" for t in tc.iter(f"{WORD}t")) for tc in tr.iter(f"{WORD}tc")] for tr in tbl.iter(f"{WORD}tr")])
@@ -168,13 +190,16 @@ with sync_playwright() as p:
     fmt, suggested, path = download(page, "competence")
     rows, sheet_xml, book_xml = workbook(path)
     texts = all_text(rows)
-    check("F/HR/01 Personal Competence Records downloads as an Excel workbook, named for the format", fmt == "xlsx" and suggested.startswith("F-HR-01 Personal Competence Records") and suggested.endswith(".xlsx") and 'name="F-HR-01"' in book_xml, suggested)
-    check("...with the form's header block: title, Format No. F/HR/01, Rev No.", any("PERSONAL COMPETENCE RECORDS" in t for t in texts) and "Format No." in texts and "F/HR/01" in texts, texts[:12])
+    # The owner's own workbook (REQUIREMENTS section 119, 20-Oct-2026: "it should download the same document which i have
+    # uploaded / Supplied to you"): his sheet "Formate 01  (2)", his header cells, his heading rows, his page set-up, and
+    # the record's eighty lines in his rows - with the round-trip map beside it (the very hidden "_dcrs" sheet).
+    check("F/HR/01 Personal Competence Records downloads as the owner's own workbook, named for the format", fmt == "xlsx" and suggested.startswith("F-HR-01 Personal Competence Records") and suggested.endswith(".xlsx") and 'name="Formate 01  (2)"' in book_xml and 'name="_dcrs"' in book_xml, suggested)
+    check("...with his header block: the title and F/HR/01 with its revision", any("PERSONAL COMPETENCE RECORDS" in t for t in texts) and any(t.startswith("F/HR/01") for t in texts), texts[:12])
     heading_row = next((r for r in rows.values() if any(c[0] == "Name of person" for c in r.values())), None)
-    check("...the grid's headings as a bold heading row", heading_row is not None and all(c[1] == "4" for c in heading_row.values()), heading_row)
+    check("...his grid's headings", heading_row is not None and any(c[0] == "Date of Joining" for c in heading_row.values()), heading_row)
     names = [c[0] for r in rows.values() for c in r.values() if c[0] in ("Shail Patel", "Disha Chaudhary")]
-    check("...and all 80 lines, first to last", "Shail Patel" in names and "Disha Chaudhary" in names and len(rows) >= 85, len(rows))
-    check("...set to print landscape, one page wide", 'orientation="landscape"' in sheet_xml and 'fitToWidth="1"' in sheet_xml and '<pageSetUpPr fitToPage="1"/>' in sheet_xml)
+    check("...and all 80 lines, first to last", "Shail Patel" in names and "Disha Chaudhary" in names and len(rows) >= 84, len(rows))
+    check("...on his own page set-up (A4 portrait, as his workbook prints)", 'orientation="portrait"' in sheet_xml and 'paperSize="9"' in sheet_xml)
 
     goto(page, "#/hr/training-calendar")
     fmt, suggested, path = download(page, "training-calendar")
@@ -200,14 +225,15 @@ with sync_playwright() as p:
     page.wait_for_timeout(1500)
     close_assistant(page)
     fmt, suggested, path = download(page, "fqc12")
-    rows, sheet_xml, _ = workbook(path)
-    check("F/QC/12 downloads as a landscape workbook, the paper's page (s117)", fmt == "xlsx" and 'orientation="landscape"' in sheet_xml, (fmt, suggested))
-    lines = [[c[0] for c in r.values()] for r in rows.values()]
-    three_a_line = [l for l in lines if len(l) == 6 and l[0].startswith("Device ID No")]
-    check("...its boxes three to a line, the Device ID No first on the first line (s117)", bool(three_a_line) and three_a_line[0][2].startswith("Location") and three_a_line[0][4].startswith("Department"), lines[:8])
+    # The paper is the owner's Word file (REQUIREMENTS section 119): it downloads as that file, on its landscape page.
+    names_, xml, paragraphs, tables = word(path)
+    check("F/QC/12 downloads as the owner's Word file, on its landscape page (s117, s119)", fmt == "docx" and 'w:orient="landscape"' in xml and "word/settings.xml" in names_, (fmt, suggested))
+    lines = [r for t in tables for r in t]
+    three_a_line = [l for l in lines if len(l) == 3 and l[0].startswith("Device ID No")]
+    check("...its boxes three to a line, the Device ID No first on the first line (s117)", bool(three_a_line) and three_a_line[0][1].strip().startswith("Location") and three_a_line[0][2].strip().startswith("Department"), lines[:6])
     # The line is the last week of the plant's own 2024 page on file, carried (REQUIREMENTS §117): its weights and its
     # tester, not the standard weights (those start a line only where no earlier page exists).
-    check("...and its line carried from the page on file: the last week's weights and tester", any("200.000gm" in l and "Anjali" in l for l in lines), lines[-6:])
+    check("...and its line carried from the page on file: the last week's weights and tester", any(any("200.000gm" in c for c in l) and any("Anjali" in c for c in l) for l in lines), lines[-6:])
     goto(page, "#/library")
     page.locator("[data-action='new-record'][data-document='qc-ruler-verification']").first.evaluate("el => el.click()")
     page.wait_for_timeout(1500)
@@ -235,9 +261,10 @@ with sync_playwright() as p:
     fmt, suggested, path = download(page, "induction-staff")
     names_, xml, paragraphs, tables = word(path)
     check("F/HR/05, a form about one person, downloads as a Word document", fmt == "docx" and suggested.endswith(".docx") and "word/document.xml" in names_ and "word/styles.xml" in names_, suggested)
-    check("...with its title and header block", any("INDUCTION TRAINING RECORD" in p for p in paragraphs) and any("F/HR/05" in c for t in tables for r in t for c in r), paragraphs[:6])
+    # The owner's own Word file (REQUIREMENTS section 119): its title and format number in his page header, read with the body.
+    check("...with its title and header block", any("INDUCTION TRAINING RECORD" in p for p in paragraphs) and any("F/HR/05" in p for p in paragraphs + [c for t in tables for r in t for c in r]), paragraphs[:6])
     topic_table = next((t for t in tables if any("Training Topics" in c for c in t[0])), None)
-    check("...and its topics as a table with a repeating heading row", topic_table is not None and any("Briefing on Company profile" in c for r in topic_table for c in r) and "<w:tblHeader/>" in xml, topic_table[:2] if topic_table else tables[:2])
+    check("...and its topics as the paper's table", topic_table is not None and any("Briefing on Company profile" in c for r in topic_table for c in r), topic_table[:2] if topic_table else tables[:2])
     print(f"    (F/HR/05 Word tables, columns each: {[max(len(r) for r in t) for t in tables]}; heading rows: {xml.count('<w:tblHeader/>')}; landscape: {'w:orient=' + chr(34) + 'landscape' + chr(34) in xml})")
     check("...on a portrait page (five columns)", 'w:orient="landscape"' not in xml)
 

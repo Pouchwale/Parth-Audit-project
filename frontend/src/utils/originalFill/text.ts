@@ -138,3 +138,12 @@ export function bandWordOf(label: string): BandWord | null {
   if (/^(date|dt)$/.test(s)) return "date";
   return null;
 }
+
+/** A heading the paper writes longer ("Findings of Inspection" for "Finding", "Remarks (if any)" for "Remarks"): 0.8, else 0. */
+export function headingPrefix(paper: string, dcrs: string): number {
+  const a = norm(paper);
+  const b = norm(dcrs);
+  if (!a || !b) return 0;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.length >= 4 && (long.startsWith(`${short} `) || long.startsWith(`${short}s `) || long === `${short}s`) ? 0.8 : 0;
+}

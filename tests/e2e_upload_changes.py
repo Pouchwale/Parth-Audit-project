@@ -516,8 +516,21 @@ def xlsx_append_row(sheet, row_no, cells_xml):
     body = "".join(cells_xml)
     m = re.search(r'<row r="%d"(?P<attrs>[^>]*?)(?:/>|>(?P<body>.*?)</row>)' % row_no, sheet, re.S)
     if m:
-        if "<c " in (m.group("body") or ""):
-            return None
+        row_body = m.group("body") or ""
+        if "<c " in row_body:
+            # The owner's own paper (REQUIREMENTS section 119) has its empty ruled rows under the grid: a person types into
+            # their cells, which hold nothing yet. Each typed cell takes the place of the empty one (its style kept).
+            for cell in cells_xml:
+                ref = re.match(r'<c r="([A-Z]+\d+)"', cell).group(1)
+                old = re.search(r'<c r="%s"(?P<attrs>[^>]*?)(?:/>|>(?P<inner>.*?)</c>)' % re.escape(ref), row_body, re.S)
+                if old and re.search(r"<v>|<is>", old.group("inner") or ""):
+                    return None
+                styled = cell.replace(f'<c r="{ref}"', f'<c r="{ref}"{style_attr(old.group("attrs"))}' if old else f'<c r="{ref}"', 1)
+                if old:
+                    row_body = row_body[: old.start()] + styled + row_body[old.end() :]
+                else:
+                    row_body += styled
+            return sheet[: m.start()] + f'<row r="{row_no}"{m.group("attrs")}>{row_body}</row>' + sheet[m.end() :]
         return sheet[: m.start()] + f'<row r="{row_no}"{m.group("attrs")}>{body}</row>' + sheet[m.end() :]
     for mm in re.finditer(r'<row r="(\d+)"', sheet):
         if int(mm.group(1)) > row_no:

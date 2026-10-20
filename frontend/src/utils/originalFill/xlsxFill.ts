@@ -37,7 +37,7 @@ import {
 import { Pkg, setCustomProperty } from "./pkg";
 import { el, kid, kids, all, attrOf, clone, type XmlElement } from "./xml";
 import { modelOf, bandValue, labelsOf, type DcrsModel, type ModelField, type ModelGrid } from "./model";
-import { COMPANY_RE, FORMAT_NO_RE, REVISION_AFTER_RE, afterLabel, bandWordOf, dotted, isBlankish, isSerialHeading, isoOf, norm, same, similarity } from "./text";
+import { COMPANY_RE, FORMAT_NO_RE, REVISION_AFTER_RE, afterLabel, bandWordOf, dotted, headingPrefix, isBlankish, isSerialHeading, isoOf, norm, same, similarity } from "./text";
 import { emptyReport, type FillHints, type FillReport } from "./types";
 
 const MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -369,6 +369,44 @@ class XSheet {
   }
 }
 
+/** A shared formula's text as one of its cells writes it: every relative reference moved by the cell's offset from the master. */
+function moveFormula(f: string, dr: number, dc: number): string {
+  return f
+    .split(/("[^"]*")/)
+    .map((part, i) =>
+      i % 2 === 1
+        ? part
+        : part.replace(/(\$?)([A-Z]{1,3})(\$?)(\d+)(?![\d(])/g, (_, d1: string, col: string, d2: string, row: string) => {
+            const c = d1 ? col : columnName(columnIndex(col) + dc);
+            const r = d2 ? Number(row) : Number(row) + dr;
+            return `${d1}${c}${d2}${r}`;
+          })
+    )
+    .join("");
+}
+
+/** Shared formulas (one master's text, its neighbours pointing at it) written out in each cell. */
+function unshareFormulas(sheet: XSheet): void {
+  const masters = new Map<string, { r: number; c: number; text: string }>();
+  for (const [k, cell] of sheet.cells) {
+    const f = kid(cell, "f");
+    if (!f || f.attrs.t !== "shared" || !f.attrs.ref) continue;
+    masters.set(f.attrs.si ?? "", { r: Math.floor(k / 20000), c: k % 20000, text: textAll(f) });
+  }
+  if (masters.size === 0) return;
+  for (const [k, cell] of sheet.cells) {
+    const f = kid(cell, "f");
+    if (!f || f.attrs.t !== "shared") continue;
+    const m = masters.get(f.attrs.si ?? "");
+    const r = Math.floor(k / 20000);
+    const c = k % 20000;
+    f.children = m ? [m.r === r && m.c === c ? m.text : moveFormula(m.text, r - m.r, c - m.c)] : f.children;
+    delete f.attrs.t;
+    delete f.attrs.si;
+    delete f.attrs.ref;
+  }
+}
+
 /** A formula's cell references below row `after` moved down by `count` (references in quotes left alone). */
 function shiftFormula(f: string, after: number, count: number): string {
   return f
@@ -489,6 +527,9 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
   const root = pkg.xml(sheetPath);
   if (!root) throw new Error("no sheet xml");
   const sheet = new XSheet(root, shared, styles);
+  // Every shared formula written out in full first, so a cell cleared or written never leaves its neighbours' formulas
+  // pointing at a master that is gone (Excel calls such a file damaged).
+  unshareFormulas(sheet);
   const model = modelOf(blocks);
   const labels = labelsOf(model);
   const hints = opts.hints ?? {};
@@ -513,6 +554,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     if (hints.skipGrids?.includes(gridNo)) return;
     const place = placeGrid(sheet, grid, gridNo, all1, taken, labels, model, hints.headingRow?.[gridNo]);
     if (place) places.push(place);
+    else if (grid.rows.length > grid.headerRows && grid.headerRows > 0) report.gridsMissed.push(grid.rows[0]?.map((c) => c.text).filter(Boolean).slice(0, 3).join(" | ") ?? "");
   });
   const firstHeading = places.length ? Math.min(...places.map((p) => p.headingRow)) : maxRow + 1;
 
@@ -850,7 +892,7 @@ function placeGrid(
   }
   // A heading of two rows written as one ("Education — Required") is read as the paper writes it: "Required" under "Education".
   const depth = Math.max(2, Math.min(3, grid.headerRows + 1));
-  const score = (t: string, h: string) => (isSerialHeading(h) && isSerialHeading(t) ? 1 : same(t.split("\n")[0], h) || same(t, h) ? 1 : similarity(t, h));
+  const score = (t: string, h: string) => (isSerialHeading(h) && isSerialHeading(t) ? 1 : same(t.split("\n")[0], h) || same(t, h) ? 1 : Math.max(similarity(t, h), headingPrefix(t, h)));
   const groupAbove = (r: number, c: number, group: string) => {
     for (let rr = r - 1; rr >= Math.max(1, r - 3); rr--) {
       const m = sheet.mergeOf(rr, c);
