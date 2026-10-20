@@ -1,0 +1,2528 @@
+[
+ {
+  "id": "capa-customer-complaint",
+  "kind": "docx",
+  "file": "originals/capa-customer-complaint.docx",
+  "original": "Updated Checklist.doc",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 3,
+  "bytes": 108157
+ },
+ {
+  "id": "chemical-master",
+  "kind": "docx",
+  "file": "originals/chemical-master.docx",
+  "original": "Chemical Cahrt new.docx",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 25855
+ },
+ {
+  "id": "disp-container-stuffing",
+  "kind": "docx",
+  "file": "originals/disp-container-stuffing.docx",
+  "original": "9 Dispatch/F-DISP-02_Container stuffing & Vehicle Inspection record.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 2,
+  "bytes": 27868,
+  "copiedToSourceDocuments": "F-DISP-02_Container stuffing & Vehicle Inspection record.doc"
+ },
+ {
+  "id": "disp-safe-transporter-agreement",
+  "kind": "docx",
+  "file": "originals/disp-safe-transporter-agreement.docx",
+  "original": "9 Dispatch/F-DISP-01_Safe Transportation agreement (Finish product).doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 3,
+  "bytes": 23965,
+  "copiedToSourceDocuments": "F-DISP-01_Safe Transportation agreement (Finish product).doc"
+ },
+ {
+  "id": "disp-vehicle-cleaning",
+  "kind": "docx",
+  "file": "originals/disp-vehicle-cleaning.docx",
+  "original": "F-DISP-04_Vehicle cleaning Protocol & Record_01.11.2023.docx",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 2,
+  "bytes": 28242
+ },
+ {
+  "id": "fly-catcher",
+  "kind": "docx",
+  "file": "originals/fly-catcher.docx",
+  "original": "F-HR-18_Fly Catcher Inspection & Cleaning Record.doc",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "The company's own Word original, sent 16-Oct-2026.",
+  "scores": [],
+  "pages": 2,
+  "bytes": 26687
+ },
+ {
+  "id": "gap-inspection",
+  "kind": "xlsx",
+  "file": "originals/gap-inspection.xlsx",
+  "original": "GAP Analysis Report -Pest control Dec 2023.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "Sheet1",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet1"
+  ],
+  "bytes": 12222
+ },
+ {
+  "id": "hr-competence",
+  "kind": "xlsx",
+  "file": "originals/hr-competence.xlsx",
+  "original": "HR/F-HR-01_Personal Competence record (R-2023).xls",
+  "originalRoot": "Audit document",
+  "sheet": "Formate 01  (2)",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Formate 01  (2)"
+  ],
+  "bytes": 18578,
+  "copiedToSourceDocuments": "F-HR-01_Personal Competence record (R-2023).xls"
+ },
+ {
+  "id": "hr-daily-cleaning",
+  "kind": "xlsx",
+  "file": "originals/hr-daily-cleaning.xlsx",
+  "original": "F-HR-15_Daily Cleaning record_01_15.12.2024.xls",
+  "originalRoot": "source-documents",
+  "sheet": "Cleaning",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Cleaning"
+  ],
+  "bytes": 14691
+ },
+ {
+  "id": "hr-gmp-checklist",
+  "kind": "docx",
+  "file": "originals/hr-gmp-checklist.docx",
+  "original": "HR/F-HR-19_Monthly GMP Inspection record.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 5,
+  "bytes": 33752,
+  "copiedToSourceDocuments": "F-HR-19_Monthly GMP Inspection record.doc"
+ },
+ {
+  "id": "hr-hygiene-report",
+  "kind": "xlsx",
+  "file": "originals/hr-hygiene-report.xlsx",
+  "original": "HR/F-HR-22_Daily Employee Sanitation & Hygiene record.xls",
+  "originalRoot": "Audit document",
+  "sheet": "Sheet3",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet3"
+  ],
+  "bytes": 13220,
+  "copiedToSourceDocuments": "F-HR-22_Daily Employee Sanitation & Hygiene record.xls"
+ },
+ {
+  "id": "hr-induction-operators",
+  "kind": "docx",
+  "file": "originals/hr-induction-operators.docx",
+  "original": "HR/F-HR-06_Induction Training  programme -Operators.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 5,
+  "bytes": 29949,
+  "copiedToSourceDocuments": "F-HR-06_Induction Training  programme -Operators.doc"
+ },
+ {
+  "id": "hr-induction-staff",
+  "kind": "docx",
+  "file": "originals/hr-induction-staff.docx",
+  "original": "HR/F-HR-05_Induction Training  programme-Staff.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 26046,
+  "copiedToSourceDocuments": "F-HR-05_Induction Training  programme-Staff.doc"
+ },
+ {
+  "id": "hr-job-responsibility",
+  "kind": "docx",
+  "file": "originals/hr-job-responsibility.docx",
+  "original": "HR/F-HR-07_Job responsibility & authorities (SC)..doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two position sheets of the same format; the first is taken.",
+  "scores": [],
+  "pages": 5,
+  "bytes": 31356,
+  "copiedToSourceDocuments": "F-HR-07_Job responsibility & authorities (SC)..doc"
+ },
+ {
+  "id": "hr-mobile-authorization",
+  "kind": "docx",
+  "file": "originals/hr-mobile-authorization.docx",
+  "original": "HR/F-HR-13_Authorization for Mobile inside Plant.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 6,
+  "bytes": 37567,
+  "copiedToSourceDocuments": "F-HR-13_Authorization for Mobile inside Plant.doc"
+ },
+ {
+  "id": "hr-monthly-cleaning",
+  "kind": "xlsx",
+  "file": "originals/hr-monthly-cleaning.xlsx",
+  "original": "F-HR-16_Monthly Cleaning record_01_15.12.2024.xls",
+  "originalRoot": "source-documents",
+  "sheet": "Cleaning",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Cleaning"
+  ],
+  "bytes": 13665
+ },
+ {
+  "id": "hr-pre-employment-health",
+  "kind": "docx",
+  "file": "originals/hr-pre-employment-health.docx",
+  "original": "HR/F-HR-04_Pre Employment Health declaration.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 27219,
+  "copiedToSourceDocuments": "F-HR-04_Pre Employment Health declaration.doc"
+ },
+ {
+  "id": "hr-psc-survey",
+  "kind": "xlsx",
+  "file": "originals/hr-psc-survey.xlsx",
+  "original": "HR/F-HR-20_Product safety culture survey (1).xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "english",
+  "notes": "The workbook holds the survey in English and in Gujarati; DCRS's survey is the English sheet.",
+  "scores": [],
+  "sheets": [
+   "english",
+   "Gujarati",
+   "Sheet1"
+  ],
+  "bytes": 12376,
+  "copiedToSourceDocuments": "F-HR-20_Product safety culture survey (1).xlsx"
+ },
+ {
+  "id": "hr-psc-survey-analysis",
+  "kind": "xlsx",
+  "file": "originals/hr-psc-survey-analysis.xlsx",
+  "original": "HR/F-HR-21_Product Safety Culture Survey analysis record.xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "Sheet1 (2)",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet1 (2)"
+  ],
+  "bytes": 13510,
+  "copiedToSourceDocuments": "F-HR-21_Product Safety Culture Survey analysis record.xlsx"
+ },
+ {
+  "id": "hr-skill-matrix",
+  "kind": "xlsx",
+  "file": "originals/hr-skill-matrix.xlsx",
+  "original": "HR/F-HR-03_Operator skill matr3ix-2023.xls",
+  "originalRoot": "Audit document",
+  "sheet": "29.09.2026",
+  "notes": "The workbook keeps two status sheets (01.02.2025 and 29.09.2026) of the same matrix; the latest is taken.",
+  "scores": [],
+  "sheets": [
+   "29.09.2026",
+   "Sheet1"
+  ],
+  "bytes": 21361,
+  "copiedToSourceDocuments": "F-HR-03_Operator skill matr3ix-2023.xls"
+ },
+ {
+  "id": "hr-training-calendar",
+  "kind": "xlsx",
+  "file": "originals/hr-training-calendar.xlsx",
+  "original": "HR/F-HR-09_Training Calender(2026-27).xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "Sheet1",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet1"
+  ],
+  "bytes": 15627,
+  "copiedToSourceDocuments": "F-HR-09_Training Calender(2026-27).xlsx"
+ },
+ {
+  "id": "hr-training-effectiveness",
+  "kind": "docx",
+  "file": "originals/hr-training-effectiveness.docx",
+  "original": "HR/F-HR-11_Trainging Evaluation sheet.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 2,
+  "bytes": 30222,
+  "copiedToSourceDocuments": "F-HR-11_Trainging Evaluation sheet.doc"
+ },
+ {
+  "id": "hr-training-feedback",
+  "kind": "xlsx",
+  "file": "originals/hr-training-feedback.xlsx",
+  "original": "HR/F-HR-12_Training Feedback & Evaluation Record (1).xls",
+  "originalRoot": "Audit document",
+  "sheet": "Feedback",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Feedback"
+  ],
+  "bytes": 13500,
+  "copiedToSourceDocuments": "F-HR-12_Training Feedback & Evaluation Record (1).xls"
+ },
+ {
+  "id": "hr-training-needs",
+  "kind": "xlsx",
+  "file": "originals/hr-training-needs.xlsx",
+  "original": "HR/F-HR-08_Employee wise Training need identification Record(2024-25).xls",
+  "originalRoot": "Audit document",
+  "sheet": "Formate 01 (2)",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Formate 01 (2)",
+   "Sheet1"
+  ],
+  "bytes": 27503,
+  "copiedToSourceDocuments": "F-HR-08_Employee wise Training need identification Record(2024-25).xls"
+ },
+ {
+  "id": "hr-visitor-health",
+  "kind": "docx",
+  "file": "originals/hr-visitor-health.docx",
+  "original": "HR/F-HR-14_Visitor health declaration record.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 25455,
+  "copiedToSourceDocuments": "F-HR-14_Visitor health declaration record.doc"
+ },
+ {
+  "id": "mkt-complaint-trend",
+  "kind": "xlsx",
+  "file": "originals/mkt-complaint-trend.xlsx",
+  "original": "F-MKT-04_Complaint trend analysis(R-2026).xls",
+  "originalRoot": "source-documents",
+  "sheet": "Summary - Labels",
+  "notes": "The workbook keeps a summary sheet to each product and the Pareto charts; the Labels summary is taken.",
+  "scores": [],
+  "sheets": [
+   "Summary - Labels",
+   "Summary - Labels (2)",
+   "Summary - Sleeve",
+   "Summary - Sleeve (2)",
+   "Summary - Pouch",
+   "Summary - Pouch (2)",
+   "Pareto Chart - Type of complain",
+   "Pareto Chart - Type of comp (2)",
+   "Pareto Chart - Type of comp (3)"
+  ],
+  "bytes": 15550
+ },
+ {
+  "id": "mkt-feedback-analysis",
+  "kind": "xlsx",
+  "file": "originals/mkt-feedback-analysis.xlsx",
+  "original": "F-MKT-02_Customer Feedback analysis - Labels-2026.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "Feedback",
+  "notes": "The Labels workbook DCRS was built from (the Pouches and Sleeves workbooks are the same format).",
+  "scores": [],
+  "sheets": [
+   "Feedback"
+  ],
+  "bytes": 16406
+ },
+ {
+  "id": "mnt-equipment-list",
+  "kind": "xlsx",
+  "file": "originals/mnt-equipment-list.xlsx",
+  "original": "Master List of Equipments-Flexo & Pouch.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "Flexo",
+  "notes": "The company's own workbook of the equipment list.",
+  "scores": [
+   {
+    "file": "Master List of Equipments-Flexo & Pouch.xlsx",
+    "sheet": "Flexo",
+    "score": 0.9822
+   },
+   {
+    "file": "Master List of Equipments-Flexo & Pouch.xlsx",
+    "sheet": "Pouch",
+    "score": 0.1412
+   },
+   {
+    "file": "Master List of Equipments-Flexo & Pouch.xlsx",
+    "sheet": "Other Machinery - OLD",
+    "score": 0.0327
+   }
+  ],
+  "sheets": [
+   "Flexo",
+   "Pouch",
+   "Other Machinery - OLD"
+  ],
+  "bytes": 15954
+ },
+ {
+  "id": "mnt-glass-breakage",
+  "kind": "docx",
+  "file": "originals/mnt-glass-breakage.docx",
+  "original": "F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024 (1) (2).doc",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 2,
+  "bytes": 97894
+ },
+ {
+  "id": "mnt-new-equipment",
+  "kind": "docx",
+  "file": "originals/mnt-new-equipment.docx",
+  "original": "F-MNT-08_New Equipment Installation & commissioning record.doc",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 2,
+  "bytes": 90467
+ },
+ {
+  "id": "mnt-pm-record",
+  "kind": "docx",
+  "file": "originals/mnt-pm-record.docx",
+  "original": "DCM Sleeves Seaming Machine - F-MNT-02_PM schedule & record_GALLOPS.docx",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "The only Word original of F/MNT/02 kept: the PM schedule and record as filled for one machine (DCM sleeve seaming, GALLOPS).",
+  "scores": [],
+  "pages": 2,
+  "bytes": 21755
+ },
+ {
+  "id": "mnt-wooden-articles",
+  "kind": "docx",
+  "file": "originals/mnt-wooden-articles.docx",
+  "original": "F-MNT-10_Weekly Wooden article condition monitoring record (1) (1) (1).doc",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 3,
+  "bytes": 32561
+ },
+ {
+  "id": "mnt-yearly-pm-schedule",
+  "kind": "xlsx",
+  "file": "originals/mnt-yearly-pm-schedule.xlsx",
+  "original": "F-MNT-03_Yearly PM Schedule(R).xls",
+  "originalRoot": "source-documents",
+  "sheet": "Sheet1",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet1",
+   "Sheet2"
+  ],
+  "bytes": 20777
+ },
+ {
+  "id": "prd-alc-production",
+  "kind": "xlsx",
+  "file": "originals/prd-alc-production.xlsx",
+  "original": "F-PRD-18_SB LAMINATION Logbook -24.06.25.xls",
+  "originalRoot": "source-documents",
+  "sheet": "ASFASFSADF",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "ASFASFSADF"
+  ],
+  "bytes": 11950
+ },
+ {
+  "id": "prd-doctoring-alc",
+  "kind": "xlsx",
+  "file": "originals/prd-doctoring-alc.xlsx",
+  "original": "F-PRD-26_Doctoring PRODUCTION LOGBOOK.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "Doctoring ",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Doctoring "
+  ],
+  "bytes": 11923
+ },
+ {
+  "id": "prd-pouching-blade",
+  "kind": "xlsx",
+  "file": "originals/prd-pouching-blade.xlsx",
+  "original": "F-PRD-22_Blade Change Record - All Pouching machine.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "F-PRD-22",
+  "notes": "The workbook sent with the PDF DCRS was built from (Rev 00); the plant's folder also holds a newer Rev 01 of 01.01.2026 (TIo2 COATED TRIMMING BLADE ...), not used.",
+  "scores": [],
+  "sheets": [
+   "F-PRD-22"
+  ],
+  "bytes": 17344
+ },
+ {
+  "id": "prd-pouching-cutter-issue",
+  "kind": "xlsx",
+  "file": "originals/prd-pouching-cutter-issue.xlsx",
+  "original": "F-PRD-23_Manual cutter Daily Issue & Return monitoring record.xls",
+  "originalRoot": "source-documents",
+  "sheet": "F-PRD-23",
+  "notes": "The workbook's first sheet; its second is F/PRD/10's.",
+  "scores": [],
+  "sheets": [
+   "F-PRD-23",
+   "F-SYS-20 (2)"
+  ],
+  "bytes": 11197
+ },
+ {
+  "id": "prd-pouching-line-clearance",
+  "kind": "xlsx",
+  "file": "originals/prd-pouching-line-clearance.xlsx",
+  "original": "F-PRD-21_Area Line clearance record - POUCHING.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "Sheet1",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet1"
+  ],
+  "bytes": 11901
+ },
+ {
+  "id": "prd-process-parameter",
+  "kind": "xlsx",
+  "file": "originals/prd-process-parameter.xlsx",
+  "original": "F-PRD-19_SOLVENT BASE LAMINATION - PROCESS PARAMETER RECORD.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "ASFASFSADF (2)",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "ASFASFSADF (2)"
+  ],
+  "bytes": 14640
+ },
+ {
+  "id": "prd-sharp-object-issue",
+  "kind": "xlsx",
+  "file": "originals/prd-sharp-object-issue.xlsx",
+  "original": "Prd/F-PRD-10_DAILY SCISSOR ISSUE & RETURN INTEGRITY MONITORING RECORD - LABEL & SLEEVE DEPARTMENT.xls",
+  "originalRoot": "Audit document",
+  "sheet": "F-SYS-20 (2)",
+  "notes": "F/PRD/10 is kept twice: Rev 00 (sheet \"F-SYS-20 (2)\", the page DCRS was built from) and the plant's newer Rev 01 of 01.01.2026 (sheet \"F-SYS-20\", DAILY SCISSOR ISSUE); the sheet matching the PDF DCRS was built from is taken.",
+  "scores": [
+   {
+    "file": "F-PRD-10_DAILY SCISSOR ISSUE & RETURN INTEGRITY MONITORING RECORD - LABEL & SLEEVE DEPARTMENT.xls",
+    "sheet": "F-SYS-20 (2)",
+    "score": 0.9139
+   },
+   {
+    "file": "F-PRD-23_Manual cutter Daily Issue & Return monitoring record.xls",
+    "sheet": "F-SYS-20 (2)",
+    "score": 0.9139
+   },
+   {
+    "file": "F-PRD-10_DAILY SCISSOR ISSUE & RETURN INTEGRITY MONITORING RECORD - LABEL & SLEEVE DEPARTMENT.xls",
+    "sheet": "F-SYS-20",
+    "score": 0.4162
+   }
+  ],
+  "sheets": [
+   "F-SYS-20",
+   "F-SYS-20 (2)"
+  ],
+  "bytes": 11365,
+  "copiedToSourceDocuments": "F-PRD-10_DAILY SCISSOR ISSUE & RETURN INTEGRITY MONITORING RECORD - LABEL & SLEEVE DEPARTMENT.xls"
+ },
+ {
+  "id": "prd-slitting-alc",
+  "kind": "xlsx",
+  "file": "originals/prd-slitting-alc.xlsx",
+  "original": "F-PRD-20_SLITTING PRODUCTION LOGBOOK -24.06.25.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "Slitting",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Slitting"
+  ],
+  "bytes": 12012
+ },
+ {
+  "id": "prd-slitting-blade",
+  "kind": "xlsx",
+  "file": "originals/prd-slitting-blade.xlsx",
+  "original": "F-PRD-24_Razor Blade Change Record - Laminated FIlms Slittig machine.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "F-PRD-24",
+  "notes": "The workbook sent with the PDF DCRS was built from (Rev 00); the plant's folder also holds a newer Rev 01 of 01.01.2026, not used.",
+  "scores": [],
+  "sheets": [
+   "F-PRD-24"
+  ],
+  "bytes": 17137
+ },
+ {
+  "id": "pur-approved-suppliers",
+  "kind": "xlsx",
+  "file": "originals/pur-approved-suppliers.xlsx",
+  "original": "3 Purchase/F-PUR-03_List of Approved suppliers.xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "Sheet1",
+  "notes": "The workbook's first sheet is the format; the other two are a copy for another company and a list of vendors.",
+  "scores": [],
+  "sheets": [
+   "Sheet1",
+   "Sheet1 (2)",
+   "Sheet2"
+  ],
+  "bytes": 13590,
+  "copiedToSourceDocuments": "F-PUR-03_List of Approved suppliers.xlsx"
+ },
+ {
+  "id": "pur-service-provider-performance",
+  "kind": "xlsx",
+  "file": "originals/pur-service-provider-performance.xlsx",
+  "original": "3 Purchase/F-PUR-06_Service provider monitoring.xls",
+  "originalRoot": "Audit document",
+  "sheet": "Vendor rating",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Vendor rating"
+  ],
+  "bytes": 13926,
+  "copiedToSourceDocuments": "F-PUR-06_Service provider monitoring.xls"
+ },
+ {
+  "id": "pur-supplier-audit-report",
+  "kind": "docx",
+  "file": "originals/pur-supplier-audit-report.docx",
+  "original": "3 Purchase/F-PUR-02_Supplier audit report.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 9,
+  "bytes": 99811,
+  "copiedToSourceDocuments": "F-PUR-02_Supplier audit report.doc"
+ },
+ {
+  "id": "pur-supplier-performance",
+  "kind": "xlsx",
+  "file": "originals/pur-supplier-performance.xlsx",
+  "original": "3 Purchase/F-PUR-05_RM & PM Supplier Performance Monitoring.xls",
+  "originalRoot": "Audit document",
+  "sheet": "Sheet1",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet1"
+  ],
+  "bytes": 15468,
+  "copiedToSourceDocuments": "F-PUR-05_RM & PM Supplier Performance Monitoring.xls"
+ },
+ {
+  "id": "pur-supplier-registration",
+  "kind": "docx",
+  "file": "originals/pur-supplier-registration.docx",
+  "original": "3 Purchase/F-PUR-01_Supplier registration form.docx",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 3,
+  "bytes": 96579,
+  "copiedToSourceDocuments": "F-PUR-01_Supplier registration form.docx"
+ },
+ {
+  "id": "qc-analysis-report",
+  "kind": "docx",
+  "file": "originals/qc-analysis-report.docx",
+  "original": "QC/F-QC-29 _ Analysis report.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two F/QC/29 files are kept (the analysis report and the utility test report); the one matching the owner's PDF of this one is taken.",
+  "scores": [
+   {
+    "file": "F-QC-29 _ Analysis report.doc",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-29 Analysis report.doc",
+    "score": 0.4105
+   }
+  ],
+  "pages": 1,
+  "bytes": 1260017,
+  "copiedToSourceDocuments": "F-QC-29 _ Analysis report.doc"
+ },
+ {
+  "id": "qc-bopp-film",
+  "kind": "docx",
+  "file": "originals/qc-bopp-film.docx",
+  "original": "QC/F-QC-01_Inspection record for BOPP Film (2).doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-01_Inspection record for BOPP Film (2).doc",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-01_Inspection record for BOPP Film.doc",
+    "score": 1.0
+   }
+  ],
+  "pages": 1,
+  "bytes": 101301,
+  "copiedToSourceDocuments": "F-QC-01_Inspection record for BOPP Film (2).doc"
+ },
+ {
+  "id": "qc-calibration-master-list",
+  "kind": "xlsx",
+  "file": "originals/qc-calibration-master-list.xlsx",
+  "original": "QC/F-QC-08_Master list of Calibration instruments (2).xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "Enercon",
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-08_Master list of Calibration instruments (2).xlsx",
+    "sheet": "Enercon",
+    "score": 0.9519
+   },
+   {
+    "file": "F-QC-08_Master list of Calibration instruments.xlsx",
+    "sheet": "Enercon",
+    "score": 0.9519
+   }
+  ],
+  "sheets": [
+   "Enercon"
+  ],
+  "bytes": 13165,
+  "copiedToSourceDocuments": "F-QC-08_Master list of Calibration instruments (2).xlsx"
+ },
+ {
+  "id": "qc-coa-label",
+  "kind": "docx",
+  "file": "originals/qc-coa-label.docx",
+  "original": "QC/F-QC-06_Certificate of analysis (COA)-Label (2).doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-06_Certificate of analysis (COA)-Label (2).doc",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-06_Certificate of analysis (COA)-Label.doc",
+    "score": 1.0
+   }
+  ],
+  "pages": 1,
+  "bytes": 133322,
+  "copiedToSourceDocuments": "F-QC-06_Certificate of analysis (COA)-Label (2).doc"
+ },
+ {
+  "id": "qc-coa-sleeve",
+  "kind": "docx",
+  "file": "originals/qc-coa-sleeve.docx",
+  "original": "QC/F-QC-07_Certificate of analysis (COA)-Sleeve (2).doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-07_Certificate of analysis (COA)-Sleeve (2).doc",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-07_Certificate of analysis (COA)-Sleeve.doc",
+    "score": 1.0
+   }
+  ],
+  "pages": 1,
+  "bytes": 132557,
+  "copiedToSourceDocuments": "F-QC-07_Certificate of analysis (COA)-Sleeve (2).doc"
+ },
+ {
+  "id": "qc-corrugated-box",
+  "kind": "docx",
+  "file": "originals/qc-corrugated-box.docx",
+  "original": "QC/F-QC-02_Inspection record for CORRUGATED BOX (2).doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-02_Inspection record for CORRUGATED BOX (2).doc",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-02_Inspection record for CORRUGATED BOX.doc",
+    "score": 1.0
+   }
+  ],
+  "pages": 1,
+  "bytes": 102793,
+  "copiedToSourceDocuments": "F-QC-02_Inspection record for CORRUGATED BOX (2).doc"
+ },
+ {
+  "id": "qc-duplex-board",
+  "kind": "docx",
+  "file": "originals/qc-duplex-board.docx",
+  "original": "QC/F-QC-19_Inspection record for Duplex board.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "F/QC/19 is also the number of the Nivea tolerance card; this is the duplex board inspection record, by its content.",
+  "scores": [],
+  "pages": 1,
+  "bytes": 100743,
+  "copiedToSourceDocuments": "F-QC-19_Inspection record for Duplex board.doc"
+ },
+ {
+  "id": "qc-flexo-ink",
+  "kind": "docx",
+  "file": "originals/qc-flexo-ink.docx",
+  "original": "QC/F-QC-21- Flexo INk.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "F/QC/21 is also the number of the lamination film adhesive record; this is the flexo ink record, by its content.",
+  "scores": [],
+  "pages": 1,
+  "bytes": 82704,
+  "copiedToSourceDocuments": "F-QC-21- Flexo INk.doc"
+ },
+ {
+  "id": "qc-gsm-plate-calibration",
+  "kind": "docx",
+  "file": "originals/qc-gsm-plate-calibration.docx",
+  "original": "QC/F-QC-11 GSM cutting plate internal calibration record (2).docx",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-11 GSM cutting plate internal calibration record (2).docx",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-11 GSM cutting plate internal calibration record.docx",
+    "score": 1.0
+   }
+  ],
+  "pages": 1,
+  "bytes": 18088,
+  "copiedToSourceDocuments": "F-QC-11 GSM cutting plate internal calibration record (2).docx"
+ },
+ {
+  "id": "qc-incoming-lamination-film",
+  "kind": "docx",
+  "file": "originals/qc-incoming-lamination-film.docx",
+  "original": "F-QC-33_Inspection record for Incoming Lamination Film.doc",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 101460
+ },
+ {
+  "id": "qc-inspection-sb-lamination",
+  "kind": "docx",
+  "file": "originals/qc-inspection-sb-lamination.docx",
+  "original": "F-QC-36_Inspection record for SB Lamination Film.doc",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 101653
+ },
+ {
+  "id": "qc-kraft-paper",
+  "kind": "docx",
+  "file": "originals/qc-kraft-paper.docx",
+  "original": "QC/F-QC-20_Inspection record for Kraft Paper.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "F/QC/20 is also the number of the printing aids destruction record; this is the kraft paper inspection record, by its content.",
+  "scores": [],
+  "pages": 1,
+  "bytes": 101635,
+  "copiedToSourceDocuments": "F-QC-20_Inspection record for Kraft Paper.doc"
+ },
+ {
+  "id": "qc-label-stock",
+  "kind": "docx",
+  "file": "originals/qc-label-stock.docx",
+  "original": "QC/F-QC-03_Inspection record for Label stock (2).doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-03_Inspection record for Label stock (2).doc",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-03_Inspection record for Label stock.doc",
+    "score": 0.9673
+   }
+  ],
+  "pages": 1,
+  "bytes": 103305,
+  "copiedToSourceDocuments": "F-QC-03_Inspection record for Label stock (2).doc"
+ },
+ {
+  "id": "qc-lamination-adhesive-inspection",
+  "kind": "docx",
+  "file": "originals/qc-lamination-adhesive-inspection.docx",
+  "original": "QC/F-QC-21_Inspection record for Lamination film adhesive.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "F/QC/21 is also the number of the flexo ink record; this is the lamination film adhesive record, by its content.",
+  "scores": [],
+  "pages": 1,
+  "bytes": 101511,
+  "copiedToSourceDocuments": "F-QC-21_Inspection record for Lamination film adhesive.doc"
+ },
+ {
+  "id": "qc-line-clearance-printing",
+  "kind": "xlsx",
+  "file": "originals/qc-line-clearance-printing.xlsx",
+  "original": "QC/F-QC-15-A-G Line Clearance - Printing (2).xls",
+  "originalRoot": "Audit document",
+  "sheet": "Printing",
+  "notes": "F/QC/15's workbook holds the seven line clearance reports A to G, a sheet to each; this is the sheet \"Printing\". Three copies of the workbook are kept; the one matching the owner's PDF of this sheet best is taken.",
+  "scores": [
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing (2).xls",
+    "sheet": "Printing",
+    "score": 0.9457
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing.xls",
+    "sheet": "Printing",
+    "score": 0.9457
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance Quality inspection-2 - Printing.xls",
+    "sheet": "Printing",
+    "score": 0.9457
+   }
+  ],
+  "sheets": [
+   "Printing",
+   "Punching",
+   "QC Machine inspection",
+   "QC Manual inspection (2)",
+   "Slitting",
+   "Shrink Sleeve Gluing",
+   "Shrink Sleeve cutting"
+  ],
+  "bytes": 12340,
+  "copiedToSourceDocuments": "F-QC-15-A-G Line Clearance - Printing (2).xls"
+ },
+ {
+  "id": "qc-line-clearance-punching",
+  "kind": "xlsx",
+  "file": "originals/qc-line-clearance-punching.xlsx",
+  "original": "QC/F-QC-15-A-G Line Clearance - Printing (2).xls",
+  "originalRoot": "Audit document",
+  "sheet": "Punching",
+  "notes": "F/QC/15's workbook holds the seven line clearance reports A to G, a sheet to each; this is the sheet \"Punching\". Three copies of the workbook are kept; the one matching the owner's PDF of this sheet best is taken.",
+  "scores": [
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing (2).xls",
+    "sheet": "Punching",
+    "score": 0.9351
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing.xls",
+    "sheet": "Punching",
+    "score": 0.9351
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance Quality inspection-2 - Printing.xls",
+    "sheet": "Punching",
+    "score": 0.9351
+   }
+  ],
+  "sheets": [
+   "Printing",
+   "Punching",
+   "QC Machine inspection",
+   "QC Manual inspection (2)",
+   "Slitting",
+   "Shrink Sleeve Gluing",
+   "Shrink Sleeve cutting"
+  ],
+  "bytes": 12288
+ },
+ {
+  "id": "qc-line-clearance-qc-machine",
+  "kind": "xlsx",
+  "file": "originals/qc-line-clearance-qc-machine.xlsx",
+  "original": "QC/F-QC-15-A-G Line Clearance - Printing (2).xls",
+  "originalRoot": "Audit document",
+  "sheet": "QC Machine inspection",
+  "notes": "F/QC/15's workbook holds the seven line clearance reports A to G, a sheet to each; this is the sheet \"QC Machine inspection\". Three copies of the workbook are kept; the one matching the owner's PDF of this sheet best is taken.",
+  "scores": [
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing (2).xls",
+    "sheet": "QC Machine inspection",
+    "score": 0.93
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing.xls",
+    "sheet": "QC Machine inspection",
+    "score": 0.93
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance Quality inspection-2 - Printing.xls",
+    "sheet": "QC Machine inspection",
+    "score": 0.93
+   }
+  ],
+  "sheets": [
+   "Printing",
+   "Punching",
+   "QC Machine inspection",
+   "QC Manual inspection (2)",
+   "Slitting",
+   "Shrink Sleeve Gluing",
+   "Shrink Sleeve cutting"
+  ],
+  "bytes": 12276
+ },
+ {
+  "id": "qc-line-clearance-qc-manual",
+  "kind": "xlsx",
+  "file": "originals/qc-line-clearance-qc-manual.xlsx",
+  "original": "QC/F-QC-15-A-G Line Clearance - Printing (2).xls",
+  "originalRoot": "Audit document",
+  "sheet": "QC Manual inspection (2)",
+  "notes": "F/QC/15's workbook holds the seven line clearance reports A to G, a sheet to each; this is the sheet \"QC Manual inspection (2)\". Three copies of the workbook are kept; the one matching the owner's PDF of this sheet best is taken.",
+  "scores": [
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing (2).xls",
+    "sheet": "QC Manual inspection (2)",
+    "score": 0.9296
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing.xls",
+    "sheet": "QC Manual inspection (2)",
+    "score": 0.9296
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance Quality inspection-2 - Printing.xls",
+    "sheet": "QC Manual inspection (2)",
+    "score": 0.9296
+   }
+  ],
+  "sheets": [
+   "Printing",
+   "Punching",
+   "QC Machine inspection",
+   "QC Manual inspection (2)",
+   "Slitting",
+   "Shrink Sleeve Gluing",
+   "Shrink Sleeve cutting"
+  ],
+  "bytes": 12277
+ },
+ {
+  "id": "qc-line-clearance-sleeve-cutting",
+  "kind": "xlsx",
+  "file": "originals/qc-line-clearance-sleeve-cutting.xlsx",
+  "original": "QC/F-QC-15-A-G Line Clearance - Printing (2).xls",
+  "originalRoot": "Audit document",
+  "sheet": "Shrink Sleeve cutting",
+  "notes": "F/QC/15's workbook holds the seven line clearance reports A to G, a sheet to each; this is the sheet \"Shrink Sleeve cutting\". Three copies of the workbook are kept; the one matching the owner's PDF of this sheet best is taken.",
+  "scores": [
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing (2).xls",
+    "sheet": "Shrink Sleeve cutting",
+    "score": 0.931
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing.xls",
+    "sheet": "Shrink Sleeve cutting",
+    "score": 0.931
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance Quality inspection-2 - Printing.xls",
+    "sheet": "Shrink Sleeve cutting",
+    "score": 0.931
+   }
+  ],
+  "sheets": [
+   "Printing",
+   "Punching",
+   "QC Machine inspection",
+   "QC Manual inspection (2)",
+   "Slitting",
+   "Shrink Sleeve Gluing",
+   "Shrink Sleeve cutting"
+  ],
+  "bytes": 12284
+ },
+ {
+  "id": "qc-line-clearance-sleeve-gluing",
+  "kind": "xlsx",
+  "file": "originals/qc-line-clearance-sleeve-gluing.xlsx",
+  "original": "QC/F-QC-15-A-G Line Clearance - Printing (2).xls",
+  "originalRoot": "Audit document",
+  "sheet": "Shrink Sleeve Gluing",
+  "notes": "F/QC/15's workbook holds the seven line clearance reports A to G, a sheet to each; this is the sheet \"Shrink Sleeve Gluing\". Three copies of the workbook are kept; the one matching the owner's PDF of this sheet best is taken.",
+  "scores": [
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing (2).xls",
+    "sheet": "Shrink Sleeve Gluing",
+    "score": 0.9333
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing.xls",
+    "sheet": "Shrink Sleeve Gluing",
+    "score": 0.9333
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance Quality inspection-2 - Printing.xls",
+    "sheet": "Shrink Sleeve Gluing",
+    "score": 0.9333
+   }
+  ],
+  "sheets": [
+   "Printing",
+   "Punching",
+   "QC Machine inspection",
+   "QC Manual inspection (2)",
+   "Slitting",
+   "Shrink Sleeve Gluing",
+   "Shrink Sleeve cutting"
+  ],
+  "bytes": 12304
+ },
+ {
+  "id": "qc-line-clearance-slitting",
+  "kind": "xlsx",
+  "file": "originals/qc-line-clearance-slitting.xlsx",
+  "original": "QC/F-QC-15-A-G Line Clearance - Printing (2).xls",
+  "originalRoot": "Audit document",
+  "sheet": "Slitting",
+  "notes": "F/QC/15's workbook holds the seven line clearance reports A to G, a sheet to each; this is the sheet \"Slitting\". Three copies of the workbook are kept; the one matching the owner's PDF of this sheet best is taken.",
+  "scores": [
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing (2).xls",
+    "sheet": "Slitting",
+    "score": 0.928
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance - Printing.xls",
+    "sheet": "Slitting",
+    "score": 0.928
+   },
+   {
+    "file": "F-QC-15-A-G Line Clearance Quality inspection-2 - Printing.xls",
+    "sheet": "Slitting",
+    "score": 0.928
+   }
+  ],
+  "sheets": [
+   "Printing",
+   "Punching",
+   "QC Machine inspection",
+   "QC Manual inspection (2)",
+   "Slitting",
+   "Shrink Sleeve Gluing",
+   "Shrink Sleeve cutting"
+  ],
+  "bytes": 12242
+ },
+ {
+  "id": "qc-minutes-of-meetings",
+  "kind": "docx",
+  "file": "originals/qc-minutes-of-meetings.docx",
+  "original": "QC/F-QC-30 MOM.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "F-QC-30 MOM.doc is the minutes of meetings, by its content (the viscosity register numbered F-QC-30 was supplied only as a photograph).",
+  "scores": [],
+  "pages": 1,
+  "bytes": 99953,
+  "copiedToSourceDocuments": "F-QC-30 MOM.doc"
+ },
+ {
+  "id": "qc-obsolete-artwork",
+  "kind": "xlsx",
+  "file": "originals/qc-obsolete-artwork.xlsx",
+  "original": "QC/F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.xls",
+  "originalRoot": "Audit document",
+  "sheet": "Final",
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken. The workbook's sheet matching that print is taken.",
+  "scores": [
+   {
+    "file": "F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD (2).xls",
+    "sheet": "FGLA",
+    "score": 0.37
+   },
+   {
+    "file": "F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD (2).xls",
+    "sheet": "FGSL",
+    "score": 0.4081
+   },
+   {
+    "file": "F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.xls",
+    "sheet": "Final",
+    "score": 0.8324
+   }
+  ],
+  "sheets": [
+   "Final"
+  ],
+  "bytes": 12733,
+  "copiedToSourceDocuments": "F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.xls"
+ },
+ {
+  "id": "qc-offset-ink",
+  "kind": "docx",
+  "file": "originals/qc-offset-ink.docx",
+  "original": "QC/F-QC-18_Inspection record for Offset Ink.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 101272,
+  "copiedToSourceDocuments": "F-QC-18_Inspection record for Offset Ink.doc"
+ },
+ {
+  "id": "qc-paper-core",
+  "kind": "docx",
+  "file": "originals/qc-paper-core.docx",
+  "original": "QC/F-QC-04_Inspection record for Paper core (2).doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-04_Inspection record for Paper core (2).doc",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-04_Inspection record for Paper core.doc",
+    "score": 1.0
+   }
+  ],
+  "pages": 1,
+  "bytes": 101451,
+  "copiedToSourceDocuments": "F-QC-04_Inspection record for Paper core (2).doc"
+ },
+ {
+  "id": "qc-printing-aids-destruction",
+  "kind": "docx",
+  "file": "originals/qc-printing-aids-destruction.docx",
+  "original": "QC/F-QC-20.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "F/QC/20 is also the number of the kraft paper record; F-QC-20.doc is the printing aids destruction record, by its content.",
+  "scores": [],
+  "pages": 1,
+  "bytes": 95772,
+  "copiedToSourceDocuments": "F-QC-20.doc"
+ },
+ {
+  "id": "qc-pvc-pet-film",
+  "kind": "docx",
+  "file": "originals/qc-pvc-pet-film.docx",
+  "original": "QC/F-QC-05_Inspection record for PVC+PET Film (2).doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-05_Inspection record for PVC+PET Film (2).doc",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-05_Inspection record for PVC+PET Film.doc",
+    "score": 1.0
+   }
+  ],
+  "pages": 1,
+  "bytes": 101690,
+  "copiedToSourceDocuments": "F-QC-05_Inspection record for PVC+PET Film (2).doc"
+ },
+ {
+  "id": "qc-ruler-verification",
+  "kind": "xlsx",
+  "file": "originals/qc-ruler-verification.xlsx",
+  "original": "QC/Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "4",
+  "notes": "The workbook keeps a sheet to each scale and verification; the sheet matching the owner's PDF (the 600 mm scale) is taken.",
+  "scores": [
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "1",
+    "score": 0.9307
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "2",
+    "score": 0.9307
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "3",
+    "score": 0.9208
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "4",
+    "score": 0.951
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "5",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "6",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "7",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "8",
+    "score": 0.9208
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "9",
+    "score": 0.9142
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "10",
+    "score": 0.8932
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "11",
+    "score": 0.8416
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "12",
+    "score": 0.8388
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "13",
+    "score": 0.8294
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "14",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "15",
+    "score": 0.9208
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "16",
+    "score": 0.9081
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "17",
+    "score": 0.9408
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "18",
+    "score": 0.9342
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "19",
+    "score": 0.9177
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "20",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "21",
+    "score": 0.9138
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "22",
+    "score": 0.9
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "23",
+    "score": 0.9307
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15",
+    "score": 0.1381
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (2)",
+    "score": 0.1356
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (5)",
+    "score": 0.1217
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (3)",
+    "score": 0.1225
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (4)",
+    "score": 0.1195
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet1",
+    "score": 0.0404
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "24",
+    "score": 0.9307
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "25",
+    "score": 0.9208
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "26",
+    "score": 0.9208
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "27",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "28",
+    "score": 0.9342
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "29",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "30",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "31",
+    "score": 0.9208
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "32",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "33",
+    "score": 0.9177
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "34",
+    "score": 0.8416
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "35",
+    "score": 0.8333
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "36",
+    "score": 0.8294
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "37",
+    "score": 0.9081
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "38",
+    "score": 0.9208
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "39",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "40",
+    "score": 0.9342
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "41",
+    "score": 0.8479
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "42",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "43",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "44",
+    "score": 0.9307
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (6)",
+    "score": 0.1093
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet2 (2)",
+    "score": 0.0404
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (7)",
+    "score": 0.1356
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "40 (3)",
+    "score": 0.9342
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (8)",
+    "score": 0.1217
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (9)",
+    "score": 0.1225
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (10)",
+    "score": 0.1195
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet1 (2)",
+    "score": 0.0404
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "22 (4)",
+    "score": 0.0437
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "22 (2)",
+    "score": 0.0437
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet2",
+    "score": 0.0404
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet3",
+    "score": 0.0
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet4",
+    "score": 0.0
+   }
+  ],
+  "sheets": [
+   "1",
+   "2",
+   "3",
+   "4",
+   "5",
+   "6",
+   "7",
+   "8",
+   "9",
+   "10",
+   "11",
+   "12",
+   "13",
+   "14",
+   "15",
+   "16",
+   "17",
+   "18",
+   "19",
+   "20",
+   "21",
+   "22",
+   "23",
+   "Sheet15",
+   "Sheet15 (2)",
+   "Sheet15 (5)",
+   "Sheet15 (3)",
+   "Sheet15 (4)",
+   "Sheet1",
+   "24",
+   "25",
+   "26",
+   "27",
+   "28",
+   "29",
+   "30",
+   "31",
+   "32",
+   "33",
+   "34",
+   "35",
+   "36",
+   "37",
+   "38",
+   "39",
+   "40",
+   "41",
+   "42",
+   "43",
+   "44",
+   "Sheet15 (6)",
+   "Sheet2 (2)",
+   "Sheet15 (7)",
+   "40 (3)",
+   "Sheet15 (8)",
+   "Sheet15 (9)",
+   "Sheet15 (10)",
+   "Sheet1 (2)",
+   "22 (4)",
+   "22 (2)",
+   "Sheet2",
+   "Sheet3",
+   "Sheet4"
+  ],
+  "bytes": 13121,
+  "copiedToSourceDocuments": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx"
+ },
+ {
+  "id": "qc-ruler-verification-300",
+  "kind": "xlsx",
+  "file": "originals/qc-ruler-verification-300.xlsx",
+  "original": "QC/Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "42",
+  "notes": "The 300 mm scale was supplied only as a PDF of the same F/QC/17 page; the company's F/QC/17 workbook's sheet matching that PDF best is taken (the scale's own boxes come from DCRS).",
+  "scores": [
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "1",
+    "score": 0.9409
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "2",
+    "score": 0.9208
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "3",
+    "score": 0.9309
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "4",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "5",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "6",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "7",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "8",
+    "score": 0.9309
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "9",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "10",
+    "score": 0.903
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "11",
+    "score": 0.8515
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "12",
+    "score": 0.8486
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "13",
+    "score": 0.8356
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "14",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "15",
+    "score": 0.9309
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "16",
+    "score": 0.9181
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "17",
+    "score": 0.9307
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "18",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "19",
+    "score": 0.9081
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "20",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "21",
+    "score": 0.9239
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "22",
+    "score": 0.9097
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "23",
+    "score": 0.9409
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15",
+    "score": 0.1302
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (2)",
+    "score": 0.1055
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (5)",
+    "score": 0.0967
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (3)",
+    "score": 0.1152
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (4)",
+    "score": 0.1123
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet1",
+    "score": 0.0401
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "24",
+    "score": 0.9409
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "25",
+    "score": 0.9309
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "26",
+    "score": 0.9309
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "27",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "28",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "29",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "30",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "31",
+    "score": 0.9309
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "32",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "33",
+    "score": 0.9081
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "34",
+    "score": 0.8361
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "35",
+    "score": 0.8431
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "36",
+    "score": 0.8356
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "37",
+    "score": 0.9181
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "38",
+    "score": 0.9146
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "39",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "40",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "41",
+    "score": 0.839
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "42",
+    "score": 0.951
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "43",
+    "score": 0.9344
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "44",
+    "score": 0.9409
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (6)",
+    "score": 0.1042
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet2 (2)",
+    "score": 0.0401
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (7)",
+    "score": 0.1055
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "40 (3)",
+    "score": 0.9243
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (8)",
+    "score": 0.0967
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (9)",
+    "score": 0.1152
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet15 (10)",
+    "score": 0.1123
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet1 (2)",
+    "score": 0.0401
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "22 (4)",
+    "score": 0.0433
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "22 (2)",
+    "score": 0.0433
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet2",
+    "score": 0.0401
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet3",
+    "score": 0.0
+   },
+   {
+    "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+    "sheet": "Sheet4",
+    "score": 0.0
+   }
+  ],
+  "sheets": [
+   "1",
+   "2",
+   "3",
+   "4",
+   "5",
+   "6",
+   "7",
+   "8",
+   "9",
+   "10",
+   "11",
+   "12",
+   "13",
+   "14",
+   "15",
+   "16",
+   "17",
+   "18",
+   "19",
+   "20",
+   "21",
+   "22",
+   "23",
+   "Sheet15",
+   "Sheet15 (2)",
+   "Sheet15 (5)",
+   "Sheet15 (3)",
+   "Sheet15 (4)",
+   "Sheet1",
+   "24",
+   "25",
+   "26",
+   "27",
+   "28",
+   "29",
+   "30",
+   "31",
+   "32",
+   "33",
+   "34",
+   "35",
+   "36",
+   "37",
+   "38",
+   "39",
+   "40",
+   "41",
+   "42",
+   "43",
+   "44",
+   "Sheet15 (6)",
+   "Sheet2 (2)",
+   "Sheet15 (7)",
+   "40 (3)",
+   "Sheet15 (8)",
+   "Sheet15 (9)",
+   "Sheet15 (10)",
+   "Sheet1 (2)",
+   "22 (4)",
+   "22 (2)",
+   "Sheet2",
+   "Sheet3",
+   "Sheet4"
+  ],
+  "bytes": 13126
+ },
+ {
+  "id": "qc-sheet-pasting-powder",
+  "kind": "docx",
+  "file": "originals/qc-sheet-pasting-powder.docx",
+  "original": "QC/F-QC-24_Inspection record for Corru.sheet pasting powder.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 101624,
+  "copiedToSourceDocuments": "F-QC-24_Inspection record for Corru.sheet pasting powder.doc"
+ },
+ {
+  "id": "qc-side-pasting-adhesive",
+  "kind": "docx",
+  "file": "originals/qc-side-pasting-adhesive.docx",
+  "original": "QC/F-QC-22_Inspection record for Side pasting adhesive.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 101570,
+  "copiedToSourceDocuments": "F-QC-22_Inspection record for Side pasting adhesive.doc"
+ },
+ {
+  "id": "qc-starch-powder",
+  "kind": "docx",
+  "file": "originals/qc-starch-powder.docx",
+  "original": "QC/F-QC-23_Inspection record for Corru. starch powder.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 100788,
+  "copiedToSourceDocuments": "F-QC-23_Inspection record for Corru. starch powder.doc"
+ },
+ {
+  "id": "qc-test-reliability-label",
+  "kind": "xlsx",
+  "file": "originals/qc-test-reliability-label.xlsx",
+  "original": "QC/F-QC-14 TEST RELIABILITY RECORD (1).xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "Label",
+  "notes": "F-QC-14's workbook holds the Label and the Sleeve record; this is the Label sheet.",
+  "scores": [],
+  "sheets": [
+   "Label",
+   "Sleeve"
+  ],
+  "bytes": 14408,
+  "copiedToSourceDocuments": "F-QC-14 TEST RELIABILITY RECORD (1).xlsx"
+ },
+ {
+  "id": "qc-test-reliability-sleeve",
+  "kind": "xlsx",
+  "file": "originals/qc-test-reliability-sleeve.xlsx",
+  "original": "QC/F-QC-14 TEST RELIABILITY RECORD (1).xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "Sleeve",
+  "notes": "F-QC-14's workbook holds the Label and the Sleeve record; this is the Sleeve sheet.",
+  "scores": [],
+  "sheets": [
+   "Label",
+   "Sleeve"
+  ],
+  "bytes": 13762
+ },
+ {
+  "id": "qc-tolerance-card-nivea",
+  "kind": "docx",
+  "file": "originals/qc-tolerance-card-nivea.docx",
+  "original": "QC/F-QC-19_ Tolerance card for Nivea.docx",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "F/QC/19 is also the number of the duplex board record; this is the tolerance card, by its content.",
+  "scores": [],
+  "pages": 4,
+  "bytes": 15568,
+  "copiedToSourceDocuments": "F-QC-19_ Tolerance card for Nivea.docx"
+ },
+ {
+  "id": "qc-utility-test-report",
+  "kind": "docx",
+  "file": "originals/qc-utility-test-report.docx",
+  "original": "QC/F-QC-29 Analysis report.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two F/QC/29 files are kept (the analysis report and the utility test report); the one matching the owner's PDF of this one is taken.",
+  "scores": [
+   {
+    "file": "F-QC-29 Analysis report.doc",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-29 _ Analysis report.doc",
+    "score": 0.4105
+   }
+  ],
+  "pages": 1,
+  "bytes": 100534,
+  "copiedToSourceDocuments": "F-QC-29 Analysis report.doc"
+ },
+ {
+  "id": "qc-weight-scale-calibration",
+  "kind": "docx",
+  "file": "originals/qc-weight-scale-calibration.docx",
+  "original": "QC/F-QC-12 Weighing balance internal calibration record (2).docx",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "Two versions are in the owner's folder; the one whose text matches his own PDF of it is taken.",
+  "scores": [
+   {
+    "file": "F-QC-12 Weighing balance internal calibration record (2).docx",
+    "score": 1.0
+   },
+   {
+    "file": "F-QC-12 Weighing balance internal calibration record.docx",
+    "score": 1.0
+   }
+  ],
+  "pages": 1,
+  "bytes": 20776,
+  "copiedToSourceDocuments": "F-QC-12 Weighing balance internal calibration record (2).docx"
+ },
+ {
+  "id": "service-report-fly",
+  "kind": "xlsx",
+  "file": "originals/service-report-fly.xlsx",
+  "original": "Service Report-April 2026.xls",
+  "originalRoot": "source-documents",
+  "sheet": "1st Service-Rcs",
+  "notes": "The contractor's service report workbook (April 2026); its first sheet.",
+  "scores": [],
+  "sheets": [
+   "1st Service-Rcs",
+   "2nd Service-Rcs (2)",
+   "1st Service-Gpms (3)",
+   "2nd Service-Gpms (4)",
+   "1st Service-FCS (4)",
+   "2nd Service-FCS (5)"
+  ],
+  "bytes": 20510
+ },
+ {
+  "id": "service-report-general",
+  "kind": "xlsx",
+  "file": "originals/service-report-general.xlsx",
+  "original": "Service Report-April 2026.xls",
+  "originalRoot": "source-documents",
+  "sheet": "1st Service-Rcs",
+  "notes": "The contractor's service report workbook (April 2026); its first sheet.",
+  "scores": [],
+  "sheets": [
+   "1st Service-Rcs",
+   "2nd Service-Rcs (2)",
+   "1st Service-Gpms (3)",
+   "2nd Service-Gpms (4)",
+   "1st Service-FCS (4)",
+   "2nd Service-FCS (5)"
+  ],
+  "bytes": 20514
+ },
+ {
+  "id": "service-report-rodent",
+  "kind": "xlsx",
+  "file": "originals/service-report-rodent.xlsx",
+  "original": "Service Report-April 2026.xls",
+  "originalRoot": "source-documents",
+  "sheet": "1st Service-Rcs",
+  "notes": "The contractor's service report workbook (April 2026); its first sheet.",
+  "scores": [],
+  "sheets": [
+   "1st Service-Rcs",
+   "2nd Service-Rcs (2)",
+   "1st Service-Gpms (3)",
+   "2nd Service-Gpms (4)",
+   "1st Service-FCS (4)",
+   "2nd Service-FCS (5)"
+  ],
+  "bytes": 20509
+ },
+ {
+  "id": "soc-flexible-packaging",
+  "kind": "docx",
+  "file": "originals/soc-flexible-packaging.docx",
+  "original": "QC/F-QC-38_Statement of Compliance (SOC) - Flexible packaging Pouch & Film.docx",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 5,
+  "bytes": 31045
+ },
+ {
+  "id": "soc-labels",
+  "kind": "docx",
+  "file": "originals/soc-labels.docx",
+  "original": "QC/F-QC-09_Statement of Compliance (SOC) - Label.docx",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 2,
+  "bytes": 28681
+ },
+ {
+  "id": "soc-shrink-sleeves",
+  "kind": "docx",
+  "file": "originals/soc-shrink-sleeves.docx",
+  "original": "QC/F-QC-10_Statement of Compliance (SOC) - Shrink Sleeve.docx",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 2,
+  "bytes": 28613,
+  "copiedToSourceDocuments": "F-QC-10_Statement of Compliance (SOC) - Shrink Sleeve.docx"
+ },
+ {
+  "id": "str-sharp-metal-objects",
+  "kind": "docx",
+  "file": "originals/str-sharp-metal-objects.docx",
+  "original": "F-STR-02_Sharp metal objects issuance & replacement record.docx",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 23504
+ },
+ {
+  "id": "sys-audit-findings",
+  "kind": "docx",
+  "file": "originals/sys-audit-findings.docx",
+  "original": "1 Product safety team leader/F-SYS-08-Internal Audit Findings & observation Report.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 25546,
+  "copiedToSourceDocuments": "F-SYS-08-Internal Audit Findings & observation Report.doc"
+ },
+ {
+  "id": "sys-audit-nc",
+  "kind": "docx",
+  "file": "originals/sys-audit-nc.docx",
+  "original": "1 Product safety team leader/F-SYS-10-Internal audit NC report.DOC",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 29516,
+  "copiedToSourceDocuments": "F-SYS-10-Internal audit NC report.DOC"
+ },
+ {
+  "id": "sys-audit-plan",
+  "kind": "docx",
+  "file": "originals/sys-audit-plan.docx",
+  "original": "1 Product safety team leader/F-SYS-06-Internal Audit Plan.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 26243,
+  "copiedToSourceDocuments": "F-SYS-06-Internal Audit Plan.doc"
+ },
+ {
+  "id": "sys-audit-risk",
+  "kind": "xlsx",
+  "file": "originals/sys-audit-risk.xlsx",
+  "original": "1 Product safety team leader/F-SYS-07-Internal Audit Risk assessment.xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "Sheet1",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet1"
+  ],
+  "bytes": 14571,
+  "copiedToSourceDocuments": "F-SYS-07-Internal Audit Risk assessment.xlsx"
+ },
+ {
+  "id": "sys-audit-schedule",
+  "kind": "xlsx",
+  "file": "originals/sys-audit-schedule.xlsx",
+  "original": "1 Product safety team leader/F-SYS-05-Internal_Audit_Schedule.xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "Sheet1",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet1"
+  ],
+  "bytes": 13267,
+  "copiedToSourceDocuments": "F-SYS-05-Internal_Audit_Schedule.xlsx"
+ },
+ {
+  "id": "sys-document-change",
+  "kind": "docx",
+  "file": "originals/sys-document-change.docx",
+  "original": "1 Product safety team leader/F-SYS-03-Document change request & approval note.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 26289,
+  "copiedToSourceDocuments": "F-SYS-03-Document change request & approval note.doc"
+ },
+ {
+  "id": "sys-document-list",
+  "kind": "xlsx",
+  "file": "originals/sys-document-list.xlsx",
+  "original": "F-SYS-01-Master List of Documents. (R-2025)..xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "GPPL - Doc list",
+  "notes": "The R-2025 workbook DCRS was built from; its list sheet.",
+  "scores": [],
+  "sheets": [
+   "GPPL - Doc list",
+   "Sheet1",
+   "Reference"
+  ],
+  "bytes": 25079
+ },
+ {
+  "id": "sys-format-list",
+  "kind": "xlsx",
+  "file": "originals/sys-format-list.xlsx",
+  "original": "F-SYS-02-Master List of Formats. (R-2025)..xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "GPPL - Formats list",
+  "notes": "The R-2025 workbook DCRS was built from; its list sheet.",
+  "scores": [],
+  "sheets": [
+   "GPPL - Formats list",
+   "Sheet1",
+   "GPPL - Formats list (2)"
+  ],
+  "bytes": 21776
+ },
+ {
+  "id": "sys-hara-monthly",
+  "kind": "docx",
+  "file": "originals/sys-hara-monthly.docx",
+  "original": "1 Product safety team leader/F-SYS-12-Monthly HARA Verification.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 2,
+  "bytes": 29778,
+  "copiedToSourceDocuments": "F-SYS-12-Monthly HARA Verification.doc"
+ },
+ {
+  "id": "sys-mock-recall",
+  "kind": "xlsx",
+  "file": "originals/sys-mock-recall.xlsx",
+  "original": "1 Product safety team leader/F-SYS-13-Mock Product Withdrawal record.xlsx",
+  "originalRoot": "Audit document",
+  "sheet": "Sheet1",
+  "notes": "",
+  "scores": [],
+  "sheets": [
+   "Sheet1"
+  ],
+  "bytes": 13381,
+  "copiedToSourceDocuments": "F-SYS-13-Mock Product Withdrawal record.xlsx"
+ },
+ {
+  "id": "sys-mrm-agenda",
+  "kind": "docx",
+  "file": "originals/sys-mrm-agenda.docx",
+  "original": "1 Product safety team leader/F-SYS-04-Management review meeting agenda & Record_R01_09.12.2020.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "The company's Word original of F/SYS/04 (agenda and record in one file).",
+  "scores": [],
+  "pages": 6,
+  "bytes": 35935,
+  "copiedToSourceDocuments": "F-SYS-04-Management review meeting agenda & Record_R01_09.12.2020.doc"
+ },
+ {
+  "id": "sys-mrm-record",
+  "kind": "docx",
+  "file": "originals/sys-mrm-record.docx",
+  "original": "1 Product safety team leader/F-SYS-04-Management review meeting agenda & Record_R01_09.12.2020.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "The company's Word original of F/SYS/04 (agenda and record in one file).",
+  "scores": [],
+  "pages": 6,
+  "bytes": 35771
+ },
+ {
+  "id": "sys-nc-car",
+  "kind": "docx",
+  "file": "originals/sys-nc-car.docx",
+  "original": "1 Product safety team leader/F-SYS-11-Non Confirmance & Corrective Action Report.DOC",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 30033,
+  "copiedToSourceDocuments": "F-SYS-11-Non Confirmance & Corrective Action Report.DOC"
+ },
+ {
+  "id": "training-record",
+  "kind": "docx",
+  "file": "originals/training-record.docx",
+  "original": "Training - Yrl (1).doc",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": 1,
+  "bytes": 19532
+ }
+]
