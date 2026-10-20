@@ -9005,7 +9005,11 @@ sheet; the training record - his file is the pest contractor's filled training l
 documents (F/QC/06, 07, 09, 10, 38, F-QC-14 x2, F/QC/17 x2, F/QC/21 flexo, F/QC/29 x2, F/QC/30) - after the QC print round 2
 (their pages are changing; most fill offline already). The six hand-drawn downloads of §118 stay hand-drawn: their templates
 were filled and held against their papers, and none is yet at least as good - the service reports' sheet places none of the
-record's values, F/HR/15's own company line reads "GUJARAT PRINT PACA1:AH16K" and its title cell is taken by the Month & Year,
+record's values, F/HR/15's own company line reads "GUJARAT PRINT PACA1:AH16K" and its title cell was taken by the Month & Year (both now put
+right by general rules: a cell that is the company's line alone takes the one name, the paper's printed title is never a box's
+value cell; filled, it scored 98), but DCRS keeps two empty boxes inside each of its merged foot cells ("Cleaning done by",
+"Cleaning verified by") and the paper's merges and print scale then differ from the supplied workbook's (e2e_downloads_and_print's
+checks of it fail): kept hand-drawn,
 F/HR/16 scores 27 with two rows added, F/HR/18's fortnight lines land on the paper's other PC rows.
 
 **Open questions for the owner (round 2).** (1) The values above written outside the paper's boxes: keep them so, or add a box

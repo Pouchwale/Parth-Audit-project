@@ -567,6 +567,8 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
   const firstHeading = places.length ? Math.min(...places.map((p) => p.headingRow)) : maxRow + 1;
 
   // ---- boxes
+  // The words the paper prints that DCRS prints too (its title, its notes): never a box's value cell.
+  const printedWords0 = new Set([model.title, ...model.texts].map(norm).filter(Boolean));
   const fieldPlaces: FieldPlace[] = [];
   const outside: ModelField[] = [];
   for (const field of model.fields) {
@@ -585,7 +587,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
       fieldPlaces.push({ field, r, c, pre: "", post: "", mode: "cell" });
       continue;
     }
-    const at = placeField(sheet, field, all1, taken, labels);
+    const at = placeField(sheet, field, all1, taken, labels, printedWords0);
     if (!at) {
       // No place on the paper: written in its empty space as "Label: value" (below, once the rows are settled).
       outside.push(field);
@@ -609,6 +611,9 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     let text = m.text;
     // The company's one name (REQUIREMENTS §95).
     if (COMPANY_RE.test(text)) text = text.replace(COMPANY_RE, opts.company);
+    // A cell that is the company's line alone, however the paper spelt it ("GUJARAT PRINT PACA1:AH16K PUBLICATION PRIVATE
+    // LIMITED" on F/HR/15's workbook): the one name.
+    else if (m.r <= 3 && /^\s*GUJ\s*A?R\s*A?T\s+PRINT\b.*\b(?:PVT\.?\s*LTD\.?|PRIVATE\s+LIMITED)\s*$/i.test(text)) text = opts.company;
     // The format's own number, revision and date, wherever the paper prints them (its head, its foot).
     if (ownNumber && dcrsFormat && norm(text).includes(norm(ownNumber))) {
       text = replaceFormat(text, ownNumber, dcrsFormat, dcrsRev, dcrsRevDate);
@@ -1331,7 +1336,8 @@ function placeField(
   field: ModelField,
   cells: { r: number; c: number; text: string }[],
   taken: Set<number>,
-  labels: Set<string>
+  labels: Set<string>,
+  printed: Set<string> = new Set()
 ): FieldPlace | null {
   const label = field.label;
   if (!norm(label)) return null;
@@ -1405,7 +1411,7 @@ function placeField(
   }
   const isLabel = (t: string) => {
     const n = norm(t.replace(/[\s:\-–_.=]+$/, ""));
-    return n.length > 0 && (labels.has(n) || bandWordOf(t.replace(/[\s:\-–_.=]+$/, "")) !== null);
+    return n.length > 0 && (labels.has(n) || printed.has(n) || bandWordOf(t.replace(/[\s:\-–_.=]+$/, "")) !== null);
   };
   // "Label : ____" (or the owner's example after the label): the value after the label in the same cell.
   if (split && split.rest.trim() && (isBlankish(split.rest) || !/[\s:\-–=]$/.test(split.head) || true)) {
