@@ -505,6 +505,14 @@ Seven scripts live in `tests/`:
   widths, rows, fonts, orientation - and F/HR/18's Word page, bands, unit tables and page break), `tests/e2e_hr_module.py` (F/HR/17's catch row starts empty,
   offers the sixteen real areas and "Another place...", is refused by Submit without a place and a count and keeps what is written).
   `source-documents/Service Report- March 2026.pdf` is the contractor's report the print is held against.
+  *Run of 20-Oct-2026 (this branch).* `npm run typecheck` clean; `npm run test:unit`: frontend 1209 of 1209, backend 632 of 636 (4 skipped).
+  Browser suites: `e2e_print_and_forms`, `e2e_print_all_documents` (with the March report held against the contractor's PDF, F/HR/18's two pages, F/HR/16 and the
+  service reports one page each), `e2e_assistant_fill`, `e2e_hr_module` (with F/HR/17's catch row), `e2e_upload_changes` (every downloaded file read back) and
+  `e2e_hr_master_data` pass; `e2e_downloads_and_print` passes every check of its new section 4 (the service reports, F/HR/15, F/HR/16 and F/HR/18 against
+  their originals) and fails one check outside this work, F/QC/12's "line carried from the page on file", run on a holiday (20-Oct-2026, Navratri Navam);
+  `e2e_storage_room` fails three checks on a clean `premium-theme` (0b53049) as well, the same day (the Demo Mode room: "9 earlier months"). The F/HR/17 browser
+  check and the download checks are written for a holiday too (the day's tick is unticked, the downloads do not depend on the date). `e2e_find_every_document` was
+  not run: another worktree's run held the browser-suite ports until after this branch's time box.
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
   (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;
