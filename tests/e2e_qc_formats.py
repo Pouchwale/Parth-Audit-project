@@ -622,13 +622,14 @@ with sync_playwright() as p:
     check("The paper core record prints its six parameters, also in three samples", sheet_rows(page).count() == 6, sheet_rows(page).count())
 
     open_page(page, "#/document/qc-offset-ink")
-    # DRYING TEST stands over two printed lines, the second unnumbered with its own OBSERVATION (s111 part 6).
+    # DRYING TEST stands over two printed lines, the second unnumbered with its own OBSERVATION (s111 part 6). The owner's PDF rules
+    # the second paragraph off under an empty number cell and an empty parameter cell (s117, QC visual parity): four cells, the first two empty.
     at = next((i for i in range(10) if "DRYING TEST" in " ".join(cell_texts(page, i))), -1)
     drying = cell_texts(page, at) if at >= 0 else []
     glass = cell_texts(page, at + 1) if at >= 0 else []
     check(
         "The offset ink record keeps both drying tests the form prints against the one parameter, each on a line of its own",
-        drying[:2] == ["6.", "DRYING TEST"] and "By Thumb Impression" in " ".join(drying) and len(glass) == 2 and glass[0].startswith("On Glass surface")
+        drying[:2] == ["6.", "DRYING TEST"] and "By Thumb Impression" in " ".join(drying) and len(glass) == 4 and glass[:2] == ["", ""] and glass[2].startswith("On Glass surface")
         and sheet_rows(page).count() == 10 and cell_texts(page, at + 2)[0] == "7.",
         (drying, glass),
     )
@@ -743,7 +744,8 @@ with sync_playwright() as p:
                  return {
                    printed: window.__printed,
                    form: shown(doc),
-                   lines: doc ? doc.querySelectorAll('table.log-sheet tbody tr').length : 0,
+                   // The lines of the record: the paper's ten ruled lines (s117) are on the printed page, blank, and are not lines of the record.
+                   lines: doc ? doc.querySelectorAll('table.log-sheet tbody tr:not(.pf-pad)').length : 0,
                    text: doc ? doc.textContent : '',
                    sidebar: shown(document.querySelector('.app-sidebar')),
                  };

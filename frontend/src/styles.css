@@ -3100,6 +3100,9 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .paper-sheet[data-paper-form] [data-pf] sup, .paper-sheet[data-paper-form] .doc-table table.log-sheet td sup { font-size: calc(7 * var(--pt)); line-height: 0; position: relative; top: calc(-0.9 * var(--u)); vertical-align: baseline; }
   .paper-sheet[data-paper-form] [data-pf~="sign"] { grid-auto-flow: column; }
   .paper-sheet[data-paper-form] [data-pf] .field { display: contents; }
+  /* a box of the header keeps a box of its own (two columns of the table, by subgrid): the sheet's checks and a screen reader place it */
+  .paper-sheet[data-paper-form] [data-pf~="head"] .field { display: grid; grid-template-columns: subgrid; grid-column: span 2; }
+  .paper-sheet[data-paper-form] [data-pf~="more"] .field { grid-column: 1 / -1; }
   /* a label, a blank cell, the words under a signature, a choice of the LOT STATUS: one cell of a table */
   .paper-sheet[data-paper-form] [data-pf] .field > label,
   .paper-sheet[data-paper-form] [data-pf] .pf-blank,
