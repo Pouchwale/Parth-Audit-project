@@ -8813,6 +8813,81 @@ and nothing is left to fill: it opens them on a working day now.
 5. The Word and Excel files were checked as files (their XML read back, merges, widths, rows, faces and page set-up compared with the supplied originals); no copy of Word or Excel is on this computer to open them, so how they look on the owner's screen is the one thing left to look at.
 6. F/HR/01 to F/HR/13, F/HR/19, F/HR/21 and F/HR/22 and the daily register's original were supplied as PDFs only, so they download in the generic grid (§54); send their Word or Excel originals to have them laid on their own grids as F/HR/15, F/HR/16, F/HR/18 and the service reports now are. "Training - Yrl (1).doc" is held as the training record's Word original and its download was not compared cell by cell.
 
+## §119 Every download is the owner's own Word or Excel file, filled with the record (20-Oct-2026)
+
+**The request.** The owner, 20-Oct-2026: "So make sure check each and every format of QC Module and make sure each and every
+part should be editable and same and when user click on print button or download the any particular document then it should
+download the same document which i have uploaded / Supplied to you and this is applicable to all modules. So make sure about
+it and do complete the remaining task fast, perfectly with github commit and push." Before that, on 17-Oct-2026: "whenever
+user download the Excel file or Word file, it should be real, which I have supplied to you". (The PRINT of the QC documents is
+the QC visual-parity work, §117 and the 17-Oct workflow; this section is the DOWNLOADS.)
+
+**What was true.** Every download was made from the page on screen (utils/documentExport.ts: the record view read into blocks,
+written as a generic workbook or Word file); only the service reports, F/HR/15, F/HR/16 and F/HR/18 were redrawn on their
+original's grid, by hand (§118). 24 documents downloaded as the wrong kind of file (F/QC/01-05, 18-24, F/QC/11 and 12 are Word
+on the owner's side and downloaded as Excel; F/HR/20 the other way).
+
+**The owner's files as templates (done).** `scripts/originals/convert.py` drives Microsoft Word and Excel 16 (hidden, alerts
+off, every original copied first and opened read-only, Office quit at the end, only its own processes ended). For every
+document with a Word or Excel original it picks the right one and says why (`scripts/originals/picks.json`): where two
+versions exist, the one whose text matches the owner's own PDF of it (his QC-Pdf's folder, or the PDF the document was built
+from); a shared workbook's own sheet (F/QC/15-A to G, F-QC-14's Label and Sleeve, F/PRD/23 and F/PRD/10, F/QC/17's sheet per
+scale); the format numbers shared by two documents resolved by content (F/QC/19 duplex board and the Nivea tolerance card,
+F/QC/20 kraft paper and the printing aids destruction record, F/QC/21 flexo ink and the lamination adhesive, F/QC/29 analysis
+report and the utility test report, F/QC/30 minutes of meetings). It converts .doc to .docx and .xls to .xlsx with Word and
+Excel themselves, keeping only the document's own sheet, into `frontend/public/originals/<document-id>.<docx|xlsx>` (105 files,
+5.4 MB, copied into dist by the build, fetched only when someone downloads); exports each original to PDF as the reference
+(`source-documents/originals-pdf/<document-id>.pdf`); copies into source-documents the originals not yet there; and writes the
+manifest `frontend/src/data/seed/originalFiles.ts`.
+
+**The filler (done).** `frontend/src/utils/originalFill/` places what the page shows INTO the owner's file by its words:
+- the header band: his "Format no.", "Rev. no.", "Effective date" cells and "F/QC/01 (01 / 16.02.2022)" (head or foot) take
+  DCRS's values, so the format's own edits show; the company's one name (§95's COMPANY.name); the title where the plant
+  changed it; the header's DATE cell is blanked unless the date it holds is the revision's (§117); his page numbering stays;
+- a box: its label found in a cell or a line (also "Change requested by | Name", and a label inside a cell such as F/HR/01's
+  "... Reviewed as on"); the value into the empty cell after it, under it, or after the label in the same cell or line
+  ("Label : ____"); a choice printed across a row or down a few lines (LOT STATUS, Yes / No, the request type) is marked
+  where it is: the chosen word ticked and bound, the others boxed (the paper's own boxes kept where it draws them);
+- a grid: its headings found in a row (a heading of two rows too: "Education — Required" under "Education"); each column
+  under its heading; a fixed line (a parameter) on the paper's row of the same words; the free lines into the rows under the
+  heading; more lines than rows: the last row copied (xlsx: cells, merges, ranges, names, print area, pictures moved down;
+  docx: the row cloned); a numbered list numbers its own lines (DCRS's "1." is not written beside Word's);
+- the owner's example entries are cleared from every box value and grid body before anything is written (§98: a template
+  that came filled with his examples never carries them into a download; a blank record gives a blank paper); the words a
+  grid prints itself ("Deviation %" under each of F/QC/12's weeks) stay; a formula's cached result is dropped and worked out
+  again on opening;
+- the round-trip map goes in exactly as the generic writers put it (§81): a very hidden "_dcrs" sheet, a hidden name on each
+  bound cell and the envelope in the custom properties; a content control "dcrs:<i>" round each bound value, the map as a
+  custom XML part, a captioned table for a grid lines may be added to, and the rows of the paper's own listed so they are never
+  read as new lines;
+- every filled file is READ BACK before it is handed over (engine/roundTrip/readFile.ts): a value missing, a paper's line read
+  as a new one, or a value DCRS shows that found no place on the paper, and the generic download is made instead, as on any
+  failure (§81's rule: a download never errors).
+`documentFileKind` returns the original's kind wherever a template exists. Per-document hints (utils/originalFill/hints.ts)
+are allowed only where the generic matcher cannot tell, each with its reason.
+
+**The four drawn by hand (§118).** The service reports, F/HR/15, F/HR/16 and F/HR/18 keep their hand-drawn files
+(originalFill HAND_DRAWN) until their template files are verified at least as good by the check below; their templates are
+converted and waiting.
+
+**The check (done).** `tests/originals_check/` (README): its own private DCRS (temporary PostgreSQL, port 4300, a random
+password made per run in memory, sign-up off, hours off, JOBS=0, no AI key, Demo Mode for Mitra's sample fill), a new record
+per document filled with the sample fill (test data), Download, then (a) the file read back: every value present, the
+owner's words left over listed, the map whole; (b) Word/Excel export the download to PDF, held page by page against the
+original's PDF (pages, orientation, words and rules at their place, a side-by-side picture, a score); (c) the file uploaded
+back through the page's own Upload changes: "nothing to apply". The run of 20-Oct-2026 is in docs/TESTING.md.
+
+**What stays generic, and why.** A document whose original is only a PDF or a photograph, or has none, has no file of the
+owner's to fill: F/HR/17 (the blank PDF format), the pest documents supplied as PDFs (the complaint acknowledgement, the pest
+responsibilities, the service agreement on the contractor's letterhead, the insecticide licence), the photographed registers
+(F/QC/13, F/QC/30 viscosity, F/QC/32, F/QC/34, 35, 37, F/QC/40.A, B, C), the PDF-only formats (F/QC/25, F/MNT/04, 05, 06,
+07, 11, F/SYS/14, 15, 16, 17, 20, F/MKT/01), F/QC/15's two line-clearance sheets with no number, and F/QC/31's camera
+challenge test. Their download stays the file made from the page, as before. A document whose template cannot hold the
+record (a structure the paper does not have, e.g. a grid DCRS keeps as columns where the paper keeps rows) falls back the same
+way, and the check names it. Of the 105 documents with a Word or Excel original, those whose page and paper differ in shape fall back today (named in docs/TESTING.md with the reason): a grid kept as columns where the paper keeps rows (F/HR/09's months as Plan and Actual columns against the paper's Plan and Actual rows), a list the paper prints without a heading row (F/HR/07's responsibilities, the question tables of F/HR/04, F/HR/11 and F/HR/14), a box DCRS shows that the paper does not print (F/HR/08's Period, F/HR/21's Overall achieved, F/HR/19's areas and team, the pest training record's columns, the complaint checklist's per-activity names). Each can be fitted with a per-document hint, or the paper can be given the box in its next revision.
+
+**Open questions for the owner.** (1) F/PRD/22 and F/PRD/24: his folder holds a newer Rev 01 of 01.01.2026 (TIo2 coated trimming blade / razor blade stock and monitoring) than the Rev 00 DCRS was built from and downloads; and F/PRD/10's newer "DAILY SCISSOR ISSUE & RETURN INTEGRITY MONITORING RECORD" (Rev 01) beside the Rev 00 sheet used: which should DCRS follow? (2) F/QC/12's own foot prints "F/QC/13 (01/01.01.2022)": the download prints DCRS's F/QC/12 - right? (3) F/MNT/02's only Word original is the PM schedule filled for one machine (DCM sleeve seaming, GALLOPS); a blank one would be better. (4) F/HR/07 came as two position sheets of one layout; the first is used. (5) The papers' own company spellings are replaced by the one name in the downloads too (2-Oct-2026). (6) The boxes and grids DCRS shows that his papers do not print (above): add them to the paper, or leave those documents' downloads generic?
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

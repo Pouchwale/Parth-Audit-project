@@ -513,6 +513,30 @@ Seven scripts live in `tests/`:
   `e2e_storage_room` fails three checks on a clean `premium-theme` (0b53049) as well, the same day (the Demo Mode room: "9 earlier months"). The F/HR/17 browser
   check and the download checks are written for a holiday too (the day's tick is unticked, the downloads do not depend on the date). `e2e_find_every_document` was
   not run: another worktree's run held the browser-suite ports until after this branch's time box.
+- **Every download is the owner's own Word or Excel file, 20-Oct-2026** (REQUIREMENTS §119).
+  New unit test file `frontend/tests/originalFill.test.ts` (9): a made-up workbook (the company's misspelt name brought to the one
+  spelling, "F/QC/99 (00/01.12.2021)" brought to DCRS's revision and its date written the paper's way, the header's DATE cell and its
+  value blanked, "Machine Name : ____" taking the value after its label, the owner's two example lines cleared and DCRS's lines in his
+  rows, four lines on a two-row paper - two rows added, the foot and the print area moved down -, the map read back with no value
+  missing and no line of the paper's own taken for a new one, and a blank record giving a blank paper), a made-up Word file (a label
+  and box table, a "Date of test: ________" line, a LOT STATUS choice across a row ticked, the example lines cleared and a row added,
+  the map read back), three of the owner's real templates with what their pages showed (F/QC/01 Word, F/QC/16 Excel, F/SYS/03 Word:
+  every value placed, nothing of his example on the sheet, the foot's format number and its revision date kept, the map read back),
+  and the download kind of five documents that changed kind. Fixtures: `frontend/tests/fixtures/originalFill/*.blocks.json` (Mitra's
+  sample fill on a test server: test data).
+  New manual tool `tests/originals_check/` (README): a private DCRS on port 4300, a new record per document filled with the sample
+  fill, Download, (a) the file read back, (b) its PDF against the original's PDF with a side-by-side picture and a score, (c) Upload
+  changes saying "nothing to apply"; report.md, report.json and gallery.html in the session's scratchpad `originals-check`.
+  Browser suites changed: `tests/e2e_downloads_and_print.py` (its workbook reader reads Excel's shared strings and the visible sheet
+  by its own name, its Word reader the page headers and footers; F/HR/01 is the owner's workbook - his sheet "Formate 01  (2)", his
+  header cell "F/HR/01(00/01.12.2021)", his headings, his A4 portrait page, the 80 lines, the hidden map sheet -; F/QC/12 is his Word
+  file on its landscape page with the boxes three to a line; F/HR/05's title and number are read from his page header and its
+  topics table is his), `tests/e2e_upload_changes.py` (a line typed under a grid goes into the paper's empty ruled row, whose cells
+  are there already with their style, as a person types it in Excel).
+  *Run of 20-Oct-2026 (branch originals-download-20oct).* `npm run typecheck` clean; `npm run test:unit`: frontend 1218 of 1218, backend 632 of
+  636 (4 skipped). The originals check on the six pilots (F/QC/01 Word, F/QC/12 Word, F/QC/16 Excel, F/QC/15-A Excel, F/HR/01 Excel, F/SYS/03
+  Word): each downloads as the owner's own file, every value of the sample-filled record in it, the map whole, and Upload changes says
+  "Nothing in this file is different from the record" on all six. The all-documents pass is reported below.
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
   (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;
