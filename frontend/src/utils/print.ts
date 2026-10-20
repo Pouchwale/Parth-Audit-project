@@ -108,7 +108,13 @@ const PRINTABLE_WIDTH = { portrait: (210 - 24) * PX_PER_MM, landscape: (297 - 24
 // A FRAMED PAPER (data-frame on the sheet, LogSheetRecordView / data/seed/qcPageFrames.ts) is drawn to 8.446 mm of the
 // page's edge, as the owner's Word files are, so its page keeps that margin and not the 12 mm of every other document.
 const FRAMED_MARGIN_MM = 8.446;
-const FRAMED_WIDTH = { portrait: (210 - 2 * FRAMED_MARGIN_MM) * PX_PER_MM, landscape: (297 - 2 * FRAMED_MARGIN_MM) * PX_PER_MM };
+// What the frame takes of the page inside it, each side: its heavy rule (2 px, styles.css --b2) and the sheet's padding (1.8 mm). The
+// grids are fitted to what is left, so that none runs over the frame's right rule.
+const FRAMED_INSET = 2 * (2.05 + 1.8 * PX_PER_MM);
+const FRAMED_WIDTH = {
+  portrait: (210 - 2 * FRAMED_MARGIN_MM) * PX_PER_MM - FRAMED_INSET,
+  landscape: (297 - 2 * FRAMED_MARGIN_MM) * PX_PER_MM - FRAMED_INSET,
+};
 const isFramed = (doc: Element): boolean => doc.matches("[data-frame]") || doc.querySelector("[data-frame]") !== null;
 const SMALLEST_SCALE = 0.3;
 // A form a little too wide for a portrait page stays portrait, slightly smaller.
@@ -157,11 +163,20 @@ function fitToPage(docs: Element[]): void {
   document.documentElement.dataset.printPage = landscape ? "landscape" : "portrait";
   for (const { doc, width } of needs) {
     if (width <= paper) continue;
-    const zoom = Math.max(SMALLEST_SCALE, Math.floor((paper / width) * 1000) / 1000);
+    let zoom = Math.max(SMALLEST_SCALE, Math.floor((paper / width) * 1000) / 1000);
     doc.style.zoom = String(zoom);
     // A framed page is as tall as the paper (styles.css): the zoom shrinks its millimetres, so it says by how much.
     doc.style.setProperty("--print-zoom", String(zoom));
     fitted.push(doc);
+    // Text does not scale in a straight line: a framed page, whose frame a grid must not run over, is measured again as it stands.
+    if (isFramed(doc)) {
+      const after = narrowestWidth(doc);
+      if (after > paper) {
+        zoom = Math.max(SMALLEST_SCALE, Math.floor(((zoom * paper) / after) * 1000) / 1000);
+        doc.style.zoom = String(zoom);
+        doc.style.setProperty("--print-zoom", String(zoom));
+      }
+    }
   }
 }
 
