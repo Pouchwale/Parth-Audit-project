@@ -85,6 +85,47 @@ export function ComplianceListPage() {
   );
 }
 
+/** The words of a declaration with the terms its page prints in bold (the product, "GPPPL"), as the page prints them. */
+function withBold(text: string, terms: string[] | undefined): React.ReactNode {
+  const wanted = (terms ?? []).filter(Boolean);
+  if (wanted.length === 0) return text;
+  const parts = text.split(new RegExp(`(${wanted.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`));
+  return parts.map((p, i) => (wanted.includes(p) ? <strong key={i}>{p}</strong> : p));
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+/** The signature's date as the page writes it: "1st April 2025" (F/QC-09, F/QC-10), "24 FEB 2025" (F/QC-38). */
+function signedOnAsPrinted(iso: string, style: ComplianceStatement["signedOnStyle"]): React.ReactNode {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m || !style) return formatDisplayDate(isPublicationDate(iso) ? iso : "");
+  const day = Number(m[3]);
+  const month = MONTHS[Number(m[2]) - 1];
+  if (style === "caps") return `${day} ${month.slice(0, 3).toUpperCase()} ${m[1]}`;
+  const suffix = day % 10 === 1 && day !== 11 ? "st" : day % 10 === 2 && day !== 12 ? "nd" : day % 10 === 3 && day !== 13 ? "rd" : "th";
+  return (
+    <>
+      {day}
+      <sup>{suffix}</sup> {month} {m[1]}
+    </>
+  );
+}
+
+/**
+ * Where each statement's page puts its foot (mm from the page's top: the top of the letters) and how far up its text may run,
+ * measured off the owner's PDFs (F/QC-10, F/QC-38) and Word's PDF of his F/QC-09 .docx (§117 round 2).
+ */
+const SOC_FOOT: Record<string, { top: number; margin: number }> = {
+  "soc-flexible-packaging": { top: 281.57, margin: 16.5 },
+};
+const SOC_FOOT_DEFAULT = { top: 272.42, margin: 25 };
+
+/** The printed page's rule: its bottom margin, and the statement's number line in it, on every page. */
+function socPageRule(s: ComplianceStatement, documentId: string): string {
+  const foot = SOC_FOOT[documentId] ?? SOC_FOOT_DEFAULT;
+  const padding = Math.max(0, foot.top - (297 - foot.margin) - 0.4);
+  return `@media print { @page { margin: 0 0 ${foot.margin}mm 0; @bottom-center { content: ${JSON.stringify(s.footerRef)}; vertical-align: top; padding-top: ${padding.toFixed(2)}mm; font-family: "Century Gothic", "URW Gothic", Calibri, Arial, sans-serif; font-size: 9.96pt; line-height: 9.96pt; font-weight: ${s.footBold ? 700 : 400}; color: #000; } } }`;
+}
+
 // Blank lines left while typing are dropped when a correction is saved.
 function tidy(s: ComplianceStatement): ComplianceStatement {
   return {
@@ -162,7 +203,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
   const bound = (key: Parameters<typeof complianceBind.field>[0]) => bindProps(complianceBind.field(key));
 
   return (
-    <div data-print-doc data-bind-record={documentId}>
+    <div data-print-doc data-bind-record={documentId} className="soc-sheet" data-soc={documentId} data-paper-left="12.78">
       <div className="flex items-center justify-between mb-3 no-print wrap gap-2">
         <button className="btn btn-ghost btn-sm" onClick={() => navigate("/soc")}>
           <FiArrowLeft size={13} /> Back to Statements
@@ -222,35 +263,42 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
             <span className="k">Valid until</span>
             <span className="v">{formatDisplayDate(validUntil)}</span>
           </div>
-          {(s.referenceSource || editing) && (
-            <div className="meta-cell" style={{ flex: 2 }}>
-              <span className="k">Reference source</span>
-              {editing ? (
-                <input className="input input-sm" {...bound("referenceSource")} value={s.referenceSource ?? ""} onChange={(e) => patch({ referenceSource: e.target.value })} />
-              ) : (
-                <span className="v" {...bound("referenceSource")}>
-                  {s.referenceSource}
-                </span>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
+      <div className="soc-body">
       <div className="doc-table mt-4">
         <table>
           <tbody>
+            {/* "Reference source" is the table's first line, in bold, as the page prints it (§117 round 2); a statement that
+                prints none (F/QC-09) has no such line. */}
+            {(s.referenceSource || editing) && (
+              <tr className="soc-reference">
+                <td className="font-semibold text-sm soc-label" style={{ width: "var(--soc-label-w, 220px)", verticalAlign: "top", background: "var(--soc-label-bg, var(--color-surface-alt))" }}>
+                  <span className="soc-cell">Reference source</span>
+                </td>
+                <td className="text-sm font-semibold">
+                  {editing ? (
+                    <input className="input input-sm" {...bound("referenceSource")} value={s.referenceSource ?? ""} onChange={(e) => patch({ referenceSource: e.target.value })} />
+                  ) : (
+                    <div className="soc-cell" {...bound("referenceSource")}>
+                      {s.referenceSource}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )}
             {s.sections.map((sec, i) => (
               <tr key={i}>
                 <td
-                  className="font-semibold text-sm"
-                  style={{ width: 220, verticalAlign: "top", background: "var(--color-surface-alt)" }}
+                  className="font-semibold text-sm soc-label"
+                  style={{ width: "var(--soc-label-w, 220px)", verticalAlign: "top", background: "var(--soc-label-bg, var(--color-surface-alt))" }}
                   {...(editing ? undefined : bindProps(complianceBind.sectionLabel(i)))}
                 >
                   {editing ? (
                     <input className="input input-sm" {...bindProps(complianceBind.sectionLabel(i))} value={sec.label} onChange={(e) => setSection(i, { label: e.target.value })} />
                   ) : (
-                    sec.label
+                    <span className="soc-cell">{sec.label}</span>
                   )}
                 </td>
                 <td className="text-sm">
@@ -264,7 +312,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
                     />
                   ) : (
                     sec.lines.map((l, li) => (
-                      <div key={li} className={li > 0 ? "mt-1" : ""} {...bindProps(complianceBind.sectionLine(i, li))}>
+                      <div key={li} className={`soc-cell${li > 0 ? " mt-1" : ""}${/^[•❖✓]/.test(l) ? " soc-marked" : ""}`} {...bindProps(complianceBind.sectionLine(i, li))}>
                         {l}
                       </div>
                     ))
@@ -306,17 +354,21 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
                 style={d.startsWith("⇨") ? { paddingLeft: 24 } : undefined}
                 {...bindProps(complianceBind.declaration(i))}
               >
-                {d}
+                {withBold(d, s.printedBold)}
               </p>
             )
           )}
         </div>
       </div>
 
-      <div className="card mt-4">
+      <div className="card mt-4 soc-sign">
         <div className="card-pad text-sm">
           <div>Signed</div>
-          <div className="mt-3" style={{ borderTop: "1px solid var(--color-border-strong)", width: 220 }} />
+          <div className="mt-3 soc-sign-line" style={{ borderTop: "1px solid var(--color-border-strong)", width: 220 }} />
+          {/* The page's own line to sign on: underscores, as typed on the Word page (§117 round 2). */}
+          <div className="soc-sign-rule" aria-hidden="true">
+            ________________________
+          </div>
           {editing ? (
             <div className="flex gap-2 wrap mt-1">
               <input className="input input-sm" {...bound("signedBy")} style={{ maxWidth: 220 }} placeholder="Signed by" value={s.signedBy} onChange={(e) => patch({ signedBy: e.target.value })} />
@@ -332,11 +384,19 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
               </div>
             </>
           )}
-          <div className="text-muted mt-1" {...bound("signedOn")}>
+          <div className="text-muted mt-1 soc-date-screen" {...bound("signedOn")}>
             {formatDisplayDate(isPublicationDate(s.signedOn) ? s.signedOn : "")}
+          </div>
+          {/* The date as the page writes it ("1st April 2025", "24 FEB 2025"): printed; the bound date above is the record's. */}
+          <div className="soc-date-printed" aria-hidden="true">
+            {signedOnAsPrinted(s.signedOn, s.signedOnStyle)}
           </div>
         </div>
       </div>
+      </div>
+      {/* THE PAGE'S FOOT ON EVERY PAGE (§117 round 2): the number line the Word page prints at the foot of each page, in the
+          page's own bottom margin (the browser's page margin box), its words the statement's Format / Rev, typed over above. */}
+      <style>{socPageRule(s, documentId)}</style>
       <div className="text-xs text-faint mt-3 no-print">Source: {doc.sourceFile}</div>
     </div>
   );

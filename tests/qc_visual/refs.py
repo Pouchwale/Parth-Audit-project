@@ -14,6 +14,9 @@ role
 OWNER_FOLDER = "C:/Users/parth/Desktop/GP3 work/Audit document/QC/QC-Pdf's"
 ORIG = "qc-originals-2026-10-13/"
 PRINTS = "qc-dcrs-prints-2026-10-13/"
+# Word's PDF of an original the owner sent only as Word or Excel (20-Oct-2026, the brief of QC print round 2): the reference
+# where there is no PDF of the owner's own.
+EXPORTS = "qc-office-exports-2026-10-20/"
 
 
 def _r(file, repo, fmt, docs, role="reference", note=""):
@@ -77,6 +80,7 @@ REFERENCES = [
     _r("F-QC-36_Inspection record for SB Lamination Film.pdf", ORIG + "F-QC-36_Inspection record for SB Lamination Film.pdf", "F/QC/36", ["qc-inspection-sb-lamination"], note="the same file also sits at the top of source-documents/"),
     _r("F-QC-40  -TEMPERATURE Monitoring-A.pdf", ORIG + "F-QC-40  -TEMPERATURE Monitoring-A.pdf", "F-QC-40.A", ["qc-temperature-humidity"]),
     _r("F-QC-40  -TEMPERATURE Monitoring-B.pdf", ORIG + "F-QC-40  -TEMPERATURE Monitoring-B.pdf", "F-QC-40.B", ["qc-temperature-sleeve"]),
+    _r("F-QC-09_Statement of Compliance (SOC) - Label.docx", EXPORTS + "F-QC-09_Statement of Compliance (SOC) - Label.pdf", "F/QC-09", ["soc-labels"], note="no PDF was sent: Word's PDF of the owner's .docx, made on 20-Oct-2026"),
     # --- not references: DCRS's own earlier prints that the owner marked with a pen ---
     _r("F-QC-11 Monthly Internal Calibration Records - GSM Cutting Plate 2026-10-12.pdf", PRINTS + "F-QC-11 Monthly Internal Calibration Records - GSM Cutting Plate 2026-10-12.pdf", "F/QC/11", ["qc-gsm-plate-calibration"], role="not-reference", note="DCRS's print of 12-Oct, marked by the owner; the reference of F/QC/11 is its (2) paper"),
     _r("F-QC-12 Weekly Internal Calibration Records - Weight Scale 2026-10-12.pdf", PRINTS + "F-QC-12 Weekly Internal Calibration Records - Weight Scale 2026-10-12.pdf", "F/QC/12", ["qc-weight-scale-calibration"], role="not-reference", note="DCRS's print of 12-Oct, marked by the owner; the reference of F/QC/12 is its (2) paper"),

@@ -3576,6 +3576,70 @@ table.svc-paper {
 }
 /* QC-CALIBRATION end */
 
+/* QC-SOC begin */
+/* THE STATEMENTS OF COMPLIANCE PRINTED AS THEIR WORD PAGES (REQUIREMENTS §117, round 2 of 20-Oct-2026): F/QC-09, F/QC-10
+   and F/QC-38 (pages/CompliancePage.tsx). The owner's pages: the title alone at the head of every page, bold; the table
+   with "Reference source" its first line, thin rules and the pale blue label column (Word's #B8CCE4), Calibri at the
+   page's size and line pitch, a long line split over two pages as Word splits it; the declarations bulleted, justified
+   (F/QC-09 and F/QC-10 from a new page, as theirs are); "Signed", the line of underscores, the name, the title and the
+   date as written ("1st April 2025"); the number line at the foot of every page (the page rule the page draws, in its
+   bottom margin). Measured off the owner's PDFs (F/QC-10, F/QC-38) and Word's PDF of his F/QC-09 .docx. On the screen
+   the statement is the page it was: its header keeps the Format / Rev, publication and validity boxes. */
+.soc-sheet .soc-sign-rule, .soc-sheet .soc-date-printed { display: none; }
+@media print {
+  [data-print-doc].soc-sheet {
+    --soc-label-w: 57.47mm; --soc-label-bg: #b8cce4;
+    --soc-pt: 11.04pt; --soc-pitch: 7.25mm; --soc-shift: -1.19mm; --soc-list-pitch: 7.12mm; --soc-list-gap: 0mm;
+    display: table; width: 100%; padding: 0; border-collapse: separate; border-spacing: 0; color: #000;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  }
+  /* F/QC-38 is set in 12 pt, its lines further apart, its list's points a little apart. */
+  [data-print-doc].soc-sheet[data-soc="soc-flexible-packaging"] { --soc-pt: 12pt; --soc-pitch: 7.84mm; --soc-shift: -1.27mm; --soc-list-pitch: 7.85mm; --soc-list-gap: 2.55mm; }
+  /* the title, at the head of every page */
+  .soc-sheet > .doc-header { display: table-header-group; border: 0; border-radius: 0; background: transparent; }
+  .soc-sheet > .doc-header .company-name, .soc-sheet > .doc-header .meta-row { display: none; }
+  .soc-sheet > .doc-header .doc-title {
+    display: block; box-sizing: border-box; height: 24.85mm; margin: 0; padding: 13.22mm 0 0; border: 0; text-decoration: none;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 14.04pt; line-height: 14.04pt; font-weight: 700; letter-spacing: 0; text-align: center; color: #000;
+  }
+  .soc-sheet > .soc-body { display: table-row-group; }
+  /* the table */
+  .soc-sheet .soc-body > .doc-table { width: 189.28mm; margin: 0 0 0 12.78mm; padding: 0; border: 0; border-radius: 0; overflow: visible; background: transparent; }
+  .soc-sheet .soc-body > .doc-table table { width: 189.28mm; table-layout: fixed; border-collapse: collapse; }
+  .soc-sheet .soc-body > .doc-table tr { break-inside: auto; }
+  .soc-sheet .soc-body > .doc-table td {
+    box-sizing: border-box; padding: 0 1.95mm; border: 1px solid #000; color: #000; vertical-align: top; text-align: left; white-space: normal;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: var(--soc-pt); line-height: var(--soc-pitch); font-weight: 400; letter-spacing: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .soc-sheet .soc-body > .doc-table td.soc-label { padding-left: 1.92mm; }
+  .soc-sheet .soc-body > .doc-table tr.soc-reference td { font-weight: 700; }
+  .soc-sheet .soc-body > .doc-table td .soc-cell { position: relative; top: var(--soc-shift); }
+  .soc-sheet .soc-body > .doc-table td .mt-1 { margin-top: 0; }
+  /* the declarations: F/QC-09 and F/QC-10 start them on a new page, as theirs do */
+  .soc-sheet [data-section="soc-list"] { margin: 0; border: 0; background: transparent; }
+  .soc-sheet[data-soc="soc-labels"] [data-section="soc-list"], .soc-sheet[data-soc="soc-shrink-sleeves"] [data-section="soc-list"] { break-before: page; }
+  .soc-sheet [data-section="soc-list"] .card-pad { box-sizing: border-box; width: 189.3mm; margin-left: 12.7mm; padding: 0; }
+  .soc-sheet [data-section="soc-list"] p {
+    position: relative; top: var(--soc-shift); margin: 0 0 var(--soc-list-gap); color: #000; text-align: justify;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: var(--soc-pt); line-height: var(--soc-list-pitch);
+  }
+  .soc-sheet [data-section="soc-list"] p.soc-item { padding-left: 8mm; }
+  .soc-sheet [data-section="soc-list"] p.soc-item::before { left: 0.1mm; }
+  /* "Signed", the line to sign on, the name, the title, the date as written */
+  .soc-sheet .soc-sign { margin: 0; border: 0; background: transparent; break-inside: avoid; }
+  .soc-sheet .soc-sign .card-pad { padding: 7.12mm 0 0 20.7mm; color: #000; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: var(--soc-pt); line-height: 7.1mm; }
+  .soc-sheet .soc-sign .card-pad > * { position: relative; top: var(--soc-shift); }
+  .soc-sheet .soc-sign .soc-sign-line, .soc-sheet .soc-sign .soc-date-screen { display: none; }
+  .soc-sheet .soc-sign .soc-sign-rule { display: block; margin: 7.1mm 0 0 -1mm; }
+  .soc-sheet .soc-sign .soc-date-printed { display: block; }
+  .soc-sheet .soc-sign .soc-date-printed sup { font-size: 6.96pt; line-height: 0; }
+  .soc-sheet .soc-sign .font-semibold { font-weight: 400; }
+  .soc-sheet .soc-sign .text-muted { color: #000; }
+  .soc-sheet .soc-sign .mt-1, .soc-sheet .soc-sign .mt-3 { margin-top: 0; }
+}
+/* QC-SOC end */
+
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,
    so this has to come after the rules it switches off or the cascade simply
