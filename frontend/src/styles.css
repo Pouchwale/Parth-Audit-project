@@ -3796,6 +3796,47 @@ table.svc-paper {
 }
 /* QC-REPORTS end */
 
+/* QC-FLEXO begin */
+/* F/QC/21 FLEXO INK ON ITS OWN PAGE (REQUIREMENTS §117, round 2 of 20-Oct-2026). Its tables are the incoming records' (the
+   header boxes, the grid, LOT STATUS, the signatures; qcIncomingGeometry.ts holds its own columns and heights), but its page
+   is cut its own way ("F-QC-21- Flexo INk.pdf"): one hairline frame 15.58 mm from the left and 4.76 mm from the top, 180.44 mm
+   wide, the band and the foot inside it, the tables from edge to edge of the frame, the grid's headings on white, Calibri
+   10.56 and 9.48 pt, the foot's empty Page cell, the address in Tahoma bold and the system line under the frame. */
+@media print {
+  [data-print-doc]:has(.paper-sheet[data-sheet="qc-flexo-ink"]) { padding: calc(4.76 * var(--u)) 0 0 calc(15.58 * var(--u)); }
+  .paper-sheet[data-frame][data-sheet="qc-flexo-ink"] {
+    --title-pt: 19.56; --pf-fs: calc(10.56 * var(--pt));
+    width: calc(180.44 * var(--u)); min-height: calc(281.84 * var(--u)); border: var(--b1) solid #000; padding: 0;
+  }
+  .paper-sheet[data-frame][data-sheet="qc-flexo-ink"]::before, .paper-sheet[data-frame][data-sheet="qc-flexo-ink"]::after { display: none; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header.doc-header-frame { height: calc(25.49 * var(--u)); border: 0; border-bottom: var(--b1) solid #000; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header-frame .dhf-logo { flex: 0 0 calc(51.41 * var(--u)); border-right: var(--b1) solid #000; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header-frame .dhf-logo img { width: 92.1%; }
+  /* the tables from edge to edge of the frame, their outer rules on the frame's */
+  .paper-sheet[data-sheet="qc-flexo-ink"] [data-pf] { margin-left: calc(-1 * var(--b1)); }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .paper-body > .doc-table { margin-left: calc(-1 * var(--b1)); }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-table table.log-sheet thead th { background: transparent; font-size: calc(9.48 * var(--pt)); padding-left: calc(2 * var(--u)); padding-right: calc(1 * var(--u)); white-space: nowrap; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] [data-pf~="lot"], .paper-sheet[data-sheet="qc-flexo-ink"] [data-pf~="sign"] { --pf-fs: calc(9.48 * var(--pt)); font-size: calc(9.48 * var(--pt)); }
+  .paper-sheet[data-sheet="qc-flexo-ink"] [data-pf~="sign"] .box-printed-below { font-weight: 700; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-table table.log-sheet thead th:last-child { text-align: center; }
+  /* the title stands a little right of the band's middle, where the paper sets it */
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header-frame .dhf-title { padding-left: calc(7.2 * var(--u)); }
+  /* the foot: the Format number's cell and the paper's empty Page cell, the address under them, all inside the frame */
+  .paper-sheet[data-sheet="qc-flexo-ink"] .page-foot { grid-template-columns: 133.43fr 47.01fr; margin: 0; border: 0; border-top: var(--b1) solid #000; font-size: calc(11.52 * var(--pt)); line-height: calc(6.18 * var(--u)); }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .page-foot .pf-format { text-align: right; padding-right: calc(6.7 * var(--u)); border-right: var(--b2) solid #000; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .page-foot .pf-page { visibility: hidden; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .paper-foot [data-section="notes-at-foot"] { padding: 0; border-top: var(--b1) solid #000; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .paper-foot [data-section="notes-at-foot"] p.text-sm:first-child {
+    height: calc(7.41 * var(--u)); margin: 0; padding-top: calc(0.9 * var(--u)); box-sizing: border-box;
+    font-family: Tahoma, Verdana, "Segoe UI", sans-serif; font-size: calc(11.52 * var(--pt)); line-height: calc(11.52 * var(--pt) * 1.21); font-weight: 700;
+  }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .paper-foot [data-section="notes-at-foot"] p.text-sm + p.text-sm {
+    position: absolute; left: calc(0.92 * var(--u)); top: calc(100% + 1.2 * var(--u)); margin: 0; text-align: left; white-space: nowrap;
+    font-family: Tahoma, Verdana, "Segoe UI", sans-serif; font-size: calc(7.56 * var(--pt)); line-height: calc(7.56 * var(--pt) * 1.21); font-weight: 400;
+  }
+}
+/* QC-FLEXO end */
+
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,
    so this has to come after the rules it switches off or the cascade simply

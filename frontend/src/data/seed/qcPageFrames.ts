@@ -30,6 +30,8 @@ export const QC_PAGE_FRAMES: Record<string, PageFrame> = {
   "qc-incoming-lamination-film": left,
   "qc-inspection-sb-lamination": leftBroken,
   "qc-kraft-paper": centre,
+  // F/QC/21 Flexo Ink: its own page (a single hairline frame, the band and foot inside it), styles.css "QC-FLEXO".
+  "qc-flexo-ink": centre,
   "qc-lamination-adhesive-inspection": centre,
   "qc-side-pasting-adhesive": centre,
   "qc-starch-powder": centre,

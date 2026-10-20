@@ -1313,11 +1313,11 @@ interface PaperGrid {
 /** The head of the paper's tables: the header boxes' table, the LOT STATUS table, the signature table. */
 const PAPER_GAP_ABOVE_HEAD = 3.84;
 function paperGridOf(pf: IncomingGeometry, kind: "head" | "head-more" | "lot" | "sign"): PaperGrid {
-  if (kind === "head") return { kind: "head", cols: pf.head.cols, rows: pf.headMore ? pf.head.rows.slice(0, -1) : pf.head.rows, gap: PAPER_GAP_ABOVE_HEAD };
+  if (kind === "head") return { kind: "head", cols: pf.head.cols, rows: pf.headMore ? pf.head.rows.slice(0, -1) : pf.head.rows, gap: pf.headGap ?? PAPER_GAP_ABOVE_HEAD };
   // The header's last line, a box of its own the width of the table (F/QC/36's 1st Pass / 2nd Pass / 3rd Pass), under the others with no space between.
   if (kind === "head-more") return { kind: "head more", cols: pf.head.cols, rows: pf.head.rows.slice(-1), gap: 0 };
-  if (kind === "lot") return { kind: "lot", cols: LOT_COLS, rows: pf.lotRows, gap: pf.lotGap };
-  return { kind: "sign", cols: SIGN_COLS, rows: pf.signRows, gap: pf.signGap };
+  if (kind === "lot") return { kind: "lot", cols: pf.lotCols ?? LOT_COLS, rows: pf.lotRows, gap: pf.lotGap };
+  return { kind: "sign", cols: pf.signCols ?? SIGN_COLS, rows: pf.signRows, gap: pf.signGap };
 }
 
 /** The calibration paper's measures as the sheet's own CSS variables (styles.css, the calibration paper form). */
