@@ -888,6 +888,11 @@ function cutLine(text: string, entries: readonly Pick<MapEntry, "pre" | "post">[
 
 const TAG_RE = /^dcrs:(\d+)$/;
 const CAPTION_RE = /^dcrs:t(\d+)$/;
+/**
+ * The same mark as a hidden bookmark inside the table (REQUIREMENTS §119): the owner's own Word files converted from .doc are kept
+ * in Word 2003's compatibility mode, where Word refuses a table caption; a bookmark is read the same way.
+ */
+const BOOKMARK_RE = /^_dcrs_t(\d+)$/;
 
 // Symbols a person may pick from Insert ▸ Symbol for a tick or a box.
 const SYMBOLS: Record<string, Record<string, string>> = {
@@ -1016,7 +1021,13 @@ async function readDocx(pkg: Package, documentPath: string): Promise<ReadResult>
   for (const tbl of descendants(doc, "tbl")) {
     const pr = firstChild(tbl, "tblPr");
     const caption = pr ? firstChild(pr, "tblCaption") : null;
-    const m = caption ? CAPTION_RE.exec((attr(caption, "val") ?? "").trim()) : null;
+    let m = caption ? CAPTION_RE.exec((attr(caption, "val") ?? "").trim()) : null;
+    if (!m) {
+      // A bookmark of this table's own (not one of a table inside it).
+      const mark = descendants(tbl, "bookmarkStart").find((b) => BOOKMARK_RE.test((attr(b, "name") ?? "").trim()));
+      const nested = mark ? descendants(tbl, "tbl").some((inner) => descendants(inner, "bookmarkStart").includes(mark)) : false;
+      m = mark && !nested ? BOOKMARK_RE.exec((attr(mark, "name") ?? "").trim()) : null;
+    }
     const table = m ? tables.get(Number(m[1])) : undefined;
     if (!table || table.columns.length === 0) continue;
     const fixed = new Set(table.fixedRows ?? []);

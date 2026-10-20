@@ -263,3 +263,22 @@ test("a document with the owner's Word or Excel file downloads as that kind of f
     assert.equal(documentFileKind(doc), ORIGINAL_FILES[id].kind, id);
   }
 });
+
+test("a Word 2003-mode file marks its grid with a hidden bookmark; a line added under it in Word is read as one new line", async () => {
+  const { bytes } = await fillDocx(tinyDocx(), formBlocks(1, "ACCEPTED"), { envelope: envelope("docx"), company: COMPANY.name });
+  const zip = await unzip(bytes.slice().buffer);
+  const names = Array.from(zip.keys());
+  const doc = new TextDecoder().decode(await zip.get("word/document.xml")!());
+  assert.ok(doc.includes('w:name="_dcrs_t0"') && !doc.includes("tblCaption"), "a bookmark, not a caption, in a file with no Word 2010 compatibility");
+  // A person adds a line in Word: a plain row after the grid's last row, its own words in the Item column.
+  const lastRow = doc.lastIndexOf("<w:tr>");
+  const end = doc.indexOf("</w:tr>", lastRow) + "</w:tr>".length;
+  const cell = (t: string) => `<w:tc><w:p><w:r><w:t>${t}</w:t></w:r></w:p></w:tc>`;
+  const edited = doc.slice(0, end) + `<w:tr>${cell("2")}${cell("Added in Word")}${cell("33")}</w:tr>` + doc.slice(end);
+  const parts = await Promise.all(names.map(async (n) => ({ name: n, data: n === "word/document.xml" ? new TextEncoder().encode(edited) : await zip.get(n)!() })));
+  const read = await readUploadedFile(zipStored(parts).slice().buffer, "form.docx");
+  assert.ok(read.ok);
+  if (!read.ok) return;
+  assert.equal(read.appended.length, 1, "the added line is one new line of the grid");
+  assert.equal(read.appended[0].cells.item?.text, "Added in Word");
+});

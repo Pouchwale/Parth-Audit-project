@@ -605,6 +605,10 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   }
 
   // ---- the map (REQUIREMENTS §81)
+  // A file kept in an older Word's compatibility mode (below Word 2010's 14) refuses a table caption.
+  const settings = pkg.xml("word/settings.xml");
+  const mode = settings ? all(settings, "compatSetting").find((c) => (c.attrs["w:name"] ?? c.attrs.name) === "compatibilityMode") : undefined;
+  const oldWord = !mode || Number(mode.attrs["w:val"] ?? mode.attrs.val ?? 0) < 14;
   if (builder && opts.envelope) {
     for (const { place, bind } of tableBinds) {
       // Every row of the table holding no control: the paper's own words, never a new line when the file comes back.
@@ -619,6 +623,18 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         if (sig) fixed.push(sig);
       }
       const table = builder.addTable(bind, { headerRows: Math.max(0, headerRows), ...(fixed.length ? { fixedRows: Array.from(new Set(fixed)) } : {}) });
+      if (oldWord) {
+        // Word 2003's compatibility mode (the owner's .doc files converted): a hidden bookmark in the table's first cell.
+        const firstP = all(place.table.tbl, "p")[0];
+        if (firstP) {
+          const id = String(990000 + table.t);
+          const at = firstP.children.findIndex((c) => typeof c !== "string" && c.local !== "pPr");
+          const marks = [el("w:bookmarkStart", { "w:id": id, "w:name": `_dcrs_t${table.t}` }), el("w:bookmarkEnd", { "w:id": id })];
+          if (at === -1) firstP.children.push(...marks);
+          else firstP.children.splice(at, 0, ...marks);
+        }
+        continue;
+      }
       let tblPr = kid(place.table.tbl, "tblPr");
       if (!tblPr) {
         tblPr = el("w:tblPr");

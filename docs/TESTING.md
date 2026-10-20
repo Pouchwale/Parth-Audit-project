@@ -533,10 +533,21 @@ Seven scripts live in `tests/`:
   file on its landscape page with the boxes three to a line; F/HR/05's title and number are read from his page header and its
   topics table is his), `tests/e2e_upload_changes.py` (a line typed under a grid goes into the paper's empty ruled row, whose cells
   are there already with their style, as a person types it in Excel).
-  *Run of 20-Oct-2026 (branch originals-download-20oct).* `npm run typecheck` clean; `npm run test:unit`: frontend 1218 of 1218, backend 632 of
+  *Run of 20-Oct-2026 (branch originals-download-20oct).* `npm run typecheck` clean; `npm run test:unit`: frontend 1219 of 1219, backend 632 of
   636 (4 skipped). The originals check on the six pilots (F/QC/01 Word, F/QC/12 Word, F/QC/16 Excel, F/QC/15-A Excel, F/HR/01 Excel, F/SYS/03
   Word): each downloads as the owner's own file, every value of the sample-filled record in it, the map whole, and Upload changes says
-  "Nothing in this file is different from the record" on all six. The all-documents pass is reported below.
+  "Nothing in this file is different from the record" on all six. The all-documents pass (105 documents with a template; report.md,
+  report.json and gallery.html in the session's scratchpad originals-check): 104 captured (the chemical chart has no Download on its
+  document page); (c) Upload changes said "nothing to apply" on all 104; 53 downloaded as the owner's own file - every value of the
+  sample-filled record in it, the map whole; (b) their PDFs against the originals' score 73 on average (the Excel registers 92-99, the
+  Word incoming-inspection records about 52: the filled values make rows taller, so words and rules move down; F/QC/03, 05 and 18
+  run two lines onto a second page) -, 45 as the generic file because the filler refused its own result (a box or a grid with no place
+  on the paper, or a value lost on read-back: listed in REQUIREMENTS §119), and the six hand-drawn ones as before. Four of the owner's
+  files in that pass would not open in Word or Excel (three Word files of Word 2003's compatibility mode with a table caption, and
+  F/SYS/01 with shared formulas): fixed (a hidden bookmark marks the grid, shared formulas are written out), the four filled again
+  open and export (F/HR/13 92, F/QC/20 printing aids 87, F/SYS/01 79, F/HR/06 28 with its 20 added rows), and
+  `originalFill.test.ts` gained the bookmark's read-back (10 tests). The browser suites `e2e_downloads_and_print` and
+  `e2e_upload_changes` were changed but not run: another worktree's run held port 8842 through this branch's time box.
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
   (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;
