@@ -18,6 +18,44 @@ export const FILL_HINTS: Record<string, FillHints> = {
   // F/DISP/01: the agreement's period is written inside its own sentence ("valid for the period of 01.04.2025 to 31.03.2026"),
   // the owner's dates being his example: DCRS's contract dates take their place.
   "disp-safe-transporter-agreement": { exampleOf: { "01.04.2025": "Contract valid from", "31.03.2026": "Contract valid to" } },
+  // F/PUR/01: DCRS joins each heading to the note printed under it ("... OFFERED (Please attach a separate sheet if
+  // required)"); the paper's place for the answer is under its heading.
+  "pur-supplier-registration": {
+    labelAs: {
+      "RANGE OF PRODUCTS / SERVICES OFFERED (Please attach a separate sheet if required)": "RANGE OF PRODUCTS / SERVICES OFFERED",
+      "LIST OF MAJOR CUSTOMERS (Attach separate sheet if required)": "LIST OF MAJOR CUSTOMERS",
+      "DETAILS OF QUALITY CONTROL DEPARTMENT (PROVIDE DETAILS OF TESTING FACILITY, TEST METHODS) (Please attach a separate sheet if required)":
+        "DETAILS OF QUALITY CONTROL DEPARTMENT (PROVIDE DETAILS OF TESTING FACILITY, TEST METHODS)",
+      "If new supplier/new product, type of Assessment Status: (Please attach status report)": "If new supplier/new product, type of Assessment Status",
+      // the second box of "NO. OF EMPLOYEES : Technical [ ] Non-Technical [ ]": by its own word on that line
+      "NO. OF EMPLOYEES : Non-Technical": "Non-Technical",
+    },
+  },
+  // F/DISP/02: the owner's Word form is in Gujarati (its header in English) while the page shows the same boxes in English:
+  // each box and heading by the paper's own Gujarati words, box for box in the paper's order. The checklist's lines keep the
+  // paper's Gujarati wording (DCRS's English is not an edit of it).
+  "disp-container-stuffing": {
+    labelAs: {
+      Date: "તારીખ",
+      "Customer's name": "ગ્રાહકનું નામ",
+      "Invoice No.": "ઇન્વોઇસ નં.",
+      "Internal PO number": "આંતરિક પીઓ નંબર",
+      "Driver's name": "ડ્રાઈવરનું નામ",
+      "Customer PO number": "ગ્રાહક પીઓ નંબર",
+      "Transporter's name": "ટ્રાન્સપોર્ટરનું નામ",
+      "Vehicle No.": "વાહન નં.",
+      "Sr. No.": "ક્રમ નં.",
+      Checklist: "ચેકલિસ્ટ",
+      "Compliance (strike NA out)": "પાલન",
+      "If there are any other observations": "જો કોઈ અન્ય અવલોકનો હોય",
+      "(Dispatch In charge) Product release authorisation — Name": "(ડિસ્પેચ ઇન્ચાર્જ) પ્રોડક્ટ રિલીઝ ઓથોરાઇઝેશન — નામ",
+      "(Dispatch In charge) Product release authorisation — Designation": "(ડિસ્પેચ ઇન્ચાર્જ) પ્રોડક્ટ રિલીઝ ઓથોરાઇઝેશન — હોદ્દો",
+      "(Dispatch In charge) Product release authorisation — Sign": "(ડિસ્પેચ ઇન્ચાર્જ) પ્રોડક્ટ રિલીઝ ઓથોરાઇઝેશન — સાઇન",
+      "Checked and approved by (QC) — Name": "(QC) દ્વારા ચેક અને મંજૂર — નામ",
+      "Checked and approved by (QC) — Designation": "(QC) દ્વારા ચેક અને મંજૂર — હોદ્દો",
+      "Checked and approved by (QC) — Sign": "(QC) દ્વારા ચેક અને મંજૂર — સાઇન",
+    },
+  },
 };
 
 export const hintsOf = (documentId: string): FillHints | undefined => FILL_HINTS[documentId];

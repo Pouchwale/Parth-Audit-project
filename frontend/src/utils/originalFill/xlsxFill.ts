@@ -786,7 +786,9 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     const pieces = boundPieces(cell.parts).filter((p) => p.bind.text.length <= MAX_MAPPED_TEXT);
     const text = `${pre}${cell.text}${post}`;
     const plain = !pre && !post && pieces.length === 1 && !pieces[0].pre && !pieces[0].post;
-    sheet.write(r, c, text, { date: plain ? cell.date : undefined, plainText: !plain });
+    // A text value that only looks like a number keeps its own writing ("18.10", F/MNT/03's day and month, never 18.1).
+    const asWords = plain && pieces[0].bind.type !== "number" && String(Number(text)) !== text;
+    sheet.write(r, c, text, { date: plain ? cell.date : undefined, plainText: !plain || asWords });
     if (pieces.length) {
       const all = pieces.map((p, i) => ({ bind: p.bind, pre: i === 0 ? pre + p.pre : p.pre, post: i === pieces.length - 1 ? p.post + post : p.post }));
       written.push({ r, c, pieces: all, anchor });

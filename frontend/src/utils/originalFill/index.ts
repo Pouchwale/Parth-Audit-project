@@ -54,16 +54,6 @@ export const NOT_YET = new Set([
   "sys-mock-recall",
   "pur-supplier-registration",
   "disp-vehicle-cleaning",
-  // filled and read back whole offline, waiting for their originals check
-  "sys-format-list",
-  "pur-supplier-audit-report",
-  "pur-supplier-performance",
-  "sys-hara-monthly",
-  "disp-safe-transporter-agreement",
-  "hr-training-calendar",
-  "mnt-equipment-list",
-  "mnt-yearly-pm-schedule",
-  "str-sharp-metal-objects",
 ]);
 
 const cache = new Map<string, ArrayBuffer>();

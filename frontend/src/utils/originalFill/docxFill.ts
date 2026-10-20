@@ -401,7 +401,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     // over in the file (F/QC/01's spare footer of a specification) keeps its own words.
     const words = all(part, "p").map(paraText).join(" ");
     const band = (!!own && norm(words).includes(norm(own))) || /format\s*no/i.test(words);
-    for (const p of all(part, "p")) fixWords(p, band);
+    const alone = labelsAlone(part);
+    for (const p of all(part, "p")) fixWords(p, band && !alone.has(p));
   }
 
   // ---- grids
@@ -410,7 +411,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   model.grids.forEach((grid, gridNo) => {
     if (hints.skipGrids?.includes(gridNo)) return;
     const rowsHint = hints.gridRows?.[gridNo];
-    const place = rowsHint ? placeGridRowsW(tables, grid, gridNo, rowsHint) : placeGridW(tables, grid, gridNo, labels, model, hints.table?.[gridNo]);
+    const place = rowsHint ? placeGridRowsW(tables, grid, gridNo, rowsHint) : placeGridW(tables, grid, gridNo, labels, model, hints.table?.[gridNo], usedCells);
     // A heading printed in a table of its own, the lines in the tables after it (F/SYS/12's two pages): each line found by its
     // own words, its values under the heading's columns.
     if (place && place.body.length === 0 && grid.rows.length > grid.headerRows && !place.unbound) {
@@ -461,7 +462,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
 
   // ---- boxes DCRS numbers in groups ("Attendance 3 — Name") the paper keeps as a table: placed as its lines
   for (const [i, group] of numberedGroups(model.fields).entries()) {
-    const place = placeGridW(tables, group.grid, 1000 + i, labels, model);
+    const place = placeGridW(tables, group.grid, 1000 + i, labels, model, undefined, usedCells);
     if (!place || place.unbound || place.body.length === 0) continue;
     gridPlaces.push(place);
     for (const r of place.headRows) for (const c of r.cells) usedCells.add(c.tc);
@@ -480,6 +481,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   const fieldAts: FieldAt[] = [];
   // Each paragraph's neighbours (the body's own, or a cell's): where a choice's words written on the next lines are found.
   paraSiblings = new Map<XmlElement, XmlElement[]>();
+  labelSubs = new Set(model.fields.map((f) => headingParts(f.label)).filter((h) => h.group && norm(h.sub).length >= 4).map((h) => norm(h.sub)));
   lineSpans = new Map<XmlElement, { from: number; to: number }[]>();
   for (const p of paragraphs) paraSiblings.set(p, paragraphs);
   for (const t of tables)
@@ -702,15 +704,23 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   const tableBinds: { place: GridPlaceW; bind: ExportTableBinding }[] = [];
   for (const [pi, place] of gridPlaces.entries()) {
     const lines = place.grid.rows.slice(place.grid.headerRows);
+    const heads = headingTexts(place.grid);
+    // The line's remarks column, where a value of a column the paper does not print is written (as a person would).
+    const remarkCi = [...place.colOf.keys()].find((ci) => /remark|comment|observation/i.test(heads[ci] ?? ""));
     lines.forEach((row, i) => {
       const r = place.rowOf.get(i);
       if (!r) {
         for (const cell of row) for (const p of cell.parts ?? []) if (p.bind) report.notPlaced.push(p.bind.label ?? p.bind.path);
         return;
       }
+      const spare: { cell: Cell; heading: string }[] = [];
       row.forEach((cell, ci) => {
         const col = place.colOf.get(ci);
         const target = col === undefined ? undefined : cellAt(r, col);
+        if ((!target || target.cont) && isBound(cell) && remarkCi !== undefined && cellAt(r, place.colOf.get(remarkCi)!)) {
+          spare.push({ cell, heading: heads[ci] || "" });
+          return;
+        }
         if (!target || target.cont) {
           for (const p of cell.parts ?? []) if (p.bind) report.notPlaced.push(p.bind.label ?? p.bind.path);
           return;
@@ -724,6 +734,18 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         // another language (F/DISP/02's Gujarati checklist), keeps its own.
         else if (cell.text.trim() && !same(cellText(target), cell.text) && (!cellText(target).trim() || similarity(cellText(target), cell.text) >= 0.5)) writeCell(target, cell, controls);
       });
+      if (spare.length && remarkCi !== undefined) {
+        const remark = cellAt(r, place.colOf.get(remarkCi)!)!;
+        const ps = kids(remark.tc, "p");
+        const p = ps[ps.length - 1] ?? el("w:p");
+        if (!ps.length) remark.tc.children.push(p);
+        const rPr = firstRunProps(p) ?? cellMarkProps(remark.tc);
+        for (const x of spare) {
+          const label = x.heading.replace(/[\s:\-\u2013\u2014=]+$/, "").trim();
+          p.children.push(runOf(`${paraText(p).trim() ? "  " : ""}${label ? `${label}: ` : ""}`, valueProps(rPr)), ...controls.runs(x.cell, rPr, label || undefined));
+        }
+        report.outside.push(`${spare.map((x) => x.heading).join(", ")} of line ${i + 1}: in its ${heads[remarkCi]} cell`);
+      }
     });
     report.grids.push({ rows: lines.length, paperRows: place.body.length - place.extra.length, added: place.extra.length, where: `table ${place.table.index + 1}` });
     if (place.grid.bindTable) {
@@ -880,6 +902,23 @@ function ownFormatNo(parts: XmlElement[]): string | null {
   return null;
 }
 
+/** The paragraphs of a band label alone in its cell whose value the next cell prints ("Document no. | F/PUR/01"). */
+function labelsAlone(part: XmlElement): Set<XmlElement> {
+  const out = new Set<XmlElement>();
+  for (const tbl of all(part, "tbl")) {
+    for (const row of tableOf(tbl, -1).rows) {
+      row.cells.forEach((c, i) => {
+        const t = cellText(c).replace(/[\s:\-–=]+$/, "").trim();
+        const next = row.cells[i + 1];
+        // The next cell holds the value, not the band's next label ("Format No.: | Rev No: 00" keeps its value in its own cell).
+        const nextLabel = next ? /^\s*([A-Za-z][A-Za-z .]*?)\s*(?:[:\-–=]|$)/.exec(cellText(next)) : null;
+        if (t && bandWordOf(t) !== null && next && cellText(next).trim() && !(nextLabel && bandWordOf(nextLabel[1]) !== null)) for (const p of kids(c.tc, "p")) out.add(p);
+      });
+    }
+  }
+  return out;
+}
+
 /** A row of the band: a cell reading "Format No", "Rev No", "Page" or "Date" in it. */
 function isBandRow(row: TRow): boolean {
   return row.cells.some((c) => {
@@ -958,7 +997,7 @@ function fixedKey(row: Cell[]): { col: number; text: string } | null {
   return best;
 }
 
-function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Set<string>, model: DcrsModel, tableHint?: number): GridPlaceW | null {
+function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Set<string>, model: DcrsModel, tableHint?: number, taken?: Set<XmlElement>): GridPlaceW | null {
   if (grid.headerRows === 0) return null;
   const heads = headingTexts(grid);
   const named = heads.map((h, i) => ({ h, i })).filter((x) => x.h);
@@ -975,7 +1014,8 @@ function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Se
         let hit: { c: TCell; s: number } | null = null;
         for (const r of rows)
           for (const c of r.cells) {
-            if (used.has(c.tc) || c.cont) continue;
+            // A table another grid of the page took is that grid's (F/MKT/05's five sections, each its own table).
+            if (used.has(c.tc) || c.cont || taken?.has(c.tc)) continue;
             const t = cellText(c);
             const v = Math.max(score(t, h), group ? score(t, sub) * 0.95 : 0);
             if (v >= 0.72 && (!hit || v > hit.s)) hit = { c, s: v };
@@ -1162,6 +1202,8 @@ function findWords(text: string, words: string, from: number): { from: number; t
 }
 
 let paraSiblings = new Map<XmlElement, XmlElement[]>();
+/** The own words of DCRS's grouped labels ("Non-Technical" of "NO. OF EMPLOYEES - Non-Technical"): a line's next box starts there. */
+let labelSubs = new Set<string>();
 
 /** The owner's example words in a sentence of the paper, the place of a box (hints.ts exampleOf): the value takes their place. */
 function exampleAt(field: ModelField, words: string, paragraphs: XmlElement[], tables: Table[]): { kind: "after"; field: ModelField; p: XmlElement; at: number; to: number } | null {
@@ -1352,8 +1394,8 @@ function placeFieldW(field: ModelField, tables: Table[], paragraphs: XmlElement[
     }
     // The words after the label up to the line's next label are a blank or the owner's example: the value takes their place.
     let to = text.length;
-    for (const other of labels) {
-      if (!other || other === norm(label)) continue;
+    for (const other of [...labels, ...labelSubs]) {
+      if (!other || other === norm(label) || other === norm(sub)) continue;
       const next = findWords(text, other, at);
       if (next && next.from >= at && next.from < to && !/^[\s_.]*$/.test(other)) to = next.from;
     }
