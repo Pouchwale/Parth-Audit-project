@@ -8718,6 +8718,37 @@ e2e_hr_module.py (136 documents), e2e_departments.py (QC's 53), e2e_qc_formats.p
 started, filled with sample data and submitted; Search finds both), e2e_print_all_documents.py (portrait, one page),
 e2e_downloads_and_print.py (its workbook).
 
+### The audit of the QC visual-parity pass, and what was fixed (20-Oct-2026)
+
+The audit held every QC print against the owner's PDF (tests/qc_visual) and found the words right and the tables wrong. Fixed in
+this pass, in the component, the layout data and scoped CSS that render the document (non-QC output is held by the kit's guard):
+
+- *The fourteen incoming-material records* (F/QC/01 to 05, 18 to 24, 33, 36) are drawn on their papers' own Word tables
+  (data/seed/qcIncomingGeometry.ts, every width and height read off the owner's PDF): the ruled table of header boxes (four equal
+  columns, a label then its box, the empty cells before Date of Inspection; F/QC/36's last line one box across), the grid with its
+  grey heading row, the paper's column widths and line heights, black Calibri 11 pt (Arial 10 pt where the paper pasted its cell
+  so), F/QC/05's bold PVC BLOWN / PVC CAST / PET lines, the LOT STATUS table (four statuses across, the chosen one ringed, the
+  outline arrow, the REASON row) and the signature table. F/QC/18's second DRYING TEST paragraph is ruled off under empty number and
+  parameter cells, as the paper rules it (the earlier reading merged them). Printed on A4 they score 94 to 97 against their papers
+  (55 to 62 before).
+- *The seven line clearance reports* (F/QC/15-A to G) are drawn on the paper's frame (data/seed/qcLineClearanceGeometry.ts): the
+  company, the title with the machine's name written in at its right, Format no. / Rev. no. / Effective date in three cells (no
+  Page No. cell: the paper has none), the Line Clearance note in a ruled box, the centred bold heading row, and the paper's TEN
+  ruled lines on the printed page (the blank ones are not records: a record still holds one line), at the paper's own 270 x 158 mm
+  and 8.5 pt instead of 0.56 zoom. They score 85 to 89 (36 before).
+- The owner's overrides stand: the company's one name (PUBLICATIONS PVT LTD) in place of the paper's PUBLICATION PRIVATE LIMITED, no
+  DATE cell, every box editable, nothing invented in a record. A phone keeps the stacked boxes it had (the paper form applies
+  from 760 px and in print).
+
+*Still open, from the same audit* (each is a paper held against a different renderer, to be done one family at a time): F/QC/21
+Flexo Ink (its page has a hairline frame, a footer strip and a 10.6 pt grid of its own); the certificates of analysis F/QC/06, 07
+and 25 (one portrait page against three landscape pages, the letterhead and ruled fields); F/QC/11 and 12 (header and foot, the
+ruled device boxes, the blank grid, the scale); F/QC/13 and the Gujarati F/QC/15 (photographs: ruled boxes and heading sizes);
+F/QC/08, 16, 17, 19's tolerance card and 20's destruction record (the number in the title row, the scale, the rows); F/QC/29 and
+the utility test (the narrower centred table); the minutes; F-QC-30, 32 and 40.A, B, C (two tables side by side, the thirty-one
+lines, the header); the two reliability records (overlapping blocks); the two statements of compliance (the title alone, the
+pale-blue label column, the foot line, the page breaks).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

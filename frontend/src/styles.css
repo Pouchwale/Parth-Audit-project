@@ -3116,6 +3116,11 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
     font-family: var(--pf-font); font-size: var(--pf-fs); line-height: calc(5.46 * var(--u)); color: #000;
   }
   .paper-sheet[data-paper-form] [data-pf] .field > .input:focus { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  /* a written date prints as words in the place of its box (utils/print.ts): the same cell, the same rules */
+  .paper-sheet[data-paper-form] [data-pf] .field > .print-box-text {
+    display: block; box-sizing: border-box; min-width: 0; margin: 0; padding: 0 var(--pf-pad); border-right: var(--pf-bd); border-bottom: var(--pf-bd);
+    font-family: var(--pf-font); font-size: var(--pf-fs); line-height: calc(5.46 * var(--u)); color: #000; white-space: nowrap;
+  }
   /* LOT STATUS: no rule over it; its label and its four statuses are the first row, the arrow under the label. */
   .paper-sheet[data-paper-form] [data-pf~="lot"] > .field > label { padding: calc(1.05 * var(--u)) calc(1 * var(--u)) 0; }
   .paper-sheet[data-paper-form] [data-pf~="lot"] .field-choices-across > label { grid-column: 1; grid-row: 1; }
@@ -3174,6 +3179,9 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   }
 }
 @media screen and (min-width: 760px) {
+  /* On the screen the sheet is the paper's width, centred, so its frame, its band and its foot are as wide as its tables. */
+  .paper-sheet[data-paper-form="incoming"] { max-width: calc(193.2 * var(--u)); margin-left: auto; margin-right: auto; }
+  .paper-sheet[data-paper-form="lineclear"] { max-width: 100%; overflow-x: auto; }
   /* Open for writing the LOT STATUS is a choice box (the words are for the print and for a sheet signed off). */
   .paper-sheet[data-paper-form] [data-pf~="lot"] .field.field-choices-across.is-editable > select.input { display: block; grid-column: 2 / span 4; grid-row: 1; height: auto; margin: 0; border: 0; border-right: var(--pf-bd); border-bottom: var(--pf-bd); border-radius: 0; background: transparent; }
   .paper-sheet[data-paper-form] [data-pf~="lot"] .field-choices-across.is-editable .choices-across { display: none; }
@@ -3207,7 +3215,7 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .doc-header-lc .lc-meta > div:not(:last-child) { border-right: var(--pf-hv); }
   /* the Line Clearance note: a ruled box the width of the grid, bold black */
   .paper-sheet[data-paper-form="lineclear"] .paper-body > .card { box-sizing: border-box; width: var(--lc-w); margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
-  .paper-sheet[data-paper-form="lineclear"] .paper-body > .card > .card-pad { box-sizing: border-box; min-height: calc(13.7 * var(--u)); padding: calc(1 * var(--u)) calc(0.5 * var(--u)) 0; border-left: var(--pf-hv); border-right: var(--pf-hv); border-bottom: var(--pf-bd); }
+  .paper-sheet[data-paper-form="lineclear"] .paper-body > .card > .card-pad { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; min-height: calc(13.7 * var(--u)); padding: 0 calc(0.5 * var(--u)); border-left: var(--pf-hv); border-right: var(--pf-hv); border-bottom: var(--pf-bd); }
   .paper-sheet[data-paper-form="lineclear"] .paper-body > .card p { margin: 0; font-family: var(--pf-font); font-size: calc(8.5 * var(--pt)); font-weight: 700; line-height: calc(3.95 * var(--u)); color: #000; }
   /* the grid */
   .paper-sheet[data-paper-form="lineclear"] .paper-body > .doc-table { width: auto; margin: 0; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
