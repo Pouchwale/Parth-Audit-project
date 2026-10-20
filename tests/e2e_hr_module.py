@@ -640,10 +640,11 @@ with sync_playwright() as p:
     open_library(page)
     page.locator("[data-action='new-record'][data-document='daily-pest-monitoring']").first.evaluate("el => el.click()")
     page.wait_for_timeout(1500)
+    dismiss(page)
     close_assistant(page)
     holiday = page.locator("input[type='checkbox']").first
     if holiday.count() and holiday.is_checked():
-        holiday.uncheck()  # the day's calendar may have marked it a holiday: the round is being written as worked
+        holiday.evaluate("el => el.click()")  # the day's calendar may have marked it a holiday: the round is being written as worked
         page.wait_for_timeout(300)
     page.locator("tr:has-text('Any pest trapped in rodent trap box') select").first.select_option("Yes")
     page.wait_for_timeout(500)
@@ -670,7 +671,8 @@ with sync_playwright() as p:
     check("'Another place...' opens a box to write the place in", other.count() == 1, other.count())
     other.first.fill("Scrap yard")
     page.wait_for_timeout(1200)
-    rec = page.evaluate("() => { const rs = JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').filter((r) => r.documentId === 'daily-pest-monitoring' && !r.isDemo); return rs.length ? rs[rs.length - 1] : null; }")
+    rid = page.url.split("/record/")[-1].split("?")[0].split("#")[0]
+    rec = page.evaluate("(id) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find((r) => r.id === id) || null", rid)
     saved = ((rec or {}).get("data") or {}).get("rodentCatches") or []
     check("...and the place written is the record's, the count too - nothing was filled in for the person", len(saved) == 1 and saved[0]["location"] == "Scrap yard" and saved[0]["count"] == 2, saved)
 

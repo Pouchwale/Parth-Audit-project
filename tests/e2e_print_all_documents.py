@@ -392,6 +392,46 @@ with sync_playwright() as p:
     orients, _ = pdf_pages(page, "fhr17-register")
     check("F/HR/17's register prints on three A4 portrait pages, as the paper is (section 118)", orients == ["portrait"] * 3, orients)
 
+    # ---- the contractor's March-2026 report: its data entered, the print held against the contractor's own PDF (section 118) ----
+    if pdfplumber:
+        page.goto(f"{BASE}/index.html#/library")
+        page.wait_for_timeout(900)
+        dismiss(page)
+        page.locator("[data-action='new-record'][data-document='service-report-rodent']").first.evaluate("el => el.click()")
+        page.wait_for_timeout(1500)
+        close_assistant(page)
+        page.locator("input[data-field='qty']").nth(0).fill("3")
+        page.locator("input[data-field='qty']").nth(1).fill("50 gramms")
+        page.locator("td[data-cell='remarks'] textarea").fill("No Rodent Trapped")
+        page.wait_for_timeout(700)
+        page.evaluate(STUB_PRINT)
+        _, march_print = pdf_pages(page, "service-report-march")
+        march_ref = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "source-documents", "Service Report- March 2026.pdf")
+        with pdfplumber.open(march_print) as mine, pdfplumber.open(march_ref) as ref:
+            def rules(pg):
+                rs = [r for r in pg.rects if r["x1"] - r["x0"] < pg.width - 5 or r["bottom"] - r["top"] < pg.height - 5]
+                h = [(r["top"] + r["bottom"]) / 2 for r in rs if r["bottom"] - r["top"] < 3 and r["x1"] - r["x0"] > 6]
+                v = [(r["x0"] + r["x1"]) / 2 for r in rs if r["x1"] - r["x0"] < 3 and r["bottom"] - r["top"] > 6]
+                x0, y0 = min(r["x0"] for r in rs), min(r["top"] for r in rs)
+                return sorted({round(y - y0, 1) for y in h}), sorted({round(x - x0, 1) for x in v})
+
+            def out_of_place(want, got, tol=2.0):
+                return [round(w, 1) for w in want if not any(abs(w - g) <= tol for g in got)]
+
+            (rh, rv), (mh, mv) = rules(ref.pages[0]), rules(mine.pages[0])
+            check("The printed March report has every horizontal rule of the contractor's PDF within 2 pt (its table's corner as the origin)", not out_of_place(rh, mh), (out_of_place(rh, mh), len(rh), len(mh)))
+            check("...and every vertical rule", not out_of_place(rv, mv), (out_of_place(rv, mv), len(rv), len(mv)))
+            pool = [w["text"] for w in mine.pages[0].extract_words()]
+            lost = []
+            for w in [w["text"] for w in ref.pages[0].extract_words()]:
+                if w in pool:
+                    pool.remove(w)
+                else:
+                    lost.append(w)
+            # The contractor's own spelling of the company and its address line ("PRINTPACK PUBLICATION PRIVATE LIMITED, ... GUAJRAT") is not the
+            # company's name as the owner gave it (02-Oct-2026), and the sheet's date is the record's own: everything else is the sheet's words.
+            check("...and every word of it, the data entered (3, 50 gramms, No Rodent Trapped), but the company's name as the owner spells it and the record's date", set(lost) <= {"PRINTPACK", "PUBLICATION", "PRIVATE", "LIMITED,", "GUAJRAT,", "07.03.2026"}, lost)
+
     # ---- an inspection findings report (CAPA Internal keeps its own page) ----
     gap_id = page.evaluate(
         "() => (JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find(r => r.documentId === 'gap-inspection' && !r.isDemo) || {}).id"
