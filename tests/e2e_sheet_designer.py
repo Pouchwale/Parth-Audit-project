@@ -157,11 +157,11 @@ def sheet_rev(page):
           const root = document.querySelector("[data-section='document-preview']");
           const cells = root ? root.querySelectorAll('.doc-header .meta-cell .v') : [];
           if (cells.length > 1) return cells[1].textContent.trim();
-          const foot = root && root.querySelector('.page-foot .pf-format');
-          const m = foot && /\(\s*([^/()]*?)\s*\//.exec(foot.textContent);
-          if (m) return m[1].trim();
-          const lc = root && root.querySelector('.lc-meta');
-          const n = lc && /Rev\.\s*no\.\s*-\s*(\S+)/i.exec(lc.textContent);
+          // "F/QC/03 (01 / 16.02.2022)": a framed paper's foot line, a register's shaded box, F/QC/12's foot.
+          const words = root ? root.textContent.replace(/\s+/g, ' ') : '';
+          const m = /\(\s*(\w{1,4})\s*\/\s*\d{1,2}[.\-\/][\dA-Za-z]{1,3}[.\-\/]\d{2,4}\s*\)/.exec(words);
+          if (m) return m[1];
+          const n = /Rev\.\s*no\.\s*-\s*(\S+)/i.exec(words);
           return n ? n[1].trim() : '';
         }"""
     )
