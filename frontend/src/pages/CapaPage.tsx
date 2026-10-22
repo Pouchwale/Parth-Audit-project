@@ -742,8 +742,10 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
                         />
                       </td>
                       <td>
-                        <input
-                          className="input input-sm"
+                        {/* A comment is a sentence: it wraps in its column, on the screen and on paper (the owner, 22-Oct-2026). */}
+                        <textarea
+                          className="input input-sm input-cell-multiline wrap-text"
+                          rows={1}
                           {...bindProps(checklistBind.item(s, it, "comment"))}
                           disabled={!open}
                           value={it.comment}

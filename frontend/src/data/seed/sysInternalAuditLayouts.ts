@@ -749,7 +749,9 @@ const AUDIT_FINDINGS: LogSheetLayout = {
   // The clause and its requirement are the standard's and repeat; whether it
   // complied and what was seen are this audit's alone, never carried forward.
   columns: [
-    { key: "clause", label: "Clause", type: "text", width: 160, autoFill: { carryForward: true } },
+    // A clause's title is a sentence ("3.8 Product authenticity, claims and chain of custody"): it wraps in its column, on the
+    // screen and on paper, as the requirement beside it does (the owner, 22-Oct-2026: nothing cut).
+    { key: "clause", label: "Clause", type: "text", width: 160, multiline: true, autoFill: { carryForward: true } },
     { key: "requirements", label: "Requirements", type: "text", width: 460, multiline: true, autoFill: { carryForward: true } },
     { key: "compliance", label: "Compliance/Non compliance (Sample Audited under 3.8, 3.9 and 4.9.1)", type: "text", width: 170, autoFill: { fresh: true } },
     { key: "comments", label: "Comments / Outcome", type: "text", width: 320, multiline: true, autoFill: { fresh: true } },

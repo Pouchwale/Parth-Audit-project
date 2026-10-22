@@ -665,7 +665,8 @@ const gmpChecklist: LogSheetLayout = {
   headerFields: [
     { key: "responsibility", label: "Responsibility", type: "text", autoFill: { default: "HARA TEAM" } },
     { key: "inspectionDate", label: "Date", type: "date" },
-    { key: "locations", label: "Location Guide — areas covered", type: "text", autoFill: { carryForward: true } },
+    // The areas covered are a list of fifteen: written across the row, wrapping, never cut (the owner, 22-Oct-2026).
+    { key: "locations", label: "Location Guide — areas covered", type: "paragraph", autoFill: { carryForward: true } },
   ],
   columns: [fixedText("parameter", "Checklist", 520), yesNo("compliance", "Compliance", 90), text("actionIfNc", "Action taken if NC", 220)],
   // The sheet's Sr. No. numbers the fifty-five points; their words do not repeat it (REQUIREMENTS §102).

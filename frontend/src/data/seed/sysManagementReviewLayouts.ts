@@ -733,7 +733,9 @@ const OBJECTIVES: LogSheetLayout = {
   headerFields: [{ key: "year", label: "Quality & Product Safety Objectives ( Year … )", type: "text" }],
   columns: [
     { key: "department", label: "Department / Processes", type: "text", width: 120, autoFill: { carryForward: true } },
-    { key: "parameter", label: "Parameter / Attribute", type: "text", width: 230, autoFill: { carryForward: true } },
+    // An objective's words ("Material waste due to improper storage condition or expired shelf life") wrap in their column
+    // (the owner, 22-Oct-2026: nothing cut).
+    { key: "parameter", label: "Parameter / Attribute", type: "text", width: 230, multiline: true, autoFill: { carryForward: true } },
     { key: "unit", label: "Unit", type: "text", width: 110, autoFill: { carryForward: true } },
     ...OBJECTIVE_MONTHS.flatMap((m): LogColumn[] => [
       { key: objectiveKey(m.key, "Plan"), label: "Plan", type: "text", width: 86, group: m.label, autoFill: { carryForward: true } },
