@@ -148,8 +148,23 @@ def sheet_headings(page, within="[data-section='document-preview'] "):
 
 
 def sheet_rev(page):
-    """The Rev No. cell of the sheet on the page. (Its Date cell is the RECORD's date, not the revision's.)"""
-    return (page.locator("[data-section='document-preview'] .doc-header .meta-cell .v").nth(1).text_content() or "").strip()
+    """The Rev No. of the sheet on the page: the header block's cell or, on a paper drawn with its own frame (s117), the revision in
+    its foot line "Format number: - F/QC/03 (01 / 16.02.2022)" or a line clearance's "Rev. no. - 00". (Its Date cell is the RECORD's
+    date, not the revision's.)"""
+    page.wait_for_selector("[data-section='document-preview'] .doc-header", timeout=10000)
+    return page.evaluate(
+        r"""() => {
+          const root = document.querySelector("[data-section='document-preview']");
+          const cells = root ? root.querySelectorAll('.doc-header .meta-cell .v') : [];
+          if (cells.length > 1) return cells[1].textContent.trim();
+          const foot = root && root.querySelector('.page-foot .pf-format');
+          const m = foot && /\(\s*([^/()]*?)\s*\//.exec(foot.textContent);
+          if (m) return m[1].trim();
+          const lc = root && root.querySelector('.lc-meta');
+          const n = lc && /Rev\.\s*no\.\s*-\s*(\S+)/i.exec(lc.textContent);
+          return n ? n[1].trim() : '';
+        }"""
+    )
 
 
 def start_designing(page, route):
