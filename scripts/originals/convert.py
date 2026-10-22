@@ -51,6 +51,29 @@ OUT_PDFS = os.path.join(SRC, "originals-pdf")
 MANIFEST = os.path.join(REPO, "frontend", "src", "data", "seed", "originalFiles.ts")
 REPORT = os.path.join(HERE, "picks.json")
 
+# Pictures in his files that are one record's example, not the form (REQUIREMENTS section 98): blanked in the template, their
+# frame and size kept, as the print leaves their place empty - F/QC/29's photograph of the label roll his example was for.
+EXAMPLE_PICTURES = {"qc-analysis-report": ["word/media/image1.jpeg"]}
+
+
+def blank_pictures(path, names):
+    """Each named picture of the package replaced by a white one of the same pixel size (the drawing keeps its frame)."""
+    import zipfile
+
+    from PIL import Image
+
+    with zipfile.ZipFile(path) as z:
+        items = [(i, z.read(i.filename)) for i in z.infolist()]
+    assert set(names) <= {i.filename for i, _ in items}, (path, names)
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        for info, data in items:
+            if info.filename in names:
+                im = Image.open(io.BytesIO(data))
+                out = io.BytesIO()
+                Image.new("RGB", im.size, "white").save(out, format=im.format or "PNG")
+                data = out.getvalue()
+            z.writestr(info, data)
+
 # ---------------------------------------------------------------------------------------------------------------------
 # THE PICKS. A candidate is "A:<path under the owner's Audit document folder>" or "S:<path under source-documents>", or a
 # (candidate, sheet) pair. `ref` is the owner's PDF of the document (Q: = his QC-Pdf's folder, S: = source-documents):
@@ -739,6 +762,8 @@ def main(argv):
             try:
                 if kind == "docx":
                     info = office.word_convert(tmp, out_file, out_pdf)
+                    if doc_id in EXAMPLE_PICTURES:
+                        blank_pictures(out_file, EXAMPLE_PICTURES[doc_id])
                 else:
                     info = office.excel_convert(tmp, sheet, out_file, out_pdf)
                     entry["sheet"] = info["sheet"]
