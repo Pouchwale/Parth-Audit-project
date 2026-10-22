@@ -51,6 +51,10 @@ export interface PaperTableParts {
   box: (key: string, cell: PaperCell) => React.ReactNode;
   /** A cell of the record's grid: the line, the column. */
   gridCell: (line: number, col: string, cell: PaperCell) => React.ReactNode;
+  /** How many lines the record holds (a register's ruled lines beyond them print blank). */
+  rowCount?: number;
+  /** Take a line of the record off (the screen's bin on a register's line), where lines may be removed. */
+  removeLine?: (line: number) => void;
 }
 
 /** The field of the layout a cell names, header or footer. */
@@ -61,13 +65,27 @@ function fieldOf(layout: LogSheetLayout, key: string): LogHeaderField | undefine
 /** The words a cell prints by reference to the layout: a box's printed label, a printed table's cell, the paper's foot lines. */
 function referenced(layout: LogSheetLayout, ref: string): string {
   if (ref.startsWith("@notesAtFoot:")) return layout.notesAtFoot?.[Number(ref.slice(13))] ?? "";
+  // The words the paper prints under a signature's space ("(QA Inspector)"), a column's heading as the paper prints it
+  // ("Specified  GSM"), and the heading over a group of columns ("GSM").
+  if (ref.startsWith("@printedBelow:")) return fieldOf(layout, ref.slice(14))?.printedBelow ?? "";
+  if (ref.startsWith("@column:")) {
+    const c = layout.columns.find((col) => col.key === ref.slice(8));
+    return c ? (c.printedLabel ?? c.label) : "";
+  }
+  if (ref.startsWith("@group:")) return layout.columns.find((col) => col.key === ref.slice(7))?.group ?? "";
+  // The paper's own words the layout carries as its instructions (F/QC/08's Note, printed in its ruled row).
+  if (ref.startsWith("@instructions:")) return layout.instructions?.[Number(ref.slice(14))] ?? "";
   if (ref.startsWith("@underCompany:")) return layout.underCompany?.[Number(ref.slice(14))] ?? "";
   if (ref.startsWith("@table:")) {
-    const [, title, r, c] = ref.split(":");
+    // @table:TITLE:row:column, and :line (or :from-to) for the lines of a cell the paper sets apart (F/QC/25's DOC.NO.).
+    const [, title, r, c, ln] = ref.split(":");
     const table = layout.referenceTables?.find((t) => t.title === title);
     if (!table) return "";
     const row = Number(r);
-    return (row < 0 ? table.columns[Number(c)] : table.rows[row]?.[Number(c)]) ?? "";
+    const cell = (row < 0 ? table.columns[Number(c)] : table.rows[row]?.[Number(c)]) ?? "";
+    if (ln === undefined) return cell;
+    const [from, to] = ln.split("-").map(Number);
+    return cell.split("\n").slice(from, (to ?? from) + 1).join("\n");
   }
   if (ref.startsWith("@printedAbove:")) {
     const [, key, span] = ref.split(":");
@@ -81,25 +99,32 @@ function referenced(layout: LogSheetLayout, ref: string): string {
   return f.inSentence ? f.inSentence.before : (f.printedLabel ?? f.label);
 }
 
-/** Printed words with the header's own in braces ({companyName}, {title}): each of those a value typed over where it stands. */
-function withHeaderWords(text: string, words: PaperTableParts["words"], edit: HeaderEdit | undefined): React.ReactNode {
+/**
+ * Printed words with the header's own in braces ({companyName}, {title}): each of those a value typed over where it stands.
+ * caps: the paper prints them in capitals (F/QC/25's company, as COMPANY.name prints it); the words, not a style, so what
+ * is read and printed is the same (the value typed over keeps its own letters).
+ */
+function withHeaderWords(text: string, words: PaperTableParts["words"], edit: HeaderEdit | undefined, caps = false): React.ReactNode {
   const parts = text.split(/(\{(?:companyName|title|formatNo|revisionNo|revisionDate|page|ring)\})/);
-  if (parts.length === 1) return text;
+  if (parts.length === 1) return caps ? text.toUpperCase() : text;
   return parts.map((p, i) => {
     const m = /^\{(\w+)\}$/.exec(p);
-    if (!m) return p;
+    if (!m) return caps ? p.toUpperCase() : p;
     // The paper's degree sign: a small raised ring, drawn (it is no letter of the paper's words).
     if (m[1] === "ring") return <span key={i} className="pt-ring" role="img" aria-label="°" />;
     const field = m[1] as AnyHeaderField;
     return (
       <HeaderWord key={i} field={field} edit={edit}>
-        {words[field] ?? ""}
+        {caps ? (words[field] ?? "").toUpperCase() : (words[field] ?? "")}
       </HeaderWord>
     );
   });
 }
 
-function PaperRows({ rows, edges, parts, row0 }: { rows: PaperRow[]; edges: number[]; parts: PaperTableParts; row0: number }) {
+/** A row as drawn: a register's line knows its number, and whether it is one of the paper's blank lines (pad). */
+type DrawnRow = PaperRow & { line?: number; pad?: boolean };
+
+function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: number[]; parts: PaperTableParts; row0: number }) {
   const { form, layout, words, edit } = parts;
   return (
     <>
@@ -110,6 +135,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: PaperRow[]; edges: numb
           const start = nearest(edges, x);
           x = Math.round((x + c.w) * 100) / 100;
           const span = Math.max(1, nearest(edges, x) - start);
+          // A cell a cell above spans down over (its rs): the paper draws it once, so here it takes its width and nothing else.
+          if (c.skip) return;
           const font = c.f ?? form.font;
           const pt = c.pt ?? form.pt;
           const lh = c.lh ?? pt * MM;
@@ -122,6 +149,14 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: PaperRow[]; edges: numb
           if (c.heavy?.includes("b")) classes.push("pt-hb");
           if (c.heavy?.includes("r")) classes.push("pt-hr");
           if (c.f) classes.push(`pt-f-${c.f}`);
+          if (form.rules === "cells") {
+            // The edges this cell rules, all four where the paper's table rules them (border-collapse draws a shared edge once).
+            classes.push("pt-e");
+            for (const e of c.edges ?? "ltrb") classes.push(`pt-e${e}`);
+          }
+          if (c.u) classes.push("pt-u");
+          if (c.caps) classes.push("pt-caps");
+          if (c.bg) classes.push("pt-bg");
           const style: Record<string, string> = {
             "--pt-size": String(pt),
             "--pt-lh": String(lh),
@@ -130,6 +165,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: PaperRow[]; edges: numb
             "--pt-pr": String(c.a === "c" && c.cx ? Math.max(0, -2 * c.cx) : 0),
             "--pt-y": String(Math.max(0, (c.y ?? 0) - letterTop(font, pt, lh))),
           };
+          if (c.bg) style["--pt-bg"] = c.bg;
           let body: React.ReactNode = null;
           if (c.at) {
             // Each line in its own face and size, where the paper prints it: the letterhead's name over its three lines.
@@ -138,18 +174,22 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: PaperRow[]; edges: numb
               const lpt = line.pt ?? pt;
               const llh = lpt * MM;
               const text = line.t.startsWith("@") ? referenced(layout, line.t) : line.t;
+              // Its left: its own x, or the cell's where the cell is not centred (a centred line stands in the middle).
+              const lx = line.x ?? (c.a === "c" ? 0 : (c.x ?? 0));
               return (
                 <span
                   key={li}
-                  className={`pt-at${line.b ? " pt-b" : ""}${line.f ? ` pt-f-${line.f}` : ""}`}
-                  style={{ "--pt-size": String(lpt), "--pt-lh": String(llh), "--pt-ay": String(line.y - letterTop(lf, lpt, llh)) } as React.CSSProperties}
+                  className={`pt-at${line.b ? " pt-b" : ""}${line.f ? ` pt-f-${line.f}` : ""}${line.wrap ? " pt-wrap" : ""}${line.caps ? " pt-caps" : ""}`}
+                  style={{ "--pt-size": String(lpt), "--pt-lh": String(llh), "--pt-ay": String(line.y - letterTop(lf, lpt, llh)), "--pt-ax": String(lx) } as React.CSSProperties}
                 >
-                  {withHeaderWords(text, words, edit)}
+                  {withHeaderWords(text, words, edit, !!line.caps)}
                 </span>
               );
             });
           } else if (c.box) body = parts.box(c.box, c);
-          else if (c.col !== undefined && c.ln !== undefined) body = parts.gridCell(c.ln, c.col, c);
+          else if (c.num && row.line !== undefined)
+            body = c.num === "all" || !row.pad ? <span className="pt-words">{row.line + 1}</span> : null;
+          else if (c.col !== undefined && c.ln !== undefined) body = row.pad ? null : parts.gridCell(c.ln, c.col, c);
           else if (c.sentence) {
             const f = fieldOf(layout, c.sentence.box);
             body = (
@@ -173,10 +213,29 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: PaperRow[]; edges: numb
                     ))}
                 </span>
               );
-            } else if (text) body = <span className="pt-words">{withHeaderWords(text, words, edit)}</span>;
+            } else if (text) body = <span className="pt-words">{withHeaderWords(text, words, edit, !!c.caps)}</span>;
           }
           cells.push(
-            <td key={ci} className={classes.join(" ")} colSpan={span > 1 ? span : undefined} style={style as React.CSSProperties} data-pt-cell={`${row0 + ri}:${ci}`}>
+            <td
+              key={ci}
+              className={classes.join(" ")}
+              colSpan={span > 1 ? span : undefined}
+              rowSpan={c.rs && c.rs > 1 ? c.rs : undefined}
+              style={style as React.CSSProperties}
+              data-pt-cell={`${row0 + ri}:${ci}`}
+            >
+              {/* The screen's bin on a register's line, outside the paper's table; never printed. */}
+              {ci === 0 && row.line !== undefined && !row.pad && parts.removeLine && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm btn-icon pt-bin no-print"
+                  title="Remove row"
+                  aria-label={`Remove line ${row.line + 1}`}
+                  onClick={() => parts.removeLine?.(row.line!)}
+                >
+                  ×
+                </button>
+              )}
               {c.img && (
                 <img
                   className="pt-img"
@@ -191,7 +250,13 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: PaperRow[]; edges: numb
           );
         });
         return (
-          <tr key={ri} style={{ "--pt-h": String(row.h) } as React.CSSProperties}>
+          <tr
+            key={ri}
+            className={row.pad ? "pt-pad" : undefined}
+            aria-hidden={row.pad ? true : undefined}
+            data-pt-line={row.line !== undefined ? row.line + 1 : undefined}
+            style={{ "--pt-h": String(row.h) } as React.CSSProperties}
+          >
             {cells}
           </tr>
         );
@@ -204,12 +269,28 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: PaperRow[]; edges: numb
 export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"; parts: PaperTableParts }) {
   const { form } = parts;
   const edges = React.useMemo(() => columnEdges(form), [form]);
-  const rows = form[part];
-  const row0 = part === "head" ? 0 : part === "body" ? form.head.length : form.head.length + form.body.length;
+  // A register's ruled lines follow the body's rows: the record's lines, then the paper's blank ones up to its count.
+  const held = parts.rowCount ?? 0;
+  const lines: DrawnRow[] =
+    part === "body" && form.lines
+      ? Array.from({ length: Math.max(form.lines.count, held) }, (_, ln) => ({
+          h: form.lines!.h,
+          cells: form.lines!.cells.map((c) => ({ ...c, ln })),
+          line: ln,
+          pad: ln >= held,
+        }))
+      : [];
+  const rows: DrawnRow[] = [...form[part], ...lines];
+  const row0 = part === "head" ? 0 : part === "body" ? form.head.length : form.head.length + form.body.length + (form.lines ? Math.max(form.lines.count, held) : 0);
   if (rows.length === 0) return null;
   const widths = edges.slice(1).map((e, i) => Math.round((e - edges[i]) * 100) / 100);
   return (
-    <table className={`pt-table pt-${part}`} style={{ "--pt-w": String(edges[edges.length - 1]) } as React.CSSProperties} data-paper-part={part}>
+    <table
+      className={`pt-table pt-${part} pt-font-${form.font}`}
+      style={{ "--pt-w": String(edges[edges.length - 1]) } as React.CSSProperties}
+      data-paper-part={part}
+      data-pt-rules={form.rules}
+    >
       <colgroup>
         {widths.map((w, i) => (
           <col key={i} style={{ "--pt-col": String(w) } as React.CSSProperties} />

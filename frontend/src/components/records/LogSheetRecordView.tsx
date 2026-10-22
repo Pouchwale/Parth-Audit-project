@@ -628,9 +628,16 @@ export function LogSheetRecordView({
     const titleWords = documentTextIn(headerProps.title ?? doc.name, lang);
     const revisionNo = superseded ? superseded.revisionNo : (headerEdit?.values.revisionNo ?? doc.revisionNo);
     const revisionDate = superseded ? superseded.revisionDate : (headerEdit?.values.revisionDate ?? doc.revisionDate);
+    // A register drawn as its paper (PaperTable.lines): the record's lines are its boxes, Add Row and a line's bin on the
+    // screen as on every free sheet (engine/recordLines.ts says whether lines may be added or removed).
+    const ptLinesRule = logRowsRule(layout);
+    const ptCanAdd = !!pt.lines && editable && ptLinesRule.canAdd;
+    const ptCanRemove = !!pt.lines && editable && ptLinesRule.canRemove && data.rows.length > ptLinesRule.minLines;
     const ptParts: PaperTableParts = {
       form: pt,
       layout,
+      rowCount: data.rows.length,
+      removeLine: ptCanRemove ? (line: number) => { const r = data.rows[line]; if (r) removeRow(r.id); } : undefined,
       words: { companyName: companyWords, title: titleWords, formatNo: headerEdit?.values.formatNo ?? doc.formatNo, revisionNo, revisionDate: dottedDate(revisionDate), page: headerProps.pageLabel },
       edit: headerEdit,
       box: paperBox,
@@ -715,6 +722,11 @@ export function LogSheetRecordView({
             </div>
           )}
           <PaperTablePart part="body" parts={ptParts} />
+          {ptCanAdd && (
+            <button className="btn btn-secondary btn-sm mt-2 no-print" onClick={addRow}>
+              <FiPlus size={13} /> Add Row
+            </button>
+          )}
         </div>
         <div className="paper-foot">
           <PaperTablePart part="foot" parts={ptParts} />

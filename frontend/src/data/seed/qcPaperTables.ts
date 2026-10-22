@@ -22,6 +22,10 @@
 //          open the edges the paper leaves without a rule ("r" right, "b" under); heavy the edges it rules heavier.
 //          img a picture of the paper's own (the logo, the corporate office strip), placed in the cell (mm).
 //          sentence: the words around a box written inside the sentence (the retest date), centred as printed.
+//          edges (a paper whose rules are its cells' own, rules: "cells"): the edges the cell rules, of "ltrb"; all four
+//          where it says nothing, none for "" (F/QC/25's lines above and below its two tables).
+//          u underlined; caps in capitals (the company's name where the paper prints it so); rs the lines a cell spans
+//          down, the cells it covers on the lines under it standing as skip (F/QC/17's Status and Calibration performed by).
 
 export interface PaperCell {
   w: number;
@@ -47,8 +51,21 @@ export interface PaperCell {
   bullets?: number;
   /** Centred words standing this far right of the cell's middle (mm; negative: to the left), where Word set them so. */
   cx?: number;
-  /** Lines each in its own face and size, each where the paper prints it (y: mm down to the top of its letters): the letterhead. */
-  at?: { t: string; y: number; pt?: number; f?: "arial" | "times"; b?: true }[];
+  /**
+   * Lines each in its own face and size, each where the paper prints it (y: mm down to the top of its letters; x: mm in
+   * from the cell's left, where the cell is not centred): the letterhead. wrap: the line runs on to a second where it is
+   * longer than the cell (the company's name in F/QC/25's narrow cell); caps: in capitals.
+   */
+  at?: { t: string; y: number; x?: number; pt?: number; f?: "arial" | "times"; b?: true; wrap?: true; caps?: true }[];
+  edges?: string;
+  u?: true;
+  caps?: true;
+  rs?: number;
+  skip?: true;
+  /** A register's line number: on every ruled line ("all", the paper prints them) or on the record's lines only ("rows"). */
+  num?: "all" | "rows";
+  /** A cell the paper shades (F/QC/08's and F/QC/16's number box): its grey. */
+  bg?: string;
 }
 
 export interface PaperRow {
@@ -70,6 +87,14 @@ export interface PaperTable {
   foot: PaperRow[];
   /** The paper prints no format number, revision or page: they are shown on the screen to be typed over, never printed. */
   numberOffPaper?: true;
+  /** Each cell rules its own edges (PaperCell.edges), where the paper has lines and words outside its tables (F/QC/25). */
+  rules?: "cells";
+  /**
+   * A register's ruled lines, after the body's rows: each a row of `cells` (their col, no ln), as many as the paper rules
+   * (count) or as the record holds where it holds more. The record's lines are its boxes; the paper's other lines print
+   * blank (never stored) and are not drawn on the screen, where Add Row adds a line.
+   */
+  lines?: { h: number; count: number; cells: PaperCell[] };
 }
 
 const W = 193.4;
@@ -337,9 +362,135 @@ const COA_SLEEVE: PaperTable = {
   foot: coaFoot(11.54, 16.86, 0.99, 15.5),
 };
 
+// ---------------------------------------------------------------------------
+// F/QC/25 — Certificate of Analysis [COA] For CORRUGATED BOXES ("F-QC-25_COA Corrugated.pdf", a US Letter page drawn at its
+// own millimetres on A4 portrait). One page in Times New Roman, bold but for the GSM sub-headings and the signatures: the
+// letterhead's three cells (the maroon logo tile in the first, the company's name and its two lines beside it; the
+// department; the document number), "CBA: CORRUGATED BOX ANALYSIS" at its right under it, the title underlined, "Date:"
+// at the right, the grid of fourteen lines (line 7 heading GSM, BF and Grade of Paper, written on 7.1 to 7.3), and the
+// signatures' words over the space they are signed in with the role under it. The paper rules only its two tables, so each
+// cell rules its own edges (rules: "cells"). It prints no format number, revision or page (the screen's strip holds them).
+
+const TILE = "brand/gpp-tile-logo.jpg";
+/** F/QC/25's grid and the width of its page's content: 10.16 to 200.66 mm. */
+const W25 = 190.5;
+/** The grid's columns: Sr.No., the printed words, and the answers' 114.94 mm (on 7.1 to 7.3: Specified GSM, Tested GSM, BF, Grade of Paper). */
+const SR = 15.87;
+const WORDS = 59.69;
+const ANSWER = 114.94;
+const FOUR = [29.21, 28.58, 12.7, 44.45];
+/** A printed line of the grid: its number and its words, bold, then the answer across or the four. */
+const corrugatedLine = (ln: number, h: number, four = false): PaperRow => ({
+  h,
+  cells: [
+    { w: SR, col: "srNo", ln, b: true, x: 1.94, y: 0.62 },
+    { w: WORDS, col: "description", ln, b: true, x: 1.87, y: 0.62 },
+    ...(four
+      ? (["specifiedGsm", "testedGsm", "bf", "gradeOfPaper"] as const).map((col, i): PaperCell => ({ w: FOUR[i], col, ln, a: "c", y: 0.62 }))
+      : [{ w: ANSWER, col: "observation", ln, x: 1.9, y: 0.62 }]),
+  ],
+});
+const none = (w: number): PaperCell => ({ w, t: "", edges: "" });
+
+const COA_CORRUGATED: PaperTable = {
+  page: "portrait",
+  left: 10.16,
+  top: 20.4,
+  font: "times",
+  pt: 12,
+  numberOffPaper: true,
+  rules: "cells",
+  head: [
+    {
+      h: 22.27,
+      cells: [
+        {
+          w: 77.6,
+          img: { src: TILE, x: 0.08, y: 0.13, w: 24.22, h: 22.06, alt: "Gujarat Print Pack Publications Pvt Ltd" },
+          at: [
+            // The company's name as the owner gives it (COMPANY.name, typed over here), in the paper's capitals, on two lines.
+            { t: "{companyName}", y: 0.62, x: 24.84, b: true, wrap: true, caps: true },
+            { t: "@table:Letterhead:0:0:1", y: 10.36, x: 27.44, b: true },
+            { t: "@table:Letterhead:0:0:2", y: 15.23, x: 27.44, b: true },
+          ],
+          lh: 4.87,
+        },
+        { w: 42.71, lab: "@table:Letterhead:0:1", a: "c", b: true, y: 0.62, lh: 4.87 },
+        {
+          w: 67.9,
+          at: [
+            { t: "@table:Letterhead:0:2:0", y: 0.62, x: 4.03, b: true },
+            { t: "@table:Letterhead:0:2:1", y: 5.49, x: 4.03, b: true },
+            { t: "@table:Letterhead:0:2:2", y: 10.36, x: 4.03, b: true },
+            { t: "@table:Letterhead:0:2:3", y: 15.23, x: 1.93, b: true },
+          ],
+          lh: 4.87,
+        },
+        none(2.29),
+      ],
+    },
+    { h: 5, cells: [{ w: 188.21, lab: "@underCompany:0", a: "r", b: true, y: 0.62, edges: "" }, none(2.29)] },
+    // (a line box shorter than the words', so the row keeps the paper's 9 mm with the words where the paper has them)
+    { h: 9, cells: [{ w: 188.21, t: "{title}", a: "c", b: true, u: true, y: 5.36, lh: 3.5, edges: "" }, none(2.29)] },
+    { h: 10.51, cells: [none(139.74), { w: 10.5, lab: "date", b: true, y: 6.09, edges: "" }, { w: 40.26, box: "date", y: 6.09, edges: "" }] },
+  ],
+  body: [
+    {
+      h: 5.04,
+      cells: [
+        { w: SR, lab: "@column:srNo", b: true, x: 1.94, y: 0.62 },
+        { w: WORDS, t: "" },
+        { w: 14.28, lab: "oid", b: true, x: 1.88, y: 0.62, edges: "ltb" },
+        { w: 30.09, box: "oid", y: 0.62, edges: "rtb" },
+        { w: 20.91, lab: "jobCode", b: true, x: 1.81, y: 0.62, edges: "ltb" },
+        { w: 49.66, box: "jobCode", y: 0.62, edges: "rtb" },
+      ],
+    },
+    ...[5.04, 5.04, 5.08, 5.03, 5.04, 5.04].map((h, ln) => corrugatedLine(ln, h)),
+    // Line 7, Material Specification (14 pt): GSM over Specified GSM and Tested GSM, BF and Grade of Paper the line's height.
+    {
+      h: 5.04,
+      cells: [
+        { w: SR, col: "srNo", ln: 6, b: true, x: 1.94, y: 0.62, edges: "ltr" },
+        { w: WORDS, col: "description", ln: 6, b: true, pt: 14.04, x: 1.87, y: 0.62, lh: 3.9, edges: "ltr" },
+        { w: FOUR[0] + FOUR[1], lab: "@group:specifiedGsm", a: "c", b: true, y: 0.62 },
+        { w: FOUR[2], lab: "@column:bf", a: "c", b: true, y: 0.62, edges: "ltr" },
+        { w: FOUR[3], lab: "@column:gradeOfPaper", a: "c", b: true, y: 0.62, edges: "ltr" },
+      ],
+    },
+    {
+      h: 4.65,
+      cells: [
+        { w: SR, t: "", edges: "lrb" },
+        { w: WORDS, t: "", edges: "lrb" },
+        { w: FOUR[0], lab: "@column:specifiedGsm", a: "c", pt: 11.04, y: 0.55 },
+        { w: FOUR[1], lab: "@column:testedGsm", a: "c", pt: 11.04, y: 0.55 },
+        { w: FOUR[2], t: "", edges: "lrb" },
+        { w: FOUR[3], t: "", edges: "lrb" },
+      ],
+    },
+    ...[5.04, 5.04, 5.04].map((h, i) => corrugatedLine(7 + i, h, true)),
+    ...[5.03, 5.08, 5.04, 5.04, 5.04, 5.03, 5.08].map((h, i) => corrugatedLine(10 + i, h)),
+  ],
+  foot: [
+    { h: 19.36, cells: [none(W25)] },
+    // "Testing By" over the space it is signed in and "(QA Inspector)" under it at the left; "Sign By" / "(QA Manager)" at the right.
+    { h: 8, cells: [{ w: 89.84, lab: "testingBy", x: 4.14, y: 2.53, pt: 15.96, edges: "" }, { w: 100.66, lab: "signBy", x: 66.8, y: 2.53, pt: 15.96, edges: "" }] },
+    { h: 5.5, cells: [{ w: 89.84, box: "testingBy", x: 4.14, edges: "" }, { w: 100.66, box: "signBy", x: 66.8, edges: "" }] },
+    {
+      h: 8,
+      cells: [
+        { w: 89.84, lab: "@printedBelow:testingBy", x: 0.04, y: 1.98, pt: 15.96, edges: "" },
+        { w: 100.66, lab: "@printedBelow:signBy", x: 56.9, y: 1.98, pt: 15.96, edges: "" },
+      ],
+    },
+  ],
+};
+
 export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-coa-label": COA_LABEL,
   "qc-coa-sleeve": COA_SLEEVE,
+  "qc-coa-corrugated": COA_CORRUGATED,
 };
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */

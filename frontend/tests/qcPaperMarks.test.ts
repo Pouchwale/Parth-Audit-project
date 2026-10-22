@@ -206,9 +206,14 @@ test("each signature box is headed as the paper heads it, with its role printed 
     /^<div class="field field-printed-below"><label>INSPECTED BY<\/label><input[^>]*data-bind="header\/inspectedBy"[^>]*\/><span class="box-printed-below" aria-hidden="true" data-printed-below="inspectedBy">QA INSPECTOR<\/span><\/div>/
   );
   assert.match(boxMarkup(html, 'data-printed-below="approvedBy"'), /<label>APPROVED BY<\/label>[\s\S]*>QA MANAGER<\/span>/);
+  // F/QC/25 is its paper's own table (§117 round 2 of 22-Oct-2026): "Testing By" over the box it is signed in, "(QA
+  // Inspector)" under it, and "Sign By" over "(QA Manager)" at the right.
   const coa = await sheet("qc-coa-corrugated");
-  assert.match(boxMarkup(coa, 'data-printed-below="testingBy"'), /<label>Testing By<\/label>[\s\S]*>\(QA Inspector\)<\/span>/);
-  assert.match(boxMarkup(coa, 'data-printed-below="signBy"'), /<label>Sign By<\/label>[\s\S]*>\(QA Manager\)<\/span>/);
+  const coaFoot = coa.slice(coa.indexOf('data-paper-part="foot"'));
+  for (const [words, box, role] of [["Testing By", "testingBy", "(QA Inspector)"], ["Sign By", "signBy", "(QA Manager)"]]) {
+    const at = [`<span class="pt-words">${words}</span>`, `data-bind="header/${box}"`, `<span class="pt-words">${role}</span>`].map((w) => coaFoot.indexOf(w));
+    assert.ok(at.every((a, i) => a >= 0 && (i === 0 || at[i - 1] < a)), `${box}: ${JSON.stringify(at)}`);
+  }
   assert.ok(!text(html).includes("INSPECTED BY (QA INSPECTOR)"), "not the name with its role in brackets any more");
   // Below the grid the two still stand side by side.
   assert.deepEqual(boxGroups(layoutOf("qc-bopp-film"), "footer").map((g) => [g.boxes.map((b) => b.field.key), g.perLine ?? null]), [[["lotStatus", "deviationReason"], 1], [["inspectedBy", "approvedBy"], 2]]);
@@ -290,20 +295,24 @@ test("'Coating Done :' stands beside its value in the corner of the COATING tabl
 
 test("F/QC/25's letterhead is the paper's three cells side by side above Date:, not one line joined by dashes", async () => {
   const html = await sheet("qc-coa-corrugated");
-  const at = html.indexOf('data-section="printed-table" data-table="Letterhead"');
-  assert.ok(at > 0, "drawn open in its place");
-  const table = html.slice(at, html.indexOf("</table>", at));
-  assert.ok(!table.includes("<thead"), "no heading row");
-  assert.ok(!table.includes(">Letterhead<"), "no title over it");
-  const cells = Array.from(table.matchAll(/<td[^>]*style="[^"]*white-space:pre-line[^"]*"[^>]*>([\s\S]*?)<\/td>/g), (m) => m[1].replace(/&amp;/g, "&"));
-  assert.equal(cells.length, 3, "three cells, their lines kept as the paper breaks them");
-  assert.match(cells[0], /^GUJARAT PRINT PACK PUBLICATIONS PVT LTD\n308\/9, GIDC DEDIASAN\nMEHSANA\. GUJARAT\.$/);
-  assert.equal(cells[1], "DEPT:QUALITY\nASSURENCE\n(2009 EDITION)");
-  assert.equal(cells[2], "DOC.NO.\nQA-IP-TRFCBA-011-00-01-09-18\nFG(CO) =FINISH GOODS\n(CORRUGATION)");
+  // The paper's own table since §117 round 2 (22-Oct-2026): the letterhead is its first row, its three cells and the paper's margin.
+  const at = html.indexOf('data-paper-part="head"');
+  assert.ok(at > 0, "drawn in its place");
+  const head = html.slice(at, html.indexOf("</table>", at));
+  const first = head.slice(head.indexOf("<tr"), head.indexOf("</tr>"));
+  const cells = Array.from(first.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), (m) => m[1].replace(/&amp;/g, "&"));
+  assert.equal(cells.length, 4, "three cells, and the paper's margin at their right");
+  const lines = (cell: string) => cell.split('<span class="pt-at').slice(1).map((piece) => text(`<x ${piece}`).trim());
+  // The logo tile, then the company's name (the owner's, in the paper's capitals) and its two lines, each where the paper prints it.
+  assert.match(cells[0], /<img class="pt-img" src="brand\/gpp-tile-logo\.jpg"/);
+  assert.deepEqual(lines(cells[0]), ["GUJARAT PRINT PACK PUBLICATIONS PVT LTD", "308/9, GIDC DEDIASAN", "MEHSANA. GUJARAT."]);
+  assert.ok(cells[1].includes(">DEPT:QUALITY\nASSURENCE\n(2009 EDITION)<"), "the department's lines as the paper breaks them");
+  assert.deepEqual(lines(cells[2]), ["DOC.NO.", "QA-IP-TRFCBA-011-00-01-09-18", "FG(CO) =FINISH GOODS", "(CORRUGATION)"]);
+  assert.equal(text(cells[3]).trim(), "");
   const t = text(html);
   assert.ok(!t.includes("GUJARAT. — DEPT") && !t.includes("EDITION) — DOC"), "no dashes of DCRS's own between them");
   const cba = html.indexOf("CBA: CORRUGATED BOX ANALYSIS");
-  const date = html.indexOf("<label>Date:</label>");
+  const date = html.indexOf('<span class="pt-words">Date:</span>');
   assert.ok(at < cba && cba < date, "the letterhead, the line under it, then Date:");
   // A table without a title or headings is the letterhead alone: the certificates' TOLERANCE keeps its heading and its
   // headings (drawn as the paper's own rows since §117 round 2).
@@ -344,45 +353,28 @@ test("an incoming record's format edited before §111 takes the marks from the i
 // ---------------------------------------------------------------------------
 // 7. F/QC/25's one answer across its four paper columns (answerAcross, inGridHead)
 
-/** The table that carries `marker`, as its lines: each cell's tag, colSpan, rowSpan and words (a box's label for a box). */
-function gridLinesOf(html: string, marker: string): { tag: string; span: number; rows: number; words: string }[][] {
-  const at = html.indexOf(marker);
-  assert.ok(at >= 0, `the sheet holds ${marker}`);
-  const table = html.slice(html.lastIndexOf("<table", at), html.indexOf("</table>", at));
-  return Array.from(table.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g), (r) =>
-    Array.from(r[1].matchAll(/<(t[hd])([^>]*)>([\s\S]*?)<\/\1>/g), (c) => ({
-      tag: c[1],
-      span: Number(c[2].match(/colSpan="(\d+)"/i)?.[1] ?? 1),
-      rows: Number(c[2].match(/rowSpan="(\d+)"/i)?.[1] ?? 1),
-      words: [...Array.from(c[3].matchAll(/<label>([\s\S]*?)<\/label>/g), (m) => text(m[1]).trim()), text(c[3]).trim()].filter(Boolean)[0] ?? "",
-    }))
-  );
-}
-
 test("F/QC/25 is drawn as its paper: one answer a line across GSM, BF and Grade of Paper, those headed on line 7 and written on 7.1 to 7.3, OID :- and Job Code: on the top line", async () => {
   const html = await sheet("qc-coa-corrugated");
-  const grid = gridLinesOf(html, 'data-answer-across="observation"');
-  // The top line: Sr.No., nothing over the printed words, then the paper's two boxes sharing the four columns' place.
-  assert.deepEqual(
-    grid[0].map((c) => [c.tag, c.span, c.words]),
-    [["th", 1, "Sr.No."], ["th", 1, ""], ["th", 2, "OID :-"], ["th", 2, "Job Code:"]]
+  // The paper's own table since §117 round 2 (22-Oct-2026): the body's rows are the grid's lines, each cell its printed
+  // words or the record's box (the column a grid box is bound to).
+  const at = html.indexOf('data-paper-part="body"');
+  const body = html.slice(at, html.indexOf("</table>", at));
+  const grid = Array.from(body.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g), (r) =>
+    Array.from(r[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), (c) => text(c[1]).trim() || (c[1].match(/data-bind="([^"]+)"/)?.[1] ?? "").replace(/^rows\/[^/]+\//, ""))
   );
-  assert.ok(boxMarkup(html, 'data-bind="header/oid"').includes("<label>OID :-</label>"), "OID :- is still a box of the record");
+  // The top line: Sr.No., nothing over the printed words, then OID :- and Job Code:, each beside its box of the record.
+  assert.deepEqual(grid[0], ["Sr.No.", "", "OID :-", "header/oid", "Job Code:", "header/jobCode"]);
   // Line 1, PARTY NAME: one answer box across the four.
-  assert.deepEqual(grid[1].map((c) => c.span), [1, 1, 4]);
+  assert.deepEqual(grid[1], ["1", "PARTY NAME", "observation"]);
   // Line 7, Material Specification: its number and words, then the four's headings as the paper prints them there.
-  const seven = grid.findIndex((l) => l.some((c) => c.words === "Material Specification"));
-  assert.deepEqual(
-    grid[seven].map((c) => [c.tag, c.span, c.rows, c.words]),
-    [["td", 1, 2, "7"], ["td", 1, 2, "Material Specification"], ["th", 2, 1, "GSM"], ["th", 1, 2, "BF"], ["th", 1, 2, "Grade of Paper"]]
-  );
-  assert.deepEqual(grid[seven + 1].map((c) => c.words), ["Specified GSM", "Tested GSM"]);
+  const seven = grid.findIndex((l) => l.includes("Material Specification"));
+  assert.deepEqual(grid[seven], ["7", "Material Specification", "GSM", "BF", "Grade of Paper"]);
+  assert.deepEqual(grid[seven + 1].filter(Boolean), ["Specified GSM", "Tested GSM"]);
   // 7.1, 7.2, 7.3: written in the four columns, a box each; 8 and after: one answer again.
-  for (const [i, words] of [[seven + 2, "TOP PAPER"], [seven + 3, "PLAIN PAPER"], [seven + 4, "FLUTE PAPER"]] as const) {
-    assert.deepEqual(grid[i].map((c) => c.span), [1, 1, 1, 1, 1, 1], `${words} has the four columns`);
-    assert.equal(grid[i][1].words, words);
+  for (const [i, n, words] of [[seven + 2, "7.1", "TOP PAPER"], [seven + 3, "7.2", "PLAIN PAPER"], [seven + 4, "7.3", "FLUTE PAPER"]] as const) {
+    assert.deepEqual(grid[i], [n, words, "specifiedGsm", "testedGsm", "bf", "gradeOfPaper"], `${words} has the four columns`);
   }
-  assert.deepEqual(grid[seven + 5].map((c) => c.span), [1, 1, 4], "8 BOX PLY has one answer across");
+  assert.deepEqual(grid[seven + 5], ["8", "BOX PLY", "observation"], "8 BOX PLY has one answer across");
   assert.equal(grid.length, 1 + 17 + 1, "the top line, the 17 printed lines and line 7's second heading line");
   // The record is unchanged: every line still holds every column.
   const data = createDefaultData(docOf("qc-coa-corrugated"), DAY, master) as LogSheetData;

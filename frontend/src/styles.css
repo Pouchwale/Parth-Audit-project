@@ -3359,6 +3359,9 @@ table.svc-paper {
 .paper-sheet[data-paper-form="table"] .doc-header-paper .pt-number-strip { width: calc(var(--pt-strip-w, 193.4) * var(--u)); max-width: 100%; box-sizing: border-box; margin: 6px 0 8px; border: 1px dashed var(--color-border-strong); border-radius: 4px; }
 .pt-table { box-sizing: border-box; width: calc(var(--pt-w) * var(--u)); table-layout: fixed; border-collapse: collapse; border-left: var(--pt-bd); background: #fff; color: #000; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; }
 .pt-table.pt-head { border-top: var(--pt-bd); }
+/* the paper's body face where it is not Calibri (F/QC/25 is Times New Roman throughout) */
+.pt-table.pt-font-times { font-family: "Times New Roman", Times, serif; }
+.pt-table.pt-font-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
 .pt-table col { width: calc(var(--pt-col) * var(--u)); }
 .pt-table tr { height: calc(var(--pt-h) * var(--u)); }
 .pt-table td.pt-c {
@@ -3369,6 +3372,14 @@ table.svc-paper {
 }
 .pt-table td.pt-c.pt-or { border-right: 0; }
 .pt-table td.pt-c.pt-ob { border-bottom: 0; }
+/* A paper whose rules are its cells' own (data-pt-rules="cells": F/QC/25, its lines of words outside its two tables): the
+   table rules nothing of its own, and each cell draws the edges the paper rules there (a shared edge is drawn once). */
+.pt-table[data-pt-rules="cells"], .pt-table.pt-head[data-pt-rules="cells"] { border: 0; }
+.pt-table td.pt-c.pt-e { border: 0; }
+.pt-table td.pt-c.pt-e.pt-el { border-left: var(--pt-bd); }
+.pt-table td.pt-c.pt-e.pt-et { border-top: var(--pt-bd); }
+.pt-table td.pt-c.pt-e.pt-er { border-right: var(--pt-bd); }
+.pt-table td.pt-c.pt-e.pt-eb { border-bottom: var(--pt-bd); }
 .pt-table td.pt-c.pt-hb { border-bottom: var(--pt-hv); }
 .pt-table td.pt-c.pt-hr { border-right: var(--pt-hv); }
 .pt-table td.pt-c.pt-b { font-weight: 700; }
@@ -3376,12 +3387,23 @@ table.svc-paper {
 .pt-table td.pt-c.pt-ar { text-align: right; }
 .pt-table td.pt-c.pt-f-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
 .pt-table td.pt-c.pt-f-times { font-family: "Times New Roman", Times, serif; }
+/* Words the paper underlines (F/QC/25's title). (Words it prints in capitals are written so: PaperTableSheet, caps.) */
+.pt-table td.pt-c.pt-u .pt-words { text-decoration: underline; text-decoration-thickness: calc(0.42 * var(--u)); text-underline-offset: calc(0.75 * var(--u)); }
+/* A cell the paper shades (a register's number box), its grey printed. */
+.pt-table td.pt-c.pt-bg { background: var(--pt-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+/* A register's ruled lines beyond the record's (PaperTable.lines): printed blank as the paper rules them, never stored,
+   and not drawn on the screen, where Add Row adds a line and each line has its bin at the table's left. */
+.pt-table tr.pt-pad { display: none; }
+.pt-table .pt-bin { position: absolute; left: -30px; top: 50%; transform: translateY(-50%); min-width: 24px; padding: 0 4px; line-height: 1; }
+.paper-sheet[data-paper-form="table"]:has(.pt-bin) { padding-left: 34px; }
 .pt-table .pt-words { display: block; }
 /* The paper's degree sign: a small raised ring after the figure. */
 .pt-table .pt-ring { display: inline-block; width: calc(1.3 * var(--u)); height: calc(1.3 * var(--u)); margin-left: calc(0.9 * var(--u)); border: calc(0.75px / var(--print-zoom, 1)) solid #000; border-radius: 50%; vertical-align: calc(1.6 * var(--u)); box-sizing: border-box; }
 /* A line in its own face and size where the paper prints it (the letterhead: the company's name in Arial bold over its three lines). */
-.pt-table td.pt-c .pt-at { position: absolute; left: 0; right: 0; top: calc(var(--pt-ay) * var(--u)); display: block; padding: 0 calc(var(--pt-x) * var(--u)); font-size: calc(var(--pt-size) * var(--pt)); line-height: calc(var(--pt-lh) * var(--u)); font-weight: 400; text-align: inherit; white-space: pre; }
+.pt-table td.pt-c .pt-at { position: absolute; left: 0; right: 0; top: calc(var(--pt-ay) * var(--u)); display: block; padding: 0 0 0 calc(var(--pt-ax, 0) * var(--u)); font-size: calc(var(--pt-size) * var(--pt)); line-height: calc(var(--pt-lh) * var(--u)); font-weight: 400; text-align: inherit; white-space: pre; }
 .pt-table td.pt-c .pt-at.pt-b { font-weight: 700; }
+/* a line longer than its cell runs on to the next, at the cell's own pitch (F/QC/25's company in its narrow cell) */
+.pt-table td.pt-c .pt-at.pt-wrap { white-space: pre-wrap; }
 .pt-table td.pt-c .pt-at.pt-f-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
 .pt-table td.pt-c .pt-at.pt-f-times { font-family: "Times New Roman", Times, serif; }
 .pt-table .pt-img { position: absolute; left: calc(var(--pt-ix) * var(--u)); top: calc(var(--pt-iy) * var(--u)); width: calc(var(--pt-iw) * var(--u)); height: calc(var(--pt-ih) * var(--u)); object-fit: fill; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -3427,6 +3449,7 @@ table.svc-paper {
   .pt-table td.pt-c > .field-in-table > .input.print-as-text, .pt-table .pt-sentence .field-in-table > .input.print-as-text, .pt-table td.pt-c > .pt-box > .input.print-as-text { display: none; }
   /* An empty choice box prints nothing at all (not its hidden first option). */
   .pt-table select[data-empty] { visibility: hidden; }
+  .pt-table tr.pt-pad { display: table-row; }
   /* An empty date in the sentence leaves the paper's own blank, not the width of a box to type in. */
   .pt-table .pt-sentence .field-in-table:has(> .input[data-empty]) { width: calc(2.6 * var(--u)); }
 }

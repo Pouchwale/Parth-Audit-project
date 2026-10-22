@@ -355,15 +355,16 @@ test("the header block prints the paper's lines under the company's name and its
   assert.match(gsm, /<div class="doc-title"><span>MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE<\/span>/, "a title printed in capitals stays so");
   const scale = await sheet(SCALE, createDefaultData(docOf(SCALE), DAY, master) as LogSheetData);
   assert.match(scale, /data-section="under-company"><div>Manufacturers of Printed Cartons/);
-  // F/QC/25: its letterhead's three cells head the page, the company's name in the first, printed once; then the
-  // CBA line; then its title in its own letters; then Date: among the boxes.
+  // F/QC/25 (its own table since §117 round 2 of 22-Oct-2026): its letterhead's three cells head the page, the company's
+  // name in the first, printed once (in the paper's capitals, the owner's name as COMPANY.name prints it); then the CBA line; then its title in
+  // its own letters; then Date:.
   const cba = await sheet("qc-coa-corrugated", createDefaultData(docOf("qc-coa-corrugated"), DAY, master) as LogSheetData);
-  const cbaHead = cba.slice(cba.indexOf('<div class="doc-header">'), cba.indexOf('<div class="meta-row">'));
-  assert.ok(!cbaHead.includes('class="company-name'), "no company line besides the letterhead's");
-  const order = ['data-table="Letterhead"', "CBA: CORRUGATED BOX ANALYSIS", "Certificate of Analysis [COA] For CORRUGATED BOXES"].map((w) => cbaHead.indexOf(w));
+  const cbaHead = cba.slice(cba.indexOf('data-paper-part="head"'), cba.indexOf("</table>", cba.indexOf('data-paper-part="head"')));
+  assert.ok(!cba.includes('class="company-name'), "no company line besides the letterhead's");
+  const order = ["DEPT:QUALITY", "CBA: CORRUGATED BOX ANALYSIS", "Certificate of Analysis [COA] For CORRUGATED BOXES", "Date:"].map((w) => cbaHead.indexOf(w));
   assert.ok(order.every((at, i) => at >= 0 && (i === 0 || order[i - 1] < at)), JSON.stringify(order));
   assert.equal(text(cba).split("GUJARAT PRINT PACK PUBLICATIONS PVT LTD").length - 1, 1, "the company's name printed once");
-  assert.ok(cba.indexOf("<label>Date:</label>") > cba.indexOf("Certificate of Analysis [COA] For CORRUGATED BOXES"));
+  assert.match(cbaHead, /<span class="pt-at pt-b pt-wrap pt-caps"[^>]*><span translate="no">GUJARAT PRINT PACK PUBLICATIONS PVT LTD<\/span><\/span>/);
   // F/QC/13 in its own letters.
   assert.equal(layoutOf("qc-inprocess-printing").titleAsPrinted, true);
 });
@@ -385,11 +386,17 @@ test("the header's Rev No. prints the Master List's revision for the certificate
   ]);
   assert.ok(!/<span class="k">Date<\/span>/.test(label), "the DATE cell DCRS added is gone (the owner, 16-Oct-2026)");
   assert.ok(!label.includes("(digital)"));
-  // F/QC/25's revision is not given anywhere: the screen says so, the print leaves the cell empty.
+  // F/QC/25's revision is not given anywhere: the screen's strip says so; its paper prints no number, so nothing prints it.
   assert.equal(docOf("qc-coa-corrugated").revisionNo, "TO BE CONFIRMED");
   const cba = await sheet("qc-coa-corrugated", createDefaultData(docOf("qc-coa-corrugated"), DAY, master) as LogSheetData);
-  assert.match(cba, /<span class="no-print text-muted" data-revision-unconfirmed="">TO BE CONFIRMED<\/span>/);
-  assert.ok(!/Rev Date/.test(cba.slice(cba.indexOf('<div class="meta-row">'), cba.indexOf('<div class="meta-row">') + 2000)), "no revision date to print");
+  assert.deepEqual(meta(cba, '<div class="meta-row pt-number-strip no-print"').slice(0, 3), [
+    ["Format No.", "F/QC/25"],
+    ["Rev No.", "TO BE CONFIRMED"],
+    ["Page No.", "1 of 1"],
+  ]);
+  const strip = cba.slice(cba.indexOf('<div class="meta-row pt-number-strip no-print"'));
+  assert.ok(!/Rev Date/.test(strip.slice(0, strip.indexOf('<div class="paper-body">'))), "no revision date to show");
+  assert.ok(!cba.includes('<div class="meta-row">'), "no number row of DCRS's on the page");
 });
 
 test("the incoming records and F/QC/36 print the address at their foot, word for word; Flexo Ink its own, above its system line", async () => {

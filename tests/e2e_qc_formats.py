@@ -450,16 +450,18 @@ AT_THE_RIGHT = """([label, under, above]) => {
   const a = box.getBoundingClientRect(), b = top.getBoundingClientRect(), c = before.getBoundingClientRect();
   return Math.abs(a.left - b.left) < 2 && a.top > c.top + 4 && a.left > c.left + 40;
 }"""
-# F/QC/25: "Date:" alone at the right above the grid; OID :- and Job Code: side by side on the grid's top line, as the
-# paper prints them (s111 part 4, answerAcross).
-DATE_ALONE = """() => {
-  const boxes = Array.from(document.querySelectorAll("[data-print-doc] .field"));
-  const named = (w) => boxes.find((b) => (b.querySelector(':scope > label') || {}).textContent?.trim() === w);
-  const date = named('Date:'), oid = named('OID :-'), job = named('Job Code:');
-  if (!date || !oid || !job) return false;
-  if (!oid.closest('th.grid-head-box') || !job.closest('th.grid-head-box') || date.closest('table.log-sheet')) return false;
-  const d = date.getBoundingClientRect(), o = oid.getBoundingClientRect(), j = job.getBoundingClientRect();
-  return d.left > o.left + 40 && d.top + 4 < o.top && Math.abs(o.top - j.top) < 2 && o.left + 40 < j.left;
+# F/QC/25 is drawn as its paper's own table (s117 round 2 of 22-Oct-2026): its rows, each cell's printed words or the
+# record's box it holds (a grid box by its column).
+PAPER_ROWS = """() => {
+  const rows = (part) => Array.from(document.querySelectorAll(`[data-print-doc] table[data-paper-part='${part}'] tr`)).map((tr) =>
+    Array.from(tr.children).map((td) => {
+      const box = td.querySelector('input[data-bind], select[data-bind], textarea[data-bind]');
+      const words = td.innerText.replace(/\\s+/g, ' ').trim();
+      return words || (box ? box.getAttribute('data-bind').replace(/^rows\\/[^/]+\\//, '') : '');
+    }));
+  return { head: rows('head'), body: rows('body'), foot: rows('foot'),
+           strip: !!document.querySelector("[data-print-doc] [data-section='number-off-paper'].no-print"),
+           numberRow: !!document.querySelector("[data-print-doc] .meta-row:not(.no-print)") };
 }"""
 
 
@@ -1680,37 +1682,47 @@ with sync_playwright() as p:
         check(f"{name}: ...and what is typed in the paper's cells is kept on the record",
               kept.get("header", {}).get("clientName") == "Edit Check Pvt Ltd" and any(r.get("givenByClient") == "Cyan" for r in kept.get("rows", [])), kept.get("header", {}).get("clientName"))
 
-    # F/QC/25 and the tolerance card: the headings the paper prints, and none it does not.
+    # F/QC/25 as its paper (s117 round 2 of 22-Oct-2026): the letterhead's three cells, the CBA line, the title, Date: at the
+    # right, the grid's lines and the signatures, row by row; nothing of DCRS's printed (its number on the screen's strip).
     rid = start_record(page, "qc-coa-corrugated")
     fill_with_sample_data(page)
-    heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    check("F/QC/25: Sr.No., nothing over the descriptions, then OID :- and Job Code: on the grid's top line", heads == ["Sr.No.", "", "OID :-", "Job Code:"], heads)
-    seven = page.locator("[data-print-doc] table.log-sheet tbody tr[data-heading-line] th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    check("...GSM over Specified  GSM and Tested GSM, BF and Grade of Paper headed on line 7, Material Specification", seven == ["GSM", "BF", "Grade of Paper", "Specified  GSM", "Tested GSM"], seven)
-    across = page.locator("[data-print-doc] table.log-sheet tbody td[colspan='4']").count()
-    check("...one answer across the four columns on each of the 13 lines not written in them", across == 13, across)
-    check("...its Date: alone at the right above the grid, OID :- and Job Code: side by side on the grid's top line", page.evaluate(DATE_ALONE))
-    # Its letterhead as the paper's three cells, Sr.No. in its own letters, its roles under the signatures (s111 part 4).
-    letterhead = page.locator("[data-print-doc] [data-table='Letterhead'] td").evaluate_all("els => els.map((e) => e.innerText.split('\\n').map((l) => l.trim()).filter(Boolean))")
-    written = page.locator("[data-print-doc]").first.evaluate("e => e.textContent")
+    rows = page.evaluate(PAPER_ROWS)
+    head, body, foot = rows["head"], rows["body"], rows["foot"]
     check(
-        "F/QC/25: its letterhead the paper's three cells, each in its lines, with no dashes of DCRS's between them",
-        letterhead == [
-            ["GUJARAT PRINT PACK PUBLICATIONS PVT LTD", "308/9, GIDC DEDIASAN", "MEHSANA. GUJARAT."],
-            ["DEPT:QUALITY", "ASSURENCE", "(2009 EDITION)"],
-            ["DOC.NO.", "QA-IP-TRFCBA-011-00-01-09-18", "FG(CO) =FINISH GOODS", "(CORRUGATION)"],
+        "F/QC/25: its letterhead the paper's three cells, each in its lines, the CBA line, its title, Date: at the right",
+        head[0] == [
+            "GUJARAT PRINT PACK PUBLICATIONS PVT LTD 308/9, GIDC DEDIASAN MEHSANA. GUJARAT.",
+            "DEPT:QUALITY ASSURENCE (2009 EDITION)",
+            "DOC.NO. QA-IP-TRFCBA-011-00-01-09-18 FG(CO) =FINISH GOODS (CORRUGATION)",
+            "",
         ]
-        and "GUJARAT. — DEPT" not in written,
-        letterhead,
+        and head[1] == ["CBA: CORRUGATED BOX ANALYSIS", ""]
+        and head[2] == ["Certificate of Analysis [COA] For CORRUGATED BOXES", ""]
+        and head[3] == ["", "Date:", "header/date"],
+        head,
     )
-    corrugated = page.evaluate(
-        """() => ({
-             head: document.querySelector('[data-print-doc] table.log-sheet thead th').innerText.trim(),
-             testing: Array.from(document.querySelectorAll('[data-print-doc] [data-printed-below]')).map((s) => [s.closest('.field').querySelector(':scope > label').innerText.trim(), s.textContent]),
-           })"""
-    )
-    check("...Sr.No. as the paper writes it, and '(QA Inspector)' under Testing By, '(QA Manager)' under Sign By",
-          corrugated == {"head": "Sr.No.", "testing": [["Testing By", "(QA Inspector)"], ["Sign By", "(QA Manager)"]]}, corrugated)
+    check("...Sr.No., nothing over the descriptions, then OID :- and Job Code: each beside its box on the grid's top line",
+          body[0] == ["Sr.No.", "", "OID :-", "header/oid", "Job Code:", "header/jobCode"], body[0])
+    check("...GSM over Specified  GSM and Tested GSM, BF and Grade of Paper headed on line 7, Material Specification",
+          body[7] == ["7", "Material Specification", "GSM", "BF", "Grade of Paper"] and [w for w in body[8] if w] == ["Specified GSM", "Tested GSM"], (body[7], body[8]))
+    across = [r for r in body[1:] if len(r) == 3 and r[2] == "observation"]
+    four = [r for r in body if r[2:] == ["specifiedGsm", "testedGsm", "bf", "gradeOfPaper"]]
+    check("...one answer across the four columns on each of the 13 lines not written in them, a box in each on 7.1 to 7.3",
+          len(across) == 13 and [r[:2] for r in four] == [["7.1", "TOP PAPER"], ["7.2", "PLAIN PAPER"], ["7.3", "FLUTE PAPER"]] and len(body) == 19, (len(across), four, len(body)))
+    check("...'Testing By' and 'Sign By' over the boxes they are signed in, '(QA Inspector)' and '(QA Manager)' under them",
+          [[w for w in r if w] for r in foot] == [[], ["Testing By", "Sign By"], ["header/testingBy", "header/signBy"], ["(QA Inspector)", "(QA Manager)"]], foot)
+    check("...and no number row of DCRS's on the page: its number, revision and page on the screen's strip only",
+          rows["strip"] and not rows["numberRow"], (rows["strip"], rows["numberRow"]))
+    # Every blank of the paper is a box of the record: typed in, kept.
+    page.locator("[data-print-doc] input[data-bind='header/oid']").fill("E2E OID 7")
+    page.locator("[data-print-doc] input[data-bind$='/observation']").first.fill("E2E 3 ply")
+    page.locator("[data-print-doc] input[data-bind$='/bf']").first.fill("E2E 18")
+    page.locator("[data-print-doc] input[data-bind$='/bf']").first.press("Tab")
+    page.wait_for_timeout(900)
+    kept = (record(page, rid) or {}).get("data") or {}
+    check("...and what is typed in its cells is kept on the record (OID :-, an answer, a BF)",
+          kept.get("header", {}).get("oid") == "E2E OID 7" and (kept.get("rows") or [{}])[0].get("observation") == "E2E 3 ply"
+          and any(r.get("bf") == "E2E 18" for r in kept.get("rows", [])), kept.get("header", {}).get("oid"))
     shoot(page, "F-QC-25")
     rid = start_record(page, "qc-tolerance-card-nivea")
     heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")

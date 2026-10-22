@@ -182,10 +182,13 @@ test("a heading the paper leaves out is drawn empty, and the column keeps its na
   assert.equal(columnHeading(description), "");
   assert.equal(columnHeading(layout.columns[0]), "Sr.No.");
   const html = await sheet("qc-coa-corrugated");
-  // The grid's top line as the paper's (part 4): Sr.No., nothing over the printed words, then OID :- and Job Code:; GSM, BF
-  // and Grade of Paper are headed on line 7, where the paper prints them (qcPaperMarks.test.ts).
+  // The grid's top line as the paper's (part 4; drawn as the paper's own table since §117 round 2 of 22-Oct-2026): Sr.No.,
+  // nothing over the printed words, then OID :- and Job Code:, each beside its box; GSM, BF and Grade of Paper are headed
+  // on line 7, where the paper prints them (qcPaperMarks.test.ts).
   // (The markup's text is read with its spaces run together; the paper's "Specified  GSM" keeps its two in the layout.)
-  assert.deepEqual(headings(html), ["Sr.No.", "", "OID :-", "Job Code:"]);
+  const top = between(html, 'data-paper-part="body"', "</tr>");
+  assert.deepEqual(Array.from(top.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), (m) => text(m[1]).trim()), ["Sr.No.", "", "OID :-", "", "Job Code:", ""]);
+  assert.ok(!/<th[^>]*>(Description|Observation)</.test(html));
   assert.ok(html.includes(">Specified  GSM<"));
 });
 
@@ -756,7 +759,8 @@ test("F/QC/25 Certificate of Analysis [COA] For CORRUGATED BOXES: its heading bl
   for (const w of DCRS_WORDS) assert.ok(!w.test(t), String(w));
   assert.ok(!/>Description</.test(html) && !/>Observation</.test(html), "no heading the paper does not print");
   assert.ok(!html.includes("is the <strong>Verify</strong> step here"), "the QA Manager signs his own box: the screen does not say his approval is the Verify step");
-  assert.match(html, /style="--paper-box-columns:2[^"]*"><div class="field" data-paper-column="2"><label>Date:<\/label>/);
+  // "Date:" alone at the right above the grid, its box beside it (the paper's own table since §117 round 2).
+  assert.match(between(html, 'data-paper-part="head"', "</table>"), /<span class="pt-words">Date:<\/span><\/td><td[^>]*><div class="field field-in-table" data-box="date"><input[^>]*data-bind="header\/date"/);
 });
 
 // ---------------------------------------------------------------------------
