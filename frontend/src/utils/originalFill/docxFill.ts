@@ -468,6 +468,9 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       return;
     }
     if (grid.rows.length > grid.headerRows && grid.headerRows > 0) report.gridsMissed.push(grid.rows[0]?.map((c) => c.text).filter(Boolean).slice(0, 3).join(" | ") ?? "");
+    // A table of the page with no heading row whose values found no place (a page drawn as its paper's table, F/QC/06's
+    // certificate): its values are not in the file, which is then not the record - never a file of the owner's words alone.
+    else if (grid.headerRows === 0) for (const row of grid.rows) for (const cell of row) for (const part of cell.parts ?? (cell.bind ? [{ text: cell.text, bind: cell.bind }] : [])) if (part.bind) report.notPlaced.push(part.bind.label ?? part.bind.path);
   });
 
   // ---- boxes DCRS numbers in groups ("Attendance 3 — Name") the paper keeps as a table: placed as its lines
@@ -518,7 +521,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       continue;
     }
     const example = Object.entries(hints.exampleOf ?? {}).find(([, l]) => same(l, field.label))?.[0];
-    let at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas) ?? choiceCellsAnywhere(field, tables, usedCells);
+    // A signature block printed as lines is looked for first: its labels' line holds the label's words, never its value.
+    let at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? signatureUnder(field, model.fields, paragraphs) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas) ?? choiceCellsAnywhere(field, tables, usedCells);
     const group = at ? null : groupOf(field);
     if (!at && group && model.fields.find((f) => same(groupOf(f) ?? "", group)) === field) at = placeFieldW({ ...field, label: group }, tables, paragraphs, usedCells, usedParas, groupLabels) as FieldAt | null;
     if (!at) {
@@ -889,6 +893,67 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   }
   void W_NS;
   return { bytes: pkg.build(), report };
+}
+
+/** The blank lines given the roles' line's places for the names (each role there is replaced by its name when written). */
+const namesFromRoles = new WeakSet<XmlElement>();
+
+/** A box's label as its words and its role in brackets ("Testing By (QA Executive)"). */
+function labelAndRole(label: string): { base: string; role: string } | null {
+  const m = /^(.*?\S)\s*\(([^()]+)\)\s*$/.exec(label);
+  return m ? { base: m[1], role: m[2] } : null;
+}
+
+/**
+ * A signature block printed as lines (F/QC/29's analysis reports): the labels on one line ("Testing By   Approved By"), the
+ * names under them on a line below (his example "Karan ... Kapila"), the roles under those ("(QA Executive)  (QA Manager)").
+ * DCRS's box "Testing By (QA Executive)" is the label and the role: its value takes the place of the name under its label -
+ * the k-th name on the names line for the line's k-th label - and the owner's example name is gone (REQUIREMENTS §98).
+ */
+function signatureUnder(field: ModelField, fields: ModelField[], paragraphs: XmlElement[]): { kind: "after"; field: ModelField; p: XmlElement; at: number; to: number } | null {
+  // The role from the box's label, or from its binding's ("Testing By" on the page, bound as "Testing By (QA Executive)").
+  const roleOf = (f: ModelField) => labelAndRole(f.label) ?? labelAndRole((f.cell.bind ?? f.cell.parts?.find((x) => x.bind)?.bind)?.label ?? "");
+  const own = roleOf(field);
+  if (!own || !isBound(field.cell)) return null;
+  const all1 = fields.map(roleOf).filter((x): x is { base: string; role: string } => !!x);
+  for (let i = 0; i < paragraphs.length; i++) {
+    const text = paraText(paragraphs[i]);
+    const hit = findWords(text, own.base, 0);
+    if (!hit) continue;
+    const onLine = all1.map((x) => findWords(text, x.base, 0)).filter((x): x is { from: number; to: number } => !!x).sort((a, b) => a.from - b.from);
+    const k = onLine.findIndex((x) => x.from === hit.from);
+    if (k < 0 || onLine.length < 2) continue;
+    // The names: the next line with words on it, as many groups of words (two spaces or a tab apart) as the labels; the roles'
+    // line under it names this box's role.
+    const groupsOf = (t: string) => [...t.matchAll(/\S+(?: \S+)*/g)].map((m) => ({ from: m.index ?? 0, to: (m.index ?? 0) + m[0].length }));
+    for (let j = i + 1; j < Math.min(paragraphs.length, i + 4); j++) {
+      const t = paraText(paragraphs[j]);
+      if (!t.trim()) continue;
+      const groups = groupsOf(t);
+      // The blank line a fellow box of the line filled already with the roles' places (below): this box's place on it.
+      if (namesFromRoles.has(paragraphs[j]) && groups.length === onLine.length) return { kind: "after", field, p: paragraphs[j], at: groups[k].from, to: groups[k].to };
+      if (groups.length === onLine.length && t.includes("(") && findWords(t, own.role, 0) !== null) {
+        // No names printed: the roles straight under the labels, a blank line between (F/QC/29's utility test report). The
+        // names go on that blank line, each where its role is printed under it (the roles' line's own tabs and spaces).
+        const blank = paragraphs.slice(i + 1, j).reverse().find((q) => !paraText(q).trim() && !all(q, "drawing").length && !all(q, "pict").length);
+        if (!blank) break;
+        if (!namesFromRoles.has(blank)) {
+          // Its empty runs give way to the roles' line's own runs (their tabs and spaces), each role then replaced by its name.
+          blank.children = blank.children.filter((c) => typeof c === "string" || c.local === "pPr");
+          for (const c of paragraphs[j].children) if (typeof c !== "string" && c.local !== "pPr") blank.children.push(clone(c));
+        }
+        namesFromRoles.add(blank);
+        const copied = groupsOf(paraText(blank));
+        if (copied.length !== onLine.length) break;
+        return { kind: "after", field, p: blank, at: copied[k].from, to: copied[k].to };
+      }
+      if (groups.length !== onLine.length || t.includes("(")) break;
+      const roles = paragraphs.slice(j + 1, j + 4).map(paraText).find((r) => r.trim());
+      if (!roles || findWords(roles, own.role, 0) === null) break;
+      return { kind: "after", field, p: paragraphs[j], at: groups[k].from, to: groups[k].to };
+    }
+  }
+  return null;
 }
 
 /** A child put in its place among an element's children, by the schema's order (the children named in `before` follow it). */

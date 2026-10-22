@@ -397,6 +397,43 @@ test("the empty lines after the last table take no room: a longer record never p
   assert.ok(xml.includes("Acme"), "the record's value where it was");
 });
 
+test("a signature block printed as lines: each name under its label, in place of his example; or on the blank line, where its role is", async () => {
+  const sign = (names: string) => wp("\tTesting By\tApproved By") + wp("") + (names ? wp(names) + wp("") : "") + wp("\t(QA Executive)\t(QA Manager)");
+  const blocks: ExportBlock[] = [...head("ANALYSIS REPORT"), { kind: "fields", pairs: [["Testing By (QA Executive)", bound("h/t", "TESTER-ONE", "Testing By (QA Executive)")], ["Approved By (QA Manager)", bound("h/a", "APPROVER-TWO", "Approved By (QA Manager)")]] }];
+  for (const names of ["   Karan          Kapila", ""]) {
+    const { bytes, report } = await fillDocx(docxOf(wp("ANALYSIS REPORT") + sign(names)), blocks, { envelope: envelope("docx"), company: COMPANY.name });
+    assert.equal(report.notPlaced.length, 0);
+    assert.deepEqual(report.leftOut, [], names ? "both names under their labels" : "both names on the blank line");
+    const xml = await partText(bytes, "word/document.xml");
+    assert.ok(!xml.includes("Karan") && !/>Kapila</.test(xml), "his example names gone");
+    // The words as printed (the controls' own names left aside).
+    const words = Array.from(xml.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g), (m) => m[1]).join("");
+    const at = (w: string) => words.indexOf(w);
+    assert.ok(at("Approved By") < at("TESTER-ONE") && at("TESTER-ONE") < at("APPROVER-TWO") && at("APPROVER-TWO") < at("(QA Executive)"), "the names between the labels and the roles, in order");
+    if (!names) assert.equal((words.match(/\(QA Manager\)/g) ?? []).length, 1, "the roles printed once, the blank line holding the names alone");
+    const read = await readUploadedFile(bytes.slice().buffer, "report.docx");
+    assert.ok(read.ok && read.missing.length === 0 && read.entries.length === 2, "both names read back");
+  }
+});
+
+test("a page's table of no heading whose values find no place is never a download of the owner's words alone", async () => {
+  const template = docxOf(wp("CERTIFICATE") + wp("Production Order No. 33858"));
+  const rows: Cell[][] = [[plain("Production Order No."), bound("h/po", "89665", "Production Order No.")]];
+  const { report } = await fillDocx(template, [...head("CERTIFICATE"), { kind: "table", rows, headerRows: 0 }], { envelope: envelope("docx"), company: COMPANY.name });
+  assert.deepEqual(report.notPlaced, ["Production Order No."], "the value with no place is said, so the generic download is made");
+});
+
+test("a two-column table headed by a group's name: its lines are the group's boxes, found under the group on the paper", async () => {
+  const group = (name: string, rows: string[][]) => [{ kind: "table", headerRows: 1, rows: [[plain(name), plain("")], ...rows.map(([l, v], i) => [plain(l), bound(`${name}/${i}`, v, l)])] }] as ExportBlock[];
+  const template = docxOf(wp("RULER RECORD") + wtbl(wtr("Master scale details", ""), wtr("Make", ""), wtr("Serial number", "")) + wtbl(wtr("Scale under calibration", ""), wtr("Make", ""), wtr("Serial number", "")));
+  const blocks: ExportBlock[] = [...head("RULER RECORD"), ...group("Master scale details", [["Make", "MAKE-M"], ["Serial number", "SN-M"]]), ...group("Scale under calibration", [["Make", "MAKE-S"], ["Serial number", "SN-S"]])];
+  const { bytes, report } = await fillDocx(template, blocks, { envelope: envelope("docx"), company: COMPANY.name });
+  assert.equal(report.notPlaced.length, 0, report.notPlaced.join(", "));
+  const xml = await partText(bytes, "word/document.xml");
+  const [first, second] = xml.split("<w:tbl>").slice(1);
+  assert.ok(first.includes("MAKE-M") && first.includes("SN-M") && second.includes("MAKE-S") && second.includes("SN-S"), "each group's values in its own table");
+});
+
 test("round 2: boxes DCRS numbers in groups fill the paper's table of them, a row a number", async () => {
   const template = docxOf(wp("MEETING RECORD") + wtbl(wtr("Name", "Designation", "Sign"), wtr("", "", ""), wtr("", "", "")));
   const pairs: [string, Cell][] = [];

@@ -18,6 +18,9 @@ export const FILL_HINTS: Record<string, FillHints> = {
   // F/DISP/01: the agreement's period is written inside its own sentence ("valid for the period of 01.04.2025 to 31.03.2026"),
   // the owner's dates being his example: DCRS's contract dates take their place.
   "disp-safe-transporter-agreement": { exampleOf: { "01.04.2025": "Contract valid from", "31.03.2026": "Contract valid to" } },
+  // F/QC/29's analysis report: the line under its title names the report ("PSL Analysis Report", his example); DCRS keeps it
+  // as the record's Report box, which takes the line's place (it is no label of a box on his paper).
+  "qc-analysis-report": { exampleOf: { "PSL Analysis Report": "Report" } },
   // F/SYS/13: the product's details have one box on the paper, "Information of the product (Information that we are looking
   // for)", and the customer's answer one, "Response from Customer": each value a line in its box, as a person writes there.
   "sys-mock-recall": {

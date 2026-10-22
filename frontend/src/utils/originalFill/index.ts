@@ -28,10 +28,15 @@ export { originalFileOf } from "../../data/seed/originalFiles";
 export const HAND_DRAWN = new Set(["service-report-rodent", "service-report-general", "service-report-fly", "hr-daily-cleaning", "hr-monthly-cleaning", "fly-catcher"]);
 
 /**
- * Documents whose own file the filler can now fill but that are not yet verified against their paper by the originals check
- * (tests/originals_check), or whose Word or Excel original is not the document DCRS keeps (REQUIREMENTS §119 round 2): they
- * keep the generic download until each is checked. The QC ones wait for the QC print round 2 (their pages are changing);
- * F/SYS/04-A's only Word original is the meeting RECORD (F/SYS/04), not the agenda and notification DCRS keeps (its PDF).
+ * Documents whose own file the filler cannot yet fill as his paper, or whose Word or Excel original is not the document DCRS
+ * keeps (REQUIREMENTS §119 round 2 and its QC part of 22-Oct-2026): they keep the generic download. F/SYS/04-A's only Word
+ * original is the meeting RECORD (F/SYS/04), not the agenda and notification DCRS keeps (its PDF). The QC ones, after the
+ * QC print round 2: F/QC/06 and F/QC/07 - his Word files are reports exported from SAP Business Objects, every word in a
+ * positioned frame, no table or line to write in; F/QC-09, F/QC-10, F/QC-38 - the statement's sections are boxes on DCRS's
+ * page (heading and lines editable) that his paper prints as its own words; F-QC-14 (both) - his paper names its four
+ * inspectors in the column headings (his examples), the record's inspectors are DCRS's; F/QC/21 flexo ink - his Word file
+ * draws its table as lines of tabs, no table to write the observations in; F/QC/30 - the key points and the participants
+ * are numbered lines under a heading on his paper, a grid and a list on DCRS's page.
  */
 export const NOT_YET = new Set([
   "qc-coa-label",
@@ -41,11 +46,7 @@ export const NOT_YET = new Set([
   "soc-flexible-packaging",
   "qc-test-reliability-label",
   "qc-test-reliability-sleeve",
-  "qc-ruler-verification",
-  "qc-ruler-verification-300",
   "qc-flexo-ink",
-  "qc-analysis-report",
-  "qc-utility-test-report",
   "qc-minutes-of-meetings",
   "sys-mrm-agenda",
   "sys-mrm-record",
