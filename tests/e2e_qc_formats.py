@@ -874,7 +874,8 @@ with sync_playwright() as p:
     # 7. The master list of calibration instruments
     # ==================================================================
     open_page(page, "#/document/qc-calibration-master-list")
-    headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    # Drawn as its paper's own table since s117 round 2 (22-Oct-2026): the heading row is the body's first row.
+    headings = page.locator("[data-section='document-preview'] table[data-paper-part='body'] tr:first-child td").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check(
         "The master list of calibration instruments takes the list's sixteen columns",
         len(headings) == 17 and headings[1] == "Name of Instrument" and headings[-1] == "Remarks",

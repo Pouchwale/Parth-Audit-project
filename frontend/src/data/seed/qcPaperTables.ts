@@ -66,6 +66,8 @@ export interface PaperCell {
   num?: "all" | "rows";
   /** A cell the paper shades (F/QC/08's and F/QC/16's number box): its grey. */
   bg?: string;
+  /** Its words in the middle of its height, as a spreadsheet's heading sets them (each line lh apart). */
+  vm?: true;
 }
 
 export interface PaperRow {
@@ -487,10 +489,60 @@ const COA_CORRUGATED: PaperTable = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// F/QC/08 — MASTER LIST OF CALIBRATION INSTRUMENTS ("Copy of F-QC-08_Master list of Calibration instruments (2).pdf",
+// the owner's Excel sheet on a US Letter landscape page). One ruled table: the company, the title underlined with the
+// number in its shaded box at the right, the Note in bold, the shaded heading row (Accuracy / Acceptable Error on white),
+// eleven numbered lines. The paper stands 2.58 mm from its page's left edge, where a printer cuts: on A4 landscape it is
+// centred (11.38 mm each side), at the paper's own top and sizes.
+
+const F08_COLS = [8.43, 20.49, 18.16, 10.76, 22.86, 17.36, 21.55, 13.51, 18.97, 14.98, 13.34, 13.93, 16.39, 14.39, 21.68, 16.9, 10.54];
+const F08_KEYS = [
+  "instrumentName", "instrumentIdNo", "make", "purpose", "locationOfUse", "instrumentRange", "leastCount", "accuracy", "methodOfCalibration",
+  "frequency", "initialCalibrationDate", "currentCalibrationDate", "nextDueDate", "calibrationAgency", "reportNumber", "remarks",
+];
+const F08_W = 274.24;
+const F08_GREY = "#f2f2f2";
+
+const MASTER_LIST: PaperTable = {
+  page: "landscape",
+  left: 11.38,
+  top: 19.22,
+  font: "calibri",
+  pt: 6.36,
+  head: [
+    { h: 6.36, cells: [{ w: F08_W, t: "{companyName}", caps: true, a: "c", b: true, pt: 10.56, y: 1.57 }] },
+    {
+      h: 7.32,
+      cells: [
+        { w: 210.73, t: "{title}", caps: true, a: "c", b: true, u: true, pt: 10.56, y: 2.03 },
+        { w: 63.51, t: "{formatNo} ({revisionNo} / {revisionDate})", a: "c", b: true, u: true, pt: 7.44, y: 2.45, bg: F08_GREY },
+      ],
+    },
+    { h: 10.46, cells: [{ w: F08_W, lab: "@instructions:0", b: true, pt: 5.88, x: 0.42, y: 1.58, lh: 2.71 }] },
+  ],
+  body: [
+    {
+      h: 11.77,
+      cells: [
+        { w: F08_COLS[0], t: "Sr. No.", a: "c", b: true, vm: true, lh: 2.92, bg: F08_GREY },
+        ...F08_KEYS.map((key, i): PaperCell => ({ w: F08_COLS[i + 1], lab: `@column:${key}`, a: "c", b: true, vm: true, lh: 2.92, ...(key === "accuracy" ? {} : { bg: F08_GREY }) })),
+      ],
+    },
+  ],
+  lines: {
+    h: 7.536,
+    count: 11,
+    cells: [{ w: F08_COLS[0], num: "all", a: "c", vm: true }, ...F08_KEYS.map((col, i): PaperCell => ({ w: F08_COLS[i + 1], col, x: 0.6 }))],
+  },
+  foot: [],
+};
+
 export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-coa-label": COA_LABEL,
   "qc-coa-sleeve": COA_SLEEVE,
   "qc-coa-corrugated": COA_CORRUGATED,
+  "qc-calibration-master-list": MASTER_LIST,
 };
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */

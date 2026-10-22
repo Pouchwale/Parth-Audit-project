@@ -69,73 +69,88 @@ const cellsOf = (id: string): PaperCell[] => {
   return [...form.head, ...form.body, ...form.foot].flatMap((r) => r.cells);
 };
 
-/** The lines each written column of a certificate is drawn on (the record's own lines, by their place). */
-const WRITTEN_LINES: Record<string, Record<string, number[]>> = {
-  "qc-coa-label": { givenByClient: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], colorShadeVerified: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] },
-  "qc-coa-sleeve": { givenByClient: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], colorShadeVerified: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] },
+/**
+ * What each paper drawn as its own table is: its page, the width of its rows (mm), and where the record's grid is
+ * written on it — a certificate's written columns on the lines the paper writes them on, or a register's ruled lines
+ * (its count of lines, each with every column of the record once).
+ */
+const PAPERS: Record<string, { page: "portrait" | "landscape"; width: number; written?: Record<string, number[]>; lines?: number }> = {
+  "qc-coa-label": { page: "portrait", width: 193.4, written: { givenByClient: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], colorShadeVerified: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] } },
+  "qc-coa-sleeve": { page: "portrait", width: 193.4, written: { givenByClient: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], colorShadeVerified: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] } },
   // F/QC/25: one answer across on every line but 7 (its headings) and 7.1 to 7.3 (written in the four columns).
   "qc-coa-corrugated": {
-    observation: [0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16],
-    specifiedGsm: [7, 8, 9],
-    testedGsm: [7, 8, 9],
-    bf: [7, 8, 9],
-    gradeOfPaper: [7, 8, 9],
+    page: "portrait",
+    width: 190.5,
+    written: { observation: [0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16], specifiedGsm: [7, 8, 9], testedGsm: [7, 8, 9], bf: [7, 8, 9], gradeOfPaper: [7, 8, 9] },
   },
+  // F/QC/08: its eleven numbered lines.
+  "qc-calibration-master-list": { page: "landscape", width: 274.24, lines: 11 },
 };
 
-test("the certificates are drawn as their own Word table; no other document is", () => {
-  assert.deepEqual(Object.keys(QC_PAPER_TABLES).sort(), ["qc-coa-corrugated", "qc-coa-label", "qc-coa-sleeve"]);
+test("the papers drawn as their own table are these; no other document is", () => {
+  assert.deepEqual(Object.keys(QC_PAPER_TABLES).sort(), Object.keys(PAPERS).sort());
   assert.equal(paperTableFor("qc-bopp-film"), undefined, "every other document is drawn as it was");
-  for (const id of Object.keys(QC_PAPER_TABLES)) assert.equal(QC_PAPER_TABLES[id].page, "portrait", `${id}: one portrait page, as its paper`);
+  for (const id of Object.keys(QC_PAPER_TABLES)) assert.equal(QC_PAPER_TABLES[id].page, PAPERS[id].page, `${id}: one ${PAPERS[id].page} page, as its paper`);
 });
 
 test("every box of the record has its cell on the paper, once, and every cell's box is the record's", () => {
   for (const id of Object.keys(QC_PAPER_TABLES)) {
     const layout = layoutOf(id);
+    const form = QC_PAPER_TABLES[id];
     const keys = [...layout.headerFields, ...(layout.footerFields ?? [])].map((f) => f.key);
     const drawn = cellsOf(id).flatMap((c) => (c.box ? [c.box] : c.sentence ? [c.sentence.box] : []));
     assert.deepEqual([...drawn].sort(), [...keys].sort(), `${id}: the paper's cells are the record's boxes, each once`);
-    // The grid's lines: every written column on the lines the paper writes it on, each once; a printed column's words
-    // (F/QC/25's numbers and descriptions) on every line.
+    if (PAPERS[id].lines !== undefined) {
+      // A register: every column of the record once on each ruled line, as many lines as the paper rules.
+      assert.equal(form.lines?.count, PAPERS[id].lines, `${id}: the paper's count of ruled lines`);
+      const cols = (form.lines?.cells ?? []).flatMap((c) => (c.col ? [c.col] : []));
+      assert.deepEqual([...cols].sort(), layout.columns.map((c) => c.key).sort(), `${id}: each column of the record on every line, once`);
+      continue;
+    }
+    // A certificate's lines: every written column on the lines the paper writes it on, each once; a printed column's
+    // words (F/QC/25's numbers and descriptions) on every line.
     const grid = cellsOf(id).filter((c) => c.col !== undefined);
     for (const col of layout.columns) {
       const lines = grid.filter((c) => c.col === col.key).map((c) => c.ln);
       if (col.fixed) {
         const count = layout.rowMode.kind === "fixedRows" ? layout.rowMode.rows.length : 0;
         assert.deepEqual(lines, Array.from({ length: count }, (_, i) => i), `${id}: ${col.key} printed on every line`);
-      } else assert.deepEqual(lines, WRITTEN_LINES[id][col.key], `${id}: ${col.key} on the paper's lines`);
+      } else assert.deepEqual(lines, PAPERS[id].written?.[col.key], `${id}: ${col.key} on the paper's lines`);
     }
   }
 });
 
-test("every row is the paper's width, and the rows fit its one A4 page where the paper's do", () => {
-  const widths: Record<string, number> = { "qc-coa-label": 193.4, "qc-coa-sleeve": 193.4, "qc-coa-corrugated": 190.5 };
+test("every row is the paper's width, and the rows fit its one A4 page where the paper's do, nothing at an edge", () => {
   for (const [id, form] of Object.entries(QC_PAPER_TABLES)) {
-    const rows = [...form.head, ...form.body, ...form.foot];
+    const width = PAPERS[id].width;
+    const rows = [...form.head, ...form.body, ...(form.lines ? [{ h: form.lines.h, cells: form.lines.cells }] : []), ...form.foot];
     for (const [i, row] of rows.entries()) {
       const w = row.cells.reduce((a, c) => a + c.w, 0);
-      assert.ok(Math.abs(w - widths[id]) < 0.05, `${id} row ${i}: ${w} mm`);
+      assert.ok(Math.abs(w - width) < 0.05, `${id} row ${i}: ${w} mm`);
     }
-    const height = rows.reduce((a, r) => a + r.h, 0);
-    // Nothing cut at any edge of the A4 page: 4 mm kept clear at its foot, 2 mm at its right.
-    assert.ok(form.top + height <= 297 - 4, `${id}: ${form.top + height} mm of the page's 297`);
-    assert.ok(form.left + widths[id] <= 210 - 2, `${id}: inside the page's width`);
+    const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
+    const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
+    // Nothing cut at any edge of the A4 page: 4 mm kept clear at its foot, and at least 5 mm at either side.
+    assert.ok(form.top + height <= pageH - 4, `${id}: ${form.top + height} mm of the page's ${pageH}`);
+    assert.ok(form.left >= 5 && form.left + width <= pageW - 2, `${id}: inside the page's width (${form.left} + ${width} of ${pageW})`);
   }
 });
 
 test("the sheet is drawn in its three parts, its boxes bound as every sheet's, the paper's place on the page on it", async () => {
   for (const id of Object.keys(QC_PAPER_TABLES)) {
     const html = await sheet(id);
-    const left = String(QC_PAPER_TABLES[id].left);
+    const form = QC_PAPER_TABLES[id];
     assert.ok(
-      html.includes(`<div class="paper-sheet headings-as-printed paper-table-sheet" data-bind-record="pt-${id}" data-paper="portrait" data-paper-left="${left}" data-sheet="${id}" data-paper-form="table"`),
+      html.includes(`<div class="paper-sheet headings-as-printed paper-table-sheet" data-bind-record="pt-${id}" data-paper="${form.page}" data-paper-left="${form.left}" data-sheet="${id}" data-paper-form="table"`),
       id
     );
-    for (const part of ["head", "body", "foot"]) assert.match(html, new RegExp(`<table class="pt-table pt-${part} pt-font-[a-z]+"[^>]*data-paper-part="${part}"`), `${id} ${part}`);
+    for (const part of ["head", "body"]) assert.match(html, new RegExp(`<table class="pt-table pt-${part} pt-font-[a-z]+"[^>]*data-paper-part="${part}"`), `${id} ${part}`);
+    if (form.foot.length > 0) assert.match(html, /<table class="pt-table pt-foot pt-font-[a-z]+"[^>]*data-paper-part="foot"/, `${id} foot`);
     // The header block of the print suites (the head's doc-header), the body's table, the foot.
     assert.ok(html.indexOf('<div class="paper-head"><div class="doc-header doc-header-paper">') >= 0 && html.indexOf('<div class="paper-foot">') > html.indexOf('<div class="paper-body">'));
     const boxes = Array.from(html.matchAll(/<(input|textarea|select)\b[^>]*>/g), (m) => m[0]);
-    assert.ok(boxes.length > (id === "qc-coa-corrugated" ? 25 : 40), `${id}: ${boxes.length} boxes`);
+    const least = id === "qc-coa-corrugated" ? 25 : form.lines ? form.lines.count * form.lines.cells.filter((c) => c.col).length : 40;
+    assert.ok(boxes.length >= least, `${id}: ${boxes.length} boxes`);
     assert.ok(boxes.every((b) => /data-bind="(header|rows)\//.test(b)), `${id}: every box bound where the record keeps it`);
     assert.ok(boxes.every((b) => !/ disabled=""/.test(b)), `${id}: open for writing, none locked`);
     // A signed-off record shows the same cells, none to type into.

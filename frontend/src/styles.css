@@ -3389,6 +3389,8 @@ table.svc-paper {
 .pt-table td.pt-c.pt-f-times { font-family: "Times New Roman", Times, serif; }
 /* Words the paper underlines (F/QC/25's title). (Words it prints in capitals are written so: PaperTableSheet, caps.) */
 .pt-table td.pt-c.pt-u .pt-words { text-decoration: underline; text-decoration-thickness: calc(0.42 * var(--u)); text-underline-offset: calc(0.75 * var(--u)); }
+/* Words in the middle of their cell's height, as a spreadsheet's heading row sets them. */
+.pt-table td.pt-c.pt-vm { vertical-align: middle; padding-top: 0; }
 /* A cell the paper shades (a register's number box), its grey printed. */
 .pt-table td.pt-c.pt-bg { background: var(--pt-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 /* A register's ruled lines beyond the record's (PaperTable.lines): printed blank as the paper rules them, never stored,

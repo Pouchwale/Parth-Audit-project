@@ -157,6 +157,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           if (c.u) classes.push("pt-u");
           if (c.caps) classes.push("pt-caps");
           if (c.bg) classes.push("pt-bg");
+          if (c.vm) classes.push("pt-vm");
           const style: Record<string, string> = {
             "--pt-size": String(pt),
             "--pt-lh": String(lh),
