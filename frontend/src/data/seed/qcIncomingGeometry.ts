@@ -27,6 +27,10 @@ export interface IncomingGeometry {
   arial?: [number, number][];
   /** The header's last line is a box of its own, its answer the width of the table (F/QC/36's 1st Pass / 2nd Pass / 3rd Pass). */
   headMore?: true;
+  /** A paper of its own cut (F/QC/21 Flexo Ink): the space above the header's table, and its LOT STATUS and signature columns. */
+  headGap?: number;
+  lotCols?: number[];
+  signCols?: number[];
 }
 
 /** The LOT STATUS table's columns, the same on every one of these papers: LOT STATUS, the four statuses; REASON takes the first two and the box the other three. */
@@ -83,6 +87,15 @@ export const INCOMING_GEOMETRY: Record<string, IncomingGeometry> = {
     lotGap: 12.3, signGap: 12.4, signRows: [9.2, 9.2, 9.2], lotRows: [13, 12],
     sr: 8.3, lh: 4.74, par: 0,
     arial: [[4, 2], [6, 2]],
+  },
+  // F/QC/21 Flexo Ink ("F-QC-21- Flexo INk.pdf", §117 round 2): the same tables cut its own way, on a page of its own
+  // (one hairline frame 15.58 mm from the left, the band and the foot inside it; styles.css "QC-FLEXO").
+  "qc-flexo-ink": {
+    head: { cols: [36.07, 67.99, 33.61, 42.77], rows: [6.26, 6.44, 6.08, 7.06] },
+    grid: { cols: [13.93, 61.03, 69, 36.48], rows: [7.15, 6.35, 9.61, 8.41, 7.22, 6.35, 6.08] },
+    lotGap: 34.47, signGap: 5.02, signRows: [8.47, 9, 9.26], lotRows: [14.38, 11.64],
+    sr: 6.32, lh: 4.49, par: 0,
+    headGap: 1.59, lotCols: [31.57, 27.78, 49.74, 29.19, 42.16], signCols: [81.31, 99.13],
   },
   "qc-lamination-adhesive-inspection": {
     head: { cols: [46.1, 46, 46.1, 46.1], rows: [7.2, 7.3, 7.3, 7.3] },

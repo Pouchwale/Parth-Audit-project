@@ -220,7 +220,11 @@ export const QC_REPORT_LAYOUTS: Record<string, LogSheetLayout> = {
     rowMode: { kind: "fixedRows", rows: ANALYSIS_REPORT_DESCRIPTIONS.map((description) => ({ description })) },
     // The photograph of the sample the paper prints under its table.
     photoBelowGrid: true,
-    footerFields: [sign("testingBy", "Testing By (QA Executive)"), sign("approvedBy", "Approved By (QA Manager)")],
+    // "Testing By" over the name and "(QA Executive)" under it, as the paper prints them (§117 round 2); the names stay.
+    footerFields: [
+      { ...sign("testingBy", "Testing By (QA Executive)"), printedLabel: "Testing By", printedBelow: "(QA Executive)", boxesPerLine: 2 },
+      { ...sign("approvedBy", "Approved By (QA Manager)"), printedLabel: "Approved By", printedBelow: "(QA Manager)" },
+    ],
     specimenHeader: ANALYSIS_REPORT_HEADER,
     specimenRows: ANALYSIS_REPORT_LINES,
     specimenSource:
@@ -248,7 +252,11 @@ export const QC_REPORT_LAYOUTS: Record<string, LogSheetLayout> = {
     ],
     // A line for each sample tested; the 2022 page tested nine.
     rowMode: { kind: "free", minRows: 1, typicalRows: 9 },
-    footerFields: [sign("testingBy", "Testing By (QA Inspector)"), sign("approvedBy", "Approved By (QA Manager)")],
+    // "Testing By" over the name and "(QA Inspector)" under it, as the paper prints them (§117 round 2); the names stay.
+    footerFields: [
+      { ...sign("testingBy", "Testing By (QA Inspector)"), printedLabel: "Testing By", printedBelow: "(QA Inspector)", boxesPerLine: 2 },
+      { ...sign("approvedBy", "Approved By (QA Manager)"), printedLabel: "Approved By", printedBelow: "(QA Manager)" },
+    ],
     specimenHeader: UTILITY_TEST_HEADER,
     specimenRows: UTILITY_TEST_LINES,
     specimenSource:

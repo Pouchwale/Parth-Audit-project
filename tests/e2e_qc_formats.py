@@ -366,6 +366,67 @@ COA_TABLES = {
         ],
     ],
 }
+# The certificates on file as their papers' rows (s117 round 2): under each block's heading, every row, cell by cell (a
+# box's cell reads what it holds).
+COA_PAPER_BLOCKS = {
+    "F-QC-06": [
+        ("LABEL STOCK", [
+            ["Material", "Face Material", "Adhesive", "Release Liner"],
+            ["Required", "80 GSM /Microns", "27 GSM", "60 GSM"],
+            ["Tested", "80 GSM/Microns", "26 GSM", "59 GSM"],
+            ["Type Required", "Chromo", "HotMelt", "Glassine"],
+            ["Observed", "Chromo", "Rubber Based (Hot Melt)", "Glassine Paper"],
+        ]),
+        ("COATING", [
+            ["Coating Done :", "Gloss UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+            ["Minimum Gloss Required at 60", "35%", "72%", "75%", "84.00%", "2 lbs, 100 rounds Okay"],
+        ]),
+        ("TOLERANCE", [
+            ["Field", "Length", "Width", "Face Material", "Adhesive", "Release Liner"],
+            ["+", "2 mm", "2 mm", "10 %", "2 GSM", "5 %"],
+            ["-", "2 mm", "2 mm", "10 %", "2 GSM", "5 %"],
+        ]),
+    ],
+    "F-QC-07": [
+        ("SLEEVE FILM", [
+            ["Material", "Thickness(Microns)", "Shrinkage Ratio (%)", "Type"],
+            ["Required", "40", "50", "Centroiid Plastopack PVC Blown 40 mic 200 mm"],
+            ["Tested", "40", "49", "PVC Blown"],
+        ]),
+        ("COATING", [
+            ["Coating Done :", "Matt UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+            ["Minimum Gloss Required at 60", "35%", "72%", "75%", "50%", "2 lbs, 100 rounds Okay"],
+        ]),
+        ("TOLERANCE", [
+            ["Field", "Cut Length", "Open Width", "Shrinkage Ration", "Microns"],
+            ["+", "2 mm", "2 mm", "5 %", "10 %"],
+            ["-", "2 mm", "2 mm", "5 %", "10 %"],
+        ]),
+    ],
+}
+# How many boxes of the record each certificate's paper has a cell for (its header and footer boxes, data/seed/qcCoaLayouts.ts).
+COA_BOX_COUNT = {"qc-coa-label": 48, "qc-coa-sleeve": 41}
+# The retest sentence on one line: its words, the date's box, its words after (s111 part 4; the paper's own row since s117 round 2).
+SENTENCE_LINE = """() => {
+  const s = document.querySelector('[data-print-doc] .pt-sentence');
+  if (!s) return null;
+  const box = s.querySelector('input');
+  const range = document.createRange();
+  range.selectNodeContents(s);
+  const words = Array.from(range.getClientRects());
+  const b = box.getBoundingClientRect();
+  const mid = (x) => (x.top + x.bottom) / 2;
+  return { oneLine: words.every((r) => Math.abs(mid(r) - mid(b)) < 10), inOrder: words.length > 0 && words[0].left < b.left && words[words.length - 1].right > b.right, value: box.value };
+}"""
+# "Coating Done :" and its box: two cells of the same row, the box after the words.
+CORNER_LINE = """() => {
+  const box = document.querySelector('[data-print-doc] [data-box="coatingDone"]');
+  if (!box) return null;
+  const cell = box.closest('td');
+  const before = cell.previousElementSibling;
+  const a = before.getBoundingClientRect(), b = cell.getBoundingClientRect();
+  return { oneLine: !!before && before.textContent.trim() === 'Coating Done :' && Math.abs(a.top - b.top) < 2, inOrder: a.right <= b.left + 1 };
+}"""
 COA_PRINTING = {
     "F-QC-06": [
         ["PRINTING"],
@@ -1544,56 +1605,79 @@ with sync_playwright() as p:
     )
     check("...the pass alone on the header box's last line, the width of the sheet", widths[0] > 0 and widths[1] > 1.8 * widths[0], widths)
 
-    # The two certificates on file: every block in the paper's order, the TOLERANCE printed open.
+    # The two certificates on file: every block in the paper's order, the TOLERANCE printed open. Since s117 round 2
+    # (20-Oct-2026) each is drawn as the owner's own Word table, row by row on ONE portrait page (the paper's), its boxes
+    # the cells' boxes (components/records/PaperTableSheet.tsx): the rows are read here cell by cell, as the paper's.
     for rid, name, film in (("qc-coa-label-2022-01", "F-QC-06", "LABEL STOCK"), ("qc-coa-sleeve-2022-01", "F-QC-07", "SLEEVE FILM")):
         open_page(page, f"#/record/{rid}")
         doc = page.locator("[data-print-doc]").first
         written = doc.evaluate("e => e.textContent")
-        at = [written.find(w) for w in [COA_LETTERHEAD_GSTIN, "Production Order No.", film, "PRINTING", "Shade Match Grade", "COATING", "FINISHING", "TOLERANCE", "All Grades are given on a scale of 5", "This material should be retested on", "THIS IS A SYSTEM GENERATED DOCUMENT.", "Corporate Office :"]]
-        check(f"{name}: every block where the certificate prints it, in its order (s111)", all(a >= 0 for a in at) and at == sorted(at), at)
+        at = [written.find(w) for w in [COA_LETTERHEAD_GSTIN, "Production Order No.", film, "PRINTING", "Shade Match Grade", "COATING", "FINISHING", "TOLERANCE", "All Grades are given on a scale of 5", "This material should be retested on", "THIS IS A SYSTEM GENERATED DOCUMENT."]]
+        office = doc.locator("img.pt-img[src$='gpp-corporate-office.png']").count()
+        check(f"{name}: every block where the certificate prints it, in its order, the corporate office strip at the foot (s111)", all(a >= 0 for a in at) and at == sorted(at) and office == 1, (at, office))
         check(
             f"{name}: ...the TOLERANCE table printed open in its place, not behind Show; nothing of DCRS's",
-            doc.locator("[data-section='printed-table'][data-table='TOLERANCE'] table").count() == 1
-            and page.locator("button:has-text('Show TOLERANCE')").count() == 0
-            and not any(w in written for w in DCRS_WORDS),
+            "TOLERANCE" in written and page.locator("button:has-text('Show TOLERANCE')").count() == 0 and not any(w in written for w in DCRS_WORDS),
         )
-        tables = doc.locator("table[data-section='box-table']").evaluate_all(f"els => els.map({TABLE_WORDS})")
-        check(f"{name}: ...Specified Size, {film} and COATING drawn as the paper's tables, box for box (s111)", tables == COA_TABLES[name], tables)
-        printing = doc.locator("table[data-across]").evaluate_all(f"els => els.map({TABLE_WORDS})")
+        rows = doc.locator("table[data-paper-part='body']").evaluate_all(f"els => els.map({TABLE_WORDS})")
+        rows = rows[0] if rows else []
+        for title, expected in COA_PAPER_BLOCKS[name]:
+            got = rows[rows.index([title]) + 1: rows.index([title]) + 1 + len(expected)] if [title] in rows else None
+            check(f"{name}: ...{title} drawn as the paper's rows, box for box (s117 round 2)", got == expected, got)
+        printing = rows[rows.index(["PRINTING"]): rows.index(["PRINTING"]) + 4] if ["PRINTING"] in rows else None
         check(
             f"{name}: ...the colour table printed across under PRINTING, numbered 1 to 10 as printed, no Sr. No.",
-            printing == [COA_PRINTING[name]] and doc.locator("table.log-sheet:not([data-across])").count() == 0 and "Sr. No." not in written,
+            printing == COA_PRINTING[name] and doc.locator("table.log-sheet").count() == 0 and "Sr. No." not in written,
             printing,
         )
         page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
         page.emulate_media(media="print")
         try:
-            shown = (
-                doc.locator("[data-section='printed-table'] table").first.is_visible()
-                and doc.locator("[data-section='notes-at-foot']").first.is_visible()
-                and doc.locator("table[data-across]").first.is_visible()
-                and doc.locator("table[data-section='box-table']").count() == 3
-                and all(doc.locator("table[data-section='box-table']").nth(i).is_visible() for i in range(3))
-            )
+            parts = [doc.locator(f"table[data-paper-part='{p}']").first.is_visible() for p in ("head", "body", "foot")]
+            strip = doc.locator("[data-section='number-off-paper']").first.is_visible() if doc.locator("[data-section='number-off-paper']").count() else False
         finally:
             page.emulate_media(media="screen")
             page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
-        check(f"{name}: ...and all of them print", shown)
+        check(f"{name}: ...and all of them print - the letterhead, the body, the foot - but not the format number the paper does not print", parts == [True, True, True] and not strip, (parts, strip))
         # Its headings in the paper's letters, the retest date inside its sentence, Coating Done : beside its value (s111 part 4).
-        letters = [
-            doc.locator("table[data-section='box-table'] th").first.inner_text().strip(),
-            doc.locator("[data-section='printed-table'][data-table='TOLERANCE'] th").first.inner_text().strip(),
-            doc.locator("table[data-across] th.log-sheet-across-head").first.inner_text().strip(),
-        ]
-        check(f"{name}: ...its headings in the paper's own letters (Specified Size, Field, No. of Colors), not the sheet's capitals", letters == ["Specified Size", "Field", "No. of Colors"], letters)
-        retest = page.evaluate(ONE_LINE, ".field-in-sentence")
-        corner = page.evaluate(ONE_LINE, "th.paper-box-table-corner > .field")
+        letters = [r[0] for r in rows if r and r[0] in ("Specified Size", "Field", "No. of Colors")]
+        check(f"{name}: ...its headings in the paper's own letters (Specified Size, Field, No. of Colors), not the sheet's capitals", letters == ["Specified Size", "No. of Colors", "Field"], letters)
+        retest = page.evaluate(SENTENCE_LINE)
+        corner = page.evaluate(CORNER_LINE)
         check(
             f"{name}: ...'This material should be retested on' its date 'before usage.' on one line, and 'Coating Done :' beside its value",
-            bool(retest) and retest["parts"] == 3 and retest["oneLine"] and retest["inOrder"] and bool(corner) and corner["parts"] == 2 and corner["oneLine"] and corner["inOrder"],
+            bool(retest) and retest["oneLine"] and retest["inOrder"] and bool(corner) and corner["oneLine"] and corner["inOrder"],
             (retest, corner),
         )
         shoot(page, name)
+
+    # EVERY PART EDITABLE (the owner, 20-Oct-2026): a new certificate open for writing has a box in every cell the paper
+    # leaves for writing - every box of the layout, the twenty colour cells - each bound to the record, and what is typed
+    # is kept on the record.
+    for doc_id, name in (("qc-coa-label", "F-QC-06"), ("qc-coa-sleeve", "F-QC-07")):
+        rid = start_record(page, doc_id)
+        editable = page.evaluate(
+            """() => {
+                 const sheet = document.querySelector('[data-print-doc] .paper-table-sheet');
+                 const boxes = Array.from(sheet.querySelectorAll('input, select, textarea'));
+                 return { boxes: boxes.length, bound: boxes.filter((b) => b.getAttribute('data-bind')).length, disabled: boxes.filter((b) => b.disabled).length,
+                          header: new Set(boxes.map((b) => b.getAttribute('data-bind')).filter((p) => p && p.startsWith('header/'))).size,
+                          colours: boxes.filter((b) => /^rows[/].*[/](givenByClient|colorShadeVerified)$/.test(b.getAttribute('data-bind') || '')).length };
+               }"""
+        )
+        expected_header = COA_BOX_COUNT[doc_id]
+        check(
+            f"{name}: a new certificate has a box in every cell the paper leaves for writing - its {expected_header} boxes and the 20 colour cells - each bound, none locked",
+            editable["header"] == expected_header and editable["colours"] == 20 and editable["bound"] == editable["boxes"] and editable["disabled"] == 0,
+            editable,
+        )
+        box = page.locator("[data-print-doc] [data-bind='header/clientName']").first
+        box.fill("Edit Check Pvt Ltd")
+        page.locator("[data-print-doc] [data-bind$='/givenByClient']").first.fill("Cyan")
+        page.wait_for_timeout(900)
+        kept = (record(page, rid) or {}).get("data") or {}
+        check(f"{name}: ...and what is typed in the paper's cells is kept on the record",
+              kept.get("header", {}).get("clientName") == "Edit Check Pvt Ltd" and any(r.get("givenByClient") == "Cyan" for r in kept.get("rows", [])), kept.get("header", {}).get("clientName"))
 
     # F/QC/25 and the tolerance card: the headings the paper prints, and none it does not.
     rid = start_record(page, "qc-coa-corrugated")

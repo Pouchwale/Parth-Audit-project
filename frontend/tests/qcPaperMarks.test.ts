@@ -249,7 +249,12 @@ test("the certificates print their headings in the paper's letters — 'Length(m
   for (const id of ["qc-coa-label", "qc-coa-sleeve", "qc-coa-corrugated"]) {
     assert.equal(layoutOf(id).headingsAsPrinted, true, id);
     // The root is the printed page's three parts since §117 (paper-sheet); the paper's letters are its other class.
-    assert.match(await sheet(id), /<div class="paper-sheet headings-as-printed" data-bind-record="marks-/, id);
+    // (the certificates of analysis are drawn as their own Word table since §117 round 2: paper-table-sheet)
+    assert.match(await sheet(id), /<div class="paper-sheet headings-as-printed( paper-table-sheet)?" data-bind-record="marks-/, id);
+  }
+  for (const id of ["qc-coa-label", "qc-coa-sleeve"]) {
+    const html = await sheet(id);
+    assert.ok(/>(Cut )?Length\(mm\)</.test(html) && !/LENGTH\(MM\)/.test(html), `${id}: Length(mm) as the paper writes it`);
   }
   for (const id of INCOMING) assert.equal(layoutOf(id).headingsAsPrinted, undefined, `${id}: its paper prints its headings in capitals`);
   assert.match(css, /\.headings-as-printed \.doc-table th \{ text-transform: none; letter-spacing: 0; \}/);
@@ -263,17 +268,20 @@ test("the retest date is written inside its sentence, on one line, and a downloa
     assert.equal(footerBox(id, "retestOn").label, "This material should be retested on", `${id}: its name as before`);
   }
   const html = await sheet("qc-coa-label", { header: { ...COA_LABEL_SPECIMEN_HEADER }, rows: COA_LABEL_SPECIMEN_ROWS.map((r, i) => ({ id: `c-${i}`, ...r })) } as LogSheetData, false);
+  // The paper's own row since §117 round 2: the sentence's words, the box between them, centred on its line.
   assert.match(
-    boxMarkup(html, 'class="field field-in-sentence"'),
-    /^<div class="field field-in-sentence"><label>This material should be retested on<\/label><input class="input input-sm" data-bind="header\/retestOn"[^>]*type="date"[^>]*value="2022-07-03"\/><span class="field-sentence-after" aria-hidden="true">before usage\.<\/span><\/div>/
+    html,
+    /<span class="pt-words pt-sentence"[^>]*>This material should be retested on <div class="field field-in-table" data-box="retestOn"><input class="input input-sm" data-bind="header\/retestOn"[^>]*type="date"[^>]*value="2022-07-03"\/><\/div> before usage\.<\/span>/
   );
   assert.ok(!text(html).includes("retested on … before usage"), "no longer the sentence with a gap and the date under it");
+  assert.match(css, /\.pt-table \.pt-sentence \.field-in-table \{ position: relative; display: inline-block;/);
   assert.match(css, /\.field-in-sentence \{ flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: center;/);
 });
 
 test("'Coating Done :' stands beside its value in the corner of the COATING table", async () => {
   const html = await sheet("qc-coa-label", { header: { ...COA_LABEL_SPECIMEN_HEADER }, rows: COA_LABEL_SPECIMEN_ROWS.map((r, i) => ({ id: `c-${i}`, ...r })) } as LogSheetData, false);
-  assert.match(html, /<th class="paper-box-table-corner"><div class="field"><label>Coating Done :<\/label><input[^>]*data-bind="header\/coatingDone"[^>]*value="Gloss UV"/);
+  // The paper's corner cell since §117 round 2: "Coating Done :", then its box, on one line, no rule between them.
+  assert.match(html, /<td class="pt-c pt-or"[^>]*><span class="pt-words">Coating Done :<\/span><\/td><td class="pt-c"[^>]*><div class="field field-in-table" data-box="coatingDone"><input[^>]*data-bind="header\/coatingDone"[^>]*value="Gloss UV"/);
   assert.match(css, /\.doc-table table\.paper-box-table th\.paper-box-table-corner > \.field \{ flex-direction: row; align-items: baseline; gap: 8px; \}/);
 });
 
@@ -297,9 +305,10 @@ test("F/QC/25's letterhead is the paper's three cells side by side above Date:, 
   const cba = html.indexOf("CBA: CORRUGATED BOX ANALYSIS");
   const date = html.indexOf("<label>Date:</label>");
   assert.ok(at < cba && cba < date, "the letterhead, the line under it, then Date:");
-  // A table without a title or headings is the letterhead alone: the TOLERANCE is drawn as before.
+  // A table without a title or headings is the letterhead alone: the certificates' TOLERANCE keeps its heading and its
+  // headings (drawn as the paper's own rows since §117 round 2).
   const coa = await sheet("qc-coa-label");
-  assert.match(coa, /data-table="TOLERANCE"><p class="text-sm font-semibold mb-1">TOLERANCE<\/p>[\s\S]*?<thead>/);
+  assert.ok(text(coa).includes("TOLERANCE Field Length Width Face Material Adhesive Release Liner") && !coa.includes('data-table="Letterhead"'));
 });
 
 // ---------------------------------------------------------------------------

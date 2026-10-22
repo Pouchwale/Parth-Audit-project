@@ -342,10 +342,13 @@ test("Demo Mode's and sample QC sheets are signed by QC's people on HR Master Da
 
 test("the header block prints the paper's lines under the company's name and its title in its own letters; F/QC/25 its letterhead in place of the company's line", async () => {
   const label = await sheet("qc-coa-label", createDefaultData(docOf("qc-coa-label"), DAY, master) as LogSheetData);
-  const head = label.slice(label.indexOf('<div class="doc-header">'), label.indexOf('<div class="meta-row">'));
-  assert.match(head, /<div class="company-name has-lines notranslate" translate="no">/);
-  assert.match(head, /data-section="under-company"><div>308,309,232 A &amp; B,G\.I\.D\.C\. Estate,At Dediyasan,Mehsana - 384002 Gujarat India<\/div><div>Contact Number :  , Email : info@gujprintpack\.com<\/div><div>GSTIN :  24AAACG7781P1Z1, IEC CODE : 0894007882, PAN : AAACG7781P<\/div><\/div><div class="doc-title">/);
-  assert.match(head, /<div class="doc-title"><span>Certificate of Analysis \[COA\] For Label<\/span><\/div>/, "the title in the paper's letters, under the lines");
+  // Since §117 round 2 the certificate's letterhead is its own table's first row (components/records/PaperTableSheet.tsx):
+  // the logo at the left; the company's name in the paper's letters (the owner's name for it) with its three lines under
+  // it, each where the paper prints it; then the title, in its own letters, in a row of its own.
+  const head = label.slice(label.indexOf('data-paper-part="head"'), label.indexOf("</table>", label.indexOf('data-paper-part="head"')));
+  assert.match(head, /<img class="pt-img" src="brand\/gpp-paper-logo\.png"/);
+  assert.match(head, /<span class="pt-at pt-b pt-f-arial"[^>]*><span translate="no">Gujarat Print Pack Publications Pvt Ltd<\/span><\/span><span class="pt-at"[^>]*>308,309,232 A &amp; B,G\.I\.D\.C\. Estate,At Dediyasan,Mehsana - 384002 Gujarat India<\/span><span class="pt-at"[^>]*>Contact Number :  , Email : info@gujprintpack\.com<\/span><span class="pt-at"[^>]*>GSTIN :  24AAACG7781P1Z1, IEC CODE : 0894007882, PAN : AAACG7781P<\/span>/);
+  assert.match(head, /<span class="pt-words"><span translate="no">Certificate of Analysis \[COA\] For Label<\/span><\/span>/, "the title in the paper's letters, under the lines");
   assert.ok(!text(label).includes("CERTIFICATE OF ANALYSIS"));
   const gsm = await sheet(GSM, createDefaultData(docOf(GSM), DAY, master) as LogSheetData);
   assert.match(gsm, /data-section="under-company"><div>Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes<\/div><\/div>/);
@@ -369,9 +372,12 @@ test("the header's Rev No. prints the Master List's revision for the certificate
   assert.deepEqual([docOf("qc-coa-label").revisionNo, docOf("qc-coa-label").revisionDate], ["00", "2021-12-01"]);
   assert.deepEqual([docOf("qc-coa-sleeve").revisionNo, docOf("qc-coa-sleeve").revisionDate], ["00", "2021-12-01"]);
   const label = await sheet("qc-coa-label", createDefaultData(docOf("qc-coa-label"), DAY, master) as LogSheetData);
-  const meta = (html: string) =>
-    Array.from(html.slice(html.indexOf('<div class="meta-row">')).matchAll(/<div class="meta-cell"[^>]*><span class="k">([^<]+)<\/span>([\s\S]*?)<\/div>/g), (m) => [m[1], text(m[2]).trim()]).slice(0, 5);
-  assert.deepEqual(meta(label), [
+  const meta = (html: string, row = '<div class="meta-row">') =>
+    Array.from(html.slice(html.indexOf(row)).matchAll(/<div class="meta-cell"[^>]*><span class="k">([^<]+)<\/span>([\s\S]*?)<\/div>/g), (m) => [m[1], text(m[2]).trim()]).slice(0, 5);
+  // The certificate prints no number, revision or page (its paper has none, §117 round 2): they stand on the screen only,
+  // under its letterhead, to be typed over there, and are never printed.
+  assert.ok(label.includes('<div class="meta-row pt-number-strip no-print" data-section="number-off-paper">'));
+  assert.deepEqual(meta(label, '<div class="meta-row pt-number-strip no-print"'), [
     ["Format No.", "F/QC/06"],
     ["Rev No.", "00"],
     ["Rev Date", "01-Dec-2021"],

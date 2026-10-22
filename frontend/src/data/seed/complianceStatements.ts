@@ -40,6 +40,14 @@ export interface ComplianceStatement {
   signedTitle: string;
   signedOn: string; // ISO date
   validityYears: number;
+  /**
+   * AS THE PAGE PRINTS IT (REQUIREMENTS §117, round 2 of 20-Oct-2026): the words the declarations print in bold (the
+   * product, "GPPPL"), how the signature's date is written ("1st April 2025", "24 FEB 2025"), and a foot line in bold
+   * (F/QC-38's). The statement's own words are unchanged.
+   */
+  printedBold?: string[];
+  signedOnStyle?: "ordinal" | "caps";
+  footBold?: true;
 }
 
 export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
@@ -89,6 +97,8 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
     signedTitle: "CEO",
     signedOn: "2025-04-01",
     validityYears: 2,
+    printedBold: ["Printed Pressure Labels"],
+    signedOnStyle: "ordinal",
   },
 
   "soc-flexible-packaging": {
@@ -191,6 +201,9 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
     signedBy: "Shail Patel",
     signedTitle: "CEO",
     signedOn: "2025-02-24",
+    printedBold: ["GPPPL"],
+    signedOnStyle: "caps",
+    footBold: true,
     validityYears: 2,
   },
 
@@ -246,6 +259,8 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
     signedTitle: "CEO",
     signedOn: "2025-04-01",
     validityYears: 2,
+    printedBold: ["Shrink Sleeves"],
+    signedOnStyle: "ordinal",
   },
 };
 

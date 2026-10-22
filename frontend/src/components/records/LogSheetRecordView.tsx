@@ -1,10 +1,15 @@
 import React from "react";
 import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance, SheetPhoto } from "../../types";
-import { DocumentHeader } from "../documents/DocumentHeader";
+import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHeader";
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
+import { paperTableFor, type PaperCell } from "../../data/seed/qcPaperTables";
+import { calibrationGeometryFor } from "../../data/seed/qcCalibrationGeometry";
+import { reportGeometryFor } from "../../data/seed/qcReportGeometry";
+import { PaperTablePart, type PaperTableParts } from "./PaperTableSheet";
+import { COMPANY } from "../../data/seed/masterData";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 import { getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
@@ -368,10 +373,37 @@ export function LogSheetRecordView({
   const pf = frame ? incomingGeometryFor(layout.documentId) : undefined;
   // The area line clearance reports (F/QC/15-A to G) are drawn on their paper's own frame, note box and ten lines.
   const lc = !frame ? lineClearanceGeometryFor(layout.documentId) : undefined;
+  // A paper that is one Word table from its letterhead to its foot (the certificates of analysis, data/seed/qcPaperTables.ts,
+  // §117 round 2) is drawn as that table, row by row, in the paper's millimetres (components/records/PaperTableSheet.tsx).
+  const pt = !frame && !lc ? paperTableFor(layout.documentId) : undefined;
+  // THE TWO INTERNAL CALIBRATION RECORDS ON THEIR PAPERS' MEASURES (F/QC/11, F/QC/12; data/seed/qcCalibrationGeometry.ts,
+  // §117 round 2): the sheet as it is drawn (its boxes, its grid, its PROCEDURE), in the paper's millimetres; the number
+  // printed alone at the foot of the page.
+  const cal = !frame && !lc && !pt ? calibrationGeometryFor(layout.documentId) : undefined;
+  // THE REPORTS ON THE FRAMED PAGE (F/QC/20, F/QC/29's two; data/seed/qcReportGeometry.ts, §117 round 2): their grids at the papers' columns and heights.
+  const rep = frame && !pf ? reportGeometryFor(layout.documentId) : undefined;
+  // A line of the calibration grid: F/QC/12's entries take two lines each (the first, then its Deviation % line).
+  const calLine = (i: number, second = false): number | undefined => (cal ? cal.grid.lines[(lines.second ? 2 * i + (second ? 1 : 0) : i)] : undefined);
   const lcWidth = lc ? lc.cols.reduce((a, b) => a + b, 0) : 0;
   // The grid's columns and rows in the paper's millimetres, on either paper form.
-  const gridCols = pf?.grid.cols ?? lc?.cols;
-  const gridRowHeight = (i: number): number | undefined => (pf ? pf.grid.rows[i] : lc ? (i === 0 ? LINE_CLEARANCE_ROWS.heading : LINE_CLEARANCE_ROWS.line) : undefined);
+  const gridCols = pf?.grid.cols ?? lc?.cols ?? cal?.grid.cols ?? rep?.grid.cols;
+  const repLine = (i: number): number | undefined => (rep ? rep.grid.lines[Math.min(i, rep.grid.lines.length - 1)] : undefined);
+  const gridRowHeight = (i: number): number | undefined =>
+    pf
+      ? pf.grid.rows[i]
+      : lc
+        ? i === 0
+          ? LINE_CLEARANCE_ROWS.heading
+          : LINE_CLEARANCE_ROWS.line
+        : cal
+          ? i === 0
+            ? cal.grid.head[0]
+            : calLine(i - 1)
+          : rep
+            ? i === 0
+              ? rep.grid.head[0]
+              : repLine(i - 1)
+            : undefined;
   const topTables = (layout.referenceTables ?? []).filter((t) => !placed.has(t.title));
 
   const mode = layout.rowMode;
@@ -447,7 +479,7 @@ export function LogSheetRecordView({
   const wordsAbove = (layout.instructions?.length ?? 0) > 0 || topTables.length > 0;
   const headerBoxes = (lc ? [] : boxGroupsBesideGrid(layout)).map((group, gi) =>
     group.lead ? (
-      <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={!boxesFirst && wordsAbove ? "mt-3" : ""} paper={pf ? paperGridOf(pf, "head") : undefined}>
+      <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={!boxesFirst && wordsAbove ? "mt-3" : ""} paper={pf ? paperGridOf(pf, "head") : cal ? { kind: "calib", cols: cal.boxes.cols, rows: cal.boxes.rows, gap: 0 } : undefined}>
         {group.boxes.map(({ field, index }) => (
           <React.Fragment key={field.key}>
             {pf && field.paperColumn && field.paperColumn > 1 && Array.from({ length: (field.paperColumn - 1) * 2 }, (_, k) => <span key={k} className="pf-blank" aria-hidden="true" />)}
@@ -534,16 +566,187 @@ export function LogSheetRecordView({
           </div>
         </div>
       );
+  // THE PAPER AS ITS OWN WORD TABLE (§117 round 2): the certificates of analysis, row by row, on one portrait page. The
+  // record's boxes are the cells' boxes (the same SheetBox, bound as everywhere: the downloads read them so), its colour
+  // lines the PRINTING cells; the header's company and title are typed over in the letterhead; the format's number,
+  // which this paper does not print, is shown on the screen only, to be typed over there (REQUIREMENTS §86).
+  if (pt) {
+    const fieldAt = (key: string): { field: LogHeaderField; index: number; footer: boolean } | null => {
+      const hi = layout.headerFields.findIndex((f) => f.key === key);
+      if (hi >= 0) return { field: layout.headerFields[hi], index: hi, footer: false };
+      const fi = (layout.footerFields ?? []).findIndex((f) => f.key === key);
+      return fi >= 0 ? { field: layout.footerFields![fi], index: fi, footer: true } : null;
+    };
+    const paperBox = (key: string, cell: PaperCell): React.ReactNode => {
+      const at = fieldAt(key);
+      if (!at) return null;
+      // A box written inside the paper's sentence (the retest date) is drawn by the sentence; its words are the cell's.
+      const field = at.field.inSentence ? { ...at.field, inSentence: undefined } : at.field;
+      if (cell.lines && field.type === "text") {
+        return (
+          <div className={`field field-in-table pt-lines${boxOutOfBand(at.field, data.header) ? " field-out-of-band" : ""}`} data-box={field.key}>
+            <textarea
+              className="input input-sm"
+              {...bindProps(logHeaderBind(field))}
+              aria-label={field.label}
+              rows={2}
+              disabled={!editable}
+              value={data.header?.[field.key] ?? ""}
+              onChange={(e) => onBox(field.key, e.target.value)}
+            />
+          </div>
+        );
+      }
+      return at.footer ? footerBox(field, at.index, true) : headerBox(field, at.index, true);
+    };
+    const paperGridCell = (line: number, key: string): React.ReactNode => {
+      const row = data.rows[line];
+      const ci = layout.columns.findIndex((c) => c.key === key);
+      if (!row || ci < 0) return null;
+      const c = layout.columns[ci];
+      const fixedRow = mode.kind === "fixedRows" ? mode.rows[line] : undefined;
+      const col = effectiveColumn(c, fixedRow);
+      if (col.fixed) return <span className="pt-words">{documentTextIn(printedCell(row, key, fixedRow), lang)}</span>;
+      return (
+        <div className={`pt-box${judge(row, c, fixedRow) ? " cell-out-of-band" : ""}`}>
+          <CellInput
+            col={col}
+            bind={bindProps(logCellBind(row, line, col, logRowName(row, layout.columns)))}
+            issuedLabel={issued?.columns[ci]?.label ?? c.label}
+            value={row[key]}
+            editable={editable && !col.computed}
+            onChange={(v) => onCell(row.id, key, v)}
+            employees={employeeNames}
+            list={lists?.[key] ?? c.list}
+          />
+        </div>
+      );
+    };
+    // The header's words as this paper prints them: the company in the paper's own letters (the owner's name for it,
+    // "Gujarat Print Pack Publications Pvt Ltd", unless the plant has renamed it), the title as the paper sets it.
+    const companyWords = headerEdit?.values.companyName ?? doc.companyName ?? COMPANY.shortName;
+    const titleWords = documentTextIn(headerProps.title ?? doc.name, lang);
+    const revisionNo = superseded ? superseded.revisionNo : (headerEdit?.values.revisionNo ?? doc.revisionNo);
+    const revisionDate = superseded ? superseded.revisionDate : (headerEdit?.values.revisionDate ?? doc.revisionDate);
+    const ptParts: PaperTableParts = {
+      form: pt,
+      layout,
+      words: { companyName: companyWords, title: titleWords, formatNo: headerEdit?.values.formatNo ?? doc.formatNo, revisionNo, revisionDate: dottedDate(revisionDate), page: headerProps.pageLabel },
+      edit: headerEdit,
+      box: paperBox,
+      gridCell: paperGridCell,
+    };
+    return (
+      <div
+        className={`${rootClass} paper-table-sheet`}
+        translate={asIssued ? "no" : undefined}
+        data-bind-record={record.id}
+        data-paper={pt.page}
+        data-paper-left={pt.left}
+        data-sheet={doc.id}
+        data-paper-form="table"
+        style={{ "--pt-left": String(pt.left), "--pt-top": String(pt.top) } as React.CSSProperties}
+      >
+        <div className="paper-head">
+          <div className="doc-header doc-header-paper">
+            <div className="doc-letterhead">
+              <PaperTablePart part="head" parts={ptParts} />
+            </div>
+            {/* The format's own number, revision and page: not on this paper, so never printed; typed over here (§86). */}
+            {pt.numberOffPaper && (
+              <div className="meta-row pt-number-strip no-print" data-section="number-off-paper">
+                <div className="meta-cell">
+                  <span className="k">Format No.</span>
+                  <span className="v notranslate" translate="no">
+                    <HeaderWord field="formatNo" edit={headerEdit}>
+                      {ptParts.words.formatNo}
+                    </HeaderWord>
+                  </span>
+                </div>
+                <div className="meta-cell">
+                  <span className="k">Rev No.</span>
+                  <span className="v notranslate" translate="no" data-revision={superseded ? superseded.revisionNo : undefined}>
+                    <HeaderWord field="revisionNo" edit={headerEdit}>
+                      {revisionNo}
+                    </HeaderWord>
+                  </span>
+                </div>
+                {revisionDate && (
+                  <div className="meta-cell" data-meta="revision-date">
+                    <span className="k">Rev Date</span>
+                    <span className="v notranslate" translate="no">
+                      <HeaderWord field="revisionDate" edit={headerEdit}>
+                        {formatDisplayDate(revisionDate)}
+                      </HeaderWord>
+                    </span>
+                  </div>
+                )}
+                {headerProps.pageLabel && (
+                  <div className="meta-cell">
+                    <span className="k">Page No.</span>
+                    <span className="v notranslate" translate="no">
+                      <HeaderWord field="page" edit={headerEdit}>
+                        {headerProps.pageLabel}
+                      </HeaderWord>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="paper-body">
+          {headerPanel}
+          {superseded && (
+            <div className="card mt-4 no-print" data-superseded-revision={superseded.revisionNo}>
+              <div className="card-pad text-sm">
+                Filled on Rev {superseded.revisionNo} of this format ({formatDisplayDate(superseded.revisionDate)}), which Rev {doc.revisionNo} has since replaced. It is shown as it was
+                written, on the revision it was written on, and is kept as it is.
+                {superseded.note ? ` ${superseded.note}` : ""}
+              </div>
+            </div>
+          )}
+          {outOfBand > 0 && (
+            <div className="card mt-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
+              <div className="card-pad text-sm">
+                <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> {outOfBand} reading{outOfBand === 1 ? " is" : "s are"} outside the printed acceptance band (highlighted). Add a remark
+                explaining the deviation and inform the shift in-charge.
+              </div>
+            </div>
+          )}
+          <PaperTablePart part="body" parts={ptParts} />
+        </div>
+        <div className="paper-foot">
+          <PaperTablePart part="foot" parts={ptParts} />
+        </div>
+        <datalist id="log-sheet-employees">
+          {employees.map((e) => (
+            <option key={e.id} value={e.name} />
+          ))}
+        </datalist>
+        <div className="text-xs text-faint mt-3 no-print">Specimen source: {layout.specimenSource}</div>
+      </div>
+    );
+  }
   return (
     <div
       className={rootClass}
       translate={asIssued ? "no" : undefined}
       data-bind-record={record.id}
       data-paper={layout.paper ?? (frame ? "portrait" : lc ? "landscape" : undefined)}
+      data-paper-left={cal ? cal.left : undefined}
       data-frame={frame ? "" : undefined}
       data-sheet={doc.id}
-      data-paper-form={pf ? "incoming" : lc ? "lineclear" : undefined}
-      style={lc ? ({ "--lc-w": `calc(${lcWidth} * var(--u))` } as React.CSSProperties) : pf ? ({ "--pf-lh": `calc(${pf.lh} * var(--u))`, "--pf-par": `calc(${pf.par} * var(--u))`, "--pf-sr": `calc(${pf.sr} * var(--u))` } as React.CSSProperties) : undefined}
+      data-paper-form={pf ? "incoming" : lc ? "lineclear" : cal ? "calib" : rep ? "report" : undefined}
+      style={
+        lc
+          ? ({ "--lc-w": `calc(${lcWidth} * var(--u))` } as React.CSSProperties)
+          : pf
+            ? ({ "--pf-lh": `calc(${pf.lh} * var(--u))`, "--pf-par": `calc(${pf.par} * var(--u))`, "--pf-sr": `calc(${pf.sr} * var(--u))` } as React.CSSProperties)
+            : cal
+              ? (calibrationStyle(cal) as React.CSSProperties)
+              : undefined
+      }
     >
       <div className="paper-head">
       <DocumentHeader {...headerProps} frame={frame} />
@@ -719,7 +922,7 @@ export function LogSheetRecordView({
               {canRemoveRows && <th className="pf-remove" style={{ width: 36 }} rowSpan={headRows}></th>}
             </tr>
             {headRows === 2 && (
-              <tr>
+              <tr style={paperRowStyle(cal?.grid.head[1] ?? rep?.grid.head[1])}>
                 {headRuns
                   .filter((run) => run.group !== undefined && !headless(run))
                   .flatMap((run) => run.columns)
@@ -768,6 +971,7 @@ export function LogSheetRecordView({
                 linked={rowLinks?.get(row.id)}
                 canRemove={canRemoveRows}
                 height={gridRowHeight(i + 1)}
+                height2={calLine(i, true)}
                 paper={!!pf}
                 arial={pf?.arial?.filter(([line]) => line === i).map(([, c]) => c - 1)}
                 onCell={onCell}
@@ -777,6 +981,35 @@ export function LogSheetRecordView({
               />
               </React.Fragment>
             ))}
+            {/* F/QC/12's paper prints four entries of two lines; a week's record is one (§117): the others print as the paper's blank
+                ruled lines, its "Deviation %" on each second line - on the page, never in the record. */}
+            {cal?.entries &&
+              lines.second &&
+              Array.from({ length: Math.max(0, cal.entries - data.rows.length) }, (_, k) => {
+                const at = data.rows.length + k;
+                return (
+                  <React.Fragment key={`cal-pad-${k}`}>
+                    <tr className="pf-pad" aria-hidden="true" data-line="first" style={paperRowStyle(calLine(at))}>
+                      {lines.first.map((c) => (
+                        <td key={c.key} />
+                      ))}
+                    </tr>
+                    <tr className="pf-pad log-second-line" aria-hidden="true" data-line="second" style={paperRowStyle(calLine(at, true))}>
+                      {lines.first.map((c, ci) => (ci === 0 ? <td key={c.key} className="second-line-label">{lines.second?.label}</td> : <td key={c.key} />))}
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
+            {/* The utility test's paper rules nine lines (qcReportGeometry.ts pad): the ones not written print blank, never stored. */}
+            {rep?.pad &&
+              Array.from({ length: Math.max(0, rep.pad - data.rows.length) }, (_, k) => (
+                <tr key={`rep-pad-${k}`} className="pf-pad" aria-hidden="true" style={paperRowStyle(repLine(data.rows.length + k))}>
+                  {numbered && <td data-sr-no="" />}
+                  {lines.first.map((c) => (
+                    <td key={c.key} />
+                  ))}
+                </tr>
+              ))}
             {/* The ten ruled lines the paper prints to write in (F/QC/15-A to G): the blank ones are on the page, not in the record. */}
             {lc &&
               Array.from({ length: Math.max(0, LINE_CLEARANCE_ROWS.lines - data.rows.length) }, (_, k) => (
@@ -819,6 +1052,8 @@ export function LogSheetRecordView({
       {!frame && footerCard}
       {/* A framed page's own foot (qcPageFrames.ts): the Format number and the Page number in a bordered line, the address under it. */}
       {frame && <DocumentHeader {...headerProps} frame={frame} part="foot" />}
+      {/* The calibration papers print their number alone, centred at the foot of the page: F/QC/11 (01/01.01.2022). */}
+      {cal && <DocumentHeader {...headerProps} numberFoot part="foot" />}
       {/* The paper's own text at the foot of the sheet, after every box (REQUIREMENTS §111): the certificates' "THIS IS A SYSTEM GENERATED DOCUMENT." */}
       {layout.notesAtFoot && layout.notesAtFoot.length > 0 ? (
         <NotesBelow lines={layout.notesAtFoot} section="notes-at-foot" />
@@ -1068,7 +1303,7 @@ export function paperHasItsOwnApproval(layout: { footerFields?: { label: string 
  */
 /** A table of the paper's own (qcIncomingGeometry.ts): the boxes are its cells, in columns and rows of the paper's millimetres. */
 interface PaperGrid {
-  kind: "head" | "head more" | "lot" | "sign";
+  kind: "head" | "head more" | "lot" | "sign" | "calib";
   cols: number[];
   rows: number[];
   /** The blank space above the table, in millimetres. */
@@ -1078,11 +1313,36 @@ interface PaperGrid {
 /** The head of the paper's tables: the header boxes' table, the LOT STATUS table, the signature table. */
 const PAPER_GAP_ABOVE_HEAD = 3.84;
 function paperGridOf(pf: IncomingGeometry, kind: "head" | "head-more" | "lot" | "sign"): PaperGrid {
-  if (kind === "head") return { kind: "head", cols: pf.head.cols, rows: pf.headMore ? pf.head.rows.slice(0, -1) : pf.head.rows, gap: PAPER_GAP_ABOVE_HEAD };
+  if (kind === "head") return { kind: "head", cols: pf.head.cols, rows: pf.headMore ? pf.head.rows.slice(0, -1) : pf.head.rows, gap: pf.headGap ?? PAPER_GAP_ABOVE_HEAD };
   // The header's last line, a box of its own the width of the table (F/QC/36's 1st Pass / 2nd Pass / 3rd Pass), under the others with no space between.
   if (kind === "head-more") return { kind: "head more", cols: pf.head.cols, rows: pf.head.rows.slice(-1), gap: 0 };
-  if (kind === "lot") return { kind: "lot", cols: LOT_COLS, rows: pf.lotRows, gap: pf.lotGap };
-  return { kind: "sign", cols: SIGN_COLS, rows: pf.signRows, gap: pf.signGap };
+  if (kind === "lot") return { kind: "lot", cols: pf.lotCols ?? LOT_COLS, rows: pf.lotRows, gap: pf.lotGap };
+  return { kind: "sign", cols: pf.signCols ?? SIGN_COLS, rows: pf.signRows, gap: pf.signGap };
+}
+
+/** The calibration paper's measures as the sheet's own CSS variables (styles.css, the calibration paper form). */
+function calibrationStyle(cal: NonNullable<ReturnType<typeof calibrationGeometryFor>>): Record<string, string> {
+  const mm = (v: number) => `calc(${v} * var(--u))`;
+  return {
+    "--cal-left": mm(cal.left),
+    "--cal-top": mm(cal.top),
+    "--cal-w": mm(cal.width),
+    "--cal-head-co": mm(cal.head.company),
+    "--cal-head-co-y": mm(cal.head.companyY),
+    "--cal-head-gap": mm(cal.head.linesGap),
+    "--cal-head-title": mm(cal.head.title),
+    "--cal-head-title-y": mm(cal.head.titleY),
+    "--cal-box-cols": cal.boxes.cols.map(mm).join(" "),
+    "--cal-box-rows": cal.boxes.rows.map(mm).join(" "),
+    "--cal-box-x": mm(cal.boxes.x[0]),
+    "--cal-box-label-y": mm(cal.boxes.labelY[0]),
+    "--cal-box-value-y": mm(cal.boxes.valueY[0]),
+    "--cal-grid-gap": mm(cal.grid.gapAbove),
+    "--cal-notes-gap": mm(cal.notes.gapAbove),
+    "--cal-notes-pitch": mm(cal.notes.pitch),
+    "--cal-notes-x": mm(cal.notes.x),
+    "--cal-foot-y": mm(cal.foot.y - 0.2),
+  };
 }
 
 const paperRowStyle = (height: number | undefined): React.CSSProperties | undefined =>
@@ -1587,6 +1847,7 @@ const SheetRow = React.memo(function SheetRow({
   linked,
   canRemove,
   height,
+  height2,
   paper,
   arial,
   onCell,
@@ -1629,6 +1890,8 @@ const SheetRow = React.memo(function SheetRow({
   canRemove: boolean;
   /** The height the paper gives this line (qcIncomingGeometry.ts), in millimetres. */
   height?: number;
+  /** The height the paper gives the entry's second line (F/QC/12's Deviation % line, qcCalibrationGeometry.ts). */
+  height2?: number;
   /** The line is drawn on the paper's own table: its printed paragraphs stand as the paper sets them. */
   paper?: boolean;
   /** The columns of this line the paper sets in Arial 10 pt (qcIncomingGeometry.ts). */
@@ -1716,7 +1979,7 @@ const SheetRow = React.memo(function SheetRow({
   return (
     <>
       {firstLine}
-      <tr data-line="second" className="log-second-line">
+      <tr data-line="second" className="log-second-line" style={paperRowStyle(height2)}>
         {columns.map((c, ci) => {
           if (ci === 0) {
             if (leadSpans) return null;
