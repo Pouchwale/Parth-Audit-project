@@ -72,6 +72,25 @@ export function fitAll(docs: Element[]): void {
   printed = fit(els);
 }
 
+/**
+ * A box's words on one line at the box's own size (`need`), against the room it has (`room`), with its own size and the
+ * smallest its words may be written (`own`, `floor`, in px): read once, after fitAll, by utils/print.ts for the words it
+ * writes on two lines where even the smallest writing would be cut.
+ */
+export function measureWords(el: HTMLInputElement): { need: number; room: number; own: number; floor: number } {
+  const cs = getComputedStyle(el);
+  const now = parseFloat(cs.fontSize) || 12;
+  const own = base.get(el) ?? now;
+  // The words' own width, as the box writes them (a box's scrollWidth is never less than the box: it cannot say how full it is).
+  pen ??= document.createElement("canvas").getContext("2d");
+  let words = widthOf(el);
+  if (pen) {
+    pen.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    words = pen.measureText(el.value).width + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.textIndent) || 0);
+  }
+  return { need: (words * own) / now, room: el.clientWidth, own, floor: own * floorOf(el) };
+}
+
 /** After a print: the boxes the print made smaller are measured again by the screen's own pass. */
 export function unfitAll(): void {
   for (const el of printed) {

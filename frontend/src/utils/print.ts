@@ -44,17 +44,38 @@
 // it — the date as the sheet writes it everywhere else ("14-Oct-2026"), the time
 // as written ("10:17") — and the box itself does not print. The words come off
 // when printing ends.
+//
+// A WRITTEN VALUE TOO LONG FOR ITS BOX PRINTS AS WORDS THAT WRAP, NEVER CUT (the
+// owner, 22-Oct-2026: "print on A4 size paper so print should be print accordingly
+// no mistake over there"). A text box prints on one line and cuts what does not fit:
+// F/QC/03's product description, F/QC/08's makers and the complaint checklist's
+// comments were cut on the paper. For the length of the print such a value prints as
+// its words in the box's place, on a second line where it needs one, and the box does
+// not print (writeLongBoxesAsWords):
+//   * in a paper form drawn in the paper's millimetres (the same on the screen and on
+//     paper), a value that does not fit even at the smallest writing (utils/fitText.ts)
+//     is written on two lines inside the cell's own height, as a person writes smaller
+//     and on a second line in a small box: the row keeps its height and a one-page
+//     paper stays one page;
+//   * on any other sheet, laid out afresh for the page, a value that fills most of its
+//     box on the screen is written as words at the box's own size, wrapping where the
+//     page's box is narrower, the row growing to hold them.
+// Every other box prints as before. The words come off, and the boxes come back, when
+// printing ends.
 
 import { logActivity } from "./activityLog";
 import { formatDisplayDate } from "./date";
-import { fitAll, unfitAll } from "./fitText";
+import { fitAll, measureWords, unfitAll } from "./fitText";
 
 const DOC_SELECTOR = "[data-print-doc]";
 const HIDDEN = "print-scope-hidden";
 const ANCESTOR = "print-scope-ancestor";
 const SCOPED = "print-scoped";
 
-let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: { box: Element; text: Element }[] } | null = null;
+/** A box printed as its words: the words, and the box's own inline display where the print hid the box itself. */
+type Written = { box: Element; text: Element; display?: string };
+
+let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: Written[] } | null = null;
 
 const EMPTY_ATTR = "data-empty";
 const EMPTY_BOXES = "input[type='date'], input[type='time'], input[type='datetime-local'], input[type='month'], select";
@@ -84,8 +105,8 @@ export function printedBoxText(type: string, value: string): string {
 }
 
 /** Puts the words of every written date or time box in the documents beside it, for the print; the pairs are returned. */
-function writeBoxesAsText(docs: Element[]): { box: Element; text: Element }[] {
-  const written: { box: Element; text: Element }[] = [];
+function writeBoxesAsText(docs: Element[]): Written[] {
+  const written: Written[] = [];
   for (const d of docs) {
     for (const box of Array.from(d.querySelectorAll(WRITTEN_BOXES)) as HTMLInputElement[]) {
       if (box.value === "" || box.classList.contains(PRINTED_AS_TEXT)) continue;
@@ -95,6 +116,66 @@ function writeBoxesAsText(docs: Element[]): { box: Element; text: Element }[] {
       box.insertAdjacentElement("afterend", text);
       box.classList.add(PRINTED_AS_TEXT);
       written.push({ box, text });
+    }
+  }
+  return written;
+}
+
+/** The text boxes whose words may be too long for them, and the class of the words printed in their place. */
+const LONG_BOXES = "input[type='text'], input:not([type])";
+export const PRINT_BOX_WORDS = "print-box-words";
+/** The wrapped lines' pitch to their size, and the share of two lines' width the words may fill (a line breaks between words). */
+const WORDS_LINE = 1.15;
+const TWO_LINES = 1.8;
+/** A web form's value is printed as words once it fills this much of its box on the screen. */
+const WEB_FULL = 0.8;
+
+/** A paper form drawn in the paper's millimetres, the same on the screen and on paper (the incoming records, the line clearances, the
+ *  calibration papers, the report forms, a paper's own table). Every other sheet is laid out afresh for the page. */
+const PAPER_FORM = ".paper-sheet[data-paper-form]";
+
+/** Puts the words of every written value too long for its box in its place, for the print (after fitAll); the pairs are returned. */
+function writeLongBoxesAsWords(docs: Element[]): Written[] {
+  // Every box read first, then every one written: one layout for the lot.
+  const plan: { box: HTMLInputElement; size: number; floor: number; height: number | null; align: string }[] = [];
+  for (const d of docs) {
+    for (const box of Array.from(d.querySelectorAll<HTMLInputElement>(LONG_BOXES))) {
+      if (box.value.trim() === "" || box.classList.contains(PRINTED_AS_TEXT) || box.clientWidth === 0) continue;
+      const { need, room, own, floor } = measureWords(box);
+      const align = getComputedStyle(box).textAlign;
+      if (box.closest(PAPER_FORM)) {
+        // The paper's cell: cut even at the smallest writing, the words go on two lines inside the cell's own height.
+        if ((need * floor) / own <= room + 1) continue;
+        plan.push({ box, size: Math.min(own, Math.max(floor, (own * TWO_LINES * room) / need)), floor, height: box.clientHeight, align });
+      } else if (need > room * WEB_FULL) plan.push({ box, size: own, floor, height: null, align });
+    }
+  }
+  const written: Written[] = [];
+  for (const { box, size, height, align } of plan) {
+    const text = document.createElement("span");
+    text.className = `${PRINT_BOX_TEXT} ${PRINT_BOX_WORDS}`;
+    text.textContent = box.value;
+    // Inline, so that no rule written for a date's one line (its nowrap, a line's height) holds the words to one line.
+    Object.assign(text.style, { whiteSpace: "pre-wrap", overflowWrap: "anywhere", height: "auto", maxHeight: "none", overflow: "visible", textAlign: align, fontSize: `${size}px` });
+    if (height !== null) text.style.lineHeight = String(WORDS_LINE);
+    else text.style.display = "block";
+    box.insertAdjacentElement("afterend", text);
+    box.classList.add(PRINTED_AS_TEXT);
+    written.push({ box, text, display: box.style.display });
+    box.style.display = "none";
+  }
+  // In the paper's cell the lines stay inside the cell's own height, written smaller where they need it (to the smallest writing):
+  // a one-page paper stays one page.
+  for (let round = 0; round < 4; round++) {
+    const over = plan
+      .map((p, i) => ({ p, text: written[i].text as HTMLElement }))
+      .filter(({ p, text }) => p.height !== null && p.height > 0 && text.scrollHeight > p.height + 1)
+      .map(({ p, text }) => ({ p, text, size: Math.max(p.floor, p.size * Math.sqrt(p.height! / text.scrollHeight) * 0.97) }))
+      .filter(({ p, size }) => size < p.size - 0.05);
+    if (!over.length) break;
+    for (const { p, text, size } of over) {
+      p.size = size;
+      text.style.fontSize = `${size}px`;
     }
   }
   return written;
@@ -225,8 +306,9 @@ function unscope(): void {
   for (const el of active.hidden) el.classList.remove(HIDDEN);
   for (const el of active.ancestors) el.classList.remove(ANCESTOR);
   for (const el of active.emptied) el.removeAttribute(EMPTY_ATTR);
-  for (const { box, text } of active.written) {
+  for (const { box, text, display } of active.written) {
     box.classList.remove(PRINTED_AS_TEXT);
+    if (display !== undefined) (box as HTMLElement).style.display = display;
     text.remove();
   }
   document.documentElement.classList.remove(SCOPED);
@@ -258,8 +340,10 @@ function scope(targets: Element[]): void {
   document.documentElement.classList.add(SCOPED);
   active = { hidden, ancestors, emptied: markEmptyBoxes(docs), written: writeBoxesAsText(docs) };
   fitToPage(docs);
-  // Words wider than their box print smaller, never cut (utils/fitText.ts).
+  // Words wider than their box print smaller, never cut (utils/fitText.ts)...
   fitAll(docs);
+  // ...and a value too long for its box even so prints as words that wrap.
+  active.written.push(...writeLongBoxesAsWords(docs));
 }
 
 /**
