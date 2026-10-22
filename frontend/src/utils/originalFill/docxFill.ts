@@ -221,7 +221,7 @@ class Controls {
    * The cell's pieces as runs: the fixed words as words, each bound value in a control tagged "dcrs:<i>". `shown` writes a
    * value the paper's way where it reads back the same (a tick box's Yes as a ticked box).
    */
-  runs(cell: Cell, rPr: XmlElement | null, fallbackLabel?: string, shown?: (text: string) => string): XmlElement[] {
+  runs(cell: Cell, rPr: XmlElement | null, fallbackLabel?: string, shown?: (text: string) => string, keepFace = false): XmlElement[] {
     const parts: ExportSegment[] = cell.parts?.length ? cell.parts : cell.text ? [{ text: cell.text }] : [];
     const out: XmlElement[] = [];
     for (const p of parts) {
@@ -231,7 +231,7 @@ class Controls {
       }
       const entry = this.builder.add(p.bind, { fallbackLabel });
       this.report.placed++;
-      out.push(this.control(entry.i, entry.label, shown ? shown(p.bind.text) : p.bind.text, valueProps(rPr)));
+      out.push(this.control(entry.i, entry.label, shown ? shown(p.bind.text) : p.bind.text, keepFace ? rPr : valueProps(rPr)));
     }
     return out;
   }
@@ -486,7 +486,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   // ---- boxes
   type FieldAt =
     | { field: ModelField; kind: "cell"; cell: TCell }
-    | { kind: "after"; field: ModelField; p: XmlElement; at: number; to?: number }
+    | { kind: "after"; field: ModelField; p: XmlElement; at: number; to?: number; example?: boolean }
     | { kind: "under"; field: ModelField; cell: TCell; p: XmlElement }
     | { kind: "choiceCells"; field: ModelField; label: TCell; options: { cell: TCell; text: string }[] }
     | { kind: "choiceIn"; field: ModelField; cell: TCell; words: string[] }
@@ -711,6 +711,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       // The value takes the place of the owner's example or of the blank ("Position -> Executive", "Signed: ____"), after the
       // paper's own spacing and marks; with nothing there it goes right after the label.
       const tookPlace = middle !== "" && !keepBlank;
+      // In place of the owner's example the value keeps the example's own face (F/QC/29's bold "PSL Analysis Report").
+      const face = f.example && tookPlace ? runPropsAt(p, f.at + lead) : null;
       if (tookPlace) {
         if (/[^_.\s]/.test(middle)) report.cleared++;
         replaceRange(p, f.at + lead, to - tail, "");
@@ -725,9 +727,9 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         // A blank of spaces before a closing bracket ("Vehicle number:      ]"): as many go as the value takes.
         if (!tabs.length && /^ {4,}$/.test(room) && /[\])]/.test(text[to] ?? "")) replaceRange(p, f.at, f.at + room.length - 1, "");
       }
-      const rPr = firstRunProps(p);
+      const rPr = face ?? firstRunProps(p);
       const spaced = (tookPlace && lead > 0) || /\s$/.test(paraText(p).slice(0, f.at));
-      insertAt(p, tookPlace ? f.at + lead : f.at, [...(spaced ? [] : [runOf(" ", valueProps(rPr))]), ...controls.runs(f.field.cell, rPr, f.field.label)]);
+      insertAt(p, tookPlace ? f.at + lead : f.at, [...(spaced ? [] : [runOf(" ", valueProps(rPr))]), ...controls.runs(f.field.cell, rPr, f.field.label, undefined, !!face)]);
     }
   }
   const tableBinds: { place: GridPlaceW; bind: ExportTableBinding }[] = [];
@@ -897,6 +899,31 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
 
 /** The blank lines given the roles' line's places for the names (each role there is replaced by its name when written). */
 const namesFromRoles = new WeakSet<XmlElement>();
+
+/** The properties of the run that holds a paragraph's character at `at` (before its words are taken out). */
+function runPropsAt(p: XmlElement, at: number): XmlElement | null {
+  // Counted as paraText counts: a word's letters, a tab or a break one each; deletions left out.
+  let pos = 0;
+  const walk = (x: XmlElement): XmlElement | null | undefined => {
+    for (const c of x.children) {
+      if (typeof c === "string" || ["del", "pPr", "rPr", "sdtPr", "drawing", "pict"].includes(c.local)) continue;
+      if (c.local !== "r") {
+        const found = walk(c);
+        if (found !== undefined) return found;
+        continue;
+      }
+      let len = 0;
+      for (const k of c.children) if (typeof k !== "string") len += k.local === "t" ? k.children.map((t) => (typeof t === "string" ? t : "")).join("").length : ["tab", "br", "cr"].includes(k.local) ? 1 : 0;
+      if (len > 0 && at < pos + len) {
+        const rPr = kid(c, "rPr");
+        return rPr ? clone(rPr) : null;
+      }
+      pos += len;
+    }
+    return undefined;
+  };
+  return walk(p) ?? null;
+}
 
 /** A box's label as its words and its role in brackets ("Testing By (QA Executive)"). */
 function labelAndRole(label: string): { base: string; role: string } | null {
@@ -1478,7 +1505,7 @@ function headerAt(field: ModelField, paras: XmlElement[]): { kind: "after"; fiel
 }
 
 /** The owner's example words in a sentence of the paper, the place of a box (hints.ts exampleOf): the value takes their place. */
-function exampleAt(field: ModelField, words: string, paragraphs: XmlElement[], tables: Table[]): { kind: "after"; field: ModelField; p: XmlElement; at: number; to: number } | null {
+function exampleAt(field: ModelField, words: string, paragraphs: XmlElement[], tables: Table[]): { kind: "after"; field: ModelField; p: XmlElement; at: number; to: number; example: true } | null {
   for (const p of [...paragraphs, ...tables.flatMap((t) => all(t.tbl, "p"))]) {
     const at = paraText(p).indexOf(words);
     if (at === -1) continue;
@@ -1486,7 +1513,7 @@ function exampleAt(field: ModelField, words: string, paragraphs: XmlElement[], t
     if (spans.some((x) => at < x.to && x.from < at + words.length)) continue;
     spans.push({ from: at, to: at + words.length });
     lineSpans.set(p, spans);
-    return { kind: "after", field, p, at, to: at + words.length };
+    return { kind: "after", field, p, at, to: at + words.length, example: true };
   }
   return null;
 }
