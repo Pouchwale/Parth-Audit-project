@@ -9111,6 +9111,67 @@ another document than the PDFs DCRS follows - please send the current revisions'
 record: a blank Word form would let them download as his file. (4) F/HR/15's workbook prints "GUJARAT PRINT PACA1:AH16K" in its
 company line: a slip in his file? (5) F/HR/07: the download is one position sheet (his file holds five).
 
+### §119, A4 and the print (22-Oct-2026)
+
+The owner, 22-Oct-2026: "make sure it when user download after filling any record and it should be perfectly print on paper
+mostly user take print on A4 size paper so print should be print accordingly no mistake over there ... i don't want any error
+any where in any module".
+
+**Every template on A4, set by Word and Excel themselves** (scripts/originals/convert.py). Eleven of the 105 were not: nine
+Word files on Letter (the chemical chart, F/HR/19, F/MNT/08, F/MNT/02, F/QC/11 landscape, F/QC/19, F/SYS/04-A and F/SYS/04's
+shared file, the training record) and two workbooks with no paper (F/HR/20, F/MNT/01); they are made again from his originals.
+- Word: every section's PaperSize is wdPaperA4, its orientation kept. His lines break where they broke on his paper: where A4
+  is narrower (Letter portrait, by 8.3 pt a side) or shorter (Letter landscape) each margin gives half the difference, never
+  below 18 pt, so the text keeps the width and height he set (F/QC/19's tolerance cards stay on four pages; with his margins
+  on A4 their titles wrapped and made five). Where Word's own PDF of the page then shows ink nearer the paper's edge than on
+  his paper and nearer than 14 pt (about 5 mm: an office printer prints nothing within about 4 mm of the edge), every table
+  reaching past the margins (not one Word sizes as a percent of the text) has its own widths scaled by A4's width over his
+  paper's (0.973), each cell: the chemical chart's centred table (5 pt from the edges on A4, now 13 pt, his 14), F/HR/19's
+  page-header box (9 pt, now 15), F/SYS/04's tables (1.6 pt, now 17). Every page count is his paper's.
+- Excel: PageSetup.PaperSize is xlPaperA4, his orientation, scale and fit kept, unless his columns do not fit across the A4
+  page: then Excel fits the sheet to the page's width (one page across, the length left to run). They do not fit where, at
+  his scale, the printed columns are wider than A4 between his margins - F/PUR/03's approved suppliers (60 %) and F/PRD/24's
+  blade record (67 %) printed their last column on a page of its own, on his own A4 setting; one page each now - or where A4
+  prints the sheet on more pages than his paper did (F/HR/20's survey: two pages at his 99 %, one fitted). F/MNT/01's
+  equipment list prints on two A4 landscape pages (three on Letter).
+- scripts/originals/picks.json says for each template its pages on his paper and on A4, and what was done.
+
+**Every download that is his file, printed on A4.** The 74 documents that download as his own file were each filled from a
+sample-filled record and printed to PDF by Word or Excel themselves (scratchpad r2/a4check.py: Excel's "scale content for A4
+or 8.5 x 11" is off in the check's own Excel while it prints, and put back, because this PC's PDF printer is on Letter and
+Excel maps an A4 sheet onto it; the owner's printers print the sheet's own A4). Every page of every one is A4; no Word
+download has ink off the paper; no workbook's columns run onto a page across. The page count is his paper's but for:
+- a grid that grows with the record's lines: F/SYS/01's document list (173 lines on his 108 rows: six pages, his five),
+  F/SYS/12 (two lines more than his rows in each of its two grids: three pages, his two);
+- values longer than his lines, wrapping: F/HR/14 (a purpose of visit of two lines puts "Verified by" on a second page),
+  F/QC/03 (a product description of three lines puts the inspector's row on a second page), F/STR/02 (long descriptions);
+- fewer: F/HR/07 (one position sheet of the five in his file), F/MNT/01 (A4 landscape is wider than Letter), F/PUR/03 and
+  F/PRD/24 (one page, his columns no longer cut onto a second).
+
+**What the print showed the filler did wrong, put right** (utils/originalFill/docxFill.ts):
+- A page with nothing on it: the empty lines after a document's last table were pushed past the page's foot by a record's
+  longer values (F/HR/11's third page, F/QC/05's and F/QC/18's second page held only the page header). The empty lines after
+  the last words or table are now one point high with no space around them; nothing on the pages before changes.
+- F/HR/06's induction record prints its person table again on each of its five pages, eight people to a page. All 28 of
+  DCRS's people went into the first table (20 rows added, two pages more) and his example people stayed on the other four.
+  A grid whose heading the paper prints again over the tables after it now runs on through them in order before a row is
+  added, and his examples are cleared on every page - only for the page's one grid of that heading, its lines free (F/MKT/05's
+  five sections share a heading; each stays its own table). F/HR/13's mobile authorisation: his examples on its two further
+  tables are cleared the same way.
+- F/QC/19's tolerance cards print APPROVED BY and SIGN as a small table on each card: the nine lines had been added as rows to
+  the first card. A grid the paper prints as a card per line now takes line k onto card k; his paper has seven cards, so the
+  eighth and ninth lines' approver and sign are left out (nothing added).
+
+**Margins.** 41 of his 48 workbooks set a margin of 0 on a side (his own files, as supplied: F/SYS/02, F/SYS/13, F/PUR/03,
+F/QC/08, F/QC/15-A to G and others). Excel's PDF has nothing cut, but a printer that cannot print to the paper's edge (most
+office lasers leave about 4 mm) loses the outermost line there. DCRS keeps his margins (his format); open question 6.
+His Word files that were A4 already put ink 12-14 pt from the edge on F/MNT/09, F/MNT/10, F/QC/12 and F/DISP/04, as his
+paper does. F/SYS/02 prints a stray note beyond its last column ("Humidity shown ...") into the page's right edge, as his
+file does.
+
+**Open question for the owner (A4).** (6) Workbooks with a 0 margin: should DCRS give every side at least 5 mm (the sheet
+scaled to fit), so no printer loses its outermost line?
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
