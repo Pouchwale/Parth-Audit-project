@@ -304,17 +304,17 @@ test("round 2: a paper with no heading row over its questions - each line found 
   for (const e of read.entries) assert.equal((read.values.get(e.i)?.text ?? "").replace(/ /g, " ").trim(), e.text.trim(), `${e.label} reads back as written`);
 });
 
-test("round 2: a box the paper has no place for is written on the line under the box before it, as Label: value, and listed", async () => {
+test("a box the paper has no place for is left out of the file: the owner's format stays as it is (22-Oct-2026)", async () => {
   const template = docxOf(wp("VEHICLE RECORD") + wtbl(wtr("Driver", "")) + wp("Checked by: ____"));
   const blocks: ExportBlock[] = [...head("VEHICLE RECORD"), { kind: "fields", pairs: [["Driver", bound("h/driver", "R. Patel", "Driver")], ["Contract valid to", bound("h/to", "31-Mar-2027", "Contract valid to", "date")]] }];
   const { bytes, report } = await fillDocx(template, blocks, { envelope: envelope("docx"), company: COMPANY.name });
   assert.equal(report.notPlaced.length, 0);
-  assert.equal(report.outside.length, 1, "the value written outside the paper's boxes is listed");
-  assert.match(report.outside[0], /^Contract valid to: /);
+  assert.equal(report.outside.length, 0, "nothing written outside the paper's boxes");
+  assert.deepEqual(report.leftOut, ["Contract valid to"], "the value with no box is left out, and listed");
   const xml = await partText(bytes, "word/document.xml");
-  assert.ok(xml.indexOf("Contract valid to: ") > xml.indexOf("R. Patel") && xml.indexOf("Contract valid to: ") < xml.indexOf("Checked by"), "under the box before it");
+  assert.ok(xml.includes("R. Patel") && !xml.includes("Contract valid to") && !xml.includes("31-Mar-2027"), "his paper, filled where it has boxes, nothing added");
   const read = await readUploadedFile(bytes.slice().buffer, "vehicle.docx");
-  assert.ok(read.ok && read.missing.length === 0);
+  assert.ok(read.ok && read.missing.length === 0, "the file still reads back whole");
 });
 
 test("round 2: boxes DCRS numbers in groups fill the paper's table of them, a row a number", async () => {

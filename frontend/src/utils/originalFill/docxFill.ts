@@ -492,18 +492,6 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       }
   // The page headers the document shows (not a spare one left in the file): a box the paper prints there (F/DISP/04).
   const shownHeaderParas = shownHeaders(pkg, docPart, body).flatMap((part) => all(part, "p"));
-  // A box the paper has no place for goes on the blank line under the box placed before it (REQUIREMENTS §119 round 2).
-  const up = parents(body);
-  const outsideFields: { field: ModelField; after: XmlElement | null }[] = [];
-  let lastAnchor: { el: XmlElement; order: number } | null = null;
-  // A grid's place on the paper: a box after it in DCRS's page that the paper has no place for goes under it.
-  const gridAnchors = [
-    ...gridPlaces.map((p) => ({ order: p.grid.order ?? -1, row: p.body[p.body.length - 1] ?? p.headRows[p.headRows.length - 1] })),
-    ...keyedPlaces.map((k) => ({ order: k.grid.order ?? -1, row: k.lines[k.lines.length - 1]?.row })),
-  ].flatMap((g) => {
-    const el = g.row ? bodyLevel(body, g.row.tr, up) : null;
-    return el ? [{ el, order: g.order }] : [];
-  });
   for (const field of model.fields) {
     if (!isBound(field.cell)) continue;
     if (hints.notOnPaper?.some((l) => same(l, field.label))) {
@@ -513,15 +501,11 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     const example = Object.entries(hints.exampleOf ?? {}).find(([, l]) => same(l, field.label))?.[0];
     const at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas) ?? choiceCellsAnywhere(field, tables, usedCells);
     if (!at) {
-      const order = field.order ?? -1;
-      const grid = gridAnchors.filter((g) => g.order < order).sort((a, b) => b.order - a.order)[0];
-      outsideFields.push({ field, after: grid && (!lastAnchor || grid.order > lastAnchor.order) ? grid.el : (lastAnchor?.el ?? null) });
+      // No box on the paper for it: left out of the file, which stays the owner's format (owner, 22-Oct-2026); the record keeps it.
+      report.leftOut.push(field.label);
       continue;
     }
     fieldAts.push(at);
-    const node = at.kind === "cell" || at.kind === "under" || at.kind === "choiceIn" ? at.cell.tc : at.kind === "choiceCells" ? at.label.tc : at.p;
-    const el = bodyLevel(body, node, up);
-    if (el) lastAnchor = { el, order: field.order ?? -1 };
   }
 
   // ---- the band, the company's name, the title and fixed lines in the body (outside the grids and the boxes)
@@ -754,18 +738,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         // another language (F/DISP/02's Gujarati checklist), keeps its own.
         else if (cell.text.trim() && !same(cellText(target), cell.text) && (!cellText(target).trim() || similarity(cellText(target), cell.text) >= 0.5)) writeCell(target, cell, controls);
       });
-      if (spare.length && remarkCi !== undefined) {
-        const remark = cellAt(r, place.colOf.get(remarkCi)!)!;
-        const ps = kids(remark.tc, "p");
-        const p = ps[ps.length - 1] ?? el("w:p");
-        if (!ps.length) remark.tc.children.push(p);
-        const rPr = firstRunProps(p) ?? cellMarkProps(remark.tc);
-        for (const x of spare) {
-          const label = x.heading.replace(/[\s:\-\u2013\u2014=]+$/, "").trim();
-          p.children.push(runOf(`${paraText(p).trim() ? "  " : ""}${label ? `${label}: ` : ""}`, valueProps(rPr)), ...controls.runs(x.cell, rPr, label || undefined));
-        }
-        report.outside.push(`${spare.map((x) => x.heading).join(", ")} of line ${i + 1}: in its ${heads[remarkCi]} cell`);
-      }
+      // A value of the line with no cell of its own on the paper: left out (owner, 22-Oct-2026), never written into another cell.
+      for (const x of spare) report.leftOut.push(`${x.heading} (line ${i + 1})`);
     });
     report.grids.push({ rows: lines.length, paperRows: place.body.length - place.extra.length, added: place.extra.length, where: `table ${place.table.index + 1}` });
     if (place.grid.bindTable) {
@@ -807,12 +781,6 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       added++;
     });
     report.grids.push({ rows: grid.rows.length - grid.headerRows, paperRows: lines.length, added, where: "by the lines' own words" });
-  }
-  const afterOf = new Map<XmlElement | null, XmlElement>();
-  for (const { field, after } of outsideFields) {
-    const p = writeOutside(body, afterOf.get(after) ?? after, field, controls);
-    afterOf.set(after, p);
-    report.outside.push(`${(field.shown ?? field.label).replace(/[\s:\-\u2013\u2014=]+$/, "")}: on the line under ${after ? `"${(paraText(all(after, "p").find((x) => paraText(x).trim()) ?? after) || "the boxes").trim().slice(0, 40)}"` : "the heading"}`);
   }
 
   // ---- the map (REQUIREMENTS §81)
@@ -1821,15 +1789,8 @@ function writeKeyedLine(body: XmlElement, k: KeyedLine, grid: ModelGrid, control
       writeInto(under.cells[0], c, controls, label, keyRPr);
       continue;
     }
-    const ps = kids(k.key.tc, "p");
-    const p = [...ps].reverse().find((x) => paraText(x).trim()) ?? ps[ps.length - 1];
-    if (!p) {
-      for (const part of c.parts ?? []) if (part.bind) report.notPlaced.push(part.bind.label ?? part.bind.path);
-      continue;
-    }
-    const written = !!c.text.trim();
-    p.children.push(runOf(written && label ? `   ${label}: ` : " ", valueProps(keyRPr)), ...controls.runs(c, keyRPr, label));
-    if (written) report.outside.push(`${label ?? "value"} of line ${k.line + 1}: beside the line's own words`);
+    // No cell of its own on the paper: left out (owner, 22-Oct-2026), never written beside the line's own words.
+    report.leftOut.push(`${label ?? "value"} (line ${k.line + 1})`);
   }
 }
 
@@ -1853,41 +1814,6 @@ function choiceSpot(row: TRow, col: number, cell: Cell, lastCol: number): Choice
     else break;
   }
   return run.length >= 2 ? { kind: "cells", cells: run, words } : null;
-}
-
-/** The body-level element (a paragraph or a table) a part of the document stands in. */
-function bodyLevel(body: XmlElement, node: XmlElement, up: Map<XmlElement, XmlElement>): XmlElement | null {
-  let at: XmlElement | undefined = node;
-  while (at && up.get(at) !== body) at = up.get(at);
-  return at ?? null;
-}
-
-/**
- * A value DCRS records that the paper has no box for, written where a person filling the paper by hand would: on the blank
- * line under the boxes before it (a new line there when the paper has none), as "Label: value" in the paper's own face.
- */
-function writeOutside(body: XmlElement, after: XmlElement | null, field: ModelField, controls: Controls): XmlElement {
-  const label = (field.shown ?? field.label).replace(/[\s:\-\u2013\u2014=]+$/, "").trim();
-  const at = after ? body.children.indexOf(after) : -1;
-  const next = at >= 0 ? body.children[at + 1] : undefined;
-  const sample = (after && after.local === "p" ? after : all(after ?? body, "p").find((p) => paraText(p).trim())) ?? null;
-  const rPr = valueProps(sample ? firstRunProps(sample) : null);
-  let p: XmlElement;
-  if (next && typeof next !== "string" && next.local === "p" && !paraText(next).trim() && !all(next, "drawing").length && !all(next, "pict").length && !kid(kid(next, "pPr") ?? el("w:pPr"), "sectPr")) {
-    p = next;
-  } else {
-    const pPr = sample ? kid(sample, "pPr") : null;
-    p = el("w:p", {}, pPr ? [clone(pPr)] : []);
-    const props = kid(p, "pPr");
-    if (props) props.children = props.children.filter((c) => typeof c === "string" || !["numPr", "sectPr", "pageBreakBefore", "pStyle"].includes(c.local));
-    if (at >= 0) body.children.splice(at + 1, 0, p);
-    else {
-      const first = body.children.findIndex((c) => typeof c !== "string" && c.local === "tbl");
-      body.children.splice(first === -1 ? 0 : first, 0, p);
-    }
-  }
-  p.children.push(runOf(`${label}: `, rPr), ...controls.runs(field.cell, rPr, label));
-  return p;
 }
 
 // Re-exported for the tests.

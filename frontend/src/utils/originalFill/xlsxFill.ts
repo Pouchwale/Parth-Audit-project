@@ -702,43 +702,23 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     }
   }
 
-  // ---- a box the paper has no place for (REQUIREMENTS §119 round 2), written where a person filling the paper by hand would:
-  // a box above the grids beside the title, a box after a grid on the free line under it - as "Label: value"
+  // ---- a box the paper has no place for: the paper's own brackets in its title take it (F/HR/08's period, where his paper
+  // prints it); anything else is LEFT OUT of the file, which stays the owner's format (owner, 22-Oct-2026) - the record keeps it
   const titleAt = model.title ? all1.filter((m) => m.r < firstHeading && (same(m.text, model.title) || norm(m.text).startsWith(norm(model.title)) || similarity(m.text, model.title) > 0.6)).sort((a, b) => similarity(b.text, model.title) - similarity(a.text, model.title))[0] : undefined;
   let titleUsed = false;
   for (const field of outside) {
-    const label = (field.shown ?? field.label).replace(/[\s:\-–—=]+$/, "").trim();
     const after = places.filter((p) => (p.grid.order ?? -1) < (field.order ?? -1)).sort((a, b) => (b.grid.order ?? 0) - (a.grid.order ?? 0))[0];
-    let spot: { r: number; c: number; pre: string; where: string } | null = null;
-    if (!after && titleAt && !titleUsed && !fieldPlaces.some((f) => f.r === titleAt.r && f.c === titleAt.c)) {
-      const edit = textEdits.findIndex((e) => e.r === titleAt.r && e.c === titleAt.c);
-      const title = edit >= 0 ? textEdits[edit].text : titleAt.text;
+    const bracket = titleAt ? /\(\s*([^()]*\d[^()]*?)\s*\)/.exec(titleAt.text) : null;
+    if (!after && titleAt && bracket && !titleUsed && !fieldPlaces.some((f) => f.r === titleAt.r && f.c === titleAt.c)) {
       titleUsed = true;
-      // The paper's own brackets in its title for it ("... RECORD ( 01.04.2026 ~ 31.03.2027 )", F/HR/08): the value there.
-      const own = titleAt.text;
-      const bracket = /\(\s*([^()]*\d[^()]*?)\s*\)/.exec(own);
-      if (bracket) {
-        if (edit >= 0) textEdits.splice(edit, 1);
-        taken.add(key(titleAt.r, titleAt.c));
-        fieldPlaces.push({ field, r: titleAt.r, c: titleAt.c, pre: `${own.slice(0, bracket.index)}( `, post: ` )${own.slice(bracket.index + bracket[0].length)}`, mode: "same" });
-        continue;
-      }
+      const edit = textEdits.findIndex((e) => e.r === titleAt.r && e.c === titleAt.c);
       if (edit >= 0) textEdits.splice(edit, 1);
-      spot = { r: titleAt.r, c: titleAt.c, pre: `${title.replace(/\s+$/, "")}   ${label}: `, where: `beside the title (${columnName(titleAt.c)}${titleAt.r})` };
-    } else {
-      const grid = after ?? places[places.length - 1];
-      const lo = grid ? Math.min(...grid.colOf.values()) : 0;
-      const from = grid ? (grid.body.length ? grid.body[grid.body.length - 1] : grid.headingRow) + 1 : 1;
-      const free = (r: number, c: number) => !sheet.covered(r, c) && !sheet.text(r, c).trim() && !taken.has(key(r, c)) && !fieldPlaces.some((f) => f.r === r && f.c === c);
-      for (let r = from; r <= sheet.maxRow() + 2 && !spot; r++) if ([0, 1, 2].every((k) => free(r, lo + k))) spot = { r, c: lo, pre: `${label}: `, where: `on the free line under the grid (${columnName(lo)}${r})` };
-    }
-    if (!spot) {
-      report.notPlaced.push(field.label || field.cell.text);
+      taken.add(key(titleAt.r, titleAt.c));
+      const own = titleAt.text;
+      fieldPlaces.push({ field, r: titleAt.r, c: titleAt.c, pre: `${own.slice(0, bracket.index)}( `, post: ` )${own.slice(bracket.index + bracket[0].length)}`, mode: "same" });
       continue;
     }
-    taken.add(key(spot.r, spot.c));
-    fieldPlaces.push({ field, r: spot.r, c: spot.c, pre: spot.pre, post: "", mode: "same" });
-    report.outside.push(`${label}: ${spot.where}`);
+    report.leftOut.push(field.label);
   }
 
   // ---- merged cells of the owner's example inside a grid's body (two of his lines sharing one Designation, three columns
