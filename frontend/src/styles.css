@@ -3794,7 +3794,9 @@ table.svc-paper {
     align-self: start; height: calc(5.29 * var(--u)); margin-top: calc(0.4 * var(--u)); line-height: calc(4.23 * var(--u)); text-indent: calc(1.88 * var(--u));
   }
   .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(n+4) { display: flex; align-items: baseline; height: auto; border: 0; padding: 0 0 0 calc(1.95 * var(--u)); }
-  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(4) { height: calc(4.23 * var(--u)); margin-top: calc(10.17 * var(--u)); overflow: visible; }
+  /* "Subject: Discussion about Quality Issues" on one line, as the paper: the words beside the label (a box's field stacks
+     its label over its box everywhere else, and the value printed under the label with no height, cut). */
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(4) { flex-direction: row; height: calc(4.23 * var(--u)); margin-top: calc(10.17 * var(--u)); overflow: visible; }
   .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(4) > .input { align-self: baseline; margin-top: 0; text-indent: calc(1 * var(--u)); }
   .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(5) { display: block; margin-top: calc(6.1 * var(--u)); }
   .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(n+4) > label { height: auto; padding: 0; border: 0; flex: none; }
@@ -3814,7 +3816,10 @@ table.svc-paper {
   .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet thead th {
     font-size: calc(14.04 * var(--pt)); line-height: calc(14.04 * var(--pt)); font-weight: 700; text-decoration: underline; text-decoration-thickness: calc(0.34 * var(--u)); text-underline-offset: calc(0.9 * var(--u));
   }
-  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody tr { margin-top: calc(5.2 * var(--u)); }
+  /* A key point's number stands at its first line, its words running on under it as the paper writes them (the key points
+     wrap since 22-Oct-2026); the 2 px every printed box keeps above and below is taken back, so the page holds its seven. */
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody tr { margin-top: calc(5.2 * var(--u)); align-items: flex-start; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td textarea.input { margin: -2px 0; }
   .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td[data-sr-no] { flex: none; width: auto; padding-right: calc(1 * var(--u)); }
   .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td:not([data-sr-no]) { flex: 1 1 auto; }
   .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td .input { width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; font: inherit; color: #000; }
