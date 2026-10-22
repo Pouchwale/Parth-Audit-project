@@ -154,6 +154,7 @@ LAYOUT_SOURCE = {
     "qc-line-clearance-materials": "qcGujaratiLineClearanceLayouts.ts",
     "qc-line-clearance-quality": "qcGujaratiLineClearanceLayouts.ts",
     "qc-ruler-verification": "qcRulerVerificationLayouts.ts",
+    "qc-ruler-verification-300": "qcRulerVerificationLayouts.ts",
     "qc-temperature-humidity": "qcTemperatureLayouts.ts",
     "qc-temperature-sleeve": "qcTemperatureLayouts.ts",
     "qc-test-reliability-label": "qcTestReliabilityLayouts.ts",
@@ -175,12 +176,18 @@ for _id in (
 GRID_RENDERER = {
     "qc-coa-label": "PaperTableSheet: the paper's own Word table, row by row (qcPaperTables.ts, s117 round 2)",
     "qc-coa-sleeve": "PaperTableSheet: the paper's own Word table, row by row (qcPaperTables.ts, s117 round 2)",
-    "qc-coa-corrugated": "AnswerAcrossGrid (answerAcross) + the letterhead PrintedTable",
+    "qc-coa-corrugated": "PaperTableSheet: the paper's own Word table, row by row (qcPaperTables.ts, s117 round 2)",
     "qc-test-reliability-label": "PaperTableSheet: the workbook's one framed table, row by row (qcPaperTables.ts, s117 round 2)",
     "qc-test-reliability-sleeve": "PaperTableSheet: the workbook's one framed table, row by row (qcPaperTables.ts, s117 round 2)",
     "qc-analysis-report": "log-sheet table + HeadingBox (asHeading) + SheetPhotos (photoBelowGrid)",
-    "qc-inprocess-printing": "log-sheet table + PrintedTable (the grade criteria reference table)",
+    "qc-inprocess-printing": "PaperTableSheet: the scan's own table, row by row (qcPaperTables.ts, s117 round 2)",
 }
+# The other papers drawn as their own table (s117 round 2, 22-Oct-2026), row by row in their millimetres.
+for _id in (
+    "qc-calibration-master-list qc-obsolete-artwork qc-ruler-verification qc-ruler-verification-300 qc-temperature-humidity "
+    "qc-temperature-sleeve qc-temperature qc-viscosity qc-adhesive-mixing qc-line-clearance-materials qc-line-clearance-quality"
+).split():
+    GRID_RENDERER[_id] = "PaperTableSheet: the paper's own table, row by row (qcPaperTables.ts, s117 round 2)"
 
 def _base_key(ref):
     stem = ref["file"].rsplit(".", 1)[0]

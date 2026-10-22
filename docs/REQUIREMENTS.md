@@ -8822,12 +8822,73 @@ the download expects.
   words alone (the box rules had shown the box as well) and an empty choice box prints nothing. The regression guard of the kit found
   no non-QC document changed after each step.
 
-*Left for a later round, most visible first* (the kit's findings for each are in the scratchpad file the brief names): F/QC/25's
-letterhead and serif rows (50.6: it is one Word table on a US Letter page, the next paper for qcPaperTables.ts); F-QC-19's
-tolerance card (four pages of panels); the registers F/QC/08, F/QC/16, F/QC/17 for both scales, F-QC-40.A and B (the number in the
-title row, the paper's count of ruled lines and heights); F-QC-14's two sheets (Excel's PDF of the owner's workbook made, not yet a
-reference); and the photographs judged by eye: F/QC/13, F-QC-30, F-QC-32, F-QC-40.C and the two Gujarati line clearances. F/QC/34, 35,
-37 and the camera challenge test have no paper at all and were left as they are.
+*Left for a later round on 20-Oct-2026* (F/QC/25, F-QC-19's card, the registers F/QC/08, 16, 17 and F-QC-40.A and B, F-QC-14 and the
+photographs): taken up on 22-Oct-2026, below.
+
+### Round 2 continued, 22-Oct-2026: every QC paper of the list as its own table, nothing of DCRS's added
+
+The owner, 22-Oct-2026: "don't create any new changes by yourself in any format because i want same format in my system ...
+mostly user take print on A4 size paper so print should be print accordingly no mistake over there ... i don't want any
+error any where in any module". So each paper below is reproduced as it is and nothing is added that it does not have: no
+company band, no FORMAT NO. / REV NO. / REV DATE / PAGE NO. block, no word or box of DCRS's. Where DCRS needs a box the paper
+lacks, it stays on the screen and is never printed (listed at the end). Each prints on one A4 page in the paper's own
+orientation, nothing cut at any edge (the rows' widths and heights are checked against the page in
+frontend/tests/qcPaperTables.test.ts, the print in tests/e2e_print_all_documents.py).
+
+The papers are drawn as their own tables (data/seed/qcPaperTables.ts, components/records/PaperTableSheet.tsx, as F/QC/06 and 07
+above), in the millimetres read off the owner's PDFs by the kit, or off his scans (a scan of an A4 page at 300 dots to the inch is
+measured the same way), or, for his photographs, judged by eye. Kit scores, before -> after (a blank new record printed on A4
+against his paper; a photograph is not scored):
+
+- *F/QC/25, the corrugated box certificate* (50.6 -> 97.4). His Word table on a US Letter page, in Times: the letterhead with
+  the logo tile, the CBA line, the title, Date:, the grid with its answers across and its four columns of 7.1 to 7.3, the
+  signatures; each cell rules the edges the paper rules (its lines of words outside the tables have none).
+- *F/QC/08, the master list of calibration instruments* (36.6 -> 97.7). One ruled table at the paper's sizes on A4 landscape:
+  its number "F/QC/08 (00 / 01.12.2021)" in the shaded box beside the title, the Note, the heading row, eleven numbered lines.
+- *F/QC/16, the register of obsolete artwork* (29.5 -> 53.9; the rest is the specimen's thirteen written lines, which a new
+  record does not copy, section 98). The heavy frame, the number in its shaded box, fifteen ruled lines.
+- *F/QC/17 for both scales* (600 mm 44.3 -> 90.6; 300 mm 87.6). One Century Gothic table: the number in its cell beside the
+  company, the title underlined, the two tables of details, the six readings with one Status and one name down them.
+- *F-QC-40.A and F-QC-40.B, the temperature records* (30.5 -> 82.8, 34.8 -> 98.2). The owner's logo band, the number with its
+  revision and its date in its cell ("F-QC-40.B (00/28.02.25)"), the month's 31 numbered lines; F-QC-40.A's AREA with its three
+  areas, the one the sheet is for marked.
+- *F-QC-40.C, F-QC-30 and F-QC-32* (photographs). F-QC-40.B's sheet for the hot room with its fifty lines; F-QC-30's band of logo,
+  title and number and its two tables of 34 lines side by side (the day's lines in the first); F-QC-32's band, its ten headings
+  and 33 lines.
+- *F-QC-14, both sheets* (no reference before; 76.5 and 75.5 blank, 91.4 and 96.7 with the workbook's own entries typed in, every
+  rule of the paper matched). The owner sent the workbook alone and its own print area holds only the left half of each sheet,
+  so the reference is Excel's PDF of the whole sheet placed on A4 at 190 mm across (source-documents/
+  qc-office-exports-2026-10-20/). One framed table: the company, the title underlined between the Label's "F-QC-14/00" and
+  "Date :", each check its own small table (the name over its specification, underlined where the workbook underlines it; what
+  was sampled; the four inspectors each over his name in brackets; three lines; "Conclusion" with its conclusion), a blank row
+  between the bands, the workbook's quirks kept. The names and the FG code are typed in the first table that prints them and
+  written again in the others.
+- *F/QC/13 and the two Gujarati line clearance forms* (scans). F/QC/13: the company and the title unruled, the procedure in its
+  three justified lines, the grade criteria table, the boxes in three small ruled tables, the test grid with પાસ? one cell down
+  its six lines, the English boxes ruled under it. The line clearances: each form one ruled table as the scan's (the title and the
+  boxes in the head's rows, the procedure, the headings, each process down its lines with its signatures once, the ticks, the blank
+  rows), each printed on its own page. Nirmala UI's Gujarati is wider than the papers' face, so each size is set to take the
+  paper's width and break where the paper's lines break.
+
+A paper is drawn as its own table only while it still fits the format (paperTableFits): every box and column it draws is the
+format's, every one the format has is drawn, and a paper that draws the format's printed lines one by one draws as many as the
+format prints. A format the plant edits since (the designer, Mitra) is drawn as every grid is, nothing lost. Every part stays
+editable: each blank of each paper is a box of the record (e2e_header_editing holds every paper of this list to it), and the
+header's words are typed over where they print.
+
+*Kept on the screen only, never printed* (each is something DCRS needs that the paper has no place for): the strip with the format
+number, revision, its date and the page on F/QC/06, F/QC/07, F/QC/25, F-QC-14 (both sheets), F/QC/13 and the two Gujarati line
+clearances (none of them prints all four); the Add Row button and each line's bin on the registers whose lines a person writes (F/QC/08,
+F/QC/16, F-QC-32); the boxes' yellow and the specimen source line under every sheet.
+
+*Stays different from the paper:* the company's one name (the owner's rule of 2-Oct-2026) where a paper spells it otherwise;
+dates print as DCRS writes them (12-Feb-2022) where the papers write 12.02.2022; F-QC-40's degree sign "°" where the papers print
+"⁰"; F-QC-30 prints its hour slots' line numbers as the owner asked on 14-Oct-2026; the scans' Gujarati in Nirmala UI, not the
+papers' face; F/QC/13's "QA પર્સન" on one line where the scan runs "પર્સન" under its box's rule.
+
+*Left:* F-QC-19's tolerance card, whose "paper" is four pages of strips to cut out and stick on the card (nine error labels, ten
+title strips, ten DOC NO. strips, seven APPROVED BY / SIGN. boxes): which of them a printed record should carry, and how many, is a
+question for the owner. F/QC/34, 35, 37 and the camera challenge test have no paper at all.
 
 ## §118 The service reports as the contractor's March sheet, F/HR/18 as its Word page, real Excel and Word downloads, A4 print, and the daily pest record's rule (17-Oct-2026)
 
