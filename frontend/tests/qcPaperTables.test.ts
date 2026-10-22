@@ -87,6 +87,9 @@ const PAPERS: Record<string, { page: "portrait" | "landscape"; width: number; wr
   "qc-calibration-master-list": { page: "landscape", width: 274.24, lines: 11 },
   // F/QC/16: its fifteen ruled lines (the supplied page's thirteen and two blank).
   "qc-obsolete-artwork": { page: "landscape", width: 264.24, lines: 15 },
+  // F/QC/17, both scales: the six readings; Status and the name once, on the first line, down the six.
+  "qc-ruler-verification": { page: "portrait", width: 158.23, written: { masterReading: [0, 1, 2, 3, 4, 5], observed: [0, 1, 2, 3, 4, 5], difference: [0, 1, 2, 3, 4, 5], status: [0], performedBy: [0] } },
+  "qc-ruler-verification-300": { page: "portrait", width: 158.23, written: { masterReading: [0, 1, 2, 3, 4, 5], observed: [0, 1, 2, 3, 4, 5], difference: [0, 1, 2, 3, 4, 5], status: [0], performedBy: [0] } },
 };
 
 test("the papers drawn as their own table are these; no other document is", () => {
@@ -153,7 +156,7 @@ test("the sheet is drawn in its three parts, its boxes bound as every sheet's, t
     const boxes = Array.from(html.matchAll(/<(input|textarea|select)\b[^>]*>/g), (m) => m[0]);
     // A register: a box for each column on each line the record holds (a new record holds the paper's count or one line).
     const held = (createDefaultData(docOf(id), DAY, master) as LogSheetData).rows.length;
-    const least = id === "qc-coa-corrugated" ? 25 : form.lines ? held * form.lines.cells.filter((c) => c.col).length : 40;
+    const least = id === "qc-coa-corrugated" || id.startsWith("qc-ruler-verification") ? 25 : form.lines ? held * form.lines.cells.filter((c) => c.col).length : 40;
     assert.ok(boxes.length >= least, `${id}: ${boxes.length} boxes`);
     assert.ok(boxes.every((b) => /data-bind="(header|rows)\//.test(b)), `${id}: every box bound where the record keeps it`);
     assert.ok(boxes.every((b) => !/ disabled=""/.test(b)), `${id}: open for writing, none locked`);

@@ -101,7 +101,9 @@ async function sheet(documentId: string, d: LogSheetData, editable = false): Pro
 }
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/\s+/g, " ");
 const titleOf = (html: string) => {
-  const m = /class="doc-title"[^>]*>([\s\S]*?)<\/div>/.exec(html);
+  // The page's title: the header block's, or (F/QC/17 drawn as its paper's own table since §117 round 2 of 22-Oct-2026)
+  // the head's underlined row.
+  const m = /class="doc-title"[^>]*>([\s\S]*?)<\/div>/.exec(html) ?? /<td class="pt-c[^"]* pt-u"[^>]*>([\s\S]*?)<\/td>/.exec(html);
   assert.ok(m, "the sheet has its title");
   return text(m![1]).trim();
 };

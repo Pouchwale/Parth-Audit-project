@@ -607,6 +607,17 @@ export function LogSheetRecordView({
       const fixedRow = mode.kind === "fixedRows" ? mode.rows[line] : undefined;
       const col = effectiveColumn(c, fixedRow);
       if (col.fixed) return <span className="pt-words">{documentTextIn(printedCell(row, key, fixedRow), lang)}</span>;
+      // A worked-out cell (F/QC/17's Difference) reads as words, never a box, and says it is worked out (not bound).
+      if (col.computed) {
+        const v = row[key];
+        return (
+          <div className={`pt-box${judge(row, c, fixedRow) ? " cell-out-of-band" : ""}`}>
+            <span className="cell-text notranslate" translate="no" data-computed={key}>
+              {v === null || v === undefined ? "" : String(v)}
+            </span>
+          </div>
+        );
+      }
       return (
         <div className={`pt-box${judge(row, c, fixedRow) ? " cell-out-of-band" : ""}`}>
           <CellInput

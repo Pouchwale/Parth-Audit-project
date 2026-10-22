@@ -540,8 +540,12 @@ def record(page, rid):
 
 
 def sheet_rows(page):
-    # A blank line the paper leaves between its processes is no line of the record (gapBetweenRuns, s111).
-    return page.locator("[data-section='document-preview'] table.log-sheet tbody tr:not([data-gap-line])")
+    # A blank line the paper leaves between its processes is no line of the record (gapBetweenRuns, s111). A paper drawn
+    # as its own table (s117 round 2) marks the record's lines (data-pt-line); its blank ruled lines are none of them.
+    return page.locator(
+        "[data-section='document-preview'] table.log-sheet tbody tr:not([data-gap-line]), "
+        "[data-section='document-preview'] table[data-paper-part='body'] tr[data-pt-line]:not(.pt-pad)"
+    )
 
 
 def printed_text(page):
@@ -964,7 +968,11 @@ with sync_playwright() as p:
     # 8b. The registers and reports as their papers, and F-QC-14 (REQUIREMENTS s111)
     # ==================================================================
     def heads(page):
-        return page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+        # The grid's headings: its heading row, or (a paper drawn as its own table, s117 round 2) the row that says so.
+        old = page.locator("[data-section='document-preview'] table.log-sheet thead th")
+        if old.count():
+            return old.evaluate_all("els => els.map((e) => e.textContent.trim())")
+        return page.locator("[data-section='document-preview'] table[data-paper-part] tr[data-pt-heading] td").evaluate_all("els => els.map((e) => e.textContent.trim())")
 
     # With QC_PAPER_SHOTS set, each paper's preview is photographed there, to be looked at beside its original.
     def shot(name):

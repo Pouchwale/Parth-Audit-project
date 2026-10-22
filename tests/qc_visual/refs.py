@@ -62,6 +62,14 @@ REFERENCES = [
     _r("Copy of F-QC-15-A-G Line Clearance - Printing (2).pdf", ORIG + "Copy of F-QC-15-A-G Line Clearance - Printing (2).pdf", "F/QC/15-G", ["qc-line-clearance-sleeve-cutting"]),
     _r("Copy of F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.pdf", ORIG + "Copy of F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.pdf", "F/QC/16", ["qc-obsolete-artwork"]),
     _r("Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf", ORIG + "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf", "F/QC/17", ["qc-ruler-verification"]),
+    # The 300 mm scale's page (the owner, 17-Oct-2026: "this PDF is for QC17 for 300mm"), in source-documents/ only.
+    _r(
+        "Copy of F-QC-17-Updated Scale (Ruler) internal verification record-300.pdf",
+        "Copy of F-QC-17-Updated Scale (Ruler) internal verification record-300.pdf",
+        "F/QC/17 (300 mm)",
+        ["qc-ruler-verification-300"],
+        note="the 300 mm scale's page, supplied 17-Oct-2026 (source-documents/, not in the owner's folder)",
+    ),
     _r("F-QC-18_Inspection record for Offset Ink.pdf", ORIG + "F-QC-18_Inspection record for Offset Ink.pdf", "F/QC/18", ["qc-offset-ink"]),
     _r("F-QC-19_Inspection record for Duplex board.pdf", ORIG + "F-QC-19_Inspection record for Duplex board.pdf", "F/QC/19", ["qc-duplex-board"]),
     _r("F-QC-19_ Tolerance card for Nivea.pdf", ORIG + "F-QC-19_ Tolerance card for Nivea.pdf", "F-QC-19 (card)", ["qc-tolerance-card-nivea"]),

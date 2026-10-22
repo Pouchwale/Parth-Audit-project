@@ -36,8 +36,8 @@ const MM = 25.4 / 72;
  * How far below the top of a line box the top of its letters stands, as a PDF measures it (the font's size above its
  * descent), for a line `lh` mm tall of a `pt` face: what puts the paper's measured "top of the letters" where it is.
  */
-function letterTop(font: "calibri" | "arial" | "times", pt: number, lh: number): number {
-  const k = font === "calibri" ? 0.408 : font === "arial" ? 0.4415 : 0.4465;
+function letterTop(font: "calibri" | "arial" | "times" | "gothic", pt: number, lh: number): number {
+  const k = font === "calibri" ? 0.408 : font === "arial" ? 0.4415 : font === "gothic" ? 0.45 : 0.4465;
   return lh / 2 - k * pt * MM;
 }
 
@@ -73,6 +73,12 @@ function referenced(layout: LogSheetLayout, ref: string): string {
     return c ? (c.printedLabel ?? c.label) : "";
   }
   if (ref.startsWith("@group:")) return layout.columns.find((col) => col.key === ref.slice(7))?.group ?? "";
+  // A table of boxes' heading across it, and the words of its rows (F/QC/17's master scale and scale under calibration).
+  if (ref.startsWith("@corner:")) return fieldOf(layout, ref.slice(8))?.boxTable?.corner ?? "";
+  if (ref.startsWith("@boxRow:")) {
+    const [, key, i] = ref.split(":");
+    return fieldOf(layout, key)?.boxTable?.rows?.[Number(i)] ?? "";
+  }
   // The paper's own words the layout carries as its instructions (F/QC/08's Note, printed in its ruled row).
   if (ref.startsWith("@instructions:")) return layout.instructions?.[Number(ref.slice(14))] ?? "";
   if (ref.startsWith("@underCompany:")) return layout.underCompany?.[Number(ref.slice(14))] ?? "";
@@ -162,8 +168,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
             "--pt-size": String(pt),
             "--pt-lh": String(lh),
             "--pt-x": String(c.a === "c" ? 0 : (c.x ?? 0)),
-            "--pt-pl": String(c.a === "c" && c.cx ? Math.max(0, 2 * c.cx) : 0),
-            "--pt-pr": String(c.a === "c" && c.cx ? Math.max(0, -2 * c.cx) : 0),
+            "--pt-pl": String(c.a === "c" ? (c.pad ?? 0) + (c.cx ? Math.max(0, 2 * c.cx) : 0) : 0),
+            "--pt-pr": String(c.a === "c" ? (c.pad ?? 0) + (c.cx ? Math.max(0, -2 * c.cx) : 0) : 0),
             "--pt-y": String(Math.max(0, (c.y ?? 0) - letterTop(font, pt, lh))),
           };
           if (c.bg) style["--pt-bg"] = c.bg;
@@ -226,7 +232,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               data-pt-cell={`${row0 + ri}:${ci}`}
             >
               {/* The screen's bin on a register's line, outside the paper's table; never printed. */}
-              {ci === 0 && row.line !== undefined && !row.pad && parts.removeLine && (
+              {ci === 0 && row.line !== undefined && !row.pad && parts.removeLine && form.lines && (
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm btn-icon pt-bin no-print"
@@ -255,6 +261,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
             key={ri}
             className={row.pad ? "pt-pad" : undefined}
             aria-hidden={row.pad ? true : undefined}
+            data-pt-heading={row.head ? "" : undefined}
             data-pt-line={row.line !== undefined ? row.line + 1 : undefined}
             style={{ "--pt-h": String(row.h) } as React.CSSProperties}
           >

@@ -235,11 +235,13 @@ test("F/QC/17: the Measuring Scale (Ruler) Internal Verification Record as its p
   const words = text(html);
   assert.ok(words.includes("Measuring Scale (Ruler) Internal Verification Record"), "the title in its own letters");
   assert.ok(words.indexOf("Master Measuring Scale (Ruler) Details") < words.indexOf("Measuring Scale (Ruler) under calibration details"));
-  assert.match(html, /paper-box-table-across" colSpan="2">Master Measuring Scale \(Ruler\) Details/i);
+  // Drawn as its paper's own table since §117 round 2 (22-Oct-2026): each table of boxes headed across the page.
+  assert.match(html, /<td class="pt-c pt-b pt-ac pt-hb"[^>]*><span class="pt-words">Master Measuring Scale \(Ruler\) Details<\/span>/);
   // The tolerance is a box since §117: the paper's "+ / - 1 mm" is its value (the sheet's text has no input values).
   assert.ok(html.includes("+ / - 1 mm"), "the paper's tolerance starts its box");
-  const g = grid(html);
-  assert.deepEqual(headings(g), ["#", "Master calibrator reading", "Observed reading (mm)", "Difference", "Status (Pass/Fail)", "Calibration performed by"]);
+  const g = between(html, 'data-paper-part="body"', "</table>");
+  const readings = Array.from(g.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g), (r) => r[1]).find((r) => r.includes(">Master calibrator reading<"))!;
+  assert.deepEqual(Array.from(readings.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), (m) => text(m[1]).trim()), ["#", "Master calibrator reading", "Observed reading (mm)", "Difference", "Status (Pass/Fail)", "Calibration performed by"]);
   assert.equal((g.match(/rowSpan="6"/gi) ?? []).length, 2, "the Status and the name, one cell each down the six lines");
 });
 

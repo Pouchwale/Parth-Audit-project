@@ -37,7 +37,7 @@ export interface PaperCell {
   b?: true;
   a?: "c" | "r";
   pt?: number;
-  f?: "arial" | "times";
+  f?: "arial" | "times" | "gothic";
   x?: number;
   y?: number;
   lh?: number;
@@ -56,7 +56,7 @@ export interface PaperCell {
    * from the cell's left, where the cell is not centred): the letterhead. wrap: the line runs on to a second where it is
    * longer than the cell (the company's name in F/QC/25's narrow cell); caps: in capitals.
    */
-  at?: { t: string; y: number; x?: number; pt?: number; f?: "arial" | "times"; b?: true; wrap?: true; caps?: true }[];
+  at?: { t: string; y: number; x?: number; pt?: number; f?: "arial" | "times" | "gothic"; b?: true; wrap?: true; caps?: true }[];
   edges?: string;
   u?: true;
   caps?: true;
@@ -68,11 +68,17 @@ export interface PaperCell {
   bg?: string;
   /** Its words in the middle of its height, as a spreadsheet's heading sets them (each line lh apart). */
   vm?: true;
+  /** Centred words kept this far (mm) from either side of the cell, where the paper wraps them sooner (F/QC/17's Status). */
+  pad?: number;
 }
 
 export interface PaperRow {
   h: number;
   cells: PaperCell[];
+  /** The grid's heading row (the page says so: data-pt-heading). */
+  head?: true;
+  /** The record's line this row draws, from 0 (F/QC/17's six readings; a register's lines are numbered so by themselves). */
+  line?: number;
 }
 
 export interface PaperTable {
@@ -81,7 +87,7 @@ export interface PaperTable {
   left: number;
   top: number;
   /** The paper's body face and size (pt). */
-  font: "calibri" | "arial" | "times";
+  font: "calibri" | "arial" | "times" | "gothic";
   pt: number;
   /** The rows of the header block (the letterhead and the title), of the body, and of the foot (printed at the end). */
   head: PaperRow[];
@@ -530,6 +536,7 @@ const MASTER_LIST: PaperTable = {
         { w: F08_COLS[0], t: "Sr. No.", a: "c", b: true, vm: true, lh: 2.92, bg: F08_GREY },
         ...F08_KEYS.map((key, i): PaperCell => ({ w: F08_COLS[i + 1], lab: `@column:${key}`, a: "c", b: true, vm: true, lh: 2.92, ...(key === "accuracy" ? {} : { bg: F08_GREY }) })),
       ],
+      head: true,
     },
   ],
   lines: {
@@ -569,12 +576,95 @@ const OBSOLETE_ARTWORK: PaperTable = {
       ],
     },
   ],
-  body: [{ h: 15.36, cells: F16_KEYS.map((key, i): PaperCell => ({ w: F16_COLS[i], lab: `@column:${key}`, a: "c", b: true, vm: true, lh: 4.95 })) }],
+  body: [{ h: 15.36, cells: F16_KEYS.map((key, i): PaperCell => ({ w: F16_COLS[i], lab: `@column:${key}`, a: "c", b: true, vm: true, lh: 4.95 })), head: true }],
   lines: {
     h: 9.908,
     count: 15,
     cells: F16_KEYS.map((col, i): PaperCell => ({ w: F16_COLS[i], col, ...(F16_CENTRED.includes(col) ? { a: "c" as const } : { x: 0.66 }) })),
   },
+  foot: [],
+};
+
+// ---------------------------------------------------------------------------
+// F/QC/17 — Measuring Scale (Ruler) Internal Verification Record, both scales ("Copy of F-QC-17-Updated Scale (Ruler)
+// internal verification record - Copy.pdf" and "...-300.pdf", the same page with each scale's own words; the owner's
+// Excel sheet on a US Letter portrait page, drawn at its own place on A4). One table in Century Gothic: the company and
+// the number in its cell at the right, the title underlined, the master scale's table and the scale under calibration's
+// (each headed across its two columns, its words in its first), a blank line between, and the six readings with one
+// Status and one name down them. Heavy rules where the paper rules them heavy.
+
+const RULER_W = 158.23;
+const RULER_LABEL = 52.5;
+const RULER_VALUE = 105.73;
+const RULER_GRID = [8.64, 43.86, 26.17, 17.7, 25.36, 36.5];
+const RULER_LINE = 7.45;
+/** A table of boxes as the paper draws it: its heading across, then each box under its row's words. */
+const rulerTable = (first: string, keys: string[], centred: boolean): PaperRow[] => [
+  { h: RULER_LINE, cells: [{ w: RULER_W, lab: `@corner:${first}`, a: "c", b: true, pt: 10.32, y: 2.11, heavy: "b" }] },
+  ...keys.map((key, i): PaperRow => ({
+    h: RULER_LINE,
+    cells: [
+      { w: RULER_LABEL, lab: `@boxRow:${first}:${i}`, x: 0.66, y: 2.3 },
+      { w: RULER_VALUE, box: key, y: 2.3, ...(centred ? { a: "c" as const } : { x: 0.66 }) },
+    ],
+  })),
+];
+
+const RULER: PaperTable = {
+  page: "portrait",
+  left: 34.34,
+  top: 19.22,
+  font: "gothic",
+  pt: 8.88,
+  frame: "heavy",
+  head: [
+    {
+      h: 12.24,
+      cells: [
+        { w: 121.73, t: "{companyName}", caps: true, a: "c", b: true, pt: 11.88, y: 4.26, heavy: "b" },
+        { w: 36.5, t: "{formatNo}\n({revisionNo}/{revisionDate})", a: "c", y: 2.73, lh: 4.03, heavy: "b" },
+      ],
+    },
+    { h: 7.45, cells: [{ w: RULER_W, t: "{title}", a: "c", b: true, u: true, pt: 11.88, y: 1.85, heavy: "b" }] },
+    { h: 2.29, cells: [{ w: RULER_W, t: "", heavy: "b" }] },
+  ],
+  body: [
+    ...rulerTable("masterMake", ["masterMake", "masterSerialNo", "masterRange", "masterLeastCount", "masterCalibrationDate", "masterCalibrationDueDate", "masterCalibrationReportNo"], false),
+    { h: RULER_LINE, cells: [{ w: RULER_W, t: "", heavy: "b" }] },
+    ...rulerTable("make", ["make", "serialNo", "range", "leastCount", "calibrationDate", "calibrationDueDate", "acceptableTolerance"], true),
+    { h: RULER_LINE, cells: [{ w: RULER_W, t: "" }] },
+    {
+      h: 7.66,
+      cells: [
+        { w: RULER_GRID[0], t: "#", a: "c", vm: true },
+        { w: RULER_GRID[1], lab: "@column:masterReading", x: 0.62, vm: true },
+        { w: RULER_GRID[2], lab: "@column:observed", a: "c", vm: true, lh: 4.02 },
+        { w: RULER_GRID[3], lab: "@column:difference", x: 0.89, vm: true },
+        { w: RULER_GRID[4], lab: "@column:status", a: "c", vm: true, lh: 4.02, pad: 1.2 },
+        { w: RULER_GRID[5], lab: "@column:performedBy", a: "c", vm: true, lh: 4.02 },
+      ],
+      head: true,
+    },
+    // The six readings; Status and the name are one each, down the six lines (the record keeps them on its first).
+    ...[0, 1, 2, 3, 4, 5].map(
+      (ln): PaperRow => ({
+        h: RULER_LINE,
+        line: ln,
+        cells: [
+          { w: RULER_GRID[0], t: String(ln + 1), a: "c", y: 2.3 },
+          { w: RULER_GRID[1], col: "masterReading", ln, x: 0.62, y: 2.3 },
+          { w: RULER_GRID[2], col: "observed", ln, a: "c", y: 2.3 },
+          { w: RULER_GRID[3], col: "difference", ln, a: "c", y: 2.3 },
+          ln === 0
+            ? { w: RULER_GRID[4], col: "status", ln: 0, a: "c", vm: true, rs: 6, heavy: "b" }
+            : { w: RULER_GRID[4], skip: true },
+          ln === 0
+            ? { w: RULER_GRID[5], col: "performedBy", ln: 0, a: "c", vm: true, rs: 6, heavy: "b" }
+            : { w: RULER_GRID[5], skip: true },
+        ],
+      })
+    ),
+  ],
   foot: [],
 };
 
@@ -584,6 +674,8 @@ export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-coa-corrugated": COA_CORRUGATED,
   "qc-calibration-master-list": MASTER_LIST,
   "qc-obsolete-artwork": OBSOLETE_ARTWORK,
+  "qc-ruler-verification": RULER,
+  "qc-ruler-verification-300": RULER,
 };
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */

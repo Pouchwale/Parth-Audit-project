@@ -3362,6 +3362,7 @@ table.svc-paper {
 /* the paper's body face where it is not Calibri (F/QC/25 is Times New Roman throughout) */
 .pt-table.pt-font-times { font-family: "Times New Roman", Times, serif; }
 .pt-table.pt-font-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
+.pt-table.pt-font-gothic, .pt-table td.pt-c.pt-f-gothic { font-family: "Century Gothic", "URW Gothic", "URW Gothic L", "Avant Garde", sans-serif; }
 .pt-table col { width: calc(var(--pt-col) * var(--u)); }
 .pt-table tr { height: calc(var(--pt-h) * var(--u)); }
 .pt-table td.pt-c {
