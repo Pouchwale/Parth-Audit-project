@@ -3880,9 +3880,10 @@ table.svc-paper {
   /* A paper that scrolled sideways in a box of its own is fitted with the document instead (a phone still scrolls it). */
   [data-print-doc] .paper-sheet:is([data-paper-form="table"], [data-paper-form="lineclear"]) { max-width: none; overflow-x: visible; }
 }
-/* A box in a paper's cell never makes the paper's column wider than the paper's (a sheet's boxes keep 64 px elsewhere):
+/* A box in a paper form's cell never makes the paper's column wider than the paper's (a sheet's boxes keep 64 px elsewhere;
+   only the paper forms, whose columns are fixed, so a sheet of free columns prints as wide as it is measured):
    its words are written smaller instead (utils/fitText.ts). */
-[data-print-doc] .paper-sheet table td :is(.input, .input-sm) { min-width: 0; }
+[data-print-doc] .paper-sheet[data-paper-form] table td :is(.input, .input-sm) { min-width: 0; }
 /* The GAP findings' sentences wrap in their column (GapPage.tsx), as narrow as the column lets them. */
 textarea.input.input-cell-multiline.gap-text { min-width: 140px; min-height: 30px; }
 /* A date written in a paper's narrow cell keeps its words: the calendar mark shows when the box is pointed at or typed in. */
