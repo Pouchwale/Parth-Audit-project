@@ -5,7 +5,7 @@
 // stacked layout and scrolls instead (below 760 px nothing is zoomed), and nothing is made smaller than MIN_ZOOM.
 import { fitChanged, forgetWords } from "./fitText";
 
-const MIN_ZOOM = 0.6;
+const MIN_ZOOM = 0.55;
 const DESKTOP = "(min-width: 760px)";
 const DOCS = "[data-print-doc]:not([data-print-doc='ui'])";
 
