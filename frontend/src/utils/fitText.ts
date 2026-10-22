@@ -3,7 +3,12 @@
 // written in it is made smaller until it fits - as a person writes smaller in a small box - down to MIN of its own size.
 // On the screen the boxes whose value changed are looked at (utils/screenFit.ts calls fitChanged); in print, every written box
 // and every date's printed words (utils/print.ts calls fitAll, then unfitAll when the print is done).
+// A paper's cell keeps the paper's width, so its words may go down to MIN; a box of the screen's own make (a web form's)
+// only a little (OTHER_MIN) - its words scroll in the box past that, never too small to read.
 const MIN = 0.55;
+const OTHER_MIN = 0.85;
+const PAPER = ".paper-sheet, .register-sheet, .soc-sheet";
+const floorOf = (el: HTMLElement): number => (el.closest(PAPER) ? MIN : OTHER_MIN);
 const BOXES = "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='file']), select, .print-box-text";
 
 const base = new WeakMap<HTMLElement, number>();
@@ -35,13 +40,13 @@ function fit(els: HTMLElement[]): HTMLElement[] {
       const now = parseFloat(getComputedStyle(el).fontSize) || 12;
       if (!base.has(el)) base.set(el, now);
       const own = base.get(el)!;
-      return { el, size: Math.max(own * MIN, Math.floor(now * (el.clientWidth / widthOf(el)) * 0.97 * 10) / 10) };
+      return { el, size: Math.max(own * floorOf(el), Math.floor(now * (el.clientWidth / widthOf(el)) * 0.97 * 10) / 10) };
     });
     for (const { el, size } of plan) {
       el.style.fontSize = `${size}px`;
       if (round === 0) shrunk.push(el);
     }
-    todo = plan.filter(({ el, size }) => size > base.get(el)! * MIN && wider(el)).map((p) => p.el);
+    todo = plan.filter(({ el, size }) => size > base.get(el)! * floorOf(el) && wider(el)).map((p) => p.el);
   }
   return shrunk;
 }

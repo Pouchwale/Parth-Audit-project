@@ -24,6 +24,12 @@ function innerScroll(doc: HTMLElement): number {
 }
 
 const zoomFor = (room: number, need: number): number => Math.max(MIN_ZOOM, Math.floor((room / need) * 1000) / 1000);
+// A paper's copy is fitted to the screen whatever it takes (to MIN_ZOOM); a register of the screen's own make far wider than any
+// screen (a year's columns, a skill matrix) keeps its size and scrolls in its grid as a spreadsheet does - fitted only when a
+// little zoom is enough.
+const PAPER = ".paper-sheet, .register-sheet, .soc-sheet";
+const OTHER_MIN = 0.85;
+const fits = (doc: HTMLElement, zoom: number): boolean => zoom >= OTHER_MIN || doc.querySelector(PAPER) !== null;
 
 /** From scratch: the zoom taken off, the paper's own width (and a grid's sideways scroll) measured against the room it has. */
 function refit(doc: HTMLElement): void {
@@ -33,9 +39,13 @@ function refit(doc: HTMLElement): void {
   const own = doc.scrollWidth;
   const inner = innerScroll(doc);
   if (room <= 0 || Math.max(own, room + inner) <= room + 1) return;
-  setZoom(doc, zoomFor(room, Math.max(own, room + inner)));
-  // A grid in a box of the paper's own fixed width scrolls at any zoom: then only the document's own width is fitted.
-  if (inner > 1 && innerScroll(doc) > 1) {
+  const zoom = zoomFor(room, Math.max(own, room + inner));
+  if (!fits(doc, zoom)) return;
+  setZoom(doc, zoom);
+  // A grid in a box of the paper's own fixed width scrolls at any zoom: then only the document's own width is fitted. A
+  // register far wider than any screen keeps the zoom that helped, and scrolls the rest in its own box.
+  const left = inner > 1 ? innerScroll(doc) : 0;
+  if (left > 1 && left > inner * 0.9) {
     if (own > room + 1) setZoom(doc, zoomFor(room, own));
     else doc.style.removeProperty("--screen-zoom");
   }
@@ -46,7 +56,9 @@ function shrinkIfWider(doc: HTMLElement): void {
   if (!matchMedia(DESKTOP).matches) return;
   const room = doc.clientWidth;
   const need = doc.scrollWidth;
-  if (room > 0 && need > room + 1) setZoom(doc, Math.max(MIN_ZOOM, Math.floor(((zoomOf(doc) * room) / need) * 1000) / 1000));
+  if (room <= 0 || need <= room + 1) return;
+  const zoom = Math.max(MIN_ZOOM, Math.floor(((zoomOf(doc) * room) / need) * 1000) / 1000);
+  if (fits(doc, zoom)) setZoom(doc, zoom);
 }
 
 const outermost = (els: HTMLElement[]): HTMLElement[] => els.filter((el) => !els.some((other) => other !== el && other.contains(el)));
@@ -79,6 +91,11 @@ export function installScreenFit(): void {
   // Typed or chosen: a value changes without the page changing.
   document.addEventListener("input", () => queue(false), true);
   document.addEventListener("change", () => queue(false), true);
+  // A value written by the app (Mitra's fill, a carried line) changes no element and fires no event: looked at once a
+  // second, reading values only - the words are measured only where a value changed.
+  window.setInterval(() => {
+    if (document.visibilityState === "visible") fitChanged(docsOnPage());
+  }, 1000);
   // The printout is fitted by utils/print.ts on its own; back on the screen, measured again.
   window.addEventListener("afterprint", () => queue(true));
   document.fonts?.ready.then(() => queue(true)).catch(() => undefined);

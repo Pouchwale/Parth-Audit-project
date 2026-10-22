@@ -508,17 +508,18 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
               <tr key={f.id}>
                 <td>{f.sNo}</td>
                 <td>
-                  <input className="input input-sm" {...bindProps(gapBind.finding(f, "findingOfInspection"))} disabled={!editable} value={f.findingOfInspection} onChange={(e) => updateFinding(f.id, { findingOfInspection: e.target.value })} />
+                  <textarea className="input input-sm input-cell-multiline gap-text" rows={1} {...bindProps(gapBind.finding(f, "findingOfInspection"))} disabled={!editable} value={f.findingOfInspection} onChange={(e) => updateFinding(f.id, { findingOfInspection: e.target.value })} />
                 </td>
                 <td>
-                  <input className="input input-sm" {...bindProps(gapBind.finding(f, "commentsOnFindings"))} disabled={!editable} value={f.commentsOnFindings} onChange={(e) => updateFinding(f.id, { commentsOnFindings: e.target.value })} />
+                  <textarea className="input input-sm input-cell-multiline gap-text" rows={1} {...bindProps(gapBind.finding(f, "commentsOnFindings"))} disabled={!editable} value={f.commentsOnFindings} onChange={(e) => updateFinding(f.id, { commentsOnFindings: e.target.value })} />
                 </td>
                 <td>
-                  <input className="input input-sm" {...bindProps(gapBind.finding(f, "correctiveActionClient"))} disabled={!editable} value={f.correctiveActionClient} onChange={(e) => updateFinding(f.id, { correctiveActionClient: e.target.value })} />
+                  <textarea className="input input-sm input-cell-multiline gap-text" rows={1} {...bindProps(gapBind.finding(f, "correctiveActionClient"))} disabled={!editable} value={f.correctiveActionClient} onChange={(e) => updateFinding(f.id, { correctiveActionClient: e.target.value })} />
                 </td>
                 <td>
-                  <input
-                    className="input input-sm"
+                  <textarea
+                    className="input input-sm input-cell-multiline gap-text"
+                    rows={1}
                     {...bindProps(gapBind.finding(f, "correctiveActionContractor"))}
                     disabled={!editable}
                     value={f.correctiveActionContractor}
