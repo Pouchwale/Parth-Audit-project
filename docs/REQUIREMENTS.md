@@ -8949,9 +8949,14 @@ paper cannot tell:
   name printed over its column ("For, GUJARAT ..." over "Name of the person", "Location" under "Customer Information"); only a
   paragraph's changed words are replaced (F/DISP/01's bold company name before plain words stays as it was); a title the paper
   prints already, word for word, is never set over another line; each grid of the page takes its own table (F/MKT/05's five
-  sections); a value of a grid column the paper does not print goes into the line's remarks cell as "Heading: value" (F/MKT/05's
-  Done); a choice the paper prints as its own words one to a cell, with no label, is marked there (F/SYS/11's "Non-Conformance | Observation"), the paper's own box beside a word is never doubled, and two choices on one line are marked each on its own words (F/SYS/11's "Actions Found ... CPAR ..."); a box the paper prints in its page header is filled there ("[ Vehicle number: ]", F/DISP/04), and the upload's reader
-  (engine/roundTrip/readFile.ts) reads the controls of the headers and footers the document shows, after the body's.
+  sections); a value of a grid column the paper does not print is left out (F/MKT/05's Done; see "Values left out" below); a choice the paper prints as its own words one to a cell, with no label, is marked there (F/SYS/11's "Non-Conformance | Observation"), the paper's own box beside a word is never doubled, and two choices on one line are marked each on its own words (F/SYS/11's "Actions Found ... CPAR ..."); a box the paper prints in its page header is filled there ("[ Vehicle number: ]", F/DISP/04), and the upload's reader
+  (engine/roundTrip/readFile.ts) reads the controls of the headers and footers the document shows, after the body's. Since
+  22-Oct-2026: a person's name goes where the paper prints the words of its group when the paper has no Name box of that group
+  (F/MKT/05's "Prepared By | Approved By" over their Designation and Sign & Date: each name under its group's words, in that
+  cell; every group's words are a label, never a value's place); the blank line under a row is a line's place only when the row
+  holds that line alone (F/HR/04's question 06 prints four conditions to a row: the spacer under them is none of theirs); a
+  choice's cells under the options printed above are the choice's, never another value's place (F/HR/11's rating of
+  "Maintained your interest" had gone under "Excellent").
 - *Workbooks*: merged cells of the owner's example inside a grid are split where DCRS writes two values into them (F/HR/08's two
   people sharing one Designation, F/SYS/02's three columns joined: round 1's "lost on read-back"); a note printed across the grid
   between its heading and its lines is passed over, and the rows between the heading and the first line are never read as new
@@ -8978,17 +8983,25 @@ grow with the values), F/HR/14 (7: two pages against one, a long purpose of visi
 (99), F/SYS/12 (14: three pages against two), F/SYS/13 (98), F/PUR/02 (63), F/PUR/05 (94), F/MNT/01 (98), F/MNT/03 (94),
 F/DISP/01 (98), F/DISP/02 (97), F/DISP/04, F/STR/02 (43: two pages against one, long descriptions wrap), F/MKT/05 (58).
 
-**Values placed outside the paper's boxes** (the filler's report lists each as `outside`; the owner decides - open question 1):
-- F/HR/19: "Location Guide - areas covered: ..." on the line under "Responsibility / Date" (the paper's area boxes are drawn
-  shapes, not ticked); "Inspection team - Name / Department / Process / Designation (one per line): ..." on the line under the
-  checklist.
-- F/MKT/05: each activity's "Done: ☐ / ☑" in its Comments cell (the paper has no Done column).
-- F/HR/04, F/HR/11, F/HR/14: a line's detail with no cell of its own (F/HR/14's "Reading / detail" for questions 1-8, F/HR/04's
-  details for the 06 conditions in one row, F/HR/11's general evaluation of points a-e and rating of the three trainer
-  questions): beside the line's own words - nothing shows while it is empty, "Label: value" once written.
-- F/SYS/13: the product's details as lines in its "Information of the product" box, the telephonic conversation in its "Response
-  from Customer" box (the paper's own boxes for them, without a label each).
-- F/HR/08's period goes into the title's own brackets, where his paper prints it - not outside.
+**Values left out (the owner, 22-Oct-2026).** The owner wrote on 22-Oct-2026: "don't create any new changes by yourself in any
+format because i want same format in my system". A value DCRS records that his paper has no box for is therefore LEFT OUT of the
+download and of its map (the filler's report lists it as `leftOut`): never written as "Label: value" beside a title, under a
+grid, in a remarks cell or beside a line's own words, as round 2 first did (writeOutside and the remarks-cell rule are deleted).
+The record keeps the value, and an uploaded file never touches it (it is not in the map). The paper's own places stay: the
+title's own brackets (F/HR/08's period, where his paper prints it) and a box the paper prints for them (F/SYS/13's "Information of
+the product" and "Response from Customer", hints.ts areaOf). Left out, on the documents that download as his file:
+- F/HR/19: "Location Guide - areas covered" (his paper prints the areas with Word check boxes; DCRS keeps them as one line of
+  words, which the map cannot read back from ticks) and "Inspection team - Name / Department / Process / Designation" (no team
+  box on the checklist).
+- F/MKT/05: each activity's "Done" (the paper has Date and Comments, no Done column). Its Prepared By and Approved By names
+  are no longer left out: they go under the paper's "Prepared By" and "Approved By".
+- F/HR/04: the "Details (if yes)" of question 06's twelve conditions (a tick box each, no line for details); the nine other
+  questions' details keep the blank line under each question.
+- F/HR/11: the "General evaluation of Trainer" of points a-e and the "Rating (1 to 10)" of the three trainer questions (the
+  paper rates a-e and grades the three, never both).
+- F/HR/14: the "Reading / detail" of questions 1-8 and the YES / NO of the body temperature (the paper has a YES / NO cell for
+  the questions and a reading cell for the temperature only).
+- F/PUR/02: line 43's three boxes, "EXTERNAL LABORATORY - IF USED", a heading row on the paper with no boxes (always empty).
 
 **Still the generic download, and why.** F/SYS/04-A - his only Word original is the meeting RECORD (F/SYS/04 of 2020-21), not the
 agenda and notification DCRS keeps (built from the July-2025 PDF); F/SYS/04 - DCRS keeps the July-2025 record (Rev 01, nine pages,
@@ -9012,8 +9025,8 @@ value cell; filled, it scored 98), but DCRS keeps two empty boxes inside each of
 checks of it fail): kept hand-drawn,
 F/HR/16 scores 27 with two rows added, F/HR/18's fortnight lines land on the paper's other PC rows.
 
-**Open questions for the owner (round 2).** (1) The values above written outside the paper's boxes: keep them so, or add a box
-for them to the paper? (2) F/SYS/04-A, F/SYS/04, F/SYS/05, F/SYS/06 and F/SYS/08: his Word and Excel files are older revisions or
+**Open questions for the owner (round 2).** (1) The values left out above (his paper has no box for them): should any of them
+get a box on his paper (a new revision of the format, by him), or stay in DCRS only? (2) F/SYS/04-A, F/SYS/04, F/SYS/05, F/SYS/06 and F/SYS/08: his Word and Excel files are older revisions or
 another document than the PDFs DCRS follows - please send the current revisions' Word / Excel files. (3) F/MNT/02 and the training
 record: a blank Word form would let them download as his file. (4) F/HR/15's workbook prints "GUJARAT PRINT PACA1:AH16K" in its
 company line: a slip in his file? (5) F/HR/07: the download is one position sheet (his file holds five).

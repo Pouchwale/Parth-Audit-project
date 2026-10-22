@@ -317,6 +317,44 @@ test("a box the paper has no place for is left out of the file: the owner's form
   assert.ok(read.ok && read.missing.length === 0, "the file still reads back whole");
 });
 
+test("a person's name goes where the paper prints the group's own words ('Prepared By'), each group's words staying a label", async () => {
+  const template = docxOf(wp("COMPLAINT CHECKLIST") + wtbl(wtr("Prepared By", "Approved By"), wtr("Designation", "Designation")));
+  const pairs: [string, Cell][] = [
+    ["Name", bound("prep/name", "PREP-NAME", "Prepared by · Name")],
+    ["Designation", bound("prep/des", "PREP-DES", "Prepared by · Designation")],
+    ["Name", bound("appr/name", "APPR-NAME", "Approved by · Name")],
+    ["Designation", bound("appr/des", "APPR-DES", "Approved by · Designation")],
+  ];
+  const { bytes, report } = await fillDocx(template, [...head("COMPLAINT CHECKLIST"), { kind: "fields", pairs }], { envelope: envelope("docx"), company: COMPANY.name });
+  assert.equal(report.notPlaced.length, 0);
+  assert.deepEqual(report.leftOut, [], "the names have the paper's own boxes");
+  const xml = await partText(bytes, "word/document.xml");
+  for (const words of ["Prepared By", "Approved By"]) assert.ok(xml.includes(words), `the paper's "${words}" stays`);
+  assert.ok(xml.indexOf("Prepared By") < xml.indexOf("PREP-NAME") && xml.indexOf("PREP-NAME") < xml.indexOf("Approved By"), "the preparer's name in the Prepared By cell");
+  assert.ok(xml.indexOf("Approved By") < xml.indexOf("APPR-NAME") && xml.indexOf("APPR-NAME") < xml.indexOf("Designation"), "the approver's name in the Approved By cell, never over its words");
+  const read = await readUploadedFile(bytes.slice().buffer, "checklist.docx");
+  assert.ok(read.ok && read.missing.length === 0 && read.entries.length === 4, "every name and designation reads back");
+});
+
+test("a row of the paper holding several lines' words: the spacer under it is none of theirs, a detail with no cell is left out", async () => {
+  const template = docxOf(wp("HEALTH DECLARATION") + wtbl(wtr("Do you have a cold or a cough?", "YES / NO"), wtr("", ""), wtr("Diabetes", "", "Heart trouble", ""), wtr("", "", "", "")));
+  const yn = (path: string, text: string) => bound(path, text, "YES / NO", "yesno");
+  const rows: Cell[][] = [
+    [plain("Question"), plain("YES / NO"), plain("Details (if yes)")],
+    [plain("Do you have a cold or a cough?"), yn("q/0/yn", "Yes"), bound("q/0/d", "DETAIL-ONE", "Details (if yes)")],
+    [plain("Diabetes"), yn("q/1/yn", "Yes"), bound("q/1/d", "DETAIL-TWO", "Details (if yes)")],
+    [plain("Heart trouble"), yn("q/2/yn", "No"), bound("q/2/d", "", "Details (if yes)")],
+  ];
+  const { bytes, report } = await fillDocx(template, [...head("HEALTH DECLARATION"), { kind: "table", rows, headerRows: 1 }], { envelope: envelope("docx"), company: COMPANY.name });
+  assert.equal(report.notPlaced.length, 0, report.notPlaced.join(", "));
+  assert.deepEqual(report.leftOut, ["Details (if yes) (line 2)", "Details (if yes) (line 3)"], "only the details with no cell of their own");
+  const xml = await partText(bytes, "word/document.xml");
+  assert.ok(xml.includes("DETAIL-ONE"), "the first question's detail on the blank line under it");
+  assert.ok(!xml.includes("DETAIL-TWO"), "never on the spacer under a row of several conditions");
+  const read = await readUploadedFile(bytes.slice().buffer, "health.docx");
+  assert.ok(read.ok && read.missing.length === 0, "the file reads back whole");
+});
+
 test("round 2: boxes DCRS numbers in groups fill the paper's table of them, a row a number", async () => {
   const template = docxOf(wp("MEETING RECORD") + wtbl(wtr("Name", "Designation", "Sign"), wtr("", "", ""), wtr("", "", "")));
   const pairs: [string, Cell][] = [];

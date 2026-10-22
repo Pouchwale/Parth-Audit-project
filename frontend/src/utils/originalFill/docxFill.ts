@@ -492,6 +492,15 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       }
   // The page headers the document shows (not a spare one left in the file): a box the paper prints there (F/DISP/04).
   const shownHeaderParas = shownHeaders(pkg, docPart, body).flatMap((part) => all(part, "p"));
+  // A box's group, from its bind's label ("Prepared by · Name"): where the paper has no box of the group's first label, the
+  // group's own words are its box - the person's name written at "Prepared By" (F/MKT/05's "Prepared By | Approved By" over
+  // their Designation and Sign & Date). Every group's words are then a label, never a value's place.
+  const groupOf = (f: ModelField): string | null => {
+    const bind = f.cell.bind ?? f.cell.parts?.find((x) => x.bind)?.bind;
+    const m = bind?.label ? /^(.+?)\s+·\s+(.+)$/.exec(bind.label) : null;
+    return m && same(m[2], f.label) ? m[1].trim() : null;
+  };
+  const groupLabels = new Set([...labels, ...model.fields.flatMap((f) => groupOf(f) ?? []).map(norm)]);
   for (const field of model.fields) {
     if (!isBound(field.cell)) continue;
     if (hints.notOnPaper?.some((l) => same(l, field.label))) {
@@ -499,7 +508,9 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       continue;
     }
     const example = Object.entries(hints.exampleOf ?? {}).find(([, l]) => same(l, field.label))?.[0];
-    const at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas) ?? choiceCellsAnywhere(field, tables, usedCells);
+    let at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas) ?? choiceCellsAnywhere(field, tables, usedCells);
+    const group = at ? null : groupOf(field);
+    if (!at && group && model.fields.find((f) => same(groupOf(f) ?? "", group)) === field) at = placeFieldW({ ...field, label: group }, tables, paragraphs, usedCells, usedParas, groupLabels) as FieldAt | null;
     if (!at) {
       // No box on the paper for it: left out of the file, which stays the owner's format (owner, 22-Oct-2026); the record keeps it.
       report.leftOut.push(field.label);
@@ -1733,7 +1744,7 @@ const keyCols = (k: KeyedLine): number[] => k.rowKeys ?? [];
 /**
  * A keyed line's values into its paper row: a choice marked where the paper prints its words (one to a cell, together in one
  * cell, or as the headings of a row above); every other value into the row's next blank cell, else the blank line under the
- * row, else beside the line's own words as "Label: value" (an empty value: nothing to see).
+ * row; a value with no cell of its own on the paper is left out of the file (owner, 22-Oct-2026), listed in report.leftOut.
  */
 function writeKeyedLine(body: XmlElement, k: KeyedLine, grid: ModelGrid, controls: Controls, report: FillReport, usedRows: Set<XmlElement>): void {
   const cells = grid.rows[grid.headerRows + k.line] ?? [];
@@ -1768,7 +1779,10 @@ function writeKeyedLine(body: XmlElement, k: KeyedLine, grid: ModelGrid, control
       const target = cellAt(k.row, chosen.col);
       if (target && free.includes(target)) {
         writeInto(target, c, controls, label, keyRPr);
-        free = free.filter((x) => x !== target);
+        // Every option's cell of the row is the choice's (one of them is ticked on the paper), never another value's place:
+        // F/HR/11's rating of "Maintained your interest" had gone under "Excellent".
+        const optionCells = above.map((o) => cellAt(k.row, o.col));
+        free = free.filter((x) => x !== target && !optionCells.includes(x));
         done.add(ci);
       }
     }
@@ -1783,7 +1797,9 @@ function writeKeyedLine(body: XmlElement, k: KeyedLine, grid: ModelGrid, control
       free = free.filter((x) => x !== blank);
       continue;
     }
-    const under = blankRowUnder(k.table, k.row, usedRows);
+    // The blank line under the row is the line's own only when the row holds this line alone: F/HR/04's question 06 prints
+    // four conditions to a row, and the spacer under them is none of theirs.
+    const under = keyCols(k).length > 1 ? null : blankRowUnder(k.table, k.row, usedRows);
     if (under) {
       usedRows.add(under.tr);
       writeInto(under.cells[0], c, controls, label, keyRPr);
