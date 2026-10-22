@@ -3395,6 +3395,12 @@ table.svc-paper {
 .pt-table.pt-frame.pt-head { border-top: var(--pt-hv); }
 .pt-table.pt-frame td.pt-c:last-child { border-right: var(--pt-hv); }
 .pt-table.pt-frame.pt-body tr:last-child td.pt-c { border-bottom: var(--pt-hv); }
+/* A box whose choices the paper prints across its line (F-QC-40.A's AREA: PRINTING/ INK KITCHEN/ WARE HOUSE, the one the
+   sheet is for marked): the cell's own face, the words as close as printed. */
+.pt-table .field-choices-across .choices-across { gap: 0 calc(0.8 * var(--u)); font: inherit; color: #000; }
+.pt-table .field-choices-across .choice-across { padding: 0 calc(0.6 * var(--u)); border-width: calc(0.75px / var(--print-zoom, 1)); }
+/* Words that wrap at the paper's own width (F-QC-40.B's recommended temperature on its two lines). */
+.pt-table td.pt-c.pt-ww > .pt-words { max-width: calc(var(--pt-ww) * var(--u)); }
 /* Words in the middle of their cell's height, as a spreadsheet's heading row sets them. */
 .pt-table td.pt-c.pt-vm { vertical-align: middle; padding-top: 0; }
 /* A cell the paper shades (a register's number box), its grey printed. */
@@ -3458,6 +3464,8 @@ table.svc-paper {
   /* An empty choice box prints nothing at all (not its hidden first option). */
   .pt-table select[data-empty] { visibility: hidden; }
   .pt-table tr.pt-pad { display: table-row; }
+  /* (in print the marked words are the box: its choice box does not print) */
+  .pt-table td.pt-c > .field-choices-across.field-in-table > select.input { display: none; }
   /* An empty date in the sentence leaves the paper's own blank, not the width of a box to type in. */
   .pt-table .pt-sentence .field-in-table:has(> .input[data-empty]) { width: calc(2.6 * var(--u)); }
 }

@@ -79,8 +79,14 @@ const between = (html: string, from: string, to: string) => {
   const b = html.indexOf(to, a);
   return html.slice(a, b < 0 ? undefined : b);
 };
-const grid = (html: string) => between(html, 'class="compact log-sheet', "</table>");
-const headings = (html: string) => Array.from(between(html, "<thead", "</thead>").matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g), (m) => text(m[1]).trim());
+// The grid, and its headings: a sheet's log-sheet table, or (a paper drawn as its own table since §117 round 2 of
+// 22-Oct-2026: F-QC-40.A and B, F/QC/17) the paper's body and the row it marks as its heading row.
+const grid = (html: string) => (html.includes('class="compact log-sheet') ? between(html, 'class="compact log-sheet', "</table>") : between(html, 'data-paper-part="body"', "</table>"));
+const headingRow = (html: string) => between(html, "data-pt-heading", "</tr>");
+const headings = (html: string) =>
+  html.includes("<thead")
+    ? Array.from(between(html, "<thead", "</thead>").matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g), (m) => text(m[1]).trim())
+    : Array.from(headingRow(html).matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), (m) => text(m[1]).trim());
 const sample = (id: string, day = DAY) => autoFillRecord(docOf(id), day, master, undefined)!.data as LogSheetData;
 const live = (id: string) => prepareKnownParts(docOf(id), DAY, master, undefined)!.data as LogSheetData;
 const hrNames = () => new Set(hrMasterRepository.all().map((p) => p.fullName));
@@ -134,7 +140,7 @@ test("F-QC-40.B: a sample day reads inside 26–30 °C, signed by the lab execut
   // A reading outside the paper's band is highlighted.
   const hot = { ...filled, rows: [{ ...row, t1230: 31 }] };
   assert.equal(outOfBandCount(layoutOf(id), hot), 1);
-  assert.match(grid(await sheet(id, hot)), /class="cell-out-of-band"/);
+  assert.match(grid(await sheet(id, hot)), /class="[^"]*cell-out-of-band/);
 });
 
 // ---------------------------------------------------------------------------
@@ -175,10 +181,10 @@ test("F-QC-40.A: TEMPERATURE & HUMIDITY MONITORING RECORD as its paper — the r
   assert.ok(at("AREA:") < at("M/C NO. :") && at("M/C NO. :") < at("MONITORING RECORD - TIME & SIGN."));
   assert.ok(at("MONITORING RECORD - TIME & SIGN.") < at("08:30 HRS"));
   assert.match(html, /data-chosen=""[^>]*>PRINTING\//, "the printing area marked on the AREA line");
-  const head = between(html, '<table class="compact log-sheet', "</thead>");
-  assert.deepEqual(headings(head), ["SR NO", "DATE", "08:30 HRS", "12:30 HRS", "16:30 HRS"]);
-  assert.equal((head.match(/<tr/g) ?? []).length, 1, "one heading row: the paper prints no heading under the time");
-  assert.equal((head.match(/data-group-alone=""/g) ?? []).length, 3);
+  // The paper's own table (§117 round 2): one heading row, each time over the cell its temperature, humidity and sign share.
+  assert.deepEqual(headings(html), ["SR NO", "DATE", "08:30 HRS", "12:30 HRS", "16:30 HRS"]);
+  assert.equal((grid(html).match(/data-pt-heading/g) ?? []).length, 1, "one heading row: the paper prints no heading under the time");
+  assert.equal((headingRow(html).match(/colSpan="[3-9]"/g) ?? []).length, 3, "each time over its three boxes (and any edge the rows above cut there)");
 });
 
 test("F-QC-40.A: a sample day is the printing area's at one of its presses, inside the bands and signed; Live leaves area, machine and readings to the person", async () => {

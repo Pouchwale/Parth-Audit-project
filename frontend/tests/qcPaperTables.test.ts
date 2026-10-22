@@ -90,6 +90,9 @@ const PAPERS: Record<string, { page: "portrait" | "landscape"; width: number; wr
   // F/QC/17, both scales: the six readings; Status and the name once, on the first line, down the six.
   "qc-ruler-verification": { page: "portrait", width: 158.23, written: { masterReading: [0, 1, 2, 3, 4, 5], observed: [0, 1, 2, 3, 4, 5], difference: [0, 1, 2, 3, 4, 5], status: [0], performedBy: [0] } },
   "qc-ruler-verification-300": { page: "portrait", width: 158.23, written: { masterReading: [0, 1, 2, 3, 4, 5], observed: [0, 1, 2, 3, 4, 5], difference: [0, 1, 2, 3, 4, 5], status: [0], performedBy: [0] } },
+  // F-QC-40.A and B: a month's 31 lines, a day's record its line.
+  "qc-temperature-humidity": { page: "portrait", width: 148.45, lines: 31 },
+  "qc-temperature-sleeve": { page: "portrait", width: 184.23, lines: 31 },
 };
 
 test("the papers drawn as their own table are these; no other document is", () => {

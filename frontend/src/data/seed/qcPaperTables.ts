@@ -70,6 +70,8 @@ export interface PaperCell {
   vm?: true;
   /** Centred words kept this far (mm) from either side of the cell, where the paper wraps them sooner (F/QC/17's Status). */
   pad?: number;
+  /** The width (mm) its words wrap at, where the paper breaks a line sooner than its cell would (F-QC-40.B's recommendation). */
+  ww?: number;
 }
 
 export interface PaperRow {
@@ -668,6 +670,154 @@ const RULER: PaperTable = {
   foot: [],
 };
 
+// ---------------------------------------------------------------------------
+// F-QC-40.A and F-QC-40.B — the temperature monitoring records ("F-QC-40  -TEMPERATURE Monitoring-A.pdf", "...-B.pdf",
+// the owner's Excel sheets on US Letter portrait pages, standing 1 to 2 mm from the page's left edge, where a printer
+// cuts: on A4 each is centred, at the paper's top and sizes). A month's sheet of 31 numbered lines: a day's record is its
+// line (the record's boxes), the month's other lines print blank and are never stored. A time's cell holds what the
+// record writes there: on A the temperature, the humidity and the sign; on B the temperature and the sign. A's
+// workbook also prints, outside its print area at the right, a copy of its number and its M/C NO. box under "PRINTING
+// AREA & INK KITCHEN, WARE HOUSE:", a leftover of the sheet, not the form: not drawn.
+
+const F40A_LOGO = "brand/gpp-logo-f40a.png";
+const F40B_LOGO = "brand/gpp-logo-f40b.jpg";
+const F40A_COLS = [10.63, 21.09, 38.87, 38.86, 39.0];
+const F40A_W = 148.45;
+/** A time's cell on A: the temperature, the humidity and the sign side by side, no rule between them. */
+const f40aTime = (key: string, w: number): PaperCell[] => [
+  { w: 12, col: key, a: "c", open: "r" },
+  { w: 12, col: `${key}Humidity`, a: "c", open: "r" },
+  { w: w - 24, col: `${key}Sign`, a: "c" },
+];
+
+const TEMPERATURE_HUMIDITY: PaperTable = {
+  page: "portrait",
+  left: 30.78,
+  top: 10.18,
+  font: "calibri",
+  pt: 6.6,
+  head: [
+    {
+      h: 10.25,
+      cells: [
+        {
+          w: F40A_W,
+          t: "{title}",
+          a: "c",
+          cx: 9.9,
+          b: true,
+          pt: 9.6,
+          y: 3.54,
+          img: { src: F40A_LOGO, x: 2.14, y: 0.76, w: 30.7, h: 8.18, alt: "Gujarat Print Pack Publications Pvt Ltd" },
+        },
+      ],
+    },
+    {
+      h: 9.91,
+      cells: [
+        { w: 109.45, lab: "@printedAbove:area", b: true, pt: 7.2, x: 0.52, y: 3.95 },
+        { w: 39.0, t: "{formatNo} ({revisionNo}/{revisionDate:yy})", b: true, x: 0.47, y: 3.95 },
+      ],
+    },
+    {
+      h: 6.22,
+      cells: [
+        { w: 6.92, lab: "area", b: true, pt: 7.2, x: 0.52, y: 1.88, open: "r" },
+        { w: 102.53, box: "area", b: true, pt: 7.2, x: 0.6, y: 1.88 },
+        { w: 9.6, lab: "machineNo", b: true, x: 0.47, y: 1.88, open: "r" },
+        { w: 29.4, box: "machineNo", x: 0.3, y: 1.88 },
+      ],
+    },
+    { h: 6.22, cells: [{ w: F40A_W, lab: "@instructions:0", a: "c", b: true, pt: 7.2, y: 1.89 }] },
+  ],
+  body: [
+    {
+      h: 5.13,
+      head: true,
+      cells: [
+        { w: F40A_COLS[0], t: "SR NO", a: "c", b: true, vm: true },
+        { w: F40A_COLS[1], lab: "@column:date", a: "c", b: true, vm: true },
+        { w: F40A_COLS[2], lab: "@group:t0830", a: "c", b: true, vm: true },
+        { w: F40A_COLS[3], lab: "@group:t1230", a: "c", b: true, vm: true },
+        { w: F40A_COLS[4], lab: "@group:t1630", a: "c", b: true, vm: true },
+      ],
+    },
+  ],
+  lines: {
+    h: 5.123,
+    count: 31,
+    cells: [
+      { w: F40A_COLS[0], num: "all", a: "c", vm: true },
+      { w: F40A_COLS[1], col: "date", a: "c" },
+      ...f40aTime("t0830", F40A_COLS[2]),
+      ...f40aTime("t1230", F40A_COLS[3]),
+      ...f40aTime("t1630", F40A_COLS[4]),
+    ],
+  },
+  foot: [],
+};
+
+const F40B_COLS = [14.69, 24.23, 24.21, 24.23, 24.21, 24.22, 24.23, 24.21];
+const F40B_W = 184.23;
+const F40B_TIMES = ["t0830", "t1230", "t1630", "t2030", "t0030", "t0430"];
+
+const TEMPERATURE_SLEEVE: PaperTable = {
+  page: "portrait",
+  left: 12.89,
+  top: 19.16,
+  font: "calibri",
+  pt: 9.12,
+  frame: "heavy",
+  head: [
+    {
+      h: 14.14,
+      cells: [
+        {
+          w: F40B_W,
+          t: "{title}",
+          a: "c",
+          cx: 13.85,
+          b: true,
+          pt: 13.32,
+          y: 4.96,
+          img: { src: F40B_LOGO, x: 3.03, y: 1.12, w: 37.52, h: 11.31, alt: "Gujarat Print Pack Publications Pvt Ltd" },
+        },
+      ],
+    },
+    {
+      h: 14.61,
+      cells: [
+        { w: 135.79, lab: "@instructions:0", b: true, pt: 9.96, x: 0.64, y: 3.4, lh: 4.57, ww: 52 },
+        { w: 48.44, t: "{formatNo} ({revisionNo}/{revisionDate:yy})", a: "c", b: true, y: 5.78 },
+      ],
+    },
+  ],
+  body: [
+    {
+      h: 8.51,
+      head: true,
+      cells: [
+        { w: F40B_COLS[0], t: "SR NO", a: "c", b: true, vm: true },
+        { w: F40B_COLS[1], lab: "@column:date", a: "c", b: true, vm: true },
+        ...F40B_TIMES.map((key, i): PaperCell => ({ w: F40B_COLS[i + 2], lab: `@column:${key}`, a: "c", b: true, vm: true, lh: 4.2 })),
+      ],
+    },
+  ],
+  lines: {
+    h: 5.284,
+    count: 31,
+    cells: [
+      { w: F40B_COLS[0], num: "all", a: "c", vm: true },
+      { w: F40B_COLS[1], col: "date", a: "c" },
+      ...F40B_TIMES.flatMap((key, i): PaperCell[] => [
+        { w: 10.5, col: key, a: "c", open: "r" },
+        { w: F40B_COLS[i + 2] - 10.5, col: `${key}Sign`, a: "c" },
+      ]),
+    ],
+  },
+  foot: [],
+};
+
 export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-coa-label": COA_LABEL,
   "qc-coa-sleeve": COA_SLEEVE,
@@ -676,6 +826,8 @@ export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-obsolete-artwork": OBSOLETE_ARTWORK,
   "qc-ruler-verification": RULER,
   "qc-ruler-verification-300": RULER,
+  "qc-temperature-humidity": TEMPERATURE_HUMIDITY,
+  "qc-temperature-sleeve": TEMPERATURE_SLEEVE,
 };
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */

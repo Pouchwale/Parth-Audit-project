@@ -12,7 +12,8 @@ import { HeaderWord, type AnyHeaderField, type HeaderEdit } from "../documents/D
 /** The columns every row of the paper is cut from: each cell's edges, gathered and merged where they are a hair apart. */
 function columnEdges(form: PaperTable): number[] {
   const xs = new Set<number>([0]);
-  for (const row of [...form.head, ...form.body, ...form.foot]) {
+  // (a register's ruled lines are cut from the same columns: their cells' edges count too)
+  for (const row of [...form.head, ...form.body, ...(form.lines ? [{ h: form.lines.h, cells: form.lines.cells }] : []), ...form.foot]) {
     let x = 0;
     for (const c of row.cells) {
       x = Math.round((x + c.w) * 100) / 100;
@@ -111,17 +112,19 @@ function referenced(layout: LogSheetLayout, ref: string): string {
  * is read and printed is the same (the value typed over keeps its own letters).
  */
 function withHeaderWords(text: string, words: PaperTableParts["words"], edit: HeaderEdit | undefined, caps = false): React.ReactNode {
-  const parts = text.split(/(\{(?:companyName|title|formatNo|revisionNo|revisionDate|page|ring)\})/);
+  const parts = text.split(/(\{(?:companyName|title|formatNo|revisionNo|revisionDate(?::yy)?|page|ring)\})/);
   if (parts.length === 1) return caps ? text.toUpperCase() : text;
   return parts.map((p, i) => {
-    const m = /^\{(\w+)\}$/.exec(p);
+    const m = /^\{(\w+)(:yy)?\}$/.exec(p);
     if (!m) return caps ? p.toUpperCase() : p;
     // The paper's degree sign: a small raised ring, drawn (it is no letter of the paper's words).
     if (m[1] === "ring") return <span key={i} className="pt-ring" role="img" aria-label="°" />;
     const field = m[1] as AnyHeaderField;
+    // {revisionDate:yy}: the date with its year in two figures, as the temperature records print it (28.02.25).
+    const shown = m[2] ? (words[field] ?? "").replace(/\.(\d{2})(\d{2})$/, ".$2") : (words[field] ?? "");
     return (
       <HeaderWord key={i} field={field} edit={edit}>
-        {caps ? (words[field] ?? "").toUpperCase() : (words[field] ?? "")}
+        {caps ? shown.toUpperCase() : shown}
       </HeaderWord>
     );
   });
@@ -164,6 +167,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           if (c.caps) classes.push("pt-caps");
           if (c.bg) classes.push("pt-bg");
           if (c.vm) classes.push("pt-vm");
+          if (c.ww) classes.push("pt-ww");
           const style: Record<string, string> = {
             "--pt-size": String(pt),
             "--pt-lh": String(lh),
@@ -173,6 +177,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
             "--pt-y": String(Math.max(0, (c.y ?? 0) - letterTop(font, pt, lh))),
           };
           if (c.bg) style["--pt-bg"] = c.bg;
+          if (c.ww) style["--pt-ww"] = String(c.ww);
           let body: React.ReactNode = null;
           if (c.at) {
             // Each line in its own face and size, where the paper prints it: the letterhead's name over its three lines.

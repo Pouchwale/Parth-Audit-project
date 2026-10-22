@@ -1129,7 +1129,8 @@ with sync_playwright() as p:
         all(w in body for w in ["PRINTING/", "INK KITCHEN/", "WARE HOUSE"]),
         body[:500],
     )
-    head_rows = page.locator("[data-section='document-preview'] table.log-sheet thead tr").count()
+    # (the paper's own table since s117 round 2: its one heading row is the row it marks so)
+    head_rows = page.locator("[data-section='document-preview'] table.log-sheet thead tr, [data-section='document-preview'] table[data-paper-part] tr[data-pt-heading]").count()
     check(
         "...SR NO | DATE | 08:30 HRS | 12:30 HRS | 16:30 HRS on one heading row, each time over its one cell",
         heads(page) == ["SR NO", "DATE", "08:30 HRS", "12:30 HRS", "16:30 HRS"] and head_rows == 1,
