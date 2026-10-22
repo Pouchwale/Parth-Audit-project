@@ -831,7 +831,8 @@ with sync_playwright() as p:
         dl.value.save_as(saved_to)
         book["name"] = dl.value.suggested_filename
         with zipfile.ZipFile(saved_to) as z:
-            book["sheet"] = z.read("xl/worksheets/sheet1.xml").decode("utf-8")
+            # The owner's own workbook (REQUIREMENTS section 119) keeps its words in the shared strings, as Excel saves.
+            book["sheet"] = z.read("xl/worksheets/sheet1.xml").decode("utf-8") + (z.read("xl/sharedStrings.xml").decode("utf-8") if "xl/sharedStrings.xml" in z.namelist() else "")
     check(
         "...and it downloads as an Excel workbook, as the register it is, named for its format",
         kind == "xlsx" and book.get("name", "").startswith("F-QC-15-B") and book.get("name", "").endswith(".xlsx")
