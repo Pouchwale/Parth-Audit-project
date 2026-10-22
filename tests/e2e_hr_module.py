@@ -547,7 +547,8 @@ with sync_playwright() as p:
     close_assistant(page)
     check("A lamination log sheet's document page shows its records table and a sheet",
           page.locator("[data-page='document-records'][data-document='qc-viscosity']").count() == 1
-          and page.locator("[data-section='document-preview'] table.log-sheet").count() == 1)
+          # (F-QC-30 is drawn on the paper's own ruled table since s117 round 2 of 22-Oct-2026: its body table, not a log-sheet grid)
+          and page.locator("[data-section='document-preview'] :is(table.log-sheet, table[data-paper-part='body'])").count() == 1)
 
     # ==================================================================
     # 5. A new record of each blank format opens with the paper's rows
