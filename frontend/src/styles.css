@@ -3390,6 +3390,16 @@ table.svc-paper {
 .pt-table td.pt-c.pt-f-times { font-family: "Times New Roman", Times, serif; }
 /* Words the paper underlines (F/QC/25's title). (Words it prints in capitals are written so: PaperTableSheet, caps.) */
 .pt-table td.pt-c.pt-u .pt-words { text-decoration: underline; text-decoration-thickness: calc(0.42 * var(--u)); text-underline-offset: calc(0.75 * var(--u)); }
+/* A line of a cell's words the paper underlines (F-QC-14's specification under each check's name). */
+.pt-table td.pt-c .pt-ul { text-decoration: underline; text-decoration-thickness: calc(0.17 * var(--u)); text-underline-offset: calc(0.35 * var(--u)); }
+/* Words on the middle of their cell, free to run over its edges as a spreadsheet's do, the row keeping the paper's height
+   (F-QC-14's last inspectors on three lines, its Conclusions). */
+.pt-table td.pt-c.pt-ov > .pt-words, .pt-table td.pt-c.pt-ov > .pt-pw { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); padding: 0 0 0 calc(var(--pt-x) * var(--u)); }
+/* A box the print shows as its words (F-QC-14's names and Conclusions): the box on the screen, its words on the paper. A
+   box's words written again where the paper prints them again; where nothing is written yet, the box's blank. */
+.pt-table .pt-pw { display: none; }
+.pt-table .pt-copy:empty { display: inline-block; width: calc(var(--pt-bw) * var(--u)); }
+.pt-table td.pt-c > .field-in-table > .paragraph-text { margin: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; white-space: pre-wrap; }
 /* A register in a heavy frame (F/QC/16): its outer edges heavier than its cells'. */
 .pt-table.pt-frame { border-left: var(--pt-hv); }
 .pt-table.pt-frame.pt-head { border-top: var(--pt-hv); }
@@ -3471,6 +3481,11 @@ table.svc-paper {
   .pt-table td.pt-c > .field-choices-across.field-in-table > select.input { display: none; }
   /* An empty date in the sentence leaves the paper's own blank, not the width of a box to type in. */
   .pt-table .pt-sentence .field-in-table:has(> .input[data-empty]) { width: calc(2.6 * var(--u)); }
+  /* A box shown as its words: the words print (wrapping as the paper's), the box does not. */
+  .pt-table td.pt-c.pt-pwc > .field-in-table, .pt-table .pt-sentence.pt-sw > .field-in-table { display: none; }
+  .pt-table td.pt-c.pt-pwc > .pt-pw { display: block; }
+  .pt-table .pt-sentence.pt-sw > .pt-pw { display: inline; }
+  .pt-table .pt-sentence.pt-sw > .pt-pw:empty { display: inline-block; width: calc(var(--pt-bw) * var(--u)); }
 }
 /* QC-PAPER-TABLES end */
 

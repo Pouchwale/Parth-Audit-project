@@ -97,7 +97,24 @@ const PAPERS: Record<string, { page: "portrait" | "landscape"; width: number; wr
   "qc-temperature": { page: "portrait", width: 184.23, lines: 50 },
   "qc-viscosity": { page: "portrait", width: 190, lines: 34 },
   "qc-adhesive-mixing": { page: "portrait", width: 190, lines: 33 },
+  // F-QC-14's two sheets: every line of every check written; each check's heading (its lines' printed parameter) once,
+  // over its table.
+  "qc-test-reliability-label": { page: "portrait", width: 190.04, written: reliabilityLines(8) },
+  "qc-test-reliability-sleeve": { page: "portrait", width: 190.04, written: reliabilityLines(5) },
 };
+
+/** F-QC-14's checks' lines: three a check, the sample and the four readings on each, the heading on the first. */
+function reliabilityLines(checks: number): Record<string, number[]> {
+  const all = Array.from({ length: 3 * checks }, (_, i) => i);
+  return {
+    sampleNo: all,
+    reading1: all,
+    reading2: all,
+    reading3: all,
+    reading4: all,
+    parameter: Array.from({ length: checks }, (_, i) => 3 * i),
+  };
+}
 
 test("the papers drawn as their own table are these; no other document is", () => {
   assert.deepEqual(Object.keys(QC_PAPER_TABLES).sort(), Object.keys(PAPERS).sort());
@@ -110,7 +127,8 @@ test("every box of the record has its cell on the paper, once, and every cell's 
     const layout = layoutOf(id);
     const form = QC_PAPER_TABLES[id];
     const keys = [...layout.headerFields, ...(layout.footerFields ?? [])].map((f) => f.key);
-    const drawn = cellsOf(id).flatMap((c) => (c.box ? [c.box] : c.sentence ? [c.sentence.box] : []));
+    // (a box's words written again where the paper prints them again, F-QC-14's names, are no box of their own)
+    const drawn = cellsOf(id).flatMap((c) => (c.box ? [c.box] : c.sentence && !c.sentence.copy ? [c.sentence.box] : []));
     assert.deepEqual([...drawn].sort(), [...keys].sort(), `${id}: the paper's cells are the record's boxes, each once`);
     if (PAPERS[id].lines !== undefined) {
       // A register: every column of the record once on each ruled line, as many lines as the paper rules.
@@ -123,8 +141,12 @@ test("every box of the record has its cell on the paper, once, and every cell's 
     // words (F/QC/25's numbers and descriptions) on every line.
     const grid = cellsOf(id).filter((c) => c.col !== undefined);
     for (const col of layout.columns) {
-      const lines = grid.filter((c) => c.col === col.key).map((c) => c.ln);
-      if (col.fixed) {
+      const lines = grid
+        .filter((c) => c.col === col.key)
+        .map((c) => c.ln ?? -1)
+        .sort((a, b) => a - b);
+      // (a printed column the paper prints once over each of its tables, F-QC-14's check headings, is listed with its lines)
+      if (col.fixed && !PAPERS[id].written?.[col.key]) {
         const count = layout.rowMode.kind === "fixedRows" ? layout.rowMode.rows.length : 0;
         assert.deepEqual(lines, Array.from({ length: count }, (_, i) => i), `${id}: ${col.key} printed on every line`);
       } else assert.deepEqual(lines, PAPERS[id].written?.[col.key], `${id}: ${col.key} on the paper's lines`);
@@ -180,8 +202,60 @@ test("a format the plant has edited since is drawn as every grid is: the paper o
   const form = QC_PAPER_TABLES["qc-obsolete-artwork"];
   assert.equal(paperTableFits(form, { ...layout, columns: [...layout.columns, { key: "batchNo", label: "Batch No.", type: "text" as const }] }), false, "a column added");
   assert.equal(paperTableFits(form, { ...layout, columns: layout.columns.filter((c) => c.key !== "remarks") }), false, "a column taken off");
+  // F-QC-14: a check's line taken off its format (or one added) and the paper's checks no longer stand where it draws them.
+  const label = layoutOf("qc-test-reliability-label");
+  const rows = label.rowMode.kind === "fixedRows" ? label.rowMode.rows : [];
+  assert.equal(paperTableFits(QC_PAPER_TABLES["qc-test-reliability-label"], { ...label, rowMode: { kind: "fixedRows", rows: rows.slice(1) } }), false, "a printed line taken off");
+  assert.equal(paperTableFits(QC_PAPER_TABLES["qc-test-reliability-label"], { ...label, rowMode: { kind: "fixedRows", rows: [...rows, { parameter: "Extra" }] } }), false, "a printed line added");
   const ruler = layoutOf("qc-ruler-verification");
   assert.equal(paperTableFits(QC_PAPER_TABLES["qc-ruler-verification"], { ...ruler, headerFields: [...ruler.headerFields, { key: "remark", label: "Remark", type: "text" as const }] }), false, "a box added");
+});
+
+test("F-QC-14 is the workbook's one framed table: each check's own small table, its specification underlined, the names typed once and written in every table", () => {
+  for (const [id, checks, numbered] of [
+    ["qc-test-reliability-label", 8, true],
+    ["qc-test-reliability-sleeve", 5, false],
+  ] as const) {
+    const form = QC_PAPER_TABLES[id];
+    const cells = cellsOf(id);
+    assert.equal(form.frame, "heavy", `${id}: the heavy frame`);
+    assert.equal(form.numberOffPaper, true, `${id}: the revision's date and the page on the screen's strip alone`);
+    // The Label prints "F-QC-14/00" at the title's left; the Sleeve prints no number.
+    assert.equal(cells.some((c) => c.t === "{formatNo}/{revisionNo}"), numbered, `${id}: its number as printed`);
+    // Each check's heading over its table, once; its specification underlined where the workbook underlines it.
+    const headings = cells.filter((c) => c.col === "parameter");
+    assert.equal(headings.length, checks, `${id}: a heading for each check`);
+    // The names: typed in the first table, written again in each of the others; the FG code in the finished job's tables.
+    const typed = cells.filter((c) => c.sentence && !c.sentence.copy).map((c) => c.sentence!.box);
+    const again = cells.filter((c) => c.sentence?.copy).map((c) => c.sentence!.box);
+    assert.deepEqual(typed.sort(), ["date", "fgCode", "inspector1", "inspector2", "inspector3", "inspector4"], `${id}: each box typed once`);
+    for (let i = 1; i <= 4; i++) assert.equal(again.filter((k) => k === `inspector${i}`).length, checks - 1, `${id}: inspector ${i}'s name in every other table`);
+    assert.equal(again.filter((k) => k === "fgCode").length, Math.floor(checks / 2) - 1, `${id}: the FG code in the finished job's other tables`);
+    // The Conclusions: each check's box beside its "Conclusion", printed as its words.
+    const conclusions = cells.filter((c) => c.box?.startsWith("conclusion"));
+    assert.equal(conclusions.length, checks);
+    assert.ok(conclusions.every((c) => c.pw && c.ov), `${id}: a Conclusion prints as its words, on its cell's middle`);
+    assert.equal(cells.filter((c) => c.t === "Conclusion").length, checks);
+  }
+  const label = cellsOf("qc-test-reliability-label").filter((c) => c.col === "parameter");
+  // "Coloue shade: Should be OK" is one line, not underlined; every other specification is the heading's second line.
+  assert.deepEqual(label.map((c) => c.ul), [[1], [1], [1], [1], [1], [], [1], [1]]);
+  // The Sleeve: "Thickness: 40 micron" underlined whole, Dimension's specification, the other three not at all.
+  assert.deepEqual(cellsOf("qc-test-reliability-sleeve").filter((c) => c.col === "parameter").map((c) => c.ul), [[0], [1], [], [], []]);
+});
+
+test("F-QC-14 drawn: the words of the workbook, the boxes the record's, the names written again in each table", async () => {
+  const html = await sheet("qc-test-reliability-label");
+  const words = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  assert.equal(words.split("Conclusion").length - 1, 8, "a Conclusion under each table");
+  assert.equal(words.split("Inspector - 1").length - 1, 8, "Inspector - 1 over his name in every table");
+  assert.equal((html.match(/data-box="inspector1"/g) ?? []).length, 1, "his name typed in the first table");
+  assert.equal((html.match(/data-copies="inspector1"/g) ?? []).length, 7, "and written again in the seven others");
+  assert.equal((html.match(/<span class="pt-ul">/g) ?? []).length, 7, "each specification underlined, as the format's heading has it");
+  for (const absent of ["FG Code", "Conclusion (GSM - Total)", "Paper Reel SAP batch no. / Roll no. / sample no."]) assert.ok(!words.includes(absent), `"${absent}" is not on the paper`);
+  // Every line of every check is the record's: the sample and the four readings, typed where the paper writes them.
+  assert.equal((html.match(/data-pt-col="sampleNo"/g) ?? []).length, 24);
+  assert.equal((html.match(/<td[^>]*data-pt-blank=""/g) ?? []).length, 5, "the blank rows between the four bands (light under the left table after the second and third)");
 });
 
 test("the stylesheet: the paper table's rules before the reduced-motion block, no !important of its own, the paper's margin in print", () => {

@@ -1035,19 +1035,25 @@ with sync_playwright() as p:
         "INTERNAL TEST RELIABILITY RECORD" in whole.upper() and "F-QC-14" in whole,
         whole[:400],
     )
-    # The workbook's eight small tables, two to a row (the review of 13-Oct-2026: it was one grid).
-    panels = page.locator("[data-section='document-preview'] table.paper-panel")
-    first_heads = panels.first.locator("thead th").evaluate_all("els => els.map((e) => e.textContent.trim())") if panels.count() else []
+    # The workbook's eight small tables, two to a row (the review of 13-Oct-2026: it was one grid), drawn since s117
+    # round 2 (22-Oct-2026) as the workbook's one framed table: each check's heading over its table, the first column headed
+    # with what was sampled, the four inspectors each over his name.
+    f14 = "[data-section='document-preview'] table[data-paper-part='body']"
+    norm = "els => els.map((e) => e.textContent.replace(/\\s+/g, ' ').trim())"
+    f14_heads = page.locator(f"{f14} td[data-pt-col='parameter']").evaluate_all(norm)
+    f14_rows = page.locator(f"{f14} tr")
+    first_heads = (f14_rows.nth(0).locator("td").evaluate_all(norm)[:2] + f14_rows.nth(1).locator("td").evaluate_all(norm)[:1]) if f14_rows.count() > 1 else []
     check(
         "...the workbook's eight small tables, the first headed Paper Reel SAP batch no. and GSM - Total over the four inspectors, Kapila under Inspector - 1",
-        panels.count() == 8 and first_heads[0] == "Paper Reel SAP batch no." and first_heads[1].startswith("GSM - Total") and first_heads[2].replace(" ", "") == "Inspector-1\n(Kapila)".replace(" ", ""),
-        (panels.count(), first_heads),
+        len(f14_heads) == 8 and first_heads[:1] == ["Paper Reel SAP batch no."] and first_heads[1].startswith("GSM - Total") and first_heads[2].replace(" ", "") == "Inspector-1(Kapila)",
+        (len(f14_heads), first_heads),
     )
-    first = cell_texts(page, 0)
+    first = page.locator(f"{f14} td[data-pt-ln='0']:not([data-pt-col='parameter'])").evaluate_all(norm)
+    lines_drawn = page.locator(f"{f14} td[data-pt-col='sampleNo']").count()
     check(
         "...the workbook of 12.02.2022 on file: eight checks of three lines, 9460/5234/15 read 72, 71, 70, 71",
-        sheet_rows(page).count() == 24 and first == ["9460/5234/15", "72", "71", "70", "71"],
-        (sheet_rows(page).count(), first),
+        lines_drawn == 24 and first == ["9460/5234/15", "72", "71", "70", "71"],
+        (lines_drawn, first),
     )
     body = printed_text(page)
     check(
@@ -1059,10 +1065,11 @@ with sync_playwright() as p:
     open_page(page, "#/document/qc-test-reliability-sleeve")
     shot("fqc14-sleeve")
     body = printed_text(page)
+    lines_drawn = page.locator(f"{f14} td[data-pt-col='sampleNo']").count()
     check(
         "F-QC-14 Sleeve: five checks of three lines, the shrinkage ratio as written",
-        sheet_rows(page).count() == 15 and "Shrinkage Ratio : TD 60 ± 2 %, MD 0 ~ 6%" in body and "TD-61 MD-3" in body,
-        (sheet_rows(page).count(), body[:400]),
+        lines_drawn == 15 and "Shrinkage Ratio : TD 60 ± 2 %, MD 0 ~ 6%" in body and "TD-61 MD-3" in body,
+        (lines_drawn, body[:400]),
     )
 
     if os.environ.get("QC_PAPER_SHOTS"):
@@ -1087,6 +1094,25 @@ with sync_playwright() as p:
         len(started_rows) == 24 and all(not r.get("reading1") and not r.get("sampleNo") for r in started_rows),
         started_rows[:2],
     )
+    # Open for writing, every part of the paper is written where it prints (s117 round 2, 22-Oct-2026): a box for every
+    # sample and reading of the 24 lines and for each Conclusion; the names and the FG code typed in the first table that
+    # prints them; no empty cell of the paper without a box but its blank rows between the bands.
+    f14_doc = "[data-print-doc]"
+    boxes = page.evaluate(
+        """(doc) => {
+          const d = document.querySelector(doc);
+          const open = (sel) => Array.from(d.querySelectorAll(sel)).filter((e) => !e.disabled).length;
+          const blanks = Array.from(d.querySelectorAll('table[data-paper-part] td.pt-c')).filter((td) =>
+            !td.hasAttribute('data-pt-blank') && !td.closest('tr.pt-pad') && !td.textContent.trim() && !td.querySelector('input, select, textarea, img')).length;
+          return { grid: open("td[data-pt-col] input"), conclusions: open("[data-box^='conclusion'] textarea"), names: open("[data-box^='inspector'] input"), fg: open("[data-box='fgCode'] input"), blanks };
+        }""",
+        f14_doc,
+    )
+    check(
+        "...open for writing, each of its 24 lines' sample and four readings, each Conclusion, the four names and the FG code is a box, and no cell of the paper is left without one",
+        boxes == {"grid": 120, "conclusions": 8, "names": 4, "fg": 1, "blanks": 0},
+        boxes,
+    )
     opener = page.locator("button:has-text('Ask Mitra')")
     if opener.count():
         opener.first.click()
@@ -1107,6 +1133,21 @@ with sync_playwright() as p:
         (header, gsm),
     )
     close_assistant(page)
+    # A name typed in the first table is written in each of the others as it is typed, and kept on the record once.
+    page.locator(f"{f14_doc} [data-box='inspector4'] input").fill("Karan Prajapati")
+    page.locator(f"{f14_doc} [data-box='fgCode'] input").fill("FGLA 11430")
+    page.keyboard.press("Tab")
+    page.wait_for_timeout(700)
+    copies = page.evaluate(
+        "(doc) => [document.querySelectorAll(doc + ' [data-copies=\\'inspector4\\']').length, Array.from(document.querySelectorAll(doc + ' [data-copies]')).filter((e) => ['Karan Prajapati', 'FGLA 11430'].includes(e.textContent)).length]",
+        f14_doc,
+    )
+    typed = ((record(page, rid) or {}).get("data") or {}).get("header") or {}
+    check(
+        "...a name typed in the first table is written in each of the seven others, the FG code in the finished label's three, kept on the record once",
+        copies == [7, 10] and typed.get("inspector4") == "Karan Prajapati" and typed.get("fgCode") == "FGLA 11430",
+        (copies, {k: typed.get(k) for k in ("inspector4", "fgCode")}),
+    )
     page.locator("[data-action='submit']").first.click()
     page.wait_for_timeout(1600)
     submitted = record(page, rid) or {}

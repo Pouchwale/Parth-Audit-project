@@ -86,6 +86,10 @@ PRINTED = """
       emptyBoxes: Array.from(document.querySelectorAll('[data-print-doc] input[type="date"], [data-print-doc] input[type="time"], [data-print-doc] select')).filter((el) => shown(el) && el.value === '').length,
       gridHeadings: Array.from(document.querySelectorAll('[data-print-doc] table.log-sheet thead th')).filter(shown).map((e) => e.textContent.trim()),
       srNo: Array.from(document.querySelectorAll('[data-print-doc] table.log-sheet td[data-sr-no]')).filter(shown).map((e) => e.textContent.trim()),
+      // A paper drawn as its own table (s117 round 2): the row it marks as its grid's headings, and the numbers of the
+      // record's lines (its first cell), the paper's blank lines after them left out.
+      ptHeadings: Array.from(document.querySelectorAll('[data-print-doc] table[data-paper-part] tr[data-pt-heading] td')).filter(shown).map((e) => e.textContent.replace(/\\s+/g, ' ').trim()),
+      ptNumbers: Array.from(document.querySelectorAll('[data-print-doc] table[data-paper-part="body"] tr[data-pt-line]:not(.pt-pad) td:first-child')).filter(shown).map((e) => e.textContent.trim()),
       secondLines: Array.from(document.querySelectorAll('[data-print-doc] table.log-sheet tr[data-line="second"]')).filter(shown).length,
       notesAfterGrid: (() => {
         const n = document.querySelector('[data-print-doc] [data-section="notes-below"]');
@@ -240,12 +244,14 @@ PROCEDURE = "Calibration to be done by qualified QA person as per calibration wo
 
 def check_paper(doc_id, seen):
     if doc_id == "qc-viscosity":
-        check("F-QC-30 prints Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By", seen["gridHeadings"] == ["Sr. No.", "Date/Time", "Viscosity (20.0 ± 1.0 Sec.)", "Tested By"], seen["gridHeadings"])
+        # Its paper's own table since s117 round 2 (22-Oct-2026): the paper's two tables side by side, each headed so.
+        one = ["Sr. No.", "Date/Time", "Viscosity (20.0 ± 1.0 Sec.)", "Tested By"]
+        check("F-QC-30 prints Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By, twice side by side as the paper", seen["ptHeadings"] == one + [""] + one, seen["ptHeadings"])
         # The owner, 14-Oct-2026 (a phone picture): the Sr. No. numbers the lines; the day is the header's DATE alone.
-        check("...the Sr. No. numbers its 23 lines, the date never in it", len(seen["srNo"]) == 23 and seen["srNo"] == [str(i + 1) for i in range(23)], seen["srNo"][:3])
+        check("...the Sr. No. numbers its 23 lines, the date never in it", len(seen["ptNumbers"]) == 23 and seen["ptNumbers"] == [str(i + 1) for i in range(23)], seen["ptNumbers"][:3])
         check("...and no specification line above the grid", "Viscosity specification" not in seen["text"])
     elif doc_id == "qc-adhesive-mixing":
-        check("F-QC-32 prints its Date column", seen["gridHeadings"][:3] == ["Sr. No.", "Date", "Time"], seen["gridHeadings"])
+        check("F-QC-32 prints its Date column", seen["ptHeadings"][:3] == ["Sr. No.", "Date", "Time"], seen["ptHeadings"])
         check("...and no 'One row per adhesive batch mixed' line", "One row per adhesive batch" not in seen["text"])
     elif doc_id == "qc-gsm-plate-calibration":
         check("F/QC/11 prints No. 54 to 57 over size and Deviation", seen["gridHeadings"][:5] == ["Index", "No. 54", "No. 55", "No. 56", "No. 57"], seen["gridHeadings"])

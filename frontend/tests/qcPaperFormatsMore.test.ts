@@ -435,7 +435,8 @@ test("F-QC-14: both sheets are F-QC-14, headed INTERNAL TEST RELIABILITY RECORD,
     );
     assert.ok(layout.footerFields?.every((f) => f.type === "paragraph"), `${id}: each Conclusion a sentence across the page`);
     const html = await sheet(id, createDefaultData(doc, DAY, master) as LogSheetData);
-    assert.equal(headings(html).filter((t) => t === "Sr. No.").length, 0, `${id}: no Sr. No. of the sheet's`);
+    // (drawn as the workbook's one framed table since s117 round 2, 22-Oct-2026: no heading row of DCRS's at all)
+    assert.ok(!text(html).includes("Sr. No.") && !html.includes("<thead"), `${id}: no Sr. No. of the sheet's`);
     assert.ok(text(html).includes("Specification : 70 ± 5%") || id.endsWith("sleeve"), id);
   }
 });

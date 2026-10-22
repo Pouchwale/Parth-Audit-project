@@ -89,6 +89,22 @@ REFERENCES = [
     _r("F-QC-40  -TEMPERATURE Monitoring-A.pdf", ORIG + "F-QC-40  -TEMPERATURE Monitoring-A.pdf", "F-QC-40.A", ["qc-temperature-humidity"]),
     _r("F-QC-40  -TEMPERATURE Monitoring-B.pdf", ORIG + "F-QC-40  -TEMPERATURE Monitoring-B.pdf", "F-QC-40.B", ["qc-temperature-sleeve"]),
     _r("F-QC-09_Statement of Compliance (SOC) - Label.docx", EXPORTS + "F-QC-09_Statement of Compliance (SOC) - Label.pdf", "F/QC-09", ["soc-labels"], note="no PDF was sent: Word's PDF of the owner's .docx, made on 20-Oct-2026"),
+    # F-QC-14 (13-Oct-2026) is a workbook of two sheets, and its own print area holds only the left half of each: the
+    # reference is Excel's PDF of the whole sheet (A1:J33, A1:J25), placed on A4 portrait 190 mm across from 10 mm in.
+    _r(
+        "F-QC-14 TEST RELIABILITY RECORD.xlsx (Label)",
+        EXPORTS + "F-QC-14 TEST RELIABILITY RECORD - Label.pdf",
+        "F-QC-14 (Label)",
+        ["qc-test-reliability-label"],
+        note="no PDF was sent: Excel's PDF of the whole Label sheet of the owner's workbook on A4, made on 22-Oct-2026",
+    ),
+    _r(
+        "F-QC-14 TEST RELIABILITY RECORD.xlsx (Sleeve)",
+        EXPORTS + "F-QC-14 TEST RELIABILITY RECORD - Sleeve.pdf",
+        "F-QC-14 (Sleeve)",
+        ["qc-test-reliability-sleeve"],
+        note="no PDF was sent: Excel's PDF of the whole Sleeve sheet of the owner's workbook on A4, made on 22-Oct-2026",
+    ),
     # --- not references: DCRS's own earlier prints that the owner marked with a pen ---
     _r("F-QC-11 Monthly Internal Calibration Records - GSM Cutting Plate 2026-10-12.pdf", PRINTS + "F-QC-11 Monthly Internal Calibration Records - GSM Cutting Plate 2026-10-12.pdf", "F/QC/11", ["qc-gsm-plate-calibration"], role="not-reference", note="DCRS's print of 12-Oct, marked by the owner; the reference of F/QC/11 is its (2) paper"),
     _r("F-QC-12 Weekly Internal Calibration Records - Weight Scale 2026-10-12.pdf", PRINTS + "F-QC-12 Weekly Internal Calibration Records - Weight Scale 2026-10-12.pdf", "F/QC/12", ["qc-weight-scale-calibration"], role="not-reference", note="DCRS's print of 12-Oct, marked by the owner; the reference of F/QC/12 is its (2) paper"),
@@ -160,8 +176,8 @@ GRID_RENDERER = {
     "qc-coa-label": "PaperTableSheet: the paper's own Word table, row by row (qcPaperTables.ts, s117 round 2)",
     "qc-coa-sleeve": "PaperTableSheet: the paper's own Word table, row by row (qcPaperTables.ts, s117 round 2)",
     "qc-coa-corrugated": "AnswerAcrossGrid (answerAcross) + the letterhead PrintedTable",
-    "qc-test-reliability-label": "PanelGrid (panels)",
-    "qc-test-reliability-sleeve": "PanelGrid (panels)",
+    "qc-test-reliability-label": "PaperTableSheet: the workbook's one framed table, row by row (qcPaperTables.ts, s117 round 2)",
+    "qc-test-reliability-sleeve": "PaperTableSheet: the workbook's one framed table, row by row (qcPaperTables.ts, s117 round 2)",
     "qc-analysis-report": "log-sheet table + HeadingBox (asHeading) + SheetPhotos (photoBelowGrid)",
     "qc-inprocess-printing": "log-sheet table + PrintedTable (the grade criteria reference table)",
 }

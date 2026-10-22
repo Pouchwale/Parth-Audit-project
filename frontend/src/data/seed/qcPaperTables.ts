@@ -44,7 +44,14 @@ export interface PaperCell {
   open?: "r" | "b" | "rb";
   heavy?: "b" | "r" | "rb";
   img?: { src: string; x: number; y: number; w: number; h: number; alt: string };
-  sentence?: { before: string; box: string; after: string; boxWidth: number };
+  /**
+   * The words around a box written inside the sentence, centred as printed. before "@key": the box's own printed label
+   * ("Date :"); space: the spaces either side of the box (one where it says nothing; none for a name in brackets);
+   * pw: the print shows the box's words, which wrap as the paper's do (a long name over two lines), the box being the
+   * screen's; copy: the box's words written again, the box itself typed where the paper prints it first (F-QC-14 prints
+   * the inspectors' names and the FG code in each of its tables). The cell's own words (t, lab) stand on the line above.
+   */
+  sentence?: { before: string; box: string; after: string; boxWidth: number; space?: number; pw?: true; copy?: true };
   /** A box whose words run on to a second line in the cell (a remark): a box of several lines. */
   lines?: true;
   /** Bulleted lines, the bullet drawn where the paper draws its bullet picture (mm in from the cell's left). */
@@ -72,6 +79,12 @@ export interface PaperCell {
   pad?: number;
   /** The width (mm) its words wrap at, where the paper breaks a line sooner than its cell would (F-QC-40.B's recommendation). */
   ww?: number;
+  /** The lines of its words the paper underlines, 0 the first (F-QC-14's specification under each check's name). */
+  ul?: number[];
+  /** A box the print shows as its words, which wrap and stand where the paper's do (F-QC-14's Conclusions); the box is the screen's. */
+  pw?: true;
+  /** Its words stand on its middle, free to run over its edges as a spreadsheet's do, the row keeping the paper's height. */
+  ov?: true;
 }
 
 export interface PaperRow {
@@ -924,6 +937,257 @@ const ADHESIVE_MIXING: PaperTable = {
   foot: [],
 };
 
+// ---------------------------------------------------------------------------
+// F-QC-14 — INTERNAL TEST RELIABILITY RECORD, its Label and Sleeve sheets ("F-QC-14 TEST RELIABILITY RECORD.xlsx",
+// source-documents/qc-originals-2026-10-13/). The owner sent the workbook alone, and its own print area holds only the
+// left half of each sheet, so the paper held against is Excel's PDF of the whole sheet (A1:J33, A1:J25) on A4 portrait,
+// 190 mm across (source-documents/qc-office-exports-2026-10-20/, made on 22-Oct-2026). One table in a heavy frame: the
+// company, the title underlined between the Label's "F-QC-14/00" (the Sleeve prints no number) and "Date :", then the
+// checks two to a band, each its own small table: the check's name over its specification (underlined where the workbook
+// underlines it), its first column headed with what was sampled, the four inspectors each over his name in brackets, the
+// three lines and "Conclusion" with the check's conclusion beside it; a blank row between the bands. Every word is the
+// workbook's and so are its quirks: the second band's left "Conclusion" is not bold, the last bands' stand at the left of
+// their cells, and the rules are heavier where the workbook's are.
+//
+// The record is as it was (qcTestReliabilityLayouts.ts): each check three lines, the left table's then the right's; the
+// check's heading is its lines' printed parameter; the names and the FG code are boxes typed in the first table that
+// prints them and written again in the others (the print shows them as words, which wrap as the workbook's do); each
+// Conclusion is a box.
+
+/** One band of two checks (or the left one alone) as the workbook rules it: its rows' heights (mm) and its quirks. */
+interface F14Band {
+  /** The heights of its rows: the heading, the inspectors, the three lines, the Conclusion. */
+  h: [number, number, number, number, number, number];
+  /** The blank row under it, before the next band (none under the last), and the rule under that row: heavy across, or
+   * light under the left table and heavy under the right ("light"). */
+  gap?: [number, "heavy" | "light"];
+  /** The lines of each check's heading the workbook underlines (its specification): the left table's, the right's. */
+  ul: [number[], number[]];
+  /** The left table's "Conclusion" as the workbook sets it: not bold, or at its cell's left. */
+  plain?: true;
+  atLeft?: true;
+  /** Heavier rules: under the left table's last line (all of it, or its first column), under the Conclusion (its first column, or right across). */
+  heavyLine?: "table" | "first";
+  heavyConclusion?: "first" | "all";
+  /** The left check alone (the Sleeve's Corona Treatment): the band's right is the workbook's empty cell to the frame. */
+  alone?: true;
+  /** The last inspector's name on three lines in a row shorter than three: the words stand over the row's edges, as Excel's do. */
+  over?: true;
+  /** The left check's heading written in the heading's second row, its first left empty (the Sleeve's "Thickness: 40
+   * micron", level with the specification beside it): where its words stand (mm down), not on the row's middle. */
+  lowLeft?: number;
+}
+
+interface F14Sheet {
+  left: number;
+  /** The ten columns: the left table's (what was sampled, the four inspectors), then the right table's. */
+  cols: number[];
+  /** The body's size (pt), the company's and the title's, the Conclusions'; the pitch of the headings' and the Conclusions' lines (mm). */
+  pt: number;
+  big: number;
+  small: number;
+  lh: number;
+  slh: number;
+  /** The company's row and the title's: their heights and where their words stand (mm down); the date's. */
+  company: [h: number, y: number];
+  title: [h: number, y: number, right: number];
+  dateY: number;
+  /** The Label's number in its cell at the title's left (the Sleeve prints none). */
+  number?: { x: number; y: number };
+  /** Where a line's figures stand (mm down from its top), and the Conclusions' words (mm in). */
+  lineY: number;
+  conclusionX: number;
+  /** The first column's heading of each band's left table ("Paper Reel SAP" over "batch no.", "Roll no."). */
+  firstLeft: string[];
+  bands: F14Band[];
+}
+
+const f14Sum = (xs: number[]): number => Math.round(xs.reduce((a, b) => a + b, 0) * 100) / 100;
+
+function reliabilitySheet(s: F14Sheet): PaperTable {
+  const W = f14Sum(s.cols);
+  const left = s.cols.slice(0, 5);
+  const right = s.cols.slice(5);
+  const LW = f14Sum(left);
+  const RW = f14Sum(right);
+  const words = { a: "c" as const, b: true as const, vm: true as const, lh: s.lh };
+  // "Inspector - 1" over the name in brackets: the box in the first table, its words again in every other.
+  const inspectors = (cols: number[], typed: boolean, heavyRight: boolean, over?: true): PaperCell[] =>
+    cols.slice(1).map((w, i): PaperCell => ({
+      w,
+      lab: `@column:reading${i + 1}`,
+      sentence: { before: "(", box: `inspector${i + 1}`, after: ")", boxWidth: Math.floor(w - 3), space: 0, ...(typed ? { pw: true as const } : { copy: true as const }) },
+      ...words,
+      ...(over ? { ov: true as const } : {}),
+      ...(heavyRight && i === 3 ? { heavy: "r" as const } : {}),
+    }));
+  // A line of a table: what was sampled and the four readings of the record's line `ln`.
+  const line = (cols: number[], ln: number, heavyRight: boolean, heavyUnder?: "table" | "first"): PaperCell[] => [
+    { w: cols[0], col: "sampleNo", ln, a: "c", y: s.lineY, ...(heavyUnder ? { heavy: "b" as const } : {}) },
+    ...cols.slice(1).map(
+      (w, i): PaperCell => ({
+        w,
+        col: `reading${i + 1}`,
+        ln,
+        a: "c",
+        y: s.lineY,
+        ...(heavyRight && i === 3 ? { heavy: heavyUnder === "table" ? ("rb" as const) : ("r" as const) } : heavyUnder === "table" ? { heavy: "b" as const } : {}),
+      })
+    ),
+  ];
+  const conclusion = (cols: number[], box: string, band: F14Band | null, heavyRight: boolean): PaperCell[] => {
+    const under = band?.heavyConclusion;
+    return [
+      {
+        w: cols[0],
+        t: "Conclusion",
+        vm: true,
+        lh: s.lh,
+        ...(band?.plain ? {} : { b: true as const }),
+        ...(band?.atLeft ? { x: 0.51 } : { a: "c" as const }),
+        ...(under ? { heavy: "b" as const } : {}),
+      },
+      {
+        w: f14Sum(cols.slice(1)),
+        box,
+        pw: true,
+        ov: true,
+        vm: true,
+        pt: s.small,
+        lh: s.slh,
+        x: s.conclusionX,
+        ...(heavyRight ? { heavy: under === "all" ? ("rb" as const) : ("r" as const) } : under === "all" ? { heavy: "b" as const } : {}),
+      },
+    ];
+  };
+  const rightSkip: PaperCell[] = [{ w: RW, skip: true }];
+  const rows: PaperRow[] = [];
+  s.bands.forEach((band, k) => {
+    const [hHeading, hInspectors, h1, h2, h3, hConclusion] = band.h;
+    const L = 6 * k;
+    const R = L + 3;
+    const first = k === 0;
+    rows.push({
+      h: hHeading,
+      cells: [
+        { w: left[0], t: s.firstLeft[k], rs: 2, ...words },
+        { w: f14Sum(left.slice(1)), col: "parameter", ln: L, ul: band.ul[0], heavy: "r", ...words, ...(band.lowLeft !== undefined ? { vm: undefined, y: band.lowLeft } : {}) },
+        ...(band.alone
+          ? rightSkip
+          : [
+              // "FGLA 11430 sample no.": the finished job's FG code written in the heading.
+              { w: right[0], sentence: { before: "", box: "fgCode", after: "sample no.", boxWidth: Math.floor(right[0] - 4), ...(first ? { pw: true as const } : { copy: true as const }) }, rs: 2, ...words },
+              { w: f14Sum(right.slice(1)), col: "parameter", ln: R, ul: band.ul[1], ...words },
+            ]),
+      ],
+    });
+    rows.push({
+      h: hInspectors,
+      cells: [
+        { w: left[0], skip: true },
+        ...inspectors(left, first, true, band.over),
+        ...(band.alone ? rightSkip : [{ w: right[0], skip: true as const }, ...inspectors(right, false, false, band.over)]),
+      ],
+    });
+    [h1, h2, h3].forEach((h, j) =>
+      rows.push({ h, cells: [...line(left, L + j, true, j === 2 ? band.heavyLine : undefined), ...(band.alone ? rightSkip : line(right, R + j, false))] })
+    );
+    rows.push({
+      h: hConclusion,
+      cells: [...conclusion(left, `conclusion${2 * k + 1}`, band, true), ...(band.alone ? rightSkip : conclusion(right, `conclusion${2 * k + 2}`, band.heavyConclusion === "all" ? { ...band, plain: undefined, atLeft: undefined, heavyConclusion: "all" } : null, false))],
+    });
+    if (band.gap) {
+      const [h, rule] = band.gap;
+      const next = s.bands[k + 1];
+      rows.push({
+        h,
+        cells: next?.alone
+          ? // the workbook's empty cell beside the lone check, from this blank row to the frame's foot
+            [
+              { w: LW, t: "", open: "r", heavy: "b" },
+              { w: RW, t: "", rs: 7, heavy: "b" },
+            ]
+          : rule === "heavy"
+            ? [{ w: W, t: "", heavy: "b" }]
+            : [
+                { w: LW, t: "", open: "r" },
+                { w: RW, t: "", heavy: "b" },
+              ],
+      });
+    }
+  });
+  const [ch, cy] = s.company;
+  const [th, ty, tr] = s.title;
+  return {
+    page: "portrait",
+    left: s.left,
+    top: 10,
+    font: "calibri",
+    pt: s.pt,
+    frame: "heavy",
+    numberOffPaper: true,
+    head: [
+      { h: ch, cells: [{ w: W, t: "{companyName}", caps: true, a: "c", b: true, pt: s.big, y: cy, heavy: "b" }] },
+      {
+        h: th,
+        cells: [
+          ...(s.number ? [{ w: left[0], t: "{formatNo}/{revisionNo}", x: s.number.x, y: s.number.y, heavy: "rb" as const }] : []),
+          { w: Math.round((tr - (s.number ? left[0] : 0)) * 100) / 100, t: "{title}", caps: true, a: "c", b: true, u: true, pt: s.big, y: ty, heavy: "rb" },
+          { w: Math.round((W - tr) * 100) / 100, sentence: { before: "@date", box: "date", after: "", boxWidth: 17, space: 2 }, a: "c", y: s.dateY, heavy: "b" },
+        ],
+      },
+    ],
+    body: rows,
+    foot: [],
+  };
+}
+
+/** The Label sheet: eight checks in four bands, "F-QC-14/00" at the title's left. */
+const RELIABILITY_LABEL = reliabilitySheet({
+  left: 10,
+  cols: [19.1, 19.09, 21.72, 19.97, 18.46, 21.36, 17.59, 17.57, 17.58, 17.6],
+  pt: 7.95,
+  big: 17.31,
+  small: 7.13,
+  lh: 3.63,
+  slh: 3.3,
+  company: [9.78, 2.21],
+  title: [8.59, 1.59, 137.29],
+  dateY: 2.95,
+  number: { x: 0.51, y: 3.12 },
+  lineY: 1.2,
+  conclusionX: 0.48,
+  firstLeft: ["Paper Reel SAP\nbatch no.", "Roll no.", "Roll no.", "Roll no."],
+  bands: [
+    { h: [10.75, 16.75, 4.66, 4.66, 4.67, 6.43], gap: [4.69, "heavy"], ul: [[1], [1]] },
+    { h: [7.99, 13.91, 4.66, 4.66, 4.67, 6.23], gap: [4.67, "light"], ul: [[1], [1]], plain: true, heavyLine: "table", heavyConclusion: "first" },
+    { h: [7.82, 11.32, 4.66, 4.66, 4.67, 7.63], gap: [4.67, "light"], ul: [[1], []], atLeft: true, heavyLine: "first" },
+    { h: [11.13, 9.33, 4.66, 4.67, 4.67, 7.44], ul: [[1], [1]], atLeft: true, heavyLine: "first", over: true },
+  ],
+});
+
+/** The Sleeve sheet: five checks, Corona Treatment alone in the last band; no number printed. */
+const RELIABILITY_SLEEVE = reliabilitySheet({
+  left: 10,
+  cols: [17.4, 18.75, 21.29, 19.57, 18.11, 19.56, 19.41, 18.76, 18.58, 18.61],
+  pt: 7.76,
+  big: 17.05,
+  small: 6.94,
+  lh: 3.56,
+  slh: 3.21,
+  company: [9.58, 2.15],
+  title: [8.43, 1.57, 134.09],
+  dateY: 2.91,
+  lineY: 1.18,
+  conclusionX: 0.5,
+  firstLeft: ["Roll no.", "Roll no.", "Roll no."],
+  bands: [
+    { h: [10.51, 16.43, 4.6, 4.6, 4.61, 6.3], gap: [4.63, "heavy"], ul: [[0], [1]], lowLeft: 5.76 },
+    { h: [7.87, 13.6, 4.6, 4.61, 4.6, 6.66], gap: [4.6, "heavy"], ul: [[], []], plain: true, heavyConclusion: "all" },
+    { h: [7.65, 13.78, 4.61, 4.6, 4.61, 4.62], ul: [[], []], atLeft: true, heavyLine: "first", alone: true },
+  ],
+});
+
 export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-coa-label": COA_LABEL,
   "qc-coa-sleeve": COA_SLEEVE,
@@ -937,6 +1201,8 @@ export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-temperature": TEMPERATURE_HOT_ROOM,
   "qc-viscosity": VISCOSITY,
   "qc-adhesive-mixing": ADHESIVE_MIXING,
+  "qc-test-reliability-label": RELIABILITY_LABEL,
+  "qc-test-reliability-sleeve": RELIABILITY_SLEEVE,
 };
 
 /**
@@ -956,14 +1222,21 @@ export function lineRow(form: PaperTable, r: number): PaperCell[] {
 /**
  * Whether the paper still fits the format as it stands: every box and column it draws is the format's, and every one the
  * format has is drawn. A format the plant has edited since (a column added or taken off, a box added: the format's
- * designer, Mitra) no longer matches the paper's cells, so its sheet is drawn as every grid is, nothing of it lost.
+ * designer, Mitra) no longer matches the paper's cells, so its sheet is drawn as every grid is, nothing of it lost. A
+ * paper that draws the format's printed lines one by one (F-QC-14's checks, a certificate's colours) fits while the format
+ * prints as many lines as it draws: a line taken off or added is drawn as every grid is too.
  */
-export function paperTableFits(form: PaperTable, layout: { headerFields: { key: string }[]; footerFields?: { key: string }[]; columns: { key: string }[] }): boolean {
+export function paperTableFits(
+  form: PaperTable,
+  layout: { headerFields: { key: string }[]; footerFields?: { key: string }[]; columns: { key: string }[]; rowMode?: { kind: string; rows?: unknown[] } }
+): boolean {
   const cells = [...form.head, ...form.body, ...form.foot].flatMap((r) => r.cells).concat(form.lines?.cells ?? []);
   const boxes = new Set(cells.flatMap((c) => (c.box ? [c.box] : c.sentence ? [c.sentence.box] : [])));
   const cols = new Set(cells.flatMap((c) => (c.col ? [c.col] : [])));
   const fields = [...layout.headerFields, ...(layout.footerFields ?? [])].map((f) => f.key);
   const columns = layout.columns.map((c) => c.key);
+  const lns = cells.flatMap((c) => (c.col && c.ln !== undefined ? [c.ln] : []));
+  if (!form.lines && lns.length > 0 && layout.rowMode?.kind === "fixedRows" && layout.rowMode.rows?.length !== Math.max(...lns) + 1) return false;
   return fields.length === boxes.size && fields.every((k) => boxes.has(k)) && columns.length === cols.size && columns.every((k) => cols.has(k));
 }
 

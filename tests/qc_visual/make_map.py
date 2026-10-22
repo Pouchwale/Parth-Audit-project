@@ -117,8 +117,6 @@ def main():
     why = {
         "qc-viscosity": "F-QC-30 is a photograph (WhatsApp 2.15.18 PM), not in the owner's folder",
         "qc-temperature": "F-QC-40.C is a photograph (WhatsApp 2.15.19 PM), not in the owner's folder",
-        "qc-test-reliability-label": "F-QC-14 is an Excel workbook; not in the owner's folder and there is no converter on this machine",
-        "qc-test-reliability-sleeve": "F-QC-14 is an Excel workbook; not in the owner's folder",
         "qc-camera-challenge-test": "its PDF is not in the owner's folder",
         "qc-inspection-printed-film": "F/QC/34: no paper on file (photographed register, not among the originals)",
         "qc-inspection-slitting": "F/QC/35: no paper on file",

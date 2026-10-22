@@ -56,6 +56,19 @@ export interface PaperTableParts {
   rowCount?: number;
   /** Take a line of the record off (the screen's bin on a register's line), where lines may be removed. */
   removeLine?: (line: number) => void;
+  /** What a box of the record holds: its words where the paper prints them again, or where the print shows them as words. */
+  value?: (key: string) => string;
+}
+
+/** Words whose lines the paper underlines (PaperCell.ul, F-QC-14's specifications): each such line in its own underlined span. */
+export function withUnderlinedLines(text: string, ul: number[] | undefined, render: (line: string) => React.ReactNode = (line) => line): React.ReactNode {
+  if (!ul || ul.length === 0) return render(text);
+  return text.split("\n").map((line, i) => (
+    <React.Fragment key={i}>
+      {i > 0 && "\n"}
+      {ul.includes(i) ? <span className="pt-ul">{render(line)}</span> : render(line)}
+    </React.Fragment>
+  ));
 }
 
 /** The field of the layout a cell names, header or footer. */
@@ -173,6 +186,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           // A register's line the record does not hold, in a row that shows (a second block beside the record's lines).
           if (row.line !== undefined && !row.pad && c.ln !== undefined && c.ln >= (parts.rowCount ?? 0)) classes.push("pt-padc");
           if (c.ww) classes.push("pt-ww");
+          if (c.ov) classes.push("pt-ov");
+          if (c.pw && c.box) classes.push("pt-pwc");
           const style: Record<string, string> = {
             "--pt-size": String(pt),
             "--pt-lh": String(lh),
@@ -203,17 +218,55 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
                 </span>
               );
             });
-          } else if (c.box) body = parts.box(c.box, c);
+          } else if (c.box) {
+            // (a box the print shows as its words: the box on the screen, its words on the paper, wrapping as the paper's)
+            body = c.pw ? (
+              <>
+                {parts.box(c.box, c)}
+                <span className="pt-pw" aria-hidden="true">
+                  {parts.value?.(c.box) ?? ""}
+                </span>
+              </>
+            ) : (
+              parts.box(c.box, c)
+            );
+          }
           else if (c.num && row.line !== undefined) {
             const n = c.ln ?? row.line;
             body = c.num === "all" || n < (parts.rowCount ?? 0) ? <span className="pt-words">{n + 1}</span> : null;
           } else if (c.col !== undefined && c.ln !== undefined) body = row.line !== undefined && c.ln >= (parts.rowCount ?? 0) ? null : parts.gridCell(c.ln, c.col, c);
           else if (c.sentence) {
-            const f = fieldOf(layout, c.sentence.box);
+            const s = c.sentence;
+            const f = fieldOf(layout, s.box);
+            // The cell's own words on the line above ("Inspector - 1" over the name), the words before the box (its own
+            // label for "@key"), the box, the words after; the paper's spaces between.
+            const head = c.lab !== undefined ? referenced(layout, c.lab) : c.t;
+            const before = s.before.startsWith("@") ? referenced(layout, s.before.slice(1)) : (f?.inSentence?.before ?? s.before);
+            const after = f?.inSentence?.after ?? s.after;
+            const gap = " ".repeat(s.space ?? 1);
+            const value = parts.value?.(s.box) ?? "";
             body = (
-              <span className="pt-words pt-sentence" style={{ "--pt-bw": String(c.sentence.boxWidth) } as React.CSSProperties}>
-                {f?.inSentence?.before ?? c.sentence.before}{" "}
-                {parts.box(c.sentence.box, c)} {f?.inSentence?.after ?? c.sentence.after}
+              <span className={`pt-words pt-sentence${s.pw ? " pt-sw" : ""}`} style={{ "--pt-bw": String(s.boxWidth) } as React.CSSProperties}>
+                {head ? `${head}\n` : null}
+                {before}
+                {before && !before.endsWith("\n") ? gap : null}
+                {s.copy ? (
+                  // the box's words written again where the paper prints them again (the box is where it prints them first)
+                  <span className="pt-copy" data-copies={s.box}>
+                    {value}
+                  </span>
+                ) : (
+                  <>
+                    {parts.box(s.box, c)}
+                    {s.pw && (
+                      <span className="pt-pw" aria-hidden="true">
+                        {value}
+                      </span>
+                    )}
+                  </>
+                )}
+                {after && !after.startsWith("\n") ? gap : null}
+                {after}
               </span>
             );
           } else {
@@ -231,7 +284,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
                     ))}
                 </span>
               );
-            } else if (text) body = <span className="pt-words">{withHeaderWords(text, words, edit, !!c.caps)}</span>;
+            } else if (text) body = <span className="pt-words">{withUnderlinedLines(text, c.ul, (line) => withHeaderWords(line, words, edit, !!c.caps))}</span>;
           }
           cells.push(
             <td
@@ -241,6 +294,10 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               rowSpan={c.rs && c.rs > 1 ? c.rs : undefined}
               style={style as React.CSSProperties}
               data-pt-cell={`${row0 + ri}:${ci}`}
+              // A cell of the record's grid says its line (from 0) and column; a cell the paper leaves blank says so.
+              data-pt-ln={c.col !== undefined && c.ln !== undefined ? c.ln : undefined}
+              data-pt-col={c.col}
+              data-pt-blank={c.t === "" && !c.box && !c.col && !c.sentence && !c.img && !c.at && !c.num && c.lab === undefined ? "" : undefined}
             >
               {/* The screen's bin on a register's line, outside the paper's table; never printed. */}
               {ci === 0 && row.line !== undefined && !row.pad && parts.removeLine && form.lines && (

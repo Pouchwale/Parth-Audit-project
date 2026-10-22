@@ -418,6 +418,67 @@ with sync_playwright() as p:
             written = "R2 CHECK" in str((record_by_id(page, rid) or {}).get("data"))
         check("...and what is typed in its grid is kept on the record", written is True, written)
 
+    # ==================================================================
+    print("\n==== The papers drawn as their own table on 22-Oct-2026 (s117 round 2): every header word, every blank ====")
+    # ==================================================================
+    # Each prints its header words in its own cells (the company, the title, the number with its revision and its date);
+    # what it does not print (F/QC/25's and F-QC-14's number, revision, date and page) is typed over on the screen's strip.
+    # Every cell of the paper holds its words or a box of the record, but the blank rows it rules between its parts; a
+    # worked-out cell is the sheet's. What is typed in its grid is kept on the record.
+    PT_OFFERS = """() => Object.fromEntries(['rename-company', 'rename-title', 'rename-format-no', 'rename-revision', 'rename-revision-date', 'rename-page-no'].map((a) =>
+      [a, document.querySelectorAll(`[data-print-doc] [data-action='${a}']`).length]))"""
+    PT_BLANKS = """() => {
+      const doc = document.querySelector('[data-print-doc]');
+      const blanks = Array.from(doc.querySelectorAll('table[data-paper-part] td.pt-c')).filter((td) =>
+        !td.hasAttribute('data-pt-blank') && !td.closest('tr.pt-pad') && !td.classList.contains('pt-padc')
+        && !td.querySelector('input, select, textarea, img, [data-computed]') && !td.textContent.trim()).map((td) => td.getAttribute('data-pt-cell'));
+      const boxes = Array.from(doc.querySelectorAll('input[data-bind], select[data-bind], textarea[data-bind]'));
+      return { paper: !!doc.querySelector('[data-paper-form="table"]'), blanks, boxes: boxes.length, open: boxes.filter((b) => !b.disabled).length };
+    }"""
+    every = ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-revision-date", "rename-page-no")
+    printed = ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-revision-date")
+    logo = ("rename-title", "rename-format-no", "rename-revision", "rename-revision-date")
+    for doc_id, number, wanted in (
+        ("qc-coa-corrugated", "F/QC/25", every),
+        ("qc-calibration-master-list", "F/QC/08", printed),
+        ("qc-obsolete-artwork", "F/QC/16", printed),
+        ("qc-ruler-verification", "F/QC/17", printed),
+        ("qc-ruler-verification-300", "F/QC/17 (300 mm)", printed),
+        ("qc-temperature-humidity", "F-QC-40.A", logo),
+        ("qc-temperature-sleeve", "F-QC-40.B", logo),
+        ("qc-temperature", "F-QC-40.C", logo),
+        ("qc-viscosity", "F-QC-30", logo),
+        ("qc-adhesive-mixing", "F-QC-32", logo),
+        ("qc-test-reliability-label", "F-QC-14 (Label)", every),
+        ("qc-test-reliability-sleeve", "F-QC-14 (Sleeve)", every),
+    ):
+        open_page(page, "#/library", settle=1000)
+        new_record = page.locator(f"[data-action='new-record'][data-document='{doc_id}']")
+        if new_record.count():
+            new_record.first.evaluate("el => el.click()")
+        else:
+            open_page(page, f"#/document/{doc_id}", settle=1300)
+            page.locator("[data-action='document-new-record']").first.click()
+        page.wait_for_timeout(1400)
+        dismiss(page)
+        close_assistant(page)
+        rid = page.url.rstrip("/").split("/")[-1]
+        offered = page.evaluate(PT_OFFERS)
+        check(f"{number} ({doc_id}): the header words it prints are typed over where it prints them, the rest on the screen's strip",
+              "#/record/" in page.url and all(offered.get(a, 0) >= 1 for a in wanted), (page.url.split("#")[-1], offered))
+        seen = page.evaluate(PT_BLANKS)
+        check("...drawn as its paper's own table, every blank of it a box of the record, and its boxes can be written in",
+              seen["paper"] and not seen["blanks"] and seen["open"] > 0, seen)
+        cell = page.locator("[data-print-doc] table[data-paper-part] td[data-pt-col] input[data-bind]:not([type='date']):not([type='time']):not(:disabled)").first
+        written = None
+        if cell.count():
+            word = "97531" if cell.get_attribute("type") == "number" else "R2 CHECK"
+            cell.fill(word)
+            cell.press("Tab")
+            page.wait_for_timeout(900)
+            written = word in str((record_by_id(page, rid) or {}).get("data"))
+        check("...and what is typed in its grid is kept on the record", written is True, written)
+
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()
 

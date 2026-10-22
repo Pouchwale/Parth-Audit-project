@@ -8,7 +8,7 @@ import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_
 import { paperTableFits, paperTableFor, type PaperCell } from "../../data/seed/qcPaperTables";
 import { calibrationGeometryFor } from "../../data/seed/qcCalibrationGeometry";
 import { reportGeometryFor } from "../../data/seed/qcReportGeometry";
-import { PaperTablePart, type PaperTableParts } from "./PaperTableSheet";
+import { PaperTablePart, withUnderlinedLines, type PaperTableParts } from "./PaperTableSheet";
 import { COMPANY } from "../../data/seed/masterData";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
@@ -601,14 +601,15 @@ export function LogSheetRecordView({
       }
       return at.footer ? footerBox(field, at.index, true) : headerBox(field, at.index, true);
     };
-    const paperGridCell = (line: number, key: string): React.ReactNode => {
+    const paperGridCell = (line: number, key: string, cell?: PaperCell): React.ReactNode => {
       const row = data.rows[line];
       const ci = layout.columns.findIndex((c) => c.key === key);
       if (!row || ci < 0) return null;
       const c = layout.columns[ci];
       const fixedRow = mode.kind === "fixedRows" ? mode.rows[line] : undefined;
       const col = effectiveColumn(c, fixedRow);
-      if (col.fixed) return <span className="pt-words">{documentTextIn(printedCell(row, key, fixedRow), lang)}</span>;
+      // (a printed cell's lines the paper underlines, F-QC-14's specification under each check's name)
+      if (col.fixed) return <span className="pt-words">{withUnderlinedLines(documentTextIn(printedCell(row, key, fixedRow), lang), cell?.ul)}</span>;
       // A worked-out cell (F/QC/17's Difference) reads as words, never a box, and says it is worked out (not bound).
       if (col.computed) {
         const v = row[key];
@@ -655,6 +656,7 @@ export function LogSheetRecordView({
       edit: headerEdit,
       box: paperBox,
       gridCell: paperGridCell,
+      value: (key: string) => String(data.header?.[key] ?? ""),
     };
     return (
       <div

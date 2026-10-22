@@ -175,13 +175,14 @@ test("F08: F/QC/30 is revision 00 of 01.01.2022, as the owner's original prints 
 test("F11: F-QC-14 prints the workbook's eight small tables, each with its own heading, inspectors' names and Conclusion — no words of DCRS's", async () => {
   const label = seeded("qc-test-reliability-label-2022-02");
   const html = await sheet("qc-test-reliability-label", label.data);
-  const tables = html.match(/class="compact log-sheet paper-panel/g) ?? [];
-  assert.equal(tables.length, 8, "eight tables");
+  // The workbook's one framed table since s117 round 2 (22-Oct-2026): eight checks, each its own small table in it.
+  assert.match(html, /data-sheet="qc-test-reliability-label" data-paper-form="table"/);
+  assert.equal((html.match(/<td[^>]*data-pt-col="parameter"/g) ?? []).length, 8, "eight tables, each headed with its check");
   const words = text(html);
   for (const absent of ["Paper Reel SAP batch no. / Roll no. / sample no.", "FG Code", "Conclusion (GSM - Total)", "Conclusion (Gloss Testing)"]) {
     assert.ok(!words.includes(absent), `"${absent}" is not on the paper`);
   }
-  assert.ok(!Array.from(html.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g), (m) => text(m[1]).trim()).includes("Test"), "no heading \"Test\" of DCRS's");
+  assert.ok(!/>\s*Test\s*</.test(html), "no heading \"Test\" of DCRS's");
   assert.equal(words.split("Paper Reel SAP batch no.").length - 1, 1, "the first table's first heading");
   assert.equal(words.split("Roll no.").length - 1, 3, "the other rolls' tables");
   assert.equal(words.split("FGLA 11430 sample no.").length - 1, 4, "the finished label's four tables, its FG code written in");
@@ -190,12 +191,14 @@ test("F11: F-QC-14 prints the workbook's eight small tables, each with its own h
   assert.ok(words.includes("GSM - Total") && words.includes("Specification : 70 ± 5%"));
   // The check's heading is printed once, over its table, not on every line.
   assert.equal(words.split("Specification : 70 ± 5%").length - 1, 1);
-  // Open for writing: the names and the FG code are typed in the first table that prints them, once each.
+  // Open for writing: the names and the FG code are typed in the first table that prints them, once each, and
+  // written again in the others.
   const open = await sheet("qc-test-reliability-label", label.data, true);
-  assert.equal((open.match(/<input[^>]*data-heading-box="inspector1"/g) ?? []).length, 1);
-  assert.equal((open.match(/<input[^>]*data-heading-box="fgCode"/g) ?? []).length, 1);
+  assert.equal((open.match(/data-box="inspector1"><input[^>]*data-bind=/g) ?? []).length, 1);
+  assert.equal((open.match(/data-box="fgCode"><input[^>]*data-bind=/g) ?? []).length, 1);
+  assert.equal((open.match(/data-copies="fgCode">FGLA 11430</g) ?? []).length, 3);
   // The sleeve sheet: five tables.
-  assert.equal((await sheet("qc-test-reliability-sleeve", seeded("qc-test-reliability-sleeve-2022-02").data)).match(/class="compact log-sheet paper-panel/g)?.length, 5);
+  assert.equal((await sheet("qc-test-reliability-sleeve", seeded("qc-test-reliability-sleeve-2022-02").data)).match(/<td[^>]*data-pt-col="parameter"/g)?.length, 5);
 });
 
 // ---------------------------------------------------------------------------
