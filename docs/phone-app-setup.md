@@ -153,9 +153,9 @@ rules do not apply there: add `-SetPrivate` (only on the company network). `-Rem
 2. Join the **company Wi-Fi**.
 3. **iPhone only:** in Expo Go, tap the round picture at the top right and sign in with the plant's Expo account
    (step 3.8).
-4. **Scan the code**: in DCRS, open **Ask Mitra** and, under **Mitra on your phone**, **Show the code**. (When Expo
-   is started by hand in a window instead, with `npm run phones` in the app's folder, the QR code it prints works
-   too.)
+4. **Scan the code**: the QR code Expo prints in its window on the server PC (`npm run phones` in the app's folder),
+   or type `exp://<the server PC's address>:8081` in Expo Go. (DCRS's Ask Mitra page no longer shows a phone card: the
+   owner had it removed on 22-Oct-2026.)
    - **iPhone:** with the Camera app; tap the banner to open it in Expo Go. When Expo Go asks to find devices on the
      local network, tap **Allow** (to change it later: Settings > Privacy & Security > Local Network > Expo Go).
    - **Android:** inside Expo Go, **Scan QR code**.

@@ -116,6 +116,15 @@ const FRAMED_WIDTH = {
   landscape: (297 - 2 * FRAMED_MARGIN_MM) * PX_PER_MM - FRAMED_INSET,
 };
 const isFramed = (doc: Element): boolean => doc.matches("[data-frame]") || doc.querySelector("[data-frame]") !== null;
+// A PAPER DRAWN AS ITS OWN TABLE (data-paper-left on the sheet, components/records/PaperTableSheet.tsx, §117 round 2) stands
+// where the paper stands on the page, its own millimetres from the page's left edge: the page keeps that margin, and the
+// sheet is scaled only where it would run past the page's right edge (2 mm short of it).
+const PAGE_WIDTH_MM = { portrait: 210, landscape: 297 };
+function ownLeftMargin(doc: Element): number | null {
+  const el = doc.matches("[data-paper-left]") ? doc : doc.querySelector("[data-paper-left]");
+  const mm = el ? Number(el.getAttribute("data-paper-left")) : NaN;
+  return Number.isFinite(mm) ? mm : null;
+}
 const SMALLEST_SCALE = 0.3;
 // A form a little too wide for a portrait page stays portrait, slightly smaller.
 const PORTRAIT_SCALE = 0.8;
@@ -162,8 +171,10 @@ function fitToPage(docs: Element[]): void {
   pageStyle().textContent = landscape ? "@page { size: A4 landscape; margin: 0; }" : "";
   document.documentElement.dataset.printPage = landscape ? "landscape" : "portrait";
   for (const { doc, width } of needs) {
-    if (width <= paper) continue;
-    let zoom = Math.max(SMALLEST_SCALE, Math.floor((paper / width) * 1000) / 1000);
+    const own = ownLeftMargin(doc);
+    const room = own !== null ? (PAGE_WIDTH_MM[landscape ? "landscape" : "portrait"] - own - 2) * PX_PER_MM : paper;
+    if (width <= room) continue;
+    let zoom = Math.max(SMALLEST_SCALE, Math.floor((room / width) * 1000) / 1000);
     doc.style.zoom = String(zoom);
     // A framed page is as tall as the paper (styles.css): the zoom shrinks its millimetres, so it says by how much.
     doc.style.setProperty("--print-zoom", String(zoom));

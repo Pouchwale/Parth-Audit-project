@@ -2001,12 +2001,6 @@ body { top: 0 !important; }
 .assistant-page { display: flex; gap: 16px; height: calc(100vh - 58px - 44px - 60px); min-height: 520px; }
 .assistant-side { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
 .assistant-side-list { flex: 1 1 auto; min-height: 72px; overflow-y: auto; }
-/* The phone card at the foot: it gives way (and scrolls) before the list does. */
-.assistant-side > .mitra-phone { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
-/* While its code is shown, the phone card has the panel: the list folds until it is hidden again. */
-.assistant-side.is-phone-open .assistant-side-list { display: none; }
-.assistant-side.is-phone-open > .mitra-phone { flex: 1 1 auto; border-top: 0; }
-.assistant-side.is-phone-open { width: 300px; }
 .assistant-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .assistant-log { flex: 1; overflow-y: auto; padding: 20px 24px 12px; }
 .assistant-log .mitra-thread { max-width: 860px; margin: 0 auto; }
@@ -2014,7 +2008,7 @@ body { top: 0 !important; }
 .assistant-composer > .mitra-composer, .assistant-composer > .mitra-hint, .assistant-composer > .assistant-voice-note { max-width: 860px; margin-left: auto; margin-right: auto; }
 @media (max-width: 900px) {
   .assistant-page { flex-direction: column; height: auto; }
-  .assistant-side, .assistant-side.is-phone-open { width: auto; }
+  .assistant-side { width: auto; }
   .assistant-side-list { max-height: 200px; }
   .assistant-main { min-height: 520px; height: calc(100vh - 58px - 44px - 60px); }
 }
@@ -2476,36 +2470,6 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 .mitra-quick-chips .chat-chip:not(.primary):not(.success):not(.danger) { background: var(--surface-sunken); border-color: var(--surface-sunken); }
 .mitra-quick-chips .chat-chip:not(.primary):not(.success):not(.danger):hover { background: var(--accent-soft); border-color: var(--accent-text); }
 
-/* ---- Mitra on your phone (components/mitra/MitraPhoneCard.tsx, 2-Oct-2026) ----
-   At the foot of the conversations: a line and "Show the code"; opened, the QR
-   code that opens Mitra in Expo Go, its address, and the steps on the phone.
-   Screen only (.no-print on the card). */
-.mitra-phone { padding: 12px 14px 14px; border-top: 1px solid var(--hairline); background: linear-gradient(180deg, var(--accent-wash) 0%, var(--surface) 100%); }
-.mitra-phone-head { display: flex; align-items: flex-start; gap: 10px; }
-.mitra-phone-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 10px; background: var(--mitra-face); color: var(--on-brand); }
-.mitra-phone-words { min-width: 0; }
-.mitra-phone-title { font-size: 13px; font-weight: 700; color: var(--ink); }
-.mitra-phone-lead { margin-top: 2px; font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
-.mitra-phone-toggle { margin: 10px 0 0 42px; }
-.mitra-phone-body { margin-top: 10px; animation: mitra-rise 180ms ease-out backwards; }
-.mitra-phone-code { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 0; }
-.mitra-qr { display: block; width: 148px; height: 148px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--paper); }
-/* A code must be dark on white to scan, in either theme: the paper's white and its ink (the
-   markup keeps its own fills, which mitraPhone.test.ts reads; these are the same colours). */
-.mitra-qr rect { fill: var(--paper); }
-.mitra-qr path { fill: var(--paper-ink); }
-.mitra-phone-wait { display: flex; align-items: center; justify-content: center; width: 148px; height: 148px; padding: 12px; border: 1px dashed var(--hairline-strong); border-radius: 10px; font-size: 11.5px; line-height: 1.4; color: var(--ink-2); text-align: center; }
-.mitra-phone-url { max-width: 100%; padding: 2px 10px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--surface-sunken); font-family: var(--font-mono); font-size: 11.5px; color: var(--ink); overflow-wrap: anywhere; text-align: center; user-select: all; }
-.mitra-phone-note { display: flex; align-items: flex-start; gap: 6px; margin: 10px 0 0; padding: 7px 9px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-sunken); font-size: 11.5px; line-height: 1.45; color: var(--ink); }
-.mitra-phone-note svg { flex-shrink: 0; margin-top: 1px; color: var(--accent-text); }
-.mitra-phone-note.is-warning { border-color: transparent; background: var(--warning-soft); color: var(--warning); }
-.mitra-phone-note.is-warning svg { color: var(--warning); }
-.mitra-phone-steps { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; counter-reset: mitra-phone-step; }
-.mitra-phone-steps li { position: relative; padding-left: 27px; counter-increment: mitra-phone-step; font-size: 11.5px; line-height: 1.42; color: var(--ink); }
-.mitra-phone-steps li::before {
-  content: counter(mitra-phone-step); position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; justify-content: center;
-  width: 20px; height: 20px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font-size: 11px; font-weight: 700;
-}
 /* ---- end of Ask Mitra as an agent ---- */
 /* ==== end of AREA 2 ==== */
 
@@ -3374,6 +3338,473 @@ table.svc-paper {
 }
 /* HR-DOCS end */
 
+/* QC-PAPER-TABLES begin */
+/* THE QC PAPERS DRAWN AS THEIR OWN WORD TABLE (REQUIREMENTS §117, round 2 of 20-Oct-2026). The owner: "reproduce the same
+   layout, not a redesign". components/records/PaperTableSheet.tsx draws a paper's rows (data/seed/qcPaperTables.ts: the
+   certificates of analysis) as the paper's one table: three tables on the same columns (the header block, the body, the
+   foot), each row the paper's height, each cell its width, the paper's rules (hairlines, and the heavier rules it draws
+   under its letterhead and its title), its faces and sizes, in millimetres and points at the print's zoom (--u, --pt). A
+   box of the record fills its cell; a printed word stands where the paper prints it. Ink on white in every theme. Only a
+   sheet that carries data-paper-form="table" is drawn so: every other document's output is as it was. */
+.paper-sheet[data-paper-form="table"] {
+  --u: calc(1mm / var(--print-zoom, 1)); --pt: calc(1pt / var(--print-zoom, 1));
+  --pt-bd: calc(1.05px / var(--print-zoom, 1)) solid #000;
+  --pt-hv: calc(2.05px / var(--print-zoom, 1)) solid #000;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.paper-sheet[data-paper-form="table"] .doc-header.doc-header-paper { border: 0; border-radius: 0; overflow: visible; background: transparent; }
+.paper-sheet[data-paper-form="table"] .doc-header-paper .doc-letterhead { padding: 0; }
+/* The format's number, revision and page, which the paper does not print: on the screen only, to be typed over (§86). */
+.paper-sheet[data-paper-form="table"] .doc-header-paper .pt-number-strip { width: calc(var(--pt-strip-w, 193.4) * var(--u)); max-width: 100%; box-sizing: border-box; margin: 6px 0 8px; border: 1px dashed var(--color-border-strong); border-radius: 4px; }
+.pt-table { box-sizing: border-box; width: calc(var(--pt-w) * var(--u)); table-layout: fixed; border-collapse: collapse; border-left: var(--pt-bd); background: #fff; color: #000; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; }
+.pt-table.pt-head { border-top: var(--pt-bd); }
+.pt-table col { width: calc(var(--pt-col) * var(--u)); }
+.pt-table tr { height: calc(var(--pt-h) * var(--u)); }
+.pt-table td.pt-c {
+  position: relative; box-sizing: border-box; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u));
+  border: 0; border-right: var(--pt-bd); border-bottom: var(--pt-bd); background: transparent; color: #000;
+  font-size: calc(var(--pt-size) * var(--pt)); line-height: calc(var(--pt-lh) * var(--u)); font-weight: 400; letter-spacing: 0; text-transform: none;
+  text-align: left; vertical-align: top; white-space: pre-wrap; overflow: visible;
+}
+.pt-table td.pt-c.pt-or { border-right: 0; }
+.pt-table td.pt-c.pt-ob { border-bottom: 0; }
+.pt-table td.pt-c.pt-hb { border-bottom: var(--pt-hv); }
+.pt-table td.pt-c.pt-hr { border-right: var(--pt-hv); }
+.pt-table td.pt-c.pt-b { font-weight: 700; }
+.pt-table td.pt-c.pt-ac { text-align: center; padding-left: calc(var(--pt-pl, 0) * var(--u)); padding-right: calc(var(--pt-pr, 0) * var(--u)); }
+.pt-table td.pt-c.pt-ar { text-align: right; }
+.pt-table td.pt-c.pt-f-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
+.pt-table td.pt-c.pt-f-times { font-family: "Times New Roman", Times, serif; }
+.pt-table .pt-words { display: block; }
+/* The paper's degree sign: a small raised ring after the figure. */
+.pt-table .pt-ring { display: inline-block; width: calc(1.3 * var(--u)); height: calc(1.3 * var(--u)); margin-left: calc(0.9 * var(--u)); border: calc(0.75px / var(--print-zoom, 1)) solid #000; border-radius: 50%; vertical-align: calc(1.6 * var(--u)); box-sizing: border-box; }
+/* A line in its own face and size where the paper prints it (the letterhead: the company's name in Arial bold over its three lines). */
+.pt-table td.pt-c .pt-at { position: absolute; left: 0; right: 0; top: calc(var(--pt-ay) * var(--u)); display: block; padding: 0 calc(var(--pt-x) * var(--u)); font-size: calc(var(--pt-size) * var(--pt)); line-height: calc(var(--pt-lh) * var(--u)); font-weight: 400; text-align: inherit; white-space: pre; }
+.pt-table td.pt-c .pt-at.pt-b { font-weight: 700; }
+.pt-table td.pt-c .pt-at.pt-f-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
+.pt-table td.pt-c .pt-at.pt-f-times { font-family: "Times New Roman", Times, serif; }
+.pt-table .pt-img { position: absolute; left: calc(var(--pt-ix) * var(--u)); top: calc(var(--pt-iy) * var(--u)); width: calc(var(--pt-iw) * var(--u)); height: calc(var(--pt-ih) * var(--u)); object-fit: fill; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+/* A bulleted line: the paper's round bullet, where its bullet picture stands. */
+.pt-table .pt-bullet { display: block; position: relative; }
+.pt-table .pt-bullet::before {
+  content: ""; position: absolute; left: calc((var(--pt-bx) + 1.05) * var(--u)); top: calc(50% - 1.15 * var(--u)); width: calc(2.3 * var(--u)); height: calc(2.3 * var(--u));
+  border-radius: 50%; background: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+/* A box of the record fills its cell: the paper's cell is the box. */
+.pt-table td.pt-c > .field-in-table, .pt-table td.pt-c > .pt-box { position: absolute; inset: 0; display: block; margin: 0; padding: 0; }
+.pt-table td.pt-c > .field-in-table > .input, .pt-table td.pt-c > .pt-box > .input {
+  position: absolute; inset: 0; box-sizing: border-box; display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0;
+  text-indent: calc(var(--pt-x) * var(--u)); border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000;
+  font: inherit; text-align: inherit;
+}
+.pt-table td.pt-c > .field-in-table.pt-lines > textarea.input { padding-top: calc(var(--pt-y) * var(--u)); resize: none; overflow: hidden; white-space: pre-wrap; text-indent: 0; padding-left: calc(var(--pt-x) * var(--u)); }
+.pt-table td.pt-c > .pt-box > .cell-text { display: block; min-width: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; }
+/* A written date prints as its words in the place of its box (utils/print.ts), in the cell's own face and place. */
+.pt-table td.pt-c > .field-in-table > .print-box-text { position: absolute; inset: 0; display: block; margin: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; text-align: inherit; }
+/* The box written inside the paper's sentence ("This material should be retested on ... before usage."). */
+.pt-table .pt-sentence .field-in-table { position: relative; display: inline-block; width: calc(var(--pt-bw) * var(--u)); height: calc(var(--pt-lh) * var(--u)); margin: 0; padding: 0; vertical-align: top; }
+.pt-table .pt-sentence .field-in-table > .input {
+  position: absolute; inset: 0; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000; font: inherit; text-align: center;
+}
+.pt-table .pt-sentence .field-in-table > .print-box-text { display: inline; padding: 0; color: #000; font: inherit; }
+.pt-table .field-out-of-band > .input, .pt-table .cell-out-of-band > .input { background: var(--color-warning-bg); }
+@media screen {
+  .pt-table td.pt-c > .field-in-table > .input:not(:disabled), .pt-table td.pt-c > .pt-box > .input:not(:disabled), .pt-table .pt-sentence .field-in-table > .input:not(:disabled) { background: #fffdf0; }
+  .pt-table td.pt-c > .field-in-table > .input:not(:disabled):hover, .pt-table td.pt-c > .pt-box > .input:not(:disabled):hover { background: #fff7cc; }
+  .pt-table .input:focus { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  .pt-table .pt-sentence .field-in-table > .input:not(:disabled) { box-shadow: inset 0 -1px 0 0 #6b7280; }
+}
+@media print {
+  /* The page keeps the paper's own margin: the table's corner stands where the paper's does (mm from the page's edges). */
+  [data-print-doc]:has(.paper-sheet[data-paper-form="table"]) { padding: 0; }
+  /* (padding, not a margin: a margin at the top of the page sent the sheet's last pixel onto a blank second page) */
+  .paper-sheet[data-paper-form="table"] { display: table; width: auto; overflow: visible; margin: 0; border-collapse: separate; border-spacing: 0; padding: calc(var(--pt-top) * var(--u)) 0 0 calc(var(--pt-left) * var(--u)); }
+  .paper-sheet[data-paper-form="table"] .doc-header.doc-header-paper { border: 0; }
+  .pt-table td.pt-c > .field-in-table > .input, .pt-table td.pt-c > .pt-box > .input { padding: 0; }
+  /* A written date prints as its words in its place (utils/print.ts), the box itself not. */
+  .pt-table td.pt-c > .field-in-table > .input.print-as-text, .pt-table .pt-sentence .field-in-table > .input.print-as-text, .pt-table td.pt-c > .pt-box > .input.print-as-text { display: none; }
+  /* An empty choice box prints nothing at all (not its hidden first option). */
+  .pt-table select[data-empty] { visibility: hidden; }
+  /* An empty date in the sentence leaves the paper's own blank, not the width of a box to type in. */
+  .pt-table .pt-sentence .field-in-table:has(> .input[data-empty]) { width: calc(2.6 * var(--u)); }
+}
+/* QC-PAPER-TABLES end */
+
+/* QC-CALIBRATION begin */
+/* THE TWO INTERNAL CALIBRATION RECORDS ON THEIR PAPERS, F/QC/11 AND F/QC/12 (REQUIREMENTS §117, round 2 of 20-Oct-2026).
+   The owner's papers: a ruled box with the company's name (underlined), the line under it, a rule, the title (underlined);
+   the ruled table of the device's boxes; the grid; the PROCEDURE; the number alone at the foot of the page. The sheet keeps
+   its boxes, its grid and its words (the downloads read them as before) and is drawn on the papers' millimetres
+   (data/seed/qcCalibrationGeometry.ts, put on the sheet as --cal-*, --pf-cols, --pf-col, --pf-h by LogSheetRecordView).
+   On the screen the header keeps its Format No. / Rev No. / Page No. row to be typed over (§86); printed, the number
+   stands at the foot of the page as the paper prints it. A phone keeps the stacked boxes it always had. */
+.paper-sheet[data-paper-form="calib"] .page-foot-number { display: none; }
+.paper-sheet[data-paper-form="calib"] .pf-pad { display: none; }
+@media print, (min-width: 760px) {
+  .paper-sheet[data-paper-form="calib"] {
+    --u: calc(1mm / var(--print-zoom, 1)); --pt: calc(1pt / var(--print-zoom, 1));
+    --b1: calc(1.05px / var(--print-zoom, 1)); --b2: calc(2.05px / var(--print-zoom, 1));
+    --pf-bd: var(--b1) solid #000;
+    --cal-arial: Arial, "Liberation Sans", Helvetica, sans-serif;
+    --cal-times: "Times New Roman", Times, serif;
+    color: #000;
+  }
+  /* the header box: the company's name and the line under it, a rule, the title */
+  .paper-sheet[data-paper-form="calib"] .doc-header { box-sizing: border-box; width: var(--cal-w); border: var(--pf-bd); border-radius: 0; overflow: visible; background: #fff; color: #000; font-family: var(--cal-arial); }
+  .paper-sheet[data-paper-form="calib"] .doc-header .company-name { margin: 0; padding: var(--cal-head-co-y) 0 0; border: 0; font-family: var(--cal-arial); font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; letter-spacing: 0; text-align: center; color: #000; }
+  .paper-sheet[data-paper-form="calib"] .doc-header .company-name > span { text-decoration: underline; text-decoration-thickness: calc(0.42 * var(--u)); text-underline-offset: calc(0.6 * var(--u)); }
+  .paper-sheet[data-paper-form="calib"] .doc-header .company-lines {
+    box-sizing: border-box; height: calc(var(--cal-head-co) - var(--cal-head-co-y) - 12 * var(--pt)); margin: 0; padding: var(--cal-head-gap) 0 0; border-bottom: var(--pf-bd);
+    font-family: var(--cal-arial); font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 700; text-align: center; color: #000;
+  }
+  .paper-sheet[data-paper-form="calib"] .doc-header .doc-title {
+    box-sizing: border-box; height: var(--cal-head-title); margin: 0; padding: var(--cal-head-title-y) 0 0; border: 0;
+    font-family: var(--cal-arial); font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; letter-spacing: 0; text-align: center; color: #000;
+    text-decoration: underline; text-decoration-thickness: calc(0.42 * var(--u)); text-underline-offset: calc(0.6 * var(--u));
+  }
+  .paper-sheet[data-paper-form="calib"] .doc-header .meta-row { border-top: var(--pf-bd); }
+  /* the device's boxes: the paper's ruled table, each box's words at the top of its cell and the box under them */
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] { margin: 0; width: var(--cal-w); }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field {
+    display: flex; flex-direction: column; justify-content: flex-start; box-sizing: border-box; min-width: 0; margin: 0; padding: 0 var(--cal-box-x);
+    border: 0; border-right: var(--pf-bd); border-bottom: var(--pf-bd); overflow: hidden;
+  }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field:nth-child(3n+1) { border-left: var(--pf-bd); }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > label {
+    display: block; margin: 0; padding: var(--cal-box-label-y) 0 0; border: 0; background: transparent; color: #000;
+    font-family: var(--cal-arial); font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; letter-spacing: 0; text-transform: none; white-space: nowrap;
+  }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > label { flex: none; }
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > .input,
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > select.input,
+  .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > .print-box-text {
+    flex: none; display: block; box-sizing: border-box; width: 100%; min-width: 0; height: calc(12 * var(--pt) * 1.25); min-height: 0; margin: var(--cal-box-value-y) 0 0; padding: 0;
+    border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000; font-family: var(--cal-arial); font-size: calc(11 * var(--pt)); line-height: calc(12 * var(--pt) * 1.25); text-align: left;
+  }
+  /* F/QC/11: each box's words and its value centred in their cell, in the paper's faces; its Calibration Date two columns
+     wide and its Due Date beside it, after the paper's space, words at the left. */
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field { padding: 0; align-items: stretch; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > label { font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 400; text-align: center; font-family: var(--cal-arial); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(-n+3) > label { font-family: var(--cal-times); padding-top: calc(0.44 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > .input,
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > .print-box-text { font-family: var(--cal-times); font-size: calc(9.96 * var(--pt)); height: calc(9.96 * var(--pt) * 1.25); line-height: calc(9.96 * var(--pt) * 1.25); text-align: center; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(7) { grid-row: 4; grid-column: 1 / span 2; border-top: var(--pf-bd); flex-direction: row; align-items: flex-start; gap: calc(2 * var(--u)); padding-left: calc(1.88 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(8) { grid-row: 4; grid-column: 3; border-top: var(--pf-bd); flex-direction: row; align-items: flex-start; gap: calc(2 * var(--u)); padding-left: calc(3.7 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > label { text-align: left; flex: none; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > .input,
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > .print-box-text { width: calc(40 * var(--u)); margin-top: calc(0.4 * var(--u)); text-align: left; font-family: var(--cal-arial); }
+  /* the grid */
+  .paper-sheet[data-paper-form="calib"] .paper-body > .doc-table { width: auto; margin: var(--cal-grid-gap) 0 0 0; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet th,
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td {
+    box-sizing: border-box; border: var(--pf-bd); background: transparent; color: #000; text-transform: none; letter-spacing: 0; text-align: center; vertical-align: top; overflow: hidden;
+  }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td span { font-size: inherit; font-weight: inherit; color: inherit; }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td .input { text-align: center; text-indent: 0; font-family: inherit; font-size: inherit; color: #000; }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td .cell-text { display: block; font-size: inherit; line-height: inherit; color: #000; }
+  .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: solid; }
+  /* F/QC/11: Times New Roman 12 pt, the headings centred, "Index" larger at the left over the two heading rows; the line's
+     name at the right of its cell (Tasted-1, 2 ... Sign.). */
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet th,
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet td { font-family: var(--cal-times); font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 400; padding: calc(0.6 * var(--u)) calc(0.5 * var(--u)) 0; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet thead tr + tr th { padding-top: calc(0.47 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet thead tr:first-child th:first-child { font-size: calc(14.04 * var(--pt)); line-height: calc(14.04 * var(--pt)); text-align: left; padding: calc(0.57 * var(--u)) 0 0 calc(1.88 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .doc-table table.log-sheet tbody td:first-child { text-align: right; padding: calc(0.47 * var(--u)) calc(1.86 * var(--u)) 0 0; }
+  /* F/QC/12: Arial; the headings bold 11 pt, centred, wrapped as the paper's narrow cells wrap them; "Deviation %" small at the left. */
+  .paper-sheet[data-sheet="qc-weight-scale-calibration"] .doc-table table.log-sheet th { font-family: var(--cal-arial); font-size: calc(11.04 * var(--pt)); line-height: calc(4.45 * var(--u)); font-weight: 700; padding: calc(2 * var(--u)) calc(1.9 * var(--u)) 0; white-space: normal; }
+  .paper-sheet[data-sheet="qc-weight-scale-calibration"] .doc-table table.log-sheet td { font-family: var(--cal-arial); font-size: calc(11 * var(--pt)); line-height: calc(4.45 * var(--u)); font-weight: 400; padding: calc(1.9 * var(--u)) calc(0.5 * var(--u)) 0; }
+  .paper-sheet[data-sheet="qc-weight-scale-calibration"] .doc-table table.log-sheet td.second-line-label { font-size: calc(9 * var(--pt)); line-height: calc(9 * var(--pt)); text-align: left; padding: calc(2.21 * var(--u)) 0 0 calc(1.79 * var(--u)); white-space: nowrap; }
+  /* the PROCEDURE, under the grid as the paper prints it */
+  .paper-sheet[data-paper-form="calib"] [data-section="notes-below"] { box-sizing: border-box; width: var(--cal-w); margin: var(--cal-notes-gap) 0 0; padding: 0 0 0 var(--cal-notes-x); }
+  .paper-sheet[data-paper-form="calib"] [data-section="notes-below"] p { margin: 0; font-family: var(--cal-arial); font-size: calc(11.04 * var(--pt)); line-height: var(--cal-notes-pitch); color: #000; }
+}
+@media print {
+  /* A written date prints as its words, the box itself not (utils/print.ts): the paper forms' box rules above show a box. */
+  .paper-sheet[data-paper-form] [data-pf] > .field > .input.print-as-text, .paper-sheet[data-paper-form] .doc-table table.log-sheet td .input.print-as-text { display: none; }
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td .print-box-text { display: block; padding: 0; font: inherit; color: #000; text-align: inherit; }
+  /* An empty choice box prints nothing at all (not its hidden first option). */
+  .paper-sheet[data-paper-form] select[data-empty] { visibility: hidden; }
+  /* The page keeps the paper's own margin and its number stands at the paper's place at the foot of the page. */
+  [data-print-doc]:has(.paper-sheet[data-paper-form="calib"]) { padding: 0; }
+  .paper-sheet[data-paper-form="calib"] { display: block; position: relative; box-sizing: border-box; width: auto; min-height: calc(205 * var(--u)); padding: var(--cal-top) 0 0 var(--cal-left); border-collapse: separate; }
+  .paper-sheet[data-paper-form="calib"] .paper-head, .paper-sheet[data-paper-form="calib"] .paper-body, .paper-sheet[data-paper-form="calib"] .paper-foot { display: block; }
+  .paper-sheet[data-paper-form="calib"] .doc-header .meta-row { display: none; }
+  .paper-sheet[data-paper-form="calib"] .pf-pad { display: table-row; }
+  .paper-sheet[data-paper-form="calib"] .page-foot-number {
+    display: block; position: absolute; top: var(--cal-foot-y); left: var(--cal-left); width: var(--cal-w); margin: 0; text-align: center; color: #000;
+    font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(11.04 * var(--pt)); line-height: calc(11.04 * var(--pt));
+  }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .page-foot-number { font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); }
+}
+/* QC-CALIBRATION end */
+
+/* QC-SOC begin */
+/* THE STATEMENTS OF COMPLIANCE PRINTED AS THEIR WORD PAGES (REQUIREMENTS §117, round 2 of 20-Oct-2026): F/QC-09, F/QC-10
+   and F/QC-38 (pages/CompliancePage.tsx). The owner's pages: the title alone at the head of every page, bold; the table
+   with "Reference source" its first line, thin rules and the pale blue label column (Word's #B8CCE4), Calibri at the
+   page's size and line pitch, a long line split over two pages as Word splits it; the declarations bulleted, justified
+   (F/QC-09 and F/QC-10 from a new page, as theirs are); "Signed", the line of underscores, the name, the title and the
+   date as written ("1st April 2025"); the number line at the foot of every page (the page rule the page draws, in its
+   bottom margin). Measured off the owner's PDFs (F/QC-10, F/QC-38) and Word's PDF of his F/QC-09 .docx. On the screen
+   the statement is the page it was: its header keeps the Format / Rev, publication and validity boxes. */
+.soc-sheet .soc-sign-rule, .soc-sheet .soc-date-printed { display: none; }
+@media print {
+  [data-print-doc].soc-sheet {
+    --soc-label-w: 57.47mm; --soc-label-bg: #b8cce4;
+    --soc-pt: 11.04pt; --soc-pitch: 7.25mm; --soc-shift: -1.19mm; --soc-list-pitch: 7.12mm; --soc-list-gap: 0mm;
+    display: table; width: 100%; padding: 0; border-collapse: separate; border-spacing: 0; color: #000;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  }
+  /* F/QC-38 is set in 12 pt, its lines further apart, its list's points a little apart. */
+  [data-print-doc].soc-sheet[data-soc="soc-flexible-packaging"] { --soc-pt: 12pt; --soc-pitch: 7.84mm; --soc-shift: -1.27mm; --soc-list-pitch: 7.85mm; --soc-list-gap: 2.55mm; }
+  /* the title, at the head of every page */
+  .soc-sheet > .doc-header { display: table-header-group; border: 0; border-radius: 0; background: transparent; }
+  .soc-sheet > .doc-header .company-name, .soc-sheet > .doc-header .meta-row { display: none; }
+  .soc-sheet > .doc-header .doc-title {
+    display: block; box-sizing: border-box; height: 24.85mm; margin: 0; padding: 13.22mm 0 0; border: 0; text-decoration: none;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 14.04pt; line-height: 14.04pt; font-weight: 700; letter-spacing: 0; text-align: center; color: #000;
+  }
+  .soc-sheet > .soc-body { display: table-row-group; }
+  /* the table */
+  .soc-sheet .soc-body > .doc-table { width: 189.28mm; margin: 0 0 0 12.78mm; padding: 0; border: 0; border-radius: 0; overflow: visible; background: transparent; }
+  .soc-sheet .soc-body > .doc-table table { width: 189.28mm; table-layout: fixed; border-collapse: collapse; }
+  .soc-sheet .soc-body > .doc-table tr { break-inside: auto; }
+  .soc-sheet .soc-body > .doc-table td {
+    box-sizing: border-box; padding: 0 1.95mm; border: 1px solid #000; color: #000; vertical-align: top; text-align: left; white-space: normal;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: var(--soc-pt); line-height: var(--soc-pitch); font-weight: 400; letter-spacing: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .soc-sheet .soc-body > .doc-table td.soc-label { padding-left: 1.92mm; }
+  .soc-sheet .soc-body > .doc-table tr.soc-reference td { font-weight: 700; }
+  .soc-sheet .soc-body > .doc-table td .soc-cell { position: relative; top: var(--soc-shift); }
+  .soc-sheet .soc-body > .doc-table td .mt-1 { margin-top: 0; }
+  /* the declarations: F/QC-09 and F/QC-10 start them on a new page, as theirs do */
+  .soc-sheet [data-section="soc-list"] { margin: 0; border: 0; background: transparent; }
+  .soc-sheet[data-soc="soc-labels"] [data-section="soc-list"], .soc-sheet[data-soc="soc-shrink-sleeves"] [data-section="soc-list"] { break-before: page; }
+  .soc-sheet [data-section="soc-list"] .card-pad { box-sizing: border-box; width: 189.3mm; margin-left: 12.7mm; padding: 0; }
+  .soc-sheet [data-section="soc-list"] p {
+    position: relative; top: var(--soc-shift); margin: 0 0 var(--soc-list-gap); color: #000; text-align: justify;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: var(--soc-pt); line-height: var(--soc-list-pitch);
+  }
+  .soc-sheet [data-section="soc-list"] p.soc-item { padding-left: 8mm; }
+  .soc-sheet [data-section="soc-list"] p.soc-item::before { left: 0.1mm; }
+  /* "Signed", the line to sign on, the name, the title, the date as written */
+  .soc-sheet .soc-sign { margin: 0; border: 0; background: transparent; break-inside: avoid; }
+  .soc-sheet .soc-sign .card-pad { padding: 7.12mm 0 0 20.7mm; color: #000; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: var(--soc-pt); line-height: 7.1mm; }
+  .soc-sheet .soc-sign .card-pad > * { position: relative; top: var(--soc-shift); }
+  .soc-sheet .soc-sign .soc-sign-line, .soc-sheet .soc-sign .soc-date-screen { display: none; }
+  .soc-sheet .soc-sign .soc-sign-rule { display: block; margin: 7.1mm 0 0 -1mm; }
+  .soc-sheet .soc-sign .soc-date-printed { display: block; }
+  .soc-sheet .soc-sign .soc-date-printed sup { font-size: 6.96pt; line-height: 0; }
+  .soc-sheet .soc-sign .font-semibold { font-weight: 400; }
+  .soc-sheet .soc-sign .text-muted { color: #000; }
+  .soc-sheet .soc-sign .mt-1, .soc-sheet .soc-sign .mt-3 { margin-top: 0; }
+}
+/* QC-SOC end */
+
+/* QC-REPORTS begin */
+/* THE QC REPORTS ON THE FRAMED PAGE AS THEIR PAPERS (REQUIREMENTS §117, round 2 of 20-Oct-2026): F/QC/20's destruction
+   record, F/QC/29's analysis report and the Nivea utility test on the minutes format. Their page, band and foot are the
+   framed page's; here their own words, places and grids, read off the owner's PDFs: the sub-title centred and underlined,
+   the Date at the right, the narrower table at the paper's columns and heights with its headings centred on white, the
+   signatures' words over the name and the role under it. The grids' widths and heights are data/seed/qcReportGeometry.ts
+   (--pf-col, --pf-h); the utility test's nine ruled lines print blank where nothing is written. F/QC/30's minutes, which
+   have no grid of the paper's, are set by their own rules at the end of the print block. */
+.paper-sheet[data-paper-form="report"] .pf-pad { display: none; }
+/* F/QC/20's foot (the one dated foot): the Format number at the left of its cell, as its own rule says (the plain foot's
+   centring came later in the sheet and won), and the "st" of 1st January raised without making its line taller */
+.paper-sheet[data-frame] .page-foot.page-foot-dated > .pf-format { text-align: left; }
+.paper-sheet[data-frame] .page-foot.page-foot-dated sup { position: relative; top: -0.42em; vertical-align: baseline; font-size: 0.7em; line-height: 0; }
+@media print, (min-width: 760px) {
+  .paper-sheet[data-paper-form="report"] { --pf-bd: var(--b1) solid #000; --pf-lh: calc(4.23 * var(--u)); --pf-pad: calc(1.93 * var(--u)); }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet th,
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td {
+    box-sizing: border-box; border: var(--pf-bd); background: transparent; color: #000; text-align: center; vertical-align: top; letter-spacing: 0; text-transform: none; white-space: normal;
+  }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td[data-sr-no] { padding-left: 0; text-align: center; }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td .input { text-align: center; text-indent: 0; font: inherit; color: #000; }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td .cell-text,
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td .pf-text { font: inherit; color: #000; }
+  .paper-sheet[data-paper-form="report"] .doc-table table.log-sheet td span { font-size: inherit; font-weight: inherit; color: inherit; }
+  /* F/QC/20: Calibri bold 12 pt throughout the table, its headings centred in a tall row. */
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-table table.log-sheet th,
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-table table.log-sheet td { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: calc(12 * var(--pt)); font-weight: 700; line-height: calc(7.75 * var(--u)); padding: 0 calc(1.9 * var(--u)); }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-table table.log-sheet th { line-height: calc(12 * var(--pt)); padding-top: calc(0.54 * var(--u)); }
+  /* F/QC/29's analysis report: Arial 9.96 pt, Sr. No. and Observation centred, Description at the left. */
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet th,
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet td { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); padding: calc(0.4 * var(--u)) calc(1.93 * var(--u)) 0; font-weight: 400; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet th { font-weight: 700; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet :is(th, td):nth-child(2) { text-align: left; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .doc-table table.log-sheet td:nth-child(2) .input { text-align: left; }
+  /* The utility test: Arial 9 pt, its two heading rows bold and centred, Job Name at the left. */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet th,
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet td { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(9 * var(--pt)); line-height: calc(9 * var(--pt)); padding: calc(0.4 * var(--u)) calc(1.96 * var(--u)) 0; font-weight: 400; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet th { font-weight: 700; padding-top: calc(0.35 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet tbody td:nth-child(2) { text-align: left; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet tbody td:nth-child(2) .input { text-align: left; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet td select.input { text-align-last: center; }
+}
+@media print {
+  .paper-sheet[data-paper-form="report"] .pf-pad { display: table-row; }
+  /* the boxes above the table: the Date at the right of its line, its words and its value on one line */
+  .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field { display: flex; flex-direction: row; align-items: baseline; gap: calc(1 * var(--u)); }
+  .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field > label { margin: 0; color: #000; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field > .input,
+  .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field > .print-box-text { width: calc(32 * var(--u)); padding: 0; color: #000; }
+  /* F/QC/20: a taller band; the sub-title centred, bold, underlined; Date: bold at the right; the table at the paper's place */
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-header.doc-header-frame { height: calc(27.65 * var(--u)); }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .paper-body > .card > .card-pad > p {
+    margin: calc(23.04 * var(--u)) 0 0; text-align: center; color: #000; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+    font-size: calc(14.04 * var(--pt)); line-height: calc(14.04 * var(--pt)); font-weight: 700; text-decoration: underline; text-decoration-thickness: calc(0.34 * var(--u)); text-underline-offset: calc(0.7 * var(--u));
+  }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] [data-section="sheet-boxes"] { margin-top: calc(15.99 * var(--u)); }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] [data-section="sheet-boxes"] > .field { padding-left: calc(4.9 * var(--u)); }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] [data-section="sheet-boxes"] > .field > :is(label, .input, .print-box-text) { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; }
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .paper-body > .doc-table { margin: calc(14.6 * var(--u)) 0 0 calc(6.86 * var(--u)); }
+  /* its band's title stands a little above the band's middle, as the paper sets it */
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .doc-header-frame .dhf-title { padding-bottom: calc(3.4 * var(--u)); }
+  /* and its address follows the dated foot closer than the plain foot's: the foot's lines stand where the paper rules them */
+  .paper-sheet[data-sheet="qc-printing-aids-destruction"] .paper-foot [data-section="notes-at-foot"] p.text-sm { margin-top: calc(-0.5 * var(--u)); }
+  /* F/QC/29's analysis report: Date : at the right, the report's heading centred and bold, the table, the photograph, and
+     the signatures at the paper's place above the foot */
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body { display: flex; flex-direction: column; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:first-of-type [data-section="sheet-boxes"]:first-child { margin-top: calc(4.3 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] [data-section="sheet-boxes"] > .field[data-paper-column="3"] { padding-left: calc(19.3 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] [data-section="sheet-boxes"] > .field > :is(label, .input, .print-box-text) { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 400; }
+  .paper-sheet[data-sheet="qc-analysis-report"] [data-section="printed-group"], .paper-sheet[data-sheet="qc-analysis-report"] [data-section="sheet-boxes"] + [data-section="sheet-boxes"] { margin-top: calc(4.69 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .field-as-heading { padding-left: calc(7.2 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .field-as-heading > .input { width: 100%; text-align: center; font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); font-weight: 700; }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .doc-table { margin: calc(5.65 * var(--u)) 0 0 calc(6.86 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child { margin: auto 0 calc(19.78 * var(--u)); }
+  /* the utility test: its heading bold and underlined in Times, DATE: at the right, the table, the signatures under it */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card > .card-pad > p {
+    margin: calc(8.51 * var(--u)) 0 0; padding-left: calc(60.6 * var(--u)); text-align: left; white-space: pre; color: #000; font-family: "Times New Roman", Times, serif;
+    font-size: calc(14.04 * var(--pt)); line-height: calc(14.04 * var(--pt)); font-weight: 700; text-decoration: underline; text-decoration-thickness: calc(0.47 * var(--u)); text-underline-offset: calc(0.8 * var(--u));
+  }
+  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] { margin-top: calc(11.97 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field { padding-left: calc(16.1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field > :is(label, .input, .print-box-text) { font-family: "Times New Roman", Times, serif; font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 400; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field > label { font-weight: 700; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .doc-table { margin: calc(3.94 * var(--u)) 0 0 calc(8.77 * var(--u)); }
+  /* the signatures of both reports: the words over the space a name is written in, the role under it, two blocks apart
+     (the row keeps the 16 px gap its BoxLine sets, so the second block's margin is 4.23 mm less) */
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper { display: flex; gap: 0; }
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper > .field { display: flex; flex-direction: column; align-items: center; margin: 0; padding: 0; text-align: center; }
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > label,
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .box-printed-below { margin: 0; padding: 0; color: #000; text-transform: none; letter-spacing: 0; white-space: nowrap; font-weight: 400; }
+  .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .input { width: 100%; min-height: 0; padding: 0; text-align: center; color: #000; }
+  /* the utility test's Approved By stands right of its role, as the paper sets them */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field > label { position: relative; left: calc(7.6 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field > .box-printed-below { position: relative; left: calc(-6.1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field { width: calc(60.4 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field { margin-left: calc(45.67 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > :is(label, .box-printed-below) { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(14.04 * var(--pt)); line-height: calc(11.4 * var(--u)); }
+  .paper-sheet[data-sheet="qc-analysis-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .input { height: calc(7.6 * var(--u)); font-family: "Times New Roman", Times, serif; font-size: calc(14.04 * var(--pt)); line-height: calc(11.4 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child { margin-top: calc(4.12 * var(--u)); }
+  /* the utility test's words and role stand one line apart: the name is written in that line */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field { width: calc(78.4 * var(--u)); gap: 0; }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field { margin-left: calc(26.57 * var(--u)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > :is(label, .box-printed-below) { font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .input { height: calc(4.44 * var(--u)); font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(4.44 * var(--u)); }
+  /* F/QC/30's minutes (the framed page, no grid of the paper's): Client Name, Location and Date a ruled table of two columns
+     in Calibri 12 pt, the words bold; Subject: and Participants : on lines of their own under it, unruled; the key points
+     under their heading, bold and underlined, each point a paragraph with its number, no rules */
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .paper-body > .card { margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .paper-body > .card > .card-pad { padding: 0; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] { display: block; width: calc(174.8 * var(--u)); margin: calc(8.43 * var(--u)) 0 0 calc(7.05 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field {
+    display: grid; grid-template-columns: calc(35.27 * var(--u)) minmax(0, 1fr); gap: 0; box-sizing: border-box; height: calc(10.5 * var(--u)); margin: 0;
+    border: var(--b1) solid #000; border-top: 0; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); color: #000;
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:first-child { border-top: var(--b1) solid #000; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field > label {
+    grid-column: 1; grid-row: 1; box-sizing: border-box; height: 100%; margin: 0; padding: calc(0.93 * var(--u)) 0 0 calc(1.95 * var(--u)); border-right: var(--b1) solid #000;
+    font: inherit; font-weight: 700; color: #000; text-transform: none; letter-spacing: 0; white-space: nowrap;
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field > :is(.input, .print-box-text) {
+    grid-column: 2; grid-row: 1; box-sizing: border-box; width: 100%; height: auto; min-height: 0; margin: 0; padding: calc(0.93 * var(--u)) 0 0 calc(1.88 * var(--u));
+    border: 0; border-radius: 0; background: transparent; box-shadow: none; font: inherit; color: #000;
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field > .input.print-as-text { display: none; }
+  /* (a printed box keeps the print's 2 px padding: its line is placed by its height and margin, its words by their indent) */
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field > .input {
+    align-self: start; height: calc(5.29 * var(--u)); margin-top: calc(0.4 * var(--u)); line-height: calc(4.23 * var(--u)); text-indent: calc(1.88 * var(--u));
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(n+4) { display: flex; align-items: baseline; height: auto; border: 0; padding: 0 0 0 calc(1.95 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(4) { height: calc(4.23 * var(--u)); margin-top: calc(10.17 * var(--u)); overflow: visible; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(4) > .input { align-self: baseline; margin-top: 0; text-indent: calc(1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(5) { display: block; margin-top: calc(6.1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(n+4) > label { height: auto; padding: 0; border: 0; flex: none; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(n+4) > :is(.input, .print-box-text) { flex: 1 1 auto; padding: 0 0 0 calc(1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(5) > :is(.input, .print-box-text) { display: block; margin-top: calc(5.16 * var(--u)); padding: 0; line-height: calc(5.16 * var(--u)); resize: none; overflow: hidden; }
+  /* the paper's place for the participants, a name to a line: five lines, as its meeting lists them */
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] [data-section="sheet-boxes"] > .field:nth-child(5) > textarea.input { min-height: calc(25.8 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .paper-body > .doc-table { width: calc(174.8 * var(--u)); margin: calc(10.4 * var(--u)) 0 0 calc(7.05 * var(--u)); padding-left: calc(1.95 * var(--u)); box-sizing: border-box; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet,
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet :is(thead, tbody) { display: block; width: 100%; border: 0; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tr { display: flex; align-items: baseline; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet :is(th, td) {
+    display: block; box-sizing: border-box; padding: 0; border: 0; background: transparent; color: #000; text-align: left; letter-spacing: 0; text-transform: none;
+    font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: calc(12 * var(--pt)); line-height: calc(5.16 * var(--u)); font-weight: 400;
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet thead th:first-child { display: none; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet thead th {
+    font-size: calc(14.04 * var(--pt)); line-height: calc(14.04 * var(--pt)); font-weight: 700; text-decoration: underline; text-decoration-thickness: calc(0.34 * var(--u)); text-underline-offset: calc(0.9 * var(--u));
+  }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody tr { margin-top: calc(5.2 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td[data-sr-no] { flex: none; width: auto; padding-right: calc(1 * var(--u)); }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td:not([data-sr-no]) { flex: 1 1 auto; }
+  .paper-sheet[data-sheet="qc-minutes-of-meetings"] .doc-table table.log-sheet tbody td .input { width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; font: inherit; color: #000; }
+}
+/* QC-REPORTS end */
+
+/* QC-FLEXO begin */
+/* F/QC/21 FLEXO INK ON ITS OWN PAGE (REQUIREMENTS §117, round 2 of 20-Oct-2026). Its tables are the incoming records' (the
+   header boxes, the grid, LOT STATUS, the signatures; qcIncomingGeometry.ts holds its own columns and heights), but its page
+   is cut its own way ("F-QC-21- Flexo INk.pdf"): one hairline frame 15.58 mm from the left and 4.76 mm from the top, 180.44 mm
+   wide, the band and the foot inside it, the tables from edge to edge of the frame, the grid's headings on white, Calibri
+   10.56 and 9.48 pt, the foot's empty Page cell, the address in Tahoma bold and the system line under the frame. */
+/* its face on the screen too, so its narrower first column holds its words (Product Description, Date of Inspection) */
+@media print, (min-width: 760px) {
+  .paper-sheet[data-frame][data-sheet="qc-flexo-ink"] { --pf-fs: calc(10.56 * var(--pt)); }
+}
+@media print {
+  [data-print-doc]:has(.paper-sheet[data-sheet="qc-flexo-ink"]) { padding: calc(4.76 * var(--u)) 0 0 calc(15.58 * var(--u)); }
+  .paper-sheet[data-frame][data-sheet="qc-flexo-ink"] {
+    --title-pt: 19.56; --pf-fs: calc(10.56 * var(--pt));
+    width: calc(180.44 * var(--u)); min-height: calc(281.84 * var(--u)); border: var(--b1) solid #000; padding: 0;
+  }
+  .paper-sheet[data-frame][data-sheet="qc-flexo-ink"]::before, .paper-sheet[data-frame][data-sheet="qc-flexo-ink"]::after { display: none; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header.doc-header-frame { height: calc(25.49 * var(--u)); border: 0; border-bottom: var(--b1) solid #000; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header-frame .dhf-logo { flex: 0 0 calc(51.41 * var(--u)); border-right: var(--b1) solid #000; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header-frame .dhf-logo img { width: 92.1%; }
+  /* the tables from edge to edge of the frame, their outer rules on the frame's */
+  .paper-sheet[data-sheet="qc-flexo-ink"] [data-pf] { margin-left: calc(-1 * var(--b1)); }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .paper-body > .doc-table { margin-left: calc(-1 * var(--b1)); }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-table table.log-sheet thead th { background: transparent; font-size: calc(9.48 * var(--pt)); padding-left: calc(2 * var(--u)); padding-right: calc(1 * var(--u)); white-space: nowrap; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] [data-pf~="lot"], .paper-sheet[data-sheet="qc-flexo-ink"] [data-pf~="sign"] { --pf-fs: calc(9.48 * var(--pt)); font-size: calc(9.48 * var(--pt)); }
+  .paper-sheet[data-sheet="qc-flexo-ink"] [data-pf~="sign"] .box-printed-below { font-weight: 700; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-table table.log-sheet thead th:last-child { text-align: center; }
+  /* the title stands a little right of the band's middle, where the paper sets it */
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header-frame .dhf-title { padding-left: calc(7.2 * var(--u)); }
+  /* the foot: the Format number's cell and the paper's empty Page cell, the address under them, all inside the frame */
+  .paper-sheet[data-sheet="qc-flexo-ink"] .page-foot { grid-template-columns: 133.43fr 47.01fr; margin: 0; border: 0; border-top: var(--b1) solid #000; font-size: calc(11.52 * var(--pt)); line-height: calc(6.18 * var(--u)); }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .page-foot .pf-format { text-align: right; padding-right: calc(6.7 * var(--u)); border-right: var(--b2) solid #000; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .page-foot .pf-page { visibility: hidden; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .paper-foot [data-section="notes-at-foot"] { padding: 0; border-top: var(--b1) solid #000; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .paper-foot [data-section="notes-at-foot"] p.text-sm:first-child {
+    height: calc(7.41 * var(--u)); margin: 0; padding-top: calc(0.9 * var(--u)); box-sizing: border-box;
+    font-family: Tahoma, Verdana, "Segoe UI", sans-serif; font-size: calc(11.52 * var(--pt)); line-height: calc(11.52 * var(--pt) * 1.21); font-weight: 700;
+  }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .paper-foot [data-section="notes-at-foot"] p.text-sm + p.text-sm {
+    position: absolute; left: calc(0.92 * var(--u)); top: calc(100% + 1.2 * var(--u)); margin: 0; text-align: left; white-space: nowrap;
+    font-family: Tahoma, Verdana, "Segoe UI", sans-serif; font-size: calc(7.56 * var(--pt)); line-height: calc(7.56 * var(--pt) * 1.21); font-weight: 400;
+  }
+}
+/* QC-FLEXO end */
+
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,
    so this has to come after the rules it switches off or the cascade simply
@@ -3384,7 +3815,7 @@ table.svc-paper {
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,
-  .mitra-hero-face, .mitra-hero-text, .assistant-suggestion, .mitra-step, .mitra-phone-body { animation: none !important; }
+  .mitra-hero-face, .mitra-hero-text, .assistant-suggestion, .mitra-step { animation: none !important; }
   .mitra-thinking { opacity: 0.8; }
   .chat-avatar.is-thinking::after { opacity: 0.5; transform: none; }
   .chat-chip, .assistant-pill, .mitra-composer, .assistant-suggestion { transition: none; }

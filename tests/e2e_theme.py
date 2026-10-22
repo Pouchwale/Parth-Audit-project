@@ -35,7 +35,7 @@ PAPER = '[data-print-doc]:not([data-print-doc="ui"]), .doc-header, .register-pag
 # Light on purpose in either theme: a QR code is dark on white to scan, the launcher's
 # count is a near-white disc, a switch's thumb is near-white, scans and photos sit on
 # their white backing.
-LIGHT_ON_PURPOSE = ".mitra-qr, .mitra-phone-code, .assistant-pill-count, .voice-switch-thumb, .register-original, .licence-scan, .sa-scan, .caf-photo, .intro-splash"
+LIGHT_ON_PURPOSE = ".assistant-pill-count, .voice-switch-thumb, .register-original, .licence-scan, .sa-scan, .caf-photo, .intro-splash"
 ROUTES = [
     "#/dashboard", "#/library", "#/files", "#/calendar", "#/day", "#/search", "#/assistant", "#/hr", "#/hr/master-data", "#/hr/skill-matrix",
     "#/qc", "#/document/qc-viscosity", "#/pest-control", "#/pest/daily", "#/pest/service/rodent", "#/pest/trend/rodent", "#/pest/trend/lizard",
@@ -290,7 +290,14 @@ with sync_playwright() as p:
                    const head = d.querySelector('.doc-header'); return { bg: s.backgroundColor, ink: s.color, scheme: s.colorScheme, input: i ? getComputedStyle(i).backgroundColor : null,
                    head: head ? getComputedStyle(head).borderTopColor : null }; }"""
     )
-    check("In dark the record is a white sheet in its own ink, its boxes white, its rules today's", sheet == {"bg": "rgb(255, 255, 255)", "ink": "rgb(28, 39, 51)", "scheme": "light", "input": "rgb(255, 255, 255)", "head": "rgb(44, 62, 80)"}, sheet)
+    # F/QC/33 is drawn as the owner's paper (REQUIREMENTS section 117, 20-Oct-2026): its boxes are the paper's white cells (an input
+    # is transparent on the white sheet) and its frame is the paper's black rule; a sheet not drawn as a paper keeps today's rule.
+    check(
+        "In dark the record is a white sheet in its own ink, its boxes white, its rules the paper's",
+        sheet["bg"] == "rgb(255, 255, 255)" and sheet["ink"] == "rgb(28, 39, 51)" and sheet["scheme"] == "light"
+        and sheet["input"] in ("rgb(255, 255, 255)", "rgba(0, 0, 0, 0)") and sheet["head"] in ("rgb(44, 62, 80)", "rgb(0, 0, 0)"),
+        sheet,
+    )
 
     print("\n==== Printing is the same in either theme ====")
     for label, route in (("a record", record), ("the monthly register", "#/pest/daily"), ("Document Files", "#/files")):

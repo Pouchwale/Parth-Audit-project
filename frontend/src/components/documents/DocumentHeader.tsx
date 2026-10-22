@@ -131,8 +131,21 @@ function Cell({ field, edit, className, translate: noTranslate, children }: { fi
   );
 }
 
+/**
+ * A value of the header where the paper draws it in a table of its own (components/records/PaperTableSheet.tsx, §117
+ * round 2): the certificate's company and title in its letterhead. The same click, the same box and the same reason
+ * asked for as in the header block (REQUIREMENTS §77, §86).
+ */
+export function HeaderWord({ field, edit, children }: { field: AnyHeaderField; edit?: HeaderEdit; children: React.ReactNode }) {
+  return (
+    <Cell field={field} edit={edit} translate>
+      {children}
+    </Cell>
+  );
+}
+
 /** An ISO date as the framed papers print it: 16.02.2022. */
-function dottedDate(iso: string | null | undefined): string {
+export function dottedDate(iso: string | null | undefined): string {
   const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
   return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
 }
@@ -156,8 +169,14 @@ export function DocumentHeader({
   lineClearance,
   labels,
   dotDates = false,
+  numberFoot = false,
 }: {
   doc: DocumentDefinition;
+  /**
+   * THE NUMBER ALONE AT THE FOOT OF THE PAGE (F/QC/11, F/QC/12, §117 round 2): with `part` "foot", the format number and its
+   * revision as the calibration papers print them, centred, "F/QC/11 (01/01.01.2022)", each value typed over where it stands.
+   */
+  numberFoot?: boolean;
   /**
    * THE AREA LINE CLEARANCE REPORTS' FRAME (F/QC/15-A to G, §117): the company's name; the title with the machine's name
    * written in at its right (`machine`, the record's box); Format no. / Rev. no. / Effective date in three cells
@@ -214,6 +233,24 @@ export function DocumentHeader({
   const revisionDate = revision ? revision.date : (edit?.values.revisionDate ?? doc.revisionDate);
   // THE FRAMED PAPER (§117). Foot: "Format number: - F/QC/01 (01 / 16.02.2022)" and "Page 1 of 1" in a bordered line, each
   // value as clickable as it is in the header block. Head: the logo, which carries the company's name, and the title.
+  if (numberFoot && part === "foot") {
+    return (
+      <div className="page-foot-number notranslate" translate="no" data-section="page-foot">
+        <Cell field="formatNo" edit={edit} translate>
+          {asPrinted(formatNo)}
+        </Cell>{" "}
+        (
+        <Cell field="revisionNo" edit={edit} translate>
+          {asPrinted(revisionNo)}
+        </Cell>
+        /
+        <Cell field="revisionDate" edit={edit} translate>
+          {dottedDate(revisionDate)}
+        </Cell>
+        )
+      </div>
+    );
+  }
   if (frame && part === "foot") {
     const pages = (pageLabel ?? "").split(" of ");
     const pageCell = (

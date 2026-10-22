@@ -261,7 +261,13 @@ test("an entry of two lines: the columns beneath are drawn on the second line un
   assert.equal(data.rows[0].deviation4, "0.02%");
   const html = await sheet(SCALE, data, true);
   assert.deepEqual(headings(html), lines.first.map((c) => c.label), "the paper's headings, and no Sr. No.");
-  const rows = bodyRows(html);
+  // The paper's other three entries (§117 round 2: the paper prints four) are blank ruled lines of the page, never the record's:
+  // drawn hidden from a reader and the downloads (aria-hidden), each second line headed Deviation % as printed.
+  const all = bodyRows(html);
+  const rows = all.filter((r) => !/pf-pad/.test(r.attrs));
+  const pads = all.filter((r) => /pf-pad/.test(r.attrs));
+  assert.equal(pads.length, (4 - data.rows.length) * 2, "the paper's four entries");
+  assert.ok(pads.every((r) => /aria-hidden="true"/.test(r.attrs) && !/data-bind=/.test(r.cells.map((c) => c.html).join(""))));
   assert.equal(rows.length, data.rows.length * 2);
   assert.match(rows[0].attrs, /data-line="first"/);
   assert.match(rows[1].attrs, /data-line="second"/);
@@ -539,5 +545,8 @@ test("F/QC/12 weighing balance: nine boxes three to a line, no Sr. No., each ent
   const html = await sheet(SCALE, demo);
   assert.ok(!headings(html).includes("Sr. No."));
   assert.ok(!headings(html).includes("Deviation %"));
-  assert.deepEqual(bodyRows(html).map((r) => r.cells[0].text), ["14-Oct-2026", "Deviation %"], "the entry's Date, and its second line headed Deviation %");
+  const entry = bodyRows(html).filter((r) => !/pf-pad/.test(r.attrs));
+  assert.deepEqual(entry.map((r) => r.cells[0].text), ["14-Oct-2026", "Deviation %"], "the entry's Date, and its second line headed Deviation %");
+  // ...and the paper's three other entries as its blank ruled lines, printed (§117 round 2), never in the record.
+  assert.deepEqual(bodyRows(html).filter((r) => /pf-pad/.test(r.attrs)).map((r) => r.cells[0].text), ["", "Deviation %", "", "Deviation %", "", "Deviation %"]);
 });

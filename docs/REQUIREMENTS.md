@@ -5628,7 +5628,9 @@ itself; and the plant running the whole application from one server PC, with a g
   at least 5.7:1 contrast; small text uses the muted grey (5.48:1 on white), not the faint one.
 - Two bugs already there, put right: the welcome opened scrolled to its bottom, hiding the greeting; and on a phone the
   page scrolled past the greeting when it focused the composer (it focuses with preventScroll now).
-- **"Mitra on your phone"**, a card at the foot of the conversation list, never printed. Folded, it is one line and a
+- **"Mitra on your phone"**, a card at the foot of the conversation list, never printed. **REMOVED 22-Oct-2026 at the
+  owner's request** ("remove the message which is present in conversation window in bottom side in which there is written
+  mitra on your phone"): the card, its QR helpers and their test are gone; a phone finds the code as docs/phone-app-setup.md says. Folded, it is one line and a
   "Show the code" button, and asks and draws nothing. Opened, it asks DCRS `GET /api/phone-app` (part 3) and draws a QR
   code for `exp://<address>:<port>`: the address is the browser's own host unless that is localhost, else the first
   address the server gives; the port is the route's, else 8081; when the route is missing (404) or fails, the browser's
@@ -8748,6 +8750,84 @@ F/QC/08, 16, 17, 19's tolerance card and 20's destruction record (the number in 
 the utility test (the narrower centred table); the minutes; F-QC-30, 32 and 40.A, B, C (two tables side by side, the thirty-one
 lines, the header); the two reliability records (overlapping blocks); the two statements of compliance (the title alone, the
 pale-blue label column, the foot line, the page breaks).
+
+### Round 2 of 20-Oct-2026: the certificates of analysis, the calibration records, the statements of compliance, the reports, the minutes and Flexo Ink as their papers
+
+The owner, 20-Oct-2026: "check each and every format of QC Module and make sure each and every part should be editable and same
+and when user click on print button ... it should download the same document which i have uploaded / Supplied to you". This round
+took the open QC papers most visible first (branch `qc-print-r2-20oct`); each is held against the owner's own PDF by the kit
+(tests/qc_visual, a blank new record printed on A4 by the app's print path; score 0-100, before -> after). The downloads are another
+piece of work (section 119): nothing here changes how a download is made, and every box keeps its binding, so the page still reads as
+the download expects.
+
+- *F/QC/06 and F/QC/07, the certificates of analysis for labels and for shrink sleeves* (7.8 -> 89.7, 6.8 -> 88.4). The paper is ONE
+  portrait page, a single Word table; DCRS printed three landscape pages of a web form. Each is now drawn as that table, row by row, in
+  the paper's millimetres (data/seed/qcPaperTables.ts, read off the PDFs; components/records/PaperTableSheet.tsx): the letterhead (the
+  logo, the company's name with its three lines), the title, the order and party lines, LABEL STOCK / SLEEVE FILM, PRINTING with its ten
+  colours across, COATING with "Coating Done :" beside its box, FINISHING, TOLERANCE, the bullets, the retest date inside its sentence,
+  F/QC/07's heat sentence, the system line and the corporate office strip (the owner's own picture, from the PDF). Every box of the
+  record is a box in its cell (48 on the label certificate, 41 on the sleeve's, and the 20 colour cells), bound as everywhere; the
+  company's name and the title are typed over in the letterhead. *Stays different:* the company's one name ("Pvt Ltd", the owner's
+  rule of 2-Oct-2026) for the paper's "Pvt. Ltd."; the papers are filled specimens, and their entries are not copied into a new record
+  (section 98); the format number, revision and page, which these papers do not print, stand on a strip under the letterhead on the
+  screen only (typed over there, never printed).
+- *F/QC/11 and F/QC/12, the internal calibration records* (37.4 -> 87.2, 30.5 -> 97.0). Drawn on the papers' own measures
+  (data/seed/qcCalibrationGeometry.ts; their DOM, boxes, downloads and Mitra's paths unchanged): the ruled header box (the company's
+  name underlined over its Manufacturers line, a rule, the title underlined), the ruled table of the device's boxes (F/QC/11 three
+  columns of two lines, words and value centred; its Calibration Date two columns wide and its Due Date after the paper's space; F/QC/12
+  three by three, the words bold at the top left of each tall cell), the grids at the papers' widths and heights and faces, the
+  PROCEDURE, and the number alone, centred, at the foot of the page ("F/QC/11 (01/01.01.2022)", typed over where it stands). *The owner's
+  overrides stay:* the standard weights, one F/QC/12 record a week (its one entry on the paper's first two lines; the paper's three other
+  entries print as its blank ruled lines with their Deviation %, never stored), the carry-forward from the previous record (which is
+  most of what F/QC/11's score still counts: the paper is blank, a new sheet is written as the last one was), no DATE cell, F/QC/12
+  printed as F/QC/12 where the paper reads F/QC/13 (section 111), and the company's one name. On the screen the header keeps its Format
+  No. / Rev No. / Page No. row to be typed over (section 86); it does not print. F/QC/11's paper is a US Letter page: it is drawn at its
+  own millimetres on A4 landscape.
+- *The statements of compliance F/QC-09, F/QC-10 and F/QC-38* (F/QC-10 40 -> 88.6, two pages as the paper; F/QC-38 22.8 -> 72.9, five
+  pages as the paper; F/QC-09 80.5). F/QC-09 has no PDF: its reference is Word's PDF of the owner's .docx, made on this PC and kept in
+  source-documents/qc-office-exports-2026-10-20/ (the kit's refs.py names it). Printed as the Word pages: the title alone, bold, at the
+  head of every page; "Reference source" the table's first line, in bold (on the screen too, typed over in Edit); the label column in
+  Word's pale blue, thin rules, Calibri at each page's size and line pitch; the declarations bulleted and justified, the product (or
+  GPPPL) in bold where the page prints it so, F/QC-09's and F/QC-10's from a new page; "Signed", the line of underscores, the name, the
+  title and the date as written ("1st April 2025", "24 FEB 2025"); the number line at the foot of every page (the page's bottom margin).
+  The screen keeps the Format / Rev, publication and validity boxes. *Stays different:* the company's one name; the colons the Word
+  pages print after five of F/QC-09's and F/QC-38's labels (the phone and the statements' checks find those lines by their labels as
+  stored, so the labels were left as they are); F/QC-38's declarations break onto their pages a little differently from Word's.
+- *F/QC/20's destruction record and F/QC/29's two reports, the analysis report and the Nivea utility test* (69.3 -> 89.3, 69.0 ->
+  91.8, 59.4 -> 76.5). They kept the framed page (band, foot, address) but drew their grids the web's way, across the frame with grey
+  headings. The grids now stand at the papers' own columns and line heights (data/seed/qcReportGeometry.ts) with their headings centred
+  on white in the papers' faces (Calibri bold 12 pt on F/QC/20, Arial on the analysis report, Arial 9 pt on the utility test); the
+  sub-titles centred and underlined, the Date at the right; the signatures as printed, "Testing By" over the space a name is written in
+  and "(QA Executive)" / "(QA Inspector)" / "(QA Manager)" under it (printedLabel / printedBelow: the boxes keep their names); the
+  utility test's nine ruled lines, the ones not written printed blank and never stored; F/QC/20's band title a little above the band's
+  middle, its dated foot's Format number at the left of its cell and its "1st" no longer making the line taller. *Stays different:* the
+  papers are filled specimens (the Nivea labels, the analysis of 07.01.2022), which a new record does not copy (most of what the utility
+  test's score still counts); dates print as DCRS writes them (14-Oct-2026) where the papers write 01.06.2022.
+- *F/QC/30's minutes of meetings* (60.3 -> 70.0). On the same framed page, they printed their boxes stacked as a web form and their
+  key points as a ruled grid. In print (rules scoped to the minutes; the boxes, names and bindings as they were) Client Name, Location
+  and Date are now the paper's two-column ruled table, Calibri 12 pt, the words bold; Subject: and Participants : stand on lines of
+  their own, unruled, with the paper's five lines for the names; "Key points Discussed:" is bold and underlined and each point a
+  numbered paragraph without rules. *Stays different:* the paper is the minutes of the 07.06.2022 Gangwal meeting, which a new
+  record does not copy (most of the remaining score); the "Subject" label prints its colon in bold where the paper's is plain.
+- *F/QC/21 Flexo Ink* (33.2 -> 92.7). The one incoming-material record still printed as a web form. It now takes the framed page and
+  the incoming records' paper tables (the header boxes, the grid, LOT STATUS with its arrows, the signatures) at its own measures
+  (qcIncomingGeometry.ts: its columns and heights, the space above its header table, its own LOT STATUS and signature columns, which
+  the record view reads where a paper has them), on a page cut its own way (styles.css "QC-FLEXO", print only): one hairline frame
+  15.58 mm from the left and 4.76 mm from the top, the band and the foot inside it, the tables from edge to edge of the frame, the
+  grid's headings on white, Calibri 10.56 and 9.48 pt, the foot's Format number and its empty Page cell, the address in Tahoma bold
+  and the system line under the frame. *Stays different:* the paper's "SEGREGATIO N" (a word Word broke) prints whole; the Format
+  number reads "(00 / 01.04.2023)" with DCRS's spaces; the Page cell is empty on the paper, so the page number is not printed there.
+- *How a paper drawn to its own measures prints* (utils/print.ts, styles.css): the page keeps the paper's own left margin (the sheet
+  says it in data-paper-left) and is scaled only if it would pass the page's right edge; in the paper forms a written date prints its
+  words alone (the box rules had shown the box as well) and an empty choice box prints nothing. The regression guard of the kit found
+  no non-QC document changed after each step.
+
+*Left for a later round, most visible first* (the kit's findings for each are in the scratchpad file the brief names): F/QC/25's
+letterhead and serif rows (50.6: it is one Word table on a US Letter page, the next paper for qcPaperTables.ts); F-QC-19's
+tolerance card (four pages of panels); the registers F/QC/08, F/QC/16, F/QC/17 for both scales, F-QC-40.A and B (the number in the
+title row, the paper's count of ruled lines and heights); F-QC-14's two sheets (Excel's PDF of the owner's workbook made, not yet a
+reference); and the photographs judged by eye: F/QC/13, F-QC-30, F-QC-32, F-QC-40.C and the two Gujarati line clearances. F/QC/34, 35,
+37 and the camera challenge test have no paper at all and were left as they are.
 
 ## §118 The service reports as the contractor's March sheet, F/HR/18 as its Word page, real Excel and Word downloads, A4 print, and the daily pest record's rule (17-Oct-2026)
 

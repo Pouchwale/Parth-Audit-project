@@ -96,6 +96,8 @@ PRINTED = """
       // The page chosen (utils/print.ts), the paper the sheet names (s117), and the document's scale.
       // A QC paper drawn on its framed page (data/seed/qcPageFrames.ts, s117) keeps the paper's own 8.446 mm margin.
       framed: docs.length > 0 && docs.every((d) => d.matches('[data-frame]') || d.querySelector('[data-frame]') !== null),
+      // A QC paper drawn as its own Word table (s117 round 2) stands where the paper stands: its own millimetres from the page's left.
+      paperLeft: (() => { const el = document.querySelector('[data-print-doc] [data-paper-left]'); return el ? Number(el.getAttribute('data-paper-left')) : null; })(),
       page: document.documentElement.dataset.printPage || 'portrait',
       paper: (() => { const el = document.querySelector('[data-print-doc][data-paper], [data-print-doc] [data-paper]'); return el ? el.getAttribute('data-paper') : null; })(),
       zoom: docs.map((d) => d.style.zoom || ''),
@@ -164,6 +166,10 @@ PAPER_PAGES = {
     # F/HR/16 is one landscape page on paper and one here (REQUIREMENTS section 118): its cleaning cell holds the paper's two lines
     # (what is cleaned, "Cleaning by"), no longer three, so its eighteen areas fit; it ran to two pages before.
     "hr-monthly-cleaning": ("landscape", 1),
+    # The certificates of analysis for labels and for shrink sleeves are one portrait page each, as their papers are
+    # (s117 round 2, 20-Oct-2026: they printed on three landscape pages before).
+    "qc-coa-label": ("portrait", 1),
+    "qc-coa-sleeve": ("portrait", 1),
 }
 TMP = tempfile.mkdtemp(prefix="dcrs-print-")
 try:
@@ -177,6 +183,10 @@ def check_a4(what, seen):
     page_kind = seen["page"]
     # Two pixels of slack: the scale is floored to a thousandth (utils/print.ts), and the rectangle is rounded.
     limit = (PRINTABLE_FRAMED if seen.get("framed") else PRINTABLE)[page_kind]
+    if seen.get("paperLeft") is not None:
+        # A QC paper drawn as its own Word table (s117 round 2) keeps the paper's own left margin: its grids fit what is left
+        # of the page to 2 mm short of its right edge (utils/print.ts ownLeftMargin).
+        limit = ((297 if page_kind == "landscape" else 210) - seen["paperLeft"] - 2) * 96 / 25.4
     if "fly-catcher" in what.lower() or "F/HR/18" in what:
         # F/HR/18's Word page has its own margins (REQUIREMENTS section 118): its band is 538 pt across from 28.7 pt in, so it is wider than the 12 mm
         # every other document keeps; it is whole on the page all the same (the A4 page is 794 px, the band ends at 752).

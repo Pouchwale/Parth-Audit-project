@@ -344,6 +344,80 @@ with sync_playwright() as p:
     type_over(page, "rename-page-no", "header-page", "1 of 3")
     check("...typed over, saved on the checklist", ((record_by_id(page, cid) or {}).get("headerBlock") or {}).get("page") == "1 of 3")
 
+    # ==================================================================
+    print("\n==== A certificate drawn as its own Word table (s117 round 2): its letterhead's words and its number ====")
+    # ==================================================================
+    # F/QC/06 prints its company and title in its letterhead and no format number, revision or page at all: the first two
+    # are typed over where the letterhead prints them; the others on the screen's strip under it, which never prints.
+    open_page(page, "#/document/qc-coa-label", settle=1300)
+    page.locator("[data-action='document-new-record']").first.click()
+    page.wait_for_timeout(1400)
+    dismiss(page)
+    close_assistant(page)
+    coa_id = page.url.rstrip("/").split("/")[-1]
+    coa_offered = {a: clickable(page, a) for a in ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-revision-date", "rename-page-no")}
+    check("F/QC/06: its company and title are typed over in the letterhead, its number, revision, its date and the Page No. on the screen's strip",
+          all(n == 1 for n in coa_offered.values()), coa_offered)
+    strip = page.evaluate("() => { const s = document.querySelector('[data-print-doc] [data-section=\"number-off-paper\"]'); return s ? [s.classList.contains('no-print'), s.textContent] : null; }")
+    check("...the strip is the screen's alone (no-print): the paper prints no number", bool(strip) and strip[0] and "F/QC/06" in strip[1], strip)
+    company_was = page.locator("[data-print-doc] [data-action='rename-company']").first.inner_text().strip()
+    check("...the company in the paper's own letters, the owner's name for it", company_was == "Gujarat Print Pack Publications Pvt Ltd", company_was)
+    type_over(page, "rename-title", "header-title", "SOMETHING ELSE")
+    asked = panel.count() == 1
+    page.click("[data-action='header-change-cancel']")
+    page.wait_for_timeout(400)
+    check("...the title typed over in the letterhead asks why, and 'Keep the header as it is' changes nothing",
+          asked and panel.count() == 0 and page.locator("[data-print-doc] [data-action='rename-title']").first.inner_text().strip() == "Certificate of Analysis [COA] For Label")
+    initial = type_over(page, "rename-page-no", "header-page", "1 of 2")
+    stored = record_by_id(page, coa_id) or {}
+    check("...its own Page No. is typed over on the strip and saved on that record alone", initial == "1 of 1" and (stored.get("headerBlock") or {}).get("page") == "1 of 2", (initial, stored.get("headerBlock")))
+
+    # ==================================================================
+    print("\n==== The other papers of round 2 (s117, 20-Oct-2026): every header word typed over where it prints, every blank a box ====")
+    # ==================================================================
+    # F/QC/11 prints its number at the foot of its page; the three reports print theirs in the framed page's foot. On each,
+    # the title and the number, revision and page are typed over where the paper prints them, every blank of the paper is
+    # a box of the record (no empty cell without one; a worked-out box is the sheet's), and what is typed in a cell is kept. (F/QC/12 is left to
+    # e2e_qc_calibration: a new weighing-scale sheet waits for a working day.)
+    OFFERS = """() => Object.fromEntries(['rename-company', 'rename-title', 'rename-format-no', 'rename-revision', 'rename-page-no'].map((a) =>
+      [a, document.querySelectorAll(`[data-print-doc] [data-action='${a}']`).length]))"""
+    BLANKS = """() => {
+      const doc = document.querySelector('[data-print-doc]');
+      const blanks = [];
+      doc.querySelectorAll('table.log-sheet tbody tr:not(.pf-pad)').forEach((tr, i) => Array.from(tr.children).forEach((td, j) => {
+        if (td.matches('[data-sr-no]') || td.querySelector('input, select, textarea, button') || td.textContent.trim()) return;
+        blanks.push([i, j]);
+      }));
+      const boxes = Array.from(doc.querySelectorAll('input[data-bind], select[data-bind], textarea[data-bind]'));
+      return { blanks, boxes: boxes.length, open: boxes.filter((b) => !b.disabled).length };
+    }"""
+    for doc_id, number, wanted in (
+        ("qc-gsm-plate-calibration", "F/QC/11", ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-page-no")),
+        ("qc-analysis-report", "F/QC/29", ("rename-title", "rename-format-no", "rename-revision", "rename-page-no")),
+        ("qc-utility-test-report", "F/QC/29", ("rename-title", "rename-format-no", "rename-revision", "rename-page-no")),
+        ("qc-printing-aids-destruction", "F/QC/20", ("rename-title", "rename-format-no", "rename-revision", "rename-page-no")),
+    ):
+        open_page(page, f"#/document/{doc_id}", settle=1300)
+        page.locator("[data-action='document-new-record']").first.click()
+        page.wait_for_timeout(1400)
+        dismiss(page)
+        close_assistant(page)
+        rid = page.url.rstrip("/").split("/")[-1]
+        offered = page.evaluate(OFFERS)
+        check(f"{number} ({doc_id}): its title, number, revision and page are typed over where the paper prints them",
+              all(offered.get(a, 0) >= 1 for a in wanted), offered)
+        seen = page.evaluate(BLANKS)
+        check(f"...every blank of its paper is a box of the record, and its boxes can be written in",
+              not seen["blanks"] and seen["open"] > 0, seen)
+        cell = page.locator("[data-print-doc] table.log-sheet tbody tr:not(.pf-pad) td input[data-bind]:not([type='date']):not([type='number']):not(:disabled)").first
+        written = None
+        if cell.count():
+            cell.fill("R2 CHECK")
+            cell.press("Tab")
+            page.wait_for_timeout(900)
+            written = "R2 CHECK" in str((record_by_id(page, rid) or {}).get("data"))
+        check("...and what is typed in its grid is kept on the record", written is True, written)
+
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()
 

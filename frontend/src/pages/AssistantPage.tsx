@@ -72,7 +72,6 @@ import { acceptFile, MAX_ATTACHMENTS, pickFromFolder, readAttachment } from "../
 import type { AttachmentKind, MitraAttachment, MitraStep, MitraToolContext } from "../engine/mitraTypes";
 import { MitraComposer, type AttachSource } from "../components/mitra/MitraComposer";
 import { MitraThread } from "../components/mitra/MitraThread";
-import { MitraPhoneCard } from "../components/mitra/MitraPhoneCard";
 import type { MitraMessageView } from "../components/mitra/MitraMessage";
 import { stripMarkdown } from "../components/mitra/markdown";
 import { attachmentNotes, attachmentsForResend, rememberAttachments, startTurn, stoppableContext, threadBefore } from "../components/mitra/messageActions";
@@ -296,8 +295,6 @@ export function AssistantPage() {
   const [recording, setRecording] = useState({ active: false, seconds: 0, transcribing: false });
   // The list of conversations folds away on a narrow window, and on request.
   const [sideCollapsed, setSideCollapsed] = useState(narrowWindow);
-  // While the phone code is shown it has the conversations' room (styles.css .is-phone-open).
-  const [phoneOpen, setPhoneOpen] = useState(false);
   // Drawn again when the network comes or goes, so the status dot is honest.
   const [, setNetTick] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1069,7 +1066,7 @@ export function AssistantPage() {
 
   return (
     <div className={`assistant-page ${isDemo ? "demo-watermark" : ""}`}>
-      <aside className={`assistant-side card${sideCollapsed ? " is-collapsed" : ""}${phoneOpen ? " is-phone-open" : ""}`}>
+      <aside className={`assistant-side card${sideCollapsed ? " is-collapsed" : ""}`}>
         <div className="assistant-side-head">
           <span className="assistant-side-title">{t("ai.conversations")}</span>
           <button className="btn btn-primary btn-sm" onClick={() => createConversation()} aria-label={t("ai.newChat")}>
@@ -1111,8 +1108,6 @@ export function AssistantPage() {
             </div>
           ))}
         </div>
-        {/* Mitra on the plant's phones, through Expo Go (2-Oct-2026): asked for and drawn only when opened. */}
-        <MitraPhoneCard onOpenChange={setPhoneOpen} />
       </aside>
 
       <section className="assistant-main card">
