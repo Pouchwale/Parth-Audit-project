@@ -608,6 +608,43 @@ Seven scripts live in `tests/`:
   check passes on a working day); `e2e_upload_changes` every check passed within its time budget (451), the 24 documents the
   560 s budget did not reach (F/DISP/01, 02, 04, F/SYS, F/MKT) run again with the suite's new `E2E_DOCS=a,b` (the
   every-document pass on those documents only): 115 of 115 - every document's Word or Excel file read back into its record.
+- **QC print, round 2: every QC paper of the list as its own table, nothing of DCRS's added, 20-Oct and 22-Oct-2026** (REQUIREMENTS §117,
+  round 2). Unit test file `frontend/tests/qcPaperTables.test.ts` (8): the papers drawn as their own table are these and no other document is (the
+  certificates F/QC/06, 07 and 25, the registers F/QC/08 and 16, F/QC/17 for both scales, F-QC-40.A, B and C, F-QC-30, F-QC-32, F-QC-14's two
+  sheets, F/QC/13 and the two Gujarati line clearances); every box of the record has its cell on the paper, once (a name written again in another
+  table is no box of its own), and every cell's box is the record's; each written column on the lines the paper writes it on, a register's columns on
+  its ruled lines; every row the paper's width and the rows fit one A4 page with nothing at an edge; the sheet's three parts, every box bound and
+  open for writing (locked when signed off); a format the plant has edited since (a column added or taken off, a box added, a printed line taken off
+  or added) is drawn as every grid is; F-QC-14's framed table (its specifications underlined, the names typed once and written in every table, each
+  Conclusion printed as its words), built and drawn; the stylesheet's block. Rewritten to the papers' tables: `qcIncomingCoaPaper`, `qcPaperMarks`,
+  `qcPaperFindings`, `qcPaperReview` (F07, F11, F25 to F27, F31), `qcPaperFormats`, `qcPaperFormatsMore` (F-QC-14, F/QC/13, the Gujarati
+  checklists), `qcFormats14Oct`, `qcRuler300`, `a4Paper`. Browser suites changed: `tests/e2e_qc_formats.py` (each paper's headings and lines read
+  off its table; a new F-QC-14 record: a box for each of its 24 lines' sample and four readings, each Conclusion, the four names and the FG code,
+  no cell of the paper left without one, a name typed in the first table written in the seven others), `tests/e2e_header_editing.py` (every paper of
+  this round: the header words it prints typed over where it prints them, the rest on the screen's strip, every blank of it a box, what is typed
+  in its grid kept), `tests/e2e_print_all_documents.py` (F-QC-30's and F-QC-32's headings and line numbers off their tables), `tests/e2e_qc_calibration.py`,
+  `tests/e2e_mitra_format.py` and `tests/e2e_sheet_designer.py` (a sheet's headings and printed lines off a paper's table too). The kit
+  (`tests/qc_visual`, port 4200) was run on each document after each change, and its regression guard (port 4201; baselines made on the base
+  commits 64e0f5e and a63e600) after each commit: no non-QC document changed. F-QC-14's reference is new: Excel's PDF of each whole sheet of the
+  owner's workbook placed on A4 (source-documents/qc-office-exports-2026-10-20/, named in refs.py).
+  *Run of 22-Oct-2026 (qc-print-r2-20oct with premium-theme 3e66792 merged).* `npm run typecheck` clean; `npm run test:unit`: frontend 1232 of 1232, backend 632 of 636 (4 skipped).
+  Kit (`tests/qc_visual`, all 53 QC documents at once, port 4200), before -> after: F/QC/25 50.6 -> 97.4, F/QC/08 36.6 -> 97.7, F/QC/16 29.5 -> 53.9
+  (the rest is the specimen's written lines), F/QC/17 44.3 -> 90.6 and the 300 mm page 87.6, F-QC-40.A 30.5 -> 82.8, F-QC-40.B 34.8 -> 98.2,
+  F-QC-14 (no reference before) 76.5 and 75.5 blank, 91.4 and 96.7 with the workbook's entries typed in; this round's of 20-Oct as they were
+  (F/QC/06 89.7, F/QC/07 88.4, F/QC/11 87.2, F/QC/20 89.3, F/QC/21 Flexo Ink 92.7, F/QC/29 91.8 and 76.5, F/QC/30 70.0, F/QC-09 80.5,
+  F/QC-10 88.6, F/QC-38 72.9; F/QC/12 94.8, its new weekly sheet now carrying the last one's device boxes); the incoming records 92.8 to 95.2
+  and F/QC/15-A to G 87.5 to 89.6 unchanged; F-QC-19's card 11.5 (left, a question for the owner). F/QC/13, the two Gujarati line clearances
+  and F-QC-32 (scans and photographs) are looked at, not scored; F-QC-30 and F-QC-40.C have no reference in the kit. The guard (port 4201,
+  baseline of a63e600) after each commit: no non-QC document changed.
+  Browser suites, one at a time from a pinned worktree with nothing else on 8842/8843, on 7d8e61d (premium-theme merged): the guard,
+  no non-QC document changed; `e2e_qc_formats` 182 of 182; `e2e_header_editing` 102 of 102; `e2e_print_all_documents` 785 of 785;
+  `e2e_qc_calibration` 60 of 60; `e2e_downloads_and_print` 56 of 56; `e2e_translate` 23 of 23; `e2e_mitra_format` 31 of 35 and
+  `e2e_sheet_designer` 51 and a stop, the same on the base a63e600 before this round's work of 22-Oct (not this round's: "add 2 rows" on
+  F/QC/16 is asked as a clear, since engine/mitraTools.ts linesLost counts a line added blank, "(no row)" -> "(blank)", as a value cleared;
+  the designer's F/QC/03 check reads its revision off a `.doc-header .meta-cell` its framed paper does not draw). Earlier on 22-Oct, on
+  96fe521 and 110b6b1: `e2e_qc_formats` 180 and 182, `e2e_qc_calibration` 60, `e2e_print_all_documents` 777 of 780 (F-QC-30's and
+  F-QC-32's checks still read the grid: fixed in 110b6b1, then 782 of 782), `e2e_header_editing` 57 and 92 of 93 (F/QC/25 is filed with no
+  revision date: the check fixed).
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
   (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;
