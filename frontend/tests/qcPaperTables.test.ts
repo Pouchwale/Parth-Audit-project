@@ -85,6 +85,8 @@ const PAPERS: Record<string, { page: "portrait" | "landscape"; width: number; wr
   },
   // F/QC/08: its eleven numbered lines.
   "qc-calibration-master-list": { page: "landscape", width: 274.24, lines: 11 },
+  // F/QC/16: its fifteen ruled lines (the supplied page's thirteen and two blank).
+  "qc-obsolete-artwork": { page: "landscape", width: 264.24, lines: 15 },
 };
 
 test("the papers drawn as their own table are these; no other document is", () => {
@@ -144,12 +146,14 @@ test("the sheet is drawn in its three parts, its boxes bound as every sheet's, t
       html.includes(`<div class="paper-sheet headings-as-printed paper-table-sheet" data-bind-record="pt-${id}" data-paper="${form.page}" data-paper-left="${form.left}" data-sheet="${id}" data-paper-form="table"`),
       id
     );
-    for (const part of ["head", "body"]) assert.match(html, new RegExp(`<table class="pt-table pt-${part} pt-font-[a-z]+"[^>]*data-paper-part="${part}"`), `${id} ${part}`);
-    if (form.foot.length > 0) assert.match(html, /<table class="pt-table pt-foot pt-font-[a-z]+"[^>]*data-paper-part="foot"/, `${id} foot`);
+    for (const part of ["head", "body"]) assert.match(html, new RegExp(`<table class="pt-table pt-${part} pt-font-[a-z]+( pt-frame)?"[^>]*data-paper-part="${part}"`), `${id} ${part}`);
+    if (form.foot.length > 0) assert.match(html, /<table class="pt-table pt-foot pt-font-[a-z]+( pt-frame)?"[^>]*data-paper-part="foot"/, `${id} foot`);
     // The header block of the print suites (the head's doc-header), the body's table, the foot.
     assert.ok(html.indexOf('<div class="paper-head"><div class="doc-header doc-header-paper">') >= 0 && html.indexOf('<div class="paper-foot">') > html.indexOf('<div class="paper-body">'));
     const boxes = Array.from(html.matchAll(/<(input|textarea|select)\b[^>]*>/g), (m) => m[0]);
-    const least = id === "qc-coa-corrugated" ? 25 : form.lines ? form.lines.count * form.lines.cells.filter((c) => c.col).length : 40;
+    // A register: a box for each column on each line the record holds (a new record holds the paper's count or one line).
+    const held = (createDefaultData(docOf(id), DAY, master) as LogSheetData).rows.length;
+    const least = id === "qc-coa-corrugated" ? 25 : form.lines ? held * form.lines.cells.filter((c) => c.col).length : 40;
     assert.ok(boxes.length >= least, `${id}: ${boxes.length} boxes`);
     assert.ok(boxes.every((b) => /data-bind="(header|rows)\//.test(b)), `${id}: every box bound where the record keeps it`);
     assert.ok(boxes.every((b) => !/ disabled=""/.test(b)), `${id}: open for writing, none locked`);

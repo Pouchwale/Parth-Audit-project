@@ -287,7 +287,7 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
   const widths = edges.slice(1).map((e, i) => Math.round((e - edges[i]) * 100) / 100);
   return (
     <table
-      className={`pt-table pt-${part} pt-font-${form.font}`}
+      className={`pt-table pt-${part} pt-font-${form.font}${form.frame ? " pt-frame" : ""}`}
       style={{ "--pt-w": String(edges[edges.length - 1]) } as React.CSSProperties}
       data-paper-part={part}
       data-pt-rules={form.rules}

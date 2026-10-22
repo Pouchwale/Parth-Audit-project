@@ -333,8 +333,11 @@ test("F31: F/QC/16 keeps its paper's own Sr. No. — 7, 9, 8, 10 on the 2022 pag
   const page = seeded("qc-obsolete-artwork-2022-02").data;
   assert.deepEqual(page.rows.map((r) => r.srNo), ["1", "2", "3", "4", "5", "6", "7", "9", "8", "10", "11", "12", "13"]);
   const html = await sheet("qc-obsolete-artwork", page);
-  assert.equal(headings(html).filter((h) => h === "Sr. No.").length, 1, "one Sr. No., the paper's");
-  assert.match(text(between(html, "<tbody", "</tbody>")), / 9 Neilmed Pharmaceuticals Inc Wound Wash 177mL Sleeve /);
+  // Drawn as its paper's own table since §117 round 2 (22-Oct-2026): the heading row is the body's first row, the lines after it.
+  const body = between(html, 'data-paper-part="body"', "</table>");
+  const heads = Array.from(body.slice(body.indexOf("<tr"), body.indexOf("</tr>")).matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), (m) => text(m[1]).trim());
+  assert.equal(heads.filter((h) => h === "Sr. No.").length, 1, "one Sr. No., the paper's");
+  assert.match(text(body), / 9 Neilmed Pharmaceuticals Inc Wound Wash 177mL Sleeve /);
   assert.deepEqual(sample("qc-obsolete-artwork").rows.map((r) => r.srNo), ["1", "2"], "a sample day's two lines");
   // A Live record's blank line, and a line Mitra adds, are numbered too: a line's place, nothing observed.
   const live = prepareKnownParts(docOf("qc-obsolete-artwork"), DAY, master, undefined)!.data as LogSheetData;

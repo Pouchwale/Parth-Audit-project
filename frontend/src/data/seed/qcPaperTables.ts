@@ -97,6 +97,8 @@ export interface PaperTable {
    * blank (never stored) and are not drawn on the screen, where Add Row adds a line.
    */
   lines?: { h: number; count: number; cells: PaperCell[] };
+  /** The table's outer edges ruled heavier than its cells' (F/QC/16's frame). */
+  frame?: "heavy";
 }
 
 const W = 193.4;
@@ -538,11 +540,50 @@ const MASTER_LIST: PaperTable = {
   foot: [],
 };
 
+// ---------------------------------------------------------------------------
+// F/QC/16 — REGISTER OF OBSOLETE ARTWORK ("Copy of F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.pdf", the owner's Excel
+// sheet on a US Letter landscape page): one table in a heavy frame, the company's name large, the title underlined with
+// "F/QC/16 (00/01.12.2021)" underlined in its shaded box, the heading row centred and wrapped, fifteen ruled lines of
+// 9.9 mm (the supplied page's thirteen written and two blank). Centred on A4 landscape, at the paper's own top and sizes.
+
+const F16_COLS = [15.36, 33.62, 49.08, 41.79, 21.67, 38.5, 20.1, 22.78, 21.34];
+const F16_KEYS = ["srNo", "customerName", "jobName", "artworkNumber", "salesPerson", "reasonObsolete", "dateOfObsolete", "updatedBy", "remarks"];
+/** The columns whose words the paper centres (the number, the FG code, the person, the reason). */
+const F16_CENTRED = ["srNo", "artworkNumber", "salesPerson", "reasonObsolete"];
+const F16_W = 264.24;
+
+const OBSOLETE_ARTWORK: PaperTable = {
+  page: "landscape",
+  left: 16.38,
+  top: 15.16,
+  font: "calibri",
+  pt: 11.04,
+  frame: "heavy",
+  head: [
+    { h: 11.48, cells: [{ w: F16_W, t: "{companyName}", caps: true, a: "c", b: true, pt: 20.04, y: 2.66, heavy: "b" }] },
+    {
+      h: 9.82,
+      cells: [
+        { w: 199.68, t: "{title}", caps: true, a: "c", b: true, u: true, pt: 18, y: 2.13 },
+        { w: 64.56, t: "{formatNo} ({revisionNo}/{revisionDate})", a: "c", b: true, u: true, pt: 12, y: 2.13, bg: F08_GREY },
+      ],
+    },
+  ],
+  body: [{ h: 15.36, cells: F16_KEYS.map((key, i): PaperCell => ({ w: F16_COLS[i], lab: `@column:${key}`, a: "c", b: true, vm: true, lh: 4.95 })) }],
+  lines: {
+    h: 9.908,
+    count: 15,
+    cells: F16_KEYS.map((col, i): PaperCell => ({ w: F16_COLS[i], col, ...(F16_CENTRED.includes(col) ? { a: "c" as const } : { x: 0.66 }) })),
+  },
+  foot: [],
+};
+
 export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-coa-label": COA_LABEL,
   "qc-coa-sleeve": COA_SLEEVE,
   "qc-coa-corrugated": COA_CORRUGATED,
   "qc-calibration-master-list": MASTER_LIST,
+  "qc-obsolete-artwork": OBSOLETE_ARTWORK,
 };
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
