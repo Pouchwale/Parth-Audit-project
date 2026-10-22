@@ -572,7 +572,8 @@ def main():
         check("Assistant asks for the customer first", page.locator(".chat-msg.bot", has_text="Which customer").count() == 1)
 
         def chat_type(text):
-            page.fill("textarea.input", text)
+            # Mitra's own box: the complaint checklist's comments are wrapping boxes too (textarea.input) since 22-Oct-2026.
+            page.fill("textarea.assistant-input", text)
             page.keyboard.press("Enter")
             page.wait_for_timeout(250)
 
