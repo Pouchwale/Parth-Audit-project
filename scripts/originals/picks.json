@@ -651,7 +651,12 @@
   "sheets": [
    "F-PRD-24"
   ],
-  "bytes": 17137
+  "pagesAsSupplied": 2,
+  "paper": [
+   "F-PRD-24: A4 already; his columns 578 pt wide at his 67 %, A4's width between his margins 559 pt: fitted to the page's width (1 page(s))"
+  ],
+  "pages": 1,
+  "bytes": 17164
  },
  {
   "id": "pur-approved-suppliers",
@@ -667,7 +672,12 @@
    "Sheet1 (2)",
    "Sheet2"
   ],
-  "bytes": 13590,
+  "pagesAsSupplied": 2,
+  "paper": [
+   "Sheet1: A4 already; his columns 947 pt wide at his 60 %, A4's width between his margins 842 pt: fitted to the page's width (1 page(s))"
+  ],
+  "pages": 1,
+  "bytes": 12491,
   "copiedToSourceDocuments": "F-PUR-03_List of Approved suppliers.xlsx"
  },
  {

@@ -422,31 +422,49 @@ def excel_pages(ws):
         return None
 
 
-def excel_a4(excel, ws):
-    """The sheet on A4 (xlPaperA4), its orientation, scale and fit to page as the owner set them - unless A4, narrower than
-    his paper, prints it on more pages than his paper did (his columns cut onto a page of their own): then Excel fits it to
-    the page's width (one page across, the length left to run), kept only where that gives his number of pages."""
-    ps = ws.PageSetup
-    was = ps.PaperSize
-    if was == XL_PAPER_A4:
-        return [f"{ws.Name}: A4 already"]
-    pages0 = excel_pages(ws)
+def fit_to_width(excel, ps):
+    """Excel's own fit to the page's width: one page across, the length left to run."""
     excel.PrintCommunication = False
     try:
-        ps.PaperSize = XL_PAPER_A4
+        ps.Zoom = False
+        ps.FitToPagesWide = 1
+        ps.FitToPagesTall = False
     finally:
         excel.PrintCommunication = True
-    pages = excel_pages(ws)
-    note = f"{ws.Name}: paper {int(was)} -> {int(ws.PageSetup.PaperSize)}" + (" landscape" if ps.Orientation == 2 else "") + f"; {pages0} page(s) on his paper, {pages} on A4"
-    if pages0 and pages and pages > pages0:
-        zoom, wide, tall = ps.Zoom, ps.FitToPagesWide, ps.FitToPagesTall
+
+
+def excel_a4(excel, ws):
+    """The sheet on A4 (xlPaperA4), its orientation, scale and fit to page as the owner set them - unless his columns do not
+    fit across the A4 page: then Excel fits the sheet to the page's width (one page across, the length left to run). They do
+    not fit where, at his scale, the printed columns are wider than A4's width between his margins (F/PUR/03's approved
+    suppliers and F/PRD/24's blade record put their last column on a page of its own, on his own A4 setting), or where A4,
+    narrower than his paper, prints the sheet on more pages than his paper did (F/HR/20's survey) - kept only where the fit
+    gives his number of pages."""
+    ps = ws.PageSetup
+    was = ps.PaperSize
+    pages0 = excel_pages(ws)
+    if was == XL_PAPER_A4:
+        note = f"{ws.Name}: A4 already"
+        pages = pages0
+    else:
         excel.PrintCommunication = False
         try:
-            ps.Zoom = False
-            ps.FitToPagesWide = 1
-            ps.FitToPagesTall = False
+            ps.PaperSize = XL_PAPER_A4
         finally:
             excel.PrintCommunication = True
+        pages = excel_pages(ws)
+        note = f"{ws.Name}: paper {int(was)} -> {int(ws.PageSetup.PaperSize)}" + (" landscape" if ps.Orientation == 2 else "") + f"; {pages0} page(s) on his paper, {pages} on A4"
+    zoom = ps.Zoom
+    if zoom:  # a scale he set; a sheet he fitted to its pages fits them by itself
+        area = ps.PrintArea
+        width = (ws.Range(area) if area else ws.UsedRange).Width * zoom / 100.0
+        printable = (841.9 if ps.Orientation == 2 else 595.3) - ps.LeftMargin - ps.RightMargin
+        if width > printable + 1:
+            fit_to_width(excel, ps)
+            return [note + f"; his columns {width:.0f} pt wide at his {zoom} %, A4's width between his margins {printable:.0f} pt: fitted to the page's width ({excel_pages(ws)} page(s))"]
+    if pages0 and pages and pages > pages0:
+        zoom, wide, tall = ps.Zoom, ps.FitToPagesWide, ps.FitToPagesTall
+        fit_to_width(excel, ps)
         fitted = excel_pages(ws)
         if fitted and fitted <= pages0:
             note += f"; fitted to the page's width: {fitted} page(s) (it was at {zoom} %)"
