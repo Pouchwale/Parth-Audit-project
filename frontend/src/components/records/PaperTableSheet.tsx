@@ -1,6 +1,6 @@
 import React from "react";
 import type { LogHeaderField, LogSheetLayout } from "../../types";
-import type { PaperCell, PaperRow, PaperTable } from "../../data/seed/qcPaperTables";
+import { lineRow, type PaperCell, type PaperRow, type PaperTable } from "../../data/seed/qcPaperTables";
 import { HeaderWord, type AnyHeaderField, type HeaderEdit } from "../documents/DocumentHeader";
 
 // A QC PAPER DRAWN AS ITS OWN WORD TABLE (REQUIREMENTS §117, round 2 of 20-Oct-2026): the rows of
@@ -13,7 +13,7 @@ import { HeaderWord, type AnyHeaderField, type HeaderEdit } from "../documents/D
 function columnEdges(form: PaperTable): number[] {
   const xs = new Set<number>([0]);
   // (a register's ruled lines are cut from the same columns: their cells' edges count too)
-  for (const row of [...form.head, ...form.body, ...(form.lines ? [{ h: form.lines.h, cells: form.lines.cells }] : []), ...form.foot]) {
+  for (const row of [...form.head, ...form.body, ...(form.lines ? [{ h: form.lines.h, cells: lineRow(form, 0) }] : []), ...form.foot]) {
     let x = 0;
     for (const c of row.cells) {
       x = Math.round((x + c.w) * 100) / 100;
@@ -70,8 +70,11 @@ function referenced(layout: LogSheetLayout, ref: string): string {
   // ("Specified  GSM"), and the heading over a group of columns ("GSM").
   if (ref.startsWith("@printedBelow:")) return fieldOf(layout, ref.slice(14))?.printedBelow ?? "";
   if (ref.startsWith("@column:")) {
-    const c = layout.columns.find((col) => col.key === ref.slice(8));
-    return c ? (c.printedLabel ?? c.label) : "";
+    // @column:key:br breaks the heading before its bracket, where the paper does ("Viscosity" over "(20.0 ± 1.0 Sec.)").
+    const [, key, br] = ref.split(":");
+    const c = layout.columns.find((col) => col.key === key);
+    const words = c ? (c.printedLabel ?? c.label) : "";
+    return br === "br" ? words.replace(/ \(/, "\n(") : words;
   }
   if (ref.startsWith("@group:")) return layout.columns.find((col) => col.key === ref.slice(7))?.group ?? "";
   // A table of boxes' heading across it, and the words of its rows (F/QC/17's master scale and scale under calibration).
@@ -167,6 +170,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           if (c.caps) classes.push("pt-caps");
           if (c.bg) classes.push("pt-bg");
           if (c.vm) classes.push("pt-vm");
+          // A register's line the record does not hold, in a row that shows (a second block beside the record's lines).
+          if (row.line !== undefined && !row.pad && c.ln !== undefined && c.ln >= (parts.rowCount ?? 0)) classes.push("pt-padc");
           if (c.ww) classes.push("pt-ww");
           const style: Record<string, string> = {
             "--pt-size": String(pt),
@@ -199,9 +204,10 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               );
             });
           } else if (c.box) body = parts.box(c.box, c);
-          else if (c.num && row.line !== undefined)
-            body = c.num === "all" || !row.pad ? <span className="pt-words">{row.line + 1}</span> : null;
-          else if (c.col !== undefined && c.ln !== undefined) body = row.pad ? null : parts.gridCell(c.ln, c.col, c);
+          else if (c.num && row.line !== undefined) {
+            const n = c.ln ?? row.line;
+            body = c.num === "all" || n < (parts.rowCount ?? 0) ? <span className="pt-words">{n + 1}</span> : null;
+          } else if (c.col !== undefined && c.ln !== undefined) body = row.line !== undefined && c.ln >= (parts.rowCount ?? 0) ? null : parts.gridCell(c.ln, c.col, c);
           else if (c.sentence) {
             const f = fieldOf(layout, c.sentence.box);
             body = (
@@ -288,7 +294,7 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
     part === "body" && form.lines
       ? Array.from({ length: Math.max(form.lines.count, held) }, (_, ln) => ({
           h: form.lines!.h,
-          cells: form.lines!.cells.map((c) => ({ ...c, ln })),
+          cells: lineRow(form, ln),
           line: ln,
           pad: ln >= held,
         }))

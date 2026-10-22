@@ -16,7 +16,7 @@ import type { DocumentDefinition, LogSheetData, LogSheetLayout, MasterData, Reco
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
-import { QC_PAPER_TABLES, paperTableFor, type PaperCell } from "../src/data/seed/qcPaperTables";
+import { QC_PAPER_TABLES, lineRow, paperTableFits, paperTableFor, type PaperCell } from "../src/data/seed/qcPaperTables";
 import { createDefaultData } from "../src/engine/recordDefaults";
 
 // store/router.tsx reads window.location the moment it loads; the harness stands up none.
@@ -93,6 +93,10 @@ const PAPERS: Record<string, { page: "portrait" | "landscape"; width: number; wr
   // F-QC-40.A and B: a month's 31 lines, a day's record its line.
   "qc-temperature-humidity": { page: "portrait", width: 148.45, lines: 31 },
   "qc-temperature-sleeve": { page: "portrait", width: 184.23, lines: 31 },
+  // The three papers the owner sent as photographs: F-QC-40.C's fifty lines, F-QC-30's two tables of 34, F-QC-32's 33.
+  "qc-temperature": { page: "portrait", width: 184.23, lines: 50 },
+  "qc-viscosity": { page: "portrait", width: 190, lines: 34 },
+  "qc-adhesive-mixing": { page: "portrait", width: 190, lines: 33 },
 };
 
 test("the papers drawn as their own table are these; no other document is", () => {
@@ -131,7 +135,7 @@ test("every box of the record has its cell on the paper, once, and every cell's 
 test("every row is the paper's width, and the rows fit its one A4 page where the paper's do, nothing at an edge", () => {
   for (const [id, form] of Object.entries(QC_PAPER_TABLES)) {
     const width = PAPERS[id].width;
-    const rows = [...form.head, ...form.body, ...(form.lines ? [{ h: form.lines.h, cells: form.lines.cells }] : []), ...form.foot];
+    const rows = [...form.head, ...form.body, ...(form.lines ? [{ h: form.lines.h, cells: lineRow(form, 0) }] : []), ...form.foot];
     for (const [i, row] of rows.entries()) {
       const w = row.cells.reduce((a, c) => a + c.w, 0);
       assert.ok(Math.abs(w - width) < 0.05, `${id} row ${i}: ${w} mm`);
@@ -159,7 +163,8 @@ test("the sheet is drawn in its three parts, its boxes bound as every sheet's, t
     const boxes = Array.from(html.matchAll(/<(input|textarea|select)\b[^>]*>/g), (m) => m[0]);
     // A register: a box for each column on each line the record holds (a new record holds the paper's count or one line).
     const held = (createDefaultData(docOf(id), DAY, master) as LogSheetData).rows.length;
-    const least = id === "qc-coa-corrugated" || id.startsWith("qc-ruler-verification") ? 25 : form.lines ? held * form.lines.cells.filter((c) => c.col).length : 40;
+    const written = (c: PaperCell) => !!c.col && !layoutOf(id).columns.find((k) => k.key === c.col)?.fixed;
+    const least = id === "qc-coa-corrugated" || id.startsWith("qc-ruler-verification") ? 25 : form.lines ? held * form.lines.cells.filter(written).length : 40;
     assert.ok(boxes.length >= least, `${id}: ${boxes.length} boxes`);
     assert.ok(boxes.every((b) => /data-bind="(header|rows)\//.test(b)), `${id}: every box bound where the record keeps it`);
     assert.ok(boxes.every((b) => !/ disabled=""/.test(b)), `${id}: open for writing, none locked`);
@@ -167,6 +172,16 @@ test("the sheet is drawn in its three parts, its boxes bound as every sheet's, t
     const locked = await sheet(id, false);
     assert.ok(Array.from(locked.matchAll(/<(input|textarea)\b[^>]*>/g)).every((m) => / disabled=""/.test(m[0])), `${id}: signed off, nothing typed into`);
   }
+});
+
+test("a format the plant has edited since is drawn as every grid is: the paper only while it fits the format", () => {
+  for (const id of Object.keys(QC_PAPER_TABLES)) assert.ok(paperTableFits(QC_PAPER_TABLES[id], layoutOf(id)), `${id}: the paper fits its issued format`);
+  const layout = layoutOf("qc-obsolete-artwork");
+  const form = QC_PAPER_TABLES["qc-obsolete-artwork"];
+  assert.equal(paperTableFits(form, { ...layout, columns: [...layout.columns, { key: "batchNo", label: "Batch No.", type: "text" as const }] }), false, "a column added");
+  assert.equal(paperTableFits(form, { ...layout, columns: layout.columns.filter((c) => c.key !== "remarks") }), false, "a column taken off");
+  const ruler = layoutOf("qc-ruler-verification");
+  assert.equal(paperTableFits(QC_PAPER_TABLES["qc-ruler-verification"], { ...ruler, headerFields: [...ruler.headerFields, { key: "remark", label: "Remark", type: "text" as const }] }), false, "a box added");
 });
 
 test("the stylesheet: the paper table's rules before the reduced-motion block, no !important of its own, the paper's margin in print", () => {

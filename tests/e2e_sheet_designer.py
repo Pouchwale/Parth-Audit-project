@@ -140,7 +140,11 @@ def focused_and_selected(page, field):
 
 
 def sheet_headings(page, within="[data-section='document-preview'] "):
-    return page.locator(f"{within}table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    # (a paper drawn as its own table since s117 round 2 of 22-Oct-2026 heads its grid in the row it marks so)
+    grid = page.locator(f"{within}table.log-sheet thead th")
+    if grid.count():
+        return grid.evaluate_all("els => els.map((e) => e.textContent.trim())")
+    return page.locator(f"{within}table[data-paper-part] tr[data-pt-heading] td").evaluate_all("els => els.map((e) => e.textContent.trim())")
 
 
 def sheet_rev(page):

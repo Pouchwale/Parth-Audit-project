@@ -123,7 +123,12 @@ def tap(page, kind, wait=1100):
 
 
 def headings(page):
-    return page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    # The sheet's headings: its grid's, or (a paper drawn as its own table, s117 round 2 of 22-Oct-2026) the paper's
+    # heading row; a format edited since is drawn as every grid is again.
+    grid = page.locator("[data-section='document-preview'] table.log-sheet thead th")
+    if grid.count():
+        return grid.evaluate_all("els => els.map((e) => e.textContent.trim())")
+    return page.locator("[data-section='document-preview'] table[data-paper-part] tr[data-pt-heading] td").evaluate_all("els => els.map((e) => e.textContent.trim())")
 
 
 def format_edit(page, doc_id):

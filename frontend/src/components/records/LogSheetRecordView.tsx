@@ -5,7 +5,7 @@ import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHea
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
-import { paperTableFor, type PaperCell } from "../../data/seed/qcPaperTables";
+import { paperTableFits, paperTableFor, type PaperCell } from "../../data/seed/qcPaperTables";
 import { calibrationGeometryFor } from "../../data/seed/qcCalibrationGeometry";
 import { reportGeometryFor } from "../../data/seed/qcReportGeometry";
 import { PaperTablePart, type PaperTableParts } from "./PaperTableSheet";
@@ -375,7 +375,9 @@ export function LogSheetRecordView({
   const lc = !frame ? lineClearanceGeometryFor(layout.documentId) : undefined;
   // A paper that is one Word table from its letterhead to its foot (the certificates of analysis, data/seed/qcPaperTables.ts,
   // §117 round 2) is drawn as that table, row by row, in the paper's millimetres (components/records/PaperTableSheet.tsx).
-  const pt = !frame && !lc ? paperTableFor(layout.documentId) : undefined;
+  // (only while the paper still fits the format: one the plant has edited since is drawn as every grid is)
+  const ptForm = !frame && !lc ? paperTableFor(layout.documentId) : undefined;
+  const pt = ptForm && paperTableFits(ptForm, layout) ? ptForm : undefined;
   // THE TWO INTERNAL CALIBRATION RECORDS ON THEIR PAPERS' MEASURES (F/QC/11, F/QC/12; data/seed/qcCalibrationGeometry.ts,
   // §117 round 2): the sheet as it is drawn (its boxes, its grid, its PROCEDURE), in the paper's millimetres; the number
   // printed alone at the foot of the page.

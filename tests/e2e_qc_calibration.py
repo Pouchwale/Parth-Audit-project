@@ -447,15 +447,20 @@ with sync_playwright() as p:
     sheet = page.locator("[data-section='document-preview']")
     if sheet.count() == 0:
         sheet = page.locator("[data-print-doc]").first
-    headings = page.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    check("F-QC-30: Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By", headings == ["Sr. No.", "Date/Time", "Viscosity (20.0 ± 1.0 Sec.)", "Tested By"], headings)
-    sr = page.locator("table.log-sheet tbody tr td[data-sr-no]").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    # The header prints the paper's cells only - no DATE cell (s117, the owner, 16-Oct-2026).
-    header_cells = page.evaluate("() => Array.from(document.querySelectorAll('.doc-header .meta-cell .k')).map((k) => k.textContent.trim())")
+    # Drawn as its paper's own table since s117 round 2 (22-Oct-2026): the band of logo, title and number, then two
+    # tables side by side, each Sr. No. | Date/Time | Viscosity | Tested By; the day's 23 lines in the first.
+    headings = page.locator("[data-print-doc] table[data-paper-part] tr[data-pt-heading] td").evaluate_all("els => els.map((e) => e.textContent.replace(/\\s+/g, ' ').trim())")
+    one = ["Sr. No.", "Date/Time", "Viscosity (20.0 ± 1.0 Sec.)", "Tested By"]
+    check("F-QC-30: Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By, twice side by side as the paper", headings == one + [""] + one, headings)
+    sr = page.locator("[data-print-doc] table[data-paper-part='body'] tr[data-pt-line]:not(.pt-pad) td:first-child").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    # The paper's band prints the number, its revision and its date in its own cell; there is no Date cell of DCRS's
+    # and no FORMAT NO. block (s117, the owner, 16-Oct-2026 and 22-Oct-2026).
+    band = page.locator("[data-print-doc] table[data-paper-part='head'] tr").first.locator("td").evaluate_all("els => els.map((e) => e.textContent.replace(/\\s+/g, ' ').trim())")
+    meta = page.locator("[data-print-doc] .doc-header .meta-cell").count()
     check(
-        "...the Sr. No. numbers its 23 lines, and the header has no Date cell: Format No. | Rev No. | Rev Date | Page No.",
-        len(sr) == 23 and sr == [str(i + 1) for i in range(23)] and header_cells == ["Format No.", "Rev No.", "Rev Date", "Page No."],
-        (sr[:3], header_cells),
+        "...the Sr. No. numbers its 23 lines, and the band prints the paper's own number cell, no Date cell or number block of DCRS's",
+        len(sr) == 23 and sr == [str(i + 1) for i in range(23)] and len(band) == 3 and band[2] == "Format No.: F-QC-30 Rev. 00 Date : 15.12.2024" and meta == 0,
+        (sr[:3], band, meta),
     )
     text30 = page.locator("[data-print-doc]").first.evaluate("e => e.textContent")
     check("...and the specification line the owner crossed out is gone", "Viscosity specification" not in text30 and "round the clock" not in text30)
@@ -467,7 +472,8 @@ with sync_playwright() as p:
     page.wait_for_timeout(1400)
     close_assistant(page)
     mix_id = page.url.split("#/record/")[-1]
-    headings = page.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    # (its paper's own table since s117 round 2: the heading row it marks so; "Adhesive" over "(kg)" read as one heading)
+    headings = page.locator("[data-print-doc] table[data-paper-part] tr[data-pt-heading] td").evaluate_all("els => els.map((e) => e.textContent.replace(/\\s+/g, ' ').trim())")
     check(
         "F-QC-32: Sr. No. | Date | Time | Adhesive (kg) | Hardener (kg) | Ethyl (kg) | Viscosity (Sec.) | Remark | Checked by | Verified by",
         headings == ["Sr. No.", "Date", "Time", "Adhesive (kg)", "Hardener (kg)", "Ethyl (kg)", "Viscosity (Sec.)", "Remark", "Checked by", "Verified by"],

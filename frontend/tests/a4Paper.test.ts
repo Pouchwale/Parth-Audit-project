@@ -111,9 +111,10 @@ test("F/QC/17 is a portrait page; F/QC/11's foot holds its PROCEDURE; a sheet wh
   const gsm = await blankSheet("qc-gsm-plate-calibration");
   assert.match(gsm, /data-paper="landscape"/);
   assert.ok(gsm.indexOf('data-section="notes-below"') > gsm.indexOf('class="paper-foot"'));
-  const viscosity = await blankSheet("qc-viscosity");
-  assert.ok(!viscosity.includes("data-paper="), "nothing named, nothing carried");
-  assert.ok(viscosity.includes('class="paper-head"') && viscosity.includes('class="paper-foot"'), "the three parts on every sheet");
+  // (F-QC-30 is its paper's own table since §117 round 2 of 22-Oct-2026: the camera challenge test names no paper)
+  const camera = await blankSheet("qc-camera-challenge-test");
+  assert.ok(!camera.includes("data-paper="), "nothing named, nothing carried");
+  assert.ok(camera.includes('class="paper-head"') && camera.includes('class="paper-foot"'), "the three parts on every sheet");
 });
 
 test("the print rules: the parts are a table's header, body and footer groups, every grid cell is boxed in ink, and the parts stay whole", () => {

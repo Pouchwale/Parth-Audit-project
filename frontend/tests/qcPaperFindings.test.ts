@@ -187,7 +187,8 @@ test("the four documents the owner named print their headings in the paper's own
   for (const id of [VISCOSITY, MIXING, GSM, SCALE]) {
     assert.equal(layoutOf(id).headingsAsPrinted, true, id);
     const html = await sheet(id, createDefaultData(docOf(id), DAY, master) as LogSheetData);
-    assert.match(html, /^<div class="[^"]*headings-as-printed/, `${id} is drawn with its headings as printed`);
+    // (a paper drawn as its own table may lead with its pictures' preload links: the sheet is the first div)
+    assert.match(html, /^(<link [^>]*>)*<div class="[^"]*headings-as-printed/, `${id} is drawn with its headings as printed`);
   }
   assert.match(css, /\.headings-as-printed \.doc-table th \{ text-transform: none; letter-spacing: 0; \}/);
 });

@@ -112,15 +112,15 @@ test("F01: F-QC-40.C — each reading has its tester's sign under it, in its own
   // A record with a reading and no sign under it is not submitted.
   const unsigned = { ...filled, rows: [{ ...row, t2030Sign: "" }] };
   assert.ok(validateForSubmit(docOf(id), recordOf(id, unsigned)).errors.some((e) => e.includes("20:30 HRS SIGN")), "the 20:30 sign is asked for");
-  // The sheet: the headings are the paper's six, no Sign heading of DCRS's; each entry two lines, the day down both.
+  // The sheet, its paper's own table since §117 round 2 (22-Oct-2026): the paper's six headings, no Sign heading of DCRS's;
+  // each reading's ruled cell holds the reading and its sign, no rule between them, on the day's line.
   const html = await sheet(id, filled);
-  assert.deepEqual(headings(html), ["SR NO", "DATE", "08:30 HRS TEMP. + SIGN", "12:30 HRS TEMP. + SIGN", "16:30 HRS TEMP. + SIGN", "20:30 HRS TEMP. + SIGN", "12:30am HRS TEMP. + SIGN", "04:30 HRS TEMP. + SIGN"]);
-  const grid = between(html, "<tbody", "</tbody>");
-  assert.match(grid, /data-line="first"/);
-  assert.match(grid, /data-line="second"/);
-  assert.equal((grid.match(/data-beneath="t\d{4}Sign"/g) ?? []).length, 6, "six signs, each under its reading");
-  assert.match(grid, /<td[^>]*rowSpan="2"[^>]*data-sr-no=""|<td[^>]*data-sr-no=""[^>]*rowSpan="2"|rowspan="2"/i);
-  assert.ok(!/second-line-label/.test(grid), "the sign's line prints no heading of its own");
+  const body = between(html, 'data-paper-part="body"', "</table>");
+  const head = between(body, "data-pt-heading", "</tr>");
+  assert.deepEqual(Array.from(head.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), (m) => text(m[1]).trim()), ["SR NO", "DATE", "08:30 HRS TEMP. + SIGN", "12:30 HRS TEMP. + SIGN", "16:30 HRS TEMP. + SIGN", "20:30 HRS TEMP. + SIGN", "12:30am HRS TEMP. + SIGN", "04:30 HRS TEMP. + SIGN"]);
+  const line = between(body, 'data-pt-line="1"', "</tr>");
+  assert.equal((line.match(/data-bind="rows\/[^"]+\/t\d{4}Sign"/g) ?? []).length, 6, "six signs, each beside its reading");
+  assert.equal((line.match(/class="pt-c[^"]*pt-or[^"]*"/g) ?? []).length, 6, "each reading's cell open to its sign: one ruled cell");
 });
 
 test("F33: F-QC-40.C heads its numbers SR NO, as printed; the paper's 12:30am stays lower-case", async () => {

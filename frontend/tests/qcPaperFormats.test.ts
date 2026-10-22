@@ -101,8 +101,20 @@ const between = (html: string, from: string, to: string) => {
   const b = html.indexOf(to, a);
   return html.slice(a, b < 0 ? undefined : b);
 };
-const headings = (html: string) => Array.from(between(html, "<thead", "</thead>").matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g), (m) => text(m[1]).trim());
-const bodyRows = (html: string) => Array.from(between(html, "<tbody", "</tbody>").matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g), (m) => ({ attrs: m[1], cells: Array.from(m[2].matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/g), (c) => ({ attrs: c[1], html: c[2], text: text(c[2]).trim() })) }));
+// A sheet's grid headings and lines: its log-sheet table's, or (a paper drawn as its own table since §117 round 2 of
+// 22-Oct-2026: F-QC-30, F-QC-32) the row it marks as its heading row, up to a blank between two blocks, and its record's
+// lines (data-pt-line, not the paper's blank ones).
+const isPaperTable = (html: string) => !html.includes("<thead") && html.includes("data-pt-heading");
+const headings = (html: string) => {
+  if (!isPaperTable(html)) return Array.from(between(html, "<thead", "</thead>").matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g), (m) => text(m[1]).trim());
+  const cells = Array.from(between(html, "data-pt-heading", "</tr>").matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), (m) => text(m[1]).trim());
+  const gap = cells.indexOf("");
+  return gap < 0 ? cells : cells.slice(0, gap);
+};
+const bodyRows = (html: string) =>
+  isPaperTable(html)
+    ? Array.from(between(html, 'data-paper-part="body"', "</table>").matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g), (m) => ({ attrs: m[1], cells: Array.from(m[2].matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/g), (c) => ({ attrs: c[1], html: c[2], text: text(c[2]).trim() })) })).filter((r) => r.attrs.includes("data-pt-line") && !r.attrs.includes("pt-pad"))
+    : Array.from(between(html, "<tbody", "</tbody>").matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g), (m) => ({ attrs: m[1], cells: Array.from(m[2].matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/g), (c) => ({ attrs: c[1], html: c[2], text: text(c[2]).trim() })) }));
 
 // ---------------------------------------------------------------------------
 // 1. A box the paper prints (LogHeaderField.printed)

@@ -104,7 +104,14 @@ export interface PaperTable {
    * (count) or as the record holds where it holds more. The record's lines are its boxes; the paper's other lines print
    * blank (never stored) and are not drawn on the screen, where Add Row adds a line.
    */
-  lines?: { h: number; count: number; cells: PaperCell[] };
+  lines?: {
+    h: number;
+    count: number;
+    cells: PaperCell[];
+    /** Blocks of lines side by side (F-QC-30's two tables), `gap` mm apart: the record's lines fill the first, then the next. */
+    blocks?: number;
+    gap?: number;
+  };
   /** The table's outer edges ruled heavier than its cells' (F/QC/16's frame). */
   frame?: "heavy";
 }
@@ -818,6 +825,105 @@ const TEMPERATURE_SLEEVE: PaperTable = {
   foot: [],
 };
 
+// ---------------------------------------------------------------------------
+// F-QC-40.C (the hot room), F-QC-30 (the lamination adhesive's viscosity) and F-QC-32 (the adhesive mixing ratio): the
+// owner sent photographs of these papers only ("WhatsApp Image 2026-09-07 at 2.15.19 PM (1).jpeg", "...2.15.18 PM.jpeg",
+// "...2.15.17 PM.jpeg" in source-documents/), so their measures are judged by eye from the photographs, on A4 portrait:
+// the same logo band as F-QC-40.B (the owner's logo) or the band of logo, title and number the two lamination papers
+// print, their headings, and as many ruled lines as the paper has. A record's lines are its own; the paper's others print
+// blank, never stored.
+
+/** F-QC-40.C: F-QC-40.B's sheet for the hot room, its fifty lines closer together to stand on one page. */
+const TEMPERATURE_HOT_ROOM: PaperTable = {
+  ...TEMPERATURE_SLEEVE,
+  top: 10,
+  head: [
+    { ...TEMPERATURE_SLEEVE.head[0], h: 11.5, cells: [{ ...TEMPERATURE_SLEEVE.head[0].cells[0], y: 3.6, img: { src: F40B_LOGO, x: 3.03, y: 1.0, w: 31.5, h: 9.5, alt: "Gujarat Print Pack Publications Pvt Ltd" } }] },
+    {
+      h: 11.5,
+      cells: [
+        { w: 135.79, lab: "@instructions:0", b: true, pt: 9.96, x: 0.64, y: 1.6, lh: 4.4, ww: 52 },
+        { w: 48.44, t: "{formatNo} ({revisionNo}/{revisionDate:yy})", a: "c", b: true, y: 4.0 },
+      ],
+    },
+  ],
+  body: [{ ...TEMPERATURE_SLEEVE.body[0], h: 10.2 }],
+  lines: { ...TEMPERATURE_SLEEVE.lines!, h: 4.9, count: 50 },
+};
+
+/** The band the two lamination papers print: the logo, the title, and the number, its revision and its date on three lines. */
+const laminationBand = (h: number, caps: boolean): PaperRow => ({
+  h,
+  cells: [
+    { w: 48, t: "", img: { src: F40B_LOGO, x: 3, y: (h - 12.5) / 2, w: 41.4, h: 12.5, alt: "Gujarat Print Pack Publications Pvt Ltd" } },
+    { w: 94, t: "{title}", a: "c", b: true, pt: 12, vm: true, ...(caps ? { caps: true as const } : {}) },
+    { w: 48, t: "Format No.: {formatNo}\nRev. {revisionNo}\nDate : {revisionDate}", a: "c", b: true, pt: 8.5, vm: true, lh: 4.3 },
+  ],
+});
+
+/** F-QC-30's two tables side by side, each Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By. */
+const F30_COLS = [14, 26, 27, 25];
+const f30Heading = (): PaperCell[] => [
+  { w: F30_COLS[0], t: "Sr. No.", a: "c", b: true, vm: true },
+  { w: F30_COLS[1], lab: "@column:time", a: "c", b: true, vm: true },
+  { w: F30_COLS[2], lab: "@column:viscosity:br", a: "c", b: true, vm: true, lh: 4.2 },
+  { w: F30_COLS[3], lab: "@column:testedBy", a: "c", b: true, vm: true },
+];
+
+const VISCOSITY: PaperTable = {
+  page: "portrait",
+  left: 10,
+  top: 12,
+  font: "calibri",
+  pt: 9,
+  rules: "cells",
+  head: [laminationBand(24, true), { h: 5, cells: [{ w: 190, t: "", edges: "" }] }],
+  body: [{ h: 13, head: true, cells: [...f30Heading(), { w: 6, t: "", edges: "" }, ...f30Heading()] }],
+  lines: {
+    h: 6.9,
+    count: 34,
+    blocks: 2,
+    gap: 6,
+    cells: [
+      { w: F30_COLS[0], num: "rows", a: "c", vm: true },
+      { w: F30_COLS[1], col: "time", a: "c", vm: true },
+      { w: F30_COLS[2], col: "viscosity", a: "c" },
+      { w: F30_COLS[3], col: "testedBy", a: "c" },
+    ],
+  },
+  foot: [],
+};
+
+/** F-QC-32: Sr. No. | Date | Time | Adhesive (kg) | Hardener (kg) | Ethyl (kg) | Viscosity (Sec.) | Remark | Checked by | Verified by. */
+const F32_COLS = [17.2, 16.6, 15.6, 15, 15.9, 15.3, 15.9, 36.6, 20.3, 21.6];
+const F32_KEYS = ["date", "time", "adhesive", "hardener", "ethyl", "viscosity", "remark", "checkedBy", "verifiedBy"];
+
+const ADHESIVE_MIXING: PaperTable = {
+  page: "portrait",
+  left: 10,
+  top: 12,
+  font: "calibri",
+  pt: 9,
+  head: [laminationBand(25, false)],
+  body: [
+    {
+      h: 10,
+      head: true,
+      cells: [
+        { w: F32_COLS[0], t: "Sr. No.", a: "c", b: true, vm: true },
+        // "Adhesive" over "(kg)" as the paper breaks them; "Ethyl (kg)" on its one line.
+        ...F32_KEYS.map((key, i): PaperCell => ({ w: F32_COLS[i + 1], lab: `@column:${key}${["adhesive", "hardener", "viscosity"].includes(key) ? ":br" : ""}`, a: "c", b: true, pt: 8.5, vm: true, lh: 3.8 })),
+      ],
+    },
+  ],
+  lines: {
+    h: 7.1,
+    count: 33,
+    cells: [{ w: F32_COLS[0], num: "rows", a: "c", vm: true }, ...F32_KEYS.map((col, i): PaperCell => ({ w: F32_COLS[i + 1], col, a: "c" }))],
+  },
+  foot: [],
+};
+
 export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-coa-label": COA_LABEL,
   "qc-coa-sleeve": COA_SLEEVE,
@@ -828,7 +934,38 @@ export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-ruler-verification-300": RULER,
   "qc-temperature-humidity": TEMPERATURE_HUMIDITY,
   "qc-temperature-sleeve": TEMPERATURE_SLEEVE,
+  "qc-temperature": TEMPERATURE_HOT_ROOM,
+  "qc-viscosity": VISCOSITY,
+  "qc-adhesive-mixing": ADHESIVE_MIXING,
 };
+
+/**
+ * A register's ruled line `r` as drawn: its cells for line r, and where the paper sets its lines in blocks side by side,
+ * a blank of the gap and the next block's cells for line r + count, and so on (each cell's ln the record's line it holds).
+ */
+export function lineRow(form: PaperTable, r: number): PaperCell[] {
+  const lines = form.lines!;
+  const out: PaperCell[] = [];
+  for (let b = 0; b < (lines.blocks ?? 1); b++) {
+    if (b > 0) out.push({ w: lines.gap ?? 0, t: "", edges: "" });
+    for (const c of lines.cells) out.push({ ...c, ln: r + b * lines.count });
+  }
+  return out;
+}
+
+/**
+ * Whether the paper still fits the format as it stands: every box and column it draws is the format's, and every one the
+ * format has is drawn. A format the plant has edited since (a column added or taken off, a box added: the format's
+ * designer, Mitra) no longer matches the paper's cells, so its sheet is drawn as every grid is, nothing of it lost.
+ */
+export function paperTableFits(form: PaperTable, layout: { headerFields: { key: string }[]; footerFields?: { key: string }[]; columns: { key: string }[] }): boolean {
+  const cells = [...form.head, ...form.body, ...form.foot].flatMap((r) => r.cells).concat(form.lines?.cells ?? []);
+  const boxes = new Set(cells.flatMap((c) => (c.box ? [c.box] : c.sentence ? [c.sentence.box] : [])));
+  const cols = new Set(cells.flatMap((c) => (c.col ? [c.col] : [])));
+  const fields = [...layout.headerFields, ...(layout.footerFields ?? [])].map((f) => f.key);
+  const columns = layout.columns.map((c) => c.key);
+  return fields.length === boxes.size && fields.every((k) => boxes.has(k)) && columns.length === cols.size && columns.every((k) => cols.has(k));
+}
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
 export const paperTableFor = (documentId: string): PaperTable | undefined => QC_PAPER_TABLES[documentId];
