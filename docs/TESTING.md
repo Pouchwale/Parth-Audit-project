@@ -560,8 +560,8 @@ Seven scripts live in `tests/`:
   downloads back through the page's own Upload changes.
 - **Every download is the owner's own file, round 2, 20-Oct-2026** (REQUIREMENTS §119, round 2). `frontend/tests/originalFill.test.ts`
   gained four tests (14): a paper with no heading row over its questions (each line found by its own words, YES / NO struck as
-  on paper, the reading in its blank cell, read back unchanged), a box the paper has no place for (written as "Label: value" on
-  the line under the box before it, listed in the report's `outside`), boxes DCRS numbers in groups (filling the paper's table of
+  on paper, the reading in its blank cell, read back unchanged), a box the paper has no place for (since 22-Oct-2026 left out of
+  the file and its map, listed in the report's `leftOut`), boxes DCRS numbers in groups (filling the paper's table of
   them, a row added for the third), and a workbook's period in the title's own brackets with the example's merged Designation
   split. Offline, the filler was run on every captured page of round 1 after each change (scratchpad r2/fillr.mjs) and the 53
   documents that were the owner's file already were compared word for word with round 1's files: no change but two trailing
@@ -580,6 +580,34 @@ Seven scripts live in `tests/`:
   still read the generic 29-column sheet (F/HR/09 now downloads as his own calendar: the check reads his workbook, each topic on
   its Plan and Actual rows) and F/QC/12's "line carried from the page on file", which fails on 20-Oct-2026 (a holiday) on every
   branch -; again on the final code: 55 of 56, F/QC/12's holiday check the one failing.
+- **Downloads as the owner's own files on A4, nothing added to his formats, the QC documents, 22-Oct-2026** (REQUIREMENTS §119,
+  "A4 and the print" and "the QC documents"). `frontend/tests/originalFill.test.ts` (22): a name at its group's words ("Prepared
+  By"), no spacer shared by a row's lines, a grid run on through the tables his paper repeats a page each (his examples cleared
+  on every page), a card per line (a line past the last card left out), the empty lines after the last table one point high,
+  a signature block printed as lines (names under the labels, or on the blank line where the roles are), a headerless table
+  whose values find no place said (`notPlaced`), a two-column table headed by a group read as the group's boxes. `npm run
+  typecheck` clean and `npm run test:unit` 1229 of 1229 + 632 of 636 (4 skipped) before each commit.
+  *Templates on A4* (scripts/originals/convert.py with Word and Excel themselves): the eleven not on A4 made again from his
+  originals, each page count his paper's (picks.json); F/PUR/03 and F/PRD/24 fitted to the page's width (their last column had
+  a page of its own on his own A4 setting). `python -I scratchpad/paper_sizes.py frontend/public/originals`: 105 of 105 A4.
+  *The A4 print of every download that is his file* (scratchpad r2/a4check.py: each filled from a captured record by
+  r2/fillr.mjs, printed to PDF by Word or Excel, Excel's "scale content for A4 or 8.5 x 11" off in its own Excel while it
+  prints): 74 documents, every page A4, no Word ink off the paper, no workbook column on a page across; pages as his paper
+  but F/SYS/01 and F/SYS/12 (grids grow), F/HR/14, F/QC/03, F/STR/02 (longer values wrap), F/HR/07, F/MNT/01, F/PUR/03,
+  F/PRD/24 (fewer). Found and put right on the way: empty last pages (F/HR/11, F/QC/05, F/QC/18), F/HR/06's people all in its
+  first table (two pages more) with his examples left on the others, F/QC/19's nine lines added as rows to its first card.
+  *The originals check* (port 4300): the sixteen QC documents with the QC print round 2's pages (run 1: F/QC/06's page drawn as
+  its paper's table had downloaded as his file with none of the record's values - now refused; the statements, F-QC-14,
+  F/QC/21, F/QC/30 generic, F/QC/06 and F/QC/07 too, each with its reason); today's changed documents (run 2): F/QC/17 96 and
+  96, F/QC/29 96 and 88, F/QC/11 50, F/QC/12 56, F/QC/20 93, F/HR/06 62 (5 pages of his 5), F/HR/13 90, F/QC/19 100, F/HR/11 44
+  (2 of 2), F/MKT/05 94, F/HR/04 98, F/QC/05 52 (1 of 1) - every one his own file, every value in it, the map whole, Upload
+  changes "nothing to apply"; run 3 after the side-by-side of F/QC/29 showed its names written beside the labels with his
+  example names left: F/QC/29 98 and 88, F/QC/06 and F/QC-09 generic. On A4 the four QC documents now his files print on one
+  page each.
+  Browser suites, one at a time with the ports free, on c0ee67c: `e2e_downloads_and_print` 56 of 56 (F/QC/12's "line carried"
+  check passes on a working day); `e2e_upload_changes` every check passed within its time budget (451), the 24 documents the
+  560 s budget did not reach (F/DISP/01, 02, 04, F/SYS, F/MKT) run again with the suite's new `E2E_DOCS=a,b` (the
+  every-document pass on those documents only): 115 of 115 - every document's Word or Excel file read back into its record.
 - **The QC and HR documents as their papers, 16-Oct-2026** (REQUIREMENTS §117). New unit test file
   `frontend/tests/qcCarryForward.test.ts` (4): F/QC/12 one line a week with the standard weights written and editable
   (`LogColumn.standard`), no Add line; F/QC/17's master calibrator readings editable and the Difference following them;

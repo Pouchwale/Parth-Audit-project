@@ -9172,6 +9172,39 @@ file does.
 **Open question for the owner (A4).** (6) Workbooks with a 0 margin: should DCRS give every side at least 5 mm (the sheet
 scaled to fit), so no printer loses its outermost line?
 
+### §119, the QC documents (22-Oct-2026)
+
+After the QC print round 2 (merged into premium-theme at 62ffc1a, into this branch at 9c0bcd0) the thirteen QC documents that
+waited for it were held against their papers with the round's own pages (the originals check, sample-filled records):
+- **Now the owner's own file:** F/QC/17 both (the 600 mm and the 300 mm ruler records) - a two-column table headed by a
+  group's name alone, each line a label and its box ("Master Measuring Scale (Ruler) Details": Make, Serial number, Range ...,
+  and the same for the scale under calibration), is read as that group's boxes and found under the group's name on his sheet
+  (utils/originalFill/model.ts); F/QC/29 both (the analysis report, the utility test report) - their papers sign under labels
+  printed on a line ("Testing By   Approved By") with the names on a line under them and the roles under those: each name
+  takes the place of his example under its label ("Karan ... Kapila", cleared), and where his paper prints no names (the
+  utility test report) the names go on the blank line between the labels and the roles, each where its role is printed.
+  Such a box is looked for there first: on the round's page it is labelled "Testing By" alone (its binding carries the
+  role), and found by those words on the labels' line it had been written there, his example names left under it - the
+  side-by-side picture showed it, the counts did not. The analysis report's line under its title ("PSL Analysis Report", his
+  example) is the record's Report box (hints.ts exampleOf), and a value written in place of his example keeps the example's
+  own face (there: bold). F/QC/11, F/QC/12 and F/QC/20, the owner's files since round 1, still are with the round's pages.
+  Scores (b): F/QC/17 96 and 96, F/QC/29 98 and 88, F/QC/11 50, F/QC/12 56, F/QC/20 93; every value in the file, the map
+  whole, Upload changes "nothing to apply" on each.
+  On A4 (Word's and Excel's own PDF) the four new ones print on one page each, as his papers, no ink within 24 pt of an edge.
+- **Still the generic download, and why** (NOT_YET in utils/originalFill/index.ts): F/QC/06 and F/QC/07 - his Word files are
+  certificates exported from SAP Business Objects, every word in a positioned frame: no table, cell or line to write a value
+  in; F/QC-09, F/QC-10 and F/QC-38 - the statements' sections are boxes on DCRS's page (each heading and line editable) that
+  his paper prints as its own words; F-QC-14 (both) - his paper names its four inspectors in the column headings (his
+  example names, "Inspector - 3 (A...)"), the record's inspectors are DCRS's: a heading found by its words before the brackets
+  and the record's names written into it is not yet done; F/QC/21 flexo ink - his Word file draws its table as lines of tabs,
+  no table to write the observations in; F/QC/30 - the key points and the participants are numbered lines under a heading on
+  his paper, a grid and a list on DCRS's page (not yet placed line by line).
+- **A file of the owner's words alone is never handed over:** a table of the page with no heading row whose values find no
+  place (F/QC/06's certificate drawn as its paper's table) now says so (report.notPlaced), so the generic download is made.
+  Before, such a page downloaded as his file with his example values and none of the record's.
+- His F/QC/29 and F/QC/20 files print another document's footer ("Document number: - QA/ICM/SPEC/14 ... Current Issue date
+  1st December 2021, Next Review date 31st December 2024"), left in his file: kept, as his paper prints it.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

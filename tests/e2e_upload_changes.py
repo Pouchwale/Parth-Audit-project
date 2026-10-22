@@ -818,6 +818,12 @@ with sync_playwright() as p:
         if d and d not in doc_ids:
             doc_ids.append(d)
     check("The library offers a record of every document that holds one", len(doc_ids) >= 10, doc_ids)
+    # E2E_DOCS=a,b runs the every-document pass on those documents only (the ones a run's time budget did not reach); the
+    # later checks still run on what passed. Without the variable nothing changes.
+    only = [d.strip() for d in os.environ.get("E2E_DOCS", "").split(",") if d.strip()]
+    if only:
+        doc_ids = [d for d in doc_ids if d in only]
+        print(f"(E2E_DOCS: the every-document pass runs on {doc_ids} only)")
 
     passed, failed, skipped, not_reached = [], [], [], []
     by_kind = {"xlsx": 0, "docx": 0}
