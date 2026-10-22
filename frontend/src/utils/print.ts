@@ -162,6 +162,9 @@ export function paperOf(doc: Element): "portrait" | "landscape" | null {
 
 function fitToPage(docs: Element[]): void {
   unfit();
+  // The screen's own zoom (utils/screenFit.ts) is off while the page is measured for print: the print fits the sheet at
+  // its own size. Put back by screenFit's afterprint pass.
+  for (const d of Array.from(document.querySelectorAll<HTMLElement>("[data-print-doc]"))) d.style.removeProperty("--screen-zoom");
   const needs = docs.map((d) => ({ doc: d as HTMLElement, width: narrowestWidth(d) }));
   const widest = Math.max(0, ...needs.map((n) => n.width));
   // The paper's own orientation (§117); without one, the width decides (§54).

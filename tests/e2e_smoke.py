@@ -244,7 +244,8 @@ def main():
         if opened_log:
             check("Log sheet shows the F-QC-30 header", "F-QC-30" in page.content())
             # 9:00 to 07:00, as F-QC-30's page is written: 23 hourly lines (s111 part 6).
-            check("Log sheet was pre-filled with 23 hourly rows", page.locator("table.log-sheet tbody tr").count() == 23)
+            # (Drawn on the paper's own ruled table since s117 round 2: 35 printed lines, the record's 23 of them.)
+            check("Log sheet was pre-filled with 23 hourly rows", page.locator("[data-print-doc] tbody tr:has([data-bind])").count() == 23)
             # REQUIREMENTS s98: the prepare writes the 23 time slots, never a reading or who tested it. The banner
             # says so, and the person enters each reading and signs it, as on the paper, before it can be submitted.
             check("Prepared banner says the slots are there and the readings are the person's", "23 time slots are on the sheet" in page.content() or not PREPARED_EXPECTED)
@@ -270,6 +271,11 @@ def main():
         page.wait_for_timeout(400)
         dismiss_briefing(page)
         if PREPARED_EXPECTED:
+            # The page is drawn again from the database: waited for, not read the instant the reload returns.
+            for _ in range(40):
+                if "Verified" in page.content() or "Pending Verification" in page.content():
+                    break
+                page.wait_for_timeout(200)
             check("Status persists after reload", "Verified" in page.content() or "Pending Verification" in page.content())
         else:
             check(
