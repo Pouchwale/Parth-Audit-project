@@ -340,7 +340,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         <ProviderLetterhead />
       </div>
 
-      {/* The three written boxes share the row's room: a programme's name and its reference are read whole (the owner, 22-Oct-2026). */}
+      {/* The three written boxes share the row's room, and a programme's name and its reference wrap in theirs: read whole (the owner, 22-Oct-2026). */}
       <div className="card mt-4">
         <div className="card-pad flex gap-4 wrap">
           <div className="field" style={{ minWidth: 160 }}>
@@ -349,7 +349,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
           </div>
           <div className="field" style={{ minWidth: 220, flex: "1 1 220px" }}>
             <label>Training Type</label>
-            <input className="input" {...bindProps(trainingBind.field("trainingType"))} disabled={!editable} value={data.trainingType} onChange={(e) => update({ trainingType: e.target.value })} />
+            <textarea className="input input-cell-multiline wrap-text" rows={1} {...bindProps(trainingBind.field("trainingType"))} disabled={!editable} value={data.trainingType} onChange={(e) => update({ trainingType: e.target.value })} />
           </div>
           <div className="field" style={{ minWidth: 220, flex: "1 1 220px" }}>
             <label>Trainer / Provider</label>
@@ -357,7 +357,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
           </div>
           <div className="field" style={{ minWidth: 220, flex: "1 1 220px" }}>
             <label>Certificate / Reference</label>
-            <input className="input" {...bindProps(trainingBind.field("certificateRef"))} disabled={!editable} value={data.certificateRef} onChange={(e) => update({ certificateRef: e.target.value })} />
+            <textarea className="input input-cell-multiline wrap-text" rows={1} {...bindProps(trainingBind.field("certificateRef"))} disabled={!editable} value={data.certificateRef} onChange={(e) => update({ certificateRef: e.target.value })} />
           </div>
         </div>
       </div>

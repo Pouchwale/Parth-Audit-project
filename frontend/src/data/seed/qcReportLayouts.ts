@@ -282,7 +282,9 @@ export const QC_REPORT_LAYOUTS: Record<string, LogSheetLayout> = {
       // many may attend, so they are one block of lines, as the page lists them.
       { key: "participants", label: "Participants :", type: "paragraph", width: 700, autoFill: { carryForward: true } },
     ],
-    columns: [{ key: "keyPointsDiscussed", label: "Key points Discussed:", type: "text", width: 700 }],
+    // A key point is a paragraph on the paper, its words running on to the next line (the owner's MOM of 07.06.2022): it wraps
+    // on the screen and in print, never cut at one line (the owner, 22-Oct-2026).
+    columns: [{ key: "keyPointsDiscussed", label: "Key points Discussed:", type: "text", width: 700, multiline: true }],
     rowMode: { kind: "free", minRows: 1, typicalRows: 7 },
     specimenHeader: MINUTES_GANGWAL_HEADER,
     specimenRows: MINUTES_GANGWAL_POINTS,
