@@ -78,11 +78,12 @@ export function fitAll(docs: Element[]): void {
 }
 
 /**
- * A box's words on one line at the box's own size (`need`), against the room it has (`room`), with its own size and the
- * smallest its words may be written (`own`, `floor`, in px): read once, after fitAll, by utils/print.ts for the words it
+ * A box's words on one line at the box's own size (`need`), against the room it has (`room`), with its own size, the size
+ * it is written at now and the smallest its words may be (`own`, `now`, `floor`, in px): read once, after fitAll, by
+ * utils/print.ts for the words it
  * writes on two lines where even the smallest writing would be cut.
  */
-export function measureWords(el: HTMLInputElement): { need: number; room: number; own: number; floor: number } {
+export function measureWords(el: HTMLInputElement): { need: number; room: number; own: number; now: number; floor: number } {
   const cs = getComputedStyle(el);
   const now = parseFloat(cs.fontSize) || 12;
   const own = base.get(el) ?? now;
@@ -93,7 +94,7 @@ export function measureWords(el: HTMLInputElement): { need: number; room: number
     pen.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
     words = pen.measureText(el.value).width + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.textIndent) || 0);
   }
-  return { need: (words * own) / now, room: el.clientWidth, own, floor: own * floorOf(el) };
+  return { need: (words * own) / now, room: el.clientWidth, own, now, floor: own * floorOf(el) };
 }
 
 /** After a print: the boxes the print made smaller are measured again by the screen's own pass. */

@@ -58,8 +58,8 @@
 //     and on a second line in a small box: the row keeps its height and a one-page
 //     paper stays one page;
 //   * on any other sheet, laid out afresh for the page, a value that fills most of its
-//     box on the screen is written as words at the box's own size, wrapping where the
-//     page's box is narrower, the row growing to hold them.
+//     box on the screen is written as words at the size it is written at, wrapping only
+//     where the page's box is narrower than the screen's, the row growing to hold them.
 // Every other box prints as before. The words come off, and the boxes come back, when
 // printing ends.
 
@@ -141,13 +141,15 @@ function writeLongBoxesAsWords(docs: Element[]): Written[] {
   for (const d of docs) {
     for (const box of Array.from(d.querySelectorAll<HTMLInputElement>(LONG_BOXES))) {
       if (box.value.trim() === "" || box.classList.contains(PRINTED_AS_TEXT) || box.clientWidth === 0) continue;
-      const { need, room, own, floor } = measureWords(box);
+      const { need, room, own, now, floor } = measureWords(box);
       const align = getComputedStyle(box).textAlign;
       if (box.closest(PAPER_FORM)) {
         // The paper's cell: cut even at the smallest writing, the words go on two lines inside the cell's own height.
         if ((need * floor) / own <= room + 1) continue;
         plan.push({ box, size: Math.min(own, Math.max(floor, (own * TWO_LINES * room) / need)), floor, height: box.clientHeight, align });
-      } else if (need > room * WEB_FULL) plan.push({ box, size: own, floor, height: null, align });
+        // Any other sheet: a value that fills most of its box (written smaller to fit, or nearly full) keeps the size it is
+        // written at, and wraps only where the page's box is narrower than the screen's: the printout is as before, uncut.
+      } else if ((need * now) / own > room * WEB_FULL) plan.push({ box, size: now, floor, height: null, align });
     }
   }
   const written: Written[] = [];
