@@ -3541,8 +3541,8 @@ table.svc-paper {
   .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > .input,
   .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > select.input,
   .paper-sheet[data-paper-form="calib"] [data-pf~="calib"] > .field > .print-box-text {
-    flex: none; display: block; box-sizing: border-box; width: 100%; min-width: 0; height: calc(12 * var(--pt) * 1.25); min-height: 0; margin: var(--cal-box-value-y) 0 0; padding: 0;
-    border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000; font-family: var(--cal-arial); font-size: calc(11 * var(--pt)); line-height: calc(12 * var(--pt) * 1.25); text-align: left;
+    flex: none; display: block; box-sizing: border-box; width: 100%; min-width: 0; height: calc(12 * var(--pt)); min-height: 0; margin: var(--cal-box-value-y) 0 0; padding: 0;
+    border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000; font-family: var(--cal-arial); font-size: calc(11 * var(--pt)); line-height: calc(12 * var(--pt)); text-align: left;
   }
   /* F/QC/11: each box's words and its value centred in their cell, in the paper's faces; its Calibration Date two columns
      wide and its Due Date beside it, after the paper's space, words at the left. */
@@ -3873,6 +3873,21 @@ table.svc-paper {
    and what reading the browser's own computed style caught. Mitra still says
    everything it says; it just stops moving: the ring round its face while it
    answers stands still, and so does the listening dot. */
+/* A PAPER WIDER THAN THE SCREEN IS SHOWN WHOLE (utils/screenFit.ts, the owner, 22-Oct-2026): zoomed to the room it has on a
+   computer's screen, as a PDF viewer fits a page to its width; never in print (utils/print.ts fits the page) nor on a phone. */
+@media screen and (min-width: 760px) {
+  [data-print-doc]:not([data-print-doc="ui"]) { zoom: var(--screen-zoom, 1); }
+  /* A paper that scrolled sideways in a box of its own is fitted with the document instead (a phone still scrolls it). */
+  [data-print-doc] .paper-sheet:is([data-paper-form="table"], [data-paper-form="lineclear"]) { max-width: none; overflow-x: visible; }
+}
+/* A box in a paper's cell never makes the paper's column wider than the paper's (a sheet's boxes keep 64 px elsewhere):
+   its words are written smaller instead (utils/fitText.ts). */
+[data-print-doc] .paper-sheet table td :is(.input, .input-sm) { min-width: 0; }
+/* A date written in a paper's narrow cell keeps its words: the calendar mark shows when the box is pointed at or typed in. */
+@media screen {
+  [data-print-doc] td input[type="date"]:not(:hover):not(:focus)::-webkit-calendar-picker-indicator { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,

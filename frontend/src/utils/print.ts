@@ -47,6 +47,7 @@
 
 import { logActivity } from "./activityLog";
 import { formatDisplayDate } from "./date";
+import { fitAll, unfitAll } from "./fitText";
 
 const DOC_SELECTOR = "[data-print-doc]";
 const HIDDEN = "print-scope-hidden";
@@ -216,6 +217,7 @@ export function documentsOnScreen(within: ParentNode = document): Element[] {
 
 function unscope(): void {
   unfit();
+  unfitAll();
   if (!active) return;
   for (const el of active.hidden) el.classList.remove(HIDDEN);
   for (const el of active.ancestors) el.classList.remove(ANCESTOR);
@@ -253,6 +255,8 @@ function scope(targets: Element[]): void {
   document.documentElement.classList.add(SCOPED);
   active = { hidden, ancestors, emptied: markEmptyBoxes(docs), written: writeBoxesAsText(docs) };
   fitToPage(docs);
+  // Words wider than their box print smaller, never cut (utils/fitText.ts).
+  fitAll(docs);
 }
 
 /**

@@ -13,6 +13,7 @@ import { SessionIntro } from "./components/auth/IntroSplash";
 import { SessionClock } from "./components/auth/SessionClock";
 import { App } from "./App";
 import { installPrintScoping } from "./utils/print";
+import { installScreenFit } from "./utils/screenFit";
 import { startServerSync, SyncError, type SyncErrorKind } from "./data/serverSync";
 import { measureWorkingCopy } from "./data/storageAdapter";
 import { openRoom } from "./data/browserRoom";
@@ -20,6 +21,8 @@ import { demoModeAvailable } from "./engine/features";
 import { api } from "./api/client";
 
 installPrintScoping();
+// A paper wider than the screen is shown whole, zoomed to the room it has (the owner, 22-Oct-2026).
+installScreenFit();
 
 // The app's data is in PostgreSQL (REQUIREMENTS §55): once somebody has signed
 // in, their working copy is loaded from the database — and only then is the

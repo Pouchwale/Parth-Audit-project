@@ -34,10 +34,10 @@ const layoutOf = (id: string) => {
 };
 const data = (r: RecordInstance): LogSheetData => r.data as LogSheetData;
 
-test("F/QC/12: one sheet a week holds the week's one line, no line added, the five standard weights written in and editable", () => {
+test("F/QC/12: one sheet a week starts with the week's one line, a line may be added, the five standard weights written in and editable", () => {
   const layout = layoutOf("qc-weight-scale-calibration");
-  assert.equal(layout.rowMode.kind, "single", "the week's one calibration: a new week is a new record");
-  assert.equal(logRowsRule(layout).canAdd, false, "no Add line on the sheet");
+  assert.equal(layout.rowMode.kind, "free", "the week's calibration: a new week is a new record");
+  assert.equal(logRowsRule(layout).canAdd, true, "Add Row for a second calibration the same week (the owner, 22-Oct-2026)");
   assert.equal(doc("qc-weight-scale-calibration").schedule.type, "weekly");
   assert.deepEqual(STANDARD_WEIGHTS, ["50 gm", "100 gm", "200 gm", "500 gm", "600 gm"]);
   const blank = createDefaultData(doc("qc-weight-scale-calibration"), "2026-10-14", masterRepository.get()) as LogSheetData;

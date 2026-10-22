@@ -911,7 +911,7 @@ export function LogSheetRecordView({
       )}
 
       {hasGrid && !layout.gridAcross && !answerAcross && !panels && (
-      <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
+      <div className="doc-table mt-4">
         <table
           className={editable ? "compact log-sheet is-editing" : "compact log-sheet"}
           style={gridCols ? ({ "--pf-w": `calc(${gridCols.reduce((a, b) => a + b, 0)} * var(--u))` } as React.CSSProperties) : undefined}
@@ -1379,7 +1379,8 @@ function BoxLine({ group, minWidth, section, className, paper, children }: { gro
   const paperVars = paper
     ? ({
         "--pf-cols": paper.cols.map((c) => `calc(${c} * var(--u))`).join(" "),
-        "--pf-rows": paper.rows.map((r) => `calc(${r} * var(--u))`).join(" "),
+        // Each row the paper's height, taller only where its words need more room (never hidden under the next row).
+        "--pf-rows": paper.rows.map((r) => `minmax(calc(${r} * var(--u)), auto)`).join(" "),
         "--pf-gap": `calc(${paper.gap} * var(--u))`,
       } as React.CSSProperties)
     : undefined;
@@ -1475,7 +1476,7 @@ function PanelGrid({
   return (
     <div className="paper-panels mt-4" data-section="paper-panels" style={{ "--paper-panels": panels.perRow } as React.CSSProperties}>
       {panels.tables.map((t) => (
-        <div key={t.index} className="doc-table" style={{ overflowX: "auto" }} data-panel={t.index}>
+        <div key={t.index} className="doc-table" data-panel={t.index}>
           <table className={editable ? "compact log-sheet paper-panel is-editing" : "compact log-sheet paper-panel"}>
             <thead>
               <tr>
@@ -1666,7 +1667,7 @@ function AcrossGrid({
 }) {
   const shared = columns.length > 0 && columns.every((c) => c.group !== undefined && c.group === columns[0].group) ? columns[0].group : undefined;
   return (
-    <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
+    <div className="doc-table mt-4">
       <table className={editable ? "compact log-sheet log-sheet-across is-editing" : "compact log-sheet log-sheet-across"} data-across="">
         {shared && (
           <thead>
@@ -1767,7 +1768,7 @@ function AnswerAcrossGrid({
     );
   };
   return (
-    <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
+    <div className="doc-table mt-4">
       <table className={editable ? "compact log-sheet log-sheet-answer-across is-editing" : "compact log-sheet log-sheet-answer-across"} data-answer-across={answer.key}>
         <thead>
           <tr>

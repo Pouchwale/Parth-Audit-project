@@ -152,7 +152,9 @@ const weightScale: LogSheetLayout = {
   // DCRS had printed with five weeks on it — "Weekly → for new record → New Record!". Every week is a new record
   // of its own; the sheet is the week's one line (and its Deviation % line), with no line added to it. The supplied
   // page of February–March 2024 keeps its four weeks, as written (data/seed/qcCalibrationRecords.ts).
-  rowMode: { kind: "single" },
+  // ADD ROW WHEN IT IS NEEDED (the owner, 22-Oct-2026): the week's sheet still starts with its one calibration, and a
+  // second one the same week (a re-test after a Fail) is a line added to it, never a line written for the person.
+  rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
   // A new week's sheet is written as the last one was — every box and the line, editable (§117).
   carryForwardAll: true,
   // A landscape page, as the original is (§117): the print, the PDF, the Word and Excel files follow it.

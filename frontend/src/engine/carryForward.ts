@@ -71,7 +71,8 @@ export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blan
   // A sheet of one line takes the previous sheet's last line (the latest week of a page of several); a sheet whose
   // lines the paper prints keeps the paper's count of them, and a previous sheet with another count (the format
   // changed since) carries its boxes only.
-  const single = layout.rowMode.kind === "single";
+  // (A sheet that is one line unless a line is added - F/QC/12's week - is one line here too.)
+  const single = layout.rowMode.kind === "single" || (layout.rowMode.kind === "free" && layout.rowMode.typicalRows === 1);
   const previousRows = single ? allPrevious.slice(-1) : allPrevious;
   const printedLines = layout.rowMode.kind !== "free" && !single;
   if (previousRows.length === 0 || (printedLines && previousRows.length !== blank.rows.length)) return { ...blank, header };
