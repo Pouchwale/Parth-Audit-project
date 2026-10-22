@@ -5628,7 +5628,9 @@ itself; and the plant running the whole application from one server PC, with a g
   at least 5.7:1 contrast; small text uses the muted grey (5.48:1 on white), not the faint one.
 - Two bugs already there, put right: the welcome opened scrolled to its bottom, hiding the greeting; and on a phone the
   page scrolled past the greeting when it focused the composer (it focuses with preventScroll now).
-- **"Mitra on your phone"**, a card at the foot of the conversation list, never printed. Folded, it is one line and a
+- **"Mitra on your phone"**, a card at the foot of the conversation list, never printed. **REMOVED 22-Oct-2026 at the
+  owner's request** ("remove the message which is present in conversation window in bottom side in which there is written
+  mitra on your phone"): the card, its QR helpers and their test are gone; a phone finds the code as docs/phone-app-setup.md says. Folded, it is one line and a
   "Show the code" button, and asks and draws nothing. Opened, it asks DCRS `GET /api/phone-app` (part 3) and draws a QR
   code for `exp://<address>:<port>`: the address is the browser's own host unless that is localhost, else the first
   address the server gives; the port is the route's, else 8081; when the route is missing (404) or fails, the browser's

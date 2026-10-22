@@ -230,8 +230,8 @@ The app behaves like a personal assistant rather than a blank form:
   and the Leave Calendar's title are left as they are.
 - **Mitra's look, Mitra on your phone, and one PC for the whole plant** (REQUIREMENTS §88). The Ask Mitra page and the
   dock share one calmer look (Mitra's face, a welcome with cards, every movement by transform and opacity only, still under
-  reduced motion). A **"Mitra on your phone"** card on the Ask Mitra page shows the QR code a phone scans in Expo Go, with
-  the steps, and says when the app is not running. The phone's Mitra now also answers the equipment list (F/MNT/01), the
+  reduced motion). The "Mitra on your phone" card that showed the QR code on the Ask Mitra page was removed at the
+  owner's request on 22-Oct-2026 (docs/phone-app-setup.md says where a phone finds the code). The phone's Mitra now also answers the equipment list (F/MNT/01), the
   insights and, for the super admin, the escalations, through three new `/api/v1` routes. One server PC runs DCRS (port
   4000), the Mitra server (3000) and Mitra for Expo Go (8081): `npm run plant:start` starts and keeps all three running,
   `npm run phone:check` says what works, `scripts/windows` holds the firewall and autostart scripts, and
@@ -894,7 +894,7 @@ unset and `npm start` / `npm run dev` start a local PostgreSQL of their own (dat
 **Mitra on your phone.** The plant runs the whole application from one server PC: DCRS on port 4000
 for the browsers, and for the staff's phones the Mitra server on port 3000 and Mitra for Expo Go on
 port 8081 (Android and iPhone open it in the Expo Go app; nothing is installed or built for the phones,
-no APK, no TestFlight). The Ask Mitra page shows the QR code a phone scans, under "Mitra on your phone".
+no APK, no TestFlight). A phone scans the QR code Expo prints on the server PC (the Ask Mitra page's phone card was removed on 22-Oct-2026).
 [docs/phone-app-setup.md](docs/phone-app-setup.md) sets the PC up step by step: `npm run mitra:setup`
 installs the app, `npm run plant:start` starts all three servers and keeps them running,
 `npm run phone:check` says what works and what to do about what does not, and `scripts/windows` holds

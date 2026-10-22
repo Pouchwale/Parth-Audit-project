@@ -117,8 +117,7 @@ test("the Ask Mitra page keeps every hook the suites drive, with a picture on ea
   assert.match(html, /class="mitra-status" data-state="(ready|offline)"/);
   assert.match(html, /<span class="chat-avatar" aria-hidden="true"><svg/, "Mitra's face in the head, sized by the stylesheet");
   assert.match(html, /class="assistant-side-empty"[\s\S]*No chats yet[\s\S]*Your chats with Mitra will be listed here\./, "a kind empty list");
-  assert.match(html, /<section class="mitra-phone no-print" data-section="mitra-phone"/, "the phone card, screen only");
-  assert.doesNotMatch(html, /<svg class="mitra-qr"/, "its code drawn only when it is opened");
+  assert.doesNotMatch(html, /mitra-phone|Mitra on your phone/, "no phone card at the foot of the conversations (the owner, 22-Oct-2026)");
   assert.doesNotMatch(html, /<button[^>]*>(?:(?!<\/button>)[\s\S])*Ask Mitra(?:(?!<\/button>)[\s\S])*<\/button>/, "no button on the page says Ask Mitra");
   assert.match(html, /<div class="mitra-footer"><svg[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/svg><span>The assistant never submits or verifies anything by itself\.<\/span><\/div>/);
 });

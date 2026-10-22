@@ -2001,12 +2001,6 @@ body { top: 0 !important; }
 .assistant-page { display: flex; gap: 16px; height: calc(100vh - 58px - 44px - 60px); min-height: 520px; }
 .assistant-side { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
 .assistant-side-list { flex: 1 1 auto; min-height: 72px; overflow-y: auto; }
-/* The phone card at the foot: it gives way (and scrolls) before the list does. */
-.assistant-side > .mitra-phone { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
-/* While its code is shown, the phone card has the panel: the list folds until it is hidden again. */
-.assistant-side.is-phone-open .assistant-side-list { display: none; }
-.assistant-side.is-phone-open > .mitra-phone { flex: 1 1 auto; border-top: 0; }
-.assistant-side.is-phone-open { width: 300px; }
 .assistant-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .assistant-log { flex: 1; overflow-y: auto; padding: 20px 24px 12px; }
 .assistant-log .mitra-thread { max-width: 860px; margin: 0 auto; }
@@ -2014,7 +2008,7 @@ body { top: 0 !important; }
 .assistant-composer > .mitra-composer, .assistant-composer > .mitra-hint, .assistant-composer > .assistant-voice-note { max-width: 860px; margin-left: auto; margin-right: auto; }
 @media (max-width: 900px) {
   .assistant-page { flex-direction: column; height: auto; }
-  .assistant-side, .assistant-side.is-phone-open { width: auto; }
+  .assistant-side { width: auto; }
   .assistant-side-list { max-height: 200px; }
   .assistant-main { min-height: 520px; height: calc(100vh - 58px - 44px - 60px); }
 }
@@ -2476,36 +2470,6 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 .mitra-quick-chips .chat-chip:not(.primary):not(.success):not(.danger) { background: var(--surface-sunken); border-color: var(--surface-sunken); }
 .mitra-quick-chips .chat-chip:not(.primary):not(.success):not(.danger):hover { background: var(--accent-soft); border-color: var(--accent-text); }
 
-/* ---- Mitra on your phone (components/mitra/MitraPhoneCard.tsx, 2-Oct-2026) ----
-   At the foot of the conversations: a line and "Show the code"; opened, the QR
-   code that opens Mitra in Expo Go, its address, and the steps on the phone.
-   Screen only (.no-print on the card). */
-.mitra-phone { padding: 12px 14px 14px; border-top: 1px solid var(--hairline); background: linear-gradient(180deg, var(--accent-wash) 0%, var(--surface) 100%); }
-.mitra-phone-head { display: flex; align-items: flex-start; gap: 10px; }
-.mitra-phone-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 10px; background: var(--mitra-face); color: var(--on-brand); }
-.mitra-phone-words { min-width: 0; }
-.mitra-phone-title { font-size: 13px; font-weight: 700; color: var(--ink); }
-.mitra-phone-lead { margin-top: 2px; font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
-.mitra-phone-toggle { margin: 10px 0 0 42px; }
-.mitra-phone-body { margin-top: 10px; animation: mitra-rise 180ms ease-out backwards; }
-.mitra-phone-code { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 0; }
-.mitra-qr { display: block; width: 148px; height: 148px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--paper); }
-/* A code must be dark on white to scan, in either theme: the paper's white and its ink (the
-   markup keeps its own fills, which mitraPhone.test.ts reads; these are the same colours). */
-.mitra-qr rect { fill: var(--paper); }
-.mitra-qr path { fill: var(--paper-ink); }
-.mitra-phone-wait { display: flex; align-items: center; justify-content: center; width: 148px; height: 148px; padding: 12px; border: 1px dashed var(--hairline-strong); border-radius: 10px; font-size: 11.5px; line-height: 1.4; color: var(--ink-2); text-align: center; }
-.mitra-phone-url { max-width: 100%; padding: 2px 10px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--surface-sunken); font-family: var(--font-mono); font-size: 11.5px; color: var(--ink); overflow-wrap: anywhere; text-align: center; user-select: all; }
-.mitra-phone-note { display: flex; align-items: flex-start; gap: 6px; margin: 10px 0 0; padding: 7px 9px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface-sunken); font-size: 11.5px; line-height: 1.45; color: var(--ink); }
-.mitra-phone-note svg { flex-shrink: 0; margin-top: 1px; color: var(--accent-text); }
-.mitra-phone-note.is-warning { border-color: transparent; background: var(--warning-soft); color: var(--warning); }
-.mitra-phone-note.is-warning svg { color: var(--warning); }
-.mitra-phone-steps { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; counter-reset: mitra-phone-step; }
-.mitra-phone-steps li { position: relative; padding-left: 27px; counter-increment: mitra-phone-step; font-size: 11.5px; line-height: 1.42; color: var(--ink); }
-.mitra-phone-steps li::before {
-  content: counter(mitra-phone-step); position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; justify-content: center;
-  width: 20px; height: 20px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font-size: 11px; font-weight: 700;
-}
 /* ---- end of Ask Mitra as an agent ---- */
 /* ==== end of AREA 2 ==== */
 
@@ -3851,7 +3815,7 @@ table.svc-paper {
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,
-  .mitra-hero-face, .mitra-hero-text, .assistant-suggestion, .mitra-step, .mitra-phone-body { animation: none !important; }
+  .mitra-hero-face, .mitra-hero-text, .assistant-suggestion, .mitra-step { animation: none !important; }
   .mitra-thinking { opacity: 0.8; }
   .chat-avatar.is-thinking::after { opacity: 0.5; transform: none; }
   .chat-chip, .assistant-pill, .mitra-composer, .assistant-suggestion { transition: none; }
