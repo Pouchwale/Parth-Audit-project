@@ -80,8 +80,7 @@ export function fitAll(docs: Element[]): void {
 /**
  * A box's words on one line at the box's own size (`need`), against the room it has (`room`), with its own size, the size
  * it is written at now and the smallest its words may be (`own`, `now`, `floor`, in px): read once, after fitAll, by
- * utils/print.ts for the words it
- * writes on two lines where even the smallest writing would be cut.
+ * utils/print.ts, which prints as wrapping words a value its box would cut.
  */
 export function measureWords(el: HTMLInputElement): { need: number; room: number; own: number; now: number; floor: number } {
   const cs = getComputedStyle(el);
