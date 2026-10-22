@@ -3887,6 +3887,11 @@ table.svc-paper {
 /* A sentence written where a one-line answer stood wraps in its column, as narrow as the column lets it: the GAP findings
    (GapPage.tsx), the complaint checklist's comments (CapaPage.tsx) (the owner, 22-Oct-2026). */
 textarea.input.input-cell-multiline:is(.gap-text, .wrap-text) { min-width: 140px; min-height: 30px; }
+/* On paper a box of several lines prints whole and without the screen's resize grip (the GAP findings, the complaint
+   checklist's comments, F/SYS/08's clauses printed a grip at each box's corner; a cell over 320 px of words scrolled). */
+@media print {
+  [data-print-doc] textarea, [data-print-doc] textarea.input.input-cell-multiline { resize: none; max-height: none; }
+}
 /* A date written in a paper's narrow cell keeps its words: the calendar mark shows when the box is pointed at or typed in. */
 @media screen {
   [data-print-doc] td input[type="date"]:not(:hover):not(:focus)::-webkit-calendar-picker-indicator { display: none; }

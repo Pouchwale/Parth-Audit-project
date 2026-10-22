@@ -3,7 +3,7 @@
 // than a laptop's page - is zoomed on the screen to the width it has, as a PDF viewer fits a page to its width. Print is not
 // touched: the zoom is a screen rule (styles.css), and utils/print.ts fits the printed page as before. A phone keeps its own
 // stacked layout and scrolls instead (below 760 px nothing is zoomed), and nothing is made smaller than MIN_ZOOM.
-import { fitChanged } from "./fitText";
+import { fitChanged, forgetWords } from "./fitText";
 
 const MIN_ZOOM = 0.6;
 const DESKTOP = "(min-width: 760px)";
@@ -77,15 +77,42 @@ export function installScreenFit(): void {
       else shrinkIfWider(doc);
       seen.add(doc);
     }
+    // Words wider than their box, written smaller (utils/fitText.ts): only the boxes whose value changed are measured -
+    // and every box again when the room changed (a box that fitted beside Ask Mitra may not fit once it closes).
+    if (full) forgetWords(docs);
     full = false;
-    // Words wider than their box, written smaller (utils/fitText.ts): only the boxes whose value changed are measured.
     fitChanged(docs);
+    watchRoom();
   };
   const queue = (fromScratch: boolean) => {
     full = full || fromScratch;
     if (!queued) queued = requestAnimationFrame(run);
   };
-  window.addEventListener("resize", () => queue(true));
+  // The window resized, or the page's own column did (Ask Mitra docked beside it, the navigation panel shown or hidden):
+  // measured from scratch once it settles.
+  let settle = 0;
+  const roomChanged = () => {
+    // (not while a print is laid out: utils/print.ts fits the printed page itself, and afterprint measures the screen again)
+    if (document.documentElement.classList.contains("print-scoped")) return;
+    window.clearTimeout(settle);
+    settle = window.setTimeout(() => queue(true), 150);
+  };
+  window.addEventListener("resize", roomChanged);
+  let column: Element | null = null;
+  let columnWidth = -1;
+  const room = typeof ResizeObserver === "undefined" ? null : new ResizeObserver((entries) => {
+    const width = Math.round(entries[entries.length - 1].contentRect.width);
+    if (columnWidth >= 0 && Math.abs(width - columnWidth) > 1) roomChanged();
+    columnWidth = width;
+  });
+  function watchRoom(): void {
+    const now = document.querySelector(".app-content");
+    if (!room || now === column) return;
+    if (column) room.unobserve(column);
+    column = now;
+    columnWidth = -1;
+    if (now) room.observe(now);
+  }
   // A page drawn, a record opened, a line added: looked at once a frame at most.
   new MutationObserver(() => queue(false)).observe(document.body, { childList: true, subtree: true });
   // Typed or chosen: a value changes without the page changing.

@@ -65,6 +65,11 @@ export function fitChanged(docs: Element[]): void {
   if (changed.length) fit(changed);
 }
 
+/** The boxes of `docs` are measured again by the next fitChanged, whatever their values: the room they have changed. */
+export function forgetWords(docs: Element[]): void {
+  for (const d of docs) for (const el of Array.from(d.querySelectorAll<HTMLElement>(BOXES))) lastValue.delete(el);
+}
+
 /** Every written box of `docs`, as the page now lays them out (print). */
 export function fitAll(docs: Element[]): void {
   const els: HTMLElement[] = [];
