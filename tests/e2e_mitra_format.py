@@ -122,6 +122,13 @@ def tap(page, kind, wait=1100):
     return last_reply(page)
 
 
+def printed_lines(page):
+    # The blank form's printed lines: its grid's (a blank line between processes is none), or, a paper drawn as its own
+    # table (s117 round 2, 22-Oct-2026), the rows it draws the record's lines on.
+    sel = "[data-section='document-preview']"
+    return page.locator(f"{sel} table.log-sheet tbody tr:not([data-gap-line])").count() + page.locator(f"{sel} table[data-paper-part='body'] tr[data-pt-line]:not(.pt-pad)").count()
+
+
 def headings(page):
     # The sheet's headings: its grid's, or (a paper drawn as its own table, s117 round 2 of 22-Oct-2026) the paper's
     # heading row; a format edited since is drawn as every grid is again.
@@ -292,7 +299,7 @@ with sync_playwright() as p:
 
     open_page(page, f"#/document/{PRINTED_DOC}")
     blank = page.locator("[data-section='document-preview'][data-record='blank-format']").count() == 1
-    lines_before = page.locator("[data-section='document-preview'] table.log-sheet tbody tr").count() if blank else None
+    lines_before = printed_lines(page) if blank else None
     printed_rev = next_rev(current_rev(page, PRINTED_DOC))
     reply = say(page, "delete line 3")
     check("Where the FORM prints its lines, 'delete line 3' is the format's: Mitra asks, naming the line and the revision", "line 3" in reply and f"Rev {printed_rev}" in reply and chips(page, "confirmFormatChange").count() == 1, reply)
@@ -308,7 +315,7 @@ with sync_playwright() as p:
         (edit.get("revisionNo"), summary, len(rows_now)),
     )
     if blank:
-        check("...and the blank form prints one line fewer", page.locator("[data-section='document-preview'] table.log-sheet tbody tr").count() == lines_before - 1, lines_before)
+        check("...and the blank form prints one line fewer", printed_lines(page) == lines_before - 1, (lines_before, printed_lines(page)))
 
     # ==================================================================
     # 4. A form the program draws says why it cannot

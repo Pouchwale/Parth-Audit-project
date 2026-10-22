@@ -79,6 +79,8 @@ function fieldOf(layout: LogSheetLayout, key: string): LogHeaderField | undefine
 /** The words a cell prints by reference to the layout: a box's printed label, a printed table's cell, the paper's foot lines. */
 function referenced(layout: LogSheetLayout, ref: string): string {
   if (ref.startsWith("@notesAtFoot:")) return layout.notesAtFoot?.[Number(ref.slice(13))] ?? "";
+  // A box's own printed label, where the words stand on their own (F/QC/13's "QA પર્સન", run on under its box's rule).
+  if (ref.startsWith("@label:")) return referenced(layout, ref.slice(7));
   // The words the paper prints under a signature's space ("(QA Inspector)"), a column's heading as the paper prints it
   // ("Specified  GSM"), and the heading over a group of columns ("GSM").
   if (ref.startsWith("@printedBelow:")) return fieldOf(layout, ref.slice(14))?.printedBelow ?? "";
@@ -169,6 +171,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           if (c.b) classes.push("pt-b");
           if (c.a === "c") classes.push("pt-ac");
           if (c.a === "r") classes.push("pt-ar");
+          if (c.a === "j" || c.a === "jj") classes.push("pt-aj");
+          if (c.a === "jj") classes.push("pt-ajj");
           if (c.open?.includes("r")) classes.push("pt-or");
           if (c.open?.includes("b")) classes.push("pt-ob");
           if (c.heavy?.includes("b")) classes.push("pt-hb");

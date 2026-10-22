@@ -101,7 +101,19 @@ const PAPERS: Record<string, { page: "portrait" | "landscape"; width: number; wr
   // over its table.
   "qc-test-reliability-label": { page: "portrait", width: 190.04, written: reliabilityLines(8) },
   "qc-test-reliability-sleeve": { page: "portrait", width: 190.04, written: reliabilityLines(5) },
+  // F/QC/13 (the scan of its A4 page): a grade on each of the six lines, one પાસ? down them (on the first).
+  "qc-inprocess-printing": { page: "portrait", width: 174.62, written: { grade: [0, 1, 2, 3, 4, 5], pass: [0] } },
+  // The Gujarati line clearances: QA's tick on every line; each process, its operator's and QA's signatures once for it.
+  "qc-line-clearance-materials": { page: "portrait", width: 174.32, written: lineClearance([6, 2, 2, 2]) },
+  "qc-line-clearance-quality": { page: "portrait", width: 174.32, written: lineClearance([6, 4, 3, 2]) },
 };
+
+/** A Gujarati line clearance's processes (their counts of lines): the process and the two signatures on each one's first line. */
+function lineClearance(processes: number[]): Record<string, number[]> {
+  const firsts = processes.map((_, i) => processes.slice(0, i).reduce((a, b) => a + b, 0));
+  const all = Array.from({ length: processes.reduce((a, b) => a + b, 0) }, (_, i) => i);
+  return { process: firsts, operatorSign: firsts, qaSign: firsts, qaChecked: all };
+}
 
 /** F-QC-14's checks' lines: three a check, the sample and the four readings on each, the heading on the first. */
 function reliabilityLines(checks: number): Record<string, number[]> {
@@ -175,7 +187,7 @@ test("the sheet is drawn in its three parts, its boxes bound as every sheet's, t
     const html = await sheet(id);
     const form = QC_PAPER_TABLES[id];
     assert.ok(
-      html.includes(`<div class="paper-sheet headings-as-printed paper-table-sheet" data-bind-record="pt-${id}" data-paper="${form.page}" data-paper-left="${form.left}" data-sheet="${id}" data-paper-form="table"`),
+      new RegExp(`<div class="paper-sheet[^"]* paper-table-sheet"( translate="no")? data-bind-record="pt-${id}" data-paper="${form.page}" data-paper-left="${form.left}" data-sheet="${id}" data-paper-form="table"`).test(html),
       id
     );
     for (const part of ["head", "body"]) assert.match(html, new RegExp(`<table class="pt-table pt-${part} pt-font-[a-z]+( pt-frame)?"[^>]*data-paper-part="${part}"`), `${id} ${part}`);
@@ -186,7 +198,9 @@ test("the sheet is drawn in its three parts, its boxes bound as every sheet's, t
     // A register: a box for each column on each line the record holds (a new record holds the paper's count or one line).
     const held = (createDefaultData(docOf(id), DAY, master) as LogSheetData).rows.length;
     const written = (c: PaperCell) => !!c.col && !layoutOf(id).columns.find((k) => k.key === c.col)?.fixed;
-    const least = id === "qc-coa-corrugated" || id.startsWith("qc-ruler-verification") ? 25 : form.lines ? held * form.lines.cells.filter(written).length : 40;
+    // (the papers with few boxes: F/QC/25, F/QC/17, and F/QC/13's and the line clearances' grades, ticks and signatures)
+    const least =
+      id === "qc-coa-corrugated" || id.startsWith("qc-ruler-verification") ? 25 : id === "qc-inprocess-printing" || id.startsWith("qc-line-clearance") ? 20 : form.lines ? held * form.lines.cells.filter(written).length : 40;
     assert.ok(boxes.length >= least, `${id}: ${boxes.length} boxes`);
     assert.ok(boxes.every((b) => /data-bind="(header|rows)\//.test(b)), `${id}: every box bound where the record keeps it`);
     assert.ok(boxes.every((b) => !/ disabled=""/.test(b)), `${id}: open for writing, none locked`);

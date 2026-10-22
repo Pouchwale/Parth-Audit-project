@@ -153,7 +153,10 @@ test("F05: group B's grids print their headings as the papers write them, not in
 test("F07: the Gujarati checklists print no number, never TO BE CONFIRMED; F/QC/13 is revision 00 of 01.12.2021, as F/SYS/02 lists it", async () => {
   for (const id of ["qc-line-clearance-materials", "qc-line-clearance-quality"]) {
     const html = await sheet(id, blank(id));
-    assert.ok(!between(html, 'class="doc-header"', 'class="card').includes("TO BE CONFIRMED"), `${id}: the header prints no TO BE CONFIRMED`);
+    // (the scan's own table since s117 round 2: its head prints its own words; the number, never printed, is on the
+    // screen's strip alone)
+    assert.ok(!between(html, 'data-paper-part="head"', "</table>").includes("TO BE CONFIRMED"), `${id}: the header prints no TO BE CONFIRMED`);
+    assert.match(html, /class="meta-row pt-number-strip no-print"/);
     assert.equal(docOf(id).formatNo, "TO BE CONFIRMED", `${id}: still filed as DCRS lists it`);
   }
   const fqc13 = docOf("qc-inprocess-printing");
@@ -246,7 +249,8 @@ test("F25: F/QC/15-A to G and the Gujarati checklists print their boxes above th
     const html = await sheet(id, blank(id));
     // F/QC/15-A to G (REQUIREMENTS §117): the machine's name is written in the header's title row, above the paragraph; the
     // Gujarati checklists keep their boxes in a line of their own above it.
-    const boxes = id.startsWith("qc-line-clearance-materials") || id.startsWith("qc-line-clearance-quality") ? html.indexOf('data-section="sheet-boxes"') : html.indexOf('data-bind="header/machineName"');
+    // (the Gujarati checklists, the scans' own tables since s117 round 2: their boxes in the ruled rows at the head)
+    const boxes = id.startsWith("qc-line-clearance-materials") || id.startsWith("qc-line-clearance-quality") ? html.indexOf('data-box="itemNo"') : html.indexOf('data-bind="header/machineName"');
     assert.ok(boxes >= 0 && html.indexOf(words) > boxes, `${id}: the boxes before the paragraph`);
   }
   assert.deepEqual(layoutOf("qc-line-clearance-printing").headerFields.map((f) => f.label), ["PRINTING MACHINE NAME : -"]);
@@ -271,9 +275,10 @@ test("F26: the Gujarati checklist signs once per process, its process printed on
   });
   assert.deepEqual(validateForSubmit(docOf(id), recordOf(id, filled)).errors, []);
   const html = await sheet(id, filled);
-  const grid = between(html, "<tbody", "</tbody>");
-  assert.deepEqual((grid.match(/data-merged="(\d+)"/g) ?? []).map((m) => m.replace(/\D/g, "")), ["6", "6", "6", "2", "2", "2", "2", "2", "2", "2", "2", "2"], "process, operator's sign and QA's sign, each one cell down its process");
-  assert.equal((grid.match(/data-gap-line=""/g) ?? []).length, 3, "a blank line between the four processes");
+  // (the scan's own table since s117 round 2: each merged cell one cell of the paper's table, down its process's lines)
+  const grid = between(html, 'data-paper-part="body"', "</table>");
+  assert.deepEqual((grid.match(/rowSpan="(\d+)"/gi) ?? []).map((m) => m.replace(/\D/g, "")), ["6", "6", "6", "2", "2", "2", "2", "2", "2", "2", "2", "2"], "process, operator's sign and QA's sign, each one cell down its process");
+  assert.equal((grid.match(/data-pt-blank=""/g) ?? []).length, 3, "a blank line between the four processes");
   assert.equal(text(grid).split("પ્રિન્ટીંગ").length - 1, 1, "the process printed once");
 });
 
@@ -287,8 +292,10 @@ test("F27: F/QC/13's boxes as printed — સેમ્પલ કોલીટી 
   assert.ok(["Yes", "No"].includes(String(filled.rows[0].pass)), "the sheet's one answer, on the first line");
   assert.ok(filled.rows.slice(1).every((r) => r.pass === ""), "nothing on the other five");
   const html = await sheet(id, filled);
-  assert.match(html, /data-paper-column="3"/);
-  assert.match(between(html, 'class="compact log-sheet', "</table>"), /data-merged="6"/);
+  // (the scan's own table since s117 round 2: સેમ્પલ કોલીટી the box at the right of its line, after ઓર્ડર લેન્થ ઈન મીટર;
+  // પાસ? one cell down the six lines)
+  assert.ok(html.indexOf('data-box="sampleQty"') > html.indexOf('data-box="orderLength"') && html.indexOf('data-box="orderLength"') > 0);
+  assert.match(between(html, 'data-pt-heading', "</table>"), /rowSpan="6"/i);
 });
 
 // ---------------------------------------------------------------------------

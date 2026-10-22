@@ -35,7 +35,9 @@ export interface PaperCell {
   col?: string;
   ln?: number;
   b?: true;
-  a?: "c" | "r";
+  /** Centred, at the right, or justified across the cell (a procedure set so: its lines run to both edges); "jj" its last
+   * line too, where the paper's runs to both edges as well (F/QC/13's procedure). */
+  a?: "c" | "r" | "j" | "jj";
   pt?: number;
   f?: "arial" | "times" | "gothic";
   x?: number;
@@ -1188,6 +1190,273 @@ const RELIABILITY_SLEEVE = reliabilitySheet({
   ],
 });
 
+// ---------------------------------------------------------------------------
+// F/QC/13 — In Process Quality Control, the Gujarati form ("F-QC-13 IPQC format (2).jpg", source-documents/
+// qc-originals-2026-10-13/: a scan of the A4 page at 300 dots to the inch, so its rules and its words' places are read in
+// millimetres off the scan, its faces and sizes judged by eye). No rules round the company, the title and the procedure;
+// the grade criteria table; the boxes in three small tables of two lines, ઓર્ડર લેન્થ ઈન મીટર and સેમ્પલ કોલીટી each a
+// box of their own; the test grid with પાસ? one cell down its six lines; the three lines of boxes in English under it.
+// The page prints no format number, revision or page: they are on the screen's strip, never printed.
+
+const F13_W = 174.62;
+/** The grade criteria table's and the test grid's first two columns. */
+const F13_NO = 19.27;
+const F13_PARAM = 22.96;
+const F13_GRADE_TABLE = "ગ્રેડ ક્રાઈટ";
+/** The grade criteria table's rows (mm), its heading's first. */
+const F13_GRADE_ROWS = [19.66, 14.54, 13.86, 14.58, 14.08, 16.87];
+/** The test grid's six lines (mm). */
+const F13_TEST_ROWS = [12.35, 11.28, 18.31, 17.75, 14.54, 12.34];
+
+const IN_PROCESS: PaperTable = {
+  page: "portrait",
+  left: 20.25,
+  top: 12,
+  font: "arial",
+  pt: 9,
+  rules: "cells",
+  numberOffPaper: true,
+  head: [
+    { h: 6.6, cells: [{ w: F13_W, t: "{companyName}", caps: true, a: "c", cx: 1.88, b: true, pt: 12.6, y: 2.36, edges: "" }] },
+    { h: 7.0, cells: [{ w: F13_W, t: "{title}", a: "c", cx: -0.23, b: true, pt: 12, y: 1.37, edges: "" }] },
+    { h: 23.0, cells: [{ w: F13_W, lab: "@instructions:0", a: "jj", b: true, pt: 8.9, lh: 5.75, y: 6.09, ww: 171.4, edges: "" }] },
+    { h: 3.44, cells: [none(F13_W)] },
+  ],
+  body: [
+    {
+      h: 4.18,
+      cells: [
+        { w: F13_NO, lab: `@table:${F13_GRADE_TABLE}:-1:0`, a: "c", b: true, pt: 8, vm: true },
+        { w: F13_PARAM, lab: `@table:${F13_GRADE_TABLE}:-1:1`, a: "c", b: true, pt: 8, vm: true },
+        { w: F13_W - F13_NO - F13_PARAM, lab: `@table:${F13_GRADE_TABLE}:-1:2`, a: "c", b: true, pt: 8, vm: true },
+      ],
+    },
+    ...F13_GRADE_ROWS.map(
+      (h, r): PaperRow => ({
+        h,
+        cells: [
+          { w: F13_NO, lab: `@table:${F13_GRADE_TABLE}:${r}:0`, a: "c", pt: 8, vm: true },
+          // (a parameter of two words breaks where the paper breaks it: "પ્રીન્ટ" over "ડીફોરમીટસ")
+          { w: F13_PARAM, lab: `@table:${F13_GRADE_TABLE}:${r}:1`, a: "c", b: true, pt: 8.5, vm: true, lh: 4.2, ww: 18 },
+          { w: F13_W - F13_NO - F13_PARAM, lab: `@table:${F13_GRADE_TABLE}:${r}:2`, x: 1.09, pt: 6.6, lh: 3.36, vm: true },
+        ],
+      })
+    ),
+    { h: 2.74, cells: [none(F13_W)] },
+    // The boxes: three small tables of two lines, a label and its box on each.
+    ...[
+      ["itemCode", "poNumber", "date"],
+      ["machine", "operator", "qaPerson"],
+    ].map(
+      (keys): PaperRow => ({
+        h: 4.61,
+        cells: [
+          { w: F13_NO, lab: keys[0], b: true, pt: 8.2, x: 1.65, vm: true },
+          { w: F13_PARAM, box: keys[0], x: 1 },
+          none(17.12),
+          { w: 17.16, lab: keys[1], b: true, pt: 8.2, x: 2.32, vm: true },
+          { w: 23.5, box: keys[1], x: 1 },
+          none(24.09),
+          // ("QA પર્સન" runs on to a second line under its box's rule, as the paper prints it)
+          keys[2] === "qaPerson"
+            ? { w: 13.11, t: "", pt: 8.2, at: [{ t: "@label:qaPerson", y: 0.6, x: 0.81, b: true, wrap: true }] }
+            : { w: 13.11, lab: keys[2], b: true, pt: 8.2, x: 0.81, vm: true },
+          { w: 37.41, box: keys[2], x: 1 },
+        ],
+      })
+    ),
+    { h: 2.53, cells: [none(F13_W)] },
+    {
+      h: 7.62,
+      cells: [
+        { w: F13_NO + F13_PARAM, sentence: { before: "@orderLength", box: "orderLength", after: "", boxWidth: 12 }, b: true, pt: 8.2, x: 1.65, vm: true },
+        none(81.87),
+        { w: 50.52, sentence: { before: "@sampleQty", box: "sampleQty", after: "", boxWidth: 28 }, b: true, pt: 8.2, x: 2.41, vm: true },
+      ],
+    },
+    { h: 2.28, cells: [none(F13_W)] },
+    {
+      h: 4.39,
+      head: true,
+      cells: [
+        { w: F13_NO, lab: "@column:srNo", a: "c", b: true, pt: 8, vm: true },
+        { w: F13_PARAM, lab: "@column:parameter", a: "c", b: true, pt: 8, vm: true },
+        { w: 81.87, lab: "@column:testChart", a: "c", b: true, pt: 8, vm: true },
+        { w: 13.11, lab: "@column:grade", a: "c", b: true, pt: 8, vm: true },
+        { w: 37.41, lab: "@column:pass", a: "c", b: true, pt: 8, vm: true },
+      ],
+    },
+    ...F13_TEST_ROWS.map(
+      (h, ln): PaperRow => ({
+        h,
+        line: ln,
+        cells: [
+          { w: F13_NO, col: "srNo", ln, a: "c", pt: 8, vm: true },
+          { w: F13_PARAM, col: "parameter", ln, a: "c", b: true, pt: 8.5, vm: true, lh: 4.2, ww: 18 },
+          { w: 81.87, col: "testChart", ln, x: 1.69, pt: 6.2, lh: 3.04, vm: true },
+          { w: 13.11, col: "grade", ln, a: "c" },
+          // પાસ? is one cell down the six lines (the sheet's one answer, on the first line).
+          ln === 0 ? { w: 37.41, col: "pass", ln: 0, a: "c", rs: 6 } : { w: 37.41, skip: true },
+        ],
+      })
+    ),
+    { h: 4.82, cells: [{ w: F13_W, sentence: { before: "@mlDescription", box: "mlDescription", after: "", boxWidth: 100 }, b: true, pt: 8.5, x: 0.35, vm: true }] },
+    {
+      h: 5.33,
+      cells: [
+        { w: 100.01, sentence: { before: "@overrideReason", box: "overrideReason", after: "", boxWidth: 50 }, b: true, pt: 8.5, x: 0.3, vm: true },
+        { w: 74.61, sentence: { before: "@signOffName", box: "signOffName", after: "", boxWidth: 30 }, b: true, pt: 8.5, x: 0.3, vm: true },
+      ],
+    },
+    {
+      h: 6.25,
+      cells: [
+        { w: 100.01, sentence: { before: "@remarks", box: "remarks", after: "", boxWidth: 75 }, b: true, pt: 8.5, x: 0.45, vm: true },
+        { w: 74.61, sentence: { before: "@qaSign", box: "qaSign", after: "", boxWidth: 55 }, b: true, pt: 8.5, x: 0.35, vm: true },
+      ],
+    },
+  ],
+  foot: [],
+};
+
+// ---------------------------------------------------------------------------
+// The two Gujarati line clearance forms ("F-QC-15 Line Clearance format (2).jpg", source-documents/qc-originals-2026-10-13/:
+// a scan of the A4 page at 300 dots to the inch, both forms on it, one table from the top form's title to the foot of the
+// second): લાઈન કિલયરન્સ (the materials) and ક્વોલીટી શહી (the quality). Each form is a record of its own and prints on a
+// page of its own, at the page's place of the top form. Its rules and its words' places are read in millimetres off the
+// scan, its faces and sizes judged by eye: the title and the boxes ruled at the head (આઈટમ નં., પ્રો.નં. / પ્રોડકશન નં.,
+// મશીનનું નામઃ–, તા.), the procedure across the page, the headings, each process down its lines with the operator's and
+// QA's signatures once for it, QA's tick on each line, a blank line between the processes. The materials form's two
+// lines of ક્વોલીટી ચેકીંગ stand in one ruled cell, each with its own tick. Neither page prints a format number.
+
+/** A process of a line clearance form: its lines' heights (mm); `together`: its lines in one ruled cell (no rule between). */
+interface LcProcess {
+  lines: number[];
+  together?: true;
+  /** Where each line's words stand (mm down from its top), where not on its middle (the lines of one ruled cell). */
+  ys?: number[];
+}
+
+interface LcSheet {
+  /** The second column's key: the materials' "material", the quality's "parameter". */
+  item: "material" | "parameter";
+  /** The head's boxes: the second and third of the title's row, and the machine's row where the form has one. */
+  boxes: [string, string];
+  machineRow?: true;
+  /** The procedure's row: its height, the size of its words, their pitch and where they start (mm down). */
+  procedure: { h: number; pt: number; lh: number; y: number; over?: true; last?: true };
+  processes: LcProcess[];
+  /** The blank line between processes (mm), and where the items' words start (mm in). */
+  gap: number;
+  itemX: number;
+}
+
+const LC_COLS = [24.77, 48.1, 32.85, 32.59, 36.01];
+const LC_W = 174.32;
+
+function lineClearanceSheet(s: LcSheet): PaperTable {
+  const big = { b: true as const, pt: 11.3 };
+  const head: PaperRow[] = [
+    {
+      h: 6.17,
+      cells: [
+        { w: LC_COLS[0] + LC_COLS[1], t: "{title}", x: 19.15, y: 1.85, ...big, pt: 12 },
+        { w: LC_COLS[2] + LC_COLS[3], sentence: { before: `@${s.boxes[0]}`, box: s.boxes[0], after: "", boxWidth: 38 }, x: 1.8, y: 1.85, ...big, pt: 11.8 },
+        { w: LC_COLS[4], sentence: { before: `@${s.boxes[1]}`, box: s.boxes[1], after: "", boxWidth: 14 }, x: 1.55, y: 1.45, ...big, pt: 11.8 },
+      ],
+    },
+    ...(s.machineRow
+      ? [
+          {
+            h: 6.17,
+            cells: [
+              { w: LC_W - LC_COLS[4], sentence: { before: "@machineName", box: "machineName", after: "", boxWidth: 80 }, x: 1.56, y: 1.4, ...big, pt: 11.6 },
+              { w: LC_COLS[4], sentence: { before: "@date", box: "date", after: "", boxWidth: 26 }, x: 0.97, y: 1.45, ...big, pt: 12 },
+            ],
+          },
+        ]
+      : []),
+    {
+      h: s.procedure.h,
+      cells: [
+        {
+          w: LC_W,
+          lab: "@instructions:0",
+          a: s.procedure.last ? "jj" : "j",
+          b: true,
+          pt: s.procedure.pt,
+          lh: s.procedure.lh,
+          x: 1.39,
+          ww: 170.6,
+          // (three lines a little taller than their row, as Word sets them: on its middle, the row keeping its height)
+          ...(s.procedure.over ? { vm: true as const, ov: true as const } : { y: s.procedure.y }),
+        },
+      ],
+    },
+  ];
+  const headings: PaperRow = {
+    h: 10.66,
+    head: true,
+    cells: [
+      { w: LC_COLS[0], lab: "@column:process", x: 4.8, vm: true, ...big },
+      { w: LC_COLS[1], lab: `@column:${s.item}`, a: "c", vm: true, ...big },
+      { w: LC_COLS[2], lab: "@column:operatorSign", a: "c", vm: true, lh: 5.16, ww: 24, ...big },
+      { w: LC_COLS[3], lab: "@column:qaChecked", a: "c", vm: true, ...big, pt: 12.2 },
+      { w: LC_COLS[4], lab: "@column:qaSign", a: "c", cx: -1.2, vm: true, lh: 4.8, ww: 15, ...big },
+    ],
+  };
+  const body: PaperRow[] = [headings];
+  let ln = 0;
+  s.processes.forEach((p, pi) => {
+    if (pi > 0) body.push({ h: s.gap, cells: [{ w: LC_W, t: "" }] });
+    const first = ln;
+    const n = p.lines.length;
+    p.lines.forEach((h, i) => {
+      const together = p.together && i < n - 1 ? { open: "b" as const } : {};
+      body.push({
+        h,
+        line: ln,
+        cells: [
+          // (a process of two lines on its cell's middle, at the paper's pitch, the lines keeping their heights)
+          i === 0 ? { w: LC_COLS[0], col: "process", ln: first, rs: n, x: 4.8, vm: true, ov: true, lh: 5.9, ...big, pt: 11.6 } : { w: LC_COLS[0], skip: true },
+          { w: LC_COLS[1], col: s.item, ln: ln, x: s.itemX, b: true, pt: 8.8, ...(p.ys ? { y: p.ys[i] } : { vm: true as const }), ...together },
+          i === 0 ? { w: LC_COLS[2], col: "operatorSign", ln: first, rs: n, a: "c" } : { w: LC_COLS[2], skip: true },
+          { w: LC_COLS[3], col: "qaChecked", ln: ln, a: "c", ...together },
+          i === 0 ? { w: LC_COLS[4], col: "qaSign", ln: first, rs: n, a: "c" } : { w: LC_COLS[4], skip: true },
+        ],
+      });
+      ln += 1;
+    });
+  });
+  return { page: "portrait", left: 20.25, top: 15.26, font: "arial", pt: 11, numberOffPaper: true, head, body, foot: [] };
+}
+
+/** લાઈન કિલયરન્સ: the materials of the previous job, process by process. */
+const LINE_CLEARANCE_MATERIALS = lineClearanceSheet({
+  item: "material",
+  boxes: ["itemNo", "poNo"],
+  machineRow: true,
+  procedure: { h: 14.29, pt: 9.0, lh: 5.0, y: 0, over: true },
+  processes: [
+    { lines: [5.41, 5.42, 5.41, 5.49, 5.41, 5.41] },
+    { lines: [5.41, 5.49] },
+    { lines: [7.65, 7.65], together: true, ys: [3.41, 1.17] },
+    { lines: [5.41, 5.5] },
+  ],
+  gap: 5.16,
+  itemX: 1.48,
+});
+
+/** ક્વોલીટી શહી: the new job's parameters, process by process. */
+const LINE_CLEARANCE_QUALITY = lineClearanceSheet({
+  item: "parameter",
+  boxes: ["itemNo", "productionNo"],
+  procedure: { h: 20.71, pt: 7.0, lh: 3.9, y: 4.2, last: true },
+  processes: [{ lines: [5.41, 5.4, 5.5, 5.41, 5.41, 5.41] }, { lines: [5.49, 5.41, 5.41, 5.42] }, { lines: [5.41, 5.41, 5.41] }, { lines: [5.49, 5.24] }],
+  gap: 5.16,
+  itemX: 2.15,
+});
+
 export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-coa-label": COA_LABEL,
   "qc-coa-sleeve": COA_SLEEVE,
@@ -1203,6 +1472,9 @@ export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-adhesive-mixing": ADHESIVE_MIXING,
   "qc-test-reliability-label": RELIABILITY_LABEL,
   "qc-test-reliability-sleeve": RELIABILITY_SLEEVE,
+  "qc-inprocess-printing": IN_PROCESS,
+  "qc-line-clearance-materials": LINE_CLEARANCE_MATERIALS,
+  "qc-line-clearance-quality": LINE_CLEARANCE_QUALITY,
 };
 
 /**

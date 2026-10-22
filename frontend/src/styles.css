@@ -3386,6 +3386,9 @@ table.svc-paper {
 .pt-table td.pt-c.pt-b { font-weight: 700; }
 .pt-table td.pt-c.pt-ac { text-align: center; padding-left: calc(var(--pt-pl, 0) * var(--u)); padding-right: calc(var(--pt-pr, 0) * var(--u)); }
 .pt-table td.pt-c.pt-ar { text-align: right; }
+/* words justified across the cell, as a procedure is set (F/QC/13, the Gujarati line clearances) */
+.pt-table td.pt-c.pt-aj { text-align: justify; }
+.pt-table td.pt-c.pt-ajj { text-align-last: justify; }
 .pt-table td.pt-c.pt-f-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
 .pt-table td.pt-c.pt-f-times { font-family: "Times New Roman", Times, serif; }
 /* Words the paper underlines (F/QC/25's title). (Words it prints in capitals are written so: PaperTableSheet, caps.) */
@@ -3411,6 +3414,7 @@ table.svc-paper {
 .pt-table .field-choices-across .choice-across { padding: 0 calc(0.6 * var(--u)); border-width: calc(0.75px / var(--print-zoom, 1)); }
 /* Words that wrap at the paper's own width (F-QC-40.B's recommended temperature on its two lines). */
 .pt-table td.pt-c.pt-ww > .pt-words { max-width: calc(var(--pt-ww) * var(--u)); }
+.pt-table td.pt-c.pt-ac.pt-ww > .pt-words { margin-left: auto; margin-right: auto; }
 /* Words in the middle of their cell's height, as a spreadsheet's heading row sets them. */
 .pt-table td.pt-c.pt-vm { vertical-align: middle; padding-top: 0; }
 /* A cell the paper shades (a register's number box), its grey printed. */

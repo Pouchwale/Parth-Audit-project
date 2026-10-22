@@ -219,7 +219,8 @@ test("the Gujarati line clearance checklists: the paper's words alone, no Englis
     }
   }
   const html = await sheet("qc-line-clearance-quality", createDefaultData(docOf("qc-line-clearance-quality"), DAY, master) as LogSheetData);
-  assert.ok(!headings(html).includes("Sr. No."));
+  // (the scan's own table since s117 round 2, 22-Oct-2026: no heading row of DCRS's)
+  assert.ok(!text(html).includes("Sr. No.") && html.includes('data-sheet="qc-line-clearance-quality" data-paper-form="table"'));
   assert.ok(!text(html).includes("એક જ પાના પર"), "DCRS's own line that the two share a page is gone");
   assert.deepEqual([materials.paperTitle, quality.paperTitle], ["લાઈન કિલયરન્સ", "ક્વોલીટી શહી"], "each headed with the words at the head of its form");
   // Printed as issued, English chosen or not (the review of 13-Oct-2026: it printed "QUALITY SIGN").
@@ -265,15 +266,16 @@ test("F/QC/13: the procedure, the grade criteria printed in full, eight boxes th
   // The sheet: the criteria open and printed, the paper's own numbers and no Sr. No. of the sheet's.
   const filled = autoFillRecord(docOf(id), DAY, master, undefined)!.data as LogSheetData;
   const html = await sheet(id, filled);
-  assert.match(html, /data-reference-table="printed"/);
+  // The scan's own table since s117 round 2 (22-Oct-2026): the criteria printed in it, row by row.
+  assert.ok(html.includes(`data-sheet="${id}" data-paper-form="table"`));
   assert.equal(layout.paperTitle, "In Process Quality Control");
   // In its own letters, as the paper prints it (§111 part 6), not the header's capitals.
   assert.ok(text(html).includes("In Process Quality Control") && !text(html).includes("IN PROCESS QUALITY CONTROL") && !text(html).includes("(PRINTING)"), "headed with the paper's own title");
   // English is chosen in the harness, and the paper prints as issued all the same (the review of 13-Oct-2026).
   assert.ok(!/>\s*Show /.test(html), "no Show button of DCRS's");
   assert.ok(text(html).includes("A– બધાજ રજિસ્ટર સંપુર્ણ પણે બરાબર છે."), "the criteria are on the sheet");
-  const grid = between(html, 'class="compact log-sheet', "</table>");
-  assert.deepEqual(headings(grid), ["સ.નં", "પેરામીટર", "ટેસ્ટ ક્રાઈટ", "ગ્રેડ", "પાસ?"], "the paper's five columns, its own સ.નં the first");
+  const heads = Array.from(between(html, "data-pt-heading", "</tr>").matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g), (m) => text(m[1]).trim());
+  assert.deepEqual(heads, ["સ.નં", "પેરામીટર", "ટેસ્ટ ક્રાઈટ", "ગ્રેડ", "પાસ?"], "the paper's five columns, its own સ.નં the first");
   // A sample fill grades each parameter and writes no defect count, which the paper has no column for.
   assert.equal(filled.rows.length, 6);
   assert.ok(filled.rows.every((r) => ["A", "B", "C", "F", "-"].includes(String(r.grade)) && !("defectCount" in r)), JSON.stringify(filled.rows));
@@ -281,7 +283,7 @@ test("F/QC/13: the procedure, the grade criteria printed in full, eight boxes th
   assert.deepEqual(validateForSubmit(docOf(id), recordOf(id, filled)).errors, []);
   // A record written before the paper's own સ.નં was a column reads the paper's number on each line.
   const older = { ...filled, rows: filled.rows.map(({ srNo: _n, ...r }) => r) } as LogSheetData;
-  assert.match(text(between(await sheet(id, older), 'class="compact log-sheet', "</table>")), / ૬ પ્રીન્ટ ડીફોર્મીટસ /);
+  assert.match(text(between(await sheet(id, older), 'data-paper-part="body"', "</table>")), / ૬ પ્રીન્ટ ડીફોર્મીટસ /);
 });
 
 // ---------------------------------------------------------------------------

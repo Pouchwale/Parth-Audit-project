@@ -858,13 +858,16 @@ with sync_playwright() as p:
         sheet_rows(page).count() == 12 and "પ્રિન્ટીંગ" in body and "મેગ્નેટીક ડાઈ" in body and "લેબલ સ્લીટીંગ" in body,
         (sheet_rows(page).count(), body[:200]),
     )
-    merged = page.locator("[data-section='document-preview'] table.log-sheet td[data-merged]").evaluate_all("els => els.map((e) => e.getAttribute('data-merged'))")
+    # (the scan's own table since s117 round 2, 22-Oct-2026: each merged cell one cell of it, down its process's lines;
+    # the blank rows between the processes the paper's)
+    merged = page.locator("[data-section='document-preview'] table[data-paper-part='body'] td[rowspan]").evaluate_all("els => els.map((e) => e.getAttribute('rowspan'))")
+    gaps = page.locator("[data-section='document-preview'] table[data-paper-part='body'] td[data-pt-blank]").count()
     check(
         "...each process printed once beside its lines, and signed once by the operator and by QA, a blank line between processes",
-        merged == ["6", "6", "6", "2", "2", "2", "2", "2", "2", "2", "2", "2"] and page.locator("[data-section='document-preview'] tr[data-gap-line]").count() == 3,
-        (merged, page.locator("[data-section='document-preview'] tr[data-gap-line]").count()),
+        merged == ["6", "6", "6", "2", "2", "2", "2", "2", "2", "2", "2", "2"] and gaps == 3,
+        (merged, gaps),
     )
-    head = page.locator("[data-section='document-preview'] .doc-header").first.inner_text()
+    head = page.locator("[data-section='document-preview'] table[data-paper-part='head']").first.inner_text()
     check("...its header prints no format number of DCRS's: never TO BE CONFIRMED", "TO BE CONFIRMED" not in head, head)
     open_page(page, "#/document/qc-line-clearance-quality")
     body = printed_text(page)
@@ -1401,8 +1404,9 @@ with sync_playwright() as p:
         not missing and "Test criteria" not in sheet,
         missing[:6] or sheet[:500],
     )
-    # The grade criteria are printed on the page in full, as the paper prints them: open, with no button (s111).
-    printed_chart = page.locator("[data-section='document-preview'] [data-reference-table='printed']")
+    # The grade criteria are printed on the page in full, as the paper prints them: open, with no button (s111); since
+    # s117 round 2 (22-Oct-2026) in the scan's own table, above the boxes.
+    printed_chart = page.locator("[data-section='document-preview'] table[data-paper-part='body']")
     chart = printed_chart.first.evaluate("e => e.textContent") if printed_chart.count() else ""
     check(
         "…and the grade criteria printed with it in full, A to F, as issued, with no button to show them",

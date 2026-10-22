@@ -436,10 +436,14 @@ with sync_playwright() as p:
       return { paper: !!doc.querySelector('[data-paper-form="table"]'), blanks, boxes: boxes.length, open: boxes.filter((b) => !b.disabled).length };
     }"""
     every = ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-revision-date", "rename-page-no")
+    # (F/QC/25 is filed with no revision date: there is none to type over; the line clearances print no company and are
+    # filed with none either)
+    undated = ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-page-no")
+    checklist = ("rename-title", "rename-format-no", "rename-revision", "rename-page-no")
     printed = ("rename-company", "rename-title", "rename-format-no", "rename-revision", "rename-revision-date")
     logo = ("rename-title", "rename-format-no", "rename-revision", "rename-revision-date")
     for doc_id, number, wanted in (
-        ("qc-coa-corrugated", "F/QC/25", every),
+        ("qc-coa-corrugated", "F/QC/25", undated),
         ("qc-calibration-master-list", "F/QC/08", printed),
         ("qc-obsolete-artwork", "F/QC/16", printed),
         ("qc-ruler-verification", "F/QC/17", printed),
@@ -451,6 +455,9 @@ with sync_playwright() as p:
         ("qc-adhesive-mixing", "F-QC-32", logo),
         ("qc-test-reliability-label", "F-QC-14 (Label)", every),
         ("qc-test-reliability-sleeve", "F-QC-14 (Sleeve)", every),
+        ("qc-inprocess-printing", "F/QC/13", every),
+        ("qc-line-clearance-materials", "Line clearance (materials)", checklist),
+        ("qc-line-clearance-quality", "Line clearance (quality)", checklist),
     ):
         open_page(page, "#/library", settle=1000)
         new_record = page.locator(f"[data-action='new-record'][data-document='{doc_id}']")
@@ -477,6 +484,17 @@ with sync_playwright() as p:
             cell.press("Tab")
             page.wait_for_timeout(900)
             written = word in str((record_by_id(page, rid) or {}).get("data"))
+        else:
+            # (a grid of choices alone, F/QC/13's grades: a choice made is kept on its line)
+            pick = page.locator("[data-print-doc] table[data-paper-part] td[data-pt-col] select[data-bind]:not(:disabled)").first
+            if pick.count():
+                td = pick.locator("xpath=ancestor::td[1]")
+                col, ln = td.get_attribute("data-pt-col"), int(td.get_attribute("data-pt-ln"))
+                value = pick.locator("option").nth(1).get_attribute("value")
+                pick.select_option(value)
+                page.wait_for_timeout(900)
+                lines = ((record_by_id(page, rid) or {}).get("data") or {}).get("rows") or []
+                written = len(lines) > ln and lines[ln].get(col) == value
         check("...and what is typed in its grid is kept on the record", written is True, written)
 
     check("No JavaScript errors", not errors, errors[:5])
