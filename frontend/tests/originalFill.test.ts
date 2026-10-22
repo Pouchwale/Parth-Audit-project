@@ -355,6 +355,48 @@ test("a row of the paper holding several lines' words: the spacer under it is no
   assert.ok(read.ok && read.missing.length === 0, "the file reads back whole");
 });
 
+test("a grid the paper prints again on each page under its heading: the lines run on in the next tables, every example of his cleared", async () => {
+  const people = (a: string, b: string) => wtbl(wtr("Name of the Operator / Worker", "Designation"), wtr(a, b), wtr("", ""));
+  const template = docxOf(wp("INDUCTION RECORD") + people("Old One", "Clerk") + wtbl(wtr("Training Topics", "Responsibility")) + people("Old Two", "Helper"));
+  const rows: Cell[][] = [[plain("Name of the Operator / Worker"), plain("Designation")]];
+  for (const i of [1, 2, 3]) rows.push([bound(`p/${i}/n`, `NEW-${i}`, "Name of the Operator / Worker"), bound(`p/${i}/d`, `ROLE-${i}`, "Designation")]);
+  const { bytes, report } = await fillDocx(template, [...head("INDUCTION RECORD"), { kind: "table", rows, headerRows: 1 }], { envelope: envelope("docx"), company: COMPANY.name });
+  assert.equal(report.notPlaced.length, 0);
+  assert.deepEqual(report.grids[0], { rows: 3, paperRows: 4, added: 0, where: "table 1" }, "the two tables' four rows hold the three lines, no row added");
+  const xml = await partText(bytes, "word/document.xml");
+  assert.ok(!xml.includes("Old One") && !xml.includes("Old Two"), "his example people cleared on every page");
+  assert.ok(xml.indexOf("NEW-2") < xml.indexOf("Training Topics") && xml.indexOf("NEW-3") > xml.indexOf("Training Topics"), "the third line on the next page's table");
+  const read = await readUploadedFile(bytes.slice().buffer, "induction.docx");
+  assert.ok(read.ok && read.missing.length === 0 && read.appended.length === 0, "the file reads back whole, no line of the paper's read as new");
+});
+
+test("a grid the paper prints as a card per line: each line's values on its own card, a line past the last card left out", async () => {
+  const card = wtbl(wtr("APPROVED BY:", ""), wtr("SIGN. :", ""));
+  const template = docxOf(wp("TOLERANCE CARD") + wtbl(wtr("ERROR : ONE")) + wtbl(wtr("ERROR : TWO")) + wtbl(wtr("ERROR : THREE")) + card + card);
+  const rows: Cell[][] = [[plain(""), plain("APPROVED BY:"), plain("SIGN. :")]];
+  for (const [i, e] of ["ONE", "TWO", "THREE"].entries()) rows.push([plain(`ERROR : ${e}`), bound(`c/${i}/a`, `APPROVER-${i + 1}`, "APPROVED BY:"), bound(`c/${i}/s`, `SIGN-${i + 1}`, "SIGN. :")]);
+  const { bytes, report } = await fillDocx(template, [...head("TOLERANCE CARD"), { kind: "table", rows, headerRows: 1 }], { envelope: envelope("docx"), company: COMPANY.name });
+  assert.equal(report.notPlaced.length, 0);
+  assert.deepEqual(report.grids[0], { rows: 3, paperRows: 2, added: 0, where: "a card per line" });
+  assert.deepEqual(report.leftOut, ["APPROVED BY: (line 3)", "SIGN. : (line 3)"], "the third line has no card on his paper");
+  const xml = await partText(bytes, "word/document.xml");
+  const tables = xml.split("<w:tbl>").slice(1);
+  assert.equal(tables.length, 5, "no table and no row added");
+  assert.ok(tables[3].includes("APPROVER-1") && tables[3].includes("SIGN-1") && tables[4].includes("APPROVER-2") && tables[4].includes("SIGN-2"), "line k on card k");
+  const read = await readUploadedFile(bytes.slice().buffer, "cards.docx");
+  assert.ok(read.ok && read.missing.length === 0, "the file reads back whole");
+});
+
+test("the empty lines after the last table take no room: a longer record never prints a page with nothing on it", async () => {
+  const template = docxOf(wp("RECORD") + wtbl(wtr("Supplier", "")) + `<w:p><w:pPr><w:tabs><w:tab w:val="left" w:pos="1800"/></w:tabs><w:spacing w:before="100" w:beforeAutospacing="1" w:after="100" w:afterAutospacing="1"/></w:pPr></w:p>` + wp(""));
+  const { bytes } = await fillDocx(template, [...head("RECORD"), { kind: "fields", pairs: [["Supplier", bound("h/s", "Acme", "Supplier")]] }], { envelope: envelope("docx"), company: COMPANY.name });
+  const xml = await partText(bytes, "word/document.xml");
+  const tail = xml.slice(xml.lastIndexOf("</w:tbl>"));
+  assert.equal((tail.match(/w:line="20" w:lineRule="exact"/g) ?? []).length, 2, "both empty lines one point high, the tab stop no obstacle");
+  assert.ok(!/w:beforeAutospacing="1"/.test(tail), "no automatic space before them");
+  assert.ok(xml.includes("Acme"), "the record's value where it was");
+});
+
 test("round 2: boxes DCRS numbers in groups fill the paper's table of them, a row a number", async () => {
   const template = docxOf(wp("MEETING RECORD") + wtbl(wtr("Name", "Designation", "Sign"), wtr("", "", ""), wtr("", "", "")));
   const pairs: [string, Cell][] = [];

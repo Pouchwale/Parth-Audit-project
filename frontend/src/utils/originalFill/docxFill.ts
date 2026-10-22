@@ -408,10 +408,20 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   // ---- grids
   const gridPlaces: GridPlaceW[] = [];
   const keyedPlaces: { grid: ModelGrid; lines: KeyedLine[] }[] = [];
+  const cardPlaces: CardPlace[] = [];
   model.grids.forEach((grid, gridNo) => {
     if (hints.skipGrids?.includes(gridNo)) return;
     const rowsHint = hints.gridRows?.[gridNo];
     const place = rowsHint ? placeGridRowsW(tables, grid, gridNo, rowsHint) : placeGridW(tables, grid, gridNo, labels, model, hints.table?.[gridNo], usedCells);
+    // A card per line (F/QC/19's tolerance cards), its headings the labels of each card: never rows added to the first card.
+    if (place && place.body.length === 0 && grid.rows.length > grid.headerRows && !place.unbound) {
+      const cards = placeCardsW(tables, grid, usedCells);
+      if (cards) {
+        cardPlaces.push(cards);
+        for (const t of cards.tables) for (const r of t.rows) for (const c of r.cells) usedCells.add(c.tc);
+        return;
+      }
+    }
     // A heading printed in a table of its own, the lines in the tables after it (F/SYS/12's two pages): each line found by its
     // own words, its values under the heading's columns.
     if (place && place.body.length === 0 && grid.rows.length > grid.headerRows && !place.unbound) {
@@ -435,7 +445,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     }
     if (place) {
       gridPlaces.push(place);
-      for (const r of place.headRows) for (const c of r.cells) usedCells.add(c.tc);
+      for (const r of [...place.headRows, ...(place.alsoHeads ?? [])]) for (const c of r.cells) usedCells.add(c.tc);
       for (const r of place.body) for (const c of r.cells) usedCells.add(c.tc);
       return;
     }
@@ -759,6 +769,21 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     }
   }
 
+  // ---- the grids printed as a card per line: each line's values beside its card's labels, the cards no line takes blanked
+  for (const cp of cardPlaces) {
+    cp.lines.forEach((at, k) => {
+      for (const [ci, target] of at) {
+        clearCell(target);
+        const cell = cp.grid.rows[cp.grid.headerRows + k][ci];
+        if (cell) writeCell(target, cell, controls);
+      }
+    });
+    for (const c of cp.spare) if (clearCell(c)) report.cleared++;
+    const heads = headingTexts(cp.grid);
+    cp.grid.rows.slice(cp.grid.headerRows + cp.lines.length).forEach((row, k) => row.forEach((c, ci) => isBound(c) && report.leftOut.push(`${heads[ci] || "value"} (line ${cp.lines.length + k + 1})`)));
+    report.grids.push({ rows: cp.grid.rows.length - cp.grid.headerRows, paperRows: cp.tables.length, added: 0, where: "a card per line" });
+  }
+
   // ---- the grids found by their lines' own words, and the boxes the paper has no place for
   const keyedRows = new Set<XmlElement>();
   for (const { grid, lines } of keyedPlaces) {
@@ -793,6 +818,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     });
     report.grids.push({ rows: grid.rows.length - grid.headerRows, paperRows: lines.length, added, where: "by the lines' own words" });
   }
+
+  endWithoutBlankPage(body);
 
   // ---- the map (REQUIREMENTS §81)
   // A file kept in an older Word's compatibility mode (below Word 2010's 14) refuses a table caption.
@@ -862,6 +889,67 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   }
   void W_NS;
   return { bytes: pkg.build(), report };
+}
+
+/** A child put in its place among an element's children, by the schema's order (the children named in `before` follow it). */
+function putInOrder(parent: XmlElement, child: XmlElement, before: string[]): void {
+  const same = parent.children.findIndex((c) => typeof c !== "string" && c.local === child.local);
+  if (same !== -1) {
+    parent.children[same] = child;
+    return;
+  }
+  const at = parent.children.findIndex((c) => typeof c !== "string" && before.includes(c.local));
+  if (at === -1) parent.children.push(child);
+  else parent.children.splice(at, 0, child);
+}
+
+// CT_PPrBase after w:spacing, and CT_ParaRPr / CT_RPr after w:sz and w:szCs (the order Word reads them in).
+const AFTER_SPACING = ["ind", "contextualSpacing", "mirrorIndents", "suppressOverlap", "jc", "textDirection", "textAlignment", "textboxTightWrap", "outlineLvl", "divId", "cnfStyle", "rPr", "sectPr", "pPrChange"];
+const AFTER_SZ = ["highlight", "u", "effect", "bdr", "shd", "fitText", "vertAlign", "rtl", "cs", "em", "lang", "eastAsianLayout", "specVanish", "oMath"];
+
+/** A run's properties (or a paragraph mark's) at one point high. */
+function onePoint(rPr: XmlElement): void {
+  putInOrder(rPr, el("w:sz", { "w:val": "2" }), ["szCs", ...AFTER_SZ]);
+  putInOrder(rPr, el("w:szCs", { "w:val": "2" }), AFTER_SZ);
+}
+
+/**
+ * The empty lines after the document's last words or table take no room on the paper (REQUIREMENTS §119, A4, 22-Oct-2026):
+ * a record's longer values or added lines push them past the page's foot, and a sheet printed with nothing on it but the
+ * page's header is no page of his paper (F/HR/11's third page, F/QC/05's and F/QC/18's second). Each stays where it is,
+ * empty, one point high with no space around it; nothing on the pages before changes.
+ */
+function endWithoutBlankPage(body: XmlElement): void {
+  const nodes = body.children.filter((c): c is XmlElement => typeof c !== "string");
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const p = nodes[i];
+    if (p.local === "sectPr") continue;
+    if (p.local !== "p" || paraText(p).trim()) break;
+    // Anything a run prints or marks (a picture, a field, a break, a tab character: not the paragraph's own tab stops).
+    if (["drawing", "pict", "object", "fldChar", "instrText", "br", "tab", "sym"].some((l) => kids(p, "r").some((r) => all(r, l).length > 0))) break;
+    if (["sdt", "bookmarkStart", "hyperlink", "fldSimple"].some((l) => all(p, l).length > 0)) break;
+    let pPr = kid(p, "pPr");
+    if (pPr && (kid(pPr, "sectPr") || kid(pPr, "pageBreakBefore") || kid(pPr, "framePr"))) break;
+    if (!pPr) {
+      pPr = el("w:pPr");
+      p.children.unshift(pPr);
+    }
+    putInOrder(pPr, el("w:spacing", { "w:before": "0", "w:beforeAutospacing": "0", "w:after": "0", "w:afterAutospacing": "0", "w:line": "20", "w:lineRule": "exact" }), AFTER_SPACING);
+    let mark = kid(pPr, "rPr");
+    if (!mark) {
+      mark = el("w:rPr");
+      putInOrder(pPr, mark, ["sectPr", "pPrChange"]);
+    }
+    onePoint(mark);
+    for (const r of kids(p, "r")) {
+      let rPr = kid(r, "rPr");
+      if (!rPr) {
+        rPr = el("w:rPr");
+        r.children.unshift(rPr);
+      }
+      onePoint(rPr);
+    }
+  }
 }
 
 /**
@@ -944,6 +1032,8 @@ interface GridPlaceW {
   fixedGrid: boolean;
   /** A grid holding no value of the record: its paper's grid kept as it is ("keep"), or only cleared of the example ("blank"). */
   unbound?: "keep" | "blank";
+  /** The heading rows of the tables the grid runs on in (F/HR/06's pages): the paper's words, no other box's place. */
+  alsoHeads?: TRow[];
 }
 
 function headingTexts(grid: ModelGrid): string[] {
@@ -1070,14 +1160,43 @@ function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Se
   for (const t of model.texts) stopWords.add(norm(t));
   const own = new Set([...heads.map(norm), ...printedWords(grid)]);
   const body: TRow[] = [];
-  for (const row of table.rows.slice(ri + 1)) {
-    const words = row.cells.map(cellText);
-    const stop = words.some((t) => {
+  const footRow = (row: TRow) =>
+    row.cells.map(cellText).some((t) => {
       const n = norm(t);
       return (n.length > 2 && stopWords.has(n) && !own.has(n)) || (FOOT_RE.test(t.trim()) && !own.has(n));
     });
-    if (stop) break;
+  for (const row of table.rows.slice(ri + 1)) {
+    if (footRow(row)) break;
     body.push(row);
+  }
+  // The same heading printed again over the tables after this one, a page each (F/HR/06's induction record, eight people to
+  // a page): the grid runs on in their rows, in order, before a row is added, and the owner's example lines there are
+  // cleared too. Only for the page's one grid of that heading, its lines not the paper's own (F/MKT/05's five sections share
+  // a heading: each section is its own grid and table).
+  const sameHeading = model.grids.filter((g) => g.headerRows > 0 && headingTexts(g).join("|") === heads.join("|")).length === 1;
+  const freeLines = grid.rows.slice(grid.headerRows).every((l) => fixedKey(l) === null);
+  const alsoHeads: TRow[] = [];
+  if (sameHeading && freeLines) {
+    // Its heading again: the same cells, each column the grid writes in worded alike (F/HR/06's pages word their first
+    // column apart: "Name of the Operator / Worker"), as a heading is found at all.
+    const cols = [...new Set(colOf.values())];
+    const alike = (r: TRow) =>
+      r.cells.length === headRow.cells.length &&
+      cols.length >= 2 &&
+      cols.every((col) => {
+        const a = cellAt(r, col);
+        const b = cellAt(headRow, col);
+        return !!a && !!b && !!cellText(b).trim() && (same(cellText(a), cellText(b)) || similarity(cellText(a), cellText(b)) >= 0.72);
+      });
+    for (const next of tables.filter((t) => t.index > table.index)) {
+      const head = next.rows.find(alike);
+      if (!head || head.cells.some((c) => taken?.has(c.tc))) continue;
+      alsoHeads.push(head);
+      for (const row of next.rows.slice(next.rows.indexOf(head) + 1)) {
+        if (footRow(row)) break;
+        body.push(row);
+      }
+    }
   }
   // Lines.
   const lines = grid.rows.slice(grid.headerRows);
@@ -1122,8 +1241,8 @@ function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Se
   });
   const headRows = upper && headingTextsMatch(upper, heads) ? [upper, headRow] : [headRow];
   const unbound = unboundGrid(lines, body.flatMap((r) => r.cells.map(cellText)));
-  if (unbound) return { grid, gridNo, table, headRows, colOf, body, rowOf: new Map(), extra: [], fixedGrid: false, unbound };
-  return { grid, gridNo, table, headRows, colOf, body, rowOf, extra, fixedGrid: fixedLines > 0 };
+  if (unbound) return { grid, gridNo, table, headRows, colOf, body, rowOf: new Map(), extra: [], fixedGrid: false, unbound, alsoHeads };
+  return { grid, gridNo, table, headRows, colOf, body, rowOf, extra, fixedGrid: fixedLines > 0, alsoHeads };
 }
 
 /**
@@ -1175,6 +1294,47 @@ function placeGridRowsW(tables: Table[], grid: ModelGrid, gridNo: number, h: { t
   const unbound = unboundGrid(lines, body.flatMap((r) => r.cells.map(cellText)));
   if (unbound) return { grid, gridNo, table, headRows, colOf, body, rowOf: new Map(), extra: [], fixedGrid: false, unbound };
   return { grid, gridNo, table, headRows, colOf, body, rowOf, extra, fixedGrid: false };
+}
+
+/** A grid the paper prints as a card per line: the k-th card's value cell beside each heading's label, for line k. */
+interface CardPlace {
+  grid: ModelGrid;
+  tables: Table[];
+  lines: Map<number, TCell>[];
+  /** The value cells of the cards no line takes (the owner's example cleared). */
+  spare: TCell[];
+}
+
+/**
+ * A grid the paper prints as a card per line (F/QC/19's tolerance cards: each card's "APPROVED BY: | ____" and "SIGN. : |
+ * ____" a small table of its own, the cards in the order of their printed errors, the grid's lines in the same order): line
+ * k's values go beside their headings' labels on the k-th card; a line past the paper's last card has no box, and is left
+ * out (his paper prints seven cards for its nine errors). Two cards at least, each with every heading the grid writes in as
+ * its own label.
+ */
+function placeCardsW(tables: Table[], grid: ModelGrid, taken: Set<XmlElement>): CardPlace | null {
+  const heads = headingTexts(grid);
+  const lines = grid.rows.slice(grid.headerRows);
+  const cols = heads.map((_, i) => i).filter((i) => lines.some((l) => !!l[i] && isBound(l[i])));
+  if (cols.length === 0 || cols.some((i) => !heads[i].trim())) return null;
+  const bare = (t: string) => t.replace(/[\s:.\-–—]+$/, "");
+  const found: { table: Table; at: Map<number, TCell> }[] = [];
+  for (const t of tables) {
+    if (t.rows.length > cols.length + 1) continue;
+    const at = new Map<number, TCell>();
+    for (const i of cols)
+      for (const r of t.rows) {
+        const k = r.cells.findIndex((c) => !c.cont && !taken.has(c.tc) && (same(cellText(c), heads[i]) || same(bare(cellText(c)), bare(heads[i]))));
+        const value = k >= 0 ? r.cells[k + 1] : undefined;
+        if (value && !value.cont && !taken.has(value.tc) && ![...at.values()].includes(value)) {
+          at.set(i, value);
+          break;
+        }
+      }
+    if (at.size === cols.length) found.push({ table: t, at });
+  }
+  if (found.length < 2) return null;
+  return { grid, tables: found.map((f) => f.table), lines: found.slice(0, lines.length).map((f) => f.at), spare: found.slice(lines.length).flatMap((f) => [...f.at.values()]) };
 }
 
 function headingTextsMatch(row: TRow, heads: string[]): boolean {
