@@ -663,6 +663,8 @@ export function linesLost(changes: FieldChange[]): { removed: string[]; cleared:
   const clearedByLine = new Map<string, { line: string; values: string[] }>();
   for (const c of changes) {
     if (c.after === ROW_REMOVED) {
+      // A line with nothing written in it loses nothing: taken off without asking (its Undo is still offered).
+      if (blank(c.before)) continue;
       const words = lineChangeWords(c);
       if (words) removed.push(lowerFirst(words.replace(/ removed \(/, " (")));
       continue;

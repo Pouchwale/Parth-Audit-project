@@ -144,6 +144,16 @@ test("two empty lines added are added, not cleared: a line that did not exist ha
   assert.equal((p.data.rows as Obj[]).length, 5);
 });
 
+test("an empty line removed loses nothing: it is not asked about; a written one still is", () => {
+  const before = freeSheet();
+  const added = previewPatch("log-sheet", FREE, before, { addItems: { rows: [{}] } });
+  const gone = previewPatch("log-sheet", FREE, added.data, { removeItems: { rows: [(added.data.rows as Obj[]).length] } });
+  assert.deepEqual(gone.removed, [], "an empty line's removal is not a loss");
+  assert.equal((gone.data.rows as Obj[]).length, (before.rows as Obj[]).length, "and it is taken off");
+  const lost = previewPatch("log-sheet", FREE, before, { removeItems: { rows: [1] } });
+  assert.equal(lost.removed.length, 1, "a line with words in it is still named and asked about");
+});
+
 test("the dry run names the lines it would remove or clear in their own words, and writes nothing", () => {
   const before = freeSheet();
   const gone = previewPatch("log-sheet", FREE, before, { removeItems: { rows: [2] } });
