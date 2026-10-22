@@ -257,6 +257,112 @@ for (const [id, kind] of [
 
 const realTemplateBytes = (id: string, kind: string) => new Uint8Array(realTemplate(id, kind));
 
+// ---------------------------------------------------------------------------------------------------------------------
+// round 2 (REQUIREMENTS §119): a paper with no heading row over its questions, a box the paper has no place for, boxes DCRS
+// numbers in groups, a period in the title's brackets
+
+function docxOf(body: string): ArrayBuffer {
+  const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  const files: [string, string][] = [
+    [
+      "[Content_Types].xml",
+      `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`,
+    ],
+    ["_rels/.rels", `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument" Target="word/document.xml"/></Relationships>`],
+    ["word/document.xml", `<w:document xmlns:w="${W}" xmlns:r="${R}"><w:body>${body}<w:sectPr/></w:body></w:document>`],
+  ];
+  return zipStored(files.map(([name, xml]) => ({ name, data: enc.encode(xml) }))).slice().buffer;
+}
+const wp = (t: string) => `<w:p><w:r><w:t xml:space="preserve">${t}</w:t></w:r></w:p>`;
+const wtr = (...cells: string[]) => `<w:tr>${cells.map((t) => `<w:tc>${wp(t)}</w:tc>`).join("")}</w:tr>`;
+const wtbl = (...rows: string[]) => `<w:tbl><w:tblPr/>${rows.join("")}</w:tbl>`;
+const head = (title: string): ExportBlock[] => [
+  { kind: "text", text: COMPANY.name, strong: true, title: true },
+  { kind: "text", text: title, strong: true, title: true },
+];
+
+test("round 2: a paper with no heading row over its questions - each line found by its own words, YES / NO struck as on paper, the reading in its blank cell", async () => {
+  const template = docxOf(wp("HEALTH DECLARATION") + wtbl(wtr("Do you have a cold or a cough?", "YES / NO"), wtr("Any cut or wound?", "YES / NO"), wtr("Body temperature", "")));
+  const yn = (path: string, text: string) => bound(path, text, "Yes / No", "yesno");
+  const rows: Cell[][] = [
+    [plain("Sr. No."), plain("Question"), plain("YES / NO"), plain("Reading")],
+    [plain("1"), plain("Do you have a cold or a cough?"), yn("q/0/yn", "No"), bound("q/0/r", "", "Reading")],
+    [plain("2"), plain("Any cut or wound?"), yn("q/1/yn", "Yes"), bound("q/1/r", "", "Reading")],
+    [plain("3"), plain("Body temperature"), yn("q/2/yn", ""), bound("q/2/r", "98.4 F", "Reading")],
+  ];
+  const { bytes, report } = await fillDocx(template, [...head("HEALTH DECLARATION"), { kind: "table", rows, headerRows: 1 }], { envelope: envelope("docx"), company: COMPANY.name });
+  assert.equal(report.notPlaced.length, 0, report.notPlaced.join(", "));
+  assert.equal(report.grids[0].where, "by the lines' own words");
+  const xml = await partText(bytes, "word/document.xml");
+  assert.equal((xml.match(/<w:strike\/>/g) ?? []).length, 2, "the answer not given is struck through on each answered line");
+  assert.ok(xml.indexOf("98.4 F") > xml.indexOf("Body temperature"), "the reading goes into the blank cell of its own row");
+  const read = await readUploadedFile(bytes.slice().buffer, "health.docx");
+  assert.ok(read.ok);
+  if (!read.ok) return;
+  assert.equal(read.missing.length, 0);
+  for (const e of read.entries) assert.equal((read.values.get(e.i)?.text ?? "").replace(/ /g, " ").trim(), e.text.trim(), `${e.label} reads back as written`);
+});
+
+test("a box the paper has no place for is left out of the file: the owner's format stays as it is (22-Oct-2026)", async () => {
+  const template = docxOf(wp("VEHICLE RECORD") + wtbl(wtr("Driver", "")) + wp("Checked by: ____"));
+  const blocks: ExportBlock[] = [...head("VEHICLE RECORD"), { kind: "fields", pairs: [["Driver", bound("h/driver", "R. Patel", "Driver")], ["Contract valid to", bound("h/to", "31-Mar-2027", "Contract valid to", "date")]] }];
+  const { bytes, report } = await fillDocx(template, blocks, { envelope: envelope("docx"), company: COMPANY.name });
+  assert.equal(report.notPlaced.length, 0);
+  assert.equal(report.outside.length, 0, "nothing written outside the paper's boxes");
+  assert.deepEqual(report.leftOut, ["Contract valid to"], "the value with no box is left out, and listed");
+  const xml = await partText(bytes, "word/document.xml");
+  assert.ok(xml.includes("R. Patel") && !xml.includes("Contract valid to") && !xml.includes("31-Mar-2027"), "his paper, filled where it has boxes, nothing added");
+  const read = await readUploadedFile(bytes.slice().buffer, "vehicle.docx");
+  assert.ok(read.ok && read.missing.length === 0, "the file still reads back whole");
+});
+
+test("round 2: boxes DCRS numbers in groups fill the paper's table of them, a row a number", async () => {
+  const template = docxOf(wp("MEETING RECORD") + wtbl(wtr("Name", "Designation", "Sign"), wtr("", "", ""), wtr("", "", "")));
+  const pairs: [string, Cell][] = [];
+  for (const n of [1, 2, 3]) {
+    pairs.push([`Attendance ${n} — Name`, bound(`a/${n}/name`, `Person ${n}`, `Attendance ${n} — Name`)]);
+    pairs.push([`Attendance ${n} — Designation`, bound(`a/${n}/des`, `Role ${n}`, `Attendance ${n} — Designation`)]);
+  }
+  const { bytes, report } = await fillDocx(template, [...head("MEETING RECORD"), { kind: "fields", pairs }], { envelope: envelope("docx"), company: COMPANY.name });
+  assert.equal(report.notPlaced.length, 0);
+  assert.equal(report.outside.length, 0, "nothing outside: the paper has the table");
+  assert.deepEqual(report.grids[0], { rows: 3, paperRows: 2, added: 1, where: "table 1" }, "two of the paper's rows and one added");
+  const read = await readUploadedFile(bytes.slice().buffer, "meeting.docx");
+  assert.ok(read.ok && read.missing.length === 0 && read.entries.length === 6);
+});
+
+test("round 2: a workbook's period written in the title's own brackets; merged cells of the example split for DCRS's lines", async () => {
+  const MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+  const REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  const rows = [
+    `<row r="1">${sheetCell("A1", "TRAINING NEED RECORD ( 01.04.2024 ~ 31.03.2025 )")}</row>`,
+    `<row r="2">${sheetCell("A2", "Sr. No.", 1)}${sheetCell("B2", "Name", 1)}${sheetCell("C2", "Designation", 1)}</row>`,
+    `<row r="3">${sheetCell("A3", "1", 1)}${sheetCell("B3", "Old A", 1)}${sheetCell("C3", "Clerk", 1)}</row>`,
+    `<row r="4">${sheetCell("A4", "2", 1)}${sheetCell("B4", "Old B", 1)}${sheetCell("C4", "", 1)}</row>`,
+  ].join("");
+  const base = await unzip(tinyWorkbook());
+  const parts = await Promise.all(
+    Array.from(base.keys()).map(async (name) => ({
+      name,
+      data: name === "xl/worksheets/sheet1.xml" ? enc.encode(`<worksheet xmlns="${MAIN}" xmlns:r="${REL}"><sheetData>${rows}</sheetData><mergeCells count="1"><mergeCell ref="C3:C4"/></mergeCells></worksheet>`) : await base.get(name)!(),
+    }))
+  );
+  const lines: Cell[][] = [[plain("Sr. No."), plain("Name"), plain("Designation")]];
+  for (const i of [0, 1]) lines.push([plain(String(i + 1)), bound(`r/${i}/n`, `New ${i}`, "Name"), bound(`r/${i}/d`, `Role ${i}`, "Designation")]);
+  const blocks: ExportBlock[] = [...head("TRAINING NEED RECORD"), { kind: "fields", pairs: [["Period", bound("h/p", "01.04.2026 ~ 31.03.2027", "Period")]] }, { kind: "table", rows: lines, headerRows: 1 }];
+  const { bytes, report } = await fillXlsx(zipStored(parts).slice().buffer, blocks, { envelope: envelope("xlsx"), company: COMPANY.name });
+  assert.equal(report.notPlaced.length, 0);
+  const xml = await sheetXml(bytes);
+  assert.match(xml, /TRAINING NEED RECORD \( 01\.04\.2026 ~ 31\.03\.2027 \)/, "the period in the title's own brackets");
+  assert.ok(!xml.includes('ref="C3:C4"'), "the example's merged Designation split: each line has its own");
+  const read = await readUploadedFile(bytes.slice().buffer, "needs.xlsx");
+  assert.ok(read.ok);
+  if (!read.ok) return;
+  assert.equal(read.missing.length, 0);
+  for (const e of read.entries) assert.equal(read.values.get(e.i)?.text, e.text, `${e.label} reads back as written`);
+});
+
 test("a document with the owner's Word or Excel file downloads as that kind of file", () => {
   for (const id of ["qc-bopp-film", "qc-weight-scale-calibration", "hr-gmp-checklist", "hr-psc-survey", "disp-container-stuffing"]) {
     const doc = SEED_DOCUMENTS.find((d) => d.id === id)!;

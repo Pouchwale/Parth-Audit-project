@@ -10,7 +10,8 @@ export function norm(s: string): string {
   return (s ?? "")
     .normalize("NFKC")
     .toLowerCase()
-    .replace(/[\u2018\u2019\u201c\u201d]/g, "")
+    // Quotes and apostrophes, curly or straight, are no word break: "Trainee's Name" and the paper's "Trainee\u2019s Name" match.
+    .replace(/[\u2018\u2019\u201c\u201d'"`]/g, "")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
@@ -77,6 +78,13 @@ export function afterLabel(text: string, label: string): { head: string; rest: s
   if (matched < letters.length) return null;
   // The label must end at a word's end.
   if (i < lower.length && /[\p{L}\p{N}]/u.test(lower[i])) return null;
+  // The label's own closing marks the text prints too ("Product Traced %" before " :"): the label's, never the value's place.
+  const marks = /[^\p{L}\p{N}\s:.\-]+$/u.exec(label.trim())?.[0] ?? "";
+  if (marks) {
+    let k = i;
+    while (k < text.length && /\s/.test(text[k])) k++;
+    if (text.startsWith(marks, k)) i = k + marks.length;
+  }
   // The separator: spaces, colons, dashes, full stops, "=", tabs.
   let j = i;
   while (j < text.length && /[\s:\-–—=.)\]]/.test(text[j])) j++;

@@ -11,12 +11,18 @@ import { COMPANY_RE, norm } from "./text";
 export interface ModelField {
   label: string;
   cell: Cell;
+  /** DCRS's own label, where the paper's words for it are looked for instead (hints.ts labelAs). */
+  shown?: string;
+  /** The block it came from, in the page's order (a box before or after a grid). */
+  order?: number;
 }
 
 export interface ModelGrid {
   rows: Cell[][];
   headerRows: number;
   bindTable?: ExportTableBinding;
+  /** The block it came from, in the page's order. */
+  order?: number;
 }
 
 export interface DcrsModel {
@@ -61,10 +67,13 @@ function rowsOfSheet(b: Extract<ExportBlock, { kind: "sheet" }>): Cell[][] {
 
 export function modelOf(blocks: ExportBlock[]): DcrsModel {
   const model: DcrsModel = { company: "", title: "", texts: [], band: [], fields: [], grids: [] };
-  for (const b of blocks) {
+  for (const [order, b] of blocks.entries()) {
+    const fieldsBefore = model.fields.length;
+    const gridsBefore = model.grids.length;
     if (b.kind === "text") {
       if (b.parts?.some((p) => p.bind)) {
         model.fields.push(...fieldsOfText(b.parts));
+        for (const f of model.fields.slice(fieldsBefore)) f.order = order;
         continue;
       }
       const text = b.text.trim();
@@ -95,8 +104,53 @@ export function modelOf(blocks: ExportBlock[]): DcrsModel {
       const rows = b.rows.map((r) => r.cells.map((c) => ({ text: c.text, ...(c.parts ? { parts: c.parts } : {}), ...(c.bind ? { bind: c.bind } : {}) }) as Cell));
       model.grids.push({ rows, headerRows: 0 });
     }
+    for (const f of model.fields.slice(fieldsBefore)) f.order ??= order;
+    for (const g of model.grids.slice(gridsBefore)) g.order ??= order;
   }
   return model;
+}
+
+/**
+ * The paper's own words for DCRS's labels and grid headings (hints.ts labelAs: a paper that words a box differently, or is
+ * in another language): the box or column is then looked for by the paper's words. Each field keeps DCRS's label as `shown`.
+ */
+export function withPaperWords(model: DcrsModel, labelAs: Record<string, string> | undefined): DcrsModel {
+  if (!labelAs) return model;
+  const map = new Map(Object.entries(labelAs).map(([k, v]) => [norm(k), v]));
+  for (const f of model.fields) {
+    const as = map.get(norm(f.label));
+    if (as !== undefined) {
+      f.shown = f.label;
+      f.label = as;
+    }
+  }
+  for (const g of model.grids) for (let r = 0; r < g.headerRows; r++) g.rows[r] = g.rows[r].map((c) => (map.has(norm(c.text)) ? { ...c, text: map.get(norm(c.text))! } : c));
+  return model;
+}
+
+/**
+ * Boxes DCRS numbers in groups ("Attendance 3 — Name", "NC 2 — Section", "HARA Review Team 5 — Designation"): a list the
+ * paper keeps as a table, headed by the boxes' own words, a row to each number. Given as a grid of one line per number, for
+ * the filler to try on the paper's tables before the boxes are looked for one by one.
+ */
+export function numberedGroups(fields: ModelField[]): { grid: ModelGrid; fields: ModelField[] }[] {
+  const groups = new Map<string, { n: number; sub: string; f: ModelField }[]>();
+  for (const f of fields) {
+    const m = /^(.*?\S)\s*(\d{1,2})\s+—\s+(.+)$/.exec(f.label);
+    if (!m || !isBound(f.cell)) continue;
+    const name = norm(m[1]);
+    groups.set(name, [...(groups.get(name) ?? []), { n: Number(m[2]), sub: m[3].trim(), f }]);
+  }
+  const out: { grid: ModelGrid; fields: ModelField[] }[] = [];
+  for (const items of groups.values()) {
+    const numbers = Array.from(new Set(items.map((x) => x.n))).sort((a, b) => a - b);
+    const subs = Array.from(new Set(items.map((x) => x.sub)));
+    if (numbers.length < 2 || subs.length < 2) continue;
+    const rows: Cell[][] = [subs.map((text) => ({ text }))];
+    for (const n of numbers) rows.push(subs.map((sub) => items.find((x) => x.n === n && x.sub === sub)?.f.cell ?? { text: "" }));
+    out.push({ grid: { rows, headerRows: 1, order: items[0].f.order }, fields: items.map((x) => x.f) });
+  }
+  return out;
 }
 
 /** The value DCRS's band holds under a label: "Format No." -> "F/QC/01". */
