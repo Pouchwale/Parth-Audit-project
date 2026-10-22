@@ -20,8 +20,15 @@
   "sheet": null,
   "notes": "",
   "scores": [],
+  "pagesAsSupplied": 1,
+  "paper": [
+   "section 1: 612x792 pt -> A4 595x842 pt; left and right margins 8.3 pt narrower (the text as wide as on his paper)",
+   "ink nearest the side edges: 13.7 pt on his paper, 5.3 pt on A4",
+   "a table 584 pt wide (reaching 584 pt of the 468 pt text) scaled to 568 pt",
+   "ink nearest the side edges after: 13.2 pt"
+  ],
   "pages": 1,
-  "bytes": 25855
+  "bytes": 29062
  },
  {
   "id": "disp-container-stuffing",
@@ -125,8 +132,15 @@
   "sheet": null,
   "notes": "",
   "scores": [],
+  "pagesAsSupplied": 5,
+  "paper": [
+   "section 1: 612x792 pt -> A4 595x842 pt",
+   "ink nearest the side edges: 14.8 pt on his paper, 9.1 pt on A4",
+   "a table 560 pt wide (reaching 573 pt of the 559 pt text) scaled to 545 pt",
+   "ink nearest the side edges after: 14.8 pt"
+  ],
   "pages": 5,
-  "bytes": 33752,
+  "bytes": 37798,
   "copiedToSourceDocuments": "F-HR-19_Monthly GMP Inspection record.doc"
  },
  {
@@ -237,7 +251,12 @@
    "Gujarati",
    "Sheet1"
   ],
-  "bytes": 12376,
+  "pagesAsSupplied": 1,
+  "paper": [
+   "english: paper 1 -> 9; 1 page(s) on his paper, 2 on A4; fitted to the page's width: 1 page(s) (it was at 99 %)"
+  ],
+  "pages": 1,
+  "bytes": 12348,
   "copiedToSourceDocuments": "F-HR-20_Product safety culture survey (1).xlsx"
  },
  {
@@ -409,7 +428,12 @@
    "Pouch",
    "Other Machinery - OLD"
   ],
-  "bytes": 15954
+  "pagesAsSupplied": 3,
+  "paper": [
+   "Flexo: paper 1 -> 9 landscape; 3 page(s) on his paper, 2 on A4"
+  ],
+  "pages": 2,
+  "bytes": 15964
  },
  {
   "id": "mnt-glass-breakage",
@@ -432,8 +456,13 @@
   "sheet": null,
   "notes": "",
   "scores": [],
+  "pagesAsSupplied": 2,
+  "paper": [
+   "section 1: 612x792 pt -> A4 595x842 pt; left and right margins 8.3 pt narrower (the text as wide as on his paper)",
+   "ink nearest the side edges: 42.9 pt on his paper, 34.6 pt on A4"
+  ],
   "pages": 2,
-  "bytes": 90467
+  "bytes": 90469
  },
  {
   "id": "mnt-pm-record",
@@ -444,8 +473,13 @@
   "sheet": null,
   "notes": "The only Word original of F/MNT/02 kept: the PM schedule and record as filled for one machine (DCM sleeve seaming, GALLOPS).",
   "scores": [],
+  "pagesAsSupplied": 2,
+  "paper": [
+   "section 1: 612x792 pt -> A4 595x842 pt; left and right margins 8.3 pt narrower (the text as wide as on his paper)",
+   "ink nearest the side edges: 29.0 pt on his paper, 22.0 pt on A4"
+  ],
   "pages": 2,
-  "bytes": 21755
+  "bytes": 21897
  },
  {
   "id": "mnt-wooden-articles",
@@ -617,7 +651,12 @@
   "sheets": [
    "F-PRD-24"
   ],
-  "bytes": 17137
+  "pagesAsSupplied": 2,
+  "paper": [
+   "F-PRD-24: A4 already; his columns 578 pt wide at his 67 %, A4's width between his margins 559 pt: fitted to the page's width (1 page(s))"
+  ],
+  "pages": 1,
+  "bytes": 17164
  },
  {
   "id": "pur-approved-suppliers",
@@ -633,7 +672,12 @@
    "Sheet1 (2)",
    "Sheet2"
   ],
-  "bytes": 13590,
+  "pagesAsSupplied": 2,
+  "paper": [
+   "Sheet1: A4 already; his columns 947 pt wide at his 60 %, A4's width between his margins 842 pt: fitted to the page's width (1 page(s))"
+  ],
+  "pages": 1,
+  "bytes": 12491,
   "copiedToSourceDocuments": "F-PUR-03_List of Approved suppliers.xlsx"
  },
  {
@@ -872,8 +916,12 @@
     "score": 1.0
    }
   ],
+  "pagesAsSupplied": 1,
+  "paper": [
+   "section 1: 792x612 pt -> A4 842x595 pt landscape; top and bottom margins 8.3 pt narrower (the text as tall as on his paper)"
+  ],
   "pages": 1,
-  "bytes": 18088,
+  "bytes": 18120,
   "copiedToSourceDocuments": "F-QC-11 GSM cutting plate internal calibration record (2).docx"
  },
  {
@@ -2179,8 +2227,13 @@
   "sheet": null,
   "notes": "F/QC/19 is also the number of the duplex board record; this is the tolerance card, by its content.",
   "scores": [],
+  "pagesAsSupplied": 4,
+  "paper": [
+   "section 1: 612x792 pt -> A4 595x842 pt; left and right margins 8.3 pt narrower (the text as wide as on his paper)",
+   "ink nearest the side edges: 66.3 pt on his paper, 58.0 pt on A4"
+  ],
   "pages": 4,
-  "bytes": 15568,
+  "bytes": 15645,
   "copiedToSourceDocuments": "F-QC-19_ Tolerance card for Nivea.docx"
  },
  {
@@ -2484,8 +2537,21 @@
   "sheet": null,
   "notes": "The company's Word original of F/SYS/04 (agenda and record in one file).",
   "scores": [],
+  "pagesAsSupplied": 6,
+  "paper": [
+   "section 1: 612x792 pt -> A4 595x842 pt",
+   "ink nearest the side edges: 18.2 pt on his paper, 1.6 pt on A4",
+   "a table 562 pt wide (reaching 572 pt of the 559 pt text) scaled to 547 pt",
+   "a table 553 pt wide (reaching 565 pt of the 559 pt text) scaled to 538 pt",
+   "a table 562 pt wide (reaching 572 pt of the 559 pt text) scaled to 547 pt",
+   "a table 562 pt wide (reaching 572 pt of the 559 pt text) scaled to 547 pt",
+   "a table 571 pt wide (reaching 581 pt of the 559 pt text) scaled to 555 pt",
+   "a table 562 pt wide (reaching 572 pt of the 559 pt text) scaled to 547 pt",
+   "a table 560 pt wide (reaching 572 pt of the 559 pt text) scaled to 545 pt",
+   "ink nearest the side edges after: 17.0 pt"
+  ],
   "pages": 6,
-  "bytes": 35935,
+  "bytes": 36060,
   "copiedToSourceDocuments": "F-SYS-04-Management review meeting agenda & Record_R01_09.12.2020.doc"
  },
  {
@@ -2497,8 +2563,21 @@
   "sheet": null,
   "notes": "The company's Word original of F/SYS/04 (agenda and record in one file).",
   "scores": [],
+  "pagesAsSupplied": 6,
+  "paper": [
+   "section 1: 612x792 pt -> A4 595x842 pt",
+   "ink nearest the side edges: 18.2 pt on his paper, 1.6 pt on A4",
+   "a table 562 pt wide (reaching 572 pt of the 559 pt text) scaled to 547 pt",
+   "a table 553 pt wide (reaching 565 pt of the 559 pt text) scaled to 538 pt",
+   "a table 562 pt wide (reaching 572 pt of the 559 pt text) scaled to 547 pt",
+   "a table 562 pt wide (reaching 572 pt of the 559 pt text) scaled to 547 pt",
+   "a table 571 pt wide (reaching 581 pt of the 559 pt text) scaled to 555 pt",
+   "a table 562 pt wide (reaching 572 pt of the 559 pt text) scaled to 547 pt",
+   "a table 560 pt wide (reaching 572 pt of the 559 pt text) scaled to 545 pt",
+   "ink nearest the side edges after: 17.0 pt"
+  ],
   "pages": 6,
-  "bytes": 35771
+  "bytes": 35867
  },
  {
   "id": "sys-nc-car",
@@ -2522,7 +2601,12 @@
   "sheet": null,
   "notes": "",
   "scores": [],
+  "pagesAsSupplied": 1,
+  "paper": [
+   "section 1: 612x792 pt -> A4 595x842 pt; left and right margins 8.3 pt narrower (the text as wide as on his paper)",
+   "ink nearest the side edges: 56.0 pt on his paper, 47.6 pt on A4"
+  ],
   "pages": 1,
-  "bytes": 19532
+  "bytes": 19519
  }
 ]

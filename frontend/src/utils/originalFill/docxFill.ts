@@ -221,7 +221,7 @@ class Controls {
    * The cell's pieces as runs: the fixed words as words, each bound value in a control tagged "dcrs:<i>". `shown` writes a
    * value the paper's way where it reads back the same (a tick box's Yes as a ticked box).
    */
-  runs(cell: Cell, rPr: XmlElement | null, fallbackLabel?: string, shown?: (text: string) => string): XmlElement[] {
+  runs(cell: Cell, rPr: XmlElement | null, fallbackLabel?: string, shown?: (text: string) => string, keepFace = false): XmlElement[] {
     const parts: ExportSegment[] = cell.parts?.length ? cell.parts : cell.text ? [{ text: cell.text }] : [];
     const out: XmlElement[] = [];
     for (const p of parts) {
@@ -231,7 +231,7 @@ class Controls {
       }
       const entry = this.builder.add(p.bind, { fallbackLabel });
       this.report.placed++;
-      out.push(this.control(entry.i, entry.label, shown ? shown(p.bind.text) : p.bind.text, valueProps(rPr)));
+      out.push(this.control(entry.i, entry.label, shown ? shown(p.bind.text) : p.bind.text, keepFace ? rPr : valueProps(rPr)));
     }
     return out;
   }
@@ -408,10 +408,20 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   // ---- grids
   const gridPlaces: GridPlaceW[] = [];
   const keyedPlaces: { grid: ModelGrid; lines: KeyedLine[] }[] = [];
+  const cardPlaces: CardPlace[] = [];
   model.grids.forEach((grid, gridNo) => {
     if (hints.skipGrids?.includes(gridNo)) return;
     const rowsHint = hints.gridRows?.[gridNo];
     const place = rowsHint ? placeGridRowsW(tables, grid, gridNo, rowsHint) : placeGridW(tables, grid, gridNo, labels, model, hints.table?.[gridNo], usedCells);
+    // A card per line (F/QC/19's tolerance cards), its headings the labels of each card: never rows added to the first card.
+    if (place && place.body.length === 0 && grid.rows.length > grid.headerRows && !place.unbound) {
+      const cards = placeCardsW(tables, grid, usedCells);
+      if (cards) {
+        cardPlaces.push(cards);
+        for (const t of cards.tables) for (const r of t.rows) for (const c of r.cells) usedCells.add(c.tc);
+        return;
+      }
+    }
     // A heading printed in a table of its own, the lines in the tables after it (F/SYS/12's two pages): each line found by its
     // own words, its values under the heading's columns.
     if (place && place.body.length === 0 && grid.rows.length > grid.headerRows && !place.unbound) {
@@ -435,7 +445,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     }
     if (place) {
       gridPlaces.push(place);
-      for (const r of place.headRows) for (const c of r.cells) usedCells.add(c.tc);
+      for (const r of [...place.headRows, ...(place.alsoHeads ?? [])]) for (const c of r.cells) usedCells.add(c.tc);
       for (const r of place.body) for (const c of r.cells) usedCells.add(c.tc);
       return;
     }
@@ -458,6 +468,9 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       return;
     }
     if (grid.rows.length > grid.headerRows && grid.headerRows > 0) report.gridsMissed.push(grid.rows[0]?.map((c) => c.text).filter(Boolean).slice(0, 3).join(" | ") ?? "");
+    // A table of the page with no heading row whose values found no place (a page drawn as its paper's table, F/QC/06's
+    // certificate): its values are not in the file, which is then not the record - never a file of the owner's words alone.
+    else if (grid.headerRows === 0) for (const row of grid.rows) for (const cell of row) for (const part of cell.parts ?? (cell.bind ? [{ text: cell.text, bind: cell.bind }] : [])) if (part.bind) report.notPlaced.push(part.bind.label ?? part.bind.path);
   });
 
   // ---- boxes DCRS numbers in groups ("Attendance 3 — Name") the paper keeps as a table: placed as its lines
@@ -473,7 +486,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   // ---- boxes
   type FieldAt =
     | { field: ModelField; kind: "cell"; cell: TCell }
-    | { kind: "after"; field: ModelField; p: XmlElement; at: number; to?: number }
+    | { kind: "after"; field: ModelField; p: XmlElement; at: number; to?: number; example?: boolean }
     | { kind: "under"; field: ModelField; cell: TCell; p: XmlElement }
     | { kind: "choiceCells"; field: ModelField; label: TCell; options: { cell: TCell; text: string }[] }
     | { kind: "choiceIn"; field: ModelField; cell: TCell; words: string[] }
@@ -492,6 +505,15 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       }
   // The page headers the document shows (not a spare one left in the file): a box the paper prints there (F/DISP/04).
   const shownHeaderParas = shownHeaders(pkg, docPart, body).flatMap((part) => all(part, "p"));
+  // A box's group, from its bind's label ("Prepared by · Name"): where the paper has no box of the group's first label, the
+  // group's own words are its box - the person's name written at "Prepared By" (F/MKT/05's "Prepared By | Approved By" over
+  // their Designation and Sign & Date). Every group's words are then a label, never a value's place.
+  const groupOf = (f: ModelField): string | null => {
+    const bind = f.cell.bind ?? f.cell.parts?.find((x) => x.bind)?.bind;
+    const m = bind?.label ? /^(.+?)\s+·\s+(.+)$/.exec(bind.label) : null;
+    return m && same(m[2], f.label) ? m[1].trim() : null;
+  };
+  const groupLabels = new Set([...labels, ...model.fields.flatMap((f) => groupOf(f) ?? []).map(norm)]);
   for (const field of model.fields) {
     if (!isBound(field.cell)) continue;
     if (hints.notOnPaper?.some((l) => same(l, field.label))) {
@@ -499,7 +521,10 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       continue;
     }
     const example = Object.entries(hints.exampleOf ?? {}).find(([, l]) => same(l, field.label))?.[0];
-    const at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas) ?? choiceCellsAnywhere(field, tables, usedCells);
+    // A signature block printed as lines is looked for first: its labels' line holds the label's words, never its value.
+    let at = (example ? exampleAt(field, example, paragraphs, tables) : null) ?? signatureUnder(field, model.fields, paragraphs) ?? (placeFieldW(field, tables, paragraphs, usedCells, usedParas, labels) as FieldAt | null) ?? headerAt(field, shownHeaderParas) ?? choiceCellsAnywhere(field, tables, usedCells);
+    const group = at ? null : groupOf(field);
+    if (!at && group && model.fields.find((f) => same(groupOf(f) ?? "", group)) === field) at = placeFieldW({ ...field, label: group }, tables, paragraphs, usedCells, usedParas, groupLabels) as FieldAt | null;
     if (!at) {
       // No box on the paper for it: left out of the file, which stays the owner's format (owner, 22-Oct-2026); the record keeps it.
       report.leftOut.push(field.label);
@@ -686,6 +711,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       // The value takes the place of the owner's example or of the blank ("Position -> Executive", "Signed: ____"), after the
       // paper's own spacing and marks; with nothing there it goes right after the label.
       const tookPlace = middle !== "" && !keepBlank;
+      // In place of the owner's example the value keeps the example's own face (F/QC/29's bold "PSL Analysis Report").
+      const face = f.example && tookPlace ? runPropsAt(p, f.at + lead) : null;
       if (tookPlace) {
         if (/[^_.\s]/.test(middle)) report.cleared++;
         replaceRange(p, f.at + lead, to - tail, "");
@@ -700,9 +727,9 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
         // A blank of spaces before a closing bracket ("Vehicle number:      ]"): as many go as the value takes.
         if (!tabs.length && /^ {4,}$/.test(room) && /[\])]/.test(text[to] ?? "")) replaceRange(p, f.at, f.at + room.length - 1, "");
       }
-      const rPr = firstRunProps(p);
+      const rPr = face ?? firstRunProps(p);
       const spaced = (tookPlace && lead > 0) || /\s$/.test(paraText(p).slice(0, f.at));
-      insertAt(p, tookPlace ? f.at + lead : f.at, [...(spaced ? [] : [runOf(" ", valueProps(rPr))]), ...controls.runs(f.field.cell, rPr, f.field.label)]);
+      insertAt(p, tookPlace ? f.at + lead : f.at, [...(spaced ? [] : [runOf(" ", valueProps(rPr))]), ...controls.runs(f.field.cell, rPr, f.field.label, undefined, !!face)]);
     }
   }
   const tableBinds: { place: GridPlaceW; bind: ExportTableBinding }[] = [];
@@ -748,6 +775,21 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     }
   }
 
+  // ---- the grids printed as a card per line: each line's values beside its card's labels, the cards no line takes blanked
+  for (const cp of cardPlaces) {
+    cp.lines.forEach((at, k) => {
+      for (const [ci, target] of at) {
+        clearCell(target);
+        const cell = cp.grid.rows[cp.grid.headerRows + k][ci];
+        if (cell) writeCell(target, cell, controls);
+      }
+    });
+    for (const c of cp.spare) if (clearCell(c)) report.cleared++;
+    const heads = headingTexts(cp.grid);
+    cp.grid.rows.slice(cp.grid.headerRows + cp.lines.length).forEach((row, k) => row.forEach((c, ci) => isBound(c) && report.leftOut.push(`${heads[ci] || "value"} (line ${cp.lines.length + k + 1})`)));
+    report.grids.push({ rows: cp.grid.rows.length - cp.grid.headerRows, paperRows: cp.tables.length, added: 0, where: "a card per line" });
+  }
+
   // ---- the grids found by their lines' own words, and the boxes the paper has no place for
   const keyedRows = new Set<XmlElement>();
   for (const { grid, lines } of keyedPlaces) {
@@ -782,6 +824,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     });
     report.grids.push({ rows: grid.rows.length - grid.headerRows, paperRows: lines.length, added, where: "by the lines' own words" });
   }
+
+  endWithoutBlankPage(body);
 
   // ---- the map (REQUIREMENTS §81)
   // A file kept in an older Word's compatibility mode (below Word 2010's 14) refuses a table caption.
@@ -851,6 +895,153 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   }
   void W_NS;
   return { bytes: pkg.build(), report };
+}
+
+/** The blank lines given the roles' line's places for the names (each role there is replaced by its name when written). */
+const namesFromRoles = new WeakSet<XmlElement>();
+
+/** The properties of the run that holds a paragraph's character at `at` (before its words are taken out). */
+function runPropsAt(p: XmlElement, at: number): XmlElement | null {
+  // Counted as paraText counts: a word's letters, a tab or a break one each; deletions left out.
+  let pos = 0;
+  const walk = (x: XmlElement): XmlElement | null | undefined => {
+    for (const c of x.children) {
+      if (typeof c === "string" || ["del", "pPr", "rPr", "sdtPr", "drawing", "pict"].includes(c.local)) continue;
+      if (c.local !== "r") {
+        const found = walk(c);
+        if (found !== undefined) return found;
+        continue;
+      }
+      let len = 0;
+      for (const k of c.children) if (typeof k !== "string") len += k.local === "t" ? k.children.map((t) => (typeof t === "string" ? t : "")).join("").length : ["tab", "br", "cr"].includes(k.local) ? 1 : 0;
+      if (len > 0 && at < pos + len) {
+        const rPr = kid(c, "rPr");
+        return rPr ? clone(rPr) : null;
+      }
+      pos += len;
+    }
+    return undefined;
+  };
+  return walk(p) ?? null;
+}
+
+/** A box's label as its words and its role in brackets ("Testing By (QA Executive)"). */
+function labelAndRole(label: string): { base: string; role: string } | null {
+  const m = /^(.*?\S)\s*\(([^()]+)\)\s*$/.exec(label);
+  return m ? { base: m[1], role: m[2] } : null;
+}
+
+/**
+ * A signature block printed as lines (F/QC/29's analysis reports): the labels on one line ("Testing By   Approved By"), the
+ * names under them on a line below (his example "Karan ... Kapila"), the roles under those ("(QA Executive)  (QA Manager)").
+ * DCRS's box "Testing By (QA Executive)" is the label and the role: its value takes the place of the name under its label -
+ * the k-th name on the names line for the line's k-th label - and the owner's example name is gone (REQUIREMENTS §98).
+ */
+function signatureUnder(field: ModelField, fields: ModelField[], paragraphs: XmlElement[]): { kind: "after"; field: ModelField; p: XmlElement; at: number; to: number } | null {
+  // The role from the box's label, or from its binding's ("Testing By" on the page, bound as "Testing By (QA Executive)").
+  const roleOf = (f: ModelField) => labelAndRole(f.label) ?? labelAndRole((f.cell.bind ?? f.cell.parts?.find((x) => x.bind)?.bind)?.label ?? "");
+  const own = roleOf(field);
+  if (!own || !isBound(field.cell)) return null;
+  const all1 = fields.map(roleOf).filter((x): x is { base: string; role: string } => !!x);
+  for (let i = 0; i < paragraphs.length; i++) {
+    const text = paraText(paragraphs[i]);
+    const hit = findWords(text, own.base, 0);
+    if (!hit) continue;
+    const onLine = all1.map((x) => findWords(text, x.base, 0)).filter((x): x is { from: number; to: number } => !!x).sort((a, b) => a.from - b.from);
+    const k = onLine.findIndex((x) => x.from === hit.from);
+    if (k < 0 || onLine.length < 2) continue;
+    // The names: the next line with words on it, as many groups of words (two spaces or a tab apart) as the labels; the roles'
+    // line under it names this box's role.
+    const groupsOf = (t: string) => [...t.matchAll(/\S+(?: \S+)*/g)].map((m) => ({ from: m.index ?? 0, to: (m.index ?? 0) + m[0].length }));
+    for (let j = i + 1; j < Math.min(paragraphs.length, i + 4); j++) {
+      const t = paraText(paragraphs[j]);
+      if (!t.trim()) continue;
+      const groups = groupsOf(t);
+      // The blank line a fellow box of the line filled already with the roles' places (below): this box's place on it.
+      if (namesFromRoles.has(paragraphs[j]) && groups.length === onLine.length) return { kind: "after", field, p: paragraphs[j], at: groups[k].from, to: groups[k].to };
+      if (groups.length === onLine.length && t.includes("(") && findWords(t, own.role, 0) !== null) {
+        // No names printed: the roles straight under the labels, a blank line between (F/QC/29's utility test report). The
+        // names go on that blank line, each where its role is printed under it (the roles' line's own tabs and spaces).
+        const blank = paragraphs.slice(i + 1, j).reverse().find((q) => !paraText(q).trim() && !all(q, "drawing").length && !all(q, "pict").length);
+        if (!blank) break;
+        if (!namesFromRoles.has(blank)) {
+          // Its empty runs give way to the roles' line's own runs (their tabs and spaces), each role then replaced by its name.
+          blank.children = blank.children.filter((c) => typeof c === "string" || c.local === "pPr");
+          for (const c of paragraphs[j].children) if (typeof c !== "string" && c.local !== "pPr") blank.children.push(clone(c));
+        }
+        namesFromRoles.add(blank);
+        const copied = groupsOf(paraText(blank));
+        if (copied.length !== onLine.length) break;
+        return { kind: "after", field, p: blank, at: copied[k].from, to: copied[k].to };
+      }
+      if (groups.length !== onLine.length || t.includes("(")) break;
+      const roles = paragraphs.slice(j + 1, j + 4).map(paraText).find((r) => r.trim());
+      if (!roles || findWords(roles, own.role, 0) === null) break;
+      return { kind: "after", field, p: paragraphs[j], at: groups[k].from, to: groups[k].to };
+    }
+  }
+  return null;
+}
+
+/** A child put in its place among an element's children, by the schema's order (the children named in `before` follow it). */
+function putInOrder(parent: XmlElement, child: XmlElement, before: string[]): void {
+  const same = parent.children.findIndex((c) => typeof c !== "string" && c.local === child.local);
+  if (same !== -1) {
+    parent.children[same] = child;
+    return;
+  }
+  const at = parent.children.findIndex((c) => typeof c !== "string" && before.includes(c.local));
+  if (at === -1) parent.children.push(child);
+  else parent.children.splice(at, 0, child);
+}
+
+// CT_PPrBase after w:spacing, and CT_ParaRPr / CT_RPr after w:sz and w:szCs (the order Word reads them in).
+const AFTER_SPACING = ["ind", "contextualSpacing", "mirrorIndents", "suppressOverlap", "jc", "textDirection", "textAlignment", "textboxTightWrap", "outlineLvl", "divId", "cnfStyle", "rPr", "sectPr", "pPrChange"];
+const AFTER_SZ = ["highlight", "u", "effect", "bdr", "shd", "fitText", "vertAlign", "rtl", "cs", "em", "lang", "eastAsianLayout", "specVanish", "oMath"];
+
+/** A run's properties (or a paragraph mark's) at one point high. */
+function onePoint(rPr: XmlElement): void {
+  putInOrder(rPr, el("w:sz", { "w:val": "2" }), ["szCs", ...AFTER_SZ]);
+  putInOrder(rPr, el("w:szCs", { "w:val": "2" }), AFTER_SZ);
+}
+
+/**
+ * The empty lines after the document's last words or table take no room on the paper (REQUIREMENTS §119, A4, 22-Oct-2026):
+ * a record's longer values or added lines push them past the page's foot, and a sheet printed with nothing on it but the
+ * page's header is no page of his paper (F/HR/11's third page, F/QC/05's and F/QC/18's second). Each stays where it is,
+ * empty, one point high with no space around it; nothing on the pages before changes.
+ */
+function endWithoutBlankPage(body: XmlElement): void {
+  const nodes = body.children.filter((c): c is XmlElement => typeof c !== "string");
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const p = nodes[i];
+    if (p.local === "sectPr") continue;
+    if (p.local !== "p" || paraText(p).trim()) break;
+    // Anything a run prints or marks (a picture, a field, a break, a tab character: not the paragraph's own tab stops).
+    if (["drawing", "pict", "object", "fldChar", "instrText", "br", "tab", "sym"].some((l) => kids(p, "r").some((r) => all(r, l).length > 0))) break;
+    if (["sdt", "bookmarkStart", "hyperlink", "fldSimple"].some((l) => all(p, l).length > 0)) break;
+    let pPr = kid(p, "pPr");
+    if (pPr && (kid(pPr, "sectPr") || kid(pPr, "pageBreakBefore") || kid(pPr, "framePr"))) break;
+    if (!pPr) {
+      pPr = el("w:pPr");
+      p.children.unshift(pPr);
+    }
+    putInOrder(pPr, el("w:spacing", { "w:before": "0", "w:beforeAutospacing": "0", "w:after": "0", "w:afterAutospacing": "0", "w:line": "20", "w:lineRule": "exact" }), AFTER_SPACING);
+    let mark = kid(pPr, "rPr");
+    if (!mark) {
+      mark = el("w:rPr");
+      putInOrder(pPr, mark, ["sectPr", "pPrChange"]);
+    }
+    onePoint(mark);
+    for (const r of kids(p, "r")) {
+      let rPr = kid(r, "rPr");
+      if (!rPr) {
+        rPr = el("w:rPr");
+        r.children.unshift(rPr);
+      }
+      onePoint(rPr);
+    }
+  }
 }
 
 /**
@@ -933,6 +1124,8 @@ interface GridPlaceW {
   fixedGrid: boolean;
   /** A grid holding no value of the record: its paper's grid kept as it is ("keep"), or only cleared of the example ("blank"). */
   unbound?: "keep" | "blank";
+  /** The heading rows of the tables the grid runs on in (F/HR/06's pages): the paper's words, no other box's place. */
+  alsoHeads?: TRow[];
 }
 
 function headingTexts(grid: ModelGrid): string[] {
@@ -1059,14 +1252,43 @@ function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Se
   for (const t of model.texts) stopWords.add(norm(t));
   const own = new Set([...heads.map(norm), ...printedWords(grid)]);
   const body: TRow[] = [];
-  for (const row of table.rows.slice(ri + 1)) {
-    const words = row.cells.map(cellText);
-    const stop = words.some((t) => {
+  const footRow = (row: TRow) =>
+    row.cells.map(cellText).some((t) => {
       const n = norm(t);
       return (n.length > 2 && stopWords.has(n) && !own.has(n)) || (FOOT_RE.test(t.trim()) && !own.has(n));
     });
-    if (stop) break;
+  for (const row of table.rows.slice(ri + 1)) {
+    if (footRow(row)) break;
     body.push(row);
+  }
+  // The same heading printed again over the tables after this one, a page each (F/HR/06's induction record, eight people to
+  // a page): the grid runs on in their rows, in order, before a row is added, and the owner's example lines there are
+  // cleared too. Only for the page's one grid of that heading, its lines not the paper's own (F/MKT/05's five sections share
+  // a heading: each section is its own grid and table).
+  const sameHeading = model.grids.filter((g) => g.headerRows > 0 && headingTexts(g).join("|") === heads.join("|")).length === 1;
+  const freeLines = grid.rows.slice(grid.headerRows).every((l) => fixedKey(l) === null);
+  const alsoHeads: TRow[] = [];
+  if (sameHeading && freeLines) {
+    // Its heading again: the same cells, each column the grid writes in worded alike (F/HR/06's pages word their first
+    // column apart: "Name of the Operator / Worker"), as a heading is found at all.
+    const cols = [...new Set(colOf.values())];
+    const alike = (r: TRow) =>
+      r.cells.length === headRow.cells.length &&
+      cols.length >= 2 &&
+      cols.every((col) => {
+        const a = cellAt(r, col);
+        const b = cellAt(headRow, col);
+        return !!a && !!b && !!cellText(b).trim() && (same(cellText(a), cellText(b)) || similarity(cellText(a), cellText(b)) >= 0.72);
+      });
+    for (const next of tables.filter((t) => t.index > table.index)) {
+      const head = next.rows.find(alike);
+      if (!head || head.cells.some((c) => taken?.has(c.tc))) continue;
+      alsoHeads.push(head);
+      for (const row of next.rows.slice(next.rows.indexOf(head) + 1)) {
+        if (footRow(row)) break;
+        body.push(row);
+      }
+    }
   }
   // Lines.
   const lines = grid.rows.slice(grid.headerRows);
@@ -1111,8 +1333,8 @@ function placeGridW(tables: Table[], grid: ModelGrid, gridNo: number, labels: Se
   });
   const headRows = upper && headingTextsMatch(upper, heads) ? [upper, headRow] : [headRow];
   const unbound = unboundGrid(lines, body.flatMap((r) => r.cells.map(cellText)));
-  if (unbound) return { grid, gridNo, table, headRows, colOf, body, rowOf: new Map(), extra: [], fixedGrid: false, unbound };
-  return { grid, gridNo, table, headRows, colOf, body, rowOf, extra, fixedGrid: fixedLines > 0 };
+  if (unbound) return { grid, gridNo, table, headRows, colOf, body, rowOf: new Map(), extra: [], fixedGrid: false, unbound, alsoHeads };
+  return { grid, gridNo, table, headRows, colOf, body, rowOf, extra, fixedGrid: fixedLines > 0, alsoHeads };
 }
 
 /**
@@ -1164,6 +1386,47 @@ function placeGridRowsW(tables: Table[], grid: ModelGrid, gridNo: number, h: { t
   const unbound = unboundGrid(lines, body.flatMap((r) => r.cells.map(cellText)));
   if (unbound) return { grid, gridNo, table, headRows, colOf, body, rowOf: new Map(), extra: [], fixedGrid: false, unbound };
   return { grid, gridNo, table, headRows, colOf, body, rowOf, extra, fixedGrid: false };
+}
+
+/** A grid the paper prints as a card per line: the k-th card's value cell beside each heading's label, for line k. */
+interface CardPlace {
+  grid: ModelGrid;
+  tables: Table[];
+  lines: Map<number, TCell>[];
+  /** The value cells of the cards no line takes (the owner's example cleared). */
+  spare: TCell[];
+}
+
+/**
+ * A grid the paper prints as a card per line (F/QC/19's tolerance cards: each card's "APPROVED BY: | ____" and "SIGN. : |
+ * ____" a small table of its own, the cards in the order of their printed errors, the grid's lines in the same order): line
+ * k's values go beside their headings' labels on the k-th card; a line past the paper's last card has no box, and is left
+ * out (his paper prints seven cards for its nine errors). Two cards at least, each with every heading the grid writes in as
+ * its own label.
+ */
+function placeCardsW(tables: Table[], grid: ModelGrid, taken: Set<XmlElement>): CardPlace | null {
+  const heads = headingTexts(grid);
+  const lines = grid.rows.slice(grid.headerRows);
+  const cols = heads.map((_, i) => i).filter((i) => lines.some((l) => !!l[i] && isBound(l[i])));
+  if (cols.length === 0 || cols.some((i) => !heads[i].trim())) return null;
+  const bare = (t: string) => t.replace(/[\s:.\-–—]+$/, "");
+  const found: { table: Table; at: Map<number, TCell> }[] = [];
+  for (const t of tables) {
+    if (t.rows.length > cols.length + 1) continue;
+    const at = new Map<number, TCell>();
+    for (const i of cols)
+      for (const r of t.rows) {
+        const k = r.cells.findIndex((c) => !c.cont && !taken.has(c.tc) && (same(cellText(c), heads[i]) || same(bare(cellText(c)), bare(heads[i]))));
+        const value = k >= 0 ? r.cells[k + 1] : undefined;
+        if (value && !value.cont && !taken.has(value.tc) && ![...at.values()].includes(value)) {
+          at.set(i, value);
+          break;
+        }
+      }
+    if (at.size === cols.length) found.push({ table: t, at });
+  }
+  if (found.length < 2) return null;
+  return { grid, tables: found.map((f) => f.table), lines: found.slice(0, lines.length).map((f) => f.at), spare: found.slice(lines.length).flatMap((f) => [...f.at.values()]) };
 }
 
 function headingTextsMatch(row: TRow, heads: string[]): boolean {
@@ -1242,7 +1505,7 @@ function headerAt(field: ModelField, paras: XmlElement[]): { kind: "after"; fiel
 }
 
 /** The owner's example words in a sentence of the paper, the place of a box (hints.ts exampleOf): the value takes their place. */
-function exampleAt(field: ModelField, words: string, paragraphs: XmlElement[], tables: Table[]): { kind: "after"; field: ModelField; p: XmlElement; at: number; to: number } | null {
+function exampleAt(field: ModelField, words: string, paragraphs: XmlElement[], tables: Table[]): { kind: "after"; field: ModelField; p: XmlElement; at: number; to: number; example: true } | null {
   for (const p of [...paragraphs, ...tables.flatMap((t) => all(t.tbl, "p"))]) {
     const at = paraText(p).indexOf(words);
     if (at === -1) continue;
@@ -1250,7 +1513,7 @@ function exampleAt(field: ModelField, words: string, paragraphs: XmlElement[], t
     if (spans.some((x) => at < x.to && x.from < at + words.length)) continue;
     spans.push({ from: at, to: at + words.length });
     lineSpans.set(p, spans);
-    return { kind: "after", field, p, at, to: at + words.length };
+    return { kind: "after", field, p, at, to: at + words.length, example: true };
   }
   return null;
 }
@@ -1733,7 +1996,7 @@ const keyCols = (k: KeyedLine): number[] => k.rowKeys ?? [];
 /**
  * A keyed line's values into its paper row: a choice marked where the paper prints its words (one to a cell, together in one
  * cell, or as the headings of a row above); every other value into the row's next blank cell, else the blank line under the
- * row, else beside the line's own words as "Label: value" (an empty value: nothing to see).
+ * row; a value with no cell of its own on the paper is left out of the file (owner, 22-Oct-2026), listed in report.leftOut.
  */
 function writeKeyedLine(body: XmlElement, k: KeyedLine, grid: ModelGrid, controls: Controls, report: FillReport, usedRows: Set<XmlElement>): void {
   const cells = grid.rows[grid.headerRows + k.line] ?? [];
@@ -1768,7 +2031,10 @@ function writeKeyedLine(body: XmlElement, k: KeyedLine, grid: ModelGrid, control
       const target = cellAt(k.row, chosen.col);
       if (target && free.includes(target)) {
         writeInto(target, c, controls, label, keyRPr);
-        free = free.filter((x) => x !== target);
+        // Every option's cell of the row is the choice's (one of them is ticked on the paper), never another value's place:
+        // F/HR/11's rating of "Maintained your interest" had gone under "Excellent".
+        const optionCells = above.map((o) => cellAt(k.row, o.col));
+        free = free.filter((x) => x !== target && !optionCells.includes(x));
         done.add(ci);
       }
     }
@@ -1783,7 +2049,9 @@ function writeKeyedLine(body: XmlElement, k: KeyedLine, grid: ModelGrid, control
       free = free.filter((x) => x !== blank);
       continue;
     }
-    const under = blankRowUnder(k.table, k.row, usedRows);
+    // The blank line under the row is the line's own only when the row holds this line alone: F/HR/04's question 06 prints
+    // four conditions to a row, and the spacer under them is none of theirs.
+    const under = keyCols(k).length > 1 ? null : blankRowUnder(k.table, k.row, usedRows);
     if (under) {
       usedRows.add(under.tr);
       writeInto(under.cells[0], c, controls, label, keyRPr);

@@ -96,8 +96,17 @@ export function modelOf(blocks: ExportBlock[]): DcrsModel {
         }
         continue;
       }
+      // A table of two columns headed by a group's name alone, each line a label and its box (F/QC/17's "Master Measuring
+      // Scale (Ruler) Details": Make, Serial number, Range ... and the same for the scale under calibration): its lines are
+      // boxes of that group ("Group — Label"), found under the group's name on the paper.
+      const head = b.rows[0] ?? [];
+      const lines = b.rows.slice(b.headerRows);
+      const group = b.headerRows === 1 && !b.bindTable && head.length === 2 && !isBound(head[0]) && !head[1].text.trim() ? head[0].text.trim() : "";
+      if (group && lines.length > 0 && lines.every((r) => r.length === 2 && !isBound(r[0]) && !!r[0].text.trim() && isBound(r[1]))) {
+        for (const r of lines) model.fields.push({ label: `${group} — ${r[0].text.trim()}`, cell: r[1] });
+      }
       // A table of one line of label-and-box pairs and no heading (a letterhead's boxes) reads as boxes, not as a grid.
-      model.grids.push({ rows: b.rows, headerRows: b.headerRows, ...(b.bindTable ? { bindTable: b.bindTable } : {}) });
+      else model.grids.push({ rows: b.rows, headerRows: b.headerRows, ...(b.bindTable ? { bindTable: b.bindTable } : {}) });
     } else if (b.kind === "sheet") {
       model.grids.push({ rows: rowsOfSheet(b), headerRows: 0 });
     } else if (b.kind === "paper") {

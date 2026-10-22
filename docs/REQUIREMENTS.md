@@ -9029,9 +9029,14 @@ paper cannot tell:
   name printed over its column ("For, GUJARAT ..." over "Name of the person", "Location" under "Customer Information"); only a
   paragraph's changed words are replaced (F/DISP/01's bold company name before plain words stays as it was); a title the paper
   prints already, word for word, is never set over another line; each grid of the page takes its own table (F/MKT/05's five
-  sections); a value of a grid column the paper does not print goes into the line's remarks cell as "Heading: value" (F/MKT/05's
-  Done); a choice the paper prints as its own words one to a cell, with no label, is marked there (F/SYS/11's "Non-Conformance | Observation"), the paper's own box beside a word is never doubled, and two choices on one line are marked each on its own words (F/SYS/11's "Actions Found ... CPAR ..."); a box the paper prints in its page header is filled there ("[ Vehicle number: ]", F/DISP/04), and the upload's reader
-  (engine/roundTrip/readFile.ts) reads the controls of the headers and footers the document shows, after the body's.
+  sections); a value of a grid column the paper does not print is left out (F/MKT/05's Done; see "Values left out" below); a choice the paper prints as its own words one to a cell, with no label, is marked there (F/SYS/11's "Non-Conformance | Observation"), the paper's own box beside a word is never doubled, and two choices on one line are marked each on its own words (F/SYS/11's "Actions Found ... CPAR ..."); a box the paper prints in its page header is filled there ("[ Vehicle number: ]", F/DISP/04), and the upload's reader
+  (engine/roundTrip/readFile.ts) reads the controls of the headers and footers the document shows, after the body's. Since
+  22-Oct-2026: a person's name goes where the paper prints the words of its group when the paper has no Name box of that group
+  (F/MKT/05's "Prepared By | Approved By" over their Designation and Sign & Date: each name under its group's words, in that
+  cell; every group's words are a label, never a value's place); the blank line under a row is a line's place only when the row
+  holds that line alone (F/HR/04's question 06 prints four conditions to a row: the spacer under them is none of theirs); a
+  choice's cells under the options printed above are the choice's, never another value's place (F/HR/11's rating of
+  "Maintained your interest" had gone under "Excellent").
 - *Workbooks*: merged cells of the owner's example inside a grid are split where DCRS writes two values into them (F/HR/08's two
   people sharing one Designation, F/SYS/02's three columns joined: round 1's "lost on read-back"); a note printed across the grid
   between its heading and its lines is passed over, and the rows between the heading and the first line are never read as new
@@ -9058,17 +9063,25 @@ grow with the values), F/HR/14 (7: two pages against one, a long purpose of visi
 (99), F/SYS/12 (14: three pages against two), F/SYS/13 (98), F/PUR/02 (63), F/PUR/05 (94), F/MNT/01 (98), F/MNT/03 (94),
 F/DISP/01 (98), F/DISP/02 (97), F/DISP/04, F/STR/02 (43: two pages against one, long descriptions wrap), F/MKT/05 (58).
 
-**Values placed outside the paper's boxes** (the filler's report lists each as `outside`; the owner decides - open question 1):
-- F/HR/19: "Location Guide - areas covered: ..." on the line under "Responsibility / Date" (the paper's area boxes are drawn
-  shapes, not ticked); "Inspection team - Name / Department / Process / Designation (one per line): ..." on the line under the
-  checklist.
-- F/MKT/05: each activity's "Done: ☐ / ☑" in its Comments cell (the paper has no Done column).
-- F/HR/04, F/HR/11, F/HR/14: a line's detail with no cell of its own (F/HR/14's "Reading / detail" for questions 1-8, F/HR/04's
-  details for the 06 conditions in one row, F/HR/11's general evaluation of points a-e and rating of the three trainer
-  questions): beside the line's own words - nothing shows while it is empty, "Label: value" once written.
-- F/SYS/13: the product's details as lines in its "Information of the product" box, the telephonic conversation in its "Response
-  from Customer" box (the paper's own boxes for them, without a label each).
-- F/HR/08's period goes into the title's own brackets, where his paper prints it - not outside.
+**Values left out (the owner, 22-Oct-2026).** The owner wrote on 22-Oct-2026: "don't create any new changes by yourself in any
+format because i want same format in my system". A value DCRS records that his paper has no box for is therefore LEFT OUT of the
+download and of its map (the filler's report lists it as `leftOut`): never written as "Label: value" beside a title, under a
+grid, in a remarks cell or beside a line's own words, as round 2 first did (writeOutside and the remarks-cell rule are deleted).
+The record keeps the value, and an uploaded file never touches it (it is not in the map). The paper's own places stay: the
+title's own brackets (F/HR/08's period, where his paper prints it) and a box the paper prints for them (F/SYS/13's "Information of
+the product" and "Response from Customer", hints.ts areaOf). Left out, on the documents that download as his file:
+- F/HR/19: "Location Guide - areas covered" (his paper prints the areas with Word check boxes; DCRS keeps them as one line of
+  words, which the map cannot read back from ticks) and "Inspection team - Name / Department / Process / Designation" (no team
+  box on the checklist).
+- F/MKT/05: each activity's "Done" (the paper has Date and Comments, no Done column). Its Prepared By and Approved By names
+  are no longer left out: they go under the paper's "Prepared By" and "Approved By".
+- F/HR/04: the "Details (if yes)" of question 06's twelve conditions (a tick box each, no line for details); the nine other
+  questions' details keep the blank line under each question.
+- F/HR/11: the "General evaluation of Trainer" of points a-e and the "Rating (1 to 10)" of the three trainer questions (the
+  paper rates a-e and grades the three, never both).
+- F/HR/14: the "Reading / detail" of questions 1-8 and the YES / NO of the body temperature (the paper has a YES / NO cell for
+  the questions and a reading cell for the temperature only).
+- F/PUR/02: line 43's three boxes, "EXTERNAL LABORATORY - IF USED", a heading row on the paper with no boxes (always empty).
 
 **Still the generic download, and why.** F/SYS/04-A - his only Word original is the meeting RECORD (F/SYS/04 of 2020-21), not the
 agenda and notification DCRS keeps (built from the July-2025 PDF); F/SYS/04 - DCRS keeps the July-2025 record (Rev 01, nine pages,
@@ -9092,11 +9105,105 @@ value cell; filled, it scored 98), but DCRS keeps two empty boxes inside each of
 checks of it fail): kept hand-drawn,
 F/HR/16 scores 27 with two rows added, F/HR/18's fortnight lines land on the paper's other PC rows.
 
-**Open questions for the owner (round 2).** (1) The values above written outside the paper's boxes: keep them so, or add a box
-for them to the paper? (2) F/SYS/04-A, F/SYS/04, F/SYS/05, F/SYS/06 and F/SYS/08: his Word and Excel files are older revisions or
+**Open questions for the owner (round 2).** (1) The values left out above (his paper has no box for them): should any of them
+get a box on his paper (a new revision of the format, by him), or stay in DCRS only? (2) F/SYS/04-A, F/SYS/04, F/SYS/05, F/SYS/06 and F/SYS/08: his Word and Excel files are older revisions or
 another document than the PDFs DCRS follows - please send the current revisions' Word / Excel files. (3) F/MNT/02 and the training
 record: a blank Word form would let them download as his file. (4) F/HR/15's workbook prints "GUJARAT PRINT PACA1:AH16K" in its
 company line: a slip in his file? (5) F/HR/07: the download is one position sheet (his file holds five).
+
+### §119, A4 and the print (22-Oct-2026)
+
+The owner, 22-Oct-2026: "make sure it when user download after filling any record and it should be perfectly print on paper
+mostly user take print on A4 size paper so print should be print accordingly no mistake over there ... i don't want any error
+any where in any module".
+
+**Every template on A4, set by Word and Excel themselves** (scripts/originals/convert.py). Eleven of the 105 were not: nine
+Word files on Letter (the chemical chart, F/HR/19, F/MNT/08, F/MNT/02, F/QC/11 landscape, F/QC/19, F/SYS/04-A and F/SYS/04's
+shared file, the training record) and two workbooks with no paper (F/HR/20, F/MNT/01); they are made again from his originals.
+- Word: every section's PaperSize is wdPaperA4, its orientation kept. His lines break where they broke on his paper: where A4
+  is narrower (Letter portrait, by 8.3 pt a side) or shorter (Letter landscape) each margin gives half the difference, never
+  below 18 pt, so the text keeps the width and height he set (F/QC/19's tolerance cards stay on four pages; with his margins
+  on A4 their titles wrapped and made five). Where Word's own PDF of the page then shows ink nearer the paper's edge than on
+  his paper and nearer than 14 pt (about 5 mm: an office printer prints nothing within about 4 mm of the edge), every table
+  reaching past the margins (not one Word sizes as a percent of the text) has its own widths scaled by A4's width over his
+  paper's (0.973), each cell: the chemical chart's centred table (5 pt from the edges on A4, now 13 pt, his 14), F/HR/19's
+  page-header box (9 pt, now 15), F/SYS/04's tables (1.6 pt, now 17). Every page count is his paper's.
+- Excel: PageSetup.PaperSize is xlPaperA4, his orientation, scale and fit kept, unless his columns do not fit across the A4
+  page: then Excel fits the sheet to the page's width (one page across, the length left to run). They do not fit where, at
+  his scale, the printed columns are wider than A4 between his margins - F/PUR/03's approved suppliers (60 %) and F/PRD/24's
+  blade record (67 %) printed their last column on a page of its own, on his own A4 setting; one page each now - or where A4
+  prints the sheet on more pages than his paper did (F/HR/20's survey: two pages at his 99 %, one fitted). F/MNT/01's
+  equipment list prints on two A4 landscape pages (three on Letter).
+- scripts/originals/picks.json says for each template its pages on his paper and on A4, and what was done.
+
+**Every download that is his file, printed on A4.** The 74 documents that download as his own file were each filled from a
+sample-filled record and printed to PDF by Word or Excel themselves (scratchpad r2/a4check.py: Excel's "scale content for A4
+or 8.5 x 11" is off in the check's own Excel while it prints, and put back, because this PC's PDF printer is on Letter and
+Excel maps an A4 sheet onto it; the owner's printers print the sheet's own A4). Every page of every one is A4; no Word
+download has ink off the paper; no workbook's columns run onto a page across. The page count is his paper's but for:
+- a grid that grows with the record's lines: F/SYS/01's document list (173 lines on his 108 rows: six pages, his five),
+  F/SYS/12 (two lines more than his rows in each of its two grids: three pages, his two);
+- values longer than his lines, wrapping: F/HR/14 (a purpose of visit of two lines puts "Verified by" on a second page),
+  F/QC/03 (a product description of three lines puts the inspector's row on a second page), F/STR/02 (long descriptions);
+- fewer: F/HR/07 (one position sheet of the five in his file), F/MNT/01 (A4 landscape is wider than Letter), F/PUR/03 and
+  F/PRD/24 (one page, his columns no longer cut onto a second).
+
+**What the print showed the filler did wrong, put right** (utils/originalFill/docxFill.ts):
+- A page with nothing on it: the empty lines after a document's last table were pushed past the page's foot by a record's
+  longer values (F/HR/11's third page, F/QC/05's and F/QC/18's second page held only the page header). The empty lines after
+  the last words or table are now one point high with no space around them; nothing on the pages before changes.
+- F/HR/06's induction record prints its person table again on each of its five pages, eight people to a page. All 28 of
+  DCRS's people went into the first table (20 rows added, two pages more) and his example people stayed on the other four.
+  A grid whose heading the paper prints again over the tables after it now runs on through them in order before a row is
+  added, and his examples are cleared on every page - only for the page's one grid of that heading, its lines free (F/MKT/05's
+  five sections share a heading; each stays its own table). F/HR/13's mobile authorisation: his examples on its two further
+  tables are cleared the same way.
+- F/QC/19's tolerance cards print APPROVED BY and SIGN as a small table on each card: the nine lines had been added as rows to
+  the first card. A grid the paper prints as a card per line now takes line k onto card k; his paper has seven cards, so the
+  eighth and ninth lines' approver and sign are left out (nothing added).
+
+**Margins.** 41 of his 48 workbooks set a margin of 0 on a side (his own files, as supplied: F/SYS/02, F/SYS/13, F/PUR/03,
+F/QC/08, F/QC/15-A to G and others). Excel's PDF has nothing cut, but a printer that cannot print to the paper's edge (most
+office lasers leave about 4 mm) loses the outermost line there. DCRS keeps his margins (his format); open question 6.
+His Word files that were A4 already put ink 12-14 pt from the edge on F/MNT/09, F/MNT/10, F/QC/12 and F/DISP/04, as his
+paper does. F/SYS/02 prints a stray note beyond its last column ("Humidity shown ...") into the page's right edge, as his
+file does.
+
+**Open question for the owner (A4).** (6) Workbooks with a 0 margin: should DCRS give every side at least 5 mm (the sheet
+scaled to fit), so no printer loses its outermost line?
+
+### §119, the QC documents (22-Oct-2026)
+
+After the QC print round 2 (merged into premium-theme at 62ffc1a, into this branch at 9c0bcd0) the thirteen QC documents that
+waited for it were held against their papers with the round's own pages (the originals check, sample-filled records):
+- **Now the owner's own file:** F/QC/17 both (the 600 mm and the 300 mm ruler records) - a two-column table headed by a
+  group's name alone, each line a label and its box ("Master Measuring Scale (Ruler) Details": Make, Serial number, Range ...,
+  and the same for the scale under calibration), is read as that group's boxes and found under the group's name on his sheet
+  (utils/originalFill/model.ts); F/QC/29 both (the analysis report, the utility test report) - their papers sign under labels
+  printed on a line ("Testing By   Approved By") with the names on a line under them and the roles under those: each name
+  takes the place of his example under its label ("Karan ... Kapila", cleared), and where his paper prints no names (the
+  utility test report) the names go on the blank line between the labels and the roles, each where its role is printed.
+  Such a box is looked for there first: on the round's page it is labelled "Testing By" alone (its binding carries the
+  role), and found by those words on the labels' line it had been written there, his example names left under it - the
+  side-by-side picture showed it, the counts did not. The analysis report's line under its title ("PSL Analysis Report", his
+  example) is the record's Report box (hints.ts exampleOf), and a value written in place of his example keeps the example's
+  own face (there: bold). F/QC/11, F/QC/12 and F/QC/20, the owner's files since round 1, still are with the round's pages.
+  Scores (b): F/QC/17 96 and 96, F/QC/29 98 and 88, F/QC/11 50, F/QC/12 56, F/QC/20 93; every value in the file, the map
+  whole, Upload changes "nothing to apply" on each.
+  On A4 (Word's and Excel's own PDF) the four new ones print on one page each, as his papers, no ink within 24 pt of an edge.
+- **Still the generic download, and why** (NOT_YET in utils/originalFill/index.ts): F/QC/06 and F/QC/07 - his Word files are
+  certificates exported from SAP Business Objects, every word in a positioned frame: no table, cell or line to write a value
+  in; F/QC-09, F/QC-10 and F/QC-38 - the statements' sections are boxes on DCRS's page (each heading and line editable) that
+  his paper prints as its own words; F-QC-14 (both) - his paper names its four inspectors in the column headings (his
+  example names, "Inspector - 3 (A...)"), the record's inspectors are DCRS's: a heading found by its words before the brackets
+  and the record's names written into it is not yet done; F/QC/21 flexo ink - his Word file draws its table as lines of tabs,
+  no table to write the observations in; F/QC/30 - the key points and the participants are numbered lines under a heading on
+  his paper, a grid and a list on DCRS's page (not yet placed line by line).
+- **A file of the owner's words alone is never handed over:** a table of the page with no heading row whose values find no
+  place (F/QC/06's certificate drawn as its paper's table) now says so (report.notPlaced), so the generic download is made.
+  Before, such a page downloaded as his file with his example values and none of the record's.
+- His F/QC/29 and F/QC/20 files print another document's footer ("Document number: - QA/ICM/SPEC/14 ... Current Issue date
+  1st December 2021, Next Review date 31st December 2024"), left in his file: kept, as his paper prints it.
 
 ## Master data provenance summary
 

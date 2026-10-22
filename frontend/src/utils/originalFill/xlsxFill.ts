@@ -563,6 +563,9 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     const place = placeGrid(sheet, grid, gridNo, all1, taken, labels, model, hints.headingRow?.[gridNo]) ?? placeTwoRowGrid(sheet, grid, gridNo, all1, taken);
     if (place) places.push(place);
     else if (grid.rows.length > grid.headerRows && grid.headerRows > 0) report.gridsMissed.push(grid.rows[0]?.map((c) => c.text).filter(Boolean).slice(0, 3).join(" | ") ?? "");
+    // A table of the page with no heading row whose values found no place (a page drawn as its paper's table, F/QC/06's
+    // certificate): its values are not in the file, which is then not the record - never a file of the owner's words alone.
+    else if (grid.headerRows === 0) for (const row of grid.rows) for (const cell of row) for (const part of cell.parts ?? (cell.bind ? [{ text: cell.text, bind: cell.bind }] : [])) if (part.bind) report.notPlaced.push(part.bind.label ?? part.bind.path);
   });
   const firstHeading = places.length ? Math.min(...places.map((p) => p.headingRow)) : maxRow + 1;
 

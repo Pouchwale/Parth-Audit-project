@@ -8,7 +8,9 @@ For every document whose original was supplied as a Word or Excel file, this scr
      it best (his QC-Pdf's folder, or the PDF the document was built from); where one workbook holds several documents
      (F/QC/15-A to G, F-QC-14's Label and Sleeve, F/PRD/23 and F/PRD/10), the document's own sheet;
   2. converts it with Microsoft Word / Excel themselves (.doc -> .docx, .xls -> .xlsx; a .docx/.xlsx is saved again by
-     Office as it is), keeping only the document's own sheet of a shared workbook;
+     Office as it is), keeping only the document's own sheet of a shared workbook, and sets it on A4 with Word / Excel
+     themselves (every Word section, its orientation kept; the Excel sheet's paper) - the owner, 22-Oct-2026: "mostly user
+     take print on A4 size paper so print should be print accordingly";
   3. saves it as frontend/public/originals/<document-id>.<docx|xlsx> (copied into dist by the build, fetched by the
      browser only when someone downloads);
   4. exports the original to PDF as the reference: source-documents/originals-pdf/<document-id>.pdf;
@@ -48,6 +50,29 @@ OUT_TEMPLATES = os.path.join(REPO, "frontend", "public", "originals")
 OUT_PDFS = os.path.join(SRC, "originals-pdf")
 MANIFEST = os.path.join(REPO, "frontend", "src", "data", "seed", "originalFiles.ts")
 REPORT = os.path.join(HERE, "picks.json")
+
+# Pictures in his files that are one record's example, not the form (REQUIREMENTS section 98): blanked in the template, their
+# frame and size kept, as the print leaves their place empty - F/QC/29's photograph of the label roll his example was for.
+EXAMPLE_PICTURES = {"qc-analysis-report": ["word/media/image1.jpeg"]}
+
+
+def blank_pictures(path, names):
+    """Each named picture of the package replaced by a white one of the same pixel size (the drawing keeps its frame)."""
+    import zipfile
+
+    from PIL import Image
+
+    with zipfile.ZipFile(path) as z:
+        items = [(i, z.read(i.filename)) for i in z.infolist()]
+    assert set(names) <= {i.filename for i, _ in items}, (path, names)
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        for info, data in items:
+            if info.filename in names:
+                im = Image.open(io.BytesIO(data))
+                out = io.BytesIO()
+                Image.new("RGB", im.size, "white").save(out, format=im.format or "PNG")
+                data = out.getvalue()
+            z.writestr(info, data)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # THE PICKS. A candidate is "A:<path under the owner's Audit document folder>" or "S:<path under source-documents>", or a
@@ -270,6 +295,214 @@ def office_pids(image):
     return pids
 
 
+WD_PAPER_A4 = 7  # wdPaperA4
+XL_PAPER_A4 = 9  # xlPaperA4
+MIN_MARGIN = 18.0  # pt: no margin made narrower than this (a quarter inch, the owner's own narrowest)
+
+
+def word_tables(doc):
+    """Every table of the document's text and of its headers and footers (each story once), outermost first."""
+    seen = set()
+    stories = [doc.Content]
+    for s in range(1, doc.Sections.Count + 1):
+        sec = doc.Sections(s)
+        for i in (1, 2, 3):  # primary, first page, even pages
+            for hf in (sec.Headers(i), sec.Footers(i)):
+                try:
+                    if hf.Exists:
+                        stories.append(hf.Range)
+                except Exception:
+                    pass
+    for story in stories:
+        for t in range(1, story.Tables.Count + 1):
+            tbl = story.Tables(t)
+            key = (story.StoryType, tbl.Range.Start)
+            if key not in seen:
+                seen.add(key)
+                yield tbl
+
+
+def table_reach(tbl):
+    """How far a table reaches from its section's left margin (points): its widest row, after its indent or position."""
+    rows = {}
+    for c in tbl.Range.Cells:
+        if c.NestingLevel == tbl.NestingLevel:
+            rows[c.RowIndex] = rows.get(c.RowIndex, 0.0) + c.Width
+    width = max(rows.values()) if rows else 0.0
+    r = tbl.Rows
+    if r.WrapAroundText and r.HorizontalPosition > -999990:  # a floating table at a measured place, not centred or aligned
+        return width + max(0.0, r.HorizontalPosition), width
+    if r.WrapAroundText or r.Alignment == 1:  # centred
+        return width, width
+    return width + max(0.0, r.LeftIndent), width
+
+
+SAFE_EDGE = 14.0  # pt (about 5 mm): an office printer prints nothing within about 4 mm of the paper's edge
+
+
+def pdf_edges(path):
+    """The nearest ink (characters, rules, boxes, pictures) to the paper's left and right edges over all pages, in points."""
+    import pdfplumber
+
+    left = right = None
+    with pdfplumber.open(path) as pdf:
+        for pg in pdf.pages:
+            W = float(pg.width)
+            ink = [o for o in list(pg.chars) + list(pg.rects) + list(pg.lines) + list(pg.curves) + list(pg.images) if not (o.get("object_type") == "char" and not o.get("text", "").strip())]
+            if not ink:
+                continue
+            lo, hi = min(o["x0"] for o in ink), W - max(o["x1"] for o in ink)
+            left = lo if left is None else min(left, lo)
+            right = hi if right is None else min(right, hi)
+    return left, right
+
+
+def word_a4(doc, scratch):
+    """Every section of a Word file on A4, each keeping its orientation (the owner prints on A4, 22-Oct-2026), set by Word
+    itself. His lines break where they broke on his paper: where A4 is narrower or shorter than it, each margin gives half the
+    difference (never below MIN_MARGIN), so the text keeps the width and height he set. Where the ink then comes nearer the
+    paper's edge than on his paper and nearer than SAFE_EDGE (a table that ran into his margin, F-02's header box, a centred
+    table wider than the text), every table reaching past the margins has its own widths scaled by A4's width over his paper's,
+    each cell, as Word's "scale content for A4" prints it: its ink as far from the edges as on his paper. Word's own PDF of the
+    page (in `scratch`) is the measure. Returns what was done, in points."""
+    out = []
+    narrowed = []
+    before = os.path.join(scratch, "a4-before.pdf")
+    doc.ExportAsFixedFormat(before, 17)
+    edges0 = pdf_edges(before)
+    for i in range(1, doc.Sections.Count + 1):
+        ps = doc.Sections(i).PageSetup
+        orientation = ps.Orientation
+        w0, h0 = ps.PageWidth, ps.PageHeight
+        if ps.PaperSize == WD_PAPER_A4:
+            out.append(f"section {i}: A4 already")
+            continue
+        ps.PaperSize = WD_PAPER_A4
+        if ps.Orientation != orientation:
+            ps.Orientation = orientation
+        note = f"section {i}: {round(w0)}x{round(h0)} pt -> A4 {round(ps.PageWidth)}x{round(ps.PageHeight)} pt" + (" landscape" if orientation == 1 else "")
+        dw, dh = (w0 - ps.PageWidth) / 2, (h0 - ps.PageHeight) / 2
+        if dw > 0.5:
+            if ps.LeftMargin - dw >= MIN_MARGIN and ps.RightMargin - dw >= MIN_MARGIN:
+                ps.LeftMargin, ps.RightMargin = ps.LeftMargin - dw, ps.RightMargin - dw
+                note += f"; left and right margins {dw:.1f} pt narrower (the text as wide as on his paper)"
+            narrowed.append(ps.PageWidth / w0)
+        if dh > 0.5 and ps.TopMargin - dh >= MIN_MARGIN and ps.BottomMargin - dh >= MIN_MARGIN:
+            ps.TopMargin, ps.BottomMargin = ps.TopMargin - dh, ps.BottomMargin - dh
+            note += f"; top and bottom margins {dh:.1f} pt narrower (the text as tall as on his paper)"
+        out.append(note)
+    if not narrowed:
+        return out
+    after = os.path.join(scratch, "a4-after.pdf")
+    doc.ExportAsFixedFormat(after, 17)
+    edges1 = pdf_edges(after)
+    near0 = min(x for x in edges0 if x is not None) if any(x is not None for x in edges0) else None
+    near1 = min(x for x in edges1 if x is not None) if any(x is not None for x in edges1) else None
+    out.append(f"ink nearest the side edges: {near0:.1f} pt on his paper, {near1:.1f} pt on A4" if near0 is not None and near1 is not None else "no ink measured")
+    if near0 is None or near1 is None or near1 >= min(SAFE_EDGE, near0) - 0.5:
+        return out
+    ratio = min(narrowed)
+    for tbl in word_tables(doc):
+        try:
+            if tbl.PreferredWidthType == 2:  # wdPreferredWidthPercent: Word lays it out on the text's width, A4's
+                continue
+            ps = tbl.Range.Sections(1).PageSetup
+            text = ps.PageWidth - ps.LeftMargin - ps.RightMargin
+            reach, width = table_reach(tbl)
+            if reach <= text + 2:
+                continue
+            cells = [c for c in tbl.Range.Cells]
+            widths = [c.Width for c in cells]
+            if not widths or any(not (0 < w < 1584) for w in widths):
+                out.append(f"a table reaching {round(reach)} pt of {round(text)} pt left as it is: Word gives no width to some of its cells")
+                continue
+            done = []
+            try:
+                for c, w in zip(cells, widths):  # its nested tables too: each keeps its share of its cell
+                    c.Width = w * ratio
+                    done.append((c, w))
+            except Exception:
+                for c, w in done:  # never half a table scaled
+                    c.Width = w
+                raise
+            if tbl.PreferredWidthType == 3 and 0 < tbl.PreferredWidth < 1584:  # a width in points (none: Word's 9999999)
+                tbl.PreferredWidth = tbl.PreferredWidth * ratio
+            out.append(f"a table {round(width)} pt wide (reaching {round(reach)} pt of the {round(text)} pt text) scaled to {round(width * ratio)} pt")
+        except Exception as e:  # a table Word cannot measure is left as it is, and said
+            out.append(f"a table not scaled: {type(e).__name__}: {e}")
+    scaled = os.path.join(scratch, "a4-scaled.pdf")
+    doc.ExportAsFixedFormat(scaled, 17)
+    edges2 = pdf_edges(scaled)
+    if any(x is not None for x in edges2):
+        out.append(f"ink nearest the side edges after: {min(x for x in edges2 if x is not None):.1f} pt")
+    return out
+
+
+def excel_pages(ws):
+    try:
+        return ws.PageSetup.Pages.Count
+    except Exception:
+        return None
+
+
+def fit_to_width(excel, ps):
+    """Excel's own fit to the page's width: one page across, the length left to run."""
+    excel.PrintCommunication = False
+    try:
+        ps.Zoom = False
+        ps.FitToPagesWide = 1
+        ps.FitToPagesTall = False
+    finally:
+        excel.PrintCommunication = True
+
+
+def excel_a4(excel, ws):
+    """The sheet on A4 (xlPaperA4), its orientation, scale and fit to page as the owner set them - unless his columns do not
+    fit across the A4 page: then Excel fits the sheet to the page's width (one page across, the length left to run). They do
+    not fit where, at his scale, the printed columns are wider than A4's width between his margins (F/PUR/03's approved
+    suppliers and F/PRD/24's blade record put their last column on a page of its own, on his own A4 setting), or where A4,
+    narrower than his paper, prints the sheet on more pages than his paper did (F/HR/20's survey) - kept only where the fit
+    gives his number of pages."""
+    ps = ws.PageSetup
+    was = ps.PaperSize
+    pages0 = excel_pages(ws)
+    if was == XL_PAPER_A4:
+        note = f"{ws.Name}: A4 already"
+        pages = pages0
+    else:
+        excel.PrintCommunication = False
+        try:
+            ps.PaperSize = XL_PAPER_A4
+        finally:
+            excel.PrintCommunication = True
+        pages = excel_pages(ws)
+        note = f"{ws.Name}: paper {int(was)} -> {int(ws.PageSetup.PaperSize)}" + (" landscape" if ps.Orientation == 2 else "") + f"; {pages0} page(s) on his paper, {pages} on A4"
+    zoom = ps.Zoom
+    if zoom:  # a scale he set; a sheet he fitted to its pages fits them by itself
+        area = ps.PrintArea
+        width = (ws.Range(area) if area else ws.UsedRange).Width * zoom / 100.0
+        printable = (841.9 if ps.Orientation == 2 else 595.3) - ps.LeftMargin - ps.RightMargin
+        if width > printable + 1:
+            fit_to_width(excel, ps)
+            return [note + f"; his columns {width:.0f} pt wide at his {zoom} %, A4's width between his margins {printable:.0f} pt: fitted to the page's width ({excel_pages(ws)} page(s))"]
+    if pages0 and pages and pages > pages0:
+        zoom, wide, tall = ps.Zoom, ps.FitToPagesWide, ps.FitToPagesTall
+        fit_to_width(excel, ps)
+        fitted = excel_pages(ws)
+        if fitted and fitted <= pages0:
+            note += f"; fitted to the page's width: {fitted} page(s) (it was at {zoom} %)"
+        else:
+            excel.PrintCommunication = False
+            try:
+                ps.Zoom = zoom if zoom else False
+                if not zoom:
+                    ps.FitToPagesWide, ps.FitToPagesTall = wide, tall
+            finally:
+                excel.PrintCommunication = True
+            note += f"; fitting to the page's width gives {fitted} page(s): left at his scale"
+    return [note]
+
+
 class Office:
     """Word and Excel, started hidden on first use; quit at the end. PIDs this script started are remembered."""
 
@@ -322,14 +555,18 @@ class Office:
         word = self.get_word()
         doc = word.Documents.Open(src, ConfirmConversions=False, ReadOnly=True, AddToRecentFiles=False, Visible=False)
         try:
+            info = {}
             if out_docx:
+                # The template prints on A4 (the owner, 22-Oct-2026: "mostly user take print on A4 size paper"), set by Word.
+                info["pagesAsSupplied"] = doc.ComputeStatistics(2)  # wdStatisticPages
+                info["paper"] = word_a4(doc, os.path.dirname(src))
                 doc.SaveAs2(out_docx, FileFormat=16)  # wdFormatXMLDocument
             if out_pdf:
                 doc.ExportAsFixedFormat(out_pdf, 17)  # wdExportFormatPDF
-            pages = doc.ComputeStatistics(2)  # wdStatisticPages
+            info["pages"] = doc.ComputeStatistics(2)  # wdStatisticPages
         finally:
             doc.Close(0)
-        return {"pages": pages}
+        return info
 
     def excel_convert(self, src, sheet, out_xlsx, out_pdf):
         excel = self.get_excel()
@@ -355,13 +592,18 @@ class Office:
                     except Exception:
                         pass
             target.Activate()
+            info = {"sheet": keep, "sheets": names}
             if out_xlsx:
+                # The sheet prints on A4 (the owner, 22-Oct-2026), set by Excel; its orientation and scale stay as he set them.
+                info["pagesAsSupplied"] = excel_pages(target)
+                info["paper"] = excel_a4(excel, target)
                 wb.SaveAs(out_xlsx, FileFormat=51)  # xlOpenXMLWorkbook
             if out_pdf:
                 wb.ExportAsFixedFormat(0, out_pdf)  # xlTypePDF
+            info["pages"] = excel_pages(target)
         finally:
             wb.Close(False)
-        return {"sheet": keep, "sheets": names}
+        return info
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -520,6 +762,8 @@ def main(argv):
             try:
                 if kind == "docx":
                     info = office.word_convert(tmp, out_file, out_pdf)
+                    if doc_id in EXAMPLE_PICTURES:
+                        blank_pictures(out_file, EXAMPLE_PICTURES[doc_id])
                 else:
                     info = office.excel_convert(tmp, sheet, out_file, out_pdf)
                     entry["sheet"] = info["sheet"]
@@ -536,6 +780,8 @@ def main(argv):
             if not here:
                 shutil.copyfile(src, os.path.join(SRC, name))
                 entry["copiedToSourceDocuments"] = name
+            elif previous.get(doc_id, {}).get("copiedToSourceDocuments"):  # copied by an earlier run: still said
+                entry["copiedToSourceDocuments"] = previous[doc_id]["copiedToSourceDocuments"]
             results[doc_id] = entry
     finally:
         office.close()
