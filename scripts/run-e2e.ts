@@ -487,7 +487,9 @@ async function main(): Promise<void> {
         if (!(await waitForServer(`http://localhost:${PRODUCT_PORT}/api/auth/me`, 60000))) throw new Error(`Server did not come up on :${PRODUCT_PORT} in time.`);
       }
       console.log(`Running ${suite}...`);
-      const test = spawnSync(python, [suite], { cwd: root, stdio: "inherit", shell: process.platform === "win32" });
+      // The suite's browsers make no sound (tests/quiet: Python loads its sitecustomize.py at start-up, the owner, 23-Oct-2026).
+      const quiet = [path.join(root, "tests", "quiet"), process.env.PYTHONPATH].filter(Boolean).join(path.delimiter);
+      const test = spawnSync(python, [suite], { cwd: root, stdio: "inherit", shell: process.platform === "win32", env: { ...process.env, PYTHONPATH: quiet } });
       if (productServer) {
         productServer.kill();
         productServer = null;

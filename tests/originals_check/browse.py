@@ -7,7 +7,12 @@ The patterns are tests/e2e_purchase_module.py's (start_record, say) and tests/qc
 """
 import json
 import os
+import sys
 import time
+
+# The browser this tool launches makes no sound (tests/quiet/quiet_browsers.py, the owner, 23-Oct-2026).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "quiet"))
+import quiet_browsers  # noqa: E402,F401
 
 STUB_PRINT = "() => { window.__printed = 0; window.print = () => { window.__printed += 1; }; }"
 
