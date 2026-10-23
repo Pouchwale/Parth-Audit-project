@@ -274,11 +274,11 @@ test("§85: in Chrome, Google's online voices before Windows' robotic ones — h
   assert.equal(pickVoice(CHROME_ONLINE, "gu-IN", "female"), null);
 });
 
-test("§85: the warm rate and the pauses — a natural voice keeps its sentences together, any other says one at a time with a breath between", () => {
-  assert.deepEqual(prosodyFor({ name: "Microsoft Neerja Online (Natural) - English (India)", lang: "en-IN" }), { rate: 0.96, pitch: 1, pauseMs: 0 });
-  assert.deepEqual(prosodyFor({ name: "Google UK English Female", lang: "en-GB" }), { rate: 0.94, pitch: 1, pauseMs: 280 });
-  assert.deepEqual(prosodyFor({ name: "Microsoft Heera - English (India)", lang: "en-IN" }), { rate: 0.9, pitch: 1, pauseMs: 320 });
-  assert.deepEqual(prosodyFor(null), { rate: 0.9, pitch: 1, pauseMs: 320 });
+test("fluent, not slow (the owner, 23-Oct-2026): every voice at its own natural rate; a desktop voice alone says one sentence at a time, with the briefest breath", () => {
+  assert.deepEqual(prosodyFor({ name: "Microsoft Neerja Online (Natural) - English (India)", lang: "en-IN" }), { rate: 1, pitch: 1, pauseMs: 0 });
+  assert.deepEqual(prosodyFor({ name: "Google UK English Female", lang: "en-GB" }), { rate: 1, pitch: 1, pauseMs: 0 });
+  assert.deepEqual(prosodyFor({ name: "Microsoft Heera - English (India)", lang: "en-IN" }), { rate: 1, pitch: 1, pauseMs: 120 });
+  assert.deepEqual(prosodyFor(null), { rate: 1, pitch: 1, pauseMs: 120 });
   const line = "Good morning, Heena. You have 3 waiting. Start with the Viscosity Log.";
   assert.deepEqual(utterancePieces(line), [line], "packed for a natural voice");
   assert.deepEqual(utterancePieces(line, true), ["Good morning, Heena.", "You have 3 waiting.", "Start with the Viscosity Log."]);
@@ -287,7 +287,7 @@ test("§85: the warm rate and the pauses — a natural voice keeps its sentences
   assert.equal(utterancePieces(long, true).join(" "), long);
 });
 
-test("§85: a desktop voice says a line a sentence at a time, with a pause between; the words made for the ear", async () => {
+test("§85: a desktop voice says a line a sentence at a time, with a brief pause between; the words made for the ear", async () => {
   synth.voices = CHROME;
   click();
   say({ text: "Heena, F/HR/17 is due on 30-Sep-2026 at 14:30. Your score is 92% ✅ — keep going!", lang: "en" });
@@ -296,8 +296,9 @@ test("§85: a desktop voice says a line a sentence at a time, with a pause betwe
   const date = year === 2026 ? "30th September" : "30th September 2026";
   assert.deepEqual(said(), [`Heena, form F H R 17 is due on ${date} at 2:30 PM.`, "Your score is 92 percent, keep going!"]);
   assert.equal(synth.spoken[0]?.voice?.name, "Microsoft Heera - English (India)");
-  assert.equal(synth.spoken[0]?.rate, 0.9);
-  assert.ok(synth.at[1] - synth.at[0] >= 300, `a breath between the sentences (${synth.at[1] - synth.at[0]} ms)`);
+  assert.equal(synth.spoken[0]?.rate, 1, "its own natural rate: fluent, not slow");
+  assert.ok(synth.at[1] - synth.at[0] >= 100, `a breath between the sentences (${synth.at[1] - synth.at[0]} ms)`);
+  assert.ok(synth.at[1] - synth.at[0] < 300, `no long silence between them (${synth.at[1] - synth.at[0]} ms)`);
 });
 
 test("§85: an online voice that cannot start (no internet) gives way to an installed one — the line is still said, and online voices rest", async () => {
@@ -418,13 +419,13 @@ test("before the first click nothing is said; the newest two lines wait and are 
   assert.deepEqual(said(), ["Two.", "Three."]);
 });
 
-test("the browser's best voice, at a warm rate and its natural pitch; the male voice when chosen", async () => {
+test("the browser's best voice, at its natural rate and pitch; the male voice when chosen", async () => {
   click();
   say({ text: "Good morning.", lang: "en" });
   await wait(400);
   const u = synth.spoken[0];
   assert.equal(u?.voice?.name, "Microsoft Neerja Online (Natural) - English (India)");
-  assert.equal(u.rate, 0.96, "a touch under the everyday rate: unhurried");
+  assert.equal(u.rate, 1, "the voice's own natural rate: fluent, not slow (the owner, 23-Oct-2026)");
   assert.equal(u.pitch, 1);
   settingsRepository.update({ voiceKind: "male" });
   say({ text: "Good evening.", lang: "en" });
@@ -665,7 +666,7 @@ test("a 503 all the same (the terms revoked after the server said yes): the brow
   assert.equal(posts().length, 1, "not asked again");
 });
 
-test("an audio clip the browser will not play falls back to the browser's voice; Gujarati never goes to the server", async () => {
+test("an audio clip the browser will not play falls back to the browser's voice; a Gujarati line goes to Edge's natural Gujarati voice where there is one", async () => {
   synth.voices = CHROME;
   setFeatures({ assistant: true });
   answer = wavAnswer;
@@ -681,6 +682,58 @@ test("an audio clip the browser will not play falls back to the browser's voice;
   await wait(500);
   assert.equal(fetches.length, 0);
   assert.equal(synth.spoken[1]?.text, "ગુજરાતી લાઇન.");
+});
+
+// FLUENT IN EVERY LANGUAGE (the owner, 23-Oct-2026: "it should speak real very fluent language of all English, Hindi and
+// Gujarati"): a line the browser has no natural voice for goes WHOLE to the server's natural voice.
+test("a Gujarati or Hindi line with no natural voice in this browser (Chrome) is said by the server's natural voice, whole", async () => {
+  synth.voices = CHROME;
+  setFeatures({ assistant: true });
+  answer = wavAnswer;
+  click();
+  say({ text: "ગુજરાતી લાઇન. Form F/HR/17 આજે ભરવાનું છે.", lang: "gu", en: "A Gujarati line." });
+  await wait(600);
+  assert.equal(posts().length, 1, "one clip for the whole line");
+  const asked = String(posts()[0]?.body.text ?? "");
+  assert.ok(GUJARATI.test(asked), `the Gujarati words themselves go (${asked})`);
+  assert.match(asked, /F H R 17/, "made for the ear");
+  assert.equal(played.length, 1, "played as the server's clip");
+  assert.deepEqual(said(), [], "no robotic voice, no English stand-in");
+  fetches.length = 0;
+  say({ text: "यह हिंदी में है।", lang: "hi" });
+  await wait(600);
+  assert.equal(posts().length, 1, "Chrome's Google Hindi voice is not a natural one: the server's says it");
+  assert.equal(said().length, 0);
+});
+
+test("a briefing longer than one server piece is said in pieces, the next asked for while this one plays", async () => {
+  synth.voices = CHROME;
+  setFeatures({ assistant: true });
+  answer = wavAnswer;
+  click();
+  const sentence = "Good morning Heena, the Line Clearance Checklist is due today and the Viscosity Log after it.";
+  const briefing = Array.from({ length: 12 }, () => sentence).join(" ");
+  say({ text: briefing, lang: "en" });
+  await wait(900);
+  const pieces = posts().map((p) => String(p.body.text ?? ""));
+  assert.ok(pieces.length >= 2, `more than one piece (${pieces.length})`);
+  assert.ok(pieces.every((p) => p.length <= 600), "each within the server's limit");
+  assert.ok(pieces.every((p) => /[.!?]$/.test(p)), "cut at the end of a sentence");
+  assert.equal(pieces.join(" ").replace(/\s+/g, " "), briefing, "nothing left out");
+  assert.equal(played.length, pieces.length, "every piece played");
+  assert.deepEqual(said(), []);
+});
+
+test("with a free Gemini voice and no AI key (features.voice), the server's voice is asked about and used", async () => {
+  synth.voices = CHROME;
+  setFeatures({ assistant: false, voice: true });
+  answer = wavAnswer;
+  click();
+  say({ text: "ગુજરાતી લાઇન.", lang: "gu" });
+  await wait(600);
+  assert.equal(gets().length, 1, "asked once whether it can speak");
+  assert.equal(posts().length, 1);
+  assert.equal(played.length, 1);
 });
 
 // ---- the words ----

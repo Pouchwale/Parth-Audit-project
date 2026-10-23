@@ -534,6 +534,8 @@ export interface BrowserSpeech {
 
 /** The longest piece given to the browser at once: Chrome stops a long utterance part-way by itself. */
 const PIECE_CHARS = 220;
+/** ...and to a natural voice (Edge's), which reads a long passage in one flow. */
+const NATURAL_PIECE_CHARS = 600;
 
 /** A sentence longer than a piece: cut at its commas, else between words. */
 function cutLong(sentence: string): string[] {
@@ -557,13 +559,13 @@ function cutLong(sentence: string): string[] {
  * PIECE, with a pause between (speakWithBrowser), because a desktop voice runs
  * its sentences together.
  */
-export function utterancePieces(text: string, oneSentenceEach = false): string[] {
+export function utterancePieces(text: string, oneSentenceEach = false, maxChars = PIECE_CHARS): string[] {
   const sentences = sentencesOf(text).flatMap(cutLong);
   if (oneSentenceEach) return sentences;
   const out: string[] = [];
   let current = "";
   for (const sentence of sentences) {
-    if (current && current.length + 1 + sentence.length > PIECE_CHARS) {
+    if (current && current.length + 1 + sentence.length > maxChars) {
       out.push(current);
       current = sentence;
     } else current = current ? `${current} ${sentence}` : sentence;
@@ -583,10 +585,12 @@ export function utterancePieces(text: string, oneSentenceEach = false): string[]
  * is part of its intonation and shifting it is what makes one sound processed.
  */
 export function prosodyFor(voice: (VoiceLike & { localService?: boolean }) | null): { rate: number; pitch: number; pauseMs: number } {
+  // FLUENT, NOT SLOW (the owner, 23-Oct-2026: "it is very slow speaking and still"): every voice at its own natural
+  // rate, as a person speaks; no silence added between sentences - a voice pauses at a full stop by itself. Only a
+  // desktop voice, which runs its sentences together, says one sentence a piece, with the briefest breath between.
   const tier = voice ? voiceTier(voice) : 2;
-  if (tier === 0) return { rate: 0.96, pitch: 1, pauseMs: 0 };
-  if (tier === 1) return { rate: 0.94, pitch: 1, pauseMs: 280 };
-  return { rate: 0.9, pitch: 1, pauseMs: 320 };
+  if (tier === 0 || tier === 1) return { rate: 1, pitch: 1, pauseMs: 0 };
+  return { rate: 1, pitch: 1, pauseMs: 120 };
 }
 
 /** Whether a voice needs the internet (Edge's natural voices, Google's). */
@@ -622,7 +626,9 @@ export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | nul
   const spoken = forTheEar(text, lang);
   let using = voice;
   let shape = prosodyFor(using);
-  const pieces = utterancePieces(spoken, shape.pauseMs > 0);
+  // A natural voice (Edge's) reads a long piece as one flowing passage: fewer, longer pieces, fewer breaks. Google's
+  // voices in Chrome stop a long utterance part-way by themselves, so they keep PIECE_CHARS.
+  const pieces = utterancePieces(spoken, shape.pauseMs > 0, using && voiceTier(using) === 0 && !/google/i.test(String(using.name ?? "")) ? NATURAL_PIECE_CHARS : PIECE_CHARS);
   if (!pieces.length) return null;
   let ended = false;
   let cancelled = false;
@@ -908,6 +914,54 @@ export function writtenInGujarati(text: string): boolean {
   return gujarati > 0 && gujarati * 2 >= letters.length;
 }
 
+// ---- a natural voice made elsewhere ----
+//
+// MITRA SOUNDS LIKE A PERSON IN EVERY LANGUAGE (the owner, 23-Oct-2026: "it should speak real very fluent language of
+// all English, Hindi and Gujarati"). Edge has natural voices for all three; Chrome has none for Gujarati and only
+// robotic Windows ones for Indian English. A line the browser cannot say in a natural voice - any one of its
+// languages - is said by the SERVER's natural voice when there is one (utils/voice.ts registers it: Google's free
+// Gemini voice, or ChatGPT's), the whole line in one voice; else the browser's best, as before.
+export interface NaturalVoice {
+  /** Whether it can speak now (asked of the server once, then remembered). */
+  ready(): Promise<boolean>;
+  /** Says `text`; true when it was said (or stopped by `onStop`'s callback), false when the browser must say it. */
+  say(text: string, lang: ScriptLanguage, kind: VoiceKind, onStop: (stop: () => void) => void): Promise<boolean>;
+}
+
+let naturalVoice: NaturalVoice | null = null;
+
+/** utils/voice.ts gives the server's natural voice here (null takes it away: the tests). */
+export function setNaturalVoice(v: NaturalVoice | null): void {
+  naturalVoice = v;
+}
+
+/** Whether this browser says each of `langs` in a natural voice: Indian English, Hindi, Gujarati (Edge's). */
+export function saysNaturally(langs: readonly ScriptLanguage[], voices: SpeechSynthesisVoice[], kind: VoiceKind): boolean {
+  return langs.every((lang) => {
+    const v = voiceFor(voices, lang, kind);
+    return lang === "en" ? isIndianNatural(v) : !!v && voiceTier(v) === 0;
+  });
+}
+
+/** A line's own language for the voice made elsewhere: Gujarati or Hindi when most of its letters are, else English. */
+export function lineLanguage(text: string): ScriptLanguage {
+  if (writtenInGujarati(text)) return "gu";
+  const letters = String(text ?? "").match(/\p{L}/gu) ?? [];
+  const hindi = letters.filter((ch) => /\p{Script=Devanagari}/u.test(ch)).length;
+  return hindi > 0 && hindi * 2 >= letters.length ? "hi" : "en";
+}
+
+/** Whether a line in `langs` goes to the natural voice made elsewhere: the browser has no natural voice for one of them, and it is ready. */
+export async function naturalVoiceWanted(langs: readonly ScriptLanguage[], voices: SpeechSynthesisVoice[], kind: VoiceKind): Promise<NaturalVoice | null> {
+  const v = naturalVoice;
+  if (!v || saysNaturally(langs, voices, kind)) return null;
+  try {
+    return (await v.ready()) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 // The reply being read: a new reply or a stop ends it — its later sentences,
 // said one after another, must not come after the new one.
 let replyReading: BrowserSpeech | null = null;
@@ -944,8 +998,40 @@ export function speak(text: string, requested: string, opts: { onNoVoice?: (lang
     segments.map((s) => s.lang),
     kind
   )
-    .then((voices) => {
+    .then(async (voices) => {
       if (generation !== replyGeneration) return;
+      // No natural voice here for one of its languages: the server's natural voice says the whole reply, when it can.
+      const elsewhere = await naturalVoiceWanted(
+        segments.map((s) => s.lang),
+        voices,
+        kind
+      );
+      if (generation !== replyGeneration) return;
+      if (elsewhere) {
+        const stops: (() => void)[] = [];
+        let stopped = false;
+        replyReading = {
+          cancel: () => {
+            stopped = true;
+            for (const fn of stops.splice(0)) {
+              try {
+                fn();
+              } catch {
+                /* already stopped */
+              }
+            }
+          },
+        };
+        const said = await elsewhere
+          .say(text, lineLanguage(text), kind, (fn) => (stopped ? fn() : stops.push(fn)))
+          .catch(() => false);
+        if (generation !== replyGeneration) return;
+        if (said || stopped) {
+          replyActive = false;
+          replyReading = null;
+          return;
+        }
+      }
       const parts: SpokenPart[] = [];
       for (const seg of segments) {
         // Figures alone ("92%") belong to no language: with no voice for the screens' one, English says them.

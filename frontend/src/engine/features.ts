@@ -33,11 +33,15 @@ let assistant = false;
 // signed in (`features.sampleFill`); a server that does not say yet is taken at
 // its Demo Mode word, since only a test server runs with DEMO_MODE=1.
 let sampleFill = false;
+// Whether the server has a natural voice for Mitra (`features.voice`, 23-Oct-2026): an AI key, or Google's free Gemini
+// voice (GEMINI_API_KEY) with no AI key at all. A server that does not say yet is taken at its AI key's word.
+let voice = false;
 
-export function setFeatures(f: { demoMode?: boolean; signup?: boolean; assistant?: boolean; sampleFill?: boolean } | undefined): void {
+export function setFeatures(f: { demoMode?: boolean; signup?: boolean; assistant?: boolean; sampleFill?: boolean; voice?: boolean } | undefined): void {
   demoMode = f?.demoMode === true;
   signup = f?.signup === true;
   assistant = f?.assistant === true;
+  voice = typeof f?.voice === "boolean" ? f.voice : assistant;
   sampleFill = typeof f?.sampleFill === "boolean" ? f.sampleFill : demoMode;
   told = typeof f?.demoMode === "boolean";
 }
@@ -58,6 +62,11 @@ export function sampleFillSwitchedOn(): boolean {
  */
 export function assistantConfigured(): boolean {
   return assistant;
+}
+
+/** Whether the server has a natural voice for Mitra's lines (an AI key, or Google's free Gemini voice): asked about first. */
+export function serverVoiceConfigured(): boolean {
+  return voice || assistant;
 }
 
 /** Whether this server lets somebody create their own account — off in the plant (REQUIREMENTS §66). */

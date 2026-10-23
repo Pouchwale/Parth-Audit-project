@@ -24,13 +24,24 @@
 //     terms, no key) is never a failed request in the console. A 503 from a
 //     line all the same is remembered the same way; any other failure uses the
 //     browser's voice for five minutes.
-//   OTHERWISE, and for Gujarati and Hindi: the browser's best voice of the
-//     language (utils/speech.ts pickVoice: Edge's natural Neerja/Prabhat,
-//     स्वरा/मधुर, ધ્વની/નિરંજન; in Chrome Google's online voices before Windows'
-//     robotic ones, and Google's Hindi), at a warm rate with a pause between
-//     sentences (speech.ts speakWithBrowser). A Gujarati line on a browser with
-//     no Gujarati voice (Chrome) is said in English (`en`), or not at all:
-//     Mitra never reads Gujarati or Hindi with an English voice.
+//   FLUENT IN EVERY LANGUAGE (the owner, 23-Oct-2026: "it is very slow speaking
+//     and still and it should speak real very fluent language of all English,
+//     Hindi and Gujarati"): a line with ANY language this browser has no
+//     natural voice for - Chrome has none for Gujarati, only Google's older
+//     Hindi and robotic Windows ones for Indian English - is said WHOLE, in one
+//     voice, by the server's natural voice when it can speak (speakServerLine:
+//     Google's free Gemini voice with GEMINI_API_KEY, else ChatGPT's), in pieces
+//     of at most 600 characters, the next asked for while one plays. Edge's
+//     natural voices (free, the best) say what they can: nothing goes to the
+//     server from Edge. The same voice reads Mitra's chat replies (speech.ts
+//     setNaturalVoice).
+//   OTHERWISE: the browser's best voice of the language (utils/speech.ts
+//     pickVoice: Edge's natural Neerja/Prabhat, स्वरा/मधुर, ધ્વની/નિરંજન; in
+//     Chrome Google's online voices before Windows' robotic ones, and Google's
+//     Hindi), at its own natural rate (speech.ts speakWithBrowser). A Gujarati
+//     line on a browser with no Gujarati voice and no server voice is said in
+//     English (`en`), or not at all: Mitra never reads Gujarati or Hindi with an
+//     English voice.
 //   EITHER WAY the words are made for the ear first (utils/earText.ts): "form
 //     F H R 17", "30th September", "2:30 PM", "92 percent", no symbols read out.
 //
@@ -56,7 +67,7 @@
 // Gujarati, so a test can read them without a browser.
 
 import type { SayRequest } from "../engine/engageBus";
-import { assistantConfigured } from "../engine/features";
+import { serverVoiceConfigured } from "../engine/features";
 import { generalPurposeLine, purposeLine } from "../engine/purpose";
 import { gapScoreLine } from "../engine/motivation";
 import { formatMinus } from "../engine/performance";
@@ -76,9 +87,12 @@ import {
   isListening,
   isReplySpeaking,
   isSpeechOutputSupported,
+  lineLanguage,
   loadVoices,
+  naturalVoiceWanted,
   onSpeechInterrupt,
   pickVoice,
+  setNaturalVoice,
   speakWithBrowser,
   voiceFor,
   voicesForLanguages,
@@ -194,7 +208,7 @@ function serverKnown(): boolean {
  * (features.assistant false) nothing is asked. Never throws.
  */
 export function knowServerVoice(): Promise<void> {
-  if (!assistantConfigured()) return Promise.resolve();
+  if (!serverVoiceConfigured()) return Promise.resolve();
   if (serverKnown()) return Promise.resolve();
   if (asking) return asking;
   asking = (async () => {
@@ -384,7 +398,7 @@ function onStop(speaking: Speaking, fn: () => void): void {
 
 /** Whether an English line goes to the server's voice: a key there, the server said its voice is available, no failure just now. */
 function useServer(): boolean {
-  return assistantConfigured() && serverKnown() && server.state === "available" && Date.now() >= serverFailedUntil;
+  return serverVoiceConfigured() && serverKnown() && server.state === "available" && Date.now() >= serverFailedUntil;
 }
 
 async function speakItem(speaking: Speaking): Promise<void> {
@@ -399,13 +413,26 @@ async function speakItem(speaking: Speaking): Promise<void> {
   if (speaking.stopped) return;
   // Figures alone ("92%") belong to no language: with no voice for the line's one, English says them.
   segments = segments.map((s) => (s.lang !== "en" && !voiceFor(voices, s.lang, kind) && hasNoWords(s.text) ? { ...s, lang: "en" as const } : s));
+  // FLUENT IN EVERY LANGUAGE (the owner, 23-Oct-2026: "it should speak real very fluent language of all English, Hindi
+  // and Gujarati"): a line this browser has no natural voice for - Chrome has none for Gujarati and only robotic ones for
+  // Indian English - is said whole, in one voice, by the server's natural voice when it can speak (speakServerLine).
+  const elsewhere = await naturalVoiceWanted(
+    segments.map((s) => s.lang),
+    voices,
+    kind
+  );
+  if (speaking.stopped) return;
+  if (elsewhere && (await elsewhere.say(req.text, lineLanguage(req.text), kind, (fn) => onStop(speaking, fn)))) return;
+  // (asked once a line: when the server's voice could not say it, the browser's voices do - the server is not asked again)
+  const askedServer = !!elsewhere;
+  if (speaking.stopped) return;
   if (segments.some((s) => s.lang !== "en" && !voiceFor(voices, s.lang, kind))) {
     // No voice here for its Gujarati or Hindi: the line's English words, or only what this browser can say.
     segments = req.en && req.en.trim() ? voiceSegments(req.en, "en") : segments.filter((s) => s.lang === "en" || voiceFor(voices, s.lang, kind));
   }
   for (const seg of segments) {
     if (speaking.stopped) return;
-    if (seg.lang === "en") await speakEnglish(speaking, seg.text, voices, kind);
+    if (seg.lang === "en") await speakEnglish(speaking, seg.text, voices, kind, askedServer);
     else await speakBrowser(speaking, seg.text, voiceFor(voices, seg.lang, kind), SPEECH_TAGS[seg.lang]);
   }
 }
@@ -415,13 +442,13 @@ async function speakItem(speaking: Speaking): Promise<void> {
  * natural Indian English voice (Edge's Neerja or Prabhat); else Groq's voice
  * from the server when it says it can speak; else the browser's best English.
  */
-async function speakEnglish(speaking: Speaking, text: string, voices: SpeechSynthesisVoice[], kind: VoiceKind): Promise<void> {
+async function speakEnglish(speaking: Speaking, text: string, voices: SpeechSynthesisVoice[], kind: VoiceKind, askedServer = false): Promise<void> {
   const english = pickVoice(voices, "en-IN", kind);
-  if (!isIndianNatural(english) && assistantConfigured() && Date.now() >= serverFailedUntil) {
+  if (!askedServer && !isIndianNatural(english) && serverVoiceConfigured() && Date.now() >= serverFailedUntil) {
     // Asked once, then remembered: no line waits on the server twice.
     await knowServerVoice();
     if (speaking.stopped) return;
-    if (useServer() && (await speakServer(speaking, text, kind))) return;
+    if (useServer() && (await speakServerLine(text, "en", kind, (fn) => onStop(speaking, fn)))) return;
   }
   if (speaking.stopped) return;
   return speakBrowser(speaking, text, english, "en-IN");
@@ -447,30 +474,38 @@ export function forServer(text: string): string {
   return end > 200 ? cut.slice(0, end + 1) : cut;
 }
 
-/** True when the line was said (or stopped) with the server's voice; false to use the browser's. */
-async function speakServer(speaking: Speaking, text: string, kind: VoiceKind): Promise<boolean> {
-  // Nothing an English voice can say (the words were all Gujarati or Hindi script): not the server's to try.
-  const said = forServer(text);
-  if (!said) return false;
-  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-  onStop(speaking, () => controller?.abort());
-  let clip: Blob;
-  try {
-    clip = await assistantApi.speak(said, kind, controller?.signal);
-  } catch (err) {
-    if (speaking.stopped) return true;
-    // The server said it could speak, then could not: remembered as the GET's answer would be.
-    if (err instanceof ApiError && (err.code === "voice-unavailable" || err.code === "not-configured")) setServerState(err.code, err.message, server.voices, 10 * 60_000);
-    else serverFailedUntil = Date.now() + SERVER_RETRY_AFTER_MS;
-    return false;
+/**
+ * A line for the server's voice: made for the ear in its own language, then cut into the pieces the server takes
+ * (SERVER_MAX_CHARS) at the end of a sentence where there is one - a briefing is longer than one piece.
+ */
+export function serverPieces(text: string, lang: ScriptLanguage = "en"): string[] {
+  let rest = forTheEar(text, lang);
+  const out: string[] = [];
+  while (rest.length > SERVER_MAX_CHARS) {
+    const cut = rest.slice(0, SERVER_MAX_CHARS);
+    const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "), cut.lastIndexOf("\u0964 "), cut.lastIndexOf("\n"));
+    const at = end > 200 ? end + 1 : Math.max(cut.lastIndexOf(" "), 200);
+    out.push(rest.slice(0, at).trim());
+    rest = rest.slice(at).trim();
   }
-  if (speaking.stopped) return true;
+  if (rest.trim()) out.push(rest.trim());
+  return out;
+}
+
+/** What a failed request says about the server's voice: a lasting "not available", or a pause of a few minutes. */
+function noteServerFailure(err: unknown): void {
+  if (err instanceof ApiError && (err.code === "voice-unavailable" || err.code === "not-configured")) setServerState(err.code, err.message, server.voices, 10 * 60_000);
+  else serverFailedUntil = Date.now() + SERVER_RETRY_AFTER_MS;
+}
+
+/** Plays one clip; true when it played to its end (or was stopped), false when it could not be played. */
+function playClip(clip: Blob, words: string, onStopped: (fn: () => void) => void): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     let done = false;
     let url = "";
     let audio: HTMLAudioElement | null = null;
     let watchdog = 0;
-    const finish = (said: boolean) => {
+    const finish = (played: boolean) => {
       if (done) return;
       done = true;
       window.clearTimeout(watchdog);
@@ -484,15 +519,15 @@ async function speakServer(speaking: Speaking, text: string, kind: VoiceKind): P
       } catch {
         /* already gone */
       }
-      resolve(said);
+      resolve(played);
     };
     try {
       url = URL.createObjectURL(clip);
       audio = new Audio(url);
       audio.onended = () => finish(true);
       audio.onerror = () => finish(false);
-      onStop(speaking, () => finish(true));
-      watchdog = window.setTimeout(() => finish(true), Math.min(90_000, 8000 + text.length * 90));
+      onStopped(() => finish(true));
+      watchdog = window.setTimeout(() => finish(true), Math.min(90_000, 8000 + words.length * 90));
       const playing = audio.play();
       if (playing && typeof playing.catch === "function") playing.catch(() => finish(false));
     } catch {
@@ -500,6 +535,61 @@ async function speakServer(speaking: Speaking, text: string, kind: VoiceKind): P
     }
   });
 }
+
+/**
+ * Says a line in the server's natural voice: its pieces one after another, the next asked for while this one plays, so
+ * a briefing flows with no gap. True when it was said (or stopped, or a later piece failed - the rest is left out);
+ * false when nothing could be said, so the browser's voice says it instead.
+ */
+async function speakServerLine(text: string, lang: ScriptLanguage, kind: VoiceKind, onStopped: (fn: () => void) => void): Promise<boolean> {
+  const pieces = serverPieces(text, lang);
+  if (!pieces.length) return false;
+  let stopped = false;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const stops: (() => void)[] = [];
+  onStopped(() => {
+    stopped = true;
+    controller?.abort();
+    for (const fn of stops.splice(0)) {
+      try {
+        fn();
+      } catch {
+        /* already stopped */
+      }
+    }
+  });
+  const ask = (piece: string): Promise<Blob> => assistantApi.speak(piece, kind, controller?.signal);
+  let coming = ask(pieces[0]);
+  for (let i = 0; i < pieces.length; i++) {
+    let clip: Blob;
+    try {
+      clip = await coming;
+    } catch (err) {
+      if (stopped) return true;
+      noteServerFailure(err);
+      return i > 0;
+    }
+    if (stopped) return true;
+    if (i + 1 < pieces.length) {
+      coming = ask(pieces[i + 1]);
+      coming.catch(() => undefined);
+    }
+    const played = await playClip(clip, pieces[i], (fn) => (stopped ? fn() : stops.push(fn)));
+    if (stopped) return true;
+    if (!played) return i > 0;
+  }
+  return true;
+}
+
+/** The server's natural voice, for Mitra's replies too (utils/speech.ts): ready when the server says its voice is available. */
+setNaturalVoice({
+  async ready() {
+    if (!serverVoiceConfigured() || Date.now() < serverFailedUntil) return false;
+    await knowServerVoice();
+    return useServer();
+  },
+  say: (line, lang, kind, onStopped) => speakServerLine(line, lang, kind, onStopped),
+});
 
 // ---- stopping -----------------------------------------------------------------------
 
@@ -624,6 +714,9 @@ function browserVoice(v: SpeechSynthesisVoice | null): LanguageVoice {
  * Groq's from the server when it can speak (asked once, as a line would), else
  * the browser's best English.
  */
+/** A voice as human as a person (Edge's natural ones, utils/speech.ts voiceTier 0). */
+const natural = (v: SpeechSynthesisVoice | null): boolean => !!v && voiceTier(v) === 0;
+
 export async function voiceInUse(): Promise<VoiceInUse> {
   const kind = voiceKind();
   let voices: SpeechSynthesisVoice[] = [];
@@ -632,15 +725,15 @@ export async function voiceInUse(): Promise<VoiceInUse> {
   } catch {
     voices = [];
   }
-  const hi = browserVoice(voiceFor(voices, "hi", kind));
-  const gu = browserVoice(voiceFor(voices, "gu", kind));
   const englishVoice = pickVoice(voices, "en-IN", kind);
-  let en: LanguageVoice;
-  if (isIndianNatural(englishVoice)) en = browserVoice(englishVoice);
-  else {
-    if (assistantConfigured()) await knowServerVoice();
-    en = useServer() ? { source: "server", name: serverVoiceState().voices?.[kind] ?? "" } : browserVoice(englishVoice);
-  }
+  const hiVoice = voiceFor(voices, "hi", kind);
+  const guVoice = voiceFor(voices, "gu", kind);
+  // Each language the browser has no natural voice for is the server's natural voice's, when it can speak (speakItem).
+  if (serverVoiceConfigured() && !(isIndianNatural(englishVoice) && natural(hiVoice) && natural(guVoice))) await knowServerVoice();
+  const fromServer: LanguageVoice = { source: "server", name: serverVoiceState().voices?.[kind] ?? "" };
+  const en = isIndianNatural(englishVoice) || !useServer() ? browserVoice(englishVoice) : fromServer;
+  const hi = natural(hiVoice) || !useServer() ? browserVoice(hiVoice) : fromServer;
+  const gu = natural(guVoice) || !useServer() ? browserVoice(guVoice) : fromServer;
   return { source: en.source, name: en.name, gujarati: gu.source !== "none", gujaratiName: gu.name, server: serverVoiceState().state, languages: { en, hi, gu } };
 }
 

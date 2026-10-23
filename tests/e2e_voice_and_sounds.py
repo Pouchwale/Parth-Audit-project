@@ -590,7 +590,8 @@ with sync_playwright() as p:
              text: name + ', F/HR/17 is due on 30-Sep-2026 at 14:30. Your score is 92% ✅ — keep going!', lang: 'en', priority: 'high' } }))""",
         FIRST_NAME,
     )
-    wait_for(voice_page, "() => window.__utter.length >= 2", 6000)
+    wait_for(voice_page, "() => window.__utter.length >= 1", 6000)
+    voice_page.wait_for_timeout(600)
     utter = voice_page.evaluate("() => window.__utter.slice()")
     want_voice = "Google UK English Male" if kind == "male" else "Google UK English Female"
     check(
@@ -598,11 +599,11 @@ with sync_playwright() as p:
         bool(utter) and all(u.get("voice") == want_voice for u in utter),
         [(u.get("voice"), u.get("text")) for u in utter],
     )
-    check("...at a warm rate (0.94) and its natural pitch", bool(utter) and all(abs((u.get("rate") or 0) - 0.94) < 1e-6 and u.get("pitch") == 1 for u in utter), [(u.get("rate"), u.get("pitch")) for u in utter])
+    # FLUENT, NOT SLOW (the owner, 23-Oct-2026: "it is very slow speaking and still"): the voice's own natural rate, and
+    # the sentences said together in one flowing piece - no silence added between them.
+    check("...at its own natural rate (1) and its natural pitch", bool(utter) and all(abs((u.get("rate") or 0) - 1) < 1e-6 and u.get("pitch") == 1 for u in utter), [(u.get("rate"), u.get("pitch")) for u in utter])
     texts = [u.get("text") or "" for u in utter]
-    check("...one sentence at a time", len(utter) == 2 and texts[0].startswith(FIRST_NAME + ",") and texts[1].startswith("Your score"), texts)
-    gap = (utter[1]["at"] - utter[0]["at"]) if len(utter) >= 2 else 0
-    check("...with a breath between the sentences (the voice ends, then about 280 ms)", gap >= 300, gap)
+    check("...the two sentences said together in one flowing piece", len(utter) == 1 and texts[0].startswith(FIRST_NAME + ",") and "Your score" in texts[0], texts)
     joined = " ".join(texts)
     check("The format number is read as a person reads it: 'form F H R 17'", "form F H R 17" in joined and "F/HR/17" not in joined, joined)
     check("...the date and time as a person says them", ("30th September" in joined) and ("at 2:30 PM" in joined), joined)
