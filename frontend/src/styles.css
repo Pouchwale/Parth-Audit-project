@@ -1273,6 +1273,10 @@ html.print-scoped .paper-sheet .doc-table table th, html.print-scoped .paper-she
   .paper-sheet:not([data-paper]) .field > label { font-size: 12px; }
   .paper-sheet:not([data-paper]) :is(.input, select, textarea) { font-size: 13.33px; }
   .paper-sheet[data-paper] .doc-table table th[style*="--col-min"] { min-width: var(--col-min); }
+  /* (and on DCRS's own sheets a column of the sheet's own words - a question, an attribute - keeps its width, so its
+     words wrap as on the screen and not one to a line: LogSheetRecordView data-col-fixed; not on a sheet of more than
+     sixteen columns - a year's months - whose every column takes only what it needs) */
+  .paper-sheet:not([data-paper]) .doc-table table:not(:has(> thead > tr > th:nth-child(17))) th[data-col-fixed][style*="--col-min"] { min-width: var(--col-min); }
   /* F/HR/15's day boxes and F/HR/16's month boxes are as narrow as their columns, as the paper's narrow day columns are */
   .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td .input-sm { min-width: 0; }
   .paper-sheet .doc-table table.log-sheet td .input-sm { min-width: 48px; }
@@ -3895,10 +3899,13 @@ table.svc-paper {
    everything it says; it just stops moving: the ring round its face while it
    answers stands still, and so does the listening dot. */
 /* A sheet's column keeps its width for typing on the SCREEN (LogSheetRecordView --col-min); printed - and while print
-   measures the page - it takes what its words need, so a register of many columns is not shrunk for widths meant for typing. */
+   measures the page - it takes what its words need, so a register of many columns is not shrunk for widths meant for typing;
+   a column of the sheet's own words (data-col-fixed: a question, an attribute) keeps its width, printed too, on a sheet of
+   at most sixteen columns. */
 @media screen {
   .doc-table table th[style*="--col-min"] { min-width: var(--col-min); }
   html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table th[style*="--col-min"] { min-width: 0; }
+  html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table:not(:has(> thead > tr > th:nth-child(17))) th[data-col-fixed][style*="--col-min"] { min-width: var(--col-min); }
 }
 
 /* WHILE PRINT MEASURES THE PAGE (utils/print.ts fitToPage sets html.print-measure for the moment it measures): DCRS's own

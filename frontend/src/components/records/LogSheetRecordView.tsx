@@ -1300,8 +1300,10 @@ function ColumnHead({
   return (
     <th
       {...(b ? bindColAttrs(b.key, b.type, b.options) : undefined)}
-      // The column's width for typing in, on the screen only (styles.css --col-min): printed, it takes what its words need.
+      // The column's width for typing in, on the screen only (styles.css --col-min): printed, it takes what its words need...
       style={col.width && !paper ? ({ "--col-min": `${col.width}px` } as React.CSSProperties) : undefined}
+      // ...except a column of the sheet's own pre-printed words (a question, an attribute), which keeps its width in print.
+      data-col-fixed={col.fixed && col.width && !paper ? "" : undefined}
       rowSpan={rowSpan}
       colSpan={colSpan}
       title={col.nominal !== undefined ? `Nominal ${col.nominal}${col.unit ? " " + col.unit : ""}; band ${col.min}–${col.max}` : undefined}
