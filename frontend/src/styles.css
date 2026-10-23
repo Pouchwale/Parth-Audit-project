@@ -1273,6 +1273,8 @@ html.print-scoped .paper-sheet .doc-table table th, html.print-scoped .paper-she
   .paper-sheet:not([data-paper]) .field > label { font-size: 12px; }
   .paper-sheet:not([data-paper]) :is(.input, select, textarea) { font-size: 13.33px; }
   .paper-sheet[data-paper] .doc-table table th[style*="--col-min"] { min-width: var(--col-min); }
+  /* F/HR/15's day boxes and F/HR/16's month boxes are as narrow as their columns, as the paper's narrow day columns are */
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td .input-sm { min-width: 0; }
   .paper-sheet .doc-table table.log-sheet td .input-sm { min-width: 48px; }
 }
 
@@ -3340,11 +3342,14 @@ table.svc-paper {
 }
 /* F/HR/16 ON ONE PAGE, AS THE PAPER IS (REQUIREMENTS §118): the paper prints its eighteen areas on one landscape page; DCRS's sheet ran to two because
    the cleaning cell (what is cleaned and "Cleaning by", two lines on the paper) wrapped to three. Printed, that cell is wide enough
-   for the paper's two lines, the cells are the paper's height and the date box has no drag handle. */
+   for the paper's two lines, the cells are the paper's height and the date box has no drag handle. Its words print at 12.5 px
+   (about 7 pt on A4 once fitted; they were 10 px, 5.5 pt - the owner, 22-Oct-2026: "the front is very small printing on it"),
+   the cleaning cell 15 em wide - "Walls & Ceiling + Glass doors" on one line at that size. Mirrored for the page fit below. */
 @media print {
-  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table th, .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table td { padding: 1px 4px; font-size: 10px; line-height: 1.15; }
-  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table td:nth-child(3), .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table th:nth-child(3) { min-width: 150px; }
-  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td .cell-text, .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td > span { font-size: 10px; line-height: 1.15; white-space: pre-line; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table th, .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table td { padding: 2px 4px; font-size: 12.5px; line-height: 1.2; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table td:nth-child(3), .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table th:nth-child(3) { min-width: 15em; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td .cell-text, .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td > span { font-size: 12.5px; line-height: 1.2; white-space: pre-line; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] :is(.input, select, textarea) { font-size: 12.5px; }
   .paper-sheet[data-sheet="hr-monthly-cleaning"] textarea { resize: none; }
 }
 /* HR-DOCS end */
@@ -3900,12 +3905,25 @@ table.svc-paper {
    sheets take the widths they PRINT at, so a sheet is fitted to A4 as it will print and not shrunk for the wider screen
    layout (the owner, 22-Oct-2026: "the front is very small printing on it"). Mirrors the print rules above. */
 html.print-measure [data-print-doc] :is(.no-print, .btn) { display: none; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table :is(th, td) { padding: 2px 5px; font-size: 13.33px; line-height: 1.2; }
+/* every sheet of DCRS's make (not a paper form drawn in millimetres): the print's paddings, box minimums and density... */
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table :is(th, td) { padding: 2px 5px; font-size: 11px; line-height: 1.2; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet td .cell-text { font-size: 11px; line-height: 1.2; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .field > label { font-size: 10px; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) :is(.input, select, textarea) { font-size: 11.5px; padding: 2px 0; border-width: 0; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet td .input-sm { min-width: 48px; }
+/* ...and DCRS's own sheets (no paper of their own) at the print's 10 pt, headings wrapped */
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table :is(th, td) { font-size: 13.33px; }
 html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table th { white-space: normal; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table.log-sheet td .cell-text { font-size: 13.33px; line-height: 1.2; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table.log-sheet td .cell-text { font-size: 13.33px; }
 html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .field > label { font-size: 12px; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) :is(.input, select, textarea) { font-size: 13.33px; padding: 2px 0; border-width: 0; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table.log-sheet td .input-sm { min-width: 48px; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) :is(.input, select, textarea) { font-size: 13.33px; }
+/* F/HR/15's day boxes and F/HR/16's month boxes as narrow as their columns, as the paper's (print below, and here) */
+html.print-measure [data-print-doc] .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td .input-sm { min-width: 0; }
+/* F/HR/16's words at their print size and its cleaning cell as wide as it prints (the HR-DOCS print rules) */
+html.print-measure [data-print-doc] .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table :is(th, td) { padding: 2px 4px; font-size: 12.5px; line-height: 1.2; }
+html.print-measure [data-print-doc] .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table :is(th, td):nth-child(3) { min-width: 15em; }
+html.print-measure [data-print-doc] .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td :is(.cell-text, span) { font-size: 12.5px; line-height: 1.2; }
+html.print-measure [data-print-doc] .paper-sheet[data-sheet="hr-monthly-cleaning"] :is(.input, select, textarea) { font-size: 12.5px; }
 
 /* A PAPER WIDER THAN THE SCREEN IS SHOWN WHOLE (utils/screenFit.ts, the owner, 22-Oct-2026): zoomed to the room it has on a
    computer's screen, as a PDF viewer fits a page to its width; never in print (utils/print.ts fits the page) nor on a phone. */
