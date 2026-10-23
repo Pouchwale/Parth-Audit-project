@@ -18,9 +18,24 @@
 // Five calls live here: aiChatJSON (one JSON answer: the chat, the analyst, the checklist and the CV reader),
 // aiChatWithTools (one round of Mitra's agent loop, REQUIREMENTS §80), aiReadPicture (the words in a picture, OpenAI
 // only), aiTranscribe (what a person says into the microphone) and aiSpeak (Mitra's natural voice, §81: text in, a
-// WAV out).
+// WAV out). The voice alone may come from elsewhere: since 23-Oct-2026 Google's Gemini voice speaks first wherever
+// GEMINI_API_KEY is set — free, and the owner's choice for fluent Gujarati, Hindi and English (backend/geminiSpeech.ts)
+// — and the service chosen here says only a line Gemini cannot. A Gemini key is not a model to ask: it is a voice.
 import { plantTimeZone } from "./db.ts";
-import { chunkForSpeech, joinWavs, parseWav, termsRequired, VoiceNotConfiguredError, VoiceUnavailableError, type VoiceKind } from "./tts.ts";
+import { geminiConfigured, geminiRest, geminiSpeak, GeminiSpeechError, geminiTtsModel, geminiVoiceName, resetGeminiForTests, type GeminiRest } from "./geminiSpeech.ts";
+import {
+  chunkForSpeech,
+  joinWavs,
+  parseWav,
+  speakStatus,
+  termsRequired,
+  VoiceNotConfiguredError,
+  VoiceUnavailableError,
+  type LearntVoice,
+  type SpeakStatus,
+  type VoiceKind,
+  type VoiceService,
+} from "./tts.ts";
 
 // ---------------------------------------------------------------------------
 // THE SERVICE AND ITS SETTINGS. Every name below is read from the environment, so a model can be changed without a
@@ -136,15 +151,16 @@ export function openaiReasoningEffort(model: string): "none" | "minimal" | "low"
 // partly hidden), and its words reach the server's log through the routes' console.error. So every error's words
 // pass through here first: the keys this server holds, anything shaped like a key, and an Authorization value.
 
-/** The text with every key taken out. */
+/** The text with every key taken out (Google's Gemini key too, and anything shaped like a Google API key, since 23-Oct-2026). */
 export function redactSecrets(text: string): string {
   let out = String(text ?? "");
-  for (const name of ["CHATGPT_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY"]) {
+  for (const name of ["CHATGPT_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY"]) {
     const key = setting(name);
     if (key.length >= 8) out = out.split(key).join("[key]");
   }
   return out
     .replace(/\b(?:sk|gsk|rk|sess)[-_][A-Za-z0-9*_-]{6,}/g, "[key]")
+    .replace(/\bAIza[0-9A-Za-z_-]{20,}/g, "[key]")
     .replace(/\bBearer\s+[^\s"',]+/gi, "Bearer [key]");
 }
 
@@ -318,11 +334,12 @@ const refusedParams = new Map<string, Set<string>>();
 const UNUSABLE_FOR_MS = 10 * 60 * 1000;
 const unusableUntil = new Map<string, number>();
 
-/** For the unit tests: today's count, what models refused and which could not be used, all forgotten. */
+/** For the unit tests: today's count, what models refused and which could not be used, and Gemini's rest, all forgotten. */
 export function resetAiStateForTests(): void {
   meter = { day: "", used: 0, said: 0 };
   refusedParams.clear();
   unusableUntil.clear();
+  resetGeminiForTests();
 }
 
 /** One earlier turn of the conversation, as the browser sends it (backend/index.ts checks the limits). */
@@ -712,6 +729,13 @@ export async function aiTranscribe({
 // ---------------------------------------------------------------------------
 // MITRA'S NATURAL VOICE (REQUIREMENTS §81, §85, backend/tts.ts).
 //
+// FIRST, wherever GEMINI_API_KEY is set (23-Oct-2026): Google's Gemini voice, which is free (backend/geminiSpeech.ts).
+// When it cannot say a line — a refusal it remembers for ten minutes, or a passing failure (a 429 from the free tier's
+// low limits, a 5xx, no answer) after which it rests a minute — the service below says it, where it may: Groq's voice
+// says English only, and ChatGPT's nothing once the day's allowance is spent. With no other voice, Gemini's failure is
+// the route's: a lasting refusal VoiceUnavailableError, anything else AiRequestError. Nothing Gemini says is counted
+// against the allowance: it costs nothing.
+//
 // On OpenAI: gpt-4o-mini-tts (AI_TTS_MODEL) says the whole line in one call (up to 4,096 characters a call, and a
 // browser sends at most 600) as a WAV, in the chosen voice (AI_TTS_VOICE_FEMALE / _MALE: coral and ash), told how to
 // say it in the line's language (SPEECH_INSTRUCTIONS): it speaks English, Hindi and Gujarati. A model the account
@@ -748,11 +772,15 @@ export function speechLanguage(text: string): "en" | "hi" | "gu" {
   return "en";
 }
 
-/** How gpt-4o-mini-tts is told to say a line, by its language: Mitra, warm, at an easy pace, with the plant's own accent. */
+/**
+ * How gpt-4o-mini-tts is told to say a line, by its language: Mitra, warm and fluent, at a natural conversational pace,
+ * with the plant's own accent. Until 23-Oct-2026 it was told "clearly and at an easy pace", and the owner found the
+ * voice "very slow speaking".
+ */
 export const SPEECH_INSTRUCTIONS: Readonly<Record<"en" | "hi" | "gu", string>> = {
-  en: "You are Mitra, a warm, friendly colleague at a printing and packaging plant in Gujarat, India. Speak English with a natural Indian accent, clearly and at an easy pace, like a person reminding a workmate.",
-  hi: "You are Mitra, a warm, friendly colleague at a printing and packaging plant in Gujarat, India. Speak natural, everyday Hindi as a native speaker, clearly and at an easy pace. Say English words and form numbers as an Indian speaker would.",
-  gu: "You are Mitra, a warm, friendly colleague at a printing and packaging plant in Gujarat, India. Speak natural, everyday Gujarati as a native speaker from Gujarat, clearly and at an easy pace. Say English words and form numbers as a Gujarati speaker would.",
+  en: "You are Mitra, a warm, friendly colleague at a printing and packaging plant in Gujarat, India. Speak English with a natural Indian accent, fluently and at a natural conversational pace, neither slow nor rushed, like a person reminding a workmate.",
+  hi: "You are Mitra, a warm, friendly colleague at a printing and packaging plant in Gujarat, India. Speak natural, everyday Hindi as a native speaker, fluently and at a natural conversational pace, neither slow nor rushed. Say English words and form numbers as an Indian speaker would.",
+  gu: "You are Mitra, a warm, friendly colleague at a printing and packaging plant in Gujarat, India. Speak natural, everyday Gujarati as a native speaker from Gujarat, fluently and at a natural conversational pace, neither slow nor rushed. Say English words and form numbers as a Gujarati speaker would.",
 };
 
 /**
@@ -845,11 +873,122 @@ async function groqSpeak(provider: Provider, text: string, voice: VoiceKind): Pr
   return joinWavs(clips);
 }
 
-/** Says `text` in Mitra's natural voice: one WAV. Throws VoiceNotConfiguredError, VoiceUnavailableError, AiAllowanceError, or an Error for anything else. */
-export async function aiSpeak({ text, voice }: { text: string; voice: VoiceKind }): Promise<Buffer> {
-  const provider = aiProvider();
+// ---------------------------------------------------------------------------
+// WHICH VOICE SAYS A LINE (23-Oct-2026): Gemini's first wherever its key is set, else the AI service's.
+
+/** A line said: the WAV, the service whose voice said it, and its model (the route keys its cache and what it learnt by them). */
+export interface SpokenClip {
+  clip: Buffer;
+  engine: VoiceService;
+  model: string;
+}
+
+/** Whether the server has a voice of its own to offer: a Gemini key, or an AI key (features.ts tells the browser this, and only this). */
+export function voiceConfigured(): boolean {
+  return geminiConfigured() || aiConfigured();
+}
+
+/** Whether the next line goes to Google's Gemini voice first: its key is set and it is not resting after a failure. */
+export function geminiSpeaksFirst(now = Date.now()): boolean {
+  return geminiConfigured() && !geminiRest(now);
+}
+
+/**
+ * The voice that would say a line now: Gemini's while it speaks first, else the AI service's (ChatGPT's, or Groq's);
+ * Gemini's still, resting, on a server with no other; null with no key for either.
+ */
+export function speechEngine(now = Date.now()): VoiceService | null {
+  if (geminiSpeaksFirst(now)) return "gemini";
+  return aiProviderName() ?? (geminiConfigured() ? "gemini" : null);
+}
+
+/** A service's speech model and its voices for Mitra's female and male voice: Gemini's (GEMINI_TTS_*), else the AI service's (ttsModel, ttsVoiceName). */
+export function speechSetup(engine: VoiceService): { model: string; voices: { female: string; male: string } } {
+  if (engine === "gemini") return { model: geminiTtsModel(), voices: { female: geminiVoiceName("female"), male: geminiVoiceName("male") } };
+  return { model: ttsModel(), voices: { female: ttsVoiceName("female"), male: ttsVoiceName("male") } };
+}
+
+/** The AI service's own voice, exactly as aiSpeak was before Gemini's: no key, VoiceNotConfiguredError; on OpenAI with the day's allowance spent, AiAllowanceError. */
+async function serviceSpeak(provider: Provider | null, text: string, voice: VoiceKind): Promise<SpokenClip> {
   if (!provider) throw new VoiceNotConfiguredError();
-  if (provider.name === "groq") return groqSpeak(provider, text, voice);
+  if (provider.name === "groq") return { clip: await groqSpeak(provider, text, voice), engine: "groq", model: ttsModel() };
   if (dailyBudgetSpent()) throw new AiAllowanceError();
-  return openaiSpeak(provider, text, voice);
+  return { clip: await openaiSpeak(provider, text, voice), engine: "openai", model: ttsModel() };
+}
+
+const inWords = (ms: number): string => (ms >= 90_000 ? `${Math.round(ms / 60_000)} minutes` : `${Math.max(1, Math.round(ms / 1000))} seconds`);
+
+/** Gemini's failure in the route's terms: a lasting one VoiceUnavailableError (Google's reason kept for the log), any other AiRequestError. */
+function geminiFailure(err: unknown): Error {
+  if (err instanceof GeminiSpeechError) return err.lasting ? new VoiceUnavailableError(geminiTtsModel(), "gemini", err.message) : new AiRequestError(err.status, err.message);
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+/** Gemini not asked because it is resting: still its failure, in the same terms. */
+function restingFailure(r: GeminiRest, now: number): Error {
+  const left = `asked again in ${inWords(r.until - now)}`;
+  return r.lasting ? new VoiceUnavailableError(geminiTtsModel(), "gemini", `${r.why} (${left})`) : new AiRequestError(r.status, `Gemini is resting after a failure, ${left}. ${r.why}`);
+}
+
+/**
+ * Says `text` in Mitra's natural voice: the WAV, and which voice said it. Gemini's first wherever GEMINI_API_KEY is
+ * set, the AI service's when Gemini cannot (and may say the line). Throws VoiceNotConfiguredError,
+ * VoiceUnavailableError, AiAllowanceError, or an Error (AiRequestError) for anything else.
+ */
+export async function aiSpeakClip({ text, voice }: { text: string; voice: VoiceKind }): Promise<SpokenClip> {
+  const provider = aiProvider();
+  if (!geminiConfigured()) return serviceSpeak(provider, text, voice);
+  const language = speechLanguage(text);
+  const now = Date.now();
+  const resting = geminiRest(now);
+  let failure: Error;
+  if (resting) {
+    failure = restingFailure(resting, now);
+  } else {
+    try {
+      const said = await geminiSpeak({ text, voice, language, timeoutMs: SPEAK_TIMEOUT_MS });
+      return { clip: said.clip, engine: "gemini", model: said.model };
+    } catch (err) {
+      failure = geminiFailure(err);
+    }
+  }
+  // The other voice, where it may say this line: Groq's Orpheus says English only, and ChatGPT's nothing once the
+  // day's allowance is spent (Gemini's is not counted against it, which is why it is still asked then).
+  const other = provider && (provider.name === "groq" ? language === "en" : !dailyBudgetSpent()) ? provider : null;
+  if (!other) throw failure;
+  if (!resting) {
+    // Said once for each failure: Gemini then rests, so a burst of lines does not fill the log.
+    const next = geminiRest();
+    const again = next ? `; Gemini is asked again in ${inWords(next.until - Date.now())}` : "";
+    console.warn(`Mitra's voice: Google's Gemini could not say a line, so ${other.name === "openai" ? "ChatGPT's voice (OpenAI)" : "Groq's voice"} says it${again}. ${failure.message.slice(0, 300)}`);
+  }
+  try {
+    return await serviceSpeak(other, text, voice);
+  } catch (err) {
+    // Both failed. Only when Gemini's failure lasts too is the voice "not available" to the route, and then in
+    // Gemini's words — the free voice is the one to put right; a passing failure of either may be over in a minute.
+    throw err instanceof VoiceUnavailableError ? failure : err;
+  }
+}
+
+/** Says `text` in Mitra's natural voice: one WAV (aiSpeakClip's, for a caller that needs only the clip). */
+export async function aiSpeak({ text, voice }: { text: string; voice: VoiceKind }): Promise<Buffer> {
+  return (await aiSpeakClip({ text, voice })).clip;
+}
+
+/**
+ * GET /api/assistant/speak's answer (REQUIREMENTS §85, backend/index.ts) from what the route has learnt
+ * (backend/tts.ts VoiceAvailability): not-configured with no key for a voice; else the voice as it was learnt, named
+ * by the service it was learnt of — Google's Gemini voice wherever that spoke — with that service's voices. On a
+ * server without a Gemini key, the answer it always was.
+ */
+export function voiceStatus(known: LearntVoice | null, now = Date.now()): SpeakStatus {
+  const engine = speechEngine(now);
+  if (!engine) return speakStatus("not-configured", ttsModel(), { female: ttsVoiceName("female"), male: ttsVoiceName("male") }, now);
+  if (!known) {
+    const setup = speechSetup(engine);
+    return speakStatus("failed", setup.model, setup.voices, now, undefined, engine);
+  }
+  const service = known.service ?? engine;
+  return speakStatus(known.code, known.model, speechSetup(service).voices, now, known.until, service);
 }

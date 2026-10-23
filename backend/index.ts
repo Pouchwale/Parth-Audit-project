@@ -43,8 +43,8 @@ import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
 import { runAgentStep, validateAgentRequest, TRANSCRIBE_PROMPT } from "./mitraAgent.ts";
 import { readAttachment, picturesReadByModel, MAX_ATTACHMENT_BYTES } from "./attachments.ts";
-import { aiConfigured, aiProviderName, aiSpeak, aiTranscribe, aiUsage, ttsModel, ttsVoiceName } from "./ai.ts";
-import { speakFailure, speakStatus, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VOICE_PROBE_TEXT, VoiceAvailability, VoiceUnavailableError } from "./tts.ts";
+import { aiConfigured, aiProviderName, aiSpeakClip, aiTranscribe, aiUsage, geminiSpeaksFirst, speechEngine, speechSetup, voiceStatus } from "./ai.ts";
+import { speakFailure, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VOICE_PROBE_TEXT, VoiceAvailability, VoiceUnavailableError } from "./tts.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
@@ -1201,7 +1201,7 @@ app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => tru
   }
 });
 
-// MITRA'S NATURAL VOICE (REQUIREMENTS §81, §85 and §109, backend/ai.ts aiSpeak, backend/tts.ts).
+// MITRA'S NATURAL VOICE (REQUIREMENTS §81, §85 and §109, backend/ai.ts aiSpeakClip, backend/tts.ts).
 //
 // GET: whether the server can speak — ALWAYS a 200, so a browser finds out
 // without an error in its console (§85: "ask once, remember"). Without a key:
@@ -1219,23 +1219,37 @@ app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => tru
 // voice. Clips are kept in memory (the last 60) — a reminder said again is not
 // made again. Its own throttle, never the chat's; never the service's words in
 // an answer.
+//
+// GOOGLE'S GEMINI VOICE FIRST (23-Oct-2026, backend/geminiSpeech.ts): wherever
+// GEMINI_API_KEY is set — even with no AI key — the voice is Google's, free,
+// and the AI service's says only a line Gemini cannot (backend/ai.ts
+// aiSpeakClip). Each clip is kept under the voice that said it, and found under
+// the one that would say it now (speechEngine), so Mitra never answers in one
+// voice with a clip of the other's. And as the free tier allows few requests, a
+// "Hello." Gemini has already said answers the GET's question for it.
 const voiceAvailability = new VoiceAvailability();
 let voiceProbe: Promise<void> | null = null;
 
 /** Learns once whether the service will speak, by asking it for VOICE_PROBE_TEXT; every caller meanwhile waits on the same ask. */
 function probeVoice(): Promise<void> {
   if (voiceProbe) return voiceProbe;
-  const model = ttsModel();
-  voiceProbe = aiSpeak({ text: VOICE_PROBE_TEXT, voice: "female" })
-    .then((clip) => {
-      speechCache.set(speechCacheKey("female", VOICE_PROBE_TEXT), clip);
-      voiceAvailability.markAvailable(model);
+  const engine = speechEngine();
+  if (!engine) return Promise.resolve();
+  if (geminiSpeaksFirst() && speechCache.get(speechCacheKey("female", VOICE_PROBE_TEXT, "gemini"))) {
+    voiceAvailability.markAvailable(speechSetup("gemini").model, Date.now(), "gemini");
+    return Promise.resolve();
+  }
+  const { model } = speechSetup(engine);
+  voiceProbe = aiSpeakClip({ text: VOICE_PROBE_TEXT, voice: "female" })
+    .then((said) => {
+      speechCache.set(speechCacheKey("female", VOICE_PROBE_TEXT, said.engine), said.clip);
+      voiceAvailability.markAvailable(said.model, Date.now(), said.engine);
     })
     .catch((err: unknown) => {
       if (err instanceof VoiceUnavailableError) {
-        if (voiceAvailability.markUnavailable(err.model)) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
+        if (voiceAvailability.markUnavailable(err.model, Date.now(), err.service)) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
       } else {
-        voiceAvailability.markFailed(model);
+        voiceAvailability.markFailed(model, Date.now(), engine);
         // The day's allowance spent was said once already, by backend/ai.ts.
         if (!allowanceSpent(err)) console.warn(`Mitra's natural voice could not be reached: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
       }
@@ -1247,22 +1261,14 @@ function probeVoice(): Promise<void> {
 }
 
 app.get("/api/assistant/speak", requireAuth, async (_req: Request, res: Response): Promise<void> => {
-  const voices = { female: ttsVoiceName("female"), male: ttsVoiceName("male") };
-  const service = aiProviderName();
-  if (!service) {
-    res.json(speakStatus("not-configured", ttsModel(), voices));
-    return;
-  }
-  if (!voiceAvailability.current()) await probeVoice();
-  const known = voiceAvailability.current();
-  const now = Date.now();
-  res.json(known ? speakStatus(known.code, known.model, voices, now, known.until, service) : speakStatus("failed", ttsModel(), voices, now, undefined, service));
+  if (speechEngine() && !voiceAvailability.current()) await probeVoice();
+  res.json(voiceStatus(voiceAvailability.current()));
 });
 
 app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
-  const service = aiProviderName();
-  if (!service) {
+  const engine = speechEngine();
+  if (!engine) {
     res.status(503).json({ error: "Mitra's natural voice isn't configured on this server.", code: "not-configured" });
     return;
   }
@@ -1281,15 +1287,14 @@ app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response
     return;
   }
   const kind = voice === "male" ? "male" : "female";
-  const key = speechCacheKey(kind, said);
-  const cached = speechCache.get(key);
+  const cached = speechCache.get(speechCacheKey(kind, said, engine));
   if (cached) {
     res.type("audio/wav").send(cached);
     return;
   }
   const refusing = voiceAvailability.current();
   if (refusing?.code === "voice-unavailable") {
-    const { status, body } = speakFailure(new VoiceUnavailableError(refusing.model, service));
+    const { status, body } = speakFailure(new VoiceUnavailableError(refusing.model, refusing.service ?? engine));
     res.status(status).json(body);
     return;
   }
@@ -1303,13 +1308,15 @@ app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response
   current.count += 1;
   speakCalls.set(userId, current);
   try {
-    const clip = await aiSpeak({ text: said, voice: kind });
-    speechCache.set(key, clip);
-    if (voiceAvailability.current()?.code !== "available") voiceAvailability.markAvailable(ttsModel());
-    res.type("audio/wav").send(clip);
+    const made = await aiSpeakClip({ text: said, voice: kind });
+    speechCache.set(speechCacheKey(kind, said, made.engine), made.clip);
+    // The voice that spoke is the one the GET names: learnt again when it changed (Gemini resting, ChatGPT's speaking).
+    const known = voiceAvailability.current();
+    if (known?.code !== "available" || known.service !== made.engine) voiceAvailability.markAvailable(made.model, Date.now(), made.engine);
+    res.type("audio/wav").send(made.clip);
   } catch (err) {
     if (err instanceof VoiceUnavailableError) {
-      if (voiceAvailability.markUnavailable(err.model)) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
+      if (voiceAvailability.markUnavailable(err.model, Date.now(), err.service)) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
     } else if (!allowanceSpent(err)) {
       console.error(err);
     }

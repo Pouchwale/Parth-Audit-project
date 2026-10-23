@@ -6,8 +6,11 @@
 // when the server has an AI key Mitra's lines are spoken by the service's
 // text-to-speech model (backend/ai.ts aiSpeak) and sent to the browser as a
 // WAV: since §109 ChatGPT's (OpenAI's gpt-4o-mini-tts, which speaks English,
-// Hindi and Gujarati), or Groq's on a server set up before it. This file holds
-// the parts of that which are not HTTP:
+// Hindi and Gujarati), or Groq's on a server set up before it. Since 23-Oct-2026
+// Google's Gemini voice speaks first wherever GEMINI_API_KEY is set: free, and
+// fluent in all three ("real very fluent", the owner asked; backend/geminiSpeech.ts),
+// the AI service's voice answering only for a line Gemini cannot say. This file
+// holds the parts of that which are not HTTP:
 //
 //   chunkForSpeech  Groq's model takes at most 200 characters a call, so a
 //                   briefing is cut into pieces — at the end of a sentence where
@@ -20,7 +23,10 @@
 //                   one clip with no gap to stitch
 //   SpeechCache     reminders repeat ("the Line Clearance Checklist is due
 //                   today"), so the last 60 clips (30 MB at most) are kept in
-//                   MEMORY, keyed by voice and text. Memory only: PostgreSQL is
+//                   MEMORY, keyed by the service that made them, the voice and
+//                   the text — so a line Gemini said is never answered with the
+//                   clip ChatGPT's voice made of it while Gemini rested, nor the
+//                   other way round (23-Oct-2026). Memory only: PostgreSQL is
 //                   the one store for the plant's data (REQUIREMENTS §55), and a
 //                   cache that empties on a restart only costs one more call
 //   speakFailure    what the route answers for each way the voice can fail —
@@ -188,8 +194,13 @@ export function joinWavs(clips: Buffer[]): Buffer {
     const whole = info.dataLength - (info.dataLength % first.blockAlign);
     return clips[i].subarray(info.dataOffset, info.dataOffset + whole);
   });
+  return wavFile(first.fmt, samples);
+}
+
+/** A WAV file of one "fmt " chunk's body and the samples after it: the RIFF and data sizes written for them, each chunk padded to an even length. */
+function wavFile(fmt: Buffer, samples: Buffer[]): Buffer {
   const dataLength = samples.reduce((n, s) => n + s.length, 0);
-  const fmtSize = first.fmt.length;
+  const fmtSize = fmt.length;
   const fmtPad = fmtSize & 1;
   const dataPad = dataLength & 1;
   const header = Buffer.alloc(12 + 8 + fmtSize + fmtPad + 8);
@@ -198,11 +209,28 @@ export function joinWavs(clips: Buffer[]): Buffer {
   header.write("WAVE", 8, "latin1");
   header.write("fmt ", 12, "latin1");
   header.writeUInt32LE(fmtSize, 16);
-  first.fmt.copy(header, 20);
+  fmt.copy(header, 20);
   const dataAt = 20 + fmtSize + fmtPad;
   header.write("data", dataAt, "latin1");
   header.writeUInt32LE(dataLength, dataAt + 4);
   return Buffer.concat([header, ...samples, ...(dataPad ? [Buffer.alloc(1)] : [])]);
+}
+
+/**
+ * Raw PCM samples as a WAV: Gemini's audio/l16 (backend/geminiSpeech.ts), which has
+ * no header of its own — 24 kHz, mono, 16-bit little-endian unless said otherwise.
+ * A trailing part-frame is dropped, as joinWavs drops one.
+ */
+export function pcmWav(samples: Buffer, { sampleRate = 24000, channels = 1, bitsPerSample = 16 }: { sampleRate?: number; channels?: number; bitsPerSample?: number } = {}): Buffer {
+  const blockAlign = Math.max(1, (channels * bitsPerSample) / 8);
+  const fmt = Buffer.alloc(16);
+  fmt.writeUInt16LE(1, 0); // PCM
+  fmt.writeUInt16LE(channels, 2);
+  fmt.writeUInt32LE(sampleRate, 4);
+  fmt.writeUInt32LE(sampleRate * blockAlign, 8);
+  fmt.writeUInt16LE(blockAlign, 12);
+  fmt.writeUInt16LE(bitsPerSample, 14);
+  return wavFile(fmt, [samples.subarray(0, samples.length - (samples.length % blockAlign))]);
 }
 
 // ---------------------------------------------------------------------------
@@ -260,35 +288,47 @@ export const speechCache = new SpeechCache();
 
 export type VoiceKind = "female" | "male";
 
-export const speechCacheKey = (voice: VoiceKind, text: string): string => `${voice}\n${text}`;
+/**
+ * A clip's key: the service that made it (backend/ai.ts speechEngine — Gemini's and ChatGPT's voices sound
+ * nothing alike, so one is never served for the other), Mitra's voice, and the text. Left out, the key is the
+ * voice and the text, as before 23-Oct-2026.
+ */
+export const speechCacheKey = (voice: VoiceKind, text: string, service?: VoiceService): string => (service ? `${service}\n${voice}\n${text}` : `${voice}\n${text}`);
 
 // ---------------------------------------------------------------------------
 // When the voice cannot be made
 
-/** The service that makes the voice (backend/ai.ts aiProviderName): ChatGPT's (OpenAI) since §109, or Groq on an older setup. */
-export type VoiceService = "openai" | "groq";
+/**
+ * The service that makes the voice (backend/ai.ts speechEngine): Google's Gemini where GEMINI_API_KEY is set
+ * (free, since 23-Oct-2026), else ChatGPT's (OpenAI) since §109, or Groq on an older setup.
+ */
+export type VoiceService = "openai" | "groq" | "gemini";
+
+const REFUSED: Record<VoiceService, (model: string) => string> = {
+  openai: (model) => `The speech model ${model} is not available to this OpenAI key.`,
+  groq: (model) => `The speech model ${model} needs its terms accepted by the Groq organisation's admin.`,
+  gemini: (model) => `The speech model ${model} is not available to this Google AI Studio key (GEMINI_API_KEY).`,
+};
 
 /**
  * The service will not speak with this model, and only its account's admin can change that: on OpenAI the key's
- * project cannot use the speech model (403, 404); on Groq the model's terms have not been accepted.
+ * project cannot use the speech model (403, 404); on Groq the model's terms have not been accepted; on Gemini the
+ * key is refused or cannot use the model (400, 401, 403, 404). `detail` is the service's own reason, for the
+ * server's log only (with no key in it: backend/geminiSpeech.ts); the browser is told voiceUnavailableMessage.
  */
 export class VoiceUnavailableError extends Error {
   readonly code = "voice-unavailable";
   readonly model: string;
   readonly service: VoiceService;
-  constructor(model: string, service: VoiceService) {
-    super(
-      service === "openai"
-        ? `The speech model ${model} is not available to this OpenAI key.`
-        : `The speech model ${model} needs its terms accepted by the Groq organisation's admin.`
-    );
+  constructor(model: string, service: VoiceService, detail = "") {
+    super(detail ? `${REFUSED[service](model)} ${detail}` : REFUSED[service](model));
     this.name = "VoiceUnavailableError";
     this.model = model;
     this.service = service;
   }
 }
 
-/** No AI key on this server (CHATGPT_API_KEY, or GROQ_API_KEY on an older setup). */
+/** No key for a voice on this server (CHATGPT_API_KEY, or GROQ_API_KEY on an older setup; nor GEMINI_API_KEY). */
 export class VoiceNotConfiguredError extends Error {
   readonly code = "not-configured";
   constructor() {
@@ -299,6 +339,9 @@ export class VoiceNotConfiguredError extends Error {
 
 /** What the plant's admin is told when the service will not speak with the model. */
 export function voiceUnavailableMessage(model: string, service: VoiceService): string {
+  if (service === "gemini") {
+    return `Mitra's free voice needs a Google AI Studio key that can use the speech model ${model}: check GEMINI_API_KEY at aistudio.google.com, or set GEMINI_TTS_MODEL to a speech model the key has.`;
+  }
   return service === "openai"
     ? `Mitra's natural voice needs the speech model ${model} on the ChatGPT (OpenAI) account: give the key's project access to it at platform.openai.com, or set AI_TTS_MODEL to a speech model it has.`
     : `Mitra's natural voice needs the Groq organisation's admin to accept the model's terms at console.groq.com (${model}).`;
@@ -359,12 +402,20 @@ export const VOICE_PROBE_TEXT = "Hello.";
 
 type Learnt = "available" | "voice-unavailable" | "failed";
 
+/** What was learnt, with the service it was learnt of when that was said (Gemini's or the AI service's voice, since 23-Oct-2026). */
+export interface LearntVoice {
+  code: Learnt;
+  model: string;
+  until: number;
+  service?: VoiceService;
+}
+
 /** What the server has learnt of the service's voice, and until when it goes by it. */
 export class VoiceAvailability {
-  private learnt: { code: Learnt; until: number; model: string } | null = null;
+  private learnt: LearntVoice | null = null;
 
   /** What is known now, or null when it must be found out. */
-  current(now = Date.now()): { code: Learnt; model: string; until: number } | null {
+  current(now = Date.now()): LearntVoice | null {
     if (!this.learnt || now >= this.learnt.until) return null;
     return { ...this.learnt };
   }
@@ -374,19 +425,23 @@ export class VoiceAvailability {
     return this.current(now)?.code === "voice-unavailable";
   }
 
-  markAvailable(model: string, now = Date.now()): void {
-    this.learnt = { code: "available", until: now + VOICE_RECHECK_MS.available, model };
+  private learn(code: Learnt, model: string, now: number, service: VoiceService | undefined): void {
+    this.learnt = { code, until: now + VOICE_RECHECK_MS[code], model, ...(service ? { service } : {}) };
+  }
+
+  markAvailable(model: string, now = Date.now(), service?: VoiceService): void {
+    this.learn("available", model, now, service);
   }
 
   /** The voice is not available. True when this is news (it was not already known), so the server says so once. */
-  markUnavailable(model: string, now = Date.now()): boolean {
+  markUnavailable(model: string, now = Date.now(), service?: VoiceService): boolean {
     const news = !this.refusing(now);
-    this.learnt = { code: "voice-unavailable", until: now + VOICE_RECHECK_MS["voice-unavailable"], model };
+    this.learn("voice-unavailable", model, now, service);
     return news;
   }
 
-  markFailed(model: string, now = Date.now()): void {
-    this.learnt = { code: "failed", until: now + VOICE_RECHECK_MS.failed, model };
+  markFailed(model: string, now = Date.now(), service?: VoiceService): void {
+    this.learn("failed", model, now, service);
   }
 
   forget(): void {
@@ -394,10 +449,10 @@ export class VoiceAvailability {
   }
 }
 
-/** The voice's name in the card's words: ChatGPT's (OpenAI's) since §109, or Groq's on an older setup. */
-const VOICE_OF: Record<VoiceService, string> = { openai: "ChatGPT's natural voice (OpenAI)", groq: "Groq's natural voice" };
+/** The voice's name in the card's words: Google's Gemini voice (free, 23-Oct-2026), ChatGPT's (OpenAI's) since §109, or Groq's on an older setup. */
+const VOICE_OF: Record<VoiceService, string> = { openai: "ChatGPT's natural voice (OpenAI)", groq: "Groq's natural voice", gemini: "Google's Gemini voice" };
 
-/** The GET's answer for what is known; `service` is the one this server's key is for (backend/ai.ts aiProviderName). */
+/** The GET's answer for what is known; `service` is the voice it was learnt of (backend/ai.ts voiceStatus, speechEngine). */
 export function speakStatus(
   code: SpeakStatusCode,
   model: string,

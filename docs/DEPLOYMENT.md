@@ -81,6 +81,22 @@ says so and offers **Open the secure address**.
 - **Settings** (`backend/.env`): `HTTPS_PORT` (default: DCRS's port + 443), `DCRS_HTTPS=off` (no secure address),
   `HTTPS_CERT_FILE` and `HTTPS_KEY_FILE` (the company's own certificate and key, PEM, instead of DCRS's).
 
+## Mitra's free natural voice (REQUIREMENTS §121)
+
+In **Microsoft Edge** Mitra already speaks English, Hindi and Gujarati in natural voices, free, with nothing to set up.
+In Chrome (no Gujarati voice, robotic English) a line is said by the server's natural voice instead. To make that
+voice free:
+
+1. Open https://aistudio.google.com with the company's Google account, choose **Get API key** → **Create API key**.
+   No billing and no card are needed for the free tier.
+2. Put it in `backend/.env` on the DCRS computer as `GEMINI_API_KEY=<the key>`, and restart DCRS.
+3. Master Data → Working Hours & Briefing names the voice in use ("Google's Gemini voice").
+
+The free tier's limits (requests a minute and a day) are shown in AI Studio; DCRS keeps every clip it made and asks
+as little as it can. When Gemini cannot speak, the ChatGPT key's voice speaks (paid, about Rs 1 a minute of speech),
+else the browser's own. Google may use the words sent on its free tier (the reminders name people, documents and
+scores) to improve its products.
+
 ## Accounts / Authentication
 
 `backend/` is a small, separate Express service that owns real user accounts — this is the one
@@ -414,6 +430,9 @@ every AI setting; no one prints, logs or commits `backend/.env` itself — progr
 | `AI_TRANSCRIBE_MODEL` | `gpt-4o-mini-transcribe` | `backend/ai.ts` | The microphone (`POST /api/assistant/transcribe`): English, Hindi and Gujarati, the plant's words as its hint. A `whisper-*` model is asked for `verbose_json`. |
 | `AI_TTS_MODEL` | `gpt-4o-mini-tts` | `backend/ai.ts`, `backend/tts.ts` | Mitra's natural voice (§81, §85) through `POST /api/assistant/speak`: the whole line in one call, as a WAV, told the line's language by its script (English with an Indian accent, Hindi, Gujarati). The browser still speaks first where it has a natural Indian voice (§89). A model the key's project cannot use: `GET /api/assistant/speak` says so (asked once, remembered for 10 minutes), no line is sent, and the browser speaks with its own most human voice. |
 | `AI_TTS_VOICE_FEMALE` / `AI_TTS_VOICE_MALE` | `coral` / `ash` | `backend/ai.ts` | The two voices a person chooses between (Master Data → Working Hours & Briefing). OpenAI's voices include alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer and verse. |
+| `GEMINI_API_KEY` | none | `backend/geminiSpeech.ts` | Mitra's FREE natural voice (REQUIREMENTS §121): a Google AI Studio key (aistudio.google.com → Get API key; a Google account, no card). Set, Mitra's spoken lines in English, Hindi and Gujarati are made by Google's Gemini voice first, the paid ChatGPT voice only when Gemini cannot (its free allowance used, no internet). Google may use the words sent on its free tier to improve its products: the owner's decision. `scripts/run-e2e.ts` and `scripts/unit-tests.ts` blank it. |
+| `GEMINI_TTS_MODEL` | `gemini-3.8-flash-tts` | `backend/geminiSpeech.ts` | Gemini's speech model. |
+| `GEMINI_TTS_VOICE_FEMALE` / `GEMINI_TTS_VOICE_MALE` | `Sulafat` / `Achird` | `backend/geminiSpeech.ts` | Mitra's two Gemini voices ("warm", "friendly" in Google's list of its 30 voices). |
 | `AI_DAILY_TOKEN_BUDGET` | `3000000` (on Groq `GROQ_DAILY_TOKEN_BUDGET`, else `200000`) | `backend/ai.ts`, `backend/index.ts` | THE COST GUARD (OpenAI is paid by the token): the plant's AI tokens a day, counted on this server per day on the plant's clock, in memory (a restart starts the count again) — what each answer and transcription reports, and an estimate for speech. At 90% the chat and the agent stop asking the model and answer from the records, saying why (REQUIREMENTS §75); at 100% no call is made until the next day. The server's log says each once, in plain words; the super admin reads the day's count at `GET /api/assistant/usage`. The Mitra server counts its own calls. |
 | `ALLOW_SIGNUP` | unset (`off`) | `backend/features.ts`, `backend/index.ts` | Nobody creates their own account (REQUIREMENTS §66): the administrator makes them on Users & Access, and `POST /api/auth/signup` answers 403. Set to `1` only for the Playwright suites (`scripts/run-e2e.ts` sets it) or for ONE start that makes a first administrator on an empty database with `SEED_ACCOUNTS=0`. |
 | `DEMO_MODE` | unset (`off`) | `backend/features.ts`, sent to the browser with the signed-in account | Demo Mode is NOT part of the portal (REQUIREMENTS §65): without this there is no switch, no page and no `#/demo` route, and the demo records an earlier version left behind are removed at the next start-up. Set to `1` only to demonstrate the system or to run the Playwright suites (`scripts/run-e2e.ts` sets it for its own server). **Take a backup before the first start without it** — that start-up removes the demo records, and it is not undone. |

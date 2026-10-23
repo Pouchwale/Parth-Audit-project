@@ -8214,8 +8214,9 @@ its hint; it answers `json` (a `whisper-*` model named in the setting is asked f
 as Groq's is). Mitra's voice (`POST /api/assistant/speak`) is gpt-4o-mini-tts: the whole line in one call (the model
 takes 4,096 characters, a browser sends at most 600) as a WAV with its sizes written out, in coral or ash, told how to
 say it by the line's script: Mitra, a warm colleague at a plant in Gujarat, English with a natural Indian accent, or
-natural everyday Hindi or Gujarati, at an easy pace. The browser still speaks first wherever it has a natural Indian
-voice of its own (§89), so the server's voice is used for English where the browser has none, as before. A speech
+natural everyday Hindi or Gujarati, at a natural conversational pace (§121: it was "an easy pace", which the owner
+found slow). The browser still speaks first wherever it has a natural voice of its own (§89); since §121 the server's
+voice says any line - English, Hindi or Gujarati - the browser has no natural voice for. A speech
 model the key's project cannot use (403, 404) is "voice-unavailable", said in ChatGPT's words (give the key's project
 access at platform.openai.com, or set `AI_TTS_MODEL`), asked again after ten minutes, and the browser speaks
 meanwhile (§85). The voice card's words in Master Data name "the AI service" and platform.openai.com, in English and
@@ -9297,6 +9298,38 @@ running perfectly here so browser is blocking the microphone so fix it any how".
    tests/e2e_secure_address.py (the http address over the network, the secure address, the button between them, the
    microphone lent there) and backend/tests/secureAddress.test.ts (the port, the certificates, TLS trusted through the
    plant's authority alone, a taken port).
+
+## §121 Papers on screen at a reading size, and Mitra's fluent natural voice in English, Hindi and Gujarati (23-Oct-2026)
+
+The owner, 23-Oct-2026: "some part of are too much big just make sure and also when i click on sound button which is near at
+today briefing button and also it is very slow speaking and still and it should speak real very fluent language of all
+English, Hindi and Gujarati use whatever the libraries you want ... search online for some free and very like humanize tone
+for three languages".
+
+1. **A paper on the screen is enlarged only to a reading size.** A paper narrower than its room was zoomed to fill the
+   width (up to 1.5x): F/QC/01's values reached 20 px on a laptop. It is now enlarged only until its words (the middle size
+   of its boxes and cells) read at 15 px (frontend/src/utils/screenFit.ts READ_PX): F/QC/01 1.02x, F/QC/17 1.27x, F-QC-30
+   1.25x - each 15 px; a paper already that size stays as drawn; a paper of small words still grows, to 1.5x at most.
+2. **Mitra's pace is a person's.** Every browser voice speaks at its own natural rate (1; it was 0.90-0.96) with no silence
+   added between sentences; Edge's natural voices read up to 600 characters as one flowing piece; only a robotic desktop
+   voice still says one sentence a piece, with a 120 ms breath (it was 320 ms) (frontend/src/utils/speech.ts prosodyFor).
+   The server's voices are asked for "a natural conversational pace - neither slow nor rushed".
+3. **One natural voice for every language the browser cannot say naturally.** Edge has free natural voices for all three
+   (Neerja/Prabhat, Swara/Madhur, Dhwani/Niranjan) and keeps them. Chrome has none for Gujarati, only Google's older Hindi
+   and robotic Windows English: a line, a briefing or a chat reply with any such language is said WHOLE by the server's
+   natural voice (frontend/src/utils/voice.ts speakServerLine, registered with speech.ts setNaturalVoice for the replies),
+   in pieces of up to 600 characters cut at sentence ends, the next asked for while one plays, so a briefing flows with no
+   gap. Asked once a line: when the server cannot say it, the browser's voices do.
+4. **The server's natural voice: Google's Gemini voice, free.** With `GEMINI_API_KEY` in backend/.env - a free key from
+   Google AI Studio (aistudio.google.com, a Google account, no card) - Mitra's lines are made by Gemini's speech model
+   (backend/geminiSpeech.ts; GEMINI_TTS_MODEL, GEMINI_TTS_VOICE_FEMALE / _MALE), which speaks English, Hindi and Gujarati
+   in one warm voice. Google's free tier may use the text sent to improve its products: the reminders name people,
+   documents and scores - the owner decides. When Gemini cannot speak (its free allowance used, no internet, the key
+   refused) the owner's ChatGPT key speaks (paid, about Rs 1 a minute of speech, repeated lines cached), else the
+   browser. `features.voice` tells the browser a server voice exists even with no AI key.
+5. **Proved:** frontend/tests/voice.test.ts (the pace, a Gujarati and a Hindi line to the server whole, a long briefing in
+   pieces, features.voice), backend/tests/geminiSpeech.test.ts (the request, the clip, the fall-back), tests/
+   e2e_voice_and_sounds.py (Chrome's voice at its natural rate, two sentences in one flowing piece).
 
 ## Master data provenance summary
 

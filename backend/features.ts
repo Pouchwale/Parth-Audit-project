@@ -9,7 +9,7 @@
 // told with who is signed in (index.ts: /api/auth/me, login, signup) and reads
 // it in frontend/src/engine/features.ts.
 import "./env.ts";
-import { aiConfigured } from "./ai.ts";
+import { aiConfigured, voiceConfigured } from "./ai.ts";
 
 export const DEMO_MODE = process.env.DEMO_MODE === "1";
 
@@ -31,5 +31,13 @@ export const ALLOW_SIGNUP = process.env.ALLOW_SIGNUP === "1";
 // WHETHER a key is set is ever sent; the key itself never leaves the server.
 export const ASSISTANT_CONFIGURED = aiConfigured();
 
+// WHETHER THE SERVER HAS A VOICE OF ITS OWN FOR MITRA (23-Oct-2026). Since that
+// day Google's free Gemini voice (GEMINI_API_KEY, backend/geminiSpeech.ts) can
+// speak on a server with no model to ask at all, so the browser must not take
+// `assistant` to mean the voice: it asks GET /api/assistant/speak only when
+// this is true — a Gemini key or an AI key (backend/ai.ts voiceConfigured).
+// `assistant` still means a model. Only WHETHER, never a key.
+export const VOICE_CONFIGURED = voiceConfigured();
+
 /** What the browser is told, beside the account — and, before anybody signs in, by GET /api/auth/config. */
-export const FEATURES = { demoMode: DEMO_MODE, signup: ALLOW_SIGNUP, assistant: ASSISTANT_CONFIGURED };
+export const FEATURES = { demoMode: DEMO_MODE, signup: ALLOW_SIGNUP, assistant: ASSISTANT_CONFIGURED, voice: VOICE_CONFIGURED };

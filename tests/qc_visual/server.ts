@@ -120,6 +120,7 @@ server = spawn(process.execPath, ["--no-warnings=ExperimentalWarning", "backend/
     CHATGPT_API_KEY: "",
     OPENAI_API_KEY: "",
     GROQ_API_KEY: "",
+    GEMINI_API_KEY: "",
     CV_READ_WITH_ASSISTANT: "0",
     PICTURES_READ_WITH_ASSISTANT: "0",
     MITRA_SERVER_KEY: "",

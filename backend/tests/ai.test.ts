@@ -72,6 +72,11 @@ const SETTINGS = [
   "GROQ_AGENT_MODEL",
   "GROQ_DAILY_TOKEN_BUDGET",
   "PICTURES_READ_WITH_ASSISTANT",
+  // Google's free voice (23-Oct-2026, backend/geminiSpeech.ts): unset here, so every voice below is the AI service's.
+  "GEMINI_API_KEY",
+  "GEMINI_TTS_MODEL",
+  "GEMINI_TTS_VOICE_FEMALE",
+  "GEMINI_TTS_VOICE_MALE",
 ] as const;
 const saved = Object.fromEntries(SETTINGS.map((name) => [name, process.env[name]]));
 
@@ -496,6 +501,11 @@ describe("the request shapes ChatGPT is sent (api.openai.com)", () => {
     assert.match(SPEECH_INSTRUCTIONS.gu, /Gujarati/);
     assert.match(SPEECH_INSTRUCTIONS.hi, /Hindi/);
     assert.match(SPEECH_INSTRUCTIONS.en, /Indian accent/);
+    // 23-Oct-2026: the owner found the voice "very slow speaking" — fluent, at a conversational pace, no longer "easy".
+    for (const words of Object.values(SPEECH_INSTRUCTIONS)) {
+      assert.match(words, /fluently and at a natural conversational pace, neither slow nor rushed/);
+      assert.doesNotMatch(words, /easy pace|clearly/);
+    }
 
     // tts-1 takes no instructions.
     process.env.AI_TTS_MODEL = "tts-1";

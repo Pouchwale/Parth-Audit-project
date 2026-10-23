@@ -12,6 +12,7 @@ import {
   chunkForSpeech,
   joinWavs,
   parseWav,
+  pcmWav,
   SpeechCache,
   speakFailure,
   speakStatus,
@@ -179,6 +180,22 @@ describe("parseWav and joinWavs — one clip from several", () => {
     assert.throws(() => joinWavs([wav({ samples: pcm(1) }), wav({ samples: pcm(1), sampleRate: 22050 })]));
     assert.throws(() => joinWavs([]));
   });
+
+  it("pcmWav: raw samples (Gemini's audio/l16) given a header — 24 kHz, mono, 16-bit unless said — a trailing part-frame dropped", () => {
+    const samples = pcm(1, -2, 3);
+    const made = pcmWav(Buffer.concat([samples, Buffer.from([7])]));
+    const info = parseWav(made);
+    assert.deepEqual(
+      { format: info.audioFormat, channels: info.channels, rate: info.sampleRate, bits: info.bitsPerSample, blockAlign: info.blockAlign },
+      { format: 1, channels: 1, rate: 24000, bits: 16, blockAlign: 2 }
+    );
+    assert.deepEqual(made.subarray(info.dataOffset, info.dataOffset + info.dataLength), samples);
+    assert.equal(made.readUInt32LE(4), made.length - 8);
+    assert.deepEqual(made, wav({ samples }), "the same file the tests' own writer makes");
+    const stereo = parseWav(pcmWav(pcm(1, 2, 3, 4), { sampleRate: 16000, channels: 2 }));
+    assert.equal(stereo.sampleRate, 16000);
+    assert.equal(stereo.blockAlign, 4);
+  });
 });
 
 describe("SpeechCache — the last clips, in memory", () => {
@@ -208,6 +225,13 @@ describe("SpeechCache — the last clips, in memory", () => {
 
   it("is keyed by voice and text", () => {
     assert.notEqual(speechCacheKey("female", "Hello"), speechCacheKey("male", "Hello"));
+  });
+
+  it("and by the service that said it (23-Oct-2026): a line Gemini said is never one ChatGPT's voice said", () => {
+    assert.notEqual(speechCacheKey("female", "Hello", "gemini"), speechCacheKey("female", "Hello", "openai"));
+    assert.notEqual(speechCacheKey("female", "Hello", "gemini"), speechCacheKey("female", "Hello"));
+    assert.notEqual(speechCacheKey("female", "Hello", "gemini"), speechCacheKey("male", "Hello", "gemini"));
+    assert.equal(speechCacheKey("female", "Hello"), "female\nHello", "without a service, the key it always was");
   });
 });
 
@@ -253,12 +277,18 @@ describe("what the route answers when the voice cannot be made", () => {
 
 describe("aiSpeak on a Groq key — piece by piece, with Groq stood in for", () => {
   const realFetch = globalThis.fetch;
-  const saved = { GROQ_API_KEY: process.env.GROQ_API_KEY, CHATGPT_API_KEY: process.env.CHATGPT_API_KEY, OPENAI_API_KEY: process.env.OPENAI_API_KEY };
+  const saved = {
+    GROQ_API_KEY: process.env.GROQ_API_KEY,
+    CHATGPT_API_KEY: process.env.CHATGPT_API_KEY,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  };
   const groqSpeak = aiSpeak;
   beforeEach(() => {
-    // A Groq key alone: a server set up before REQUIREMENTS §109.
+    // A Groq key alone: a server set up before REQUIREMENTS §109 (and without Google's voice, 23-Oct-2026).
     delete process.env.CHATGPT_API_KEY;
     delete process.env.OPENAI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
   });
   afterEach(() => {
     globalThis.fetch = realFetch;
@@ -352,6 +382,16 @@ describe("VoiceAvailability and speakStatus — asked once, remembered", () => {
     assert.equal(a.refusing(1000), false);
   });
 
+  it("remembers which service it learnt of, when told (Gemini's voice or the AI service's, 23-Oct-2026)", () => {
+    const a = new VoiceAvailability();
+    a.markAvailable("gemini-3.8-flash-tts", 0, "gemini");
+    assert.deepEqual(a.current(1000), { code: "available", model: "gemini-3.8-flash-tts", until: VOICE_RECHECK_MS.available, service: "gemini" });
+    assert.equal(a.markUnavailable("gpt-4o-mini-tts", 1000, "openai"), true);
+    assert.equal(a.current(2000)?.service, "openai");
+    a.markFailed(model, 3000);
+    assert.equal("service" in (a.current(4000) ?? {}), false, "not told, not kept");
+  });
+
   it("the terms not accepted: remembered for ten minutes, news only the first time (one line in the server's log)", () => {
     const a = new VoiceAvailability();
     assert.equal(a.markUnavailable(model, 0), true);
@@ -409,5 +449,25 @@ describe("VoiceAvailability and speakStatus — asked once, remembered", () => {
     const failed = speakStatus("failed", tts, coral, 0, undefined, "openai");
     assert.match(failed.message, /^ChatGPT's natural voice \(OpenAI\) could not be reached just now/);
     for (const s of [ok, refused, failed]) assert.doesNotMatch(s.message, /Groq/, "nothing names Groq on the ChatGPT key");
+  });
+
+  it("23-Oct-2026: the same answers in Google's words (Gemini), with its voices", () => {
+    const gemini = "gemini-3.8-flash-tts";
+    const voices = { female: "Sulafat", male: "Achird" };
+    const ok = speakStatus("available", gemini, voices, 0, VOICE_RECHECK_MS.available, "gemini");
+    assert.deepEqual({ available: ok.available, engine: ok.engine, voices: ok.voices }, { available: true, engine: "gemini", voices });
+    assert.equal(ok.message, "Mitra speaks with Google's Gemini voice, made on this server.");
+    const refused = speakStatus("voice-unavailable", gemini, voices, 0, 10 * 60 * 1000, "gemini");
+    assert.equal(refused.message, voiceUnavailableMessage(gemini, "gemini"));
+    assert.match(refused.message, /GEMINI_API_KEY at aistudio\.google\.com/);
+    assert.match(refused.message, /GEMINI_TTS_MODEL/);
+    assert.match(speakStatus("failed", gemini, voices, 0, undefined, "gemini").message, /^Google's Gemini voice could not be reached just now/);
+    const error = new VoiceUnavailableError(gemini, "gemini", "Gemini speech request failed (403, PERMISSION_DENIED): denied");
+    assert.equal(error.service, "gemini");
+    assert.match(error.message, /not available to this Google AI Studio key \(GEMINI_API_KEY\)\. Gemini speech request failed \(403/, "Google's reason, for the log");
+    const answered = speakFailure(error);
+    assert.equal(answered.status, 503);
+    assert.equal(answered.body.code, "voice-unavailable");
+    assert.equal(answered.body.error, voiceUnavailableMessage(gemini, "gemini"), "never Google's own words to the browser");
   });
 });

@@ -288,6 +288,8 @@ async function main(): Promise<void> {
         CHATGPT_API_KEY: "",
         OPENAI_API_KEY: "",
         GROQ_API_KEY: "",
+        // ...and Google's free Gemini voice (backend/geminiSpeech.ts): no suite spends the plant's free allowance.
+        GEMINI_API_KEY: "",
         DATABASE_URL,
         // The Database overview's own read-only connection (backend/overviewRoutes.ts), on this run's database.
         OVERVIEW_DATABASE_URL,
