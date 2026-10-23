@@ -7,7 +7,8 @@
 // only a little (OTHER_MIN) - its words scroll in the box past that, never too small to read.
 const MIN = 0.55;
 const OTHER_MIN = 0.85;
-const PAPER = ".paper-sheet, .register-sheet, .soc-sheet";
+// (a paper's copy: drawn on its paper's own measures; a sheet of DCRS's own make keeps its words readable, 22-Oct-2026)
+const PAPER = "[data-paper-form], [data-paper-left], .soc-sheet, .svc-paper";
 const floorOf = (el: HTMLElement): number => (el.closest(PAPER) ? MIN : OTHER_MIN);
 const BOXES = "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='file']), select, .print-box-text";
 

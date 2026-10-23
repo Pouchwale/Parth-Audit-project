@@ -211,7 +211,7 @@ function ownLeftMargin(doc: Element): number | null {
 }
 const SMALLEST_SCALE = 0.3;
 // A form a little too wide for a portrait page stays portrait, slightly smaller.
-const PORTRAIT_SCALE = 0.8;
+const PORTRAIT_SCALE = 0.9;
 let fitted: HTMLElement[] = [];
 
 /** The narrowest the tables in `el` can be laid out, in CSS pixels. */
@@ -248,6 +248,16 @@ function fitToPage(docs: Element[]): void {
   // The screen's own zoom (utils/screenFit.ts) is off while the page is measured for print: the print fits the sheet at
   // its own size. Put back by screenFit's afterprint pass.
   for (const d of Array.from(document.querySelectorAll<HTMLElement>("[data-print-doc]"))) d.style.removeProperty("--screen-zoom");
+  // Measured as it PRINTS (styles.css html.print-measure: the print's paddings, box minimums and sizes), not as the screen draws it.
+  document.documentElement.classList.add("print-measure");
+  try {
+    measureAndFit(docs);
+  } finally {
+    document.documentElement.classList.remove("print-measure");
+  }
+}
+
+function measureAndFit(docs: Element[]): void {
   const needs = docs.map((d) => ({ doc: d as HTMLElement, width: narrowestWidth(d) }));
   const widest = Math.max(0, ...needs.map((n) => n.width));
   // The paper's own orientation (§117); without one, the width decides (§54).

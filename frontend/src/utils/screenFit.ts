@@ -6,13 +6,16 @@
 import { fitChanged, forgetWords } from "./fitText";
 
 const MIN_ZOOM = 0.55;
+// ...and a paper narrower than its room is enlarged to fill it, to MAX_ZOOM at most: on a laptop at the browser's 100% a
+// form drawn at its paper's size reads small (the owner, 22-Oct-2026: "very small and can't able to see it with normal view").
+const MAX_ZOOM = 1.5;
 const DESKTOP = "(min-width: 760px)";
 const DOCS = "[data-print-doc]:not([data-print-doc='ui'])";
 
 const zoomOf = (doc: HTMLElement): number => Number(doc.style.getPropertyValue("--screen-zoom")) || 1;
 
 function setZoom(doc: HTMLElement, zoom: number): void {
-  if (zoom >= 0.999) doc.style.removeProperty("--screen-zoom");
+  if (Math.abs(zoom - 1) < 0.002) doc.style.removeProperty("--screen-zoom");
   else doc.style.setProperty("--screen-zoom", String(zoom));
 }
 
@@ -27,7 +30,10 @@ const zoomFor = (room: number, need: number): number => Math.max(MIN_ZOOM, Math.
 // A paper's copy is fitted to the screen whatever it takes (to MIN_ZOOM); a register of the screen's own make far wider than any
 // screen (a year's columns, a skill matrix) keeps its size and scrolls in its grid as a spreadsheet does - fitted only when a
 // little zoom is enough.
-const PAPER = ".paper-sheet, .register-sheet, .soc-sheet";
+// (a paper's copy is one drawn on its paper's own measures - a QC paper form, a register drawn as its table, a statement of
+// compliance, the contractor's service report; DCRS's own sheets - a register of its own make - are never made so small that
+// they read badly: they scroll in their grid instead, the owner, 22-Oct-2026: "very small and can't able to see it")
+const PAPER = "[data-paper-form], [data-paper-left], .soc-sheet, .svc-paper";
 const OTHER_MIN = 0.85;
 const fits = (doc: HTMLElement, zoom: number): boolean => zoom >= OTHER_MIN || doc.querySelector(PAPER) !== null;
 
@@ -38,7 +44,16 @@ function refit(doc: HTMLElement): void {
   const room = doc.clientWidth;
   const own = doc.scrollWidth;
   const inner = innerScroll(doc);
-  if (room <= 0 || Math.max(own, room + inner) <= room + 1) return;
+  if (room <= 0) return;
+  if (Math.max(own, room + inner) <= room + 1) {
+    // Narrower than its room: as wide as its words and boxes let it be (max-content), then enlarged to the room.
+    const width = doc.style.width;
+    doc.style.width = "max-content";
+    const natural = doc.getBoundingClientRect().width;
+    doc.style.width = width;
+    if (natural > 0 && natural < room - 2) setZoom(doc, Math.min(MAX_ZOOM, Math.floor((room / natural) * 1000) / 1000));
+    return;
+  }
   const zoom = zoomFor(room, Math.max(own, room + inner));
   if (!fits(doc, zoom)) return;
   setZoom(doc, zoom);

@@ -1300,7 +1300,8 @@ function ColumnHead({
   return (
     <th
       {...(b ? bindColAttrs(b.key, b.type, b.options) : undefined)}
-      style={col.width && !paper ? { minWidth: col.width } : undefined}
+      // The column's width for typing in, on the screen only (styles.css --col-min): printed, it takes what its words need.
+      style={col.width && !paper ? ({ "--col-min": `${col.width}px` } as React.CSSProperties) : undefined}
       rowSpan={rowSpan}
       colSpan={colSpan}
       title={col.nominal !== undefined ? `Nominal ${col.nominal}${col.unit ? " " + col.unit : ""}; band ${col.min}–${col.max}` : undefined}
