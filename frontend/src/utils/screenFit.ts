@@ -9,6 +9,9 @@ const MIN_ZOOM = 0.55;
 // ...and a paper narrower than its room is enlarged to fill it, to MAX_ZOOM at most: on a laptop at the browser's 100% a
 // form drawn at its paper's size reads small (the owner, 22-Oct-2026: "very small and can't able to see it with normal view").
 const MAX_ZOOM = 1.5;
+// ...and only until its words read at READ_PX: a paper whose words are already that size is not made bigger (the owner,
+// 23-Oct-2026: "some part of are too much big" - F/QC/01 filled a laptop's width at 20 px, F/QC/17 at 17 px).
+const READ_PX = 15;
 const DESKTOP = "(min-width: 760px)";
 const DOCS = "[data-print-doc]:not([data-print-doc='ui'])";
 
@@ -37,6 +40,23 @@ const PAPER = "[data-paper-form], [data-paper-left], .soc-sheet, .svc-paper";
 const OTHER_MIN = 0.85;
 const fits = (doc: HTMLElement, zoom: number): boolean => zoom >= OTHER_MIN || doc.querySelector(PAPER) !== null;
 
+/**
+ * The size a document's words are read at, at zoom 1: the middle size of its boxes and cells, a few dozen looked at
+ * (spread over the document), or 0 when it has none.
+ */
+function readingSize(doc: HTMLElement): number {
+  const els = doc.querySelectorAll<HTMLElement>("input:not([type='hidden']):not([type='checkbox']):not([type='radio']), select, textarea, td");
+  const step = Math.max(1, Math.floor(els.length / 40));
+  const sizes: number[] = [];
+  for (let i = 0; i < els.length && sizes.length < 40; i += step) {
+    const px = parseFloat(getComputedStyle(els[i]).fontSize);
+    if (px > 0) sizes.push(px);
+  }
+  if (!sizes.length) return 0;
+  sizes.sort((a, b) => a - b);
+  return sizes[Math.floor(sizes.length / 2)];
+}
+
 /** From scratch: the zoom taken off, the paper's own width (and a grid's sideways scroll) measured against the room it has. */
 function refit(doc: HTMLElement): void {
   doc.style.removeProperty("--screen-zoom");
@@ -46,12 +66,16 @@ function refit(doc: HTMLElement): void {
   const inner = innerScroll(doc);
   if (room <= 0) return;
   if (Math.max(own, room + inner) <= room + 1) {
-    // Narrower than its room: as wide as its words and boxes let it be (max-content), then enlarged to the room.
+    // Narrower than its room: as wide as its words and boxes let it be (max-content), then enlarged toward the room -
+    // only until its words read at READ_PX.
     const width = doc.style.width;
     doc.style.width = "max-content";
     const natural = doc.getBoundingClientRect().width;
     doc.style.width = width;
-    if (natural > 0 && natural < room - 2) setZoom(doc, Math.min(MAX_ZOOM, Math.floor((room / natural) * 1000) / 1000));
+    if (natural <= 0 || natural >= room - 2) return;
+    const words = readingSize(doc);
+    const toRead = words > 0 ? Math.max(1, Math.floor((READ_PX / words) * 1000) / 1000) : MAX_ZOOM;
+    setZoom(doc, Math.min(MAX_ZOOM, toRead, Math.floor((room / natural) * 1000) / 1000));
     return;
   }
   const zoom = zoomFor(room, Math.max(own, room + inner));
