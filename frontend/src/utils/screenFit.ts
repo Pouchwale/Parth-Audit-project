@@ -3,7 +3,7 @@
 // than a laptop's page - is zoomed on the screen to the width it has, as a PDF viewer fits a page to its width. Print is not
 // touched: the zoom is a screen rule (styles.css), and utils/print.ts fits the printed page as before. A phone keeps its own
 // stacked layout and scrolls instead (below 760 px nothing is zoomed), and nothing is made smaller than MIN_ZOOM.
-import { fitChanged, forgetWords } from "./fitText";
+import { fitBoxes, fitChanged, forgetWords } from "./fitText";
 
 const MIN_ZOOM = 0.55;
 // ...and a paper narrower than its room is enlarged to fill it, to MAX_ZOOM at most: on a laptop at the browser's 100% a
@@ -131,8 +131,23 @@ export function installScreenFit(): void {
   // A page drawn, a record opened, a line added: looked at once a frame at most.
   new MutationObserver(() => queue(false)).observe(document.body, { childList: true, subtree: true });
   // Typed or chosen: a value changes without the page changing.
-  document.addEventListener("input", () => queue(false), true);
-  document.addEventListener("change", () => queue(false), true);
+  // A keystroke fits the box typed in, once a frame: never every box of the page (a 173-line sheet stays quick to type in).
+  const typed = new Set<HTMLElement>();
+  let typedFrame = 0;
+  const onTyped = (e: Event) => {
+    const el = e.target;
+    if (!(el instanceof HTMLElement) || !el.closest(DOCS)) return;
+    typed.add(el);
+    if (!typedFrame)
+      typedFrame = requestAnimationFrame(() => {
+        typedFrame = 0;
+        const els = Array.from(typed);
+        typed.clear();
+        fitBoxes(els);
+      });
+  };
+  document.addEventListener("input", onTyped, true);
+  document.addEventListener("change", onTyped, true);
   // A value written by the app (Mitra's fill, a carried line) changes no element and fires no event: looked at once a
   // second, reading values only - the words are measured only where a value changed.
   window.setInterval(() => {

@@ -30,26 +30,61 @@ function widthOf(el: HTMLElement): number {
 }
 const wider = (el: HTMLElement): boolean => el.clientWidth > 0 && widthOf(el) > el.clientWidth + 1;
 
-/** Each box's words made smaller until they fit its width: one layout read and one write per round, never one per box. */
+/** How wide a box's words are at `size` px, measured with a canvas (no layout); null where the box cannot be read so. */
+function wordsAt(el: HTMLElement, cs: CSSStyleDeclaration, size: number): number | null {
+  pen ??= document.createElement("canvas").getContext("2d");
+  if (!pen) return null;
+  pen.font = `${cs.fontStyle} ${cs.fontWeight} ${size}px ${cs.fontFamily}`;
+  const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.textIndent) || 0);
+  if (el instanceof HTMLInputElement) {
+    // (a date box spaces its day, month and year apart: measured in Chrome, about a third wider than the words alone)
+    if (el.type === "date") return pen.measureText("00-00-0000").width * 1.35 + pad + 4;
+    if (el.type === "time") return pen.measureText("00:00 AM").width * 1.35 + pad + 4;
+    return pen.measureText(el.value).width + pad + 2;
+  }
+  if (el instanceof HTMLSelectElement) {
+    const shown = el.selectedIndex >= 0 ? (el.options[el.selectedIndex]?.text ?? "") : "";
+    return pen.measureText(shown).width + pad + 18; // (the arrow)
+  }
+  return null;
+}
+
+/**
+ * Each box's words made smaller until they fit its width, in one step: every box read first (its room, its own size, its
+ * words measured with a canvas at that size), then every new size written - one layout, whatever the number of boxes.
+ */
 function fit(els: HTMLElement[]): HTMLElement[] {
-  // Back to its own size first: a shorter value needs no shrinking any more.
-  for (const el of els) if (base.has(el)) el.style.fontSize = "";
-  const shrunk: HTMLElement[] = [];
-  let todo = els.filter(wider);
-  for (let round = 0; round < 4 && todo.length; round++) {
-    const plan = todo.map((el) => {
-      const now = parseFloat(getComputedStyle(el).fontSize) || 12;
-      if (!base.has(el)) base.set(el, now);
-      const own = base.get(el)!;
-      return { el, size: Math.max(own * floorOf(el), Math.floor(now * (el.clientWidth / widthOf(el)) * 0.97 * 10) / 10) };
-    });
-    for (const { el, size } of plan) {
-      el.style.fontSize = `${size}px`;
-      if (round === 0) shrunk.push(el);
+  const plan: { el: HTMLElement; size: string }[] = [];
+  for (const el of els) {
+    const room = el.clientWidth;
+    if (room <= 0) continue;
+    const cs = getComputedStyle(el);
+    if (!base.has(el)) base.set(el, parseFloat(cs.fontSize) || 12);
+    const own = base.get(el)!;
+    const words = wordsAt(el, cs, own);
+    if (words === null) {
+      // (a printed date's words, a span: measured as it is laid out, at its size now)
+      const now = parseFloat(cs.fontSize) || own;
+      const need = el.scrollWidth;
+      if (need > room + 1) plan.push({ el, size: `${Math.max(own * floorOf(el), Math.floor(now * (room / need) * 0.97 * 10) / 10)}px` });
+      continue;
     }
-    todo = plan.filter(({ el, size }) => size > base.get(el)! * floorOf(el) && wider(el)).map((p) => p.el);
+    const size = words > room + 1 ? Math.max(own * floorOf(el), Math.floor(own * (room / words) * 0.97 * 10) / 10) : own;
+    plan.push({ el, size: size >= own - 0.05 ? "" : `${size}px` });
+  }
+  const shrunk: HTMLElement[] = [];
+  for (const { el, size } of plan) {
+    if (el.style.fontSize !== size) el.style.fontSize = size;
+    if (size) shrunk.push(el);
   }
   return shrunk;
+}
+
+/** The boxes given (the ones typed in), each fitted to its box (utils/screenFit.ts, on a keystroke). */
+export function fitBoxes(els: HTMLElement[]): void {
+  const boxes = els.filter((el) => el.isConnected && el.matches(BOXES));
+  for (const el of boxes) lastValue.set(el, valueOf(el));
+  if (boxes.length) fit(boxes);
 }
 
 /** The boxes of `docs` whose value changed since they were last looked at (every written box, the first time). */
