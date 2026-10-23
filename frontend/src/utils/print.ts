@@ -271,7 +271,8 @@ function measureAndFit(docs: Element[]): void {
     const own = ownLeftMargin(doc);
     const room = own !== null ? (PAGE_WIDTH_MM[landscape ? "landscape" : "portrait"] - own - 2) * PX_PER_MM : paper;
     if (width <= room) continue;
-    let zoom = Math.max(SMALLEST_SCALE, Math.floor((room / width) * 1000) / 1000);
+    // (2% of the room kept: the print is measured as it prints, closely but not to the pixel)
+    let zoom = Math.max(SMALLEST_SCALE, Math.floor(((room * 0.98) / width) * 1000) / 1000);
     doc.style.zoom = String(zoom);
     // A framed page is as tall as the paper (styles.css): the zoom shrinks its millimetres, so it says by how much.
     doc.style.setProperty("--print-zoom", String(zoom));

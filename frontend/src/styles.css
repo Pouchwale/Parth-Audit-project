@@ -1261,11 +1261,18 @@ html.print-scoped .paper-sheet .doc-table table th, html.print-scoped .paper-she
   /* (the owner, 22-Oct-2026: "the front is very small printing on it"): DCRS's own sheets print their words at 10 pt and
      their labels at 9 pt - a form's own size on paper - and their headings wrap; a sheet too wide for A4 is still fitted
      (utils/print.ts, measured as it prints: html.print-measure below). The owner's paper copies keep their own sizes. */
-  .paper-sheet .doc-table table th, .paper-sheet .doc-table table td { padding: 2px 5px; font-size: 13.33px; line-height: 1.2; }
-  .paper-sheet:not([data-paper-form]) .doc-table table th { white-space: normal; }
-  .paper-sheet .doc-table table.log-sheet td .cell-text { font-size: 13.33px; line-height: 1.2; }
-  .paper-sheet .field > label { font-size: 12px; margin-bottom: 0; line-height: 1.2; }
-  .paper-sheet .input, .paper-sheet select, .paper-sheet textarea { min-height: 0; height: auto; font-size: 13.33px; line-height: 1.25; }
+  .paper-sheet .doc-table table th, .paper-sheet .doc-table table td { padding: 2px 5px; font-size: 11px; line-height: 1.2; }
+  .paper-sheet .doc-table table.log-sheet td .cell-text { font-size: 11px; line-height: 1.2; }
+  .paper-sheet .field > label { font-size: 10px; margin-bottom: 0; line-height: 1.2; }
+  .paper-sheet .input, .paper-sheet select, .paper-sheet textarea { min-height: 0; height: auto; font-size: 11.5px; line-height: 1.25; }
+  /* (a sheet that declares its own paper - data-paper - keeps the density above, tuned to its paper's page count; DCRS's own
+     sheets print their words at 10 pt, their labels at 9 pt, their headings wrapped) */
+  .paper-sheet:not([data-paper]) .doc-table table th, .paper-sheet:not([data-paper]) .doc-table table td { font-size: 13.33px; }
+  .paper-sheet:not([data-paper]) .doc-table table th { white-space: normal; }
+  .paper-sheet:not([data-paper]) .doc-table table.log-sheet td .cell-text { font-size: 13.33px; }
+  .paper-sheet:not([data-paper]) .field > label { font-size: 12px; }
+  .paper-sheet:not([data-paper]) :is(.input, select, textarea) { font-size: 13.33px; }
+  .paper-sheet[data-paper] .doc-table table th[style*="--col-min"] { min-width: var(--col-min); }
   .paper-sheet .doc-table table.log-sheet td .input-sm { min-width: 48px; }
 }
 
@@ -3886,19 +3893,19 @@ table.svc-paper {
    measures the page - it takes what its words need, so a register of many columns is not shrunk for widths meant for typing. */
 @media screen {
   .doc-table table th[style*="--col-min"] { min-width: var(--col-min); }
-  html.print-measure [data-print-doc] .doc-table table th[style*="--col-min"] { min-width: 0; }
+  html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table th[style*="--col-min"] { min-width: 0; }
 }
 
 /* WHILE PRINT MEASURES THE PAGE (utils/print.ts fitToPage sets html.print-measure for the moment it measures): DCRS's own
    sheets take the widths they PRINT at, so a sheet is fitted to A4 as it will print and not shrunk for the wider screen
    layout (the owner, 22-Oct-2026: "the front is very small printing on it"). Mirrors the print rules above. */
 html.print-measure [data-print-doc] :is(.no-print, .btn) { display: none; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table :is(th, td) { padding: 2px 5px; font-size: 13.33px; line-height: 1.2; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table th { white-space: normal; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet td .cell-text { font-size: 13.33px; line-height: 1.2; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .field > label { font-size: 12px; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) :is(.input, select, textarea) { font-size: 13.33px; padding: 2px 0; border-width: 0; }
-html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet td .input-sm { min-width: 48px; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table :is(th, td) { padding: 2px 5px; font-size: 13.33px; line-height: 1.2; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table th { white-space: normal; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table.log-sheet td .cell-text { font-size: 13.33px; line-height: 1.2; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .field > label { font-size: 12px; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) :is(.input, select, textarea) { font-size: 13.33px; padding: 2px 0; border-width: 0; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) .doc-table table.log-sheet td .input-sm { min-width: 48px; }
 
 /* A PAPER WIDER THAN THE SCREEN IS SHOWN WHOLE (utils/screenFit.ts, the owner, 22-Oct-2026): zoomed to the room it has on a
    computer's screen, as a PDF viewer fits a page to its width; never in print (utils/print.ts fits the page) nor on a phone. */
