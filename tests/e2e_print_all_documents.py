@@ -163,6 +163,8 @@ PAPER_PAGES = {
     # F/QC/17's second page, the 300 mm scale's (REQUIREMENTS s117, 17-Oct-2026): the same paper.
     "qc-ruler-verification-300": ("portrait", 1),
     "hr-daily-cleaning": ("landscape", 1),
+    # F/HR/04 is one portrait page on paper and here: at DCRS's own 10 pt its last question ran to a second page (23-Oct-2026).
+    "hr-pre-employment-health": ("portrait", 1),
     # The contractor's service reports (REQUIREMENTS section 118): one A4 portrait page each, as the March paper is one page.
     "service-report-rodent": ("portrait", 1),
     "service-report-general": ("portrait", 1),

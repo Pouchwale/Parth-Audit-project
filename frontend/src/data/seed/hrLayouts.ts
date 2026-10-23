@@ -145,6 +145,9 @@ const PRE_EMPLOYMENT_QUESTIONS = [
 
 const preEmployment: LogSheetLayout = {
   documentId: "hr-pre-employment-health",
+  // One portrait page, as the paper is (23-Oct-2026): printed at DCRS's own 10 pt it ran to two for its last question,
+  // so it keeps the density a declared paper prints at (about 9 pt), as it did on one page before.
+  paper: "portrait",
   // The paper numbers its questions 01 to 10, question 06 over twelve lines (REQUIREMENTS §102).
   ownLineNumbers: true,
   instructions: [
