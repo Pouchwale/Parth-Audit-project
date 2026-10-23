@@ -1,17 +1,18 @@
 <#
 .SYNOPSIS
-  Opens Windows Firewall on the plant's server PC for DCRS (TCP 4000), the Mitra server (TCP 3000)
-  and Mitra for Expo Go (TCP 8081), for the company network only.
+  Opens Windows Firewall on the plant's server PC for DCRS (TCP 4000, and its secure address TCP 4443),
+  the Mitra server (TCP 3000) and Mitra for Expo Go (TCP 8081), for the company network only.
 
 .DESCRIPTION
-  Laptops and desktops open DCRS at http://<this PC>:4000. Staff phones open Mitra in Expo Go at
+  Laptops and desktops open DCRS at http://<this PC>:4000, or at https://<this PC>:4443, its secure
+  address, where a browser lends Mitra the microphone. Staff phones open Mitra in Expo Go at
   exp://<this PC>:8081, and the app then talks to the Mitra server at http://<this PC>:3000.
-  Windows Firewall turns all three away until it is told otherwise. This script adds one inbound
+  Windows Firewall turns them all away until it is told otherwise. This script adds one inbound
   "allow" rule for each port, for the Private and Domain network profiles: the company network,
   once Windows knows it as one. It never opens them on Public networks unless -AnyProfile is given.
 
   Running it again is safe: a rule that is already right is left alone, and one that differs is
-  made again. -Remove takes the three rules away. -DryRun shows what it would do and changes
+  made again. -Remove takes the four rules away. -DryRun shows what it would do and changes
   nothing.
 
   It also shows each connected network card and how Windows classes its network. On a network
@@ -26,7 +27,7 @@
   Show what would be done; change nothing. Needs no administrator.
 
 .PARAMETER Remove
-  Take the three rules away again.
+  Take the four rules away again.
 
 .PARAMETER AnyProfile
   Open the ports on Public networks too. Any network this PC joins, a cafe's Wi-Fi included, could
@@ -38,6 +39,9 @@
 
 .PARAMETER DcrsPort
   DCRS's port, 4000 unless API_PORT in backend\.env says otherwise.
+
+.PARAMETER DcrsSecurePort
+  DCRS's secure address's port: HTTPS_PORT in backend\.env, else DCRS's port + 443 (4443).
 
 .PARAMETER MitraServerPort
   The Mitra server's port, 3000. The app looks for it there.
@@ -51,7 +55,7 @@
 
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\open-firewall.ps1
-  In an administrator's PowerShell: adds (or puts right) the three rules.
+  In an administrator's PowerShell: adds (or puts right) the four rules.
 
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\open-firewall.ps1 -SetPrivate
@@ -64,11 +68,14 @@ param(
   [switch]$AnyProfile,
   [switch]$SetPrivate,
   [ValidateRange(1, 65535)][int]$DcrsPort = 4000,
+  # DCRS's secure address (backend/secureAddress.ts: HTTPS_PORT, else DCRS's port + 443), where Mitra's microphone works.
+  [ValidateRange(0, 65535)][int]$DcrsSecurePort = 0,
   [ValidateRange(1, 65535)][int]$MitraServerPort = 3000,
   [ValidateRange(1, 65535)][int]$ExpoGoPort = 8081
 )
 
 $ErrorActionPreference = 'Stop'
+if ($DcrsSecurePort -eq 0) { $DcrsSecurePort = $DcrsPort + 443 }
 # What this run was given, to say how to run it again as an administrator.
 $BoundAtStart = $PSBoundParameters
 
@@ -78,6 +85,8 @@ $Group = 'DCRS plant servers'
 $Rules = @(
   [pscustomobject]@{ Name = 'DCRS-Plant-DCRS'; DisplayName = "DCRS for browsers (TCP $DcrsPort)"; Port = $DcrsPort
     Description = "Laptops and desktops on the company network open DCRS at http://<this PC>:$DcrsPort. Added by DCRS's scripts\windows\open-firewall.ps1." },
+  [pscustomobject]@{ Name = 'DCRS-Plant-DCRS-Secure'; DisplayName = "DCRS secure address for browsers (TCP $DcrsSecurePort)"; Port = $DcrsSecurePort
+    Description = "Laptops and desktops on the company network open DCRS at https://<this PC>:$DcrsSecurePort, where Mitra's microphone works. Added by DCRS's scripts\windows\open-firewall.ps1." },
   [pscustomobject]@{ Name = 'DCRS-Plant-MitraServer'; DisplayName = "Mitra server for the phones (TCP $MitraServerPort)"; Port = $MitraServerPort
     Description = "The Mitra app on the staff's phones talks to the Mitra server at http://<this PC>:$MitraServerPort. Added by DCRS's scripts\windows\open-firewall.ps1." },
   [pscustomobject]@{ Name = 'DCRS-Plant-ExpoGo'; DisplayName = "Mitra for Expo Go (TCP $ExpoGoPort)"; Port = $ExpoGoPort
@@ -117,7 +126,7 @@ function Get-RerunCommand {
 $wantMask = if ($AnyProfile) { 7 } else { 3 }
 $wantProfiles = Get-ProfileWords $wantMask
 $elevated = Test-Elevated
-$mode = if ($Remove) { 'remove the rules' } else { "allow TCP $DcrsPort, $MitraServerPort and $ExpoGoPort in, on $wantProfiles networks" }
+$mode = if ($Remove) { 'remove the rules' } else { "allow TCP $DcrsPort, $DcrsSecurePort, $MitraServerPort and $ExpoGoPort in, on $wantProfiles networks" }
 
 Write-Host ''
 Write-Host "Windows Firewall for the plant's servers on ${env:COMPUTERNAME}: $mode."

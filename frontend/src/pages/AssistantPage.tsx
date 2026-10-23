@@ -62,7 +62,7 @@ import { guide, hello } from "../engine/assistantPersona";
 import { SPEECH_LOCALES } from "../i18n/strings";
 import { isSpeechOutputSupported, isVoiceInputSupported, listenForUtterance, speak, stopSpeaking, type VoiceSession } from "../utils/speech";
 import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../utils/recorder";
-import { micSecureAddressWords } from "../utils/micCheck";
+import { loadSecureAddress, micNeedsSecureAddress, micSecureAddressWords, secureAddressUrl } from "../utils/micCheck";
 // Mitra never talks over a person speaking into the microphone (REQUIREMENTS §81).
 import { noVoiceHintOnce, setMicBusy } from "../utils/voice";
 import { generateId } from "../utils/id";
@@ -289,6 +289,17 @@ export function AssistantPage() {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [voiceNote, setVoiceNote] = useState<string | null>(null);
+  // Over the network's http address the browser has no microphone to lend (utils/micCheck.ts): said at once, with the
+  // way to the secure address, instead of listening for words that can never come.
+  const micOutOfReach = (): boolean => {
+    if (!micSecureAddressWords()) return false;
+    void loadSecureAddress().then(() => setVoiceNote(micSecureAddressWords()));
+    return true;
+  };
+  // On the http address, where the secure address is, asked once (nothing is asked on localhost or https).
+  useEffect(() => {
+    void loadSecureAddress();
+  }, []);
   const [speakReplies, setSpeakReplies] = useState(() => settingsRepository.get().speakReplies);
   // The files attached to the message being written (REQUIREMENTS §80).
   const [attachments, setAttachments] = useState<MitraAttachment[]>([]);
@@ -936,6 +947,7 @@ export function AssistantPage() {
       setListening(false);
       return;
     }
+    if (micOutOfReach()) return;
     if (!voiceSupported) {
       setVoiceNote(t("ai.voiceUnsupported"));
       return;
@@ -1023,7 +1035,7 @@ export function AssistantPage() {
   const toggleWhisper = () => {
     if (recording.transcribing) return;
     if (recorderRef.current) void finishRecording();
-    else void startWhisper();
+    else if (!micOutOfReach()) void startWhisper();
   };
 
   const toggleSpeakReplies = () => {
@@ -1061,7 +1073,22 @@ export function AssistantPage() {
             ),
           }
         : voiceNote
-          ? { text: voiceNote }
+          ? {
+              text: (
+                <>
+                  {voiceNote}
+                  {/* On the http address: the same page on DCRS's secure address, where the microphone works (utils/micCheck.ts). */}
+                  {micNeedsSecureAddress() && secureAddressUrl() && (
+                    <>
+                      {" "}
+                      <a className="btn btn-primary btn-sm" href={secureAddressUrl() ?? undefined} data-action="open-secure-address">
+                        {t("ai.openSecureAddress")}
+                      </a>
+                    </>
+                  )}
+                </>
+              ),
+            }
           : null;
 
   return (

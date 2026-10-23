@@ -100,7 +100,9 @@ export type ChipAction =
   | { type: "confirmFormatChange" }
   | { type: "cancelFormatChange" }
   // "Which one?" — the chip says the completed sentence for the person.
-  | { type: "sendText"; text: string };
+  | { type: "sendText"; text: string }
+  // The same page on DCRS's secure address, where the browser lends the microphone (utils/micCheck.ts).
+  | { type: "openUrl"; url: string };
 
 export interface Chip {
   label: string;

@@ -9266,6 +9266,38 @@ waited for it were held against their papers with the round's own pages (the ori
 - His F/QC/29 and F/QC/20 files print another document's footer ("Document number: - QA/ICM/SPEC/14 ... Current Issue date
   1st December 2021, Next Review date 31st December 2024"), left in his file: kept, as his paper prints it.
 
+## §120 Mitra's microphone on the company network: DCRS's own secure address (23-Oct-2026)
+
+The owner, 23-Oct-2026: "when i deployed it locally microphone is unable to start but when it run it on my system it
+running perfectly here so browser is blocking the microphone so fix it any how".
+
+1. **Why.** A browser lends a page the microphone only on a secure address: `https`, or `http://localhost` on the computer
+   itself. On the DCRS computer (`http://localhost:4000`) Mitra hears; from a laptop or desktop at
+   `http://<server address>:4000` the browser has no microphone to lend at all (`navigator.mediaDevices` is missing).
+2. **DCRS answers on a secure address of its own** beside its http one, with the same pages and API:
+   `https://<server address>:4443` (the http port + 443; `HTTPS_PORT` sets another, `DCRS_HTTPS=off` turns it off)
+   (backend/secureAddress.ts). Its certificates are its own, made with Node's crypto and no package
+   (backend/tlsCert.ts): the plant's certificate authority (ten years, made once, kept in `backend/data/tls`, its key
+   never leaving the server) and a server certificate it signs naming localhost, the computer's name and each of its
+   network addresses (397 days; made again when an address changes or a month before it ends). `HTTPS_CERT_FILE` and
+   `HTTPS_KEY_FILE` use the company's own certificate instead. A port that is taken or a certificate that cannot be
+   made is said once at start-up; the http address is never stopped by it.
+3. **Trusting it.** `http://<server address>:4000/dcrs-certificate.crt` hands out the plant's authority (never a key).
+   Installed once on a computer as a trusted root, its browser trusts the secure address with no warning; without it
+   the browser warns once that the connection is not private, and past the warning the page is still a secure address,
+   where the microphone works (docs/DEPLOYMENT.md, "The secure address").
+4. **On the http address** Mitra never starts listening for words that cannot come: the microphone button says at once
+   that the microphone works only on the secure address, names the same page there and offers a button that opens it
+   ("Open the secure address"), in English or Gujarati and in Hindi (frontend/src/utils/micCheck.ts). The full Mitra
+   page shows it under the microphone; the chat panel as a chip.
+5. **Windows Firewall** lets 4443 in beside 4000: scripts/windows/open-firewall.ps1 adds the rule (run it again as an
+   administrator once).
+6. **Tests make no sound** (the owner, 23-Oct-2026: "whenever you test any thing i don't need to hear any voice"):
+   every test browser is launched muted and every page speaks at volume 0 (tests/quiet). Proved by
+   tests/e2e_secure_address.py (the http address over the network, the secure address, the button between them, the
+   microphone lent there) and backend/tests/secureAddress.test.ts (the port, the certificates, TLS trusted through the
+   plant's authority alone, a taken port).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

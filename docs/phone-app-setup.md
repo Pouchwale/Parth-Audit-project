@@ -7,7 +7,9 @@ PowerShell, in the DCRS folder, unless the step says otherwise.
 ## 1. The picture
 
 - **One server PC** on the company network runs everything:
-  - **DCRS** on port **4000**. Laptops and desktops open `http://<server address>:4000` in a browser.
+  - **DCRS** on port **4000**. Laptops and desktops open `http://<server address>:4000` in a browser, or
+    `https://<server address>:4443`, its secure address, where Mitra's microphone works (docs/DEPLOYMENT.md,
+    "The secure address").
   - **The Mitra server** on port **3000**. The Mitra app on the phones talks to it, and it talks to DCRS
     as the person signed in, so DCRS's departments, working hours and rules apply on the phone too.
   - **Mitra for Expo Go** on port **8081**. Phones open Mitra in Expo Go from `exp://<server address>:8081`.
@@ -123,8 +125,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\open-firewal
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\open-firewall.ps1
 ```
 
-The first line shows what it would do and changes nothing. The second adds three inbound rules (TCP 4000, 3000,
-8081) for Private and Domain networks; running it again is safe. If it lists the company network as **Public**, the
+The first line shows what it would do and changes nothing. The second adds four inbound rules (TCP 4000, 4443,
+3000, 8081) for Private and Domain networks; running it again is safe. If it lists the company network as **Public**, the
 rules do not apply there: add `-SetPrivate` (only on the company network). `-Remove` takes the rules away.
 `-AnyProfile` opens Public networks too: avoid it.
 

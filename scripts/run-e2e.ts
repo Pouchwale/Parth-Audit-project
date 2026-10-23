@@ -360,6 +360,7 @@ async function main(): Promise<void> {
       "tests/e2e_smoke.py",
       "tests/e2e_backlog_regression.py",
       "tests/e2e_voice.py",
+      "tests/e2e_secure_address.py",
       "tests/e2e_realism.py",
       "tests/e2e_editing.py",
       "tests/e2e_files.py",

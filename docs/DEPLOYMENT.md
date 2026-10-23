@@ -41,9 +41,13 @@ started together and again after a power cut — is set up step by step in [phon
    yourself (otherwise one is generated on first run and stored in `backend/data/jwt-secret.txt` —
    see below). **Still recommended not to expose this port to the public internet as-is** — this
    is a from-scratch email/password login meant for a trusted internal LAN, not a hardened
-   internet-facing auth system (no email verification, no password reset, no 2FA, no HTTPS unless
-   you put a reverse proxy in front of it).
-4. Because routing is hash-based (`#/dashboard`, `#/calendar`, …), no server-side URL rewriting
+   internet-facing auth system (no email verification, no password reset, no 2FA; its HTTPS is the
+   secure address on DCRS's own certificate below, meant for the company network, not the internet).
+4. **Mitra's microphone needs the secure address** (REQUIREMENTS §120): a browser lends the microphone only on
+   `https` or on `http://localhost`, so from another computer open `https://<machine-ip>:4443` (DCRS prints it
+   when it starts; see **The secure address** below). The plain `http://<machine-ip>:4000` keeps working for
+   everything else, and the phones' Mitra app keeps using it.
+5. Because routing is hash-based (`#/dashboard`, `#/calendar`, …), no server-side URL rewriting
    is required for the frontend routes themselves — only `/api/*` needs to reach the Express
    process, which `backend/index.ts` already handles when serving `frontend/dist/` itself.
 
@@ -51,6 +55,31 @@ If you specifically want the old zero-backend static-only deployment (no account
 the URL gets straight in), that's no longer how `main.tsx` is wired — the app now gates on
 `AuthProvider`. Removing that gate is a small, isolated revert (see `frontend/src/main.tsx`), not
 recommended for anything beyond a quick local demo.
+
+## The secure address (Mitra's microphone on the company network, REQUIREMENTS §120)
+
+DCRS answers at `https://<machine-ip>:4443` beside `http://<machine-ip>:4000` - the same pages, the same API, the
+same sign-in. A browser lends a page the microphone only on `https` or on `http://localhost`, so on every computer
+but the DCRS computer itself Mitra hears only at the secure address. On the http address the microphone button
+says so and offers **Open the secure address**.
+
+- **Nothing to install on the server.** DCRS makes its own certificates at its first start, in `backend/data/tls`
+  (never committed): the plant's certificate authority (ten years) and a server certificate it signs for
+  `localhost`, the computer's name and each of its network addresses. When the computer's address changes, the
+  next start makes the server certificate again; the authority stays, so nothing needs installing again.
+- **The firewall:** run `scripts\windows\open-firewall.ps1` again as an administrator once - it adds TCP 4443
+  beside 4000 (docs/phone-app-setup.md, step 4).
+- **Each computer, once - either way works:**
+  - *Quick:* open `https://<machine-ip>:4443`; the browser warns "Your connection is not private"; choose
+    **Advanced**, then **Continue to <machine-ip> (unsafe)**. The microphone works from then on (Chrome and Edge
+    may ask again after they restart).
+  - *No warning ever:* open `http://<machine-ip>:4000/dcrs-certificate.crt`, open the downloaded
+    `DCRS-certificate.crt`, **Install Certificate...** > **Current User** (or Local Machine) > **Place all
+    certificates in the following store** > **Trusted Root Certification Authorities** > Finish, and answer
+    Yes. Restart the browser. The file is only the plant's certificate authority - its key never leaves the
+    DCRS computer.
+- **Settings** (`backend/.env`): `HTTPS_PORT` (default: DCRS's port + 443), `DCRS_HTTPS=off` (no secure address),
+  `HTTPS_CERT_FILE` and `HTTPS_KEY_FILE` (the company's own certificate and key, PEM, instead of DCRS's).
 
 ## Accounts / Authentication
 

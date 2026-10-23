@@ -36,7 +36,7 @@ import { historyForAgent, runMitraTurn } from "../../engine/mitraAgent";
 import { MAX_ATTACHMENTS, acceptFile, pickFromFolder, readAttachment } from "../../engine/mitraAttachments";
 import type { MitraAttachment, MitraStep, MitraToolContext } from "../../engine/mitraTypes";
 import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../../utils/recorder";
-import { micSecureAddressWords } from "../../utils/micCheck";
+import { loadSecureAddress, micSecureAddressWords, secureAddressUrl } from "../../utils/micCheck";
 // Mitra never talks over a person speaking into the microphone (REQUIREMENTS §81).
 import { noVoiceHintOnce, setMicBusy } from "../../utils/voice";
 import {
@@ -194,7 +194,17 @@ function cannotSubmitWords(t: { title?: string; status?: string; reopen?: unknow
   }
 }
 
+/** On the http address: a button to the same page on DCRS's secure address, where the microphone works (utils/micCheck.ts). */
+function secureAddressChips(say: (key: string) => string): Chip[] | undefined {
+  const url = micSecureAddressWords() ? secureAddressUrl() : null;
+  return url ? [{ label: say("ai.openSecureAddress"), action: { type: "openUrl", url }, tone: "primary" }] : undefined;
+}
+
 export function DocumentAssistant() {
+  // On the http address, where the secure address is, asked once (nothing is asked on localhost or https).
+  useEffect(() => {
+    void loadSecureAddress();
+  }, []);
   const { hasTarget, targetKind, targetDocumentId, targetSignature, getTarget } = useAssistantTarget();
   const { elRef, style: dragStyle, dragHandleProps, didJustDrag, reclamp } = useDraggable(WIDGET_POSITION_KEY);
   const { user } = useAuth();
@@ -1006,6 +1016,10 @@ export function DocumentAssistant() {
       // "Which one?" answered with a tap: the completed sentence is said for the person.
       case "sendText":
         void send(a.text);
+        return;
+      // The microphone's way to DCRS's secure address: the same page opened there (utils/micCheck.ts).
+      case "openUrl":
+        window.location.assign(a.url);
         return;
       case "confirmCorrection": {
         me(chip.label);
@@ -1929,7 +1943,7 @@ export function DocumentAssistant() {
     } catch (err) {
       setMicBusy(false);
       // Over the LAN's http address the browser has no microphone to allow (utils/micCheck.ts): say where to open DCRS instead.
-      bot(micSecureAddressWords() ?? (recorderErrorKind(err) === "denied" ? t("ai.voiceDenied") : t("ai.voiceError")));
+      bot(micSecureAddressWords() ?? (recorderErrorKind(err) === "denied" ? t("ai.voiceDenied") : t("ai.voiceError")), secureAddressChips(t));
     }
   };
 
@@ -2389,7 +2403,16 @@ export function DocumentAssistant() {
     return true;
   };
 
+  // Over the network's http address the browser has no microphone to lend (utils/micCheck.ts): said at once, with the
+  // way to the secure address, instead of listening for words that can never come.
+  const micOutOfReach = (): boolean => {
+    if (!micSecureAddressWords()) return false;
+    void loadSecureAddress().then(() => bot(micSecureAddressWords() ?? t("ai.voiceError"), secureAddressChips(t)));
+    return true;
+  };
+
   const toggleListening = () => {
+    if (!listening && !recordingRef.current && micOutOfReach()) return;
     // With a key on the server, the recording goes to Whisper (REQUIREMENTS §80).
     if (whisperVoice && modelReachable().ok) {
       autoOpenedRef.current = false;
@@ -2418,7 +2441,7 @@ export function DocumentAssistant() {
         setInput("");
         void send(transcript, true);
       },
-      onError: (kind) => bot(micSecureAddressWords() ?? (kind === "denied" ? t("ai.voiceDenied") : t("ai.voiceError"))),
+      onError: (kind) => bot(micSecureAddressWords() ?? (kind === "denied" ? t("ai.voiceDenied") : t("ai.voiceError")), secureAddressChips(t)),
       onEnd: () => {
         sessionRef.current = null;
         setListening(false);

@@ -57,6 +57,7 @@ import { registerAccessRoutes } from "./accessRoutes.ts";
 import { registerNotificationRoutes } from "./notificationRoutes.ts";
 import { pushDevicesFollow } from "./notifications.ts";
 import { printCompanyNetwork, registerPhoneAppRoutes } from "./phoneApp.ts";
+import { registerSecureAddressRoutes, startSecureAddress } from "./secureAddress.ts";
 import { setNotificationDeps, startJobs } from "./jobs.ts";
 import { runPushes } from "./push.ts";
 import { PHOTO_ROUTE } from "./apiV1Records.ts";
@@ -1525,6 +1526,9 @@ registerNotificationRoutes(app, { requireAuth });
 setNotificationDeps(() => ({ push: (now) => runPushes(now) }));
 // MITRA ON THE PHONES: where Expo Go finds it on this PC, for the QR card on the Ask Mitra page (backend/phoneApp.ts).
 registerPhoneAppRoutes(app, { requireAuth });
+// THE SECURE ADDRESS (backend/secureAddress.ts): the plant's certificate to install, and where https answers, for the
+// microphone's words on the http address (a browser lends the microphone only on https or on localhost).
+registerSecureAddressRoutes(app);
 
 // THE WEBSITE AS THE CODE IS NOW (REQUIREMENTS §102): a built website older than its
 // code is built again here, before the server answers (backend/websiteBuild.ts). Not
@@ -1686,6 +1690,8 @@ app.listen(PORT, () => {
   console.log(`API server listening on http://localhost:${PORT}`);
   // "On the company network: http://<this PC's address>:<port>", the address laptops and desktops open.
   printCompanyNetwork(PORT);
+  // ...and the same DCRS at https://<address>:<port + 443>, where a browser on another computer lends Mitra its microphone.
+  void startSecureAddress(app, PORT);
   // The daily escalation and the weekly digest, on the plant's clock (backend/jobs.ts); JOBS=0 leaves them off.
   startJobs();
 });

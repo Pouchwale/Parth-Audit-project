@@ -695,6 +695,8 @@ const en = {
   "ai.voiceDenied": "Microphone permission was blocked, so I can't listen. Allow the microphone in your browser and try again.",
   // Opened over the LAN as http://<address> the browser gives no microphone at all (utils/micCheck.ts).
   "ai.voiceInsecure": "The microphone works only on a secure address. Open DCRS at http://localhost:{port} on the DCRS computer, or at its https address, and try again.",
+  "ai.voiceSecureAddress": "The microphone works only on DCRS's secure address: {url} — open it with the button below and try again. The first time on this computer the browser may warn that the connection is not private: choose Advanced, then Continue.",
+  "ai.openSecureAddress": "Open the secure address",
   // Mitra as an agent (REQUIREMENTS §80): files, the microphone by the server, the steps it takes
   "ai.attach": "Attach a file",
   "ai.attachFiles": "Files",
@@ -1500,6 +1502,8 @@ const gu: Record<StringKey, string> = {
   "ai.voiceError": "મને બરાબર સંભળાયું નહીં — ફરી પ્રયાસ કરો, અથવા લખીને જણાવો.",
   "ai.voiceDenied": "માઇક્રોફોનની પરવાનગી બંધ છે, તેથી હું સાંભળી શકતો નથી. બ્રાઉઝરમાં માઇક્રોફોન ચાલુ કરીને ફરી પ્રયાસ કરો.",
   "ai.voiceInsecure": "માઇક્રોફોન ફક્ત સુરક્ષિત સરનામા પર જ કામ કરે છે. DCRS કમ્પ્યુટર પર http://localhost:{port} ખોલો, અથવા તેનું https સરનામું ખોલો, અને ફરી પ્રયાસ કરો.",
+  "ai.voiceSecureAddress": "માઇક્રોફોન ફક્ત DCRS ના સુરક્ષિત સરનામા પર જ કામ કરે છે: {url} — નીચેના બટનથી તે ખોલો અને ફરી પ્રયાસ કરો. આ કમ્પ્યુટર પર પહેલી વાર બ્રાઉઝર કહી શકે કે કનેક્શન ખાનગી નથી: Advanced પસંદ કરો, પછી Continue.",
+  "ai.openSecureAddress": "સુરક્ષિત સરનામું ખોલો",
   // Mitra as an agent (REQUIREMENTS §80)
   "ai.attach": "ફાઇલ જોડો",
   "ai.attachFiles": "ફાઇલો",
