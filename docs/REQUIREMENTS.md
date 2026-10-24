@@ -2856,6 +2856,8 @@ opens with it. A record page hands over its live record; a format's own page (`/
 `/hr/{slug}`) is known from the address. The one page it waits to be asked on is the Service Provider
 Licence: a scan with nothing to fill, which opens with a question of its own — the agreement reminder (§33)
 — that Mitra should not talk over.
+*Amended by §123 (24-Oct-2026): Mitra no longer opens by itself. It follows the document and opens, with this
+greeting, when its pill is clicked.*
 
 **IN A SIDE PANEL, NOT OVER THE PAGE.** Open, Mitra is docked down the right-hand side and the page gives up
 that width, so the document and the chat about it sit side by side and nothing on the form is covered (the
@@ -4825,6 +4827,8 @@ the app when a signed-in browser session opens it (main.tsx `SessionIntro`), onc
 Fonts are self-hosted (OFL, public/fonts, 300 KB in all, about 60 KB for an English page; Gujarati files load only when
 Gujarati text appears): **Baloo Bhai 2** — a friendly display face made for Gujarati and English — for titles, the
 brand, card headers and Mitra; **Plus Jakarta Sans** for the screens' text, with **Noto Sans Gujarati** for Gujarati.
+*Amended by §123 (24-Oct-2026): the display face is Plus Jakarta Sans too, one family for the whole app; Baloo Bhai 2
+is removed.*
 The PRINTED FORMS keep exactly the old font (`--font-doc`), on screen and on paper: the company's forms are the spec.
 
 **7. EVERY DOCUMENT'S WORD OR EXCEL, UPLOADED BACK** (engine/roundTrip/*, components/common/UploadChanges.tsx). Beside
@@ -5194,7 +5198,8 @@ rule matches the calendar pages for every day of 2026 and 2027). Outside them:
   start again on Friday 2 October at 8:40 am.";
 - a save a browser sends outside the hours is answered 401 (not 403), so the browser keeps the unsent work for the next sign-in
   rather than forgetting it;
-- the sign-in page states the hours and today's state.
+- the sign-in page states the hours and today's state (removed by §123, 24-Oct-2026, at the owner's request; a refused
+  sign-in still gives the hours and the next opening in the server's words).
 Every session ends at the close of the day it began — at 6:20 pm for staff, at midnight for the super admin — so every morning
 starts with signing in (this replaces the seven-day session of §81 and §83). At 6:10 pm the browser warns; just before 6:20 it
 signs the person out by itself, after sending any unsent work, and the activity log says "At the close of working hours". The
@@ -9366,6 +9371,51 @@ password then that cartoon will closing eye and opening it has some emotions".
 6. **Proved:** frontend/tests/mitraFace.test.ts (the moods, the drawn states, the stylesheet's part),
    mitraLook.test.ts (the blink in the inventory, the motion rules held), backend tests for the free-only switch,
    tests/e2e_login_only.py (the cartoon's eyes and sadness).
+
+## §123 The sign-in screen kept plain, one font family, Mitra that opens when asked, and printouts that fill their A4 page (24-Oct-2026)
+
+The owner, 24-Oct-2026 (two screenshots of the sign-in screen): "ok so remove this message and second is ok but remove the
+below line:- Every controlled record filled, reviewed, verified and on file. Staff working hours: 8:40 am also change
+fonts and also bot will see where i am going and what i am doing like and whenever i open any record bot will open in
+side as it opening right now but when user will click on it then only otherwise not and Still some document are not
+able to print not proper because of they are not able to cover whole A4 size paper which result when user take print out
+on physical paper the print will come properly but it not cover whole page and font size on that paper will be very small".
+
+1. **The sign-in screen** shows no working-hours box any more (the standing note "Staff working hours: 8:40 am to
+   6:20 pm ..." is gone) and no tagline under the company's name ("Every controlled record — filled, reviewed, verified and
+   on file." is gone). The hours still hold: a staff sign-in outside them is refused in the server's own words with the
+   next opening, and the end-of-day sign-out notice stays (§84 unchanged).
+2. **One font family.** The display face (titles, headers, the sign-in wordmark, the brand, Mitra's pill) is the app's
+   own text face, Plus Jakarta Sans, instead of the rounded Baloo Bhai 2: the whole app reads in one clean family. The
+   sign-in wordmark keeps its burgundy face and depth. Gujarati is set in Noto Sans Gujarati as before; print keeps the
+   documents' own stack.
+3. **Mitra opens when asked** (amends §60): it still follows where the person goes and what is open — the record or the
+   document — but no longer opens its side panel by itself. The pill says what it is following ("Ask Mitra about ...")
+   and its face glances toward the page; one click opens the panel docked beside the page with the greeting it used to
+   give on arrival, naming the record or document and offering the task.
+4. **A printout fills its A4 page** (frontend/src/utils/print.ts, "FILLING THE PAGE"). Measured on every document's
+   PDF: one-page sheets of DCRS's own make used 27-55% of the page's height where their papers use 80-95% — a register
+   printed only the lines written while its paper rules lines to its foot, a short form printed in the top third. Now,
+   while print measures the page:
+   - a one-page sheet of DCRS's own make is drawn bigger, 1.3x at most (10 pt -> 13 pt) and never wider than the page,
+     until it reaches 94% of the A4 page;
+   - a register (a grid that takes free lines) is then ruled with 8 mm blank lines down to 86% of the page, as its
+     paper is, ready for a pen — the last step of the print, after a long value is written as words; the lines leave the
+     screen when printing ends;
+   - a paper form drawn in millimetres, a framed paper, a sheet that names its paper, one standing at its own margin,
+     and a sheet drawn in points to its own paper — the contractor's service reports (the March sheet to 1.5 pt, §118:
+     "make sure it looks like it only"; that sheet itself is 433 pt across at 9 pt) and F/HR/18 (its Word page) — are
+     drawn to their paper already and are left exactly as they are;
+   - the height is measured with the print's own rules laid on for the moment of measuring, against the whole page
+     with its 12 mm margin (measured in the screen's styles it read 15-68% high).
+   Measured: F/PRD/23 27% -> 82% of the page, F/PRD/24 38% -> 79% at 12.4 pt, F/STR/02 54% -> 92% on one page,
+   F/DISP/04 36% -> 80% at 12.2 pt (its paper 12 pt), F/HR/07 46% -> 81%; F/QC/01, the service reports and F/HR/18
+   unchanged, as their papers.
+5. **Proved:** tests/e2e_print_fill.py (a portrait and a landscape register ruled to the foot on one page, a register of
+   wrapping names on one page, a short form drawn bigger, the service report and a QC paper form left as drawn, the
+   lines gone after printing; tests/e2e_print_all_documents.py still finds the reports at the March sheet's 432 pt and
+   every document's grids inside the page), frontend/tests/printFill.test.ts (the fill's rules), and the sign-in and
+   Mitra suites changed with items 1-3.
 
 ## Master data provenance summary
 
