@@ -72,7 +72,7 @@ import { recordRepository } from "../../data/repositories/recordRepository";
 import { routeForRecord } from "../../engine/reminders";
 import { canSampleFill, sampleFillAllowedFor, sampleFillDeclined, sampleFillOffered, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
 import { answerQuestion, interviewPlan, nextQuestion, planProgress, type InterviewQuestion } from "../../engine/guidedRecord";
-import { queueAfterOpen, takeHandoff } from "../../engine/assistantHandoff";
+import { handoffWaiting, queueAfterOpen, takeHandoff } from "../../engine/assistantHandoff";
 import { applyFormatCommand, parseFormatCommand, type FormatCommand } from "../../engine/formatCommands";
 import { canDesignGrid, commitFormatChange, draftOf } from "../../engine/formatOps";
 import { designSessionFor } from "../../engine/designSession";
@@ -91,6 +91,8 @@ import { generateId } from "../../utils/id";
 import { openBriefing } from "./AssistantBriefingPopup";
 
 const WIDGET_POSITION_KEY = "dcrs:v1:assistant-widget-pos";
+// Where the pill's eyes rest while Mitra follows an open document (REQUIREMENTS §123): on the page, to its left.
+const PILL_GLANCE = { x: -0.6, y: 0 };
 const START_GUIDED_EVENT = "dcrs:start-guided";
 /** A file handed to Mitra from "Upload changes" (REQUIREMENTS §81): { files: File[], text?: string }. */
 export const MITRA_ATTACH_EVENT = "dcrs:mitra-attach";
@@ -235,16 +237,13 @@ export function DocumentAssistant() {
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const startedRef = useRef<Set<string>>(new Set());
-  // The documents and records Mitra has already come forward for in this
-  // sitting (REQUIREMENTS §60) — once each, so closing the panel on a record
-  // is respected until a different document is opened.
+  // The documents and records Mitra has already greeted in this sitting
+  // (REQUIREMENTS §60, §123) — once each: opened again on the same one, it
+  // asks its usual question rather than introducing the document twice.
   const arrivedRef = useRef<Set<string>>(new Set());
-  // True while the panel is open only because a document was opened, and the
-  // person has not yet said or tapped anything: leaving the document then
-  // closes it again, the way it came.
-  const autoOpenedRef = useRef(false);
-  // Set when a document opens the panel: its own message takes the greeting's place.
-  const arrivalGreetsRef = useRef(false);
+  // Set when a task asked for before its record was open (a handoff) is what
+  // opens the panel: the task's own first words are the opening (§60).
+  const taskOpensRef = useRef(false);
   const guidedRef = useRef(guided);
   guidedRef.current = guided;
   // The question-by-question fill of any other document: which record, and
@@ -338,7 +337,6 @@ export function DocumentAssistant() {
       const detail = (e as CustomEvent<{ files?: File[]; text?: string }>).detail;
       const files = Array.isArray(detail?.files) ? detail.files.filter((f): f is File => f instanceof File) : [];
       if (files.length === 0) return;
-      autoOpenedRef.current = false;
       setOpen(true);
       attachRef.current(files);
       if (typeof detail?.text === "string" && detail.text.trim()) setInput(detail.text.trim());
@@ -386,8 +384,15 @@ export function DocumentAssistant() {
   // documents their department keeps and Master Data names them on.
   //
   // It never talks over anything: a walk-through or a question-by-question fill
-  // in progress, a change waiting for its Yes, or a document's own arrival
-  // greeting (§60) all mean Mitra has already said the useful thing.
+  // in progress, a change waiting for its Yes, or a task asked for before its
+  // record was open (§60) all mean Mitra has already said the useful thing.
+  //
+  // OPENED ON A DOCUMENT IT HAS NOT GREETED YET (REQUIREMENTS §123, amending
+  // §60), the opening is the greeting Mitra used to come forward with by
+  // itself — what is open, where it stands, the next step as a chip — given
+  // now because the person asked for it (the arrival effect below says why it
+  // waits). Once per document in a sitting, as before; opened again on the
+  // same one, Mitra asks its usual question.
   const greetedThisOpenRef = useRef(false);
   useEffect(() => {
     if (!open) {
@@ -396,12 +401,19 @@ export function DocumentAssistant() {
     }
     if (greetedThisOpenRef.current) return;
     greetedThisOpenRef.current = true;
-    // Opened by a document: what Mitra says about it is the opening (§60).
-    if (arrivalGreetsRef.current) {
-      arrivalGreetsRef.current = false;
+    // Opened by a task asked for before its record was open: the task's own words are the opening (§60).
+    if (taskOpensRef.current) {
+      taskOpensRef.current = false;
       return;
     }
     if (guidedRef.current || interviewRef.current || pendingFormatRef.current) return;
+    // Said as the panel appears, the way the usual opening is — never a beat later, into a panel shown empty.
+    const here = greetingHere();
+    if (here && !arrivedRef.current.has(here.key)) {
+      arrivedRef.current.add(here.key);
+      // A checklist, or a page with no record behind it, has no greeting of its own: the usual opening names it.
+      if (here.greet()) return;
+    }
     const t = getTarget();
     const where = t?.checklist
       ? phrase("ai.opening.checklist", { title: t.checklist.title })
@@ -726,18 +738,22 @@ export function DocumentAssistant() {
     });
   };
 
-  // ---- coming forward for the document that was just opened (REQUIREMENTS §60)
+  // ---- greeting the document that is open (REQUIREMENTS §60, §123)
   const formatAndName = (doc: { formatNo: string; name: string }): string =>
     `${doc.formatNo.startsWith("TO BE") ? "" : `${doc.formatNo} `}${documentTextIn(doc.name, lang)}`.trim();
 
-  /** A record is open: say where it stands and offer the next step. */
-  const greetRecord = (t: AssistantTarget) => {
+  /** The words an open record goes by — its page's own title, else its format and day: the greeting's, and the pill's (§123). */
+  const recordWords = (t: AssistantTarget, doc: { formatNo: string; name: string }, record?: { dueDate: string }): string =>
+    t.title ?? (record ? `${formatAndName(doc)} for ${formatDisplayDate(record.dueDate)}` : formatAndName(doc));
+
+  /** A record is open: say where it stands and offer the next step. False when it has nothing of its own to say. */
+  const greetRecord = (t: AssistantTarget): boolean => {
     // A complaint checklist has its own walk-through, started by its button or
     // by itself when fresh; the greeting already names it.
-    if (t.checklist) return;
+    if (t.checklist) return false;
     const { doc, record } = openRecordFor(t);
-    if (!doc || !record) return;
-    const title = t.title ?? `${formatAndName(doc)} for ${formatDisplayDate(record.dueDate)}`;
+    if (!doc || !record) return false;
+    const title = recordWords(t, doc, record);
     const chips: Chip[] = [];
     if (!t.editable) {
       if (t.reopen) chips.push({ label: "Correct this record…", action: { type: "focusInput", placeholder: "" }, tone: "primary" });
@@ -747,7 +763,7 @@ export function DocumentAssistant() {
       const stop = !t.reopen ? levelStops(t.documentId, ["Scheduled", "Due", "In Progress", "Rejected"].includes(t.status) ? "fill" : "correct") : null;
       if (stop) {
         bot(`${title} is open. ${stop}`, chips);
-        return;
+        return true;
       }
       bot(
         t.reopen
@@ -755,14 +771,14 @@ export function DocumentAssistant() {
           : `${title} is open. It is kept as issued, so tell me the line to change, or ask me about it.`,
         chips
       );
-      return;
+      return true;
     }
     const data = t.getData();
     const plan = interviewPlan(doc, record, data, masterRepository.get(), todayISO(), lang);
     if (!plan) {
       if (t.print) chips.push({ label: "Print the document", action: { type: "doPrint" } });
       bot(`${title} is open. It is kept as issued — tell me the line to change and I'll change it.`, chips);
-      return;
+      return true;
     }
     const progress = planProgress(plan, data);
     const left = progress.total - progress.answered;
@@ -777,17 +793,18 @@ export function DocumentAssistant() {
           ? `${title} is open, and everything I would ask is already on it. Check it over — submit it when you're ready, or tell me what to change.`
           : `${title} is open — ${progress.answered} of ${progress.total} answered so far. Shall we carry on?`;
     bot(standing, chips);
+    return true;
   };
 
   /** A format's own page is open: say what is on file and offer to start today's. */
-  const greetDocument = (documentId: string) => {
+  const greetDocument = (documentId: string): boolean => {
     const doc = documentRepository.getById(documentId);
-    if (!doc) return;
+    if (!doc) return false;
     const name = formatAndName(doc);
     if (doc.isReferenceOnly) {
       const info = getDocumentInfo(doc, masterRepository.get());
       bot(`${name} is open — a reference document, kept as issued.\nWHAT — ${info.what}\nWHO — ${info.whoLabel}\nWHEN — ${info.when}`);
-      return;
+      return true;
     }
     const records = recordRepository.query({ documentId, isDemo }).slice().sort((a, b) => compareISO(b.dueDate, a.dueDate));
     const latest = records[0];
@@ -801,6 +818,34 @@ export function DocumentAssistant() {
     chips.push({ label: phrase("ai.guide.whereTo"), action: { type: "guide", step: "home" } });
     const onFile = latest ? `${records.length} on file — the latest is for ${formatDisplayDate(latest.dueDate)}, ${latest.status}.` : "Nothing is on file for it yet.";
     bot(fillStop ? `${name} is open. ${onFile} ${fillStop}` : `${name} is open. ${onFile} Shall I start today's record and fill it in with you?`, chips);
+    return true;
+  };
+
+  /**
+   * What is open, as Mitra greets it (REQUIREMENTS §60, §123): the record a page handed over, or a format's own
+   * page known from the address — with the key it is greeted under, once in a sitting. Asked when a greeting may
+   * be due, never while drawing.
+   */
+  const greetingHere = (): { key: string; greet: () => boolean } | null => {
+    if (path === "/assistant") return null;
+    const t = getTarget();
+    if (t) return { key: `record:${t.recordId}`, greet: () => greetRecord(t) };
+    const onPath = documentOnPath(path);
+    return onPath ? { key: `document:${onPath}`, greet: () => greetDocument(onPath) } : null;
+  };
+
+  /** What the pill says Mitra is following while it is shut (§123): the open record or format, named as its greeting names it. */
+  const followedWords = (): string | null => {
+    if (path === "/assistant") return null;
+    const t = getTarget();
+    if (t) {
+      if (t.checklist) return t.checklist.title;
+      const doc = documentRepository.getById(t.documentId);
+      return doc ? recordWords(t, doc, recordRepository.getById(t.recordId)) : (t.title ?? null);
+    }
+    const onPath = documentOnPath(path);
+    const doc = onPath ? documentRepository.getById(onPath) : undefined;
+    return doc ? formatAndName(doc) : null;
   };
 
   const fillWithSample = () => {
@@ -933,8 +978,6 @@ export function DocumentAssistant() {
   };
 
   const runAction = (chip: Chip) => {
-    // Spoken to: the panel now stays when the document is left (REQUIREMENTS §60).
-    autoOpenedRef.current = false;
     const a: ChipAction = chip.action;
     const t = getTarget();
     switch (a.type) {
@@ -1372,9 +1415,10 @@ export function DocumentAssistant() {
     const then = takeHandoff(t.recordId);
     if (!then) return;
     if (t.checklist) startedRef.current.add(t.recordId);
-    // The task asked for is being done; Mitra need not also introduce the record.
+    // The task asked for is being done; Mitra need not also introduce the record —
+    // nor ask its usual question first, when it is the task that opens the panel.
     arrivedRef.current.add(`record:${t.recordId}`);
-    autoOpenedRef.current = false;
+    if (!open) taskOpensRef.current = true;
     setOpen(true);
     setTimeout(() => (then === "sample" ? fillWithSample() : startInterview()), 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1388,7 +1432,6 @@ export function DocumentAssistant() {
     if (t?.checklist?.autoStart && !startedRef.current.has(t.checklist.recordId)) {
       startedRef.current.add(t.checklist.recordId);
       arrivedRef.current.add(`record:${t.checklist.recordId}`);
-      autoOpenedRef.current = false;
       setOpen(true);
       // Let the greeting effect post first so the walk-through reads in order.
       setTimeout(() => beginGuided(), 0);
@@ -1396,51 +1439,42 @@ export function DocumentAssistant() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetSignature]);
 
-  // WHENEVER A DOCUMENT IS OPENED, MITRA OPENS WITH IT (REQUIREMENTS §60).
+  // MITRA FOLLOWS THE DOCUMENT, AND OPENS WHEN ASKED (REQUIREMENTS §123, amending §60).
   //
-  // A record page hands over its live record; a format's own page is known
-  // from the address. Either way the panel docks beside the
-  // page and Mitra says what it can do with what is open — fill a blank
-  // record question by question or with sample data, carry on with one half
-  // done, correct or print one that is signed off, start today's record of a
-  // format — with the first step as a chip. Once per document in a sitting:
-  // closing the panel is respected until a different document is opened. A
-  // task already asked for (a handoff, a fresh checklist's walk-through) is
-  // under way, so nothing is added to it.
-  // A LAYOUT effect, so the panel is there in the first paint (REQUIREMENTS §65).
-  // Opening after the paint changed `.app-main`'s width, which sized a long
-  // table all over again — the browser measures every line of an auto-laid-out
-  // table — and the person saw the page jump. The greeting itself still waits
-  // its turn below.
-  useLayoutEffect(() => {
-    if (path === "/assistant") return;
-    const t = getTarget();
-    const onPath = t ? null : documentOnPath(path);
-    const key = t ? `record:${t.recordId}` : onPath ? `document:${onPath}` : null;
-    if (!key || arrivedRef.current.has(key)) return;
-    arrivedRef.current.add(key);
-    autoOpenedRef.current = true;
-    // A checklist is greeted by name in the usual way; anything else is
-    // introduced by what Mitra says about it.
-    arrivalGreetsRef.current = !open && !t?.checklist;
-    setOpen(true);
-    setTimeout(() => (t ? greetRecord(t) : greetDocument(onPath!)), 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetSignature, path]);
-
-  // …and goes with it: a panel that opened itself for a document, and was not
-  // spoken to, closes when the document is left — the dashboard, the calendar
-  // and the lists are not covered by a chat nobody asked for.
+  // The owner, 24-Oct-2026: "bot will see where i am going and what i am doing
+  // like and whenever i open any record bot will open in side as it opening
+  // right now but when user will click on it then only otherwise not". Under
+  // §60 the panel opened by itself on every record and every format's page and
+  // docked beside it, asked for or not — many times an hour on a working day,
+  // beside a sheet the person had come to fill on their own. Now opening a
+  // document leaves Mitra shut. It still knows what is open: the pill names it
+  // and Mitra's face glances at the page, and the greeting it used to come
+  // forward with — what is open, where it stands, the first step as a chip — is
+  // what it says when the person opens it (the opening effect above).
+  //
+  // A panel the person already has open hears of each document as it is
+  // opened, in the chat, once per document in a sitting, as before — and stays
+  // open when the document is left, since only the person opens it now and
+  // only Close shuts it. A task already asked for is carried on with and
+  // nothing is added to it (§60): a fresh checklist's walk-through has no
+  // greeting to add, and a record a handoff is about to begin on is left to it
+  // — looked for here, because the page hands its record over one render
+  // before the handoff effect above can take its task. (A plain effect now: it
+  // was a layout effect only so that the panel it opened was there in the first
+  // paint, §65, and it opens nothing.)
   useEffect(() => {
-    if (!autoOpenedRef.current || !open) return;
-    if (getTarget() || documentOnPath(path)) return;
-    autoOpenedRef.current = false;
-    setOpen(false);
+    if (!open) return;
+    const here = greetingHere();
+    if (!here || arrivedRef.current.has(here.key)) return;
+    const t = getTarget();
+    if (t && handoffWaiting(t.recordId)) return;
+    arrivedRef.current.add(here.key);
+    setTimeout(() => here.greet(), 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetSignature, path]);
 
   // The page makes room for the docked panel (styles.css, ".assistant-dock") —
-  // before the paint, with the effect above, so the page is laid out once.
+  // before the paint, in the frame the panel appears in, so the page is laid out once (§65).
   useLayoutEffect(() => {
     const docked = open && path !== "/assistant";
     document.documentElement.classList.toggle("assistant-docked", docked);
@@ -1869,7 +1903,7 @@ export function DocumentAssistant() {
         linesAdded: ({ recordId, lines }) =>
           bot(`Added:\n${lines.map((l) => `• ${l.words}`).join("\n")}\n\n${REVIEW_LINE}`, [{ label: "Undo", action: { type: "undoLines", recordId, lines: lines.map((l) => ({ collection: l.collection, id: l.id })) } }]),
       };
-      const out = await runMitraTurn({
+      await runMitraTurn({
         text,
         attachments: ready,
         history: historyForAgent((edit ? edit.earlier : messages).map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text }))),
@@ -1884,8 +1918,7 @@ export function DocumentAssistant() {
             upsertStep(stepsId, { id: e.id, tool: e.tool, label: e.label, status: e.status });
           } else if (e.type === "text") {
             if (e.text.trim()) setMessages((m) => [...m, { id: generateId("msg"), role: "bot", text: e.text.trim(), markdown: true }]);
-          } else if (e.type === "navigated") autoOpenedRef.current = false;
-          else if (e.type === "final") {
+          } else if (e.type === "final") {
             setThinking(null);
             settleSteps(stepsId);
             setMessages((m) => [...m, { id: generateId("msg"), role: "bot", text: e.text, markdown: true }]);
@@ -1902,7 +1935,6 @@ export function DocumentAssistant() {
       if (turn.stopped) return "done";
       noteModelAnswered();
       echoedRef.current = false;
-      if (out.navigated) autoOpenedRef.current = false;
       return "done";
     } catch (err) {
       // Stopped: the person has moved on, and nothing answers in its place.
@@ -1920,7 +1952,6 @@ export function DocumentAssistant() {
   // words travel with the message, and the model reads the rest through a tool.
   const upsertAttachment = (a: MitraAttachment) => setAttachments((prev) => (prev.some((x) => x.id === a.id) ? prev.map((x) => (x.id === a.id ? a : x)) : [...prev, a]));
   const attach = (files: FileList | readonly File[], fromFolder = false) => {
-    autoOpenedRef.current = false;
     const picked = fromFolder ? pickFromFolder(files) : { files: Array.from(files), skipped: 0, reasons: [] as string[] };
     const room = Math.max(0, MAX_ATTACHMENTS - attachments.length);
     if (picked.files.length > room) bot(phrase("ai.tooMany", { max: String(MAX_ATTACHMENTS) }));
@@ -1999,7 +2030,6 @@ export function DocumentAssistant() {
     // While a turn runs nothing new is sent — except the answer to the question that turn is waiting on
     // (a tool's confirm below): the turn holds until it is answered, so the answer must get through (REQUIREMENTS §113).
     if (loading && !(pendingConfirmRef.current && !edit)) return;
-    autoOpenedRef.current = false;
     if (!edit) {
       setInput("");
       setHint(null);
@@ -2426,7 +2456,6 @@ export function DocumentAssistant() {
     guidedRef.current = null;
     setGuided(null);
     setIv(null);
-    autoOpenedRef.current = false;
     // The follow-up memory is the last question about history the dock took that is still in the chat - not one
     // the edit removed, and never words read again that it did not take as one (a question about the open sheet).
     const asked = [...earlier].reverse().find((x) => x.role === "user" && x.intent !== undefined);
@@ -2452,7 +2481,6 @@ export function DocumentAssistant() {
     if (!listening && !recordingRef.current && micOutOfReach()) return;
     // With a key on the server, the recording goes to Whisper (REQUIREMENTS §80).
     if (whisperVoice && modelReachable().ok) {
-      autoOpenedRef.current = false;
       void toggleWhisper();
       return;
     }
@@ -2510,6 +2538,15 @@ export function DocumentAssistant() {
 
   const subtitle = getTarget()?.checklist?.title ?? (hasTarget ? t("ai.recordOpenSubtitle") : t("ai.widgetSubtitle"));
 
+  // WHAT MITRA IS FOLLOWING WHILE IT IS SHUT (REQUIREMENTS §123): the open record or format, in the words its
+  // greeting names it by, as the pill's title — "Ask Mitra about …" — with Mitra's face glancing at the page.
+  // Worked out when something is opened or left, not on every redraw: naming a record looks it up among all of them.
+  const following = useMemo(
+    () => (open ? null : followedWords()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [open, targetSignature, path, lang]
+  );
+
   // The full-page Assistant IS the chat on that screen — two chat boxes
   // would just be confusing. (After every hook above, so the hook order is
   // identical on every render.)
@@ -2535,11 +2572,11 @@ export function DocumentAssistant() {
           onClick={() => {
             if (!didJustDrag()) setOpen(true);
           }}
-          title={waiting > 0 ? phrase("ai.yours.waiting", { n: String(waiting) }) : t("ai.yours.none")}
+          title={following ? t("ai.following", { what: following }) : waiting > 0 ? phrase("ai.yours.waiting", { n: String(waiting) }) : t("ai.yours.none")}
           {...dragHandleProps}
         >
           <span className="assistant-pill-face" aria-hidden="true">
-            <MitraFace mood={moodFor({ waiting, overdue: overdueCount, lift })} size={20} />
+            <MitraFace mood={moodFor({ waiting, overdue: overdueCount, lift })} look={following ? PILL_GLANCE : undefined} size={20} />
           </span>
           {t("ai.widgetOpen")}
           {/* How much of this person's own work is waiting (REQUIREMENTS §67) — a
@@ -2581,10 +2618,7 @@ export function DocumentAssistant() {
               <button
                 className="btn btn-ghost btn-sm btn-icon"
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => {
-                  autoOpenedRef.current = false;
-                  setOpen(false);
-                }}
+                onClick={() => setOpen(false)}
                 aria-label="Close assistant"
               >
                 <FiX size={15} />

@@ -113,7 +113,7 @@ with sync_playwright() as p:
     # data in a Live record (ALLOW_SAMPLE_FILL=1) - a state that can be submitted
     # and verified below.
     if True:
-        # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
+        # Mitra waits to be asked on a record (s123, amending s60): the pill opens it, unless it is open already.
         if page.locator("button:has-text('Ask Mitra')").count():
             page.click("button:has-text('Ask Mitra')")
         page.wait_for_timeout(400)
@@ -173,7 +173,7 @@ with sync_playwright() as p:
     )
 
     # ---- the assistant: a plain sentence, saved, listed, undoable ----
-    # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
+    # Mitra waits to be asked on a record (s123, amending s60): the pill opens it, unless it is open already.
     if page.locator("button:has-text('Ask Mitra')").count():
         page.click("button:has-text('Ask Mitra')")
     page.wait_for_timeout(400)
