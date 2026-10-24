@@ -9331,6 +9331,42 @@ for three languages".
    pieces, features.voice), backend/tests/geminiSpeech.test.ts (the request, the clip, the fall-back), tests/
    e2e_voice_and_sounds.py (Chrome's voice at its natural rate, two sentences in one flowing piece).
 
+## §122 Mitra alive: a face with feelings, the sign-in cartoon, and the voice kept to free ones (24-Oct-2026)
+
+The owner, 24-Oct-2026: "i want all free and very real and make sure there it should read speak perfectly and not do any
+mistake and make this button ai button more interesting and add more capabilites and emotions like mitra is enjoying on
+every task that user will complete and sad, angry and it should be like fun to complete the task so user fill happy and
+it like playing game and completing the tasks perfectly. Also add cartoon in login when user login and entering his
+password then that cartoon will closing eye and opening it has some emotions".
+
+1. **Mitra wears a drawn face** (frontend/src/components/common/MitraFace.tsx): one little SVG face on the Ask Mitra
+   pill, the chat's avatars and the sign-in screen. Its mood is data on the svg (data-mood) — the brows tilt, the blush
+   shows, the mouth is drawn for it — and its eyes can be drawn shut (data-eyes). It blinks every few seconds (the one
+   endless movement, named in mitraLook.test.ts's inventory); every other movement keeps the test's 120-200 ms rule,
+   and the stylesheet's final reduced-motion block stills them all.
+2. **The face feels the day** (frontend/src/engine/mitraMood.ts, pure and unit-tested): the moment a record is handed
+   in or verified — any module's, the same "dcrs:reaction" the confetti answers — the pill's face is DELIGHTED for a
+   few seconds, with a 180 ms pop and two sparkles; a send-back dips it. Standing: sad while the person's own work is
+   overdue, cross (upset) once three or more are, attentive (calm) while something is due, happy with nothing waiting.
+   Never a scolding: only the drawing changes; every word beside it stays kind (§81). The pill's figure recounts itself
+   after each reaction, so the game is honest: finish work, watch the number fall and the face lift.
+3. **The sign-in cartoon** (frontend/src/components/auth): the same face, large, above the sign-in card. It watches the
+   name being typed (the eyes follow), SHUTS ITS EYES while a password is typed (data-eyes="closed" — the lids drawn,
+   nothing peeks), opens them after, and is sad for a moment when a sign-in is refused. Proved in e2e_login_only.
+4. **The top bar's sound button** shows the small speaking dot while Mitra is saying something aloud, in the accent
+   colour (the red one is the recorder's), so the button near Today's briefing visibly lives.
+5. **The voice is kept to free ones** ("i want all free", and 3-Oct-2026: "I will not use a single rupee for any
+   voice"): the PAID ChatGPT voice no longer speaks unless `AI_TTS_PAID=1` is set in backend/.env (backend/ai.ts
+   paidVoiceOn; it amends §121's paid fallback). Free voices speak: Edge's natural ones in the browser, Google's free
+   Gemini voice on the server (GEMINI_API_KEY, §121), Groq's free English one — and with ChatGPT and Groq keys both
+   set, Groq's free voice now speaks rather than the paid one. With only a ChatGPT key, GET /api/assistant/speak
+   answers: "Mitra's natural voice is kept to free ones: set GEMINI_API_KEY (free, from aistudio.google.com) for the
+   free Google voice, or set AI_TTS_PAID=1 to allow the paid ChatGPT voice. Until then this browser's own voice
+   speaks." `features.voice` is true only when a voice may actually speak.
+6. **Proved:** frontend/tests/mitraFace.test.ts (the moods, the drawn states, the stylesheet's part),
+   mitraLook.test.ts (the blink in the inventory, the motion rules held), backend tests for the free-only switch,
+   tests/e2e_login_only.py (the cartoon's eyes and sadness).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

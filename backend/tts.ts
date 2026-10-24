@@ -328,7 +328,7 @@ export class VoiceUnavailableError extends Error {
   }
 }
 
-/** No key for a voice on this server (CHATGPT_API_KEY, or GROQ_API_KEY on an older setup; nor GEMINI_API_KEY). */
+/** No key for a voice on this server (CHATGPT_API_KEY, or GROQ_API_KEY on an older setup; nor GEMINI_API_KEY) — or only ChatGPT's key while the paid voice is off (AI_TTS_PAID, REQUIREMENTS §122). */
 export class VoiceNotConfiguredError extends Error {
   readonly code = "not-configured";
   constructor() {
@@ -336,6 +336,15 @@ export class VoiceNotConfiguredError extends Error {
     this.name = "VoiceNotConfiguredError";
   }
 }
+
+/**
+ * The GET's answer on a server whose only key is ChatGPT's (OpenAI) while AI_TTS_PAID is off (REQUIREMENTS §122).
+ * WHY: "i want all free" (the owner, 24-Oct-2026), and "I will not use a single rupee for any voice" (3-Oct-2026) —
+ * ChatGPT's voice is billed by the minute, so it never speaks unless he switches it on. "Set CHATGPT_API_KEY" would
+ * mislead here (it is set): these words say what he can set instead (backend/ai.ts voiceStatus).
+ */
+export const PAID_VOICE_OFF_MESSAGE =
+  "Mitra's natural voice is kept to free ones: set GEMINI_API_KEY (free, from aistudio.google.com) for the free Google voice, or set AI_TTS_PAID=1 to allow the paid ChatGPT voice. Until then this browser's own voice speaks.";
 
 /** What the plant's admin is told when the service will not speak with the model. */
 export function voiceUnavailableMessage(model: string, service: VoiceService): string {

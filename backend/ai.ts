@@ -20,12 +20,14 @@
 // only), aiTranscribe (what a person says into the microphone) and aiSpeak (Mitra's natural voice, §81: text in, a
 // WAV out). The voice alone may come from elsewhere: since 23-Oct-2026 Google's Gemini voice speaks first wherever
 // GEMINI_API_KEY is set — free, and the owner's choice for fluent Gujarati, Hindi and English (backend/geminiSpeech.ts)
-// — and the service chosen here says only a line Gemini cannot. A Gemini key is not a model to ask: it is a voice.
+// — and the service chosen here says only a line Gemini cannot: Groq's voice freely, ChatGPT's PAID one only when the
+// owner set AI_TTS_PAID ("i want all free", 24-Oct-2026; REQUIREMENTS §122). A Gemini key is not a model to ask: it is a voice.
 import { plantTimeZone } from "./db.ts";
 import { geminiConfigured, geminiRest, geminiSpeak, GeminiSpeechError, geminiTtsModel, geminiVoiceName, resetGeminiForTests, type GeminiRest } from "./geminiSpeech.ts";
 import {
   chunkForSpeech,
   joinWavs,
+  PAID_VOICE_OFF_MESSAGE,
   parseWav,
   speakStatus,
   termsRequired,
@@ -732,9 +734,17 @@ export async function aiTranscribe({
 // FIRST, wherever GEMINI_API_KEY is set (23-Oct-2026): Google's Gemini voice, which is free (backend/geminiSpeech.ts).
 // When it cannot say a line — a refusal it remembers for ten minutes, or a passing failure (a 429 from the free tier's
 // low limits, a 5xx, no answer) after which it rests a minute — the service below says it, where it may: Groq's voice
-// says English only, and ChatGPT's nothing once the day's allowance is spent. With no other voice, Gemini's failure is
-// the route's: a lasting refusal VoiceUnavailableError, anything else AiRequestError. Nothing Gemini says is counted
-// against the allowance: it costs nothing.
+// says English only, and ChatGPT's (only with AI_TTS_PAID on: the next paragraph) nothing once the day's allowance is
+// spent. With no other voice, Gemini's failure is the route's: a lasting refusal VoiceUnavailableError, anything else
+// AiRequestError. Nothing Gemini says is counted against the allowance: it costs nothing.
+//
+// FREE ONLY, BY DEFAULT (REQUIREMENTS §122). "i want all free" (the owner, 24-Oct-2026), and he has said so since the
+// voice work began: "I will not use a single rupee for any voice" (3-Oct-2026). ChatGPT's voice is paid by the minute,
+// so unless he sets AI_TTS_PAID it is NEVER asked to speak: not as the engine, not when Gemini cannot say a line.
+// Mitra's natural voice is then the free ones only — Gemini's, and Groq's free tier — and a server whose only key is
+// ChatGPT's has no natural voice at all: the browser's own speaks, and the GET says what he can set
+// (tts.ts PAID_VOICE_OFF_MESSAGE). The switch is about SPEECH alone: the chat, the agent, the checklist, pictures and
+// the microphone use the AI key exactly as before.
 //
 // On OpenAI: gpt-4o-mini-tts (AI_TTS_MODEL) says the whole line in one call (up to 4,096 characters a call, and a
 // browser sends at most 600) as a WAV, in the chosen voice (AI_TTS_VOICE_FEMALE / _MALE: coral and ash), told how to
@@ -750,14 +760,41 @@ export async function aiTranscribe({
 // Not counted: Groq bills speech by the character.
 const OPENAI_SPEECH_CHARS = 4000;
 
-/** The speech model: AI_TTS_MODEL, else gpt-4o-mini-tts; on Groq GROQ_TTS_MODEL, else Orpheus English. */
-export function ttsModel(): string {
-  return aiProviderName() === "groq" ? setting("GROQ_TTS_MODEL") || "canopylabs/orpheus-v1-english" : setting("AI_TTS_MODEL") || OPENAI_DEFAULTS.speech;
+/**
+ * Whether the owner has switched the PAID ChatGPT voice on: AI_TTS_PAID is "1", "on", "true" or "yes" (case aside).
+ * Off — the default, and anything else — OpenAI is never asked to SPEAK (REQUIREMENTS §122): Mitra's natural voice is
+ * the free ones only. Read from the environment at each call, as every setting here is; features.ts reads the answer
+ * once at start-up, as it reads every key, so a changed backend/.env needs a restart, as it always did.
+ */
+export function paidVoiceOn(): boolean {
+  return /^(1|on|true|yes)$/i.test(setting("AI_TTS_PAID"));
 }
 
-/** The model's voice for Mitra's female or male voice: AI_TTS_VOICE_FEMALE / _MALE, else coral / ash (on Groq GROQ_TTS_VOICE_*, else hannah / daniel). */
+/**
+ * The AI service whose voice MAY say a line — never the model the chat asks (aiProvider), which §122 does not touch.
+ * With AI_TTS_PAID on, exactly aiProvider, as before §122; off, never OpenAI's paid voice — the Groq key beside it
+ * where there is one (its free tier spoke before §109 and still may), else none.
+ */
+function speechProvider(): Provider | null {
+  const provider = aiProvider();
+  if (provider?.name !== "openai" || paidVoiceOn()) return provider;
+  const groq = setting("GROQ_API_KEY");
+  return groq ? { name: "groq", key: groq, base: GROQ_BASE } : null;
+}
+
+/** Which service's voice may speak: "groq", "openai" (AI_TTS_PAID on only, §122) or null. The speech settings below go by this, never by the chat's provider. */
+function speechProviderName(): AiProviderName | null {
+  return speechProvider()?.name ?? null;
+}
+
+/** The speech model: AI_TTS_MODEL, else gpt-4o-mini-tts; where Groq's voice speaks, GROQ_TTS_MODEL, else Orpheus English. */
+export function ttsModel(): string {
+  return speechProviderName() === "groq" ? setting("GROQ_TTS_MODEL") || "canopylabs/orpheus-v1-english" : setting("AI_TTS_MODEL") || OPENAI_DEFAULTS.speech;
+}
+
+/** The model's voice for Mitra's female or male voice: AI_TTS_VOICE_FEMALE / _MALE, else coral / ash (on Groq's voice GROQ_TTS_VOICE_*, else hannah / daniel). */
 export function ttsVoiceName(kind: VoiceKind): string {
-  if (aiProviderName() === "groq") {
+  if (speechProviderName() === "groq") {
     const set = kind === "male" ? setting("GROQ_TTS_VOICE_MALE") : setting("GROQ_TTS_VOICE_FEMALE");
     return set || (kind === "male" ? "daniel" : "hannah");
   }
@@ -883,9 +920,13 @@ export interface SpokenClip {
   model: string;
 }
 
-/** Whether the server has a voice of its own to offer: a Gemini key, or an AI key (features.ts tells the browser this, and only this). */
+/**
+ * Whether the server has a voice of its own to offer, so features.voice is true only when a voice may actually speak
+ * (features.ts tells the browser this, and only this): a Gemini key, a Groq key, or an OpenAI key with AI_TTS_PAID on
+ * — never ChatGPT's paid voice by itself with the switch off (REQUIREMENTS §122, "i want all free").
+ */
 export function voiceConfigured(): boolean {
-  return geminiConfigured() || aiConfigured();
+  return geminiConfigured() || speechProvider() !== null;
 }
 
 /** Whether the next line goes to Google's Gemini voice first: its key is set and it is not resting after a failure. */
@@ -894,12 +935,13 @@ export function geminiSpeaksFirst(now = Date.now()): boolean {
 }
 
 /**
- * The voice that would say a line now: Gemini's while it speaks first, else the AI service's (ChatGPT's, or Groq's);
- * Gemini's still, resting, on a server with no other; null with no key for either.
+ * The voice that would say a line now: Gemini's while it speaks first, else the AI service's whose voice may speak
+ * (Groq's, or ChatGPT's with AI_TTS_PAID on — §122); Gemini's still, resting, on a server with no other; null with no
+ * key for a voice, an OpenAI key with the paid voice off among them.
  */
 export function speechEngine(now = Date.now()): VoiceService | null {
   if (geminiSpeaksFirst(now)) return "gemini";
-  return aiProviderName() ?? (geminiConfigured() ? "gemini" : null);
+  return speechProviderName() ?? (geminiConfigured() ? "gemini" : null);
 }
 
 /** A service's speech model and its voices for Mitra's female and male voice: Gemini's (GEMINI_TTS_*), else the AI service's (ttsModel, ttsVoiceName). */
@@ -908,7 +950,7 @@ export function speechSetup(engine: VoiceService): { model: string; voices: { fe
   return { model: ttsModel(), voices: { female: ttsVoiceName("female"), male: ttsVoiceName("male") } };
 }
 
-/** The AI service's own voice, exactly as aiSpeak was before Gemini's: no key, VoiceNotConfiguredError; on OpenAI with the day's allowance spent, AiAllowanceError. */
+/** The AI service's own voice, exactly as aiSpeak was before Gemini's: no provider whose voice may speak (no key, or only ChatGPT's with the paid voice off, §122), VoiceNotConfiguredError; on OpenAI with the day's allowance spent, AiAllowanceError. */
 async function serviceSpeak(provider: Provider | null, text: string, voice: VoiceKind): Promise<SpokenClip> {
   if (!provider) throw new VoiceNotConfiguredError();
   if (provider.name === "groq") return { clip: await groqSpeak(provider, text, voice), engine: "groq", model: ttsModel() };
@@ -932,11 +974,12 @@ function restingFailure(r: GeminiRest, now: number): Error {
 
 /**
  * Says `text` in Mitra's natural voice: the WAV, and which voice said it. Gemini's first wherever GEMINI_API_KEY is
- * set, the AI service's when Gemini cannot (and may say the line). Throws VoiceNotConfiguredError,
- * VoiceUnavailableError, AiAllowanceError, or an Error (AiRequestError) for anything else.
+ * set, the AI service's when Gemini cannot (and may say the line — ChatGPT's paid voice only with AI_TTS_PAID on,
+ * §122). Throws VoiceNotConfiguredError, VoiceUnavailableError, AiAllowanceError, or an Error (AiRequestError) for
+ * anything else.
  */
 export async function aiSpeakClip({ text, voice }: { text: string; voice: VoiceKind }): Promise<SpokenClip> {
-  const provider = aiProvider();
+  const provider = speechProvider();
   if (!geminiConfigured()) return serviceSpeak(provider, text, voice);
   const language = speechLanguage(text);
   const now = Date.now();
@@ -952,8 +995,9 @@ export async function aiSpeakClip({ text, voice }: { text: string; voice: VoiceK
       failure = geminiFailure(err);
     }
   }
-  // The other voice, where it may say this line: Groq's Orpheus says English only, and ChatGPT's nothing once the
-  // day's allowance is spent (Gemini's is not counted against it, which is why it is still asked then).
+  // The other voice, where it may say this line: Groq's Orpheus says English only, and ChatGPT's — a speechProvider
+  // at all only when the owner set AI_TTS_PAID (§122, "i want all free") — nothing once the day's allowance is spent
+  // (Gemini's is not counted against it, which is why it is still asked then).
   const other = provider && (provider.name === "groq" ? language === "en" : !dailyBudgetSpent()) ? provider : null;
   if (!other) throw failure;
   if (!resting) {
@@ -978,13 +1022,17 @@ export async function aiSpeak({ text, voice }: { text: string; voice: VoiceKind 
 
 /**
  * GET /api/assistant/speak's answer (REQUIREMENTS §85, backend/index.ts) from what the route has learnt
- * (backend/tts.ts VoiceAvailability): not-configured with no key for a voice; else the voice as it was learnt, named
- * by the service it was learnt of — Google's Gemini voice wherever that spoke — with that service's voices. On a
- * server without a Gemini key, the answer it always was.
+ * (backend/tts.ts VoiceAvailability): not-configured with no key for a voice — on a server whose only key is
+ * ChatGPT's while AI_TTS_PAID is off, with the §122 words saying the free ways instead of "set CHATGPT_API_KEY",
+ * which is set; else the voice as it was learnt, named by the service it was learnt of — Google's Gemini voice
+ * wherever that spoke — with that service's voices. On a server without a Gemini key, the answer it always was.
  */
 export function voiceStatus(known: LearntVoice | null, now = Date.now()): SpeakStatus {
   const engine = speechEngine(now);
-  if (!engine) return speakStatus("not-configured", ttsModel(), { female: ttsVoiceName("female"), male: ttsVoiceName("male") }, now);
+  if (!engine) {
+    const none = speakStatus("not-configured", ttsModel(), { female: ttsVoiceName("female"), male: ttsVoiceName("male") }, now);
+    return aiProviderName() === "openai" ? { ...none, message: PAID_VOICE_OFF_MESSAGE } : none;
+  }
   if (!known) {
     const setup = speechSetup(engine);
     return speakStatus("failed", setup.model, setup.voices, now, undefined, engine);

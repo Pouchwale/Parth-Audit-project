@@ -69,6 +69,9 @@ const SETTINGS = [
   "AI_TTS_MODEL",
   "AI_TTS_VOICE_FEMALE",
   "AI_TTS_VOICE_MALE",
+  // Unset, ChatGPT's PAID voice never speaks (REQUIREMENTS §122, "i want all free", 24-Oct-2026): a test that wants
+  // the paid fallback switches it on itself.
+  "AI_TTS_PAID",
   "AI_DAILY_TOKEN_BUDGET",
   "GROQ_TTS_MODEL",
   "GROQ_TTS_VOICE_FEMALE",
@@ -265,8 +268,9 @@ describe("the request, exactly as Google documents it (Oct-2026)", () => {
     assert.equal(speechOf().generation_config.speech_config[0].voice, "Puck");
   });
 
-  it("without GEMINI_API_KEY nothing goes to Google: ChatGPT's voice, exactly as before (a blank key is no key)", async () => {
+  it("without GEMINI_API_KEY nothing goes to Google: ChatGPT's voice, exactly as before (a blank key is no key; AI_TTS_PAID on, §122)", async () => {
     process.env.CHATGPT_API_KEY = OPENAI_KEY;
+    process.env.AI_TTS_PAID = "1";
     process.env.GEMINI_API_KEY = "   ";
     assert.equal(geminiConfigured(), false);
     standIn(() => audio(wav(pcm(1))));
@@ -335,9 +339,10 @@ describe("the clip in Google's answer", () => {
 });
 
 describe("when Gemini cannot speak", () => {
-  it("429: ChatGPT's voice says the line at once, and Gemini rests as long as Google asks", async () => {
+  it("429 with AI_TTS_PAID on: ChatGPT's voice says the line at once, and Gemini rests as long as Google asks", async () => {
     process.env.GEMINI_API_KEY = GEMINI_KEY;
     process.env.CHATGPT_API_KEY = OPENAI_KEY;
+    process.env.AI_TTS_PAID = "1"; // §122: the owner switched the paid fallback on — yesterday's behaviour exactly.
     const retry = [{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "41s" }];
     standIn((req) => (isGoogle(req) ? googleError(429, "RESOURCE_EXHAUSTED", "You exceeded your current quota. Please retry in 41.2s.", retry) : audio(wav(pcm(4, 4)))));
     const started = Date.now();
@@ -372,6 +377,30 @@ describe("when Gemini cannot speak", () => {
       [OPENAI_SPEECH]
     );
     assert.equal(speechEngine(started + 43_000), "gemini", "Gemini speaks first again once its rest is over");
+  });
+
+  it("§122, the default: with the ChatGPT key beside Gemini's, a passing failure never falls back to the paid voice — the error reaches the caller", async () => {
+    // "i want all free" (the owner, 24-Oct-2026): no AI_TTS_PAID, so api.openai.com is never asked to speak, and the
+    // browser's own voice says the line when Gemini cannot.
+    process.env.GEMINI_API_KEY = GEMINI_KEY;
+    process.env.CHATGPT_API_KEY = OPENAI_KEY;
+    standIn(() => spoken(wav(pcm(7))));
+    assert.equal((await aiSpeakClip({ text: "Hello.", voice: "female" })).engine, "gemini", "Gemini speaks as before");
+    for (const [status, code] of [
+      [429, "RESOURCE_EXHAUSTED"],
+      [503, "UNAVAILABLE"],
+    ] as const) {
+      resetAiStateForTests();
+      standIn((req) => (isGoogle(req) ? googleError(status, code, "Cannot just now.") : audio(wav(pcm(9)))));
+      await assert.rejects(aiSpeak({ text: "Your record is due.", voice: "female" }), (err: unknown) => err instanceof AiRequestError && err.status === status, String(status));
+      assert.deepEqual(
+        seen.map((r) => r.url),
+        [GOOGLE],
+        `no POST to api.openai.com after a ${status}`
+      );
+    }
+    assert.equal(voiceConfigured(), true, "Gemini is a voice; the GET never says not-configured here");
+    assert.equal(tokensUsedToday(), 0, "nothing paid, nothing counted");
   });
 
   it("429 with no other voice: an ordinary failure for the route (502), and the free tier's DAY used up rests Gemini ten minutes", async () => {
@@ -468,9 +497,10 @@ describe("when Gemini cannot speak", () => {
     }
   });
 
-  it("403 with ChatGPT's key beside it: ChatGPT's voice says every line meanwhile, Google is asked once, the log says so once", async () => {
+  it("403 with ChatGPT's key beside it (AI_TTS_PAID on): ChatGPT's voice says every line meanwhile, Google is asked once, the log says so once", async () => {
     process.env.GEMINI_API_KEY = GEMINI_KEY;
     process.env.CHATGPT_API_KEY = OPENAI_KEY;
+    process.env.AI_TTS_PAID = "1";
     standIn((req) => (isGoogle(req) ? googleError(403, "PERMISSION_DENIED", "Denied.") : audio(wav(pcm(1)))));
     const lines = await logged(async () => {
       for (let i = 0; i < 3; i++) assert.equal((await aiSpeakClip({ text: `Line ${i}.`, voice: "female" })).engine, "openai");
@@ -481,9 +511,10 @@ describe("when Gemini cannot speak", () => {
     assert.ok(lines.some((l) => /Gemini is asked again in 10 minutes/.test(l)), lines.join("\n"));
   });
 
-  it("both voices refused: the route hears Gemini's refusal (the free voice is the one to put right); a passing failure of either stays passing", async () => {
+  it("both voices refused (AI_TTS_PAID on): the route hears Gemini's refusal (the free voice is the one to put right); a passing failure of either stays passing", async () => {
     process.env.GEMINI_API_KEY = GEMINI_KEY;
     process.env.CHATGPT_API_KEY = OPENAI_KEY;
+    process.env.AI_TTS_PAID = "1";
     const noSpeechModel = () => json({ error: { message: "The model `gpt-4o-mini-tts` does not exist or you do not have access to it.", type: "invalid_request_error", param: null, code: "model_not_found" } }, 404);
     standIn((req) => (isGoogle(req) ? googleError(403, "PERMISSION_DENIED", "Denied.") : noSpeechModel()));
     await logged(() => assert.rejects(aiSpeak({ text: "Hello.", voice: "female" }), (err: unknown) => err instanceof VoiceUnavailableError && err.service === "gemini"));
@@ -519,6 +550,7 @@ describe("free: nothing counted against the paid allowance", () => {
   it("a Gemini line adds no tokens; Gemini still speaks when ChatGPT's allowance is spent, and then nothing falls back to the paid voice", async () => {
     process.env.GEMINI_API_KEY = GEMINI_KEY;
     process.env.CHATGPT_API_KEY = OPENAI_KEY;
+    process.env.AI_TTS_PAID = "1"; // §122: even switched on, the paid voice is held by the day's allowance below.
     standIn(() => spoken(wav(pcm(1, 2))));
     await aiSpeak({ text: "Hello Heena, your record is due.", voice: "female" });
     assert.equal(tokensUsedToday(), 0, "Gemini's voice costs nothing, so nothing is counted");
@@ -570,8 +602,9 @@ describe("what the browser is told", () => {
     assert.equal(refused.message, voiceUnavailableMessage("gemini-3.8-flash-tts", "gemini"));
     assert.deepEqual(refused.voices, { female: "Sulafat", male: "Achird" });
 
-    // ChatGPT's voice spoke last (Gemini resting): the answer names it, with its own voices.
+    // ChatGPT's voice spoke last (Gemini resting; a state only AI_TTS_PAID allows, §122): the answer names it, with its own voices.
     process.env.CHATGPT_API_KEY = OPENAI_KEY;
+    process.env.AI_TTS_PAID = "1";
     learnt.markAvailable("gpt-4o-mini-tts", Date.now(), "openai");
     const other = voiceStatus(learnt.current());
     assert.deepEqual({ engine: other.engine, voices: other.voices }, { engine: "openai", voices: { female: "coral", male: "ash" } });
@@ -586,8 +619,9 @@ describe("what the browser is told", () => {
     assert.equal(none.voices, null);
   });
 
-  it("on a ChatGPT key alone the answer is exactly the one it always was", () => {
+  it("on a ChatGPT key alone with AI_TTS_PAID on, the answer is exactly the one it always was", () => {
     process.env.CHATGPT_API_KEY = OPENAI_KEY;
+    process.env.AI_TTS_PAID = "1"; // Without it the key is no voice at all (§122): backend/tests/ai.test.ts proves that side.
     assert.equal(speechEngine(), "openai");
     const coral = { female: "coral", male: "ash" };
     const learnt = new VoiceAvailability();
@@ -598,8 +632,8 @@ describe("what the browser is told", () => {
     assert.deepEqual(voiceStatus(learnt.current(1000), 1000), speakStatus("voice-unavailable", "gpt-4o-mini-tts", coral, 1000, VOICE_RECHECK_MS["voice-unavailable"], "openai"));
   });
 
-  it("features.voice: true with a Gemini key or an AI key, false with neither; features.assistant still means a model to ask", async () => {
-    // A fresh features.ts for each set of keys: it reads them once, as it is loaded.
+  it("features.voice is true only when a voice may actually speak (§122): a Gemini key, a Groq key, or an AI key with AI_TTS_PAID on", async () => {
+    // A fresh features.ts for each set of keys: it reads them once, as it is loaded (so a changed .env needs a restart).
     const fresh = async (label: string) => ((await import(new URL(`../features.ts?${label}`, import.meta.url).href)) as typeof import("../features.ts")).FEATURES;
     process.env.GEMINI_API_KEY = GEMINI_KEY;
     const gemini = await fresh("gemini-only");
@@ -607,10 +641,24 @@ describe("what the browser is told", () => {
     assert.equal(gemini.assistant, false, "a Gemini key is a voice, not a model to ask");
     assert.ok(!JSON.stringify(gemini).includes(GEMINI_KEY), "whether, never the key");
     delete process.env.GEMINI_API_KEY;
+
+    // "i want all free" (the owner, 24-Oct-2026): ChatGPT's paid voice counts only when he set AI_TTS_PAID.
     process.env.CHATGPT_API_KEY = OPENAI_KEY;
     const chatgpt = await fresh("chatgpt-only");
-    assert.deepEqual({ voice: chatgpt.voice, assistant: chatgpt.assistant }, { voice: true, assistant: true });
+    assert.deepEqual({ voice: chatgpt.voice, assistant: chatgpt.assistant }, { voice: false, assistant: true }, "a model to ask, but no voice the owner would pay for");
+    process.env.AI_TTS_PAID = "1";
+    const paid = await fresh("chatgpt-paid");
+    assert.deepEqual({ voice: paid.voice, assistant: paid.assistant }, { voice: true, assistant: true });
+    delete process.env.AI_TTS_PAID;
+
+    process.env.GROQ_API_KEY = GROQ_KEY;
+    const both = await fresh("chatgpt-and-groq");
+    assert.equal(both.voice, true, "Groq's free voice may speak beside the ChatGPT key");
     delete process.env.CHATGPT_API_KEY;
+    const groq = await fresh("groq-only");
+    assert.deepEqual({ voice: groq.voice, assistant: groq.assistant }, { voice: true, assistant: true }, "Groq's free tier, as before §109");
+    delete process.env.GROQ_API_KEY;
+
     const none = await fresh("no-key");
     assert.deepEqual({ voice: none.voice, assistant: none.assistant }, { voice: false, assistant: false });
     assert.deepEqual(Object.keys(none).sort(), ["assistant", "demoMode", "signup", "voice"]);
@@ -621,6 +669,7 @@ describe("no key reaches an error or a log line", () => {
   it("a refusal that echoes the key: the log, the error and the route's answer carry no key", async () => {
     process.env.GEMINI_API_KEY = GEMINI_KEY;
     process.env.CHATGPT_API_KEY = OPENAI_KEY;
+    process.env.AI_TTS_PAID = "1"; // §122: on, so the fallback's log line is written and checked for the key.
     const echoed = () => googleError(400, "INVALID_ARGUMENT", `API key not valid: ${GEMINI_KEY}. Please pass a valid API key.`);
     standIn((req) => (isGoogle(req) ? echoed() : audio(wav(pcm(1)))));
     const lines = await logged(() => aiSpeak({ text: "Hello.", voice: "female" }));

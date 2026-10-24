@@ -24,6 +24,7 @@ import {
   aiProviderName,
   aiReadPicture,
   aiSpeak,
+  aiSpeakClip,
   aiTranscribe,
   aiUsage,
   countTokens,
@@ -32,22 +33,26 @@ import {
   dailyTokenBudget,
   modelsFor,
   openaiReasoningEffort,
+  paidVoiceOn,
   redactSecrets,
   resetAiStateForTests,
   SPEECH_INSTRUCTIONS,
+  speechEngine,
   speechLanguage,
   speechTokens,
   tokensUsedToday,
   transcribeModel,
   ttsModel,
   ttsVoiceName,
+  voiceConfigured,
+  voiceStatus,
   type ToolSchema,
 } from "../ai.ts";
 import { readAttachment } from "../attachments.ts";
 import { interpretChecklistAnswer } from "../assistant.ts";
 import { readCv } from "../cvExtract.ts";
 import { runAgentStep, setAgentTransportForTests, TRANSCRIBE_PROMPT, validateAgentRequest } from "../mitraAgent.ts";
-import { parseWav, VoiceUnavailableError } from "../tts.ts";
+import { PAID_VOICE_OFF_MESSAGE, parseWav, VoiceNotConfiguredError, VoiceUnavailableError } from "../tts.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -67,6 +72,8 @@ const SETTINGS = [
   "AI_TTS_MODEL",
   "AI_TTS_VOICE_FEMALE",
   "AI_TTS_VOICE_MALE",
+  // Unset, the paid ChatGPT voice is OFF (REQUIREMENTS §122, "i want all free"): a test that wants it on says so.
+  "AI_TTS_PAID",
   "AI_DAILY_TOKEN_BUDGET",
   "GROQ_MODEL",
   "GROQ_AGENT_MODEL",
@@ -478,7 +485,8 @@ describe("the request shapes ChatGPT is sent (api.openai.com)", () => {
   });
 
   it("the speech body: gpt-4o-mini-tts, the whole line in one call, the chosen voice, how to say its language, a WAV", async () => {
-    onChatGPT();
+    // AI_TTS_PAID: ChatGPT's paid voice speaks only when the owner switched it on (REQUIREMENTS §122, 24-Oct-2026).
+    onChatGPT({ AI_TTS_PAID: "1" });
     standIn(() => audio(wav(2, true)));
     const line = Array.from({ length: 12 }, (_, i) => `Sentence ${i + 1} of the morning briefing, Heena.`).join(" ").slice(0, 600);
     const clip = await aiSpeak({ text: line, voice: "female" });
@@ -515,7 +523,7 @@ describe("the request shapes ChatGPT is sent (api.openai.com)", () => {
   });
 
   it("the voice not on the account (403, 404) is VoiceUnavailableError in ChatGPT's words; anything else an ordinary error", async () => {
-    onChatGPT();
+    onChatGPT({ AI_TTS_PAID: "1" });
     standIn(() => openaiError(404, { message: "The model `gpt-4o-mini-tts` does not exist or you do not have access to it.", code: "model_not_found" }));
     await assert.rejects(aiSpeak({ text: "Hello.", voice: "female" }), (err: unknown) => err instanceof VoiceUnavailableError && err.service === "openai" && err.model === "gpt-4o-mini-tts");
     standIn(() => openaiError(500, { message: "upstream" }));
@@ -561,6 +569,83 @@ describe("the request shapes ChatGPT is sent (api.openai.com)", () => {
     assert.equal(seen[0].url, "https://api.groq.com/openai/v1/audio/transcriptions");
     assert.equal(formOf().model, "whisper-large-v3");
     assert.equal(formOf().response_format, "verbose_json");
+  });
+});
+
+// "i want all free" (the owner, 24-Oct-2026), and since the voice work began: "I will not use a single rupee for any
+// voice" (3-Oct-2026). ChatGPT's voice is paid by the minute, so by default it never speaks: only AI_TTS_PAID lets it.
+describe("the paid ChatGPT voice is off unless the owner switches it on (REQUIREMENTS §122)", () => {
+  it("with only the ChatGPT key, speech is not-configured and nothing is sent: the browser's own voice speaks", async () => {
+    onChatGPT();
+    assert.equal(paidVoiceOn(), false, "unset is off");
+    assert.equal(voiceConfigured(), false, "features.voice: no voice may actually speak");
+    assert.equal(speechEngine(), null);
+    standIn(() => {
+      throw new Error("never asked");
+    });
+    await assert.rejects(aiSpeak({ text: "Hello.", voice: "female" }), (err: unknown) => err instanceof VoiceNotConfiguredError && err.code === "not-configured");
+    await assert.rejects(aiSpeakClip({ text: "Hello.", voice: "female" }), VoiceNotConfiguredError);
+    assert.equal(seen.length, 0, "OpenAI is never asked to speak");
+    assert.equal(aiConfigured(), true, "the model is still there to ask: §122 is about speech alone");
+  });
+
+  it("the GET's answer says the free ways — GEMINI_API_KEY at aistudio.google.com, or AI_TTS_PAID=1 — not 'set CHATGPT_API_KEY', which is set", () => {
+    onChatGPT();
+    const status = voiceStatus(null);
+    assert.equal(status.code, "not-configured");
+    assert.equal(status.available, false);
+    assert.equal(status.message, PAID_VOICE_OFF_MESSAGE);
+    for (const named of ["GEMINI_API_KEY", "aistudio.google.com", "AI_TTS_PAID", "free"]) assert.ok(status.message.includes(named), named);
+    assert.ok(!JSON.stringify(status).includes(OPENAI_KEY), "whether, never the key");
+    // With no key at all the answer stays the one it always was.
+    delete process.env.CHATGPT_API_KEY;
+    assert.equal(voiceStatus(null).code, "not-configured");
+    assert.match(voiceStatus(null).message, /CHATGPT_API_KEY/);
+  });
+
+  it("AI_TTS_PAID: '1', 'on', 'true' and 'yes' (case aside) switch it on; anything else, or unset, is off", () => {
+    onChatGPT();
+    for (const on of ["1", "on", "ON", "true", "True", "yes", "YES", " 1 "]) {
+      process.env.AI_TTS_PAID = on;
+      assert.equal(paidVoiceOn(), true, on);
+      assert.equal(speechEngine(), "openai", on);
+      assert.equal(voiceConfigured(), true, on);
+    }
+    for (const off of ["", "0", "off", "no", "false", "paid", "2"]) {
+      process.env.AI_TTS_PAID = off;
+      assert.equal(paidVoiceOn(), false, off);
+      assert.equal(speechEngine(), null, off);
+      assert.equal(voiceConfigured(), false, off);
+    }
+  });
+
+  it("switched on, ChatGPT's voice speaks exactly as before §122", async () => {
+    onChatGPT({ AI_TTS_PAID: "1" });
+    standIn(() => audio(wav(1)));
+    const made = await aiSpeakClip({ text: "Hello.", voice: "female" });
+    assert.equal(made.engine, "openai");
+    assert.ok(parseWav(made.clip).dataLength > 0);
+    assert.equal(seen[0].url, "https://api.openai.com/v1/audio/speech");
+    assert.equal(seen[0].body?.model, "gpt-4o-mini-tts");
+  });
+
+  it("Groq's free voice stays: beside the ChatGPT key, with the switch off, it speaks with its own model and voice", async () => {
+    onChatGPT();
+    onGroq();
+    assert.equal(aiProviderName(), "openai", "the chat still asks ChatGPT");
+    assert.equal(speechEngine(), "groq", "the voice is the free one");
+    assert.equal(ttsModel(), "canopylabs/orpheus-v1-english");
+    assert.equal(ttsVoiceName("female"), "hannah");
+    assert.equal(voiceConfigured(), true);
+    standIn(() => audio(wav(0.5)));
+    const made = await aiSpeakClip({ text: "Hello.", voice: "female" });
+    assert.equal(made.engine, "groq");
+    assert.equal(seen[0].url, "https://api.groq.com/openai/v1/audio/speech");
+    assert.deepEqual(seen[0].body, { model: "canopylabs/orpheus-v1-english", input: "Hello.", voice: "hannah", response_format: "wav" });
+    // Switched on, ChatGPT's voice takes over again, exactly as before §122.
+    process.env.AI_TTS_PAID = "yes";
+    assert.equal(speechEngine(), "openai");
+    assert.equal(ttsModel(), "gpt-4o-mini-tts");
   });
 });
 
@@ -656,7 +741,8 @@ describe("when a model cannot answer", () => {
 
 describe("the daily cost guard (AI_DAILY_TOKEN_BUDGET)", () => {
   it("every answer's tokens are counted; at 90% the chat stops, at 100% nothing is asked — and the log says each once", async () => {
-    onChatGPT({ AI_DAILY_TOKEN_BUDGET: "1000" });
+    // AI_TTS_PAID on, so the voice's refusal below is the allowance's, not §122's not-configured.
+    onChatGPT({ AI_DAILY_TOKEN_BUDGET: "1000", AI_TTS_PAID: "1" });
     standIn(() => completion('{"reply":"ok"}', {}, 600));
     const lines = await logged(async () => {
       await aiChatJSON({ system: "S", user: "U" });
@@ -718,7 +804,7 @@ describe("the daily cost guard (AI_DAILY_TOKEN_BUDGET)", () => {
   });
 
   it("speech, which reports no tokens, is counted by estimate: its words and its seconds of audio", async () => {
-    onChatGPT();
+    onChatGPT({ AI_TTS_PAID: "1" });
     standIn(() => audio(wav(2)));
     await aiSpeak({ text: "Hello Heena, your record is due.", voice: "female" });
     const expected = speechTokens("Hello Heena, your record is due.", wav(2));
@@ -764,7 +850,7 @@ describe("no key reaches a log line", () => {
   });
 
   it("the transcription's and the voice's failures name no key", async () => {
-    onChatGPT();
+    onChatGPT({ AI_TTS_PAID: "1" });
     standIn(() => openaiError(401, { message: `Incorrect API key provided: ${OPENAI_KEY}.` }));
     for (const call of [() => aiTranscribe({ audio: Buffer.alloc(8), mime: "audio/webm" }), () => aiSpeak({ text: "Hello.", voice: "female" })]) {
       const lines = await logged(async () => {

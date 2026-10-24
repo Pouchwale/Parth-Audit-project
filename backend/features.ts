@@ -35,8 +35,14 @@ export const ASSISTANT_CONFIGURED = aiConfigured();
 // day Google's free Gemini voice (GEMINI_API_KEY, backend/geminiSpeech.ts) can
 // speak on a server with no model to ask at all, so the browser must not take
 // `assistant` to mean the voice: it asks GET /api/assistant/speak only when
-// this is true — a Gemini key or an AI key (backend/ai.ts voiceConfigured).
-// `assistant` still means a model. Only WHETHER, never a key.
+// this is true. And since 24-Oct-2026 the voice is FREE ONLY unless the owner
+// says otherwise — "i want all free" (24-Oct-2026), "I will not use a single
+// rupee for any voice" (3-Oct-2026) — so this is true only when a voice may
+// actually speak: a Gemini key, a Groq key, or an OpenAI key with AI_TTS_PAID
+// on, never ChatGPT's paid voice alone with the switch off (REQUIREMENTS §122,
+// backend/ai.ts voiceConfigured). Read once at start-up, like every key: a
+// changed backend/.env needs a restart, as it always did. `assistant` still
+// means a model. Only WHETHER, never a key.
 export const VOICE_CONFIGURED = voiceConfigured();
 
 /** What the browser is told, beside the account — and, before anybody signs in, by GET /api/auth/config. */
