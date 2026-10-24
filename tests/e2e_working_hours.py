@@ -18,7 +18,9 @@ real clock, by changing the plant's calendar and hours through the super
 admin's own master data and putting them back:
 
   * GET /api/auth/config states the hours and today in words, and nothing about
-    anybody; the sign-in page states them (a closed Thursday, faked);
+    anybody; the sign-in page shows NO box of them any more (s123; the owner,
+    24-Oct-2026, of that box: "remove this message") - not even when the server
+    says today is closed (a Thursday, faked);
   * a sign-in refused outside the hours says so in the server's plain words, and
     the app does not open (faked; and real, where the gate is on);
   * a session still open when the server refuses it (faked /api/auth/me) is
@@ -33,7 +35,7 @@ admin's own master data and putting them back:
     midnight and no staff warning comes even when a fake says the day is closing;
   * the words are the STAFF's hours (the owner, 6-Oct-2026: "this statement is
     not valid for superadmin because superadmin can login at any time"): the
-    sign-in page's main words say "Staff working hours ... The super admin can
+    server's public words say "Staff working hours ... The super admin can
     sign in at any time.", never "DCRS is open" or "it opens again"; signed in,
     the super admin is told they are the staff's hours and that he can keep
     working; staff are told when their hours start again;
@@ -361,28 +363,44 @@ def main():
                 check("...and nothing signs them out early", st.get("signOutAtEnd") is False, st)
 
         # ==================================================================
-        print("\n==== The sign-in page states the hours ====")
+        # NO BOX OF THE HOURS ON THE SIGN-IN PAGE (s123; the owner, 24-Oct-2026, of the box that stood above the form:
+        # "remove this message"). The server still says the hours in its public answer (above) and still holds staff
+        # to them - the refusal below, and the real gate further down; the page just no longer stands them over the form.
+        print("\n==== The sign-in page shows no box of the hours (the owner, 24-Oct-2026) ====")
         ctx = new_context(browser)
         page = new_page(ctx)
         open_sign_in(page)
-        panel = page.locator("[data-section='working-hours']")
-        if enforced:
-            check("The sign-in page states the hours and today, as the server says them", panel.count() == 1 and panel.locator("[data-field='hours-text']").inner_text() == hours.get("hoursText") and panel.locator("[data-field='today-text']").inner_text() == hours.get("todayText"), panel.inner_text() if panel.count() else None)
-        else:
-            check("A server that does not hold the hours adds nothing to the sign-in page (as before)", panel.count() == 0)
+        card = page.locator(".auth-card").inner_text()
+        check(
+            "The sign-in page shows no box of the working hours" + (", though this server holds staff to them" if enforced else ""),
+            page.locator("[data-section='working-hours']").count() == 0 and "Staff working hours" not in card and (not hours.get("todayText") or hours["todayText"] not in card),
+            card[:500],
+        )
         ctx.close()
 
         ctx = new_context(browser)
         page = new_page(ctx)
         real_features = cfg.get("features")
-        page.route("**/api/auth/config", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(faked_hours(real_features))))
+        served = []
+
+        def fake_config(route):
+            served.append(route.request.url)
+            route.fulfill(status=200, content_type="application/json", body=json.dumps(faked_hours(real_features)))
+
+        page.route("**/api/auth/config", fake_config)
         open_sign_in(page)
-        page.wait_for_selector("[data-section='working-hours']", timeout=10000)
-        panel = page.locator("[data-section='working-hours']")
-        check("On the weekly off the sign-in page's main words say: Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.", panel.locator("[data-field='hours-text']").inner_text() == HOURS_SENTENCE, panel.inner_text())
-        check("...Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.", panel.locator("[data-field='today-text']").inner_text() == "Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.", panel.inner_text())
-        check("...that each session ends with the day; nowhere that DCRS is open, closed or opens again", "sign in each day" in panel.inner_text() and not says_closed(panel.inner_text()), panel.inner_text())
-        check("...drawn as closed", panel.get_attribute("data-phase") == "closed-day" and panel.get_attribute("data-open") == "false")
+        deadline = time.time() + 10
+        while not served and time.time() < deadline:
+            page.wait_for_timeout(100)
+        page.wait_for_timeout(500)
+        card = page.locator(".auth-card").inner_text()
+        check("(the sign-in page asked for the server's public answer - faked: Thursday, the weekly off, staff hours closed)", bool(served))
+        check(
+            "Even on a closed day the sign-in page stands no hours above the form: not 'Staff working hours ...', not 'Today is Thursday, the weekly off ...'",
+            page.locator("[data-section='working-hours']").count() == 0 and HOURS_SENTENCE not in card and "weekly off" not in card and "Staff working hours" not in card,
+            card[:500],
+        )
+        check("...and nowhere that DCRS is open, closed or opens again", not says_closed(card), card[:500])
 
         # ==================================================================
         print("\n==== A sign-in refused outside the hours ====")
@@ -1004,7 +1022,7 @@ def real_gate(browser, admin_ctx, staff_id):
             time.sleep(0.5)
         check(f"On an adjustment day (today, a {weekday} made the weekly off) the plant works: the session is served", s5 == 200, s5)
         today_text = (config(admin_ctx).get("hours") or {}).get("todayText", "")
-        check("...and the sign-in page's words say so", today_text.startswith(f"Today is {weekday}, an adjustment day for E2E Festival, so the plant works"), today_text)
+        check("...and the server's own words for today say so (its public answer)", today_text.startswith(f"Today is {weekday}, an adjustment day for E2E Festival, so the plant works"), today_text)
         staff_ctx.close()
     finally:
         write_master(admin_ctx, original)

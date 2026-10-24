@@ -6,13 +6,16 @@
    1. The faces, self-hosted (public/fonts, each family's OFL.txt beside its files;
       nothing is fetched from anywhere else — the suites are network-independent and
       a failed request is a console error):
-        Baloo Bhai 2 ........ the DISPLAY face, Latin + Gujarati: page titles, card
-                              headers, the brand, Mitra's name, the intro.
-        Plus Jakarta Sans ... the app's text (Latin).
-        Noto Sans Gujarati .. the app's Gujarati text.
-      Each Gujarati file has a unicode-range of Gujarati alone, so a page with no
-      Gujarati on it never downloads one (₹, U+20B9, is left to the Latin faces'
-      fallback for that reason). About 60 KB for an English page, 300 KB in all.
+        Plus Jakarta Sans ... the app's text (Latin), and its DISPLAY face too: page
+                              titles, card headers, the brand, Mitra's name, the intro.
+        Noto Sans Gujarati .. the app's Gujarati text, titles included.
+      ONE FAMILY (REQUIREMENTS §123; the owner, 24-Oct-2026: "also change fonts"): the
+      rounded, chunky Baloo Bhai 2 that drew the titles since §81 is gone, so the whole
+      app reads in one clean, professional face; the titles keep their sizes, at the
+      heavier weights of the same family.
+      The Gujarati file has a unicode-range of Gujarati alone, so a page with no
+      Gujarati on it never downloads it (₹, U+20B9, is left to the Latin face's
+      fallback for that reason). About 27 KB for an English page, 140 KB in all.
    2. THE PRINTED FORMS KEEP THEIR FONT. They are the company's specification, so
       every form, register and sheet is set in --font-doc, the stack the whole app
       used before (styles.css --font-sans, copied exactly), on screen and on paper;
@@ -49,38 +52,13 @@
   line-gap-override: 0%;
 }
 
-/* Baloo's own measure is very deep below the line (room for Gujarati's lower
-   signs), which would lift a title above the icons beside it; set to a text
-   face's measure, its letters sit where the old ones did. */
-@font-face {
-  font-family: "Baloo Bhai 2";
-  font-style: normal;
-  font-weight: 400 800;
-  font-display: swap;
-  src: url("../fonts/baloo-bhai-2/baloo-bhai-2-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-  ascent-override: 100%;
-  descent-override: 25%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: "Baloo Bhai 2";
-  font-style: normal;
-  font-weight: 400 800;
-  font-display: swap;
-  src: url("../fonts/baloo-bhai-2/baloo-bhai-2-gujarati.woff2") format("woff2");
-  unicode-range: U+0951-0952, U+0964-0965, U+0A80-0AFF, U+200C-200D, U+25CC, U+A830-A839;
-  ascent-override: 100%;
-  descent-override: 25%;
-  line-gap-override: 0%;
-}
-
 :root {
   /* The stack every screen and form used before §81 — styles.css --font-sans, copied exactly. */
   --font-doc: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-app: "Plus Jakarta Sans", "Noto Sans Gujarati", var(--font-sans);
-  --font-display: "Baloo Bhai 2", var(--font-app);
+  /* The titles' face is the text's own (§123). Kept as a name of its own so the titles
+     are still one switch — paper sets it to the forms' stack (section 2). */
+  --font-display: var(--font-app);
 }
 
 /* Figures of one width, as the old face drew them: a ticking clock or a count that
@@ -108,6 +86,18 @@ h2,
 .assistant-side-title,
 .mitra-phone-title {
   font-family: var(--font-display);
+}
+
+/* The titles' weight in the one family (§123): Plus Jakarta Sans draws a lighter stroke than
+   Baloo did at the same number, so the headings that stood at 600 step up to 700 and stay a
+   step above the bold words of the text beside them. A heading's own weight class still
+   wins; on screen only, so a printed form's headings keep theirs. */
+@media screen {
+  h1:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)),
+  h2:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)),
+  .card-header h3:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) {
+    font-weight: 700;
+  }
 }
 
 /* The band's name sits flat on the company's burgundy, in either theme (REQUIREMENTS §90):
@@ -156,13 +146,16 @@ table.log-sheet,
    three one-pixel steps of a deeper burgundy under it and a soft shadow on the card
    (REQUIREMENTS §90: --auth-title-1..3, --auth-depth-1..3, --auth-depth-shadow, set for
    each theme in styles.css), drawn once and never animated. The words are the element's
-   own (no copy in a pseudo-element), so they read and translate as before. */
+   own (no copy in a pseudo-element), so they read and translate as before.
+   Since §123 (the owner, 24-Oct-2026: the title block "is ok", the fonts to change) it is
+   Plus Jakarta Sans at its heaviest, 800, set a touch tighter (-0.01em) as a wordmark
+   is, at the size that stands it on two balanced lines in the card. */
 .auth-brand .title {
   font-family: var(--font-display);
   font-size: 27px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.1;
-  letter-spacing: 0.005em;
+  letter-spacing: -0.01em;
   color: var(--accent-text);
   max-width: 330px;
   margin: 0 auto;

@@ -3,8 +3,10 @@ import { COMPANY } from "../../data/seed/masterData";
 import { ThemeSwitch } from "../layout/ThemeSwitch";
 
 // THE FIRST SCREEN ANYBODY SEES (REQUIREMENTS §65): the company's mark, the
-// system's name, whose system it is (the company's name as the owner gave it on
-// 02-Oct-2026), and one plain line saying what it is for.
+// system's name and whose system it is (the company's name as the owner gave it on
+// 02-Oct-2026). The line under them that said what it is for is gone (REQUIREMENTS
+// §123; the owner, 24-Oct-2026: "second is ok but remove the below line"): the
+// title and the company's name stand on their own.
 // The 192px file drawn at 72px stays crisp on a 2× screen; alt is empty because
 // the name is written under it; the address is relative, like assets/styles.css
 // in index.html. The company name is shown as written, never machine-translated
@@ -12,11 +14,12 @@ import { ThemeSwitch } from "../layout/ThemeSwitch";
 // their inputs by id, name and autocomplete.
 //
 // The system's name is a 3D wordmark in the display face (REQUIREMENTS §81,
-// public/styles/brand.css): a gradient face over three steps of depth, drawn
-// once, and a single entrance of the TITLE alone as the screen opens — the card
-// and the form never move. `afterIntro`: the introduction is playing over this
-// screen (AuthScreen, IntroSplash.tsx), so the title's entrance waits for its
-// veil to lift. Fixed for the life of the screen, so the entrance never restarts.
+// public/styles/brand.css) — since §123 the app's own Plus Jakarta Sans at its
+// heaviest: a gradient face over three steps of depth, drawn once, and a single
+// entrance of the TITLE alone as the screen opens — the card and the form never
+// move. `afterIntro`: the introduction is playing over this screen (AuthScreen,
+// IntroSplash.tsx), so the title's entrance waits for its veil to lift. Fixed for
+// the life of the screen, so the entrance never restarts.
 //
 // `mascot`: the sign-in screen's cartoon (REQUIREMENTS §122; the owner, 24-Oct-2026: "add cartoon in login when
 // user login and entering his password then that cartoon will closing eye and opening it has some emotions"),
@@ -42,7 +45,6 @@ export function AuthLayout({ children, afterIntro = false, mascot }: { children:
           <div className="subtitle notranslate" translate="no">
             {COMPANY.shortName}
           </div>
-          <div className="purpose">Every controlled record — filled, reviewed, verified and on file.</div>
         </div>
         {children}
         {/* The theme, at the card's foot (REQUIREMENTS §90): this computer's look until

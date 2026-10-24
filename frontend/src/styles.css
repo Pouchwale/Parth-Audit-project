@@ -2884,8 +2884,9 @@ html.print-scoped .doc-table th.score-minus-head { white-space: normal; line-hei
    theme. The shell is the canvas with one still burgundy wash at its head (--auth-wash,
    a deeper one in dark); the card a surface on a hairline, 14 px round, on the large
    shadow, with room to read (36/32/30 px, at most 420 px wide); the company's mark at
-   72 px with an 18 px corner on a burgundy-tinted shadow; the company's name in ink and
-   the line of purpose muted, as REQUIREMENTS §65 set them out. The title's 3D face is
+   72 px with an 18 px corner on a burgundy-tinted shadow; the company's name in ink, as
+   REQUIREMENTS §65 set it out (the muted line of purpose under it went with §123, the
+   owner's 24-Oct-2026 "remove the below line"). The title's 3D face is
    brand.css's (section 3a), on the same theme. The theme switch at the card's foot is
    the foundation's (.auth-theme), and the error line is shared with the admin pages
    (it stays with the forms' rules, further up). Nothing here moves. */
@@ -2904,7 +2905,6 @@ html.print-scoped .doc-table th.score-minus-head { white-space: normal; line-hei
   display: block; width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 18px;
   box-shadow: 0 1px 2px rgba(63, 44, 34, 0.2), 0 10px 26px rgba(126, 60, 64, 0.28);
 }
-.auth-brand .purpose { font-size: 12.5px; color: var(--ink-2); margin-top: 8px; line-height: 1.45; }
 .auth-footer { text-align: center; margin-top: 20px; font-size: 12.5px; color: var(--ink-2); }
 .auth-role-note { text-align: center; margin-top: 14px; font-size: 11.5px; color: var(--ink-3); }
 /* A phone: a little less frame around the card and inside it, so the form keeps its width. */

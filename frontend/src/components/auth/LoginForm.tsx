@@ -4,15 +4,17 @@ import { ApiError } from "../../api/client";
 import { DEVICE_LIMIT_CODE, deviceLimitWordsOf } from "../../engine/deviceWords";
 import { accountWord } from "../../engine/accountWords";
 import { PasswordInput } from "../common/PasswordInput";
-import { WorkingHoursNote } from "./WorkingHoursNote";
 
 // `onSwitchToSignup` is absent where accounts are made by the administrator
 // alone (REQUIREMENTS §66): then nothing here offers to create one.
 //
-// THE PLANT'S HOURS (REQUIREMENTS §84): above the form, when the server holds
-// the plant to them, the hours and where today stands (WorkingHoursNote); after
-// the browser signed somebody out by itself, why; and a sign-in refused outside
-// the hours says so in the server's own plain words, with the next opening.
+// THE PLANT'S HOURS (REQUIREMENTS §84): after the browser signed somebody out by
+// itself, why; and a sign-in refused outside the hours says so in the server's own
+// plain words, with the next opening. No standing box of the hours above the form
+// any more (REQUIREMENTS §123; the owner, 24-Oct-2026, of that box: "remove this
+// message"): the hours are said only where they bite — the refusal, the warning
+// before the close and the notice after it — and the server holds staff to them
+// exactly as before.
 //
 // ONE DEVICE TOO MANY (REQUIREMENTS §106): an account already signed in on as many devices as it may be is
 // refused with the devices named and since when, and what to do, in the screens' language.
@@ -67,7 +69,6 @@ export function LoginForm({ onSwitchToSignup, onStanding }: { onSwitchToSignup?:
           {error.text}
         </div>
       )}
-      <WorkingHoursNote />
       <div className="field mb-3">
         <label htmlFor="login-email">{accountWord(signInWordsLanguage(), "login.label")}</label>
         <input

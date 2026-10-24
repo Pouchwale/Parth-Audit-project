@@ -32,14 +32,17 @@ have not added motion graphics before the login."
     and in the calm version;
   * a signed-in session's opening (a new tab of a signed-in browser) is as before:
     over the app, catching nothing, once a session;
-  * the sign-in title is a 3D wordmark in the display face, whose one entrance
-    lasts no more than 0.6 s and moves nothing else;
+  * the sign-in title is a 3D wordmark in the display face - since s123 the
+    app's own Plus Jakarta Sans, at 800 - whose one entrance lasts no more
+    than 0.6 s and moves nothing else;
   * across the app (delight.css): a page fades and rises in on a new address
     within 200 ms and is left exactly where it was; a button gives when pressed;
     a tile lifts under the pointer; the sidebar's active item glides in - none of
     it on paper or under reduced motion;
-  * the app's text is in Plus Jakarta Sans and its titles in Baloo Bhai 2, the
-    font files served by the site itself with 200 - Gujarati ones only once
+  * the app's text and its titles are in one family (s123; the owner,
+    24-Oct-2026: "also change fonts"): Plus Jakarta Sans, with Noto Sans
+    Gujarati for Gujarati - no Baloo Bhai 2 declared or fetched any more; the
+    font files served by the site itself with 200 - the Gujarati one only once
     Gujarati is on the screen;
   * the printed forms keep the stack they always had, on screen and on paper.
 
@@ -334,12 +337,12 @@ with sync_playwright() as p:
     title = page.evaluate(
         """() => { const t = document.querySelector('.auth-brand .title'); const s = getComputedStyle(t);
                    const card = getComputedStyle(document.querySelector('.auth-card')); const box = getComputedStyle(document.querySelector('#login-email'));
-                   return { text: t.textContent.trim(), font: s.fontFamily, filter: s.filter, clip: s.webkitBackgroundClip || s.backgroundClip, image: s.backgroundImage,
+                   return { text: t.textContent.trim(), font: s.fontFamily, weight: s.fontWeight, filter: s.filter, clip: s.webkitBackgroundClip || s.backgroundClip, image: s.backgroundImage,
                             duration: parseFloat(s.animationDuration) || 0, iterations: s.animationIterationCount, name: s.animationName,
                             cardMoves: card.animationName !== 'none' || card.transform !== 'none', boxMoves: box.animationName !== 'none' || box.transform !== 'none' }; }"""
     )
     check("The title still reads Digital Controlled Record System", title["text"] == "Digital Controlled Record System", title["text"])
-    check("...in the display face, Baloo Bhai 2", stack(title["font"]).startswith('"Baloo Bhai 2"'), title["font"])
+    check("...in the display face, now the app's own Plus Jakarta Sans, at its heaviest, 800 (s123)", stack(title["font"]).startswith('"Plus Jakarta Sans"') and title["weight"] == "800", (title["font"], title["weight"]))
     check("...a gradient face over steps of depth (layered shadows)", "gradient" in title["image"] and title["clip"] == "text" and title["filter"].count("drop-shadow") >= 3, title)
     check("...its one entrance lasts no more than 0.6 s and never repeats", title["name"] != "none" and 0 < title["duration"] <= 0.6 and title["iterations"] == "1", title)
     check("...and the card and the boxes never move", not title["cardMoves"] and not title["boxMoves"], title)
@@ -347,13 +350,19 @@ with sync_playwright() as p:
     print("\n==== The fonts on the sign-in screen ====")
     page.evaluate("() => document.fonts.ready")
     fonts = page.evaluate(
-        """() => ({ check: document.fonts.check('16px "Baloo Bhai 2"'),
+        """() => ({ check: document.fonts.check('800 27px "Plus Jakarta Sans"'),
                     loaded: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/["']/g, '')),
+                    declared: [...new Set([...document.fonts].map((f) => f.family.replace(/["']/g, '')))].sort(),
                     body: getComputedStyle(document.body).fontFamily })"""
     )
-    check("document.fonts.check('16px \"Baloo Bhai 2\"') is true, and the face is loaded", fonts["check"] and "Baloo Bhai 2" in fonts["loaded"], fonts)
+    check("document.fonts.check('800 27px \"Plus Jakarta Sans\"') is true, and the face is loaded", fonts["check"] and "Plus Jakarta Sans" in fonts["loaded"], fonts)
+    check("One family is declared (s123): Plus Jakarta Sans, with Noto Sans Gujarati for Gujarati - no Baloo Bhai 2", fonts["declared"] == ["Noto Sans Gujarati", "Plus Jakarta Sans"], fonts["declared"])
     check("The body's text is in Plus Jakarta Sans", stack(fonts["body"]).startswith('"Plus Jakarta Sans"'), fonts["body"])
-    check("The font files come from the site itself, each with 200", len(font_responses) >= 2 and all(s == 200 for _, s in font_responses) and not font_failures, (font_responses, font_failures))
+    check(
+        "The English screen's one font file, Plus Jakarta Sans, comes from the site itself with 200 (and no other file)",
+        bool(font_responses) and all(s == 200 for _, s in font_responses) and {u.rsplit("/", 1)[-1] for u, _ in font_responses} == {"plus-jakarta-sans-latin.woff2"} and not font_failures,
+        (font_responses, font_failures),
+    )
     check("No Gujarati font file is fetched for an English screen", not any("gujarati" in u for u, _ in font_responses), font_responses)
 
     print("\n==== Every time the sign-in screen is shown: a reload plays it again ====")
@@ -646,13 +655,14 @@ with sync_playwright() as p:
     print("\n==== The fonts in the app ====")
     page.evaluate("() => document.fonts.ready")
     app = page.evaluate(
-        """() => ({ check: document.fonts.check('16px "Baloo Bhai 2"'), body: getComputedStyle(document.body).fontFamily,
+        """() => ({ check: document.fonts.check('700 16px "Plus Jakarta Sans"'), body: getComputedStyle(document.body).fontFamily,
                     h1: document.querySelector('h1') ? getComputedStyle(document.querySelector('h1')).fontFamily : null,
-                    brand: document.querySelector('.app-sidebar-brand .title') ? getComputedStyle(document.querySelector('.app-sidebar-brand .title')).fontFamily : null })"""
+                    brand: document.querySelector('.app-sidebar-brand .title') ? getComputedStyle(document.querySelector('.app-sidebar-brand .title')).fontFamily : null,
+                    baloo: [...document.fonts].some((f) => /baloo/i.test(f.family)) })"""
     )
-    check("document.fonts.check('16px \"Baloo Bhai 2\"') is true in the app", app["check"], app)
+    check("document.fonts.check('700 16px \"Plus Jakarta Sans\"') is true in the app", app["check"], app)
     check("The body's text is in Plus Jakarta Sans", stack(app["body"]).startswith('"Plus Jakarta Sans"'), app["body"])
-    check("The page title and the brand are in Baloo Bhai 2", stack(app["h1"]).startswith('"Baloo Bhai 2"') and stack(app["brand"]).startswith('"Baloo Bhai 2"'), app)
+    check("The page title and the brand are in Plus Jakarta Sans too: one family, no Baloo Bhai 2 anywhere (s123)", stack(app["h1"]).startswith('"Plus Jakarta Sans"') and stack(app["brand"]).startswith('"Plus Jakarta Sans"') and not app["baloo"], app)
 
     print("\n==== Movement across the app (delight.css) ====")
     served = page.evaluate("async () => (await fetch('styles/delight.css')).status")
@@ -774,11 +784,21 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     gu = page.evaluate(
         """() => ({ title: document.querySelector('h1') ? document.querySelector('h1').textContent : '',
-                    display: document.fonts.check('600 24px "Baloo Bhai 2"', 'ગુજરાતી'), text: document.fonts.check('14px "Noto Sans Gujarati"', 'ગુજરાતી') })"""
+                    titleFont: document.querySelector('h1') ? getComputedStyle(document.querySelector('h1')).fontFamily : '',
+                    display: document.fonts.check('700 24px "Noto Sans Gujarati"', 'ગુજરાતી'), text: document.fonts.check('14px "Noto Sans Gujarati"', 'ગુજરાતી') })"""
     )
     gu_files = [(u, s) for u, s in font_responses if "gujarati" in u]
     check("With Gujarati chosen the title is in Gujarati", shown and GUJARATI.search(gu["title"]) is not None, gu["title"])
-    check("...and the Gujarati faces are fetched and ready, each with 200", gu["display"] and gu["text"] and len(gu_files) >= 2 and all(s == 200 for _, s in gu_files), (gu, gu_files))
+    check(
+        "...its letters drawn in Noto Sans Gujarati, the app's Gujarati face, there for titles and text alike (s123)",
+        stack(gu["titleFont"]).startswith('"Plus Jakarta Sans", "Noto Sans Gujarati"') and gu["display"] and gu["text"],
+        gu,
+    )
+    check(
+        "...and that one Gujarati file is fetched and ready, with 200",
+        bool(gu_files) and all(s == 200 for _, s in gu_files) and {u.rsplit("/", 1)[-1] for u, _ in gu_files} == {"noto-sans-gujarati.woff2"},
+        gu_files,
+    )
     page.select_option(".lang-select", "en")
     page.wait_for_timeout(600)
 
@@ -840,4 +860,4 @@ if FAILURES:
     for f in FAILURES:
         print(" -", f)
     sys.exit(1)
-print(f"\nThe system's name in motion graphics before every sign-in, in full for a person and never in a script's way; the app in its new faces ({total} font files served by the site), the forms in theirs.")
+print(f"\nThe system's name in motion graphics before every sign-in, in full for a person and never in a script's way; the app in its one family ({total} font files served by the site), the forms in theirs.")

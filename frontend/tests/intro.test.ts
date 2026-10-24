@@ -7,12 +7,15 @@
 // 6 s, its stylesheet, and the sign-in screen's own timer), the calm version for
 // somebody who asks for less motion (fades and glows, nothing travelling); the
 // site-wide movement of delight.css (screen only, never under reduced motion,
-// transforms and opacity only, nothing left moved); and the fonts — self-hosted,
-// licensed, light, the Gujarati files fetched only for Gujarati text, and the
-// printed forms left in the face they have always had.
+// transforms and opacity only, nothing left moved); and the fonts — one family since
+// REQUIREMENTS §123 (the owner, 24-Oct-2026: "also change fonts"), self-hosted,
+// licensed, light, the Gujarati file fetched only for Gujarati text, and the
+// printed forms left in the face they have always had. Beside them, the rest of what
+// the owner asked of the sign-in screen that day (§123): no box of the working hours,
+// no line under the company's name.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import {
   INTRO_CALM_MS,
@@ -427,7 +430,7 @@ test("the fonts are self-hosted woff2 files with their licences beside them, and
   assert.doesNotMatch(brandCss, /url\(\s*["']?(https?:)?\/\//, "nothing fetched from another site");
   assert.doesNotMatch(brandCss, /@import/);
   const faces = fontFaces();
-  assert.ok(faces.length >= 4, "Latin and Gujarati faces for the display and text families");
+  assert.equal(faces.length, 2, "one Latin face and one Gujarati face");
   let bytes = 0;
   const families = new Set<string>();
   for (const face of faces) {
@@ -443,7 +446,14 @@ test("the fonts are self-hosted woff2 files with their licences beside them, and
     bytes += statSync(file).size;
     families.add(face["font-family"].replace(/"/g, ""));
   }
-  assert.deepEqual([...families].sort(), ["Baloo Bhai 2", "Noto Sans Gujarati", "Plus Jakarta Sans"]);
+  // ONE FAMILY (REQUIREMENTS §123; the owner, 24-Oct-2026: "also change fonts"): the app's text face is its titles'
+  // face too, with Noto Sans Gujarati for Gujarati. The rounded Baloo Bhai 2 is declared by no rule, asked for by
+  // nothing, and no file of it ships.
+  assert.deepEqual([...families].sort(), ["Noto Sans Gujarati", "Plus Jakarta Sans"]);
+  assert.doesNotMatch(uncommented(brandCss), /Baloo/i, "no rule names the old display face");
+  assert.doesNotMatch(splashSrc, /Baloo/i, "the opening does not ask for it");
+  assert.match(splashSrc, /document\.fonts\.load\('800 \d+px "Plus Jakarta Sans"'/, "the opening asks early for the face it is drawn in");
+  assert.deepEqual(readdirSync(path.join(frontend, "public", "fonts")).sort(), ["noto-sans-gujarati", "plus-jakarta-sans"], "no font ships that no page uses");
   assert.ok(bytes <= 350 * 1024, `all the fonts together: ${bytes} bytes`);
 });
 
@@ -465,12 +475,19 @@ test("a Gujarati file is fetched only for Gujarati text, and the Latin ones neve
   }
 });
 
-test("the app's text in the new faces; the printed forms in the stack they always had, on screen and on paper", () => {
+test("the app's text and its titles in one family; the printed forms in the stack they always had, on screen and on paper", () => {
   const oldSans = appCss.match(/--font-sans:\s*([^;]+);/)?.[1].trim();
   assert.equal(oldSans, OLD_STACK, "styles.css --font-sans is the stack the forms were drawn in");
   assert.equal(brandCss.match(/--font-doc:\s*([^;]+);/)?.[1].trim(), OLD_STACK, "--font-doc is that stack, copied exactly");
   assert.match(brandCss, /--font-app:\s*"Plus Jakarta Sans", "Noto Sans Gujarati", var\(--font-sans\);/);
-  assert.match(brandCss, /--font-display:\s*"Baloo Bhai 2", var\(--font-app\);/);
+  // The titles' face is the text's own (REQUIREMENTS §123), still a name of its own so paper can switch it.
+  assert.match(brandCss, /--font-display:\s*var\(--font-app\);/);
+  // The sign-in title keeps its 3D wordmark (the owner: the title block "is ok"), in the family's heaviest weight.
+  const title = brandCss.match(/\n\.auth-brand \.title \{([^}]*)\}/)?.[1] ?? "";
+  assert.match(title, /font-family: var\(--font-display\);/);
+  assert.match(title, /font-weight: 800;/);
+  assert.match(title, /letter-spacing: -0\.01em;/);
+  assert.match(title, /filter: drop-shadow\(/, "its steps of depth");
   assert.match(brandCss, /\nbody\s*\{[^}]*font-family:\s*var\(--font-app\)/);
   const docs = brandCss.match(/\n(\[data-print-doc\],[\s\S]*?)\{([^}]*)\}/);
   assert.ok(docs, "the printed forms have their own rule");
@@ -481,4 +498,26 @@ test("the app's text in the new faces; the printed forms in the stack they alway
   const print = brandCss.match(/@media print\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
   assert.match(print, /--font-app:\s*var\(--font-doc\)/, "on paper everything is in the old stack");
   assert.match(print, /--font-display:\s*var\(--font-doc\)/);
+  // The headings that stood at 600 in the old face step up to 700 in the new one: on screen, never on a printed form.
+  const weights = brandCss.match(/@media screen \{\s*(h1:where[^{]*)\{\s*font-weight: 700;\s*\}\s*\}/);
+  assert.ok(weights, "the titles' weight is a screen rule of its own");
+  const weighted = weights![1].split(",").map((s) => s.trim());
+  assert.deepEqual(weighted.map((s) => s.slice(0, s.indexOf(":where"))), ["h1", "h2", ".card-header h3"]);
+  for (const sel of weighted) assert.match(sel, /:where\(:not\(\[data-print-doc\]:not\(\[data-print-doc="ui"\]\) \*\)\)$/, `${sel} leaves the printed forms alone`);
+});
+
+test("the sign-in screen as the owner left it on 24-Oct-2026: no box of the hours, no line under the company's name", () => {
+  // REQUIREMENTS §123. Of the box of working hours above the form: "remove this message". Of the line under the
+  // title and the company's name: "second is ok but remove the below line".
+  const formSrc = readFileSync(path.join(authDir, "LoginForm.tsx"), "utf8");
+  assert.equal(existsSync(path.join(authDir, "WorkingHoursNote.tsx")), false, "the box's component is gone");
+  assert.doesNotMatch(formSrc, /WorkingHoursNote|working-hours|hoursText|todayText/, "the form draws no hours of its own");
+  assert.doesNotMatch(layoutSrc, /className="purpose"|Every controlled record/, "no line under the company's name");
+  assert.doesNotMatch(appCss, /\.auth-brand \.purpose/, "nor a rule left for one");
+  // What the owner kept: the title and the company's name, closing the brand block...
+  assert.match(layoutSrc, /<div className="title">Digital Controlled Record System<\/div>\s*<div className="subtitle notranslate" translate="no">\s*\{COMPANY\.shortName\}\s*<\/div>\s*<\/div>/);
+  // ...and the hours where they bite: a refusal in the server's own words, with its code, and the notice after the
+  // browser signed somebody out by itself (the server still holds staff to the hours: backend/tests/workingHours.test.ts).
+  assert.match(formSrc, /<div className="auth-error" data-code=\{error\.code \?\? undefined\}>/);
+  assert.match(formSrc, /data-section="signed-out-notice"/);
 });
