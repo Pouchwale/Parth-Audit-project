@@ -432,9 +432,8 @@ with sync_playwright() as p:
         page.emulate_media(media="screen")
         page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
     check("F/QC/12: an empty Next Due Date prints empty, not dd-mm-yyyy", empty["marked"] and empty["fill"] in ("rgba(0, 0, 0, 0)", "transparent"), empty)
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    want = f"{as_text['value'][8:10]}-{months[int(as_text['value'][5:7]) - 1]}-{as_text['value'][:4]}" if as_text.get("value") else None
-    check("F/QC/12: the entry's written Date prints as the sheet writes it (14-Oct-2026), its box not printed (s111 part 6)", as_text["hidden"] and as_text["text"] == want, as_text)
+    want = f"{as_text['value'][8:10]}-{as_text['value'][5:7]}-{as_text['value'][2:4]}" if as_text.get("value") else None
+    check("F/QC/12: the entry's written Date prints as the sheet writes it (14-10-26), its box not printed (s111 part 6)", as_text["hidden"] and as_text["text"] == want, as_text)
     left = written_date.evaluate("e => ({ marked: e.classList.contains('print-as-text'), beside: !!(e.nextElementSibling && e.nextElementSibling.classList.contains('print-box-text')) })")
     check("...and after printing the box is the box again, the words gone", not left["marked"] and not left["beside"], left)
 

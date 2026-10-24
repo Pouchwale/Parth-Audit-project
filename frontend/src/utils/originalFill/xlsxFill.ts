@@ -1165,8 +1165,11 @@ function placeGrid(
 
 const MONTHS3 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
-/** A month (and its year, when written) a heading names: "Apr-26", "Jan ", "Mar.", "21-Apr-2026" (a date cell). */
+/** A month (and its year, when written) a heading names: "Apr-26", "Jan ", "Mar.", "21-04-26" or "21-Apr-2026" (a date cell). */
 function monthOf(t: string): { m: number; y?: number } | null {
+  // A date cell is read as the app writes a date, day-month-year in numbers (§124): the month is the middle figure.
+  const numeric = /^\s*(\d{1,2})[-./](\d{1,2})[-./](\d{4}|\d{2})\s*$/.exec(t);
+  if (numeric) return Number(numeric[2]) >= 1 && Number(numeric[2]) <= 12 ? { m: Number(numeric[2]) - 1, y: Number(numeric[3]) % 100 } : null;
   const words = norm(t).split(" ");
   const m = words.findIndex((w) => MONTHS3.includes(w.slice(0, 3)) && /^[a-z]{3,9}$/.test(w) && (w.length === 3 || w.startsWith(MONTHS3[MONTHS3.indexOf(w.slice(0, 3))])));
   if (m === -1) return null;

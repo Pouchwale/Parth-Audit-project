@@ -489,7 +489,7 @@ def design_and_save(page, doc_id, format_no, anchor, issued_rev, next_rev, fixed
     said = squash(saved.text_content()) if saved.count() else ""
     check(
         "Saved: a pop-up says which revision, dated today, by whom, with what changed and why",
-        f"Rev {next_rev}" in said and date.today().strftime("%d-%b-%Y") in said and ACCOUNT in said and "added column" in said and reason in said,
+        f"Rev {next_rev}" in said and date.today().strftime("%d-%m-%y") in said and ACCOUNT in said and "added column" in said and reason in said,
         said,
     )
     page.click("[data-action='designer-saved-close']")

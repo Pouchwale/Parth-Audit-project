@@ -399,7 +399,7 @@ with sync_playwright() as p:
     sandeep_row = next((r for r in rows.values() if r.get("C", ("",))[0] == "Sandeep Parekh"), None)
     check(
         "...with a line per employee - GP3 No. as text, Joining Date and Date of Birth as real Excel dates",
-        len(rows) == 116 and sandeep_row and sandeep_row["A"][:2] == ("1024", "inlineStr") and sandeep_row["B"] == (str(serial(date(2024, 7, 5))), None, "2") and sandeep_row["F"][0] == str(serial(date(1985, 3, 12))) and 'formatCode="[$-409]dd\\-mmm\\-yyyy"' in styles,
+        len(rows) == 116 and sandeep_row and sandeep_row["A"][:2] == ("1024", "inlineStr") and sandeep_row["B"] == (str(serial(date(2024, 7, 5))), None, "2") and sandeep_row["F"][0] == str(serial(date(1985, 3, 12))) and 'formatCode="[$-409]dd\\-mm\\-yy"' in styles,
         sandeep_row,
     )
 
@@ -468,7 +468,7 @@ with sync_playwright() as p:
     preview = page.locator("[data-section='hr-master-import-preview']")
     added_dates = preview.locator("[data-table='import-additions'] tbody tr").all_inner_texts() if preview.count() else []
     check("A file whose slashed dates are month first is read month first throughout, and says so",
-          any("13-May-2024" in r for r in added_dates) and any("01-Apr-2025" in r for r in added_dates) and "month first" in preview.inner_text(), added_dates)
+          any("13-05-24" in r for r in added_dates) and any("01-04-25" in r for r in added_dates) and "month first" in preview.inner_text(), added_dates)
     page.locator(".modal-box button:has-text('Cancel')").click()
     page.wait_for_timeout(300)
     old_xls = os.path.join(TMP, "old.xls")

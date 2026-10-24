@@ -158,7 +158,7 @@ function weekdayIndex(word: string): number {
 }
 
 // "today", "tomorrow", "day after tomorrow", "yesterday", a weekday name
-// ("this Thursday", "next Friday"), or an explicit date (ISO, dd-mm-yyyy,
+// ("this Thursday", "next Friday"), or an explicit date (ISO, dd-mm-yy as the app writes it, dd-mm-yyyy,
 // dd/mm/yyyy, "12 Nov", "12th November 2026").
 function parseDateRef(text: string, today: string): { date: string; phrase: string } | null {
   const lower = text.toLowerCase();
@@ -178,6 +178,13 @@ function parseDateRef(text: string, today: string): { date: string; phrase: stri
   if (dmy) {
     if (!isValidYMD(Number(dmy[3]), Number(dmy[2]), Number(dmy[1]))) return null;
     const date = `${dmy[3]}-${pad2(Number(dmy[2]))}-${pad2(Number(dmy[1]))}`;
+    return { date, phrase: formatDisplayDate(date) };
+  }
+  // 24-10-26, 24/10/26: the app's own way of writing a date (REQUIREMENTS §124); a dot is never a two-figure year's.
+  const dmy2 = lower.match(/\b(\d{1,2})[-/](\d{1,2})[-/](\d{2})\b/);
+  if (dmy2) {
+    if (!isValidYMD(2000 + Number(dmy2[3]), Number(dmy2[2]), Number(dmy2[1]))) return null;
+    const date = `${2000 + Number(dmy2[3])}-${pad2(Number(dmy2[2]))}-${pad2(Number(dmy2[1]))}`;
     return { date, phrase: formatDisplayDate(date) };
   }
   const dMonHit = lower.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+(\d{4}))?\b/);
@@ -945,7 +952,7 @@ interface ExplicitDate {
   yearGiven: boolean;
 }
 
-// Every explicit calendar date named in the message (ISO, dd-mm-yyyy,
+// Every explicit calendar date named in the message (ISO, dd-mm-yy, dd-mm-yyyy,
 // "1 January[ 2026]", "January 1[, 2026]"), deduplicated, in the order the
 // message names them — used for BOTH a two-sided range ("from 1 January to 19
 // January" finds both) and a single date ("documents for 5 September" finds
@@ -971,6 +978,7 @@ function extractExplicitDates(text: string, yearFallback: number): ExplicitDate[
   }
   for (const m of text.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) push(Number(m[1]), Number(m[2]), Number(m[3]), m.index, true);
   for (const m of text.matchAll(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b/g)) push(Number(m[3]), Number(m[2]), Number(m[1]), m.index, true);
+  for (const m of text.matchAll(/\b(\d{1,2})[-/](\d{1,2})[-/](\d{2})\b/g)) push(2000 + Number(m[3]), Number(m[2]), Number(m[1]), m.index, true);
   for (const m of text.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+(\d{4}))?\b/gi)) {
     // "The top 3 may break down" is not 3 May (see MAY_AS_MONTH).
     if (!m[3] && m[0].toLowerCase().endsWith("may") && MAY_VERB_AFTER.test(text.slice(m.index + m[0].length))) continue;

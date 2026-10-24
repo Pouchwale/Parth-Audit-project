@@ -183,6 +183,8 @@ function datesAndTimes(s: string, thisYear: number, lang: EarLanguage = "en"): s
   });
   // 30/09/2026, 30.09.2026, 30-09-2026 (day first, as the plant writes them)
   s = s.replace(/\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b/g, (whole, d: string, m: string, y: string) => spokenDate(Number(d), Number(m) - 1, Number(y), thisYear, lang) ?? whole);
+  // 30-09-26: the app's own way of writing a date (REQUIREMENTS §124) - two figures for the year, after a dash or a slash only.
+  s = s.replace(/\b(\d{1,2})[/-](\d{1,2})[/-](\d{2})\b/g, (whole, d: string, m: string, y: string) => spokenDate(Number(d), Number(m) - 1, 2000 + Number(y), thisYear, lang) ?? whole);
   // A Gujarati or Hindi voice says "14:30" as a person there does: the clock is left to it.
   if (lang !== "en") return s;
   // 14:30, 09:00, 9:00 am, 17:45:00

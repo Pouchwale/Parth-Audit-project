@@ -382,7 +382,7 @@ test("the header's Rev No. prints the Master List's revision for the certificate
   assert.deepEqual(meta(label, '<div class="meta-row pt-number-strip no-print"'), [
     ["Format No.", "F/QC/06"],
     ["Rev No.", "00"],
-    ["Rev Date", "01-Dec-2021"],
+    ["Rev Date", "01-12-21"],
     ["Page No.", "1 of 1"],
   ]);
   assert.ok(!/<span class="k">Date<\/span>/.test(label), "the DATE cell DCRS added is gone (the owner, 16-Oct-2026)");
@@ -414,7 +414,7 @@ test("the incoming records and F/QC/36 print the address at their foot, word for
 
 test("a written date or time box prints its words: the date as the sheet writes dates, the time as written, the box itself not printed", async () => {
   const { printedBoxText, PRINTED_AS_TEXT, PRINT_BOX_TEXT } = await import("../src/utils/print");
-  assert.equal(printedBoxText("date", "2026-10-14"), "14-Oct-2026");
+  assert.equal(printedBoxText("date", "2026-10-14"), "14-10-26");
   assert.equal(printedBoxText("time", "10:17"), "10:17");
   assert.equal(printedBoxText("date", ""), "");
   assert.equal(PRINTED_AS_TEXT, "print-as-text");

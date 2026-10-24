@@ -275,7 +275,7 @@ describe("the planner: when each person's phone is pushed", () => {
     assert.deepEqual(w.expo.take(), []);
     await w.run("2026-10-14", "08:45");
     const [heads] = w.expo.take();
-    assert.match(heads.body, /16-Oct-2026/);
+    assert.match(heads.body, /16-10-26/);
     assert.equal(heads.channelId, "summary");
     assert.equal(heads.data.kind, "upcoming");
     await w.run("2026-10-14", "15:30");
@@ -292,7 +292,7 @@ describe("the planner: when each person's phone is pushed", () => {
     assert.equal(r.result.people, 2);
     const sent = w.expo.take();
     const kapila = sent.find((m) => m.to === TOKEN.kapilaEn)!;
-    assert.equal(kapila.body, "Vinay Bhojak sent back F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026. Put it right and submit it again.");
+    assert.equal(kapila.body, "Vinay Bhojak sent back F/HR/17 Daily Pest Control Monitoring Record of 09-10-26. Put it right and submit it again.");
     assert.ok(!JSON.stringify(sent).includes("45"), "no value of the record in any push");
     assert.match(sent.find((m) => m.to === TOKEN.vinay)!.title, /^सत्यापन के लिए: /);
     // The inbox still words the reason.

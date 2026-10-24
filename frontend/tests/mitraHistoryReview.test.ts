@@ -255,13 +255,13 @@ test("3: a period named comes first — 'so far', 'to date', 'on file' and 'ever
     assert.ok(i, q);
     assert.deepEqual([i.from, i.to], [from, to], `${q} → ${i.label}`);
   }
-  assert.match(analyticIntent("how many breakdowns in August so far?", FIXED)?.label ?? "", /August 2026 to date \(01-Aug-2026 to 24-Sep-2026\)/);
+  assert.match(analyticIntent("how many breakdowns in August so far?", FIXED)?.label ?? "", /August 2026 to date \(01-08-26 to 24-09-26\)/);
   // A period that says its own dates is said once, with the dates it runs to.
-  assert.equal(analyticIntent("how many breakdowns since last week?", FIXED)?.label, "since 13-Sep-2026 (to 24-Sep-2026)");
-  assert.equal(analyticIntent("how many breakdowns since 5 August?", FIXED)?.label, "since 05-Aug-2026 (to 24-Sep-2026)");
+  assert.equal(analyticIntent("how many breakdowns since last week?", FIXED)?.label, "since 13-09-26 (to 24-09-26)");
+  assert.equal(analyticIntent("how many breakdowns since 5 August?", FIXED)?.label, "since 05-08-26 (to 24-09-26)");
   // "This week so far" is this week to today, and its label says to today, not to Saturday.
   const week = analyticIntent("breakdowns this week so far", FIXED);
-  assert.deepEqual([week?.from, week?.to, week?.label], ["2026-09-20", "2026-09-24", "this week (20-Sep-2026 to 24-Sep-2026)"]);
+  assert.deepEqual([week?.from, week?.to, week?.label], ["2026-09-20", "2026-09-24", "this week (20-09-26 to 24-09-26)"]);
 });
 
 // ---------------------------------------------------------------------------
@@ -464,7 +464,7 @@ test("7: 'who was late ever?' scores the last twelve months, and the line says i
   assert.equal(intent.from, "2000-01-01");
   const pack = buildEvidence(intent, false);
   const line = pack.text.split("\n").find((l) => l.includes("Performance Scorecard")) ?? "";
-  assert.match(line, /the 12 months \d{2}-[A-Z][a-z]{2}-\d{4} to \d{2}-[A-Z][a-z]{2}-\d{4} only — the longest period the Scorecard is worked out over for one question, not all of everything on file/, line);
+  assert.match(line, /the 12 months \d{2}-\d{2}-\d{2} to \d{2}-\d{2}-\d{2} only — the longest period the Scorecard is worked out over for one question, not all of everything on file/, line);
 });
 
 // ---------------------------------------------------------------------------

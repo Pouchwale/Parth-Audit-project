@@ -26,10 +26,24 @@ export function todayISO(): string {
   return toISODate(new Date());
 }
 
+/**
+ * A date as the app writes it everywhere, in numbers, day-month-year: "24-10-26" (the owner, 24-Oct-2026: "all are
+ * number like this example:- 24-10-26 and not 24-oct-2026 and this applies to all document for all modules",
+ * REQUIREMENTS §124). Two figures for the year: 2000 to 2099.
+ */
 export function formatDisplayDate(iso: string | null): string {
   if (!iso) return "TO BE CONFIRMED";
   const d = fromISODate(iso);
-  return `${pad2(d.getDate())}-${MONTH_NAMES[d.getMonth()].slice(0, 3)}-${d.getFullYear()}`;
+  return `${pad2(d.getDate())}-${pad2(d.getMonth() + 1)}-${pad2(d.getFullYear() % 100)}`;
+}
+
+/** What formatDisplayDate writes, read back: "24-10-26" -> "2026-10-24"; null when it is not a real day. */
+export function displayDateToISO(text: string): string | null {
+  const m = /^(\d{2})-(\d{2})-(\d{2})$/.exec(text);
+  if (!m) return null;
+  const [d, mo, y] = [Number(m[1]), Number(m[2]), 2000 + Number(m[3])];
+  if (mo < 1 || mo > 12 || d < 1 || d > daysInMonth(y, mo - 1)) return null;
+  return `${y}-${m[2]}-${m[1]}`;
 }
 
 export function formatMonthYearShort(year: number, month: number): string {

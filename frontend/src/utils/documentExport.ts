@@ -2,7 +2,7 @@ import { TBC, type DocumentDefinition } from "../types";
 import { buildDocx, type DocxBlock, type DocxCell, type DocxRun } from "./docx";
 import { columnName, isoToSerial, xmlText, zipStored, customPropertiesXml, CUSTOM_PROPERTIES_PART, CUSTOM_PROPERTIES_REL, CUSTOM_PROPERTIES_TYPE } from "./xlsx";
 import { downloadBlob } from "./csv";
-import { formatDisplayDate, todayISO } from "./date";
+import { displayDateToISO, formatDisplayDate, todayISO } from "./date";
 import { PRINT_PREPARE_EVENT, paperOf } from "./print";
 import { paperMarginsOf, paperPageOf, paperSheetBlocks, paperWordBlocks } from "./paperSheets";
 import { originalFileBytes, originalFileOf } from "./originalFill";
@@ -261,7 +261,7 @@ function textOf(node: Node, marks?: Marks, breaks = false): string {
   if (marks && el.hasAttribute(BIND_ATTR)) {
     const binding = readBinding(el);
     if (binding?.recordId) {
-      // The bound element's text taken whole: a tick box ☑/☐, a select's label, a date as dd-Mmm-yyyy —
+      // The bound element's text taken whole: a tick box ☑/☐, a select's label, a date as dd-mm-yy —
       // and a value shown as words with its line breaks, where the page shows them.
       const own = ownText(el, style, undefined, keepsBreaks(style ?? getComputedStyle(el)));
       const k = marks.found.length;
@@ -348,15 +348,10 @@ function singleBind(parts: ExportSegment[] | undefined): ExportBinding | undefin
   return bind;
 }
 
-const DISPLAY_DATE = /^(\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})$/;
-const MONTHS3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "01-Oct-2026" → "2026-10-01"; anything else → undefined. */
+/** "01-10-26" → "2026-10-01"; anything else → undefined. */
 function isoOfDisplayDate(text: string): string | undefined {
-  const m = DISPLAY_DATE.exec(text);
-  if (!m) return undefined;
-  const iso = `${m[3]}-${String(MONTHS3.indexOf(m[2]) + 1).padStart(2, "0")}-${m[1]}`;
-  return formatDisplayDate(iso) === text ? iso : undefined;
+  const iso = displayDateToISO(text);
+  return iso && formatDisplayDate(iso) === text ? iso : undefined;
 }
 
 /** A cell (or a field's value) from its nodes: its text, and its bound values. */
@@ -932,7 +927,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     [
       "xl/styles.xml",
       `<styleSheet xmlns="${MAIN}">` +
-        `<numFmts count="1"><numFmt numFmtId="164" formatCode="[$-409]dd\\-mmm\\-yyyy"/></numFmts>` +
+        `<numFmts count="1"><numFmt numFmtId="164" formatCode="[$-409]dd\\-mm\\-yy"/></numFmts>` +
         `<fonts count="${BASE_FONTS + paperFonts.length}"><font><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="12"/><name val="Calibri"/><family val="2"/></font>` +
         paperFonts.map((f) => `<font>${f.bold ? "<b/>" : ""}${f.underline ? "<u/>" : ""}<sz val="${f.size}"/><name val="Calibri"/><family val="2"/></font>`).join("") +
         `</fonts>` +

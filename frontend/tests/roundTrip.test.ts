@@ -67,7 +67,7 @@ const row = (id: string, sr: string, time: string, visc: string, ok: string, shi
 ];
 
 function sampleBlocks(): ExportBlock[] {
-  const date = bind("header/date", "date", "01-Oct-2026", { label: "Date" });
+  const date = bind("header/date", "date", "01-10-26", { label: "Date" });
   const temp: ExportBinding = { ...bind("header/temperature", "number", "12", { label: "Temperature" }), pre: "Temp: ", post: " °C" };
   const shiftA = bind("header/shiftA", "text", "Mehul", { label: "In-charge A" });
   const shiftB = bind("header/shiftB", "text", "Kiran", { label: "In-charge B" });
@@ -252,6 +252,8 @@ function toSharedStrings(parts: Map<string, string>): void {
 /** What Excel does to styles on a save: renumbered, and the date format given a new number and code. */
 function renumberStyles(parts: Map<string, string>): void {
   const styles = parts.get("xl/styles.xml")!;
+  // The exporter's date format (dd-mm-yy since 24-Oct-2026): the replace below must find it, or it would silently do nothing.
+  assert.ok(styles.includes('<numFmt numFmtId="164" formatCode="[$-409]dd\\-mm\\-yy"/>'), "the exporter writes its date format as dd-mm-yy");
   const m = /<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/.exec(styles)!;
   const xfs = m[2].match(/<xf [^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)!;
   const order = xfs.map((_, i) => i).reverse();
@@ -262,7 +264,7 @@ function renumberStyles(parts: Map<string, string>): void {
     "xl/styles.xml",
     styles
       .replace(m[0], `<cellXfs count="${renumbered.length}">${renumbered.join("")}</cellXfs>`)
-      .replace('<numFmt numFmtId="164" formatCode="[$-409]dd\\-mmm\\-yyyy"/>', '<numFmt numFmtId="170" formatCode="dd/mm/yyyy;@"/>')
+      .replace('<numFmt numFmtId="164" formatCode="[$-409]dd\\-mm\\-yy"/>', '<numFmt numFmtId="170" formatCode="dd/mm/yyyy;@"/>')
       .replace(/numFmtId="164"/g, 'numFmtId="170"')
   );
   for (const [name, xml] of parts) {
@@ -415,8 +417,8 @@ test("values changed in Excel are exactly the changes; a value that is not a num
     "header/approved": true,
   });
   const byPath = new Map(plan.changes.map((c) => [c.path, c]));
-  assert.equal(byPath.get("header/date")!.before, "01-Oct-2026");
-  assert.equal(byPath.get("header/date")!.after, "06-Oct-2026");
+  assert.equal(byPath.get("header/date")!.before, "01-10-26");
+  assert.equal(byPath.get("header/date")!.after, "06-10-26");
   assert.equal(byPath.get("rows/@r-1/shift")!.before, "Shift A");
   assert.equal(byPath.get("rows/@r-1/shift")!.after, "Shift B");
   assert.equal(byPath.get("header/approved")!.after, "☑");

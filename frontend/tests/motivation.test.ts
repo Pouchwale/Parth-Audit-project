@@ -339,7 +339,7 @@ test("a late record is never scolded, and is told when the next one is due", () 
     assert.ok(!/\b(should|must|failed|bad|careless|again\?|why)\b/i.test(line), `scolding: ${line}`);
     if (nextDue === TODAY) assert.ok(line.includes("due today"), line);
     if (nextDue === "2026-09-27") assert.ok(line.includes("due tomorrow"), line);
-    if (nextDue === "2026-10-02") assert.ok(line.includes("02-Oct-2026"), line);
+    if (nextDue === "2026-10-02") assert.ok(line.includes("02-10-26"), line);
     assert.ok(GUJARATI.test(lateLine("late", { days, nextDue, today: TODAY }, "gu", `${days}`)));
   }
   assert.equal(lateLine("waiting", { count: 3, today: TODAY }, "en"), "3 are waiting from earlier days — clearing them keeps the file whole.");

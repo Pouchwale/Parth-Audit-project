@@ -102,7 +102,7 @@ export interface MapTable {
 /** A value on screen bound to the record, as utils/documentExport.ts reads it: the binding and the value's own text. */
 export interface ExportBinding extends Binding {
   recordId: string;
-  /** The bound element's text, taken whole (a tick box ☑/☐, a select's option label, a date as dd-Mmm-yyyy). */
+  /** The bound element's text, taken whole (a tick box ☑/☐, a select's option label, a date as dd-mm-yy). */
   text: string;
   /** In a cell or a field holding exactly one bound value among other words: the words before and after it. */
   pre?: string;

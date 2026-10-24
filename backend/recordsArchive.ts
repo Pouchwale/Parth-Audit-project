@@ -108,11 +108,10 @@ function recordsOf(item: StoredItem | null): unknown[] {
   }
 }
 
+// 2026-09-30 -> 30-09-26, the way the app writes a date (utils/date.ts formatDisplayDate).
 const dateWords = (iso: string): string => {
   const [y, m, d] = iso.split("-");
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const month = months[Number(m) - 1];
-  return month && d && y ? `${d}-${month}-${y}` : iso;
+  return y && m && d && Number(m) >= 1 && Number(m) <= 12 ? `${d}-${m}-${y.slice(2)}` : iso;
 };
 
 export interface ArchiveOutcome {

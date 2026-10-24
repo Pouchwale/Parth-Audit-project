@@ -120,8 +120,8 @@ test("a new F/QC/17 is written as the previous one was: every box and line carri
   assert.ok(prepared);
   assert.equal((prepared!.data as LogSheetData).header.make, "Ajanta");
   assert.equal((prepared!.data as LogSheetData).rows[3].masterReading, "400 mm");
-  assert.match(prepared!.notes[0], /Written as the sheet of 16-Oct-2026 was/);
-  assert.match(prepared!.basedOn, /16-Oct-2026/);
+  assert.match(prepared!.notes[0], /Written as the sheet of 16-10-26 was/);
+  assert.match(prepared!.basedOn, /16-10-26/);
   assert.equal(previousWrittenRecord(d.id, "2026-11-16", false, layoutOf(d.id), createDefaultData(d, "2026-11-16", master) as LogSheetData)?.id, next.id, "the latest sheet a person wrote on, confirmed or not");
   recordRepository.query({ documentId: d.id }).forEach((r) => recordRepository.remove(r.id));
 });

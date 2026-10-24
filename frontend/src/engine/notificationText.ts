@@ -74,13 +74,11 @@ export function moduleName(code: string | undefined, lang: NotificationLanguage)
   return MODULE_NAMES[code.toUpperCase()]?.[lang] ?? code;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "2026-10-09" as the app writes a date, "09-Oct-2026", in every language (utils/date.ts formatDisplayDate). */
+/** "2026-10-09" as the app writes a date, "09-10-26", in every language (utils/date.ts formatDisplayDate). */
 export function displayDate(iso: string | undefined): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
   if (!m) return iso ?? "";
-  return `${m[3]}-${MONTHS[Number(m[2]) - 1] ?? m[2]}-${m[1]}`;
+  return `${m[3]}-${m[2]}-${m[1].slice(2)}`;
 }
 
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0);

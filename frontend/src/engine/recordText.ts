@@ -1,5 +1,5 @@
 import type { LogColumn, LogSheetData, LogSheetLayout, RecordInstance } from "../types";
-import { daysInMonth, formatDisplayDate } from "../utils/date";
+import { MONTH_NAMES, daysInMonth, formatDisplayDate } from "../utils/date";
 
 // WHAT A RECORD SAYS, AS ONE SEARCHABLE TEXT (REQUIREMENTS §75).
 //
@@ -253,9 +253,9 @@ const pad2 = (n: number): string => String(n).padStart(2, "0");
 // for certain. A date inside a sentence, or an impossible one (31.02.2026,
 // month 13), is left as written too: nothing is invented.
 interface DateForms {
-  /** How the screens show it: 14-Aug-2026. */
+  /** How the screens show it: 14-08-26. */
   display: string;
-  /** 2026-08-14, 14-Aug-2026, 14/08/2026, 14.08.2026, 14-08-2026. */
+  /** 2026-08-14, 14-08-26, 14-Aug-2026, 14/08/2026, 14.08.2026, 14-08-2026, 14/08/26, 14.08.26. */
   forms: string[];
 }
 
@@ -269,7 +269,10 @@ function dateForms(value: string): DateForms | null {
   if (y < 1900 || m < 1 || m > 12 || d < 1 || d > daysInMonth(y, m - 1)) return null;
   const [dd, mm] = [pad2(d), pad2(m)];
   const display = formatDisplayDate(`${y}-${mm}-${dd}`);
-  return { display, forms: [`${y}-${mm}-${dd}`, display, `${dd}/${mm}/${y}`, `${dd}.${mm}.${y}`, `${dd}-${mm}-${y}`] };
+  // ...and the way it was written until 24-Oct-2026 ("14-Aug-2026"), and with two figures for the year (14/08/26, 14.08.26).
+  const named = `${dd}-${MONTH_NAMES[m - 1].slice(0, 3)}-${y}`;
+  const yy = pad2(y % 100);
+  return { display, forms: [`${y}-${mm}-${dd}`, display, named, `${dd}/${mm}/${y}`, `${dd}.${mm}.${y}`, `${dd}-${mm}-${y}`, `${dd}/${mm}/${yy}`, `${dd}.${mm}.${yy}`] };
 }
 
 /** A stored date as the screens show it; anything else as it is. */

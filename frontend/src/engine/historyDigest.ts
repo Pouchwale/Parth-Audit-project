@@ -295,15 +295,18 @@ function periodOf(text: string, today: string): Period | "none" | null {
   // period named to today — a run of days, stepped back from by as many.
   if (compareISO(named.to, today) < 0 && (SINCE_RE.test(lower) || TO_DATE_RE.test(lower))) {
     const since = SINCE_RE.test(lower);
-    // A label that already says its own dates ("last week (13-Sep-2026 to
-    // 19-Sep-2026)", "05-Aug-2026") would say two periods; it is said from its first day.
-    if (/\d{2}-[A-Z][a-z]{2}-\d{4}/.test(named.label)) {
+    // A label that already says its own dates ("last week (13-09-26 to
+    // 19-09-26)", "05-08-26") would say two periods; it is said from its first day.
+    if (DATE_IN_LABEL.test(named.label)) {
       return { from: named.from, to: today, label: since ? `since ${fmt(named.from)} (to ${fmt(today)})` : `${fmt(named.from)} to ${fmt(today)}`, named: true };
     }
     return { from: named.from, to: today, label: since ? `since ${named.label}` : `${named.label} to date`, named: true };
   }
   return named;
 }
+
+/** A label that already carries a date as the app writes one, "05-08-26" (utils/date.ts formatDisplayDate). */
+const DATE_IN_LABEL = /\d{2}-\d{2}-\d{2}/;
 
 /** The period a message names in so many words, before anything stretches it (see periodOf). */
 function namedPeriod(text: string, lower: string, today: string): Period | "none" | null {
@@ -312,14 +315,14 @@ function namedPeriod(text: string, lower: string, today: string): Period | "none
   const m = d.getMonth();
   const q = Math.floor(m / 3);
   // Cut at today, a label that says its own dates loses them, so withDates
-  // says the real ones: "this week (20-Sep-2026 to 24-Sep-2026)", not to the 26th.
+  // says the real ones: "this week (20-09-26 to 24-09-26)", not to the 26th.
   const range = (from: string, to: string, label: string, unit?: PeriodUnit): Period | null =>
     compareISO(from, today) > 0
       ? null
       : {
           from,
           to: earlier(to, today),
-          label: compareISO(to, today) > 0 ? label.replace(/\s*\(\d{2}-[A-Z][a-z]{2}-\d{4} to \d{2}-[A-Z][a-z]{2}-\d{4}\)$/, "") : label,
+          label: compareISO(to, today) > 0 ? label.replace(/\s*\(\d{2}-\d{2}-\d{2} to \d{2}-\d{2}-\d{2}\)$/, "") : label,
           named: true,
           ...(unit ? { unit } : {}),
         };
@@ -436,7 +439,7 @@ function periodBefore(p: { from: string; to: string }, said?: PeriodUnit): Perio
 }
 
 function withDates(p: Period): string {
-  if (/\d{2}-[A-Z][a-z]{2}-\d{4}/.test(p.label)) return p.label; // already says its dates (a period carried to a follow-up does)
+  if (DATE_IN_LABEL.test(p.label)) return p.label; // already says its dates (a period carried to a follow-up does)
   if (p.from === EVERYTHING_FROM) return `${p.label} (to ${fmt(p.to)})`;
   return `${p.label} (${fmt(p.from)} to ${fmt(p.to)})`;
 }

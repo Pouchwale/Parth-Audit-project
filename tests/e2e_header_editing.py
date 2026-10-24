@@ -147,7 +147,7 @@ def say(page, text, wait=1600):
 
 
 def shown_date(iso):
-    return datetime.strptime(iso, "%Y-%m-%d").strftime("%d-%b-%Y")
+    return datetime.strptime(iso, "%Y-%m-%d").strftime("%d-%m-%y")
 
 
 with sync_playwright() as p:

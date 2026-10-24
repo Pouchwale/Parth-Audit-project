@@ -637,7 +637,7 @@ export function createDeviceSessions(opts: DeviceSessionsOptions = {}): DeviceSe
     }
   };
 
-  /** A moment on the factory's clock: "09:02" today, "08-Oct 17:40" on an earlier day. */
+  /** A moment on the factory's clock: "09:02" today, "08-10-26 17:40" on an earlier day. */
   const timeText = (at: Date): string => {
     let tz = zone();
     try {
@@ -648,7 +648,8 @@ export function createDeviceSessions(opts: DeviceSessionsOptions = {}): DeviceSe
     const day = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
     const time = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(at);
     if (day(at) === day(clock())) return time;
-    const date = new Intl.DateTimeFormat("en-GB", { timeZone: tz, day: "2-digit", month: "short" }).format(at).replace(" ", "-");
+    // 08-10-26: a date as the app writes it everywhere (REQUIREMENTS §124).
+    const date = new Intl.DateTimeFormat("en-GB", { timeZone: tz, day: "2-digit", month: "2-digit", year: "2-digit" }).format(at).replace(/\//g, "-");
     return `${date} ${time}`;
   };
 

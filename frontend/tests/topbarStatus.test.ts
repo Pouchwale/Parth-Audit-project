@@ -79,7 +79,7 @@ test("the header told to Mitra: the sentence people say, the values applied, the
   if (dated.ok) {
     assert.equal(dated.draft.revisionDate, "2026-09-01");
     assert.equal(dated.draft.companyName, "Gujarat Print Pack Publications Pvt. Ltd.");
-    assert.match(dated.plan, /date the revision 01-Sep-2026 and change the company name to/);
+    assert.match(dated.plan, /date the revision 01-09-26 and change the company name to/);
   }
   const unread = applyFormatCommand(draft, parseFormatCommand("change the revision date to soon", undefined)!);
   assert.equal(unread.ok, false);

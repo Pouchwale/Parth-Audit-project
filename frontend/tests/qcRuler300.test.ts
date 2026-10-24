@@ -262,7 +262,7 @@ test("a new record is written as the last record OF ITS OWN document: the two ne
   const p300 = prepareKnownParts(d300, "2026-11-17", master, undefined);
   assert.ok(p300);
   assert.equal((p300!.data as LogSheetData).header.masterCalibrationReportNo, "CAL/300");
-  assert.match(p300!.notes[0], /Written as the sheet of 17-Oct-2026 was/);
+  assert.match(p300!.notes[0], /Written as the sheet of 17-10-26 was/);
   clear();
 });
 

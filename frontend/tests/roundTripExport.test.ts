@@ -422,8 +422,8 @@ test("the paper's own marks stay out of the downloaded file: LOT STATUS reads th
   assert.deepEqual(fields, [
     ["LOT STATUS", "SEGREGATION"],
     ["INSPECTED BY", "Patel Poojan Vishnubhai"],
-    ["This material should be retested on", "03-Jul-2022"],
-    ["Date of Inspection", "14-Oct-2026"],
+    ["This material should be retested on", "03-07-22"],
+    ["Date of Inspection", "14-10-26"],
   ]);
   // The words the file shows (not the bindings, which carry the choice box's options as they always did).
   const shown = blocks

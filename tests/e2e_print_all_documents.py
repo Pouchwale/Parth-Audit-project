@@ -56,6 +56,9 @@ def settle_briefing(page):
     )
 
 BASE = "http://localhost:8842"
+# A date written with a month's name (24-Oct-2026, 24 Oct 26, 24 October): since 24-Oct-2026 every date is numbers, 24-10-26
+# (REQUIREMENTS section 124), so none may be on a printout.
+MONTH_NAMED_DATE = re.compile(r"\b\d{1,2}[-\s](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?[-\s,]+\d{2,4}\b")
 FAILURES = []
 
 STUB_PRINT = "() => { window.__printed = 0; window.print = () => { window.__printed += 1; }; }"
@@ -97,6 +100,8 @@ PRINTED = """
         return !!n && !!t && shown(n) && !!(t.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING) ? n.textContent : null;
       })(),
       text: docs.map((d) => d.textContent).join(' '),
+      // What the paper shows (display:none and the screen-only notes left out), for the scan of its dates (section 124).
+      shownText: docs.map((d) => d.innerText).join(' '),
       // The page chosen (utils/print.ts), the paper the sheet names (s117), and the document's scale.
       // A QC paper drawn on its framed page (data/seed/qcPageFrames.ts, s117) keeps the paper's own 8.446 mm margin.
       framed: docs.length > 0 && docs.every((d) => d.matches('[data-frame]') || d.querySelector('[data-frame]') !== null),
@@ -320,6 +325,9 @@ with sync_playwright() as p:
         page.evaluate(STUB_PRINT)
         seen = check_printout(page, doc_id)
         check_paper(doc_id, seen)
+        words = (seen["shownText"] or "") + " " + " ".join(v for v in seen["boxValues"] if isinstance(v, str))
+        named = sorted({m.group(0) for m in MONTH_NAMED_DATE.finditer(words)})
+        check(f"{doc_id}: no date on the printout is written with a month's name (REQUIREMENTS section 124: 24-10-26)", not named, named[:6])
         # A log sheet (components/records/LogSheetRecordView.tsx) is drawn in three parts; the registers and letters have their own pages.
         if seen["parts"]:
             # ...a sheet of boxes alone (a memo, an agreement) has no grid in its body.

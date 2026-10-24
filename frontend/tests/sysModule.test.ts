@@ -118,7 +118,7 @@ test("S1 and S2: the plant's mock withdrawals and traceability tests, more than 
   const now = insightsAsOf(TODAY);
   const s1 = byRule(now, "S1").filter((i) => i.severity === "high");
   assert.equal(s1.length, 3, `LABEL, Pouch and SHRINK SLEEVE are each overdue: ${s1.map((i) => i.title).join(" | ")}`);
-  assert.ok(s1.some((i) => i.title.includes("10-Jan-2025")), "the label's was 10.01.2025");
+  assert.ok(s1.some((i) => i.title.includes("10-01-25")), "the label's was 10.01.2025, written 10-01-25");
   const s2 = byRule(now, "S2");
   assert.equal(s2.length, 2, "backward and forward traceability both overdue");
   // In March 2025 every one of them was less than a year old.
@@ -147,7 +147,7 @@ test("S4: the audit's NC - 01 at 4.2.1 has no NC report on file; NC - 02 at 4.7.
 test("S5: the backward traceability test's printing date, 21.07.2027, is after its own dispatch", () => {
   const s5 = byRule(insightsAsOf(TODAY), "S5");
   assert.equal(s5.length, 1, s5.map((i) => i.title).join(" | "));
-  assert.ok(s5[0].title.includes("Printing production date 21-Jul-2027 is after the dispatch of 23-Jul-2024"), s5[0].title);
+  assert.ok(s5[0].title.includes("Printing production date 21-07-27 is after the dispatch of 23-07-24"), s5[0].title);
   assert.equal(s5[0].severity, "medium");
 });
 
@@ -192,7 +192,7 @@ test("S1: a withdrawal dated still to come does not hide the one that has lapsed
   });
   const s1 = byRule(insightsWith(TODAY, drafted), "S1").filter((i) => i.severity === "high");
   assert.equal(s1.length, 3, s1.map((i) => i.title).join(" | "));
-  assert.ok(s1.some((i) => i.title.includes("10-Jan-2025")), "the label's lapsed test of 10.01.2025 is still named");
+  assert.ok(s1.some((i) => i.title.includes("10-01-25")), "the label's lapsed test of 10.01.2025 (10-01-25) is still named");
 });
 
 test("S3: an audit plan that marks the clause Not Closed agrees with the open report — no contradiction is claimed", () => {
@@ -224,8 +224,8 @@ test("S5: a job inspected before it was printed, and a forward trace dispatched 
   });
   const s5 = byRule(insightsWith(TODAY, backward, forward), "S5");
   assert.equal(s5.length, 2, s5.map((i) => i.title).join(" | "));
-  assert.ok(s5.some((i) => i.title.includes("Printing production date 22-Jul-2024 is after the QC Inspection dated 19-Jul-2024")), s5.map((i) => i.title).join(" | "));
-  assert.ok(s5.some((i) => i.title.includes("Dispatch dated 10-Dec-2024 is before its issue, 14-Dec-2024")), s5.map((i) => i.title).join(" | "));
+  assert.ok(s5.some((i) => i.title.includes("Printing production date 22-07-24 is after the QC Inspection dated 19-07-24")), s5.map((i) => i.title).join(" | "));
+  assert.ok(s5.some((i) => i.title.includes("Dispatch dated 10-12-24 is before its issue, 14-12-24")), s5.map((i) => i.title).join(" | "));
   // The forward trace as the page wrote it is in order.
   assert.equal(byRule(insightsAsOf(TODAY), "S5").filter((i) => i.id.includes("forward")).length, 0);
 });

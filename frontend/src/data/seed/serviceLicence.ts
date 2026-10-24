@@ -47,7 +47,7 @@ export const SERVICE_LICENCE = {
   },
   conditionsNote:
     "The license is subject to such conditions as may be specified in the rules for the time being in force under the insecticides Act, 1968 as well as the conditions on the certificate of registration and others as specified in next page.",
-  signedDate: "12-Apr-2023",
+  signedDate: "12-04-23",
   seal: "Licensing Authority & Dy Director (Extn.) MAHESANA",
   signatory: { name: "(S. S. PATEL)", title: "Deputy Director of Agriculture (Extension) Mehsana" },
   printStamp: "Print : 12-Apr-2023 12:51:18 PM",

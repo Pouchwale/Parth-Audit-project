@@ -977,7 +977,7 @@ with sync_playwright() as p:
             if e is None:
                 raise RuntimeError(f"the date box found earlier is not in this download of {doc_id}")
             target = date.today() - timedelta(days=2)
-            if target.strftime("%d-%b-%Y") == (e["text"] or "").strip() or target.isoformat() == (e["text"] or "").strip():
+            if target.strftime("%d-%m-%y") == (e["text"] or "").strip() or target.isoformat() == (e["text"] or "").strip():
                 target = date.today() - timedelta(days=3)
             serial = (target - date(1899, 12, 30)).days
             # Typed into the date cell: Excel keeps the cell's date format and stores the day's serial number.

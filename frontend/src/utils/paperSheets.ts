@@ -38,8 +38,10 @@ function bandValue(blocks: ExportBlock[], label: RegExp): string {
   return "";
 }
 
-/** F/HR/15's printed "Rev Date" is 15.12.2024, where the page reads 15-Dec-2024. */
+/** F/HR/15's printed "Rev Date" is 15.12.2024, where the page reads 15-12-24 (15-Dec-2024 before §124). */
 const dotted = (words: string): string => {
+  const numeric = /^(\d{2})-(\d{2})-(\d{2})$/.exec(words);
+  if (numeric) return `${numeric[1]}.${numeric[2]}.20${numeric[3]}`;
   const m = /^(\d{2})-([A-Za-z]{3})-(\d{4})$/.exec(words);
   if (!m) return words;
   const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(m[2].toLowerCase()) + 1;

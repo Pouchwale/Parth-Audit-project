@@ -127,7 +127,7 @@ describe("the move: exactly the blank sheets from before go-live, nothing delete
     assert.deepEqual(kept.map((r) => r.id).sort(), ["blank-before", "prepared-untouched"]);
     const original = plant().find((r) => r.id === "blank-before");
     assert.deepEqual(kept.find((r) => r.id === "blank-before")?.record, original, "the whole record, as it was");
-    assert.match(kept[0].why, /before the system went live on 08-Sep-2026/);
+    assert.match(kept[0].why, /before the system went live on 08-09-26/);
     assert.deepEqual([...archivedRecordIds()].sort(), ["blank-before", "prepared-untouched"], "the storage route's guard knows them");
   });
 

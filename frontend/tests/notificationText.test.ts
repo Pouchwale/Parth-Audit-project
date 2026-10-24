@@ -52,7 +52,7 @@ test("every kind in every language: a title and a body, worded from the facts, i
 test("the owner's sentence: 12 readings to enter for the Daily Pest Control Monitoring Record", () => {
   const en = notificationWords("needs_input", DATA.needs_input, "en");
   assert.equal(en.title, "12 readings to enter: Daily Pest Control Monitoring Record");
-  assert.equal(en.body, "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to enter, then submit.");
+  assert.equal(en.body, "F/HR/17 Daily Pest Control Monitoring Record of 09-10-26 is ready for you: 12 readings to enter, then submit.");
   assert.match(notificationWords("needs_input", DATA.needs_input, "hi").title, /^12 रीडिंग भरनी हैं: /);
   assert.match(notificationWords("needs_input", DATA.needs_input, "gu").title, /^12 રીડિંગ ભરવાના બાકી: /);
   assert.match(notificationWords("needs_input", { ...PEST, count: 1 }, "en").title, /^1 reading to enter/);

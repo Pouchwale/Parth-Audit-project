@@ -587,7 +587,7 @@ with sync_playwright() as p:
     voice_page.evaluate("() => { window.__utter.length = 0; }")
     voice_page.evaluate(
         """(name) => window.dispatchEvent(new CustomEvent('dcrs:say', { detail: {
-             text: name + ', F/HR/17 is due on 30-Sep-2026 at 14:30. Your score is 92% ✅ — keep going!', lang: 'en', priority: 'high' } }))""",
+             text: name + ', F/HR/17 is due on 30-09-26 at 14:30. Your score is 92% ✅ — keep going!', lang: 'en', priority: 'high' } }))""",
         FIRST_NAME,
     )
     wait_for(voice_page, "() => window.__utter.length >= 1", 6000)

@@ -240,7 +240,7 @@ with sync_playwright() as p:
     head = page.locator("[data-section='document-preview'] .doc-header").inner_text()
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("Saved: the sheet now carries the new column", "Batch No." in headings, headings)
-    check("...and the format is at Rev 02, dated today", "02" in head and date.today().strftime("%d-%b-%Y") in head, head[:240])
+    check("...and the format is at Rev 02, dated today", "02" in head and date.today().strftime("%d-%m-%y") in head, head[:240])
     edit = (stored(page, "formatEdits") or {}).get("qc-bopp-film") or {}
     rev = (edit.get("revisions") or [{}])[0]
     check(

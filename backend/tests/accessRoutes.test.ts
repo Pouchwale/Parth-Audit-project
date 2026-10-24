@@ -756,7 +756,7 @@ describe("a span", () => {
     assert.equal(calendarDay("2026-02-29"), null);
     assert.equal(calendarDay("2026-13-01"), null);
     assert.equal(addDays("2026-03-01", -1), "2026-02-28");
-    assert.equal(displayDay("2026-09-03"), "03-Sep-2026");
+    assert.equal(displayDay("2026-09-03"), "03-09-26");
   });
 
   it("pairs the span's lines, the archive's included, newest first", async () => {
@@ -846,12 +846,12 @@ describe("the CSV file", () => {
     const lines = res.text.slice(1).split("\n");
     assert.equal(lines[0], CSV_HEADINGS.join(","));
     assert.deepEqual(lines.slice(1), [
-      "30-Sep-2026,13:40:00,Kapila Barad,kapila.barad@gpp.local,Signed in,,No sign-out yet,,,",
-      "30-Sep-2026,09:02:11,Kapila Barad,kapila.barad@gpp.local,Signed in,13:10:00,Signed out,248,,",
-      "29-Sep-2026,09:00:00,Kapila Barad,kapila.barad@gpp.local,Signed in,,No sign-out that day,,,",
+      "30-09-26,13:40:00,Kapila Barad,kapila.barad@gpp.local,Signed in,,No sign-out yet,,,",
+      "30-09-26,09:02:11,Kapila Barad,kapila.barad@gpp.local,Signed in,13:10:00,Signed out,248,,",
+      "29-09-26,09:00:00,Kapila Barad,kapila.barad@gpp.local,Signed in,,No sign-out that day,,,",
     ]);
     assert.deepEqual(logged, [
-      { who: "admin@gpp.local", action: "User access exported", target: "Kapila Barad", detail: "3 rows as CSV · sign-ins and sign-outs · 29-Sep-2026 to 30-Sep-2026" },
+      { who: "admin@gpp.local", action: "User access exported", target: "Kapila Barad", detail: "3 rows as CSV · sign-ins and sign-outs · 29-09-26 to 30-09-26" },
     ]);
   });
 
@@ -859,10 +859,10 @@ describe("the CSV file", () => {
     fresh();
     const res = await get("/api/access/history.csv?from=2025-01-10&to=2026-09-30");
     const rows = res.text.slice(1).split("\n");
-    assert.ok(rows.includes("30-Sep-2026,10:05:00,No such account,nobody@gpp.local,Sign-in failed,,,,No such account,"), rows.join("\n"));
-    assert.ok(rows.includes("30-Sep-2026,11:00:00,Meena Joshi,meena.joshi@gpp.local,Sign-in refused,,,,The account is switched off,"));
-    assert.ok(rows.includes("29-Sep-2026,09:05:00,Vinay Bhojak,vinay.bhojak@gpp.local,Signed in,18:20:00,Signed out at the close of working hours,555,,"));
-    assert.ok(rows.includes("10-Jan-2025,09:00:00,Kapila Barad,kapila.barad@gpp.local,Signed in,17:00:00,Signed out,480,,Yes"));
+    assert.ok(rows.includes("30-09-26,10:05:00,No such account,nobody@gpp.local,Sign-in failed,,,,No such account,"), rows.join("\n"));
+    assert.ok(rows.includes("30-09-26,11:00:00,Meena Joshi,meena.joshi@gpp.local,Sign-in refused,,,,The account is switched off,"));
+    assert.ok(rows.includes("29-09-26,09:05:00,Vinay Bhojak,vinay.bhojak@gpp.local,Signed in,18:20:00,Signed out at the close of working hours,555,,"));
+    assert.ok(rows.includes("10-01-25,09:00:00,Kapila Barad,kapila.barad@gpp.local,Signed in,17:00:00,Signed out,480,,Yes"));
     assert.equal(logged[0].target, "Everybody");
   });
 

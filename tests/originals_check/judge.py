@@ -52,7 +52,7 @@ def xlsx_texts(path):
                 if c.value not in (None, ""):
                     v = c.value
                     if hasattr(v, "strftime"):
-                        v = v.strftime("%d-%b-%Y")
+                        v = v.strftime("%d-%m-%y")
                     elif isinstance(v, float) and v.is_integer():
                         v = int(v)
                     out.append(str(v))

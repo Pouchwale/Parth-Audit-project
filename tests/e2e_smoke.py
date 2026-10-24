@@ -51,8 +51,8 @@ def next_working_day(d):
 
 
 def display_date(iso):
-    """Mirrors the app's formatDisplayDate (utils/date.ts): DD-Mon-YYYY."""
-    return date.fromisoformat(iso).strftime("%d-%b-%Y")
+    """Mirrors the app's formatDisplayDate (utils/date.ts): DD-MM-YY, in numbers (24-10-26)."""
+    return date.fromisoformat(iso).strftime("%d-%m-%y")
 
 
 def dismiss_briefing(page):
@@ -527,7 +527,7 @@ def main():
         # is dated a Thursday, and some of them are NOT on the 4th/18th.
         page.goto(f"{BASE}/index.html#/pest/service/rodent/{date.today().year}")
         page.wait_for_timeout(400)
-        svc_dates = [datetime.strptime(m, "%d-%b-%Y").date() for m in re.findall(r"\b\d{2}-[A-Z][a-z]{2}-\d{4}\b", page.locator("table[data-table='visits'] tbody").inner_text())]
+        svc_dates = [datetime.strptime(m, "%d-%m-%y").date() for m in re.findall(r"(?<![\d-])\d{2}-\d{2}-\d{2}(?![\d-])", page.locator("table[data-table='visits'] tbody").inner_text())]
         check(
             "Demo service visits never sit on the Thursday weekly off — a visit scheduled on a Thursday is dated the next working day",
             len(svc_dates) >= 4 and all(d.weekday() != 3 for d in svc_dates) and any(d.day not in (4, 18) for d in svc_dates),

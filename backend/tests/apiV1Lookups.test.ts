@@ -115,7 +115,7 @@ const ESCALATIONS: EscalationItem[] = [
     ),
     acknowledgedBy: null,
     acknowledgedAt: null,
-    sentence: "3 late in the 30 days to 02-Oct-2026 — F-QC-30: 3 late",
+    sentence: "3 late in the 30 days to 02-10-26 — F-QC-30: 3 late",
   },
   {
     id: "12",
@@ -362,7 +362,7 @@ describe("the equipment list, the insights and the escalations, for the Mitra mo
     assert.deepEqual(open.body.rule, { late: 3, neverDone: 2, windowDays: 30 });
     const kapila = open.body.escalations[0];
     assert.equal(kapila.departmentName, "Quality Control");
-    assert.equal(kapila.sentence, "3 late in the 30 days to 02-Oct-2026 — F-QC-30: 3 late");
+    assert.equal(kapila.sentence, "3 late in the 30 days to 02-10-26 — F-QC-30: 3 late");
     assert.equal(kapila.records[0].id, "rec-late-1");
     assert.equal(open.body.escalations[1].sentence, "2 never done", "without the server's sentence, the counts in words");
     assert.deepEqual(open.body.escalations[1].people, ["Vinay Bhojak", "Sandeep Parekh"]);

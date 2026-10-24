@@ -143,7 +143,6 @@ export const DEFAULT_SPAN_DAYS = 7;
 // days and times, on the plant's clock
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** A real calendar day, YYYY-MM-DD, or null. */
 export function calendarDay(value: unknown): string | null {
@@ -164,10 +163,10 @@ export function plantDayOf(ms: number, zone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
 }
 
-/** 2026-09-30 -> 30-Sep-2026, the way the app writes a date. */
+/** 2026-09-30 -> 30-09-26, the way the app writes a date (utils/date.ts formatDisplayDate). */
 export function displayDay(day: string): string {
   const [y, m, d] = day.split("-").map(Number);
-  return `${String(d).padStart(2, "0")}-${MONTHS[m - 1]}-${y}`;
+  return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${String(y % 100).padStart(2, "0")}`;
 }
 
 /**

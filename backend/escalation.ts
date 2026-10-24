@@ -137,7 +137,6 @@ export const ESCALATION_RULE = { late: 3, neverDone: 2, windowDays: 30 } as cons
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const pad2 = (n: number): string => String(n).padStart(2, "0");
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export const isDay = (v: unknown): v is string => typeof v === "string" && DAY_RE.test(v) && !Number.isNaN(Date.parse(v));
 
@@ -173,10 +172,10 @@ export function isoWeek(iso: string): string {
   return `${year}-W${pad2(week)}`;
 }
 
-/** "24-Sep-2026", as the app writes a date (utils/date.ts formatDisplayDate). */
+/** "24-09-26", as the app writes a date (utils/date.ts formatDisplayDate). */
 export function displayDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  return `${pad2(d)}-${MONTHS[(m ?? 1) - 1] ?? "?"}-${y}`;
+  return `${pad2(d)}-${pad2(m ?? 1)}-${pad2((y ?? 0) % 100)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -504,7 +503,7 @@ export function findEscalations(plant: Plant, today: string): { window: { from: 
   return { window, subjects };
 }
 
-/** "3 late and 2 never done in the 30 days to 24-Sep-2026 — F/QC/12: 2 late" */
+/** "3 late and 2 never done in the 30 days to 24-09-26 — F/QC/12: 2 late" */
 export function escalationSentence(s: { late: number; neverDone: number; evidence: EscalationEvidence }): string {
   const counts = [s.late ? `${s.late} late` : "", s.neverDone ? `${s.neverDone} never done` : ""].filter(Boolean).join(" and ");
   const worst = s.evidence.worst.map((w) => `${w.what}: ${[w.late ? `${w.late} late` : "", w.neverDone ? `${w.neverDone} never done` : ""].filter(Boolean).join(", ")}`).join("; ");

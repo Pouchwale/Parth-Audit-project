@@ -231,7 +231,7 @@ export function SearchPage() {
     <div>
       <h1 className="text-2xl mb-1">{t("search.title")}</h1>
       <p className="text-muted mb-4">
-        Search by format number (F/HR/05, F-QC-30 — any way it is written), document, module or department, or anything written on a record: record ID, date (14-Aug-2026, 14.08.2026 or
+        Search by format number (F/HR/05, F-QC-30 — any way it is written), document, module or department, or anything written on a record: record ID, date (14-08-26, 14.08.2026 or
         2026-08-14), area, employee, checker, PC ID, machine number, job name, PO number, batch number, a remark or status. Type several words to find the records that
         have every one of them — with a format number among them (F/HR/17 RB-27), in that document's records only.
       </p>

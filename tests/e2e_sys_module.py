@@ -438,7 +438,7 @@ with sync_playwright() as p:
     check("S4: the audit's NC - 01 at 4.2.1 has no NC report on file", card("s4|seed-sys-audit-findings-2025-02|4.2.1").count() == 1)
     check("...while NC - 02 at 4.7.6, which has one, is not raised", card("s4|seed-sys-audit-findings-2025-02|4.7.6").count() == 0)
     trace = card("s5|seed-sys-backward-trace-2024-12")
-    check("S5: the backward trace's printing date 21.07.2027 is after its own dispatch", trace.count() == 1 and "21-Jul-2027" in trace.inner_text())
+    check("S5: the backward trace's printing date 21.07.2027 is after its own dispatch", trace.count() == 1 and "21-07-27" in trace.inner_text())
     check("...each in the System / Management module", all(page.locator(f"[data-section='insights-list'] [data-insight='{i}']").get_attribute("data-module") == "System / Management" for i in ids if i.split("|")[0] in ("s1", "s2", "s3", "s4", "s5")))
 
     # ==================================================================

@@ -223,13 +223,13 @@ test("F/QC/11's four boxes are editable since §117: the paper's words start eve
 test("F-QC-30's Sr. No. numbers its lines; the date is the header's, never the column's", async () => {
   const layout = layoutOf(VISCOSITY);
   assert.equal(layout.srNoShowsDate, undefined);
-  assert.equal(srNoText(layout, 0, "14-Oct-2026"), "1");
-  assert.equal(srNoText(layout, 1, "14-Oct-2026"), "2");
+  assert.equal(srNoText(layout, 0, "14-10-26"), "1");
+  assert.equal(srNoText(layout, 1, "14-10-26"), "2");
   // The ability itself still reads as designed, for a designer who chooses it.
-  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 0, "14-Oct-2026"), "14-Oct-2026");
-  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 1, "14-Oct-2026"), "");
-  assert.equal(srNoText(layout, 22, "14-Oct-2026"), "23");
-  assert.equal(srNoText(layoutOf(MIXING), 2, "14-Oct-2026"), "3", "every other sheet numbers its lines");
+  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 0, "14-10-26"), "14-10-26");
+  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 1, "14-10-26"), "");
+  assert.equal(srNoText(layout, 22, "14-10-26"), "23");
+  assert.equal(srNoText(layoutOf(MIXING), 2, "14-10-26"), "3", "every other sheet numbers its lines");
   const data = createDefaultData(docOf(VISCOSITY), DAY, master) as LogSheetData;
   const rows = bodyRows(await sheet(VISCOSITY, data));
   // 9:00 to 07:00, as the page is written: no 08:00 line (§111 part 6).
@@ -359,7 +359,7 @@ function twoLineBlocks(): ExportBlock[] {
       bindTable: GRID,
       rows: [
         [plainCell("Date"), plainCell("Weight 1"), plainCell("Tested Value 1")],
-        [bound(bind("rows/@r-1/date", "date", "14-Oct-2026")), bound(bind("rows/@r-1/weight1", "text", "50.000gm")), bound(bind("rows/@r-1/testedValue1", "text", "50.000gm"))],
+        [bound(bind("rows/@r-1/date", "date", "14-10-26")), bound(bind("rows/@r-1/weight1", "text", "50.000gm")), bound(bind("rows/@r-1/testedValue1", "text", "50.000gm"))],
         [plainCell("Deviation %"), plainCell(""), plainCell("0%")],
       ],
     },
@@ -395,7 +395,7 @@ test("a downloaded F/QC/12 keeps its second lines: one added in Excel or Word wi
   const xml = parts.get(SHEET)!;
   const last = Math.max(...Array.from(xml.matchAll(/<row r="(\d+)"/g), (m) => Number(m[1])));
   // An entry and its Deviation % line written below the grid, the way the paper has them.
-  const added = `<row r="${last + 1}">${cellXml(`A${last + 1}`, "21-Oct-2026")}${cellXml(`B${last + 1}`, "50.000gm")}${cellXml(`C${last + 1}`, "50.01gm")}</row><row r="${last + 2}">${cellXml(`A${last + 2}`, "Deviation %")}${cellXml(`C${last + 2}`, "0.02%")}</row>`;
+  const added = `<row r="${last + 1}">${cellXml(`A${last + 1}`, "21-10-26")}${cellXml(`B${last + 1}`, "50.000gm")}${cellXml(`C${last + 1}`, "50.01gm")}</row><row r="${last + 2}">${cellXml(`A${last + 2}`, "Deviation %")}${cellXml(`C${last + 2}`, "0.02%")}</row>`;
   parts.set(SHEET, xml.replace("</sheetData>", `${added}</sheetData>`));
   // The edited second line of the entry already there is still that entry's, not a new one.
   const r = await read(zipOf(parts), "upload.xlsx");
@@ -406,7 +406,7 @@ test("a downloaded F/QC/12 keeps its second lines: one added in Excel or Word wi
   const wordParts = await partsOf(docx);
   const body = wordParts.get("word/document.xml")!;
   const tc = (t: string) => `<w:tc><w:p><w:r><w:t xml:space="preserve">${t}</w:t></w:r></w:p></w:tc>`;
-  const extra = `<w:tr>${tc("21-Oct-2026")}${tc("50.000gm")}${tc("50.01gm")}</w:tr><w:tr>${tc("Deviation %")}${tc("")}${tc("0.02%")}</w:tr>`;
+  const extra = `<w:tr>${tc("21-10-26")}${tc("50.000gm")}${tc("50.01gm")}</w:tr><w:tr>${tc("Deviation %")}${tc("")}${tc("0.02%")}</w:tr>`;
   const at = body.lastIndexOf("</w:tbl>");
   wordParts.set("word/document.xml", body.slice(0, at) + extra + body.slice(at));
   const w = await read(zipOf(wordParts), "upload.docx");
@@ -557,7 +557,7 @@ test("F/QC/12 weighing balance: nine boxes three to a line, no Sr. No., each ent
   assert.ok(!headings(html).includes("Sr. No."));
   assert.ok(!headings(html).includes("Deviation %"));
   const entry = bodyRows(html).filter((r) => !/pf-pad/.test(r.attrs));
-  assert.deepEqual(entry.map((r) => r.cells[0].text), ["14-Oct-2026", "Deviation %"], "the entry's Date, and its second line headed Deviation %");
+  assert.deepEqual(entry.map((r) => r.cells[0].text), ["14-10-26", "Deviation %"], "the entry's Date, and its second line headed Deviation %");
   // ...and the paper's three other entries as its blank ruled lines, printed (§117 round 2), never in the record.
   assert.deepEqual(bodyRows(html).filter((r) => /pf-pad/.test(r.attrs)).map((r) => r.cells[0].text), ["", "Deviation %", "", "Deviation %", "", "Deviation %"]);
 });

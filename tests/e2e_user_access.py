@@ -596,7 +596,7 @@ with sync_playwright() as p:
             (kap_sessions[:3], [factory_hms(i) for i in ins]),
         )
         check("...and the failed sign-ins, with why", any(r[3] == SANDEEP and r[4] == "Sign-in failed" and r[8] == "Wrong password" for r in body) and any(r[3] == NOBODY and r[2] == "No such account" for r in body))
-        today_words = datetime.datetime.now(FACTORY).strftime("%d-%b-%Y")
+        today_words = datetime.datetime.now(FACTORY).strftime("%d-%m-%y")
         check("...each row dated as the app writes a date", all(r[0] for r in body) and any(r[0] == today_words for r in body), (today_words, body[:1]))
 
         # ==============================================================

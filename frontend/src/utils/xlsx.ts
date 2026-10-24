@@ -3,7 +3,8 @@
 // Writing: an .xlsx is a zip of a handful of XML parts. Every entry is STORED
 // (not compressed), so no compressor is needed — only a CRC-32. The sheet has a
 // bold header row, frozen, with a filter; date columns hold real Excel dates
-// (serial numbers shown dd-mmm-yyyy, which reads the same on any regional
+// (serial numbers shown dd-mm-yy, 24-10-26 as the app writes a date everywhere
+// (REQUIREMENTS §124), which reads the same on any regional
 // setting) and text columns are text-formatted, so a GP3 No. of 0101 keeps its
 // zero. Opens in Excel without a repair prompt.
 //
@@ -191,7 +192,7 @@ export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: strin
     [
       "xl/styles.xml",
       `<styleSheet xmlns="${MAIN}">` +
-        `<numFmts count="1"><numFmt numFmtId="164" formatCode="[$-409]dd\\-mmm\\-yyyy"/></numFmts>` +
+        `<numFmts count="1"><numFmt numFmtId="164" formatCode="[$-409]dd\\-mm\\-yy"/></numFmts>` +
         `<fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts>` +
         `<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>` +
         `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +

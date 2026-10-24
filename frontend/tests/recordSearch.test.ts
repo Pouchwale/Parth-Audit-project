@@ -68,11 +68,11 @@ async function settle(opts: Parameters<typeof ensureRecordIndex>[0]): Promise<vo
 test("a date written on a record is found as the screens show it and as the plant writes it", () => {
   const r = record("t-date", "gap-inspection", { findings: [{ findingOfInspection: "Door gap near dispatch", targetDate: "2026-08-29" }], handwritten: "12.09.2026" });
   const { text, cells } = recordSearchText(r, CAPA);
-  for (const form of ["2026-08-29", "29-aug-2026", "29/08/2026", "29.08.2026", "29-08-2026"]) assert.ok(text.includes(form), `the target date is found as ${form}`);
+  for (const form of ["2026-08-29", "29-08-26", "29-aug-2026", "29/08/2026", "29.08.2026", "29-08-2026", "29/08/26", "29.08.26"]) assert.ok(text.includes(form), `the target date is found as ${form}`);
   // Written the plant's way, found the other ways too.
-  for (const form of ["12.09.2026", "2026-09-12", "12-sep-2026"]) assert.ok(text.includes(form), `12.09.2026 is found as ${form}`);
+  for (const form of ["12.09.2026", "2026-09-12", "12-09-26", "12-sep-2026"]) assert.ok(text.includes(form), `12.09.2026 is found as ${form}`);
   const target = cells.find((c) => c.label === "Target date");
-  assert.equal(target?.value, "29-Aug-2026", "the line a result shows reads the date as every screen does");
+  assert.equal(target?.value, "29-08-26", "the line a result shows reads the date as every screen does");
   assert.equal(cells.find((c) => c.label === "Handwritten")?.value, "12.09.2026", "a date written by hand is shown as it was written");
   // The record's own day too, in every form.
   for (const form of ["14/08/2026", "14.08.2026"]) assert.ok(text.includes(form));
@@ -100,7 +100,7 @@ test("a register line named by a date is named as the screens show it", () => {
   const r = record("t-reg", "mnt-breakdown", { header: {}, rows: [{ id: "x", failureDate: "2026-08-14", machine: "M-13" }] });
   const { cells } = recordSearchText(r, { name: "Breakdown", formatNo: "F/MNT/06", kind: "log-sheet" }, layout);
   const machine = cells.find((c) => c.label === "Machine");
-  assert.equal(machine?.where, "14-Aug-2026");
+  assert.equal(machine?.where, "14-08-26");
 });
 
 // ---------------------------------------------------------------------------
@@ -246,10 +246,10 @@ test("a result's line keeps the heading apart from the values people wrote", () 
   const parts = snippetParts(cells, ["zqxparts", "29-aug"]);
   assert.deepEqual(parts, [
     { where: "Finding 1", label: "Finding", value: "Gaurav Singh saw zqxparts near M-68" },
-    { where: "", label: "Target date", value: "29-Aug-2026" },
+    { where: "", label: "Target date", value: "29-08-26" },
   ]);
   // The string the parts make is the line as it always read.
-  assert.equal(snippetFor(cells, ["zqxparts", "29-aug"]), "Finding 1 · Finding: Gaurav Singh saw zqxparts near M-68 · Target date: 29-Aug-2026");
+  assert.equal(snippetFor(cells, ["zqxparts", "29-aug"]), "Finding 1 · Finding: Gaurav Singh saw zqxparts near M-68 · Target date: 29-08-26");
 
   // Cut to what the result's cell has room for: only values are cut, and never past the room.
   const clipSnippet = (recordText as Record<string, unknown>).clipSnippet as (p: typeof parts, max: number) => typeof parts;
@@ -262,7 +262,7 @@ test("a result's line keeps the heading apart from the values people wrote", () 
   assert.equal(cut[0].label, "Remarks");
   assert.ok(cut[0].value.endsWith("…"), "the value cut says so");
   assert.ok(snippetText(cut).length <= 90, `no longer than the room: ${snippetText(cut).length}`);
-  const two = clipSnippet([{ where: "", label: "Finding", value: "y".repeat(80) }, { where: "", label: "Target date", value: "29-Aug-2026" }], 90);
+  const two = clipSnippet([{ where: "", label: "Finding", value: "y".repeat(80) }, { where: "", label: "Target date", value: "29-08-26" }], 90);
   assert.equal(two.length, 1);
   assert.ok(two[0].value.endsWith("…"), "when the next heading does not fit, the value before it ends with …");
   assert.ok(snippetText(two).length <= 90);

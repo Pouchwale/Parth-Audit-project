@@ -59,7 +59,7 @@ test("a record's own Date and Page No. are saved on it alone, with a history lin
   assert.deepEqual(
     last?.changes?.map((c) => [c.label, c.before, c.after]),
     [
-      ["Header · Date", "15-Sep-2026", "16-Sep-2026"],
+      ["Header · Date", "15-09-26", "16-09-26"],
       ["Header · Page No.", "1 of 1", "1 of 2"],
     ]
   );

@@ -90,8 +90,11 @@ test("number: grouping, spaces, float noise, Gujarati digits; empty is null; any
 test("date: ISO, dd-Mmm-yyyy, day-first numbers, an Excel serial or a date cell; empty is \"\"", () => {
   const serial = isoToSerial("2026-10-01")!;
   check("date", [
-    ["2026-10-01", "2026-10-01", "01-Oct-2026"],
+    ["2026-10-01", "2026-10-01", "01-10-26"],
     ["01-Oct-2026", "2026-10-01"],
+    ["01-10-26", "2026-10-01"], // the way the app now writes a date, read back
+    ["24-10-26", "2026-10-24"],
+    ["1-1-26", "2026-01-01"],
     ["1 October 2026", "2026-10-01"],
     ["01 oct 26", "2026-10-01"],
     ["Oct 1, 2026", "2026-10-01"],
@@ -107,10 +110,10 @@ test("date: ISO, dd-Mmm-yyyy, day-first numbers, an Excel serial or a date cell;
     [String(serial), "2026-10-01"],
     ["૦૧/૧૦/૨૦૨૬", "2026-10-01"],
     ["", "", ""],
-    ["31/02/2026", new Error("‘31/02/2026’ is not a date — write it like 01-Oct-2026.")],
-    ["2026", new Error("‘2026’ is not a date — write it like 01-Oct-2026.")],
-    ["next week", new Error("‘next week’ is not a date — write it like 01-Oct-2026.")],
-    [{ text: "2026", number: 2026 }, new Error("‘2026’ is not a date — write it like 01-Oct-2026.")],
+    ["31/02/2026", new Error("‘31/02/2026’ is not a date — write it like 01-10-26.")],
+    ["2026", new Error("‘2026’ is not a date — write it like 01-10-26.")],
+    ["next week", new Error("‘next week’ is not a date — write it like 01-10-26.")],
+    [{ text: "2026", number: 2026 }, new Error("‘2026’ is not a date — write it like 01-10-26.")],
   ]);
 });
 
@@ -208,6 +211,10 @@ test("a value the file only shows differently is not a change", () => {
   assert.ok(!same("12.01", "12", "number"));
   assert.ok(same({ text: "01-Oct-2026", number: 46296, serial: isoToSerial("2026-10-01")!, isDate: true }, "01-Oct-2026", "date"));
   assert.ok(same("01/10/2026", "01-Oct-2026", "date"));
+  // ...and the same when the text on file is the way the app writes a date now
+  assert.ok(same({ text: "01-10-26", number: 46296, serial: isoToSerial("2026-10-01")!, isDate: true }, "01-10-26", "date"));
+  assert.ok(same("01/10/2026", "01-10-26", "date"));
+  assert.ok(!same("02-10-26", "01-10-26", "date"));
   assert.ok(same("9:05", "09:05", "time"));
   assert.ok(same("Y", "Yes", "yesno"));
   assert.ok(same("a", "Shift A", "select", SHIFTS));
@@ -283,7 +290,9 @@ test("a defined name's reference, and a number format's kind", () => {
   assert.equal(numberFormatKind(22, undefined), "datetime");
   assert.equal(numberFormatKind(0, undefined), null);
   assert.equal(numberFormatKind(49, undefined), null);
-  assert.equal(numberFormatKind(164, "[$-409]dd\\-mmm\\-yyyy"), "date");
+  assert.equal(numberFormatKind(164, "[$-409]dd\\-mmm\\-yyyy"), "date", "a file saved before 24-Oct-2026 still reads");
+  assert.equal(numberFormatKind(164, "[$-409]dd\\-mm\\-yy"), "date", "the exporter's date format now");
+  assert.equal(numberFormatKind(165, "dd-mm-yy"), "date");
   assert.equal(numberFormatKind(170, "dd/mm/yyyy;@"), "date");
   assert.equal(numberFormatKind(171, "h:mm AM/PM"), "time");
   assert.equal(numberFormatKind(172, "[h]:mm:ss"), "time");
@@ -299,7 +308,7 @@ test("the map survives its own serialisations: the hidden sheet's rows and the W
   const envelope = makeEnvelope("xlsx", { documentId: "qc-test", formatNo: "F/QC/99", revisionNo: "01" }, ["rec-1", "rec-2", "rec-1"], "2026-09-27T10:00:00.000Z");
   assert.deepEqual(envelope.recordIds, ["rec-1", "rec-2"]);
   const entries: MapEntry[] = [
-    { i: 0, recordId: "rec-1", path: "header/date", type: "date", label: "Date", options: [], text: "01-Oct-2026", ref: "B3" },
+    { i: 0, recordId: "rec-1", path: "header/date", type: "date", label: "Date", options: [], text: "01-10-26", ref: "B3" },
     { i: 1, recordId: "rec-1", path: "rows/@r%2F1/shift", type: "select", label: "Shift, line 1", options: SHIFTS, text: "Shift A", ref: "E10", anchor: { col: 0, text: "1", grid: 0 } },
     { i: 2, recordId: "rec-2", path: "header/temperature", type: "number", label: "Temp", options: [], text: "12", ref: "B5", pre: "Temp: ", post: " °C" },
     { i: 3, recordId: "rec-2", path: "remarks", type: "paragraph", label: "Remarks", options: [], text: "line one\nline two" },

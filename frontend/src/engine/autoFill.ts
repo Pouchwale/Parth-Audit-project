@@ -419,7 +419,7 @@ function fillTraining(
       `Copied the ${data.topics.length} topics and the ${data.attendees.length} names from the ${formatDisplayDate(source.trainingDate)} programme.`,
       "The attendance sheet is last year's list — take off anyone who did not attend, add anyone new, and put in the certificate / attendance sheet reference.",
     ],
-    basedOn: previous ? basedOnLabel(doc, previous, "") : "the 24-Dec-2025 awareness training (Training - Yrl (1).doc)",
+    basedOn: previous ? basedOnLabel(doc, previous, "") : "the 24-12-25 awareness training (Training - Yrl (1).doc)",
   };
 }
 

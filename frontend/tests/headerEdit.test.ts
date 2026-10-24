@@ -45,7 +45,7 @@ test("each part of the header changed is a change in words — the next revision
   assert.deepEqual(describeFormatChange(before, { ...before, companyName: WITH_PLACE }), [`changed the company name to “${WITH_PLACE}”`]);
   assert.deepEqual(describeFormatChange(before, { ...before, companyName: COMPANY.name }), [], "the registered name is what it prints already");
   assert.deepEqual(describeFormatChange(before, { ...before, formatNo: "F/HR/01-A" }), ["changed the format number from “F/HR/01” to “F/HR/01-A”"]);
-  assert.deepEqual(describeFormatChange(before, { ...before, revisionDate: "2026-09-01" }), ["dated the revision 01-Sep-2026"]);
+  assert.deepEqual(describeFormatChange(before, { ...before, revisionDate: "2026-09-01" }), ["dated the revision 01-09-26"]);
   assert.deepEqual(describeFormatChange(before, { ...before, revisionNo: nextRevisionNo(d.revisionNo) }), [], "every save is numbered the next one — that is not a change to describe");
   assert.deepEqual(describeFormatChange(before, { ...before, revisionNo: "07" }), ["numbered the revision 07"]);
   // A blank is refused before it can be saved.
