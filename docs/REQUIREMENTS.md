@@ -9392,7 +9392,10 @@ on physical paper the print will come properly but it not cover whole page and f
 3. **Mitra opens when asked** (amends §60): it still follows where the person goes and what is open — the record or the
    document — but no longer opens its side panel by itself. The pill says what it is following ("Ask Mitra about ...")
    and its face glances toward the page; one click opens the panel docked beside the page with the greeting it used to
-   give on arrival, naming the record or document and offering the task.
+   give on arrival, naming the record or document and offering the task. A new customer complaint's checklist waits
+   too: the click starts its walk-through, as it used to start by itself (in a panel already open, it starts at once).
+   A task asked for before its record was open ("fill it with sample data" from the library) still opens Mitra to do
+   it, and a panel the person opened stays when the document is left: only Close shuts it.
 4. **A printout fills its A4 page** (frontend/src/utils/print.ts, "FILLING THE PAGE"). Measured on every document's
    PDF: one-page sheets of DCRS's own make used 27-55% of the page's height where their papers use 80-95% — a register
    printed only the lines written while its paper rules lines to its foot, a short form printed in the top third. Now,

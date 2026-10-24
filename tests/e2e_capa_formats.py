@@ -209,8 +209,12 @@ with sync_playwright() as p:
 
     # ---- the walk-through holds them to the format too ----
     third = new_complaint(page)
+    # Mitra waits to be asked (REQUIREMENTS s123): the click on its pill starts the walk-through.
+    if page.locator(".assistant-pill").count():
+        page.locator(".assistant-pill").first.click()
+        page.wait_for_timeout(700)
     check(
-        "The walk-through still starts itself on a complaint that is only numbered",
+        "One click on Mitra starts the walk-through on a complaint that is only numbered",
         "Which customer" in page.locator(".chat-msg.bot").last.inner_text(),
         page.locator(".chat-msg.bot").last.inner_text(),
     )
@@ -267,11 +271,9 @@ with sync_playwright() as p:
     # The checklist waits on the first blank activity, reading A1 → E32, and
     # nothing after it can be answered until that one is.
     fourth = new_complaint(page)
-    # A new complaint auto-starts the walk-through, which would read anything
-    # typed below as the answer to the question on screen — this block fills the
-    # form by hand instead, so stop it first.
-    page.locator(".chat-chip", has_text="Stop the walk-through").last.click()
-    page.wait_for_timeout(300)
+    # This block fills the form by hand. Mitra waits to be asked (REQUIREMENTS s123), so no walk-through is
+    # running to read what is typed below as an answer.
+    check("A new complaint leaves Mitra shut: no walk-through starts by itself", page.locator(".assistant-dock").count() == 0)
     close_assistant(page)
     page.wait_for_timeout(300)
     check(

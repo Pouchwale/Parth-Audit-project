@@ -141,8 +141,11 @@ def main():
         page.click("a:has-text('External — Customer Complaints')")
         page.wait_for_timeout(300)
         page.click("button:has-text('New Complaint')")
+        page.wait_for_timeout(700)
+        # Mitra waits to be asked (REQUIREMENTS s123): one click on its pill starts the walk-through.
+        page.locator(".assistant-pill").first.click()
         page.wait_for_timeout(900)
-        check("Assistant auto-starts on a new complaint", page.locator(".chat-msg.bot", has_text="Which customer").count() == 1)
+        check("One click on Mitra starts the walk-through on a new complaint", page.locator(".chat-msg.bot", has_text="Which customer").count() == 1)
         page.screenshot(path="tests/shots/07b_complaint_walkthrough.png", full_page=True)
         page.click("button[aria-label='Close assistant']")
         page.wait_for_timeout(150)

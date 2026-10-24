@@ -567,8 +567,15 @@ def main():
         page.wait_for_timeout(300)
         check("CAPA External list shows the F/MKT/05 checklist", "F/MKT/05" in page.content())
         page.click("button:has-text('New Complaint')")
-        page.wait_for_timeout(900)  # widget auto-opens + greeting + first question
-        check("New complaint auto-starts the assistant walk-through", page.locator(".chat-msg.bot", has_text="Let's do Complaint").count() == 1)
+        page.wait_for_timeout(700)
+        # Mitra waits to be asked (REQUIREMENTS s123): shut, its pill names the new complaint; one click starts the walk-through.
+        pill = page.locator(".assistant-pill")
+        pill_title = pill.first.get_attribute("title") if pill.count() else ""
+        check("A new complaint leaves Mitra shut, the pill naming it", page.locator(".assistant-dock").count() == 0 and "Complaint" in (pill_title or ""), pill_title)
+        if pill.count():
+            pill.first.click()
+        page.wait_for_timeout(900)  # the panel opens + its opening + the first question
+        check("One click on Mitra starts the assistant walk-through", page.locator(".chat-msg.bot", has_text="Let's do Complaint").count() == 1)
         check("Assistant asks for the customer first", page.locator(".chat-msg.bot", has_text="Which customer").count() == 1)
 
         def chat_type(text):

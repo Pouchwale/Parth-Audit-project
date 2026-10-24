@@ -425,6 +425,12 @@ export function DocumentAssistant() {
     const mine = where ? { documents: [], theirOwn: true } : waitingForMe();
     const opening = openingMessage(user?.name, where, mine.documents, mine.theirOwn);
     bot(opening.text, opening.chips);
+    // A fresh, empty complaint checklist waits for this click too (§123): opened, Mitra starts its walk-through
+    // after the opening, as it used to start by itself. Once per record.
+    if (t?.checklist?.autoStart && !startedRef.current.has(t.checklist.recordId)) {
+      startedRef.current.add(t.checklist.recordId);
+      setTimeout(() => beginGuided(), 0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -1424,16 +1430,16 @@ export function DocumentAssistant() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetSignature]);
 
-  // A fresh, empty complaint checklist opens the assistant and starts the
-  // walk-through by itself — the whole point is that nobody has to work out
-  // where to begin. Once per record.
+  // A fresh, empty complaint checklist starts the walk-through by itself —
+  // the whole point is that nobody has to work out where to begin — in a
+  // panel the person has opened. Shut, Mitra waits to be asked (REQUIREMENTS
+  // §123): the click's opening above starts it then. Once per record.
   useEffect(() => {
+    if (!open) return;
     const t = getTarget();
     if (t?.checklist?.autoStart && !startedRef.current.has(t.checklist.recordId)) {
       startedRef.current.add(t.checklist.recordId);
       arrivedRef.current.add(`record:${t.checklist.recordId}`);
-      setOpen(true);
-      // Let the greeting effect post first so the walk-through reads in order.
       setTimeout(() => beginGuided(), 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1539,6 +1545,9 @@ export function DocumentAssistant() {
 
   useEffect(() => {
     const onStart = () => {
+      // Begun here, by its button: the opening does not begin it a second time (§123).
+      const checklist = getTarget()?.checklist;
+      if (checklist) startedRef.current.add(checklist.recordId);
       setOpen(true);
       setTimeout(() => beginGuided(), 0);
     };
