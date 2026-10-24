@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../../store/AuthContext";
 import { ApiError } from "../../api/client";
 import { DEPARTMENTS } from "../../data/seed/departments";
 import { PasswordInput } from "../common/PasswordInput";
 
-export function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
+// `onStanding` tells the sign-in screen's cartoon how the attempt stands (REQUIREMENTS §122; the owner,
+// 24-Oct-2026: "add cartoon in login ... closing eye and opening it has some emotions"): asking the server,
+// refused — a short or unmatched password as much as the server's no — or nothing the matter.
+export function SignupForm({ onSwitchToLogin, onStanding }: { onSwitchToLogin: () => void; onStanding?: (s: "trying" | "failed" | "fine") => void }) {
   const { signup } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -18,6 +21,7 @@ export function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void })
   const [department, setDepartment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  useEffect(() => onStanding?.(submitting ? "trying" : error ? "failed" : "fine"), [submitting, error, onStanding]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

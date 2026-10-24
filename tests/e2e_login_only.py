@@ -174,6 +174,22 @@ with sync_playwright() as p:
         page.locator("[data-section='accounts-by-administrator']").count() == 1
         and "administrator" in (page.locator("[data-section='accounts-by-administrator']").text_content() or "").lower(),
     )
+
+    # The cartoon above the title (REQUIREMENTS s122; the owner, 24-Oct-2026: "add cartoon in login
+    # when user login and entering his password then that cartoon will closing eye and opening it
+    # has some emotions"): eyes open at the name, shut while the password box has the focus.
+    mascot = "[data-section='login-mascot'] svg"
+    check("Mitra's cartoon stands above the title, eyes open", page.locator(f"{mascot}[data-eyes='open']").count() == 1)
+    page.click("#login-password")
+    page.wait_for_timeout(250)
+    check("...it shuts its eyes the moment the password box has the focus", page.locator(f"{mascot}[data-eyes='closed']").count() == 1)
+    page.fill("#login-password", "Secret@2026")
+    page.wait_for_timeout(250)
+    check("...keeps them shut while the password is typed", page.locator(f"{mascot}[data-eyes='closed']").count() == 1)
+    page.click("#login-email")
+    page.wait_for_timeout(250)
+    check("...and opens them again at the name box", page.locator(f"{mascot}[data-eyes='open']").count() == 1)
+
     cfg = get(page, "/api/auth/config")
     check("The server says so before anybody signs in: signup is false", cfg["status"] == 200 and (cfg["body"] or {}).get("features", {}).get("signup") is False, cfg)
     # Since REQUIREMENTS s84 it also carries the PLANT's working hours and today's calendar state (so the sign-in page can
@@ -304,7 +320,12 @@ with sync_playwright() as p:
     page.click("button:has-text('Log In')")
     page.wait_for_timeout(1500)
     check("The password she was given before no longer works", page.locator("#login-email").count() == 1 and page.locator(".app-sidebar").count() == 0)
+    # The cartoon takes the refused attempt to heart (REQUIREMENTS s122)...
+    check("...and the cartoon above the title is sad about it", page.locator(f"{mascot}[data-mood='sad']").count() == 1)
     page.fill("#login-email", MEENA)
+    page.wait_for_timeout(150)
+    # ...and is cheered the moment she types again.
+    check("...cheered the moment she types again", page.locator(f"{mascot}[data-mood='sad']").count() == 0)
     page.fill("#login-password", MEENA_OWN)
     page.click("button:has-text('Log In')")
     page.wait_for_timeout(1500)

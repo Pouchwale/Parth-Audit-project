@@ -20,7 +20,11 @@ import { WorkingHoursNote } from "./WorkingHoursNote";
 // THE SHORT NAME (REQUIREMENTS §110): the box takes an address or the short name of one of the plant's own accounts
 // ("kapila.barad" or "kapila barad" for kapila.barad@gpp.local), so it is a text box, not an email box (the browser
 // would refuse a short name before the server saw it). An account the super admin removed is told so.
-export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup?: () => void }) {
+//
+// `onStanding` tells the sign-in screen's cartoon how the attempt stands (REQUIREMENTS §122; the owner,
+// 24-Oct-2026: "...that cartoon will closing eye and opening it has some emotions"): asking the server,
+// refused, or nothing the matter — AuthScreen turns it into the face's mood.
+export function LoginForm({ onSwitchToSignup, onStanding }: { onSwitchToSignup?: () => void; onStanding?: (s: "trying" | "failed" | "fine") => void }) {
   const { login, notice } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +33,7 @@ export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup?: () => void 
   // The notice stays until the person does something about it: a new attempt replaces it.
   const [shownNotice, setShownNotice] = useState(notice);
   useEffect(() => setShownNotice(notice), [notice]);
+  useEffect(() => onStanding?.(submitting ? "trying" : error ? "failed" : "fine"), [submitting, error, onStanding]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

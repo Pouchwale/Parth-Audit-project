@@ -17,10 +17,16 @@ import { ThemeSwitch } from "../layout/ThemeSwitch";
 // and the form never move. `afterIntro`: the introduction is playing over this
 // screen (AuthScreen, IntroSplash.tsx), so the title's entrance waits for its
 // veil to lift. Fixed for the life of the screen, so the entrance never restarts.
-export function AuthLayout({ children, afterIntro = false }: { children: React.ReactNode; afterIntro?: boolean }) {
+//
+// `mascot`: the sign-in screen's cartoon (REQUIREMENTS §122; the owner, 24-Oct-2026: "add cartoon in login when
+// user login and entering his password then that cartoon will closing eye and opening it has some emotions"),
+// handed in by AuthScreen and drawn above everything else on the card — above the title, as asked. A prop, not
+// a fixture, so the choose-your-password card (main.tsx) stays bare as before.
+export function AuthLayout({ children, afterIntro = false, mascot }: { children: React.ReactNode; afterIntro?: boolean; mascot?: React.ReactNode }) {
   return (
     <div className="auth-shell" data-intro={afterIntro ? "playing" : undefined}>
       <div className="auth-card">
+        {mascot}
         <div className="auth-brand">
           <img
             className="auth-logo notranslate"
