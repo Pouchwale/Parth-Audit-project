@@ -81,7 +81,7 @@ def close_assistant(page):
 
 
 def open_page(page, route, settle=1400):
-    """Opens a page and leaves Mitra as it is: docked by itself on a document, a pill elsewhere."""
+    """Opens a page and leaves Mitra as it is: a pill until it is asked for (s123), docked once it has been."""
     page.goto(f"{BASE}/index.html{route}")
     page.wait_for_timeout(settle)
     dismiss(page)
@@ -92,7 +92,7 @@ def stored(page, key):
 
 
 def ensure_mitra(page):
-    """Mitra opens by itself beside a document; anywhere else, or once closed, the pill opens it."""
+    """Mitra opens only when asked (s123, amending s60): wherever it is shut, the pill opens it."""
     if page.locator("[data-assistant='docked']").count() == 0:
         page.locator("[data-assistant='closed'] button").first.click()
         page.wait_for_timeout(400)
@@ -204,7 +204,15 @@ with sync_playwright() as p:
     anchor = "Remarks" if "Remarks" in named else named[-1]
     rev0 = current_rev(page, FREE_DOC)
     rev1 = next_rev(rev0)
-    check("Mitra opens by itself beside the format's page, docked", page.locator("[data-assistant='docked']").count() == 1)
+    # The owner, 24-Oct-2026 (s123, amending s60): Mitra follows the format's page but opens only when asked.
+    pill = page.locator("[data-assistant='closed'] .assistant-pill")
+    check(
+        "Beside the format's page Mitra waits shut, its pill naming the format",
+        page.locator("[data-assistant='docked']").count() == 0 and pill.count() == 1 and (pill.get_attribute("title") or "").startswith("Ask Mitra about F/QC/16"),
+        pill.get_attribute("title") if pill.count() else None,
+    )
+    ensure_mitra(page)
+    check("...and the pill docks it beside the page", page.locator("[data-assistant='docked']").count() == 1)
     hint = page.locator("[data-assistant='docked'] [data-chip='focusInput'][data-placeholder]")
     check("A format drawn from a layout offers 'Change this format' among Mitra's chips", hint.count() == 1)
     if hint.count():

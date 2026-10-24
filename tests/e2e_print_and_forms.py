@@ -254,7 +254,7 @@ with sync_playwright() as p:
         shown,
     )
 
-    # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
+    # Mitra waits to be asked on a record (s123, amending s60): the pill opens it, unless it is open already.
     if page.locator("button:has-text('Ask Mitra')").count():
         page.click("button:has-text('Ask Mitra')")
     page.wait_for_timeout(400)

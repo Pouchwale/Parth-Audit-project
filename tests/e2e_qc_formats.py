@@ -47,9 +47,11 @@ query". REQUIREMENTS s57. So this suite checks that:
   * the three formats the department issues in Gujarati read in English while
     English is chosen, line for line, while a record of one still holds the
     Gujarati the form was issued in (REQUIREMENTS s58);
-  * opening a document opens Mitra beside it, docked, offering the task - one
-    tap starts today's record and asks the first question - and it goes again
-    when the document is left untouched (REQUIREMENTS s60);
+  * opening a document or a record leaves Mitra shut, the pill naming what is
+    open; one click docks it beside the page, the page making room, offering the
+    task - one tap starts today's record and asks the first question - and a
+    panel the person opened stays when the document is left; a record already
+    greeted is not introduced twice (REQUIREMENTS s123, amending s60);
   * every new format is found by its format number, and Mitra opens one by name;
   * what a person types on any of them is stored;
   * EXACTLY AS THE PAPER (REQUIREMENTS s111, 13-Oct-2026): the fourteen incoming
@@ -1435,11 +1437,12 @@ with sync_playwright() as p:
     )
 
 
-    # ------------------------------------------------------------------ MITRA OPENS WITH THE DOCUMENT (s60)
-    # Whenever a document is opened the assistant opens beside it, docked, and
-    # offers the task; it goes again when the document is left untouched.
+    # ------------------------------------------------------------------ MITRA FOLLOWS THE DOCUMENT, AND OPENS WHEN ASKED (s123, amending s60)
+    # The owner, 24-Oct-2026: "bot will see where i am going and what i am doing ... when user will click on it then
+    # only otherwise not". Opening a document leaves Mitra shut, its pill saying what it is following; one click docks
+    # it beside the page, the page making room, with the greeting it used to come forward with by itself.
     page.goto(f"{BASE}/index.html#/dashboard")
-    # A fresh sitting: Mitra comes forward once per document, and this suite has
+    # A fresh sitting: Mitra greets each document once in one, and this suite has
     # already opened every format above.
     page.reload()
     page.wait_for_timeout(1500)
@@ -1447,67 +1450,123 @@ with sync_playwright() as p:
     close_assistant(page)
     page.goto(f"{BASE}/index.html#/document/qc-pvc-pet-film")
     page.wait_for_timeout(1500)
-    dock = page.evaluate(
-        """() => {
+    mitra_js = """() => {
              const d = document.querySelector('.assistant-dock');
+             const pill = document.querySelector('.assistant-pill');
              return {
                open: !!d && document.querySelectorAll("button[aria-label='Close assistant']").length === 1,
                pill: Array.from(document.querySelectorAll('button')).some((b) => b.textContent.includes('Ask Mitra')),
+               title: pill ? pill.getAttribute('title') || '' : '',
                docked: document.documentElement.classList.contains('assistant-docked'),
                right: d ? Math.round(window.innerWidth - d.getBoundingClientRect().right) : null,
                top: d ? Math.round(d.getBoundingClientRect().top) : null,
                room: getComputedStyle(document.querySelector('.app-main')).marginRight,
              };
            }"""
-    )
+    following = "Ask Mitra about "
+    dock = page.evaluate(mitra_js)
     check(
-        "Opening a document opens Mitra by itself, docked down the side with the page making room",
+        "Opening a document leaves Mitra shut: the pill, no panel, and the page keeps its full width",
+        not dock["open"] and dock["pill"] and not dock["docked"] and dock["room"] == "0px",
+        dock,
+    )
+    named = dock["title"][len(following):] if dock["title"].startswith(following) else ""
+    check("…while the pill says Mitra is following it, naming the document", "F/QC/05" in named and "PVC / PET Film" in named, dock["title"])
+    pill = page.locator(".assistant-pill")
+    if pill.count():
+        pill.first.click()
+        page.wait_for_timeout(800)
+    dock = page.evaluate(mitra_js)
+    check(
+        "One click on the pill docks Mitra down the side, with the page making room",
         dock["open"] and not dock["pill"] and dock["docked"] and dock["right"] == 0 and dock["top"] == 0 and dock["room"] == "380px",
         dock,
     )
-    said = page.locator(".chat-log .chat-msg.bot").last.inner_text()
+    bots = page.locator(".chat-log .chat-msg.bot")
+    said = bots.last.inner_text() if bots.count() else ""
     chips = page.locator(".chat-log .chat-chip").all_inner_texts()
     check(
-        "…and it names the document and offers to start today's record",
-        "F/QC/05" in said and "PVC / PET Film" in said and "Start today's record and fill it with me" in chips,
-        (said, chips),
+        "…and it names the document in the pill's words and offers to start today's record",
+        bool(named) and said.startswith(named) and "Start today's record and fill it with me" in chips,
+        (named, said, chips),
     )
-    page.locator(".chat-log .chat-chip", has_text="Start today's record and fill it with me").click()
-    page.wait_for_timeout(2200)
-    asked = page.locator(".chat-log .chat-msg.bot").last.inner_text()
+    start = page.locator(".chat-log .chat-chip", has_text="Start today's record and fill it with me")
+    before_tap = page.locator(".chat-log .chat-msg.bot").count()
+    if start.count():
+        start.last.click()
+        page.wait_for_timeout(2200)
+    bots = page.locator(".chat-log .chat-msg.bot")
+    asked = bots.last.inner_text() if bots.count() else ""
     opened = record(page, page.url.split("#/record/")[-1]) if "#/record/" in page.url else None
     check(
         "One tap and it performs the task: today's record is started, opened, and the first question asked",
         bool(opened) and opened["documentId"] == "qc-pvc-pet-film" and asked.rstrip().endswith("?"),
         (page.url, asked),
     )
-    page.locator(".chat-log .chat-chip", has_text="Stop for now").click()
-    page.wait_for_timeout(400)
+    # A task asked for is carried on with and nothing is added to it (s60): the record it opened is not greeted too
+    # (every greeting of a record begins with the record's name: "Inspection Record - PVC / PET Film for ... is open").
+    since = bots.all_inner_texts()[before_tap:]
+    check(
+        "…and nothing is added to the task: the record it opened is not introduced as well",
+        bool(since) and not any(m.startswith("Inspection Record - PVC / PET Film for ") for m in since),
+        since,
+    )
+    stop = page.locator(".chat-log .chat-chip", has_text="Stop for now")
+    if stop.count():
+        stop.last.click()
+        page.wait_for_timeout(400)
     close_assistant(page)
 
-    # A record opened directly: Mitra says where it stands and offers the fill.
+    # A record opened directly: Mitra follows it too, and offers the fill when asked.
     rid = start_record(page, "qc-label-stock")
     page.goto(f"{BASE}/index.html#/dashboard")
-    page.reload()  # a fresh sitting: starting it above already brought Mitra forward once
+    page.reload()  # a fresh sitting, so nothing greeted before it counts
     page.wait_for_timeout(1500)
     dismiss(page)
     page.goto(f"{BASE}/index.html#/record/{rid}")
     page.wait_for_timeout(1500)
+    dock = page.evaluate(mitra_js)
+    named = dock["title"][len(following):] if dock["title"].startswith(following) else ""
+    check("Opening a record leaves Mitra shut too, the pill naming the record", not dock["open"] and dock["pill"] and "Label Stock" in named, dock)
+    pill = page.locator(".assistant-pill")
+    if pill.count():
+        pill.first.click()
+        page.wait_for_timeout(800)
+    bots = page.locator(".chat-log .chat-msg.bot")
+    said = bots.last.inner_text() if bots.count() else ""
     chips = page.locator(".chat-log .chat-chip").all_inner_texts()
     check(
-        "Opening a record opens Mitra with the fill on offer",
-        page.locator(".assistant-dock").count() == 1 and any(c in chips for c in ("Fill it in with me", "Carry on filling it with me")) and "Fill it with sample data" in chips,
-        chips,
+        "Clicked, Mitra opens on the record in the pill's words, with the fill on offer",
+        page.locator(".assistant-dock").count() == 1
+        and bool(named)
+        and said.startswith(named)
+        and any(c in chips for c in ("Fill it in with me", "Carry on filling it with me"))
+        and "Fill it with sample data" in chips,
+        (named, said, chips),
     )
     page.goto(f"{BASE}/index.html#/dashboard")
     page.wait_for_timeout(900)
-    check(
-        "Left untouched, it goes with the document: the dashboard has the pill again",
-        page.locator(".assistant-dock").count() == 0 and page.locator("button:has-text('Ask Mitra')").count() == 1,
-    )
+    check("Opened by the person, it stays when the record is left: only Close shuts it", page.locator(".assistant-dock").count() == 1)
+    close_assistant(page)
+    dock = page.evaluate(mitra_js)
+    check("…and off the record, the pill no longer names it", dock["pill"] and not dock["title"].startswith(following), dock["title"])
     page.goto(f"{BASE}/index.html#/record/{rid}")
     page.wait_for_timeout(1200)
-    check("…and a record it has already come forward for is not interrupted a second time", page.locator(".assistant-dock").count() == 0)
+    dock = page.evaluate(mitra_js)
+    check("Back on the record, Mitra still waits to be asked, the pill naming it again", not dock["open"] and dock["pill"] and bool(named) and dock["title"] == following + named, dock)
+    pill = page.locator(".assistant-pill")
+    if pill.count():
+        pill.first.click()
+        page.wait_for_timeout(800)
+    bots = page.locator(".chat-log .chat-msg.bot")
+    said = bots.last.inner_text() if bots.count() else ""
+    chips = page.locator(".chat-log .chat-chip").all_inner_texts()
+    check(
+        "…and a record already greeted in this sitting is not introduced a second time: Mitra asks its usual question",
+        "I can see you have a record open" in said and not any(c in chips for c in ("Fill it in with me", "Carry on filling it with me")),
+        (said, chips),
+    )
+    close_assistant(page)
 
     open_page(page, "#/search")
     box = page.locator(".app-content input").first

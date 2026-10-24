@@ -669,6 +669,8 @@ const en = {
   "ai.headerSubtitle": "Ask, navigate, fill — in plain words. Knows today's work, the leave calendar and every register. This system only.",
   "ai.widgetSubtitle": "Your records buddy — ask, open, fill",
   "ai.widgetOpen": "Ask Mitra",
+  // The pill's title while a record or a format is open and Mitra is shut: it is following that one (REQUIREMENTS §123).
+  "ai.following": "Ask Mitra about {what}",
   "ai.recordOpenSubtitle": "A record is open — tell me what to fill in",
   "ai.welcome":
     "I'm your buddy for this system. Ask me what's due, where something is, whether a day is a holiday, or tell me what happened and I'll fill it in. I answer about this software and its records only — anything outside it I'll politely decline. Pick a question to start, or type your own.",
@@ -1477,6 +1479,7 @@ const gu: Record<StringKey, string> = {
   "ai.headerSubtitle": "પૂછો, જાઓ, ભરો — સાદી ભાષામાં. આજનું કામ, રજા કેલેન્ડર અને દરેક રજિસ્ટર જાણે છે. ફક્ત આ સિસ્ટમ વિશે.",
   "ai.widgetSubtitle": "તમારો રેકોર્ડ સાથી — પૂછો, ખોલો, ભરો",
   "ai.widgetOpen": "મિત્રને પૂછો",
+  "ai.following": "{what} વિશે મિત્રને પૂછો",
   "ai.recordOpenSubtitle": "એક રેકોર્ડ ખુલ્લો છે — શું ભરવું તે જણાવો",
   "ai.welcome":
     "હું આ સિસ્ટમ માટે તમારો સાથી છું. પૂછો કે આજે શું બાકી છે, કઈ વસ્તુ ક્યાં છે, કોઈ દિવસ રજા છે કે નહીં — અથવા શું થયું તે કહો, હું ભરી દઈશ. હું ફક્ત આ સોફ્ટવેર અને તેના રેકોર્ડ વિશે જ જવાબ આપું છું; બહારની વાત નમ્રતાથી નકારીશ. શરૂ કરવા કોઈ પ્રશ્ન પસંદ કરો, અથવા તમારો પોતાનો લખો.",

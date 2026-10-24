@@ -80,7 +80,7 @@ def dismiss(page):
 
 
 def close_assistant(page):
-    # Mitra opens by itself beside a document or a record; the sheet is what is under test here.
+    # Mitra opens only when asked (s123), but an earlier step may have left it open; the sheet is what is under test here.
     btn = page.locator("button[aria-label='Close assistant']")
     if btn.count():
         btn.first.click()

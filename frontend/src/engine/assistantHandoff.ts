@@ -21,6 +21,12 @@ export function queueAfterOpen(recordId: string, then: HandoffAction): void {
   pending = { recordId, then };
 }
 
+/** Whether something is parked for this record, looked at without taking it: the
+ *  widget does not greet a record a task asked for is about to begin on (REQUIREMENTS §60). */
+export function handoffWaiting(recordId: string): boolean {
+  return pending?.recordId === recordId;
+}
+
 /** The parked action for this record, if any — taken once. A request for a
  *  different record supersedes it, so going somewhere else first simply drops it. */
 export function takeHandoff(recordId: string): HandoffAction | null {

@@ -314,7 +314,7 @@ with sync_playwright() as p:
     # record on the test server), so this holds whatever the day.
     # One sheet a week holds that week's calibration, one entry (s111: never four lines on one day).
     if fresh is not None and not (fresh["data"]["rows"] and fresh["data"]["rows"][0].get("weight4")):
-        # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
+        # Mitra waits to be asked on a record (s123, amending s60): the pill opens it, unless it is open already.
         if page.locator("button:has-text('Ask Mitra')").count():
             page.click("button:has-text('Ask Mitra')")
         page.wait_for_timeout(400)
