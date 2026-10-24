@@ -19,10 +19,11 @@ test("the fill's limits: 1.3x at most, a form to 94% of the page, a register's l
   assert.match(print, /const BLANK_LINE_MM = 8;/, "a line a pen can write on");
 });
 
-test("only a sheet of DCRS's own make is filled: never a paper form, a framed paper, a named paper or one at its own margin", () => {
-  assert.match(print, /function ownMake\(doc: HTMLElement\): boolean \{\n {2}return !doc\.matches\(PAPER_FORM\) && !doc\.querySelector\(PAPER_FORM\) && !doc\.matches\("\[data-paper\]"\) && !doc\.querySelector\("\[data-paper\]"\);/);
+test("only a sheet of DCRS's own make is filled: never a paper form, a framed paper, a named paper, one at its own margin or one drawn to its paper", () => {
+  assert.match(print, /function ownMake\(doc: HTMLElement\): boolean \{\n {2}return !\[PAPER_FORM, "\[data-paper\]", DRAWN_TO_PAPER\]\.some\(\(s\) => doc\.matches\(s\) \|\| doc\.querySelector\(s\) !== null\);/);
+  assert.match(print, /const DRAWN_TO_PAPER = "\.svc-paper, \.fhr18-sheet";/, "the contractor's service report is the March sheet to 1.5 pt and F/HR/18 its Word page (§118): drawn as they are");
   assert.match(print, /if \(own === null && !isFramed\(doc\)\) zoom = fillPage\(doc, zoom, width, room, landscape\);/);
-  assert.match(print, /const service = doc\.querySelector\("\.svc-paper"\) !== null;/, "the contractor's service report, drawn narrower than its sheet, is the one paper copy made bigger");
+  assert.match(print, /function fillPage\([^)]*\): number \{\n {2}if \(!ownMake\(doc\)\) return zoom;/);
   assert.match(print, /if \(ownLeftMargin\(doc\) !== null \|\| isFramed\(doc\) \|\| !ownMake\(doc\) \|\| !doc\.querySelector\("table\[data-free-lines\]"\)\) continue;/);
 });
 

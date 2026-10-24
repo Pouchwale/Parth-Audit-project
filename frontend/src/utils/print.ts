@@ -215,14 +215,15 @@ const SMALLEST_SCALE = 0.3;
 // print will come properly but it not cover whole page and font size on that paper will be very small"). Measured on
 // every document's printout, one-page sheets of DCRS's own make used 27-55% of the page's height where their papers
 // use 80-95%: a register prints only the lines written while its paper rules lines down to its foot, and a form of a
-// few lines prints at 10 pt in the top third; the contractor's service report was drawn at 73% of the width (its
-// sheet: 94%). So, while print measures the page (html.print-measure, at the page's own width):
-//   - a ONE-PAGE sheet of DCRS's own make, or a service report, is drawn bigger - to FILL_SCALE at most (10 pt -> 13 pt),
-//     never wider than the page - until it reaches FILL_TO of the page's height;
+// few lines prints at 10 pt in the top third. So, while print measures the page (html.print-measure, at the page's
+// own width):
+//   - a ONE-PAGE sheet of DCRS's own make is drawn bigger - to FILL_SCALE at most (10 pt -> 13 pt), never wider than
+//     the page - until it reaches FILL_TO of the page's height;
 //   - a REGISTER (a grid that takes free lines, LogSheetRecordView data-free-lines) is then ruled with blank lines of
-//     BLANK_LINE_MM down to FILL_TO, as its paper is - ready for a pen; they leave the page when printing ends.
-// A paper form drawn in millimetres, a framed paper, a sheet that names its paper, one standing at its own margin:
-// none of these - each is already drawn to its paper. THE HEIGHT IS MEASURED WITH THE PRINT'S OWN RULES ON
+//     BLANK_LINE_MM down to LINES_TO, as its paper is - ready for a pen; they leave the page when printing ends.
+// A paper form drawn in millimetres, a framed paper, a sheet that names its paper, one standing at its own margin, a
+// sheet drawn in points to its own paper (DRAWN_TO_PAPER): none of these - each is already drawn to its paper.
+// THE HEIGHT IS MEASURED WITH THE PRINT'S OWN RULES ON
 // (withPrintRules: every @media print rule laid on for the moment of measuring), against the whole A4 page with its
 // 12 mm margin: measured in the screen's styles it read 15-68% high and the fill stopped well short. Close, not exact
 // - a value too long for its box is written as words only afterwards - so FILL_TO keeps a margin, and nothing runs
@@ -338,9 +339,14 @@ function pagesAt(doc: HTMLElement, zoom: number, landscape: boolean): number {
   return tall / pageH;
 }
 
-/** Whether `doc` is a sheet of DCRS's own make: not a paper form, not a sheet that names its paper. */
+// Sheets drawn in points to their own paper (§118): the contractor's service report is the March sheet to 1.5 pt (the
+// owner: "make sure it looks like it only"), F/HR/18 is its Word page with its own margins. Drawn as they are.
+const DRAWN_TO_PAPER = ".svc-paper, .fhr18-sheet";
+
+/** Whether `doc` is a sheet of DCRS's own make: not a paper form, not a sheet that names its paper, not one drawn in
+ * points to its paper. */
 function ownMake(doc: HTMLElement): boolean {
-  return !doc.matches(PAPER_FORM) && !doc.querySelector(PAPER_FORM) && !doc.matches("[data-paper]") && !doc.querySelector("[data-paper]");
+  return ![PAPER_FORM, "[data-paper]", DRAWN_TO_PAPER].some((s) => doc.matches(s) || doc.querySelector(s) !== null);
 }
 
 /** A register's blank lines down to LINES_TO of the page (FILLING THE PAGE): measured, then held inside it. */
@@ -398,15 +404,13 @@ function ruleRegisters(docs: Element[]): void {
   }
 }
 
-/** FILLING THE PAGE (above): the zoom that brings a short one-page sheet toward FILL_TO. */
+/** FILLING THE PAGE (above): the zoom that brings a short one-page sheet of DCRS's own make toward FILL_TO. */
 function fillPage(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean): number {
-  const service = doc.querySelector(".svc-paper") !== null;
-  const own = ownMake(doc);
-  if (!service && !own) return zoom;
-  return withPrintRules(() => fillMeasured(doc, zoom, width, across, landscape, own));
+  if (!ownMake(doc)) return zoom;
+  return withPrintRules(() => fillMeasured(doc, zoom, width, across, landscape));
 }
 
-function fillMeasured(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean, own: boolean): number {
+function fillMeasured(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean): number {
   const now = pagesAt(doc, zoom, landscape);
   if (now <= 0 || now >= FILL_TO) return zoom;
   // (a document with no table - a form of labelled boxes - flows to whatever width it is given: only FILL_SCALE holds it)

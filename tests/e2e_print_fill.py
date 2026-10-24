@@ -3,13 +3,13 @@ because of they are not able to cover whole A4 size paper which result when user
 print will come properly but it not cover whole page and font size on that paper will be very small").
 
 utils/print.ts draws a short one-page sheet of DCRS's own make bigger (to 1.3x at most, never wider than the page) and
-rules a register with blank lines down to its page's foot, as its paper is; the contractor's service report, drawn
-narrower than its sheet, is drawn to the page's width. Here, each in the browser's own PDF of the Print button's printout:
+rules a register with blank lines down to its page's foot, as its paper is; a sheet drawn to its own paper is left as
+drawn. Here, each in the browser's own PDF of the Print button's printout:
 - F/PRD/23, a portrait register: one page, ruled with blank lines, its content most of the page's height;
 - F/PRD/24, a landscape register: the same, and bigger than 10 pt;
 - F/STR/02, a register whose long names wrap on paper: still one page (its lines are ruled after the words are written);
 - F/DISP/04, a short form: drawn bigger, one page, most of its height;
-- the fly-control service report: as wide as the page now (it was 73%);
+- the fly-control service report, the contractor's March sheet to 1.5 pt (§118): left exactly as drawn;
 - F/QC/01, a paper form drawn in millimetres: left exactly as drawn — no zoom, no blank lines;
 - and after printing, every blank line is gone from the screen.
 No sound (tests/quiet). The password is made for this run and written nowhere.
@@ -107,7 +107,7 @@ with sync_playwright() as p:
         ("prd-slitting-blade", "F/PRD/24 (a landscape register)", "register"),
         ("str-sharp-metal-objects", "F/STR/02 (long names that wrap)", "register"),
         ("disp-vehicle-cleaning", "F/DISP/04 (a short form)", "form"),
-        ("service-report-fly", "The fly-control service report", "service"),
+        ("service-report-fly", "The fly-control service report (the contractor's March sheet)", "paper"),
         ("qc-bopp-film", "F/QC/01 (a paper form drawn in millimetres)", "paper"),
     ]
     for doc, what, kind in cases:
@@ -125,8 +125,6 @@ with sync_playwright() as p:
         elif kind == "form":
             check(f"{what}: drawn bigger (zoom 1.2 or more, 1.3 at most)", got["zoom"] is not None and 1.2 <= got["zoom"] <= 1.3, got)
             check(f"{what}: its content reaches most of the page's height (70% or more)", got["tall"] >= 0.70, got)
-        elif kind == "service":
-            check(f"{what}: as wide as the page (84% of it or more; it was 73%)", got["wide"] >= 0.84, got)
         elif kind == "paper":
             check(f"{what}: left exactly as drawn: no zoom, no blank lines", got["zoom"] == 1 and got["blank"] == 0, got)
     check("No JavaScript errors", not errors, errors[:3])
