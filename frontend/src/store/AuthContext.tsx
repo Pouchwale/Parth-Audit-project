@@ -62,8 +62,6 @@ interface AuthContextValue {
   session: DaySession | null;
   /** The plant's hours and where today stands, as the server last said (§84). */
   hours: PublicHours | null;
-  /** Asks the server for the hours again (the sign-in page, after a refusal and while it stays open). */
-  refreshHours: () => void;
   /** Asks the server about this session again: the calendar may now close the day sooner, or the session may be over. */
   refreshSession: () => Promise<void>;
   /**
@@ -202,7 +200,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // create an account even on a server that allows it. It asks nothing about
   // anybody, and if it goes unanswered everything stays off, which is the safe
   // way round: no way in that the server would refuse anyway. The same answer
-  // carries the plant's hours, which the sign-in page states (§84).
+  // carries the plant's hours (§84), kept here for the screens that read them; the
+  // sign-in page no longer shows a box of them (§123, the owner, 24-Oct-2026).
   const readPublicFeatures = useCallback(() => {
     void api
       .get<{ features?: ServerFeatures; hours?: PublicHours | null }>("/auth/config")
@@ -340,21 +339,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener(OUTSIDE_HOURS_EVENT, onOutside);
   }, [endForHours]);
 
+  // Refused (outside the hours too, §84): the error goes to the form, which shows the server's own words. Nothing
+  // is asked again: the hours were asked for the box beside the form, gone since §123.
   const login = useCallback(
     async (email: string, password: string) => {
-      try {
-        // With this browser's own id (utils/deviceId.ts), so signing in again here takes this device's place (§106).
-        const res = await api.post<AuthResponse>("/auth/login", { email, password, device: browserDevice() });
-        applyAnswer(res);
-        setNotice(null);
-        setStatus("authenticated");
-      } catch (err) {
-        // Refused outside the hours: the words are the form's to show; the hours beside it are asked again.
-        if (isOutsideHours(err)) readPublicFeatures();
-        throw err;
-      }
+      // With this browser's own id (utils/deviceId.ts), so signing in again here takes this device's place (§106).
+      const res = await api.post<AuthResponse>("/auth/login", { email, password, device: browserDevice() });
+      applyAnswer(res);
+      setNotice(null);
+      setStatus("authenticated");
     },
-    [applyAnswer, readPublicFeatures]
+    [applyAnswer]
   );
 
   const signup = useCallback(
@@ -413,7 +408,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         passwordChosen,
         session,
         hours,
-        refreshHours: readPublicFeatures,
         refreshSession,
         endForHours,
         notice,

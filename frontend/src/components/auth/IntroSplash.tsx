@@ -272,13 +272,14 @@ export function markIntroSeen(): void {
   }
 }
 
-// The faces of the wordmark and the names, asked for as the script starts rather
+// The face of the wordmark and the names, asked for as the script starts rather
 // than when the introduction first draws, so no word is first seen in a stand-in
-// face. All are used on every screen anyway; a failure changes nothing.
+// face. Since REQUIREMENTS §123 it is the app's one face, Plus Jakarta Sans — one
+// variable file for every weight, so one request brings it all. It is used on every
+// screen anyway; a failure changes nothing.
 try {
   if (typeof document !== "undefined" && document.fonts && typeof document.fonts.load === "function") {
-    document.fonts.load('800 100px "Baloo Bhai 2"', "DCRS GUJARAT PRINT PACK PUBLICATIONS PVT LTD").catch(() => {});
-    document.fonts.load('700 16px "Plus Jakarta Sans"', "DIGITAL CONTROLLED RECORD SYSTEM").catch(() => {});
+    document.fonts.load('800 100px "Plus Jakarta Sans"', "DCRS DIGITAL CONTROLLED RECORD SYSTEM GUJARAT PRINT PACK PUBLICATIONS PVT LTD").catch(() => {});
   }
 } catch {
   /* a browser without the Font Loading API draws the stand-in first, as before */

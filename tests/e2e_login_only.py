@@ -192,8 +192,8 @@ with sync_playwright() as p:
 
     cfg = get(page, "/api/auth/config")
     check("The server says so before anybody signs in: signup is false", cfg["status"] == 200 and (cfg["body"] or {}).get("features", {}).get("signup") is False, cfg)
-    # Since REQUIREMENTS s84 it also carries the PLANT's working hours and today's calendar state (so the sign-in page can
-    # say when DCRS is open) - the plant's clock, never anything about a person.
+    # Since REQUIREMENTS s84 it also carries the PLANT's working hours and today's calendar state - the plant's clock,
+    # never anything about a person (the sign-in page stood them in a box above the form until s123, 24-Oct-2026).
     body = cfg["body"] or {}
     plant = body.get("hours") or {}
     check(
