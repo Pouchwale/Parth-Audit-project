@@ -213,8 +213,10 @@ test("no new endless animation, and each of Mitra's movements takes 120-200 ms",
   const endless = RULES.filter((r) => !r.media.includes("reduce") && r.decls.some(([p, v]) => p === "animation" && /infinite/.test(v))).flatMap((r) => r.selectors);
   assert.deepEqual(
     [...new Set(endless)].sort(),
-    [".chat-avatar.is-thinking::after", ".chat-typing span", ".conn-spin", ".mitra-recording::before", ".mitra-spin", ".mitra-thinking", ".voice-pulse"].sort(),
-    "only the live signs that were there before: typing dots, the thinking line and ring, spinners, the recording dot"
+    // The blink joined on 24-Oct-2026 (REQUIREMENTS §122, the owner: "mitra is enjoying on every task ... like playing
+    // game"): Mitra's drawn face rests its eyes every few seconds, the one movement of its idle life.
+    [".chat-avatar.is-thinking::after", ".chat-typing span", ".conn-spin", ".mitra-face .mf-eyes", ".mitra-recording::before", ".mitra-spin", ".mitra-thinking", ".voice-pulse"].sort(),
+    "only the live signs that were there before, and the face's blink (§122)"
   );
   for (const r of RULES) {
     if (r.media.includes("reduce") || !r.selectors.some((s) => MITRA.test(s))) continue;

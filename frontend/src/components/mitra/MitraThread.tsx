@@ -25,6 +25,7 @@
 // only when they themselves change — a keystroke in the composer, a step on
 // the last answer or the Edit box opening no longer redraws all of them.
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { MitraFace } from "../common/MitraFace";
 import { FiZap } from "react-icons/fi";
 import type { Chip } from "../../engine/guidedChecklist";
 import { MitraMessage, type MitraMessageView } from "./MitraMessage";
@@ -141,7 +142,7 @@ export function MitraThread({ messages, thinking, onChip, onOption, onCite, empt
         {thinking && !lastPending && (
           <div className="mitra-turn bot">
             <span className="chat-avatar is-thinking" aria-hidden="true">
-              <FiZap size={12} />
+              <MitraFace mood="calm" look={{ x: 0.35, y: -0.5 }} size={16} />
             </span>
             <div className="mitra-turn-body">
               <div className="chat-msg bot mitra-typing">

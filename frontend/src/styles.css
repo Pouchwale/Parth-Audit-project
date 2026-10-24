@@ -109,6 +109,11 @@
   --dock-shadow: -10px 0 28px rgba(63, 44, 34, 0.10);
   /* Mitra's face and the sign-in title */
   --mitra-face: linear-gradient(135deg, #5E2A2E 0%, #7E3C40 55%, #9B4A4F 100%);
+  /* MITRA'S DRAWN FACE (REQUIREMENTS §122): its skin, ink, blush and the sparkles of joy. */
+  --mf-face: #FFF2E2;
+  --mf-ink: #46262B;
+  --mf-blush: #F0A3A0;
+  --mf-spark: #F2C04E;
   --auth-wash: rgba(126, 60, 64, 0.16);
   --auth-title-1: #9B4A4F;
   --auth-title-2: #7E3C40;
@@ -2128,6 +2133,39 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 .chat-typing span:nth-child(3) { animation-delay: 0.3s; }
 @keyframes chat-bounce { 0%, 70%, 100% { transform: translateY(0); opacity: 0.5; } 35% { transform: translateY(-4px); opacity: 1; } }
 /* Mitra's face: the spark, near-white on its burgundy disc. */
+/* ---- MITRA'S FACE (REQUIREMENTS §122; the owner, 24-Oct-2026: "add more capabilites and emotions like mitra is
+   enjoying on every task that user will complete and sad, angry") ----
+   One drawn face (components/common/MitraFace.tsx) on the Ask Mitra pill, the chat's avatars and the sign-in screen.
+   Its mood is the svg's data-mood: the brows tilt, the blush shows and the mouth is drawn for it; data-eyes="closed"
+   is the sign-in cartoon shutting its eyes while a password is typed. The blink is the one endless movement
+   (mitraLook.test.ts names it with the other live signs); a glance and the brows move in 120-200 ms. */
+.mitra-face { display: block; }
+.mitra-face .mf-skin { fill: var(--mf-face); }
+.mitra-face .mf-brow { fill: none; stroke: var(--mf-ink); stroke-width: 1.5; stroke-linecap: round; transition: transform 160ms ease; transform-box: fill-box; }
+.mitra-face .mf-brow-l { transform-origin: left center; }
+.mitra-face .mf-brow-r { transform-origin: right center; }
+.mitra-face[data-mood="sad"] .mf-brow-l { transform: rotate(-9deg) translateY(0.5px); }
+.mitra-face[data-mood="sad"] .mf-brow-r { transform: rotate(9deg) translateY(0.5px); }
+.mitra-face[data-mood="upset"] .mf-brow-l { transform: rotate(13deg) translateY(0.6px); }
+.mitra-face[data-mood="upset"] .mf-brow-r { transform: rotate(-13deg) translateY(0.6px); }
+.mitra-face .mf-eyes { fill: var(--mf-ink); transform-box: fill-box; transform-origin: center; animation: mf-blink 4.8s ease-in-out infinite; }
+.mitra-face .mf-eyes ellipse { transform: translate(calc(var(--mf-lx, 0) * 1.6px), calc(var(--mf-ly, 0) * 1.4px)); transition: transform 150ms ease; }
+.mitra-face .mf-lids path { fill: none; stroke: var(--mf-ink); stroke-width: 1.7; stroke-linecap: round; }
+.mitra-face .mf-blush { fill: var(--mf-blush); opacity: 0; transition: opacity 160ms ease; }
+.mitra-face[data-mood="joy"] .mf-blush, .mitra-face[data-eyes="closed"] .mf-blush { opacity: 0.55; }
+.mitra-face .mf-mouth { fill: none; stroke: var(--mf-ink); stroke-width: 1.8; stroke-linecap: round; }
+.mitra-face .mf-mouth-open { fill: var(--mf-ink); stroke: none; }
+/* The blink rests only on a face whose eyes are drawn open. */
+@keyframes mf-blink {
+  0%, 93%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.08); }
+}
+/* The sign-in screen's cartoon (components/auth, REQUIREMENTS §122): the same face, big enough to greet. */
+.auth-mascot { display: flex; justify-content: center; margin-bottom: 2px; }
+.auth-mascot .mitra-face { width: 68px; height: 68px; filter: drop-shadow(0 4px 10px rgba(63, 44, 34, 0.18)); }
+/* The top bar's sound button shows the small speaking dot while Mitra is speaking (its red is the recorder's; here
+   it speaks, so it wears the accent). */
+.sound-toggle .voice-pulse { width: 7px; height: 7px; background: var(--accent); }
 .chat-avatar {
   position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--mitra-face); color: var(--on-brand);
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 2px rgba(63, 44, 34, 0.25);
@@ -2185,6 +2223,7 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 /* Gujarati letters are never spaced apart (REQUIREMENTS §90). */
 :lang(gu) .assistant-pill { letter-spacing: 0; }
 .assistant-pill-face {
+  position: relative;
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
   background: rgba(255, 255, 255, 0.16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
 }
@@ -2198,6 +2237,24 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 @keyframes assistant-pill-wave {
   0%, 60%, 100% { opacity: 0; transform: scale(0.92); }
   30% { opacity: 1; transform: none; }
+}
+/* THE POP OF JOY (REQUIREMENTS §122): a record handed in or verified, and the pill's face pops once with two
+   sparkles — 180-200 ms, never endless, gone by itself (DocumentAssistant puts is-celebrating on for a few seconds). */
+.assistant-pill.is-celebrating .assistant-pill-face { animation: mf-pop 180ms ease; }
+.assistant-pill.is-celebrating .assistant-pill-face::before,
+.assistant-pill.is-celebrating .assistant-pill-face::after {
+  content: "\2726"; position: absolute; color: var(--mf-spark); opacity: 0; pointer-events: none;
+}
+.assistant-pill.is-celebrating .assistant-pill-face::before { top: -8px; left: -4px; font-size: 10px; animation: mf-spark 200ms ease 40ms forwards; }
+.assistant-pill.is-celebrating .assistant-pill-face::after { bottom: -7px; right: -5px; font-size: 8px; animation: mf-spark 200ms ease 150ms forwards; }
+@keyframes mf-pop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.16); }
+}
+@keyframes mf-spark {
+  0% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  60% { opacity: 1; transform: scale(1.15) rotate(18deg); }
+  100% { opacity: 0; transform: scale(0.7) rotate(30deg); }
 }
 /* How many of their documents are waiting, on the pill itself. */
 .assistant-pill-count {
@@ -3959,7 +4016,12 @@ textarea.input.input-cell-multiline:is(.gap-text, .wrap-text) { min-width: 140px
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,
-  .mitra-hero-face, .mitra-hero-text, .assistant-suggestion, .mitra-step { animation: none !important; }
+  .mitra-hero-face, .mitra-hero-text, .assistant-suggestion, .mitra-step,
+  .mitra-face .mf-eyes, .assistant-pill.is-celebrating .assistant-pill-face,
+  .assistant-pill.is-celebrating .assistant-pill-face::before,
+  .assistant-pill.is-celebrating .assistant-pill-face::after { animation: none !important; }
+  /* Mitra's drawn face stands quite still too: no glance, no brow, no blush fading in (REQUIREMENTS §122). */
+  .mitra-face .mf-brow, .mitra-face .mf-eyes ellipse, .mitra-face .mf-blush { transition: none; }
   .mitra-thinking { opacity: 0.8; }
   .chat-avatar.is-thinking::after { opacity: 0.5; transform: none; }
   .chat-chip, .assistant-pill, .mitra-composer, .assistant-suggestion { transition: none; }

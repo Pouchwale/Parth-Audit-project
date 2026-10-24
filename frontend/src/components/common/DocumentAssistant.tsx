@@ -37,6 +37,8 @@ import { MAX_ATTACHMENTS, acceptFile, pickFromFolder, readAttachment } from "../
 import type { MitraAttachment, MitraStep, MitraToolContext } from "../../engine/mitraTypes";
 import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../../utils/recorder";
 import { loadSecureAddress, micSecureAddressWords, secureAddressUrl } from "../../utils/micCheck";
+import { MitraFace } from "./MitraFace";
+import { MOOD_LIFT_MS, moodFor, type MoodLift } from "../../engine/mitraMood";
 // Mitra never talks over a person speaking into the microphone (REQUIREMENTS §81).
 import { noVoiceHintOnce, setMicBusy } from "../../utils/voice";
 import {
@@ -448,12 +450,47 @@ export function DocumentAssistant() {
   // NOT on every change of anything: computeReminders walks every format's
   // records and Mitra is on every screen (§65).
   const [waiting, setWaiting] = useState(0);
+  // ...and how much of it is overdue: the face on the pill feels the day (engine/mitraMood.ts, REQUIREMENTS §122).
+  const [overdueCount, setOverdueCount] = useState(0);
   const today = todayISO();
   useEffect(() => {
     if (open) return; // the panel says it in words; the pill is for when it is shut
-    setWaiting(waitingForMe().documents.length);
+    const docs = waitingForMe().documents;
+    setWaiting(docs.length);
+    setOverdueCount(docs.filter((d) => d.overdue).length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, today, user?.id, isDemo]);
+
+  // MITRA ENJOYS WORK DONE (REQUIREMENTS §122; the owner, 24-Oct-2026: "mitra is enjoying on every task that user
+  // will complete and sad, angry"): a record handed in or verified lifts the face to joy for a few seconds — with
+  // the pop and sparkles the stylesheet draws — and a send-back dips it; then the day's standing shows again. The
+  // same "dcrs:reaction" the toast and the confetti answer (engine/recordLifecycle.ts), so every module counts.
+  const [lift, setLift] = useState<MoodLift>(null);
+  useEffect(() => {
+    let fade = 0;
+    let recount = 0;
+    const onReaction = (e: Event) => {
+      const kind = (e as CustomEvent<{ kind?: string }>).detail?.kind;
+      if (kind !== "submitted" && kind !== "verified" && kind !== "rejected") return;
+      setLift(kind === "rejected" ? "sad" : "joy");
+      window.clearTimeout(fade);
+      fade = window.setTimeout(() => setLift(null), MOOD_LIFT_MS);
+      // The person has just done some work: the pill's figure and the face's standing move with it.
+      window.clearTimeout(recount);
+      recount = window.setTimeout(() => {
+        const docs = waitingForMe().documents;
+        setWaiting(docs.length);
+        setOverdueCount(docs.filter((d) => d.overdue).length);
+      }, 700);
+    };
+    window.addEventListener(REACTION_EVENT, onReaction);
+    return () => {
+      window.removeEventListener(REACTION_EVENT, onReaction);
+      window.clearTimeout(fade);
+      window.clearTimeout(recount);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---- guided walk-through -------------------------------------------------
   const askStep = (step: GuidedStep) => {
@@ -2494,7 +2531,7 @@ export function DocumentAssistant() {
         // Its shape, colour and grab cursor are the stylesheet's (styles.css
         // ".assistant-pill"); only where it was dragged to is set here.
         <button
-          className={`btn btn-primary assistant-pill${waiting > 0 ? " has-waiting" : ""}`}
+          className={`btn btn-primary assistant-pill${waiting > 0 ? " has-waiting" : ""}${lift === "joy" ? " is-celebrating" : ""}`}
           onClick={() => {
             if (!didJustDrag()) setOpen(true);
           }}
@@ -2502,7 +2539,7 @@ export function DocumentAssistant() {
           {...dragHandleProps}
         >
           <span className="assistant-pill-face" aria-hidden="true">
-            <FiZap size={14} />
+            <MitraFace mood={moodFor({ waiting, overdue: overdueCount, lift })} size={20} />
           </span>
           {t("ai.widgetOpen")}
           {/* How much of this person's own work is waiting (REQUIREMENTS §67) — a
@@ -2522,7 +2559,7 @@ export function DocumentAssistant() {
           <div className="mitra-dock-head">
             <div className="mitra-dock-who">
               <span className={`chat-avatar${loading ? " is-thinking" : ""}`} aria-hidden="true">
-                <FiZap size={15} />
+                <MitraFace mood={loading ? "calm" : moodFor({ waiting, overdue: overdueCount, lift })} look={loading ? { x: 0.35, y: -0.5 } : undefined} size={18} />
               </span>
               <div className="mitra-dock-words">
                 <div className="font-semibold mitra-dock-title">{t("ai.title")}</div>

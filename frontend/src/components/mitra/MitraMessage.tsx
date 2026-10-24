@@ -35,6 +35,7 @@
 // draws only what changed — not every one of up to 200 messages, each through
 // the markdown renderer. The words being edited live in the edit box itself.
 import { memo, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
+import { MitraFace } from "../common/MitraFace";
 import { FiCheck, FiCopy, FiEdit2, FiWifiOff, FiZap } from "react-icons/fi";
 import type { Chip } from "../../engine/guidedChecklist";
 import type { CiteLink } from "../../engine/historyDigest";
@@ -272,7 +273,7 @@ export const MitraMessage = memo(function MitraMessage({ message: m, onChip, onO
   return (
     <div className="mitra-turn bot" data-message={m.id}>
       <span className={`chat-avatar${m.pending ? " is-thinking" : ""}`} aria-hidden="true">
-        <FiZap size={12} />
+        <MitraFace mood={m.pending ? "calm" : "happy"} size={16} />
       </span>
       <div className="mitra-turn-body">
         {m.steps && m.steps.length > 0 && <MitraSteps steps={m.steps} compact={compact} />}

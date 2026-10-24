@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { MitraFace } from "../components/common/MitraFace";
 import type { IconType } from "react-icons";
 import {
   FiBarChart2,
@@ -1149,9 +1150,9 @@ export function AssistantPage() {
           >
             <FiSidebar size={15} />
           </button>
-          {/* Mitra's face: the same spark on every surface of the chat; a ring breathes round it while it answers. */}
+          {/* Mitra's face, the same on every surface of the chat (REQUIREMENTS §122); a ring breathes round it while it answers. */}
           <span className={`chat-avatar${loading ? " is-thinking" : ""}`} aria-hidden="true">
-            <FiZap size={16} />
+            <MitraFace mood={loading ? "calm" : "happy"} look={loading ? { x: 0.35, y: -0.5 } : undefined} size={20} />
           </span>
           <div className="assistant-head-text">
             <div className="font-semibold flex items-center gap-2" style={{ minWidth: 0 }}>

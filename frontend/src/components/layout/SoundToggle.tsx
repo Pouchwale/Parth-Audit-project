@@ -3,7 +3,7 @@ import { FiVolume2, FiVolumeX } from "react-icons/fi";
 import { useAppStore } from "../../store/AppStore";
 import { useT } from "../../i18n";
 import { settingsRepository } from "../../data/repositories/settingsRepository";
-import { updateVoiceSettings, VOICE_SETTINGS_EVENT } from "../../utils/voice";
+import { isSaying, onVoiceChange, updateVoiceSettings, VOICE_SETTINGS_EVENT } from "../../utils/voice";
 
 // THE TOP BAR'S SPEAKER (REQUIREMENTS §81): one press mutes Mitra's sounds AND
 // voice, another brings both back. On while either is on — Master Data can set
@@ -18,6 +18,9 @@ export function SoundToggle() {
     return s.soundsOn || s.voiceOn;
   };
   const [on, setOn] = useState(read);
+  // The small speaking dot while Mitra is saying something aloud (REQUIREMENTS §122: the button shows it is alive).
+  const [saying, setSaying] = useState(() => isSaying());
+  useEffect(() => onVoiceChange(() => setSaying(isSaying())), []);
 
   // Changed elsewhere (Master Data, the reminder card's 🔇, another device's settings pulled in).
   useEffect(() => {
@@ -43,6 +46,7 @@ export function SoundToggle() {
       }}
     >
       {on ? <FiVolume2 size={15} /> : <FiVolumeX size={15} />}
+      {on && saying && <span className="voice-pulse" aria-hidden="true" />}
       <span className="sound-toggle-label">{on ? t("voice.toggle.on") : t("voice.toggle.off")}</span>
     </button>
   );
