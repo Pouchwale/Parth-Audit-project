@@ -341,7 +341,7 @@ function pagesAt(doc: HTMLElement, zoom: number, landscape: boolean): number {
 
 // Sheets drawn in points to their own paper (§118): the contractor's service report is the March sheet to 1.5 pt (the
 // owner: "make sure it looks like it only"), F/HR/18 is its Word page with its own margins. Drawn as they are.
-const DRAWN_TO_PAPER = ".svc-paper, .fhr18-sheet";
+const DRAWN_TO_PAPER = ".svc-paper, .fhr18-sheet, .fhr18-record";
 
 /** Whether `doc` is a sheet of DCRS's own make: not a paper form, not a sheet that names its paper, not one drawn in
  * points to its paper. */
