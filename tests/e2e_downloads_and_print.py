@@ -325,7 +325,8 @@ with sync_playwright() as p:
     page.locator("button:has-text('Print')").first.click()
     page.wait_for_timeout(300)
     fit = page.evaluate("() => ({ page: document.documentElement.dataset.printPage, zoom: document.querySelector('[data-print-doc]').style.zoom })")
-    check("A form only a little wider than the paper (F/HR/05) stays portrait, scaled no smaller than 80%", fit["page"] == "portrait" and (fit["zoom"] == "" or 0.8 <= float(fit["zoom"]) <= 1), fit)
+    # Short of its page since 23-Oct-2026, it is drawn bigger as it prints, 1.3x at most (utils/print.ts FILL_SCALE, REQUIREMENTS §123).
+    check("A form only a little wider than the paper (F/HR/05) stays portrait, scaled no smaller than 80% and no bigger than 1.3x", fit["page"] == "portrait" and (fit["zoom"] == "" or 0.8 <= float(fit["zoom"]) <= 1.3), fit)
     page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
 
     # ==================================================================
