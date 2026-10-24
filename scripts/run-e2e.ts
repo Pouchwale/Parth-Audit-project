@@ -372,6 +372,7 @@ async function main(): Promise<void> {
       "tests/e2e_agreement_and_cancel.py",
       "tests/e2e_crud.py",
       "tests/e2e_print_all_documents.py",
+      "tests/e2e_print_fill.py",
       "tests/e2e_assistant_fill.py",
       "tests/e2e_departments.py",
       "tests/e2e_trend_reports.py",

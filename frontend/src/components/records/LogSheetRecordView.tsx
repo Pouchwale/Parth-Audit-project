@@ -914,6 +914,9 @@ export function LogSheetRecordView({
       <div className="doc-table mt-4">
         <table
           className={editable ? "compact log-sheet is-editing" : "compact log-sheet"}
+          // A register's grid: lines are added as the work is done, so on paper it is ruled with blank lines to the page's
+          // foot (utils/print.ts FILLING THE PAGE, REQUIREMENTS §123).
+          data-free-lines={freeRows ? "" : undefined}
           style={gridCols ? ({ "--pf-w": `calc(${gridCols.reduce((a, b) => a + b, 0)} * var(--u))` } as React.CSSProperties) : undefined}
           {...gridBind}
         >

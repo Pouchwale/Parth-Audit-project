@@ -210,6 +210,32 @@ function ownLeftMargin(doc: Element): number | null {
   return Number.isFinite(mm) ? mm : null;
 }
 const SMALLEST_SCALE = 0.3;
+// FILLING THE PAGE (REQUIREMENTS §123; the owner, 24-Oct-2026: "Still some document are not able to print not proper
+// because of they are not able to cover whole A4 size paper which result when user take print out on physical paper the
+// print will come properly but it not cover whole page and font size on that paper will be very small"). Measured on
+// every document's printout, one-page sheets of DCRS's own make used 27-55% of the page's height where their papers
+// use 80-95%: a register prints only the lines written while its paper rules lines down to its foot, and a form of a
+// few lines prints at 10 pt in the top third; the contractor's service report was drawn at 73% of the width (its
+// sheet: 94%). So, while print measures the page (html.print-measure, at the page's own width):
+//   - a ONE-PAGE sheet of DCRS's own make, or a service report, is drawn bigger - to FILL_SCALE at most (10 pt -> 13 pt),
+//     never wider than the page - until it reaches FILL_TO of the page's height;
+//   - a REGISTER (a grid that takes free lines, LogSheetRecordView data-free-lines) is then ruled with blank lines of
+//     BLANK_LINE_MM down to FILL_TO, as its paper is - ready for a pen; they leave the page when printing ends.
+// A paper form drawn in millimetres, a framed paper, a sheet that names its paper, one standing at its own margin:
+// none of these - each is already drawn to its paper. THE HEIGHT IS MEASURED WITH THE PRINT'S OWN RULES ON
+// (withPrintRules: every @media print rule laid on for the moment of measuring), against the whole A4 page with its
+// 12 mm margin: measured in the screen's styles it read 15-68% high and the fill stopped well short. Close, not exact
+// - a value too long for its box is written as words only afterwards - so FILL_TO keeps a margin, and nothing runs
+// onto a second page.
+const FILL_TO = 0.94;
+// A register's blank lines stop sooner: a line is a whole row the page cannot split, and a register's paper head prints
+// again on a page it runs onto - measured on F/PRD/24 and four others, 0.94 left a page of nothing but that head.
+const LINES_TO = 0.86;
+const FILL_SCALE = 1.3;
+const BLANK_LINE_MM = 8;
+/** The blank lines' body, on a register's grid while printing (styles.css, REQUIREMENTS §123). */
+const BLANK_ATTR = "data-print-blank";
+let blankBodies: HTMLTableSectionElement[] = [];
 // A form a little too wide for a portrait page stays portrait, slightly smaller.
 const PORTRAIT_SCALE = 0.9;
 let fitted: HTMLElement[] = [];
@@ -257,6 +283,147 @@ function fitToPage(docs: Element[]): void {
   }
 }
 
+/** The text of every rule the page's stylesheets keep for print (@media print), read once. */
+let printRules: string | null = null;
+function printRulesText(): string {
+  if (printRules !== null) return printRules;
+  const out: string[] = [];
+  const walk = (rules: CSSRuleList, inPrint: boolean) => {
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSMediaRule) {
+        const media = rule.media.mediaText.toLowerCase();
+        walk(rule.cssRules, inPrint || (/\bprint\b/.test(media) && !/\bscreen\b/.test(media)));
+      } else if (rule instanceof CSSSupportsRule) walk(rule.cssRules, inPrint);
+      else if (inPrint && rule instanceof CSSStyleRule) out.push(rule.cssText);
+    }
+  };
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      walk(sheet.cssRules, false);
+    } catch {
+      /* a sheet from elsewhere: its rules cannot be read */
+    }
+  }
+  printRules = out.join("\n");
+  return printRules;
+}
+
+/** Runs `measure` with the print's own rules laid on the screen (taken off before anything is painted). */
+function withPrintRules<T>(measure: () => T): T {
+  const style = document.createElement("style");
+  style.textContent = printRulesText();
+  document.head.appendChild(style);
+  try {
+    return measure();
+  } finally {
+    style.remove();
+  }
+}
+
+/**
+ * How many A4 pages `doc` fills printed at `zoom` (FILLING THE PAGE): laid out as wide as the page is at that zoom, its
+ * 12 mm margin and all, with the print's rules on (withPrintRules), against the page's full height; then put back.
+ */
+function pagesAt(doc: HTMLElement, zoom: number, landscape: boolean): number {
+  const pageW = (landscape ? 297 : 210) * PX_PER_MM;
+  const pageH = (landscape ? 210 : 297) * PX_PER_MM;
+  const keep = { width: doc.style.width, boxSizing: doc.style.boxSizing, zoom: doc.style.zoom };
+  doc.style.zoom = "";
+  doc.style.boxSizing = "border-box";
+  doc.style.width = `${pageW / zoom}px`;
+  const tall = doc.getBoundingClientRect().height * zoom;
+  doc.style.width = keep.width;
+  doc.style.boxSizing = keep.boxSizing;
+  doc.style.zoom = keep.zoom;
+  return tall / pageH;
+}
+
+/** Whether `doc` is a sheet of DCRS's own make: not a paper form, not a sheet that names its paper. */
+function ownMake(doc: HTMLElement): boolean {
+  return !doc.matches(PAPER_FORM) && !doc.querySelector(PAPER_FORM) && !doc.matches("[data-paper]") && !doc.querySelector("[data-paper]");
+}
+
+/** A register's blank lines down to LINES_TO of the page (FILLING THE PAGE): measured, then held inside it. */
+function ruleBlankLines(doc: HTMLElement, zoom: number, landscape: boolean): void {
+  const page = (landscape ? 210 : 297) * PX_PER_MM;
+  const grid = (Array.from(doc.querySelectorAll("table[data-free-lines]")) as HTMLTableElement[]).filter(isShown).pop();
+  if (!grid) return;
+  const rows = Array.from(grid.querySelectorAll("tbody > tr")) as HTMLTableRowElement[];
+  const model = rows.filter((r) => isShown(r) && r.cells.length > 1).pop() ?? (grid.tHead ? (Array.from(grid.tHead.rows).pop() ?? null) : null);
+  if (!model) return;
+  // One blank line has the cells the grid's lines have, each as wide as its column (the model's spans).
+  const spans = Array.from(model.cells).map((c) => c.colSpan || 1);
+  const lineH = Math.max((BLANK_LINE_MM * PX_PER_MM) / zoom, 16);
+  const body = document.createElement("tbody");
+  body.setAttribute(BLANK_ATTR, "");
+  grid.appendChild(body);
+  blankBodies.push(body);
+  const add = (n: number) => {
+    for (let i = 0; i < n; i++) {
+      const tr = document.createElement("tr");
+      tr.style.height = `${lineH}px`;
+      for (const span of spans) {
+        const td = document.createElement("td");
+        if (span > 1) td.colSpan = span;
+        tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    }
+  };
+  add(Math.max(0, Math.floor(((LINES_TO - pagesAt(doc, zoom, landscape)) * page) / (lineH * zoom))));
+  // Measured again (a few times at most): never past FILL_TO.
+  for (let round = 0; round < 3 && body.rows.length; round++) {
+    const over = pagesAt(doc, zoom, landscape) - LINES_TO;
+    if (over <= 0) break;
+    for (let k = Math.min(body.rows.length, Math.ceil((over * page) / (lineH * zoom))); k > 0; k--) body.deleteRow(-1);
+  }
+  if (!body.rows.length) body.remove();
+}
+
+/** The last step of a print (scope): each one-page register of DCRS's own make ruled with blank lines, at its zoom. */
+function ruleRegisters(docs: Element[]): void {
+  const landscape = document.documentElement.dataset.printPage === "landscape";
+  for (const d of docs) {
+    const doc = d as HTMLElement;
+    if (ownLeftMargin(doc) !== null || isFramed(doc) || !ownMake(doc) || !doc.querySelector("table[data-free-lines]")) continue;
+    const zoom = Number(doc.style.zoom) || 1;
+    document.documentElement.classList.add("print-measure");
+    try {
+      withPrintRules(() => {
+        if (pagesAt(doc, zoom, landscape) < LINES_TO) ruleBlankLines(doc, zoom, landscape);
+      });
+    } finally {
+      document.documentElement.classList.remove("print-measure");
+    }
+  }
+}
+
+/** FILLING THE PAGE (above): the zoom that brings a short one-page sheet toward FILL_TO. */
+function fillPage(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean): number {
+  const service = doc.querySelector(".svc-paper") !== null;
+  const own = ownMake(doc);
+  if (!service && !own) return zoom;
+  return withPrintRules(() => fillMeasured(doc, zoom, width, across, landscape, own));
+}
+
+function fillMeasured(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean, own: boolean): number {
+  const now = pagesAt(doc, zoom, landscape);
+  if (now <= 0 || now >= FILL_TO) return zoom;
+  // (a document with no table - a form of labelled boxes - flows to whatever width it is given: only FILL_SCALE holds it)
+  const byWidth = width > 0 ? Math.floor(((across * 0.98) / width) * 1000) / 1000 : FILL_SCALE;
+  const byHeight = Math.floor(zoom * (FILL_TO / now) * 1000) / 1000;
+  const grown = Math.min(FILL_SCALE, byWidth, byHeight);
+  if (grown > zoom) {
+    // Measured again at that size (its words wrap anew across the narrower layout), else halfway.
+    if (pagesAt(doc, grown, landscape) <= FILL_TO) zoom = grown;
+    else {
+      const half = Math.floor(((zoom + grown) / 2) * 1000) / 1000;
+      if (pagesAt(doc, half, landscape) <= FILL_TO) zoom = half;
+    }
+  }
+  return zoom;
+}
+
 function measureAndFit(docs: Element[]): void {
   const needs = docs.map((d) => ({ doc: d as HTMLElement, width: narrowestWidth(d) }));
   const widest = Math.max(0, ...needs.map((n) => n.width));
@@ -270,9 +437,11 @@ function measureAndFit(docs: Element[]): void {
   for (const { doc, width } of needs) {
     const own = ownLeftMargin(doc);
     const room = own !== null ? (PAGE_WIDTH_MM[landscape ? "landscape" : "portrait"] - own - 2) * PX_PER_MM : paper;
-    if (width <= room) continue;
     // (2% of the room kept: the print is measured as it prints, closely but not to the pixel)
-    let zoom = Math.max(SMALLEST_SCALE, Math.floor(((room * 0.98) / width) * 1000) / 1000);
+    let zoom = width <= room ? 1 : Math.max(SMALLEST_SCALE, Math.floor(((room * 0.98) / width) * 1000) / 1000);
+    // A short one-page sheet is drawn to fill its page (FILLING THE PAGE, above).
+    if (own === null && !isFramed(doc)) zoom = fillPage(doc, zoom, width, room, landscape);
+    if (zoom === 1) continue;
     doc.style.zoom = String(zoom);
     // A framed page is as tall as the paper (styles.css): the zoom shrinks its millimetres, so it says by how much.
     doc.style.setProperty("--print-zoom", String(zoom));
@@ -290,6 +459,9 @@ function measureAndFit(docs: Element[]): void {
 }
 
 function unfit(): void {
+  // The blank lines leave with the print (FILLING THE PAGE).
+  for (const body of blankBodies) body.remove();
+  blankBodies = [];
   for (const doc of fitted) {
     doc.style.zoom = "";
     doc.style.removeProperty("--print-zoom");
@@ -357,6 +529,9 @@ function scope(targets: Element[]): void {
   fitAll(docs);
   // ...and a value too long for its box even so prints as words that wrap.
   active.written.push(...writeLongBoxesAsWords(docs));
+  // ...and last, with every value written as it will print, a register is ruled with blank lines to its page's foot
+  // (FILLING THE PAGE): measured after the long values became words, whose wrapping makes the rows taller.
+  ruleRegisters(docs);
 }
 
 /**
