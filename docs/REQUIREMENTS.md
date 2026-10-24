@@ -2884,6 +2884,9 @@ without being asked.
 closing the panel on a record is respected until a different document is opened. A panel that opened itself
 and was never spoken to closes again when the document is left — the dashboard, the calendar and the lists
 are not covered by a chat nobody asked for. Say or tap anything and it stays.
+*Amended by §123 (24-Oct-2026): nothing opens by itself any more, so a panel the person opened stays until Close;
+e2e_qc_formats now proves Mitra shut on arrival, the pill naming the document, and the click docking it with this
+greeting. The note below describes the checks as they were.*
 
 - Covered by `tests/e2e_qc_formats.py`: the panel opening by itself, docked, with the page making room;
   naming the document and offering today's record; one tap starting the record and asking the first
