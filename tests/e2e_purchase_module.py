@@ -699,7 +699,9 @@ with sync_playwright() as p:
                    printed: window.__printed,
                    scoped: document.documentElement.classList.contains('print-scoped'),
                    form: shown(doc),
-                   lines: doc ? doc.querySelectorAll('table.log-sheet tbody tr').length : 0,
+                   // The lines written; below them, while printing, blank lines ruled for a pen (REQUIREMENTS §123).
+                   lines: doc ? doc.querySelectorAll('table.log-sheet tbody:not([data-print-blank]) tr').length : 0,
+                   blank: doc ? doc.querySelectorAll('table.log-sheet tbody[data-print-blank] tr').length : 0,
                    company: doc ? Array.from(doc.querySelectorAll('.company-name')).map((c) => c.textContent.trim()) : [],
                    formatNos: doc ? Array.from(doc.querySelectorAll('.meta-cell .v')).map((v) => v.textContent.trim()) : [],
                    sidebar: shown(document.querySelector('.app-sidebar')),
