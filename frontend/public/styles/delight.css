@@ -570,3 +570,28 @@
     opacity: 0;
   }
 }
+
+/* THE SPLASH'S FRAMES BELONG TO THE COMPOSITOR (24-Oct-2026; e2e_intro_and_fonts' guard: no task over 100 ms at 6x
+   CPU on a 2-core laptop). Every piece that moves animates transform/opacity only (the rules above), so each is
+   promoted ONCE here (will-change): its frames then run beside the main thread instead of asking it for style, paint
+   and layer work on every one. The splash is also contained, so its frames can invalidate nothing outside itself.
+   The splash leaves the page after one play, so the promoted layers' memory goes with it. */
+.intro-splash { contain: layout style paint; }
+.intro-splash .intro-skip,
+.intro-splash .intro-catch,
+.intro-splash .intro-streak,
+.intro-splash .intro-orbit,
+.intro-splash .intro-shock,
+.intro-splash .intro-w,
+.intro-splash .intro-ch,
+.intro-splash .intro-letter,
+.intro-splash .intro-logo,
+.intro-splash .intro-mod,
+.intro-splash .intro-p,
+.intro-splash .intro-ring,
+.intro-splash .intro-glow,
+.intro-splash .intro-rays,
+.intro-splash .intro-halo,
+.intro-splash .intro-progress,
+.intro-splash .intro-progress-fill { will-change: transform, opacity; }
+
