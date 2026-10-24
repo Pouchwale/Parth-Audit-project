@@ -165,7 +165,6 @@ const EN = {
 
   // ---- the sign-in box
   "login.label": `Email or short name`,
-  "login.hint": `The plant's own accounts sign in with the short name too: kapila.barad`,
 };
 
 export type AccountKey = keyof typeof EN;
@@ -310,7 +309,6 @@ const GU: Record<AccountKey, string> = {
   "ml.moreDocs": `અને {n} વધુ`,
 
   "login.label": `ઇમેઇલ કે ટૂંકું નામ`,
-  "login.hint": `પ્લાન્ટનાં પોતાનાં ખાતાં ટૂંકા નામથી પણ સાઇન ઇન કરે છે: kapila.barad`,
 };
 
 const HI: Record<AccountKey, string> = {
@@ -453,7 +451,6 @@ const HI: Record<AccountKey, string> = {
   "ml.moreDocs": `और {n} अधिक`,
 
   "login.label": `ईमेल या छोटा नाम`,
-  "login.hint": `प्लांट के अपने खाते छोटे नाम से भी साइन इन करते हैं: kapila.barad`,
 };
 
 const WORDS: Record<AccountLanguage, Record<AccountKey, string>> = { en: EN, gu: GU, hi: HI };

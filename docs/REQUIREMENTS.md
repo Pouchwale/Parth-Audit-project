@@ -9387,7 +9387,10 @@ on physical paper the print will come properly but it not cover whole page and f
 1. **The sign-in screen** shows no working-hours box any more (the standing note "Staff working hours: 8:40 am to
    6:20 pm ..." is gone) and no tagline under the company's name ("Every controlled record — filled, reviewed, verified and
    on file." is gone). The hours still hold: a staff sign-in outside them is refused in the server's own words with the
-   next opening, and the end-of-day sign-out notice stays (§84 unchanged).
+   next opening, and the end-of-day sign-out notice stays (§84 unchanged). A third line went the same day, at the
+   owner's word ("Remove this line also from login page: The plant's own accounts sign in with the short name too:
+   kapila.barad"): the hint under the email box, in English, Gujarati and Hindi (accountWords.ts "login.hint"). The box's
+   label, "Email or short name", stays, and the short name still signs in (§110).
 2. **One font family.** The display face (titles, headers, the sign-in wordmark, the brand, Mitra's pill) is the app's
    own text face, Plus Jakarta Sans, instead of the rounded Baloo Bhai 2: the whole app reads in one clean family. The
    sign-in wordmark keeps its burgundy face and depth. Gujarati is set in Noto Sans Gujarati as before; print keeps the

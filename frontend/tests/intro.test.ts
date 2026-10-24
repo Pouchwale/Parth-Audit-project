@@ -506,13 +506,17 @@ test("the app's text and its titles in one family; the printed forms in the stac
   for (const sel of weighted) assert.match(sel, /:where\(:not\(\[data-print-doc\]:not\(\[data-print-doc="ui"\]\) \*\)\)$/, `${sel} leaves the printed forms alone`);
 });
 
-test("the sign-in screen as the owner left it on 24-Oct-2026: no box of the hours, no line under the company's name", () => {
+test("the sign-in screen as the owner left it on 24-Oct-2026: no box of the hours, no line under the company's name, no hint under the box", () => {
   // REQUIREMENTS §123. Of the box of working hours above the form: "remove this message". Of the line under the
-  // title and the company's name: "second is ok but remove the below line".
+  // title and the company's name: "second is ok but remove the below line". Of the hint under the email box ("The
+  // plant's own accounts sign in with the short name too: kapila.barad"): "remove this line also from login page".
   const formSrc = readFileSync(path.join(authDir, "LoginForm.tsx"), "utf8");
   assert.equal(existsSync(path.join(authDir, "WorkingHoursNote.tsx")), false, "the box's component is gone");
   assert.doesNotMatch(formSrc, /WorkingHoursNote|working-hours|hoursText|todayText/, "the form draws no hours of its own");
   assert.doesNotMatch(layoutSrc, /className="purpose"|Every controlled record/, "no line under the company's name");
+  assert.doesNotMatch(formSrc, /login-email-hint|login\.hint|aria-describedby="login-email/, "no hint under the email box");
+  assert.doesNotMatch(readFileSync(path.join(frontend, "src", "engine", "accountWords.ts"), "utf8"), /"login\.hint"|short name too/, "and no words kept for one, in any of the three languages");
+  assert.match(formSrc, /accountWord\(signInWordsLanguage\(\), "login\.label"\)/, "the box's own label (Email or short name) stays: the short name still signs in (§110)");
   assert.doesNotMatch(appCss, /\.auth-brand \.purpose/, "nor a rule left for one");
   // What the owner kept: the title and the company's name, closing the brand block...
   assert.match(layoutSrc, /<div className="title">Digital Controlled Record System<\/div>\s*<div className="subtitle notranslate" translate="no">\s*\{COMPANY\.shortName\}\s*<\/div>\s*<\/div>/);

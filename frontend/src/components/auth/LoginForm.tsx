@@ -82,11 +82,7 @@ export function LoginForm({ onSwitchToSignup, onStanding }: { onSwitchToSignup?:
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          aria-describedby="login-email-hint"
         />
-        <p id="login-email-hint" className="text-xs text-muted mt-1" data-section="short-sign-in">
-          {accountWord(signInWordsLanguage(), "login.hint")}
-        </p>
       </div>
       <div className="field mb-4">
         <label htmlFor="login-password">Password</label>
