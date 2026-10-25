@@ -219,8 +219,10 @@ const SMALLEST_SCALE = 0.3;
 // own width):
 //   - a ONE-PAGE sheet of DCRS's own make is drawn bigger - to FILL_SCALE at most (10 pt -> 13 pt), never wider than
 //     the page - until it reaches FILL_TO of the page's height;
-//   - a REGISTER (a grid that takes free lines, LogSheetRecordView data-free-lines) is then ruled with blank lines of
-//     BLANK_LINE_MM down to LINES_TO, as its paper is - ready for a pen; they leave the page when printing ends.
+//   - a REGISTER prints the lines written and no others (the owner, 25-Oct-2026: "the user filled row are only should
+//     show and not whole default format"): no blank line is ruled under them, and a line nobody wrote leaves the
+//     printout (LogSheetRecordView data-empty-line, styles.css) - it was ruled with blank lines to its foot from
+//     24-Oct-2026 until then.
 // A paper form drawn in millimetres, a framed paper, a sheet that names its paper, one standing at its own margin, a
 // sheet drawn in points to its own paper (DRAWN_TO_PAPER): none of these - each is already drawn to its paper.
 // THE HEIGHT IS MEASURED WITH THE PRINT'S OWN RULES ON
@@ -229,14 +231,7 @@ const SMALLEST_SCALE = 0.3;
 // - a value too long for its box is written as words only afterwards - so FILL_TO keeps a margin, and nothing runs
 // onto a second page.
 const FILL_TO = 0.94;
-// A register's blank lines stop sooner: a line is a whole row the page cannot split, and a register's paper head prints
-// again on a page it runs onto - measured on F/PRD/24 and four others, 0.94 left a page of nothing but that head.
-const LINES_TO = 0.86;
 const FILL_SCALE = 1.3;
-const BLANK_LINE_MM = 8;
-/** The blank lines' body, on a register's grid while printing (styles.css, REQUIREMENTS §123). */
-const BLANK_ATTR = "data-print-blank";
-let blankBodies: HTMLTableSectionElement[] = [];
 // A form a little too wide for a portrait page stays portrait, slightly smaller.
 const PORTRAIT_SCALE = 0.9;
 let fitted: HTMLElement[] = [];
@@ -349,61 +344,6 @@ function ownMake(doc: HTMLElement): boolean {
   return ![PAPER_FORM, "[data-paper]", DRAWN_TO_PAPER].some((s) => doc.matches(s) || doc.querySelector(s) !== null);
 }
 
-/** A register's blank lines down to LINES_TO of the page (FILLING THE PAGE): measured, then held inside it. */
-function ruleBlankLines(doc: HTMLElement, zoom: number, landscape: boolean): void {
-  const page = (landscape ? 210 : 297) * PX_PER_MM;
-  const grid = (Array.from(doc.querySelectorAll("table[data-free-lines]")) as HTMLTableElement[]).filter(isShown).pop();
-  if (!grid) return;
-  const rows = Array.from(grid.querySelectorAll("tbody > tr")) as HTMLTableRowElement[];
-  const model = rows.filter((r) => isShown(r) && r.cells.length > 1).pop() ?? (grid.tHead ? (Array.from(grid.tHead.rows).pop() ?? null) : null);
-  if (!model) return;
-  // One blank line has the cells the grid's lines have, each as wide as its column (the model's spans).
-  const spans = Array.from(model.cells).map((c) => c.colSpan || 1);
-  const lineH = Math.max((BLANK_LINE_MM * PX_PER_MM) / zoom, 16);
-  const body = document.createElement("tbody");
-  body.setAttribute(BLANK_ATTR, "");
-  grid.appendChild(body);
-  blankBodies.push(body);
-  const add = (n: number) => {
-    for (let i = 0; i < n; i++) {
-      const tr = document.createElement("tr");
-      tr.style.height = `${lineH}px`;
-      for (const span of spans) {
-        const td = document.createElement("td");
-        if (span > 1) td.colSpan = span;
-        tr.appendChild(td);
-      }
-      body.appendChild(tr);
-    }
-  };
-  add(Math.max(0, Math.floor(((LINES_TO - pagesAt(doc, zoom, landscape)) * page) / (lineH * zoom))));
-  // Measured again (a few times at most): never past FILL_TO.
-  for (let round = 0; round < 3 && body.rows.length; round++) {
-    const over = pagesAt(doc, zoom, landscape) - LINES_TO;
-    if (over <= 0) break;
-    for (let k = Math.min(body.rows.length, Math.ceil((over * page) / (lineH * zoom))); k > 0; k--) body.deleteRow(-1);
-  }
-  if (!body.rows.length) body.remove();
-}
-
-/** The last step of a print (scope): each one-page register of DCRS's own make ruled with blank lines, at its zoom. */
-function ruleRegisters(docs: Element[]): void {
-  const landscape = document.documentElement.dataset.printPage === "landscape";
-  for (const d of docs) {
-    const doc = d as HTMLElement;
-    if (ownLeftMargin(doc) !== null || isFramed(doc) || !ownMake(doc) || !doc.querySelector("table[data-free-lines]")) continue;
-    const zoom = Number(doc.style.zoom) || 1;
-    document.documentElement.classList.add("print-measure");
-    try {
-      withPrintRules(() => {
-        if (pagesAt(doc, zoom, landscape) < LINES_TO) ruleBlankLines(doc, zoom, landscape);
-      });
-    } finally {
-      document.documentElement.classList.remove("print-measure");
-    }
-  }
-}
-
 /** FILLING THE PAGE (above): the zoom that brings a short one-page sheet of DCRS's own make toward FILL_TO. */
 function fillPage(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean): number {
   if (!ownMake(doc)) return zoom;
@@ -463,9 +403,6 @@ function measureAndFit(docs: Element[]): void {
 }
 
 function unfit(): void {
-  // The blank lines leave with the print (FILLING THE PAGE).
-  for (const body of blankBodies) body.remove();
-  blankBodies = [];
   for (const doc of fitted) {
     doc.style.zoom = "";
     doc.style.removeProperty("--print-zoom");
@@ -533,9 +470,6 @@ function scope(targets: Element[]): void {
   fitAll(docs);
   // ...and a value too long for its box even so prints as words that wrap.
   active.written.push(...writeLongBoxesAsWords(docs));
-  // ...and last, with every value written as it will print, a register is ruled with blank lines to its page's foot
-  // (FILLING THE PAGE): measured after the long values became words, whose wrapping makes the rows taller.
-  ruleRegisters(docs);
 }
 
 /**

@@ -813,7 +813,7 @@ with sync_playwright() as p:
                  return {
                    printed: window.__printed,
                    form: shown(doc),
-                   // The lines of the record: the paper's ten ruled lines (s117) are on the printed page, blank, and are not lines of the record.
+                   // The lines of the record: the paper's ten ruled lines (s117) are drawn on the screen, are not lines of the record, and since 25-Oct-2026 do not print.
                    lines: doc ? doc.querySelectorAll('table.log-sheet tbody tr:not(.pf-pad)').length : 0,
                    text: doc ? doc.textContent : '',
                    sidebar: shown(document.querySelector('.app-sidebar')),

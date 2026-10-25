@@ -2,15 +2,20 @@
 because of they are not able to cover whole A4 size paper which result when user take print out on physical paper the
 print will come properly but it not cover whole page and font size on that paper will be very small").
 
-utils/print.ts draws a short one-page sheet of DCRS's own make bigger (to 1.3x at most, never wider than the page) and
-rules a register with blank lines down to its page's foot, as its paper is; a sheet drawn to its own paper is left as
-drawn. Here, each in the browser's own PDF of the Print button's printout:
-- F/PRD/23, a portrait register: one page, ruled with blank lines, its content most of the page's height;
+utils/print.ts draws a short one-page sheet of DCRS's own make bigger (to 1.3x at most, never wider than the page); a
+sheet drawn to its own paper is left as drawn. AND A PRINTOUT HOLDS THE LINES WRITTEN AND NO OTHERS (the owner,
+25-Oct-2026: "the user filled row are only should show and not whole default format like if user has filled one or two or
+three or four then it should print accordingly and not by default four which are empty"): no blank line is ruled under a
+register any more, and a paper's blank lines (F/QC/12's other entries) stay on the screen only. Here, each in the
+browser's own PDF of the Print button's printout:
+- F/PRD/23, a portrait register: one page, its written lines and no blank ones;
 - F/PRD/24, a landscape register: the same, and bigger than 10 pt;
-- F/STR/02, a register whose long names wrap on paper: still one page (its lines are ruled after the words are written);
-- F/DISP/04, a short form: drawn bigger, one page, most of its height;
+- F/STR/02, a register whose long names wrap on paper: still one page;
+- F/DISP/04, a short form: drawn bigger, one page;
 - the fly-control service report, the contractor's March sheet to 1.5 pt (§118): left exactly as drawn;
 - F/QC/01, a paper form drawn in millimetres: left exactly as drawn — no zoom, no blank lines;
+- F/QC/12, the owner's own case: the week's one calibration prints as one entry (one "Deviation %" line), where the
+  paper's four entries are drawn on the screen;
 - and after printing, every blank line is gone from the screen.
 No sound (tests/quiet). The password is made for this run and written nowhere.
 """
@@ -68,7 +73,8 @@ def printed(page, name):
         wide = (max(float(o["x1"]) for o in objs) - min(float(o["x0"]) for o in objs)) / W if objs else 0
         sizes = sorted(float(c["size"]) for c in pg.chars)
         pt = sizes[len(sizes) // 2] if sizes else 0
-    return {"zoom": during["zoom"], "blank": during["blank"], "pages": pages, "tall": tall, "wide": wide, "pt": pt, "after": after}
+        words = "\n".join((p.extract_text() or "") for p in pdf.pages)
+    return {"zoom": during["zoom"], "blank": during["blank"], "pages": pages, "tall": tall, "wide": wide, "pt": pt, "after": after, "words": words}
 
 
 def open_filled(page, doc):
@@ -109,6 +115,7 @@ with sync_playwright() as p:
         ("disp-vehicle-cleaning", "F/DISP/04 (a short form)", "form"),
         ("service-report-fly", "The fly-control service report (the contractor's March sheet)", "paper"),
         ("qc-bopp-film", "F/QC/01 (a paper form drawn in millimetres)", "paper"),
+        ("qc-weight-scale-calibration", "F/QC/12 (one calibration written, the paper draws four)", "entries"),
     ]
     for doc, what, kind in cases:
         how = open_filled(page, doc)
@@ -117,14 +124,14 @@ with sync_playwright() as p:
             continue
         got = printed(page, doc)
         print(f"     ({what}: zoom {got['zoom']}, blank lines {got['blank']}, {got['pages']} page(s), content {got['tall'] * 100:.0f}% of the page's height and {got['wide'] * 100:.0f}% of its width, {got['pt']:.1f} pt)")
+        check(f"{what}: no blank line is ruled under the lines written (the owner, 25-Oct-2026)", got["blank"] == 0, got["blank"])
         check(f"{what}: one page", got["pages"] == 1, got)
         check(f"{what}: the blank lines leave the screen when printing ends", got["after"] == 0, got)
-        if kind == "register":
-            check(f"{what}: ruled with blank lines down the page, as its paper is", got["blank"] >= 3, got)
-            check(f"{what}: its content reaches most of the page's height (75% or more)", got["tall"] >= 0.75, got)
-        elif kind == "form":
+        if kind == "form":
             check(f"{what}: drawn bigger (zoom 1.2 or more, 1.3 at most)", got["zoom"] is not None and 1.2 <= got["zoom"] <= 1.3, got)
-            check(f"{what}: its content reaches most of the page's height (70% or more)", got["tall"] >= 0.70, got)
+        elif kind == "entries":
+            entries = got["words"].count("Deviation %")
+            check(f"{what}: the printout holds the one entry written, not the paper's four", entries == 1, (entries, got["words"][:300]))
         elif kind == "paper":
             check(f"{what}: left exactly as drawn: no zoom, no blank lines", got["zoom"] == 1 and got["blank"] == 0, got)
     check("No JavaScript errors", not errors, errors[:3])

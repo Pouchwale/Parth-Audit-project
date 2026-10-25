@@ -273,7 +273,8 @@ test("an entry of two lines: the columns beneath are drawn on the second line un
   assert.equal(data.rows[0].deviation4, "0.02%");
   const html = await sheet(SCALE, data, true);
   assert.deepEqual(headings(html), lines.first.map((c) => c.label), "the paper's headings, and no Sr. No.");
-  // The paper's other three entries (§117 round 2: the paper prints four) are blank ruled lines of the page, never the record's:
+  // The paper's other three entries (§117 round 2: the paper draws four) are blank ruled lines of the page, never the record's
+  // (drawn on the screen as the paper's; since 25-Oct-2026 they do not print, styles.css tr.pf-pad):
   // drawn hidden from a reader and the downloads (aria-hidden), each second line headed Deviation % as printed.
   const all = bodyRows(html);
   const rows = all.filter((r) => !/pf-pad/.test(r.attrs));
@@ -558,6 +559,6 @@ test("F/QC/12 weighing balance: nine boxes three to a line, no Sr. No., each ent
   assert.ok(!headings(html).includes("Deviation %"));
   const entry = bodyRows(html).filter((r) => !/pf-pad/.test(r.attrs));
   assert.deepEqual(entry.map((r) => r.cells[0].text), ["14-10-26", "Deviation %"], "the entry's Date, and its second line headed Deviation %");
-  // ...and the paper's three other entries as its blank ruled lines, printed (§117 round 2), never in the record.
+  // ...and the paper's three other entries as its blank ruled lines on the screen (§117 round 2; not printed since 25-Oct-2026), never in the record.
   assert.deepEqual(bodyRows(html).filter((r) => /pf-pad/.test(r.attrs)).map((r) => r.cells[0].text), ["", "Deviation %", "", "Deviation %", "", "Deviation %"]);
 });

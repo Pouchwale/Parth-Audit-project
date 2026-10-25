@@ -2021,6 +2021,15 @@ body { top: 0 !important; }
    Mitra's look ("Ask Mitra's page: how it looks"), after the generic .card,
    .btn and .input rules it builds on. */
 .assistant-page { display: flex; gap: 16px; height: calc(100vh - 58px - 44px - 60px); min-height: 520px; }
+/* ASK MITRA FILLS THE WINDOW (the owner, 25-Oct-2026, a screenshot with a band of empty page under the chat: "i don't
+   want that space"). The height above was a sum that counted the mode banner (44 px) whether it was shown or not, and
+   the content keeps a 96 px foot for the Ask Mitra pill, which this page does not show. On a desktop the main column is
+   the window's height and the page takes all of it below the top bar and any banner, 16 px short of the foot. */
+@media screen and (min-width: 901px) {
+  .app-main:has(> .app-content > .assistant-page) { height: 100vh; }
+  .app-content:has(> .assistant-page) { display: flex; flex-direction: column; min-height: 0; padding-bottom: 16px; }
+  .app-content > .assistant-page { flex: 1 1 auto; height: auto; }
+}
 .assistant-side { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
 .assistant-side-list { flex: 1 1 auto; min-height: 72px; overflow-y: auto; }
 .assistant-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -3556,8 +3565,12 @@ table.svc-paper {
   .pt-table td.pt-c > .field-in-table > .input.print-as-text, .pt-table .pt-sentence .field-in-table > .input.print-as-text, .pt-table td.pt-c > .pt-box > .input.print-as-text { display: none; }
   /* An empty choice box prints nothing at all (not its hidden first option). */
   .pt-table select[data-empty] { visibility: hidden; }
-  .pt-table tr.pt-pad { display: table-row; }
-  .pt-table td.pt-c.pt-padc { visibility: visible; }
+  /* PRINTED, ONLY THE LINES WRITTEN (the owner, 25-Oct-2026, F/QC/12 printed with four entries where one was written:
+     "the user filled row are only should show and not whole default format"). A paper's blank ruled lines beyond the
+     record's - a QC paper drawn as its own table (tr.pt-pad, and its .pt-padc cells beside the record's lines), F/QC/12's
+     four entries and the utility test's nine lines (tr.pf-pad) - stay on the screen as the paper's look and do not print;
+     nor does a register's line nobody wrote while another is written (LogSheetRecordView data-empty-line). */
+  tr.pf-pad, tr[data-empty-line] { display: none; }
   /* (in print the marked words are the box: its choice box does not print) */
   .pt-table td.pt-c > .field-choices-across.field-in-table > select.input { display: none; }
   /* An empty date in the sentence leaves the paper's own blank, not the width of a box to type in. */

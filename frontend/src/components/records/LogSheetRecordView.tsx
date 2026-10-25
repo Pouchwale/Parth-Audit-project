@@ -475,6 +475,12 @@ export function LogSheetRecordView({
   // sheet is reopened for correction — that lines added to the downloaded
   // file become new lines here. Each heading names the box of a line it holds.
   const freeRows = mode.kind === "free";
+  // PRINTED, ONLY THE LINES WRITTEN (the owner, 25-Oct-2026: "the user filled row are only should show and not whole
+  // default format"): while a line of the register is written, a line nobody wrote stays on the screen, ready, and
+  // leaves the printout (styles.css tr[data-empty-line]). A line written only in a fixed or worked-out column is unwritten.
+  const writtenIn = (r: LogSheetRow): boolean =>
+    layout.columns.some((c) => !c.fixed && !c.computed && r[c.key] !== null && r[c.key] !== undefined && String(r[c.key]).trim() !== "");
+  const someWritten = freeRows && data.rows.some(writtenIn);
   // Entries of two lines say what the second is headed, so a downloaded file's "Deviation %" line is never read as a new entry (§111).
   const gridBind = freeRows
     ? { [BIND_TABLE_ATTR]: "rows", ...(superseded ? {} : { [BIND_APPEND_ATTR]: "1" }), ...(lines.second ? { [BIND_SECOND_LINE_ATTR]: lines.second.label } : {}) }
@@ -925,7 +931,6 @@ export function LogSheetRecordView({
           className={editable ? "compact log-sheet is-editing" : "compact log-sheet"}
           // A register's grid: lines are added as the work is done, so on paper it is ruled with blank lines to the page's
           // foot (utils/print.ts FILLING THE PAGE, REQUIREMENTS §123).
-          data-free-lines={freeRows ? "" : undefined}
           style={gridCols ? ({ "--pf-w": `calc(${gridCols.reduce((a, b) => a + b, 0)} * var(--u))` } as React.CSSProperties) : undefined}
           {...gridBind}
         >
@@ -1011,6 +1016,7 @@ export function LogSheetRecordView({
                 canRemove={canRemoveRows}
                 height={gridRowHeight(i + 1)}
                 height2={calLine(i, true)}
+                unwritten={someWritten && !writtenIn(row)}
                 paper={!!pf}
                 arial={pf?.arial?.filter(([line]) => line === i).map(([, c]) => (paperFirst ? drawnColumnOf(c - 1, paperFirst, lines.first) : c - 1)).filter((ci) => ci >= 0)}
                 onCell={onCell}
@@ -1891,6 +1897,7 @@ const SheetRow = React.memo(function SheetRow({
   canRemove,
   height,
   height2,
+  unwritten,
   paper,
   arial,
   onCell,
@@ -1935,6 +1942,8 @@ const SheetRow = React.memo(function SheetRow({
   height?: number;
   /** The height the paper gives the entry's second line (F/QC/12's Deviation % line, qcCalibrationGeometry.ts). */
   height2?: number;
+  /** Nobody wrote in this line while another line is written: it does not print (the owner, 25-Oct-2026). */
+  unwritten?: boolean;
   /** The line is drawn on the paper's own table: its printed paragraphs stand as the paper sets them. */
   paper?: boolean;
   /** The columns of this line the paper sets in Arial 10 pt (qcIncomingGeometry.ts). */
@@ -1951,7 +1960,7 @@ const SheetRow = React.memo(function SheetRow({
   // day — runs down both lines, as the one cell of the paper holds the reading and the sign.
   const leadSpans = !!second && second.label === "";
   const firstLine = (
-    <tr data-line={second ? "first" : undefined} data-continues={joinsAbove ? "" : undefined} style={paperRowStyle(height)}>
+    <tr data-line={second ? "first" : undefined} data-continues={joinsAbove ? "" : undefined} data-empty-line={unwritten ? "" : undefined} style={paperRowStyle(height)}>
       {numbered && !joinsAbove && (
         <td className="text-muted" rowSpan={spanDown ? 2 : lineSpan} data-sr-no="">
           {srNo ?? index + 1}
@@ -2022,7 +2031,7 @@ const SheetRow = React.memo(function SheetRow({
   return (
     <>
       {firstLine}
-      <tr data-line="second" className="log-second-line" style={paperRowStyle(height2)}>
+      <tr data-line="second" className="log-second-line" data-empty-line={unwritten ? "" : undefined} style={paperRowStyle(height2)}>
         {columns.map((c, ci) => {
           if (ci === 0) {
             if (leadSpans) return null;

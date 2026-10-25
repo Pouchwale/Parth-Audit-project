@@ -11,12 +11,11 @@ const root = process.env.DCRS_REPO_ROOT ?? process.cwd();
 const read = (...p: string[]) => readFileSync(path.join(root, ...p), "utf8").replace(/\r\n/g, "\n");
 const print = read("frontend", "src", "utils", "print.ts");
 const sheet = read("frontend", "src", "components", "records", "LogSheetRecordView.tsx");
+const css = read("frontend", "src", "styles.css");
 
-test("the fill's limits: 1.3x at most, a form to 94% of the page, a register's lines to 86%, 8 mm a line", () => {
+test("the fill's limits: 1.3x at most, a form to 94% of the page", () => {
   assert.match(print, /const FILL_SCALE = 1\.3;/, "10 pt -> 13 pt at most");
   assert.match(print, /const FILL_TO = 0\.94;/);
-  assert.match(print, /const LINES_TO = 0\.86;/, "a register's lines stop sooner: a row is never split, and its head prints again on a page it runs onto");
-  assert.match(print, /const BLANK_LINE_MM = 8;/, "a line a pen can write on");
 });
 
 test("only a sheet of DCRS's own make is filled: never a paper form, a framed paper, a named paper, one at its own margin or one drawn to its paper", () => {
@@ -24,7 +23,6 @@ test("only a sheet of DCRS's own make is filled: never a paper form, a framed pa
   assert.match(print, /const DRAWN_TO_PAPER = "\.svc-paper, \.fhr18-sheet, \.fhr18-record";/, "the contractor's service report is the March sheet to 1.5 pt and F/HR/18 its Word page (§118): drawn as they are");
   assert.match(print, /if \(own === null && !isFramed\(doc\)\) zoom = fillPage\(doc, zoom, width, room, landscape\);/);
   assert.match(print, /function fillPage\([^)]*\): number \{\n {2}if \(!ownMake\(doc\)\) return zoom;/);
-  assert.match(print, /if \(ownLeftMargin\(doc\) !== null \|\| isFramed\(doc\) \|\| !ownMake\(doc\) \|\| !doc\.querySelector\("table\[data-free-lines\]"\)\) continue;/);
 });
 
 test("the height is measured as it prints: the print's own rules laid on for the moment, against the whole A4 page", () => {
@@ -35,11 +33,12 @@ test("the height is measured as it prints: the print's own rules laid on for the
   assert.match(print, /if \(now <= 0 \|\| now >= FILL_TO\) return zoom;/, "a sheet already a page long (or more) is left as it is");
 });
 
-test("a register's blank lines are ruled LAST, after a long value became words, and leave with the print", () => {
-  const words = print.indexOf("active.written.push(...writeLongBoxesAsWords(docs));");
-  const lines = print.indexOf("  ruleRegisters(docs);\n");
-  assert.ok(words > 0 && lines > words, "the words' wrapping is in the height the lines are measured against");
-  assert.match(print, /for \(const body of blankBodies\) body\.remove\(\);/, "unfit takes them away when printing ends");
-  assert.match(print, /body\.setAttribute\(BLANK_ATTR, ""\);\n {2}grid\.appendChild\(body\);/, "a body of their own, never inside the one React draws");
-  assert.match(sheet, /data-free-lines=\{freeRows \? "" : undefined\}/, "the register's grid says it takes free lines");
+test("a printout holds the lines written and no others (the owner, 25-Oct-2026): no blank line ruled, no unwritten line printed", () => {
+  assert.doesNotMatch(print, /ruleRegisters|ruleBlankLines|data-print-blank|LINES_TO|BLANK_LINE_MM/, "no blank line is ruled under a register any more");
+  assert.equal((sheet.match(/data-empty-line=\{unwritten \? "" : undefined\}/g) ?? []).length, 2, "both lines of an entry are marked");
+  assert.match(sheet, /unwritten=\{someWritten && !writtenIn\(row\)\}/, "only while another line is written: a sheet with nothing written prints its lines");
+  assert.match(sheet, /layout\.columns\.some\(\(c\) => !c\.fixed && !c\.computed &&/, "a fixed or worked-out column does not make a line written");
+  assert.match(css, /tr\.pf-pad, tr\[data-empty-line\] \{ display: none; \}/, "F/QC/12's other entries, the paper's blank lines and an unwritten line leave the printout");
+  assert.doesNotMatch(css, /tr\.pt-pad \{ display: table-row; \}/, "a QC paper's own ruled lines no longer print");
+  assert.doesNotMatch(sheet, /data-free-lines/);
 });
