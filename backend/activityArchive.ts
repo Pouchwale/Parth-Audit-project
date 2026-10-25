@@ -35,11 +35,12 @@
 //      counted once, into activity_daily (one row per day, person, department
 //      and action), and a tally reads those rows plus the last two days' lines
 //      as they stand: on a plant-shaped million lines, 0.2 to 0.6 s. The counts
-//      are the same, to the line; only the reading is shorter. A search still
-//      reads the lines themselves — the words are not in the day rows. The day
-//      rows are a copy made FROM the log, never a replacement for it: they are
-//      checked against the lines before each day is added, and thrown away and
-//      made again whenever they disagree or the plant's time zone changes.
+//      are the same, to the line; only the reading is shorter. A search, or a
+//      document chosen, still reads the lines themselves: the day rows hold
+//      neither the words nor the document a line was about (dayRowsCanAnswer).
+//      The day rows are a copy made FROM the log, never a replacement for it:
+//      they are checked against the lines before each day is added, and thrown
+//      away and made again whenever they disagree or the plant's time zone changes.
 //      (`DELETE FROM activity_daily_state;` makes them be counted again by hand.)
 //
 // Loaded by index.ts (through archiveRoutes.ts) when the server starts, and it
@@ -397,6 +398,23 @@ const dayRows = (through: string, withArchive: boolean) =>
       FROM activity_daily WHERE day <= '${through}'::date${withArchive ? "" : " AND NOT archived"}) AS rolled`;
 
 /**
+ * WHETHER THE DAY ROWS CAN ANSWER THIS FILTER. The tally puts on them the very
+ * conditions activityWhere (db.ts) puts on the lines, so every one must name
+ * only what they hold: the day, the person, the department and the action. The
+ * scope, a person, a span, a module and an action do. A search does not (its
+ * words are looked for in the target and the detail), nor does a document (its
+ * words, in the target): the day rows keep neither, and PostgreSQL refuses the
+ * whole tally rather than leave them out (42703, column "target" does not
+ * exist — the document chip did that until 25-Oct-2026). A tally with either is
+ * read from the lines alone. A filter added to activityWhere that reads any
+ * other column of a line belongs here too; backend/tests/activityTally.test.ts
+ * checks every field of ActivityFilter against the day rows' columns.
+ */
+export function dayRowsCanAnswer(opts: ActivityFilter): boolean {
+  return !opts.search && !opts.document;
+}
+
+/**
  * THE TALLY THE SCORE IS READ BESIDE (REQUIREMENTS §73, §75): one row per
  * person for the span — how many lines, of which actions, the first and the
  * last, and on how many separate days. `withArchive` counts the archive's lines
@@ -417,17 +435,17 @@ const dayRows = (through: string, withArchive: boolean) =>
  *
  * WHERE THE COUNTS COME FROM. The days activity_daily has counted (up to the
  * day before yesterday) from there, every day after from the lines themselves
- * — the same counts either way. A search reads the lines only: the words are
- * not in the day rows. Day rows that are behind are brought up to date in the
- * background for the next tally; with none yet (or counted in another time
- * zone), this one is read from the lines alone.
+ * — the same counts either way. A search or a document reads the lines only:
+ * neither is in the day rows (dayRowsCanAnswer). Day rows that are behind are
+ * brought up to date in the background for the next tally; with none yet (or
+ * counted in another time zone), this one is read from the lines alone.
  */
 export async function activityTally(opts: ActivityFilter, withArchive: boolean): Promise<ActivityTally[]> {
   const lines = withArchive ? EVERY_LINE : "activity_log";
   const { people, actions } = await withClient((client) =>
     transaction(client, async () => {
       await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY");
-      const through = opts.search ? null : await usableThrough(client);
+      const through = dayRowsCanAnswer(opts) ? await usableThrough(client) : null;
 
       // Each half gets its own copy of the filter's arguments (activityWhere
       // appends them), so the two halves are simply joined by UNION ALL.

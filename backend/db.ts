@@ -1143,7 +1143,12 @@ export interface ActivityFilter {
   action?: string;
 }
 
-/** Appends this filter's conditions to `args` and returns them. Also read by activityArchive.ts, for the log and its archive together. */
+/**
+ * Appends this filter's conditions to `args` and returns them. Also read by activityArchive.ts, for the log and its
+ * archive together — and its tally puts the same conditions on its day rows, which hold only the day (`at`), the person,
+ * the department and the action: a condition on any other column must be named in activityArchive.ts dayRowsCanAnswer,
+ * or PostgreSQL refuses the tally.
+ */
 export function activityWhere(opts: ActivityFilter, args: unknown[]): string[] {
   const where: string[] = [];
   if (opts.departments) {
