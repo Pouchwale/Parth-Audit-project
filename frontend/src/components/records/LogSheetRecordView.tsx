@@ -12,7 +12,7 @@ import { PaperTablePart, withUnderlinedLines, type PaperTableParts } from "./Pap
 import { COMPANY } from "../../data/seed/masterData";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
-import { getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
+import { getIssuedLogSheetLayout, getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
 import { formatEditFor } from "../../data/formatEdits";
 import { departmentOfDocument } from "../../data/seed/departments";
 import { masterRepository } from "../../data/repositories/masterRepository";
@@ -42,6 +42,7 @@ import { isOutOfBand, supersededRevisionOf } from "../../engine/validation";
 import { boxOutOfBand, judgeFor, outOfBandCount, type CellJudge } from "../../engine/printedBands";
 import { withoutLineNumber } from "../../engine/lineNumbers";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
+import { drawnColumnOf, paperGridWidths } from "../../engine/paperGridWidths";
 import { withComputedCells } from "../../engine/computedCells";
 import { documentLayoutIn, documentTextIn, keepFormAsIssued, sheetLanguage } from "../../i18n/documentText";
 import { imageFileToDataUrl } from "../../utils/image";
@@ -387,8 +388,9 @@ export function LogSheetRecordView({
   // A line of the calibration grid: F/QC/12's entries take two lines each (the first, then its Deviation % line).
   const calLine = (i: number, second = false): number | undefined => (cal ? cal.grid.lines[(lines.second ? 2 * i + (second ? 1 : 0) : i)] : undefined);
   const lcWidth = lc ? lc.cols.reduce((a, b) => a + b, 0) : 0;
-  // The grid's columns and rows in the paper's millimetres, on either paper form.
-  const gridCols = pf?.grid.cols ?? lc?.cols ?? cal?.grid.cols ?? rep?.grid.cols;
+  // The grid's columns and rows in the paper's millimetres, on either paper form: the columns as the paper measures them
+  // (laid out again by key, below, once the plant has changed them: gridCols).
+  const paperCols = pf?.grid.cols ?? lc?.cols ?? cal?.grid.cols ?? rep?.grid.cols;
   const repLine = (i: number): number | undefined => (rep ? rep.grid.lines[Math.min(i, rep.grid.lines.length - 1)] : undefined);
   const gridRowHeight = (i: number): number | undefined =>
     pf
@@ -439,6 +441,13 @@ export function LogSheetRecordView({
   // that line, under the column each names (engine/paperLayout.ts). Every other sheet: one line.
   const lines = gridLines(layout);
   const issuedFirst = issued ? gridLines(issued).first : undefined;
+  // A COLUMN THE PLANT ADDS HAS A WIDTH ON THE PAPER TOO (engine/paperGridWidths.ts, 25-Oct-2026). The paper measures the
+  // columns of its issued layout; once Edit format has changed the grid's columns they are laid out again to the paper's
+  // width, each by its key, so an added column takes a share where the paper's fixed table drew it 0 mm wide.
+  const paperLayout = paperCols ? getIssuedLogSheetLayout(layout.documentId) : undefined;
+  const paperFirst = paperLayout ? gridLines(paperLayout).first : undefined;
+  const gridCols =
+    paperCols && paperLayout && paperFirst ? paperGridWidths(paperCols, paperFirst, lines.first, { paper: !numbersOwnLines(paperLayout), drawn: numbered }) : paperCols;
   // One answer across the paper's columns, their headings on a printed line (F/QC/25, §111 part 4); null on every other sheet.
   const answerAcross = answerAcrossOf(layout);
   // The paper's small tables, F-QC-14's checks two to a row (REQUIREMENTS §111, the review of 13-Oct-2026); null elsewhere.
@@ -1003,7 +1012,7 @@ export function LogSheetRecordView({
                 height={gridRowHeight(i + 1)}
                 height2={calLine(i, true)}
                 paper={!!pf}
-                arial={pf?.arial?.filter(([line]) => line === i).map(([, c]) => c - 1)}
+                arial={pf?.arial?.filter(([line]) => line === i).map(([, c]) => (paperFirst ? drawnColumnOf(c - 1, paperFirst, lines.first) : c - 1)).filter((ci) => ci >= 0)}
                 onCell={onCell}
                 onPersonBlur={onPersonBlur}
                 onMachineBlur={onMachineBlur}

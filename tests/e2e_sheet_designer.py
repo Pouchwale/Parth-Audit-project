@@ -147,6 +147,14 @@ def sheet_headings(page, within="[data-section='document-preview'] "):
     return page.locator(f"{within}table[data-paper-part] tr[data-pt-heading] td").evaluate_all("els => els.map((e) => e.textContent.trim())")
 
 
+def heading_widths(page, within="[data-section='document-preview'] "):
+    """Each heading of the sheet's grid with the width it is drawn at, in pixels: a column drawn 0 wide can be neither read nor written in."""
+    grid = page.locator(f"{within}table.log-sheet thead th")
+    if not grid.count():
+        grid = page.locator(f"{within}table[data-paper-part] tr[data-pt-heading] td")
+    return grid.evaluate_all("els => els.map((e) => [e.textContent.trim(), Math.round(e.getBoundingClientRect().width)])")
+
+
 def sheet_rev(page):
     """The Rev No. of the sheet on the page: the header block's cell or, on a paper drawn with its own frame (s117), the revision in
     its foot line "Format number: - F/QC/03 (01 / 16.02.2022)" or a line clearance's "Rev. no. - 00". (Its Date cell is the RECORD's
@@ -500,6 +508,9 @@ def design_and_save(page, doc_id, format_no, anchor, issued_rev, next_rev, fixed
     # One heading further on than in the designer (the sheet's own Sr. No.), or the same place on a form that numbers
     # its own lines (REQUIREMENTS §102).
     check("The sheet on the page carries the new columns, where they were put", "Batch Number" in shown and shown.index("Batch Number") - at in (1, 2) and shown[-1] == "Checked by QA" and "Batch Number (2)" not in shown, shown)
+    # A QC paper's measured grid drew a column it did not measure 0 mm wide (25-Oct-2026): each new one has a width of its own.
+    widths = dict(heading_widths(page))
+    check("...each drawn wide enough to read and to write in, not squeezed to nothing on the paper's grid", widths.get("Batch Number", 0) >= 40 and widths.get("Checked by QA", 0) >= 40, heading_widths(page))
     check(f"...and the format is at Rev {next_rev}", sheet_rev(page) == next_rev, sheet_rev(page))
     edit = (stored(page, "formatEdits") or {}).get(doc_id) or {}
     rev = (edit.get("revisions") or [{}])[0]
@@ -532,6 +543,16 @@ def design_and_save(page, doc_id, format_no, anchor, issued_rev, next_rev, fixed
     if fixed:
         rows = rec["data"]["rows"] if rec else []
         check("...and is printed with the new line, and the reworded cell", len(rows) == issued_lines + 1 and "COLOUR SHADE" in json.dumps(rows[1]) and "checked against the delivery note" in json.dumps(rows[0]), rows[:2])
+    # Written in on its first line, as a person would: Playwright types only into a box a person can see.
+    typed = None
+    try:
+        page.locator(f"table.log-sheet tbody [data-bind$='/{new_key}']").first.fill("B-2611", timeout=5000)
+        page.wait_for_timeout(1500)
+    except Exception as exc:  # said by the check below, so the suite goes on
+        typed = str(exc).splitlines()[0]
+    kept = next((r for r in (stored(page, "records") or []) if r["id"] == rid), None)
+    first = kept["data"]["rows"][0] if kept and kept["data"].get("rows") else {}
+    check("...and a person can write in the new column on the first line, and it is kept", typed is None and first.get(new_key) == "B-2611", typed or first)
     after = {r["id"]: r for r in (stored(page, "records") or []) if r["documentId"] == doc_id}
     check("The records that were already on file are exactly as they were", all(json.dumps(after.get(r["id"]), sort_keys=True) == json.dumps(r, sort_keys=True) for r in on_file_before), len(on_file_before))
 

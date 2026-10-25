@@ -8885,6 +8885,17 @@ format prints. A format the plant edits since (the designer, Mitra) is drawn as 
 editable: each blank of each paper is a box of the record (e2e_header_editing holds every paper of this list to it), and the
 header's words are typed over where they print.
 
+*A column added to a paper drawn on its measured grid* (the incoming records, the line clearances, F/QC/11 and F/QC/12, F/QC/20's
+destruction record and F/QC/29's two reports; 25-Oct-2026). The paper's widths are its issued columns', one each, and its grid a
+table of fixed layout as wide as the paper, so a column the plant added with Edit format (the designer, the dialog, Mitra) had no
+width: F/QC/01's "Batch No." heading measured 0 px on screen and its box 0 x 53 (found by e2e_portal_controls; print takes the same
+rule). It could be neither read nor written in. A changed grid is now laid out as a word processor lays out a table as wide as the page when
+a column goes in (engine/paperGridWidths.ts): each column keeps its paper width, found by its key; a new one comes in as an average
+column of the paper's, or at its own typing width (a copy); then all are narrowed together to the paper's width. A column taken out
+gives its width to the rest, a moved one takes its width along, and the paper's Arial cells follow their columns. A grid as issued
+keeps the paper's own widths. Held by frontend/tests/paperGridWidths.test.ts and e2e_sheet_designer (each added column at least
+40 px wide on the page, and written in on a new record's first line).
+
 *Kept on the screen only, never printed* (each is something DCRS needs that the paper has no place for): the strip with the format
 number, revision, its date and the page on F/QC/06, F/QC/07, F/QC/25, F-QC-14 (both sheets), F/QC/13 and the two Gujarati line
 clearances (none of them prints all four); the Add Row button and each line's bin on the registers whose lines a person writes (F/QC/08,
