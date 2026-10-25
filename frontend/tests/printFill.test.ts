@@ -1,7 +1,7 @@
 // FILLING THE A4 PAGE (REQUIREMENTS §123; the owner, 24-Oct-2026: "they are not able to cover whole A4 size paper ...
 // it not cover whole page and font size on that paper will be very small"). utils/print.ts draws a short one-page sheet
-// of DCRS's own make bigger and rules a register with blank lines to its page's foot; the layout half is proved in a
-// browser (tests/e2e_print_fill.py) - here, the rules that keep it safe, read from the source.
+// of DCRS's own make bigger, and a printout holds the lines written and no others (§126, 25-Oct-2026); the layout half
+// is proved in a browser (tests/e2e_print_fill.py) - here, the rules that keep it safe, read from the source.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -41,4 +41,12 @@ test("a printout holds the lines written and no others (the owner, 25-Oct-2026):
   assert.match(css, /tr\.pf-pad, tr\[data-empty-line\] \{ display: none; \}/, "F/QC/12's other entries, the paper's blank lines and an unwritten line leave the printout");
   assert.doesNotMatch(css, /tr\.pt-pad \{ display: table-row; \}/, "a QC paper's own ruled lines no longer print");
   assert.doesNotMatch(sheet, /data-free-lines/);
+});
+
+test("the other sheets that draw blank lines print only the lines written too: the pest register's summary, F/HR/18", () => {
+  const pest = read("frontend", "src", "components", "records", "DailyRegisterSheet.tsx");
+  assert.match(pest, /data-empty-line=\{!a && actions\.length > 0 \? "" : undefined\}/, "the Summary of Actions' three lines: the written ones, once one is");
+  const fly = read("frontend", "src", "components", "records", "FlyCatcherRegisterSheet.tsx");
+  assert.match(fly, /const someWritten = rows\.some\(\(row\) => !!row\.entry\);/);
+  assert.match(fly, /data-empty-line=\{i > 0 && !e && someWritten \? "" : undefined\}/, "a unit's first line, which carries its name, always prints");
 });

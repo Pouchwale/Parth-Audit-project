@@ -9552,12 +9552,17 @@ similar document also".
    its .pt-padc cells beside the record's lines) - stay on the screen as the paper's look and no longer print. A register's line
    nobody wrote, while another line of it is written, no longer prints either (data-empty-line; a line with words only in a
    fixed or worked-out column counts as unwritten). A sheet with nothing written at all prints its lines, for writing by hand.
+   The two other sheets that draw blank lines past the written ones follow the same rule: the pest register's Summary of
+   Actions Taken (F/HR/17's three lines; DailyRegisterSheet) and F/HR/18's two lines a unit (FlyCatcherRegisterSheet: a line
+   with no visit carried out, once one of the unit's is; the unit's first line, which carries its name, always prints).
    The A4 fill (§123 item 4) no longer rules blank lines under a register: its words are still drawn bigger.
 2. **Ask Mitra fills the window.** The page's height was a sum that counted the mode banner (44 px) whether it was shown or not,
    with the content's 96 px foot (room for the Ask Mitra pill, which this page does not show) under it. On a desktop the page now
    takes the window's height below the top bar and any banner, 16 px short of the foot; a phone keeps its own layout.
 3. **Proved:** tests/e2e_print_fill.py (F/QC/12 with its one calibration prints one entry, one "Deviation %" line; no blank line
-   is ruled under F/PRD/23, F/PRD/24, F/STR/02 or F/DISP/04; each one page), frontend/tests/printFill.test.ts (the rules), the
+   is ruled under F/PRD/23, F/PRD/24, F/STR/02 or F/DISP/04; each one page), frontend/tests/printFill.test.ts (the rules), a
+   look in the browser at F/HR/18 with one visit (one line a unit printed, two on the screen) and at the Summary of Actions
+   month by month in Demo Mode (three lines while none is written, then only the written ones), the
    print suites (print_all_documents, qc_calibration, qc_formats, purchase_module, print_and_forms, downloads_and_print,
    header_editing) and the Ask Mitra suites (mitra_agent, mitra_format, smoke), and the page looked at 1917 px wide.
 

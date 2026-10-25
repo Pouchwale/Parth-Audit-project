@@ -368,6 +368,10 @@ export function FlyCatcherRegisterSheet({
         </tbody>
         {units.map((pc) => {
           const rows = unitRows(pc.id);
+          // PRINTED, ONLY THE LINES WRITTEN (REQUIREMENTS §126): once a visit of the unit's is carried out, a line
+          // with none (the month's second line before its visit, a visit not carried out) stays on the screen only.
+          // The unit's first line always prints: it carries the unit's name.
+          const someWritten = rows.some((row) => !!row.entry);
           return (
             <tbody key={pc.id} className="fhr18-unit" data-pc={pc.id}>
               {rows.map((row, i) => {
@@ -401,6 +405,7 @@ export function FlyCatcherRegisterSheet({
                 return (
                   <tr
                     key={r?.id ?? `blank-${i}`}
+                    data-empty-line={i > 0 && !e && someWritten ? "" : undefined}
                     className={`register-row${clickable ? " clickable" : ""}${isToday ? " is-today" : ""}${locked ? " locked" : ""}`}
                     data-visit={r?.dueDate}
                     {...(r ? { [BIND_RECORD_ATTR]: r.id } : undefined)}

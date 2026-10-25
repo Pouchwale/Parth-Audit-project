@@ -117,7 +117,8 @@ export function DailyRegisterSheet({
   const actions = records
     .flatMap((r) => r.data.summaryActions.map((a, index) => ({ ...a, fallbackDate: r.dueDate, recordId: r.id, index })))
     .sort((a, b) => (a.dateOfObservation || a.fallbackDate).localeCompare(b.dateOfObservation || b.fallbackDate));
-  const summaryRows = Math.max(3, actions.length); // the paper prints three blank lines
+  // The paper's three lines, on the screen; printed, only the lines written once one is (REQUIREMENTS §126).
+  const summaryRows = Math.max(3, actions.length);
 
   const rows = (from: number, to: number) =>
     Array.from({ length: to - from + 1 }, (_, i) => from + i).map((d) => {
@@ -242,7 +243,11 @@ export function DailyRegisterSheet({
             </thead>
             <tbody>
               {Array.from({ length: summaryRows }, (_, i) => actions[i]).map((a, i) => (
-                <tr key={a ? a.id : `blank-${i}`} {...(a ? { [BIND_RECORD_ATTR]: a.recordId } : undefined)}>
+                <tr
+                  key={a ? a.id : `blank-${i}`}
+                  data-empty-line={!a && actions.length > 0 ? "" : undefined}
+                  {...(a ? { [BIND_RECORD_ATTR]: a.recordId } : undefined)}
+                >
                   <td className="notranslate" translate="no" {...(a ? bindProps(dailyPestBind.action(a, a.index, "dateOfObservation")) : undefined)}>
                     {a ? formatDisplayDate(a.dateOfObservation || a.fallbackDate) : ""}
                   </td>
