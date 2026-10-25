@@ -9475,6 +9475,58 @@ not 24-oct-2026 and this applies to all document for all modules. SO do it fix f
    from the record), and e2e_portal_controls still expects Rev 01/02 in F/QC/01's header, which became the QC paper's own
    header (open).
 
+## §125 Reminder emails: each person told by email, free of cost, what is still open, again and again until it is done (25-Oct-2026)
+
+The owner, 24/25-Oct-2026: "i want a system that will email the users automatically for the updates on their given email id's for
+the free of cost so the system will update the user that you have to complete this records and those are the records remaining
+till now to filled or submit/verify according to there before the due date and system will remind the user again and again until
+he or she complete his tasks."
+
+1. **A reminder email of each person's own.** A sign-in receives no mail (§62: name.surname@gpp.local is a sign-in name, not a
+   mailbox), so the super admin gives each account a reminder email on Users & Access: a "Reminder email" column with an edit box
+   in the row and the same field in "Add a person", with the language (English, ગુજરાતી, हिन्दी) and on/off. One plain address,
+   checked by one rule on the page and on the server (engine/reminderEmail.ts): never a gpp.local sign-in or the removed-account
+   mark, never .local, .localhost, .test, .invalid or .example. Kept in PostgreSQL (email_contacts); only the super admin reads
+   or sets it (/api/email/*, 403 for anybody else); never in /api/users/directory, a log line or the activity log. The Master
+   Data employees' email is not used (every account can read and write Master Data).
+2. **When.** The notify job (§97) ends, after the phone pushes, by emailing each active person with a reminder email what is
+   still open for them in the notification ledger: one email per slot - the morning (the first run after 08:40), "Still open"
+   at 15:30 and "Last call" at 17:45 - on working days inside the hours, never on a closed day; only the latest slot that has
+   begun (a server started at 16:00 sends the 15:30 email alone). Nothing open, no email: that is how "again and again until
+   done" stops - a record filled, submitted or verified leaves the ledger and the next email no longer names it.
+3. **What it says.** Grouped Overdue, Sent back, To fill and submit, To verify, Coming up (the morning only): one line per record
+   in the notification's own words with the date as 24-10-26; 40 lines at most, then "and N more"; more than 12 grouped under
+   each module's name. The subject is the push's words ("Still open: 3 records need you"). From "Gujarat Print Pack Publications
+   Pvt Ltd - DCRS", with a text part and an HTML part and no attachment; one link to DCRS_APP_URL/#/notifications when it is
+   set. Never a send-back's reason or a record's values (the mail passes through Gmail, a third party). In the contact's language.
+4. **Never twice, never a flood.** Each email is claimed in email_log (UNIQUE person, day, slot) before it is sent, so a restart
+   or two runs at once never send it twice; a failure is retried at most twice in the slot; three a day per person, and
+   EMAIL_DAILY_CAP (150) for the plant, the most overdue first; Gmail is sent through one pooled connection at one message a
+   second. The log is kept 60 days and holds no address (errors are masked).
+5. **Free of cost.** Gmail with an App Password (GMAIL_USER, GMAIL_APP_PASSWORD in backend/.env; docs/DEPLOYMENT.md "Reminder
+   emails" has the owner's steps: a plant Gmail account, 2-Step Verification on, an App Password, both lines in backend/.env,
+   restart, each person's reminder email on Users & Access, "Send me a test email", then the switch on). Without them nothing is
+   sent and the page says so. A free Gmail account sends about 500 emails a day; the plant needs about 40.
+6. **The super admin's switch and proof.** On the Notifications page's "The server's jobs" card: the switch (email_settings: off
+   until switched on, with who and when), "Send me a test email" (to the super admin's own reminder email, one per 20 s, the
+   reason in words when it cannot), how mail goes on this server, and the latest emails. A notify run says "Emails: ...";
+   EMAIL_ENABLED=0 stops it all on the server. Each run writes one activity line, "Reminder emails sent", in the System's name,
+   naming people and counts and never an address; it and the lines for setting an email, the switch and the test are the
+   super admin's alone (SUPER_ADMIN_ACTIONS).
+7. **The browser's digest is retired.** The once-a-day digest a browser posted (any signed-in account could make the server mail
+   up to 50 addresses, and one browser's view decided everyone's) is gone: the briefing no longer posts it, POST
+   /api/reminders/send-digest answers 410, backend/digest.ts is deleted; digest_log is left as it was. Escalation emails (§75)
+   are unchanged (ESCALATION_EMAIL, else admins' non-.local sign-ins), their log line masked.
+8. **Test servers never mail.** The e2e runner gives every server GMAIL_USER="", GMAIL_APP_PASSWORD="" and
+   EMAIL_TRANSPORT=capture (the message is kept in email_log as "captured" and nothing leaves the PC); the unit runner blanks
+   GMAIL_* too.
+9. **Proved:** backend/tests/email.test.ts, emailReminders.test.ts, emailRoutes.test.ts, emailStore.test.ts (the store contract
+   on the stand-in and on PostgreSQL), the address rule's tests, and tests/e2e_email_reminders.py (45 checks: a @gpp.local
+   address refused on the page and by the server; a plain address kept in Gujarati and switched on; the switch off at first; a
+   notify run at 10:00 captures exactly one email naming the record with its date 25-10-26; a second run at 10:05 adds nothing;
+   the test email captured and a second one refused 429; after the record is submitted the 15:35 run sends nothing; a staff
+   account 403 on every email route; no address in the directory or the activity log; the old digest route 410).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
