@@ -9624,6 +9624,36 @@ improve there score so there improved like snapchat".
    day, only website and phone sessions counted, the index in place. The rule itself takes 0.15 ms; the whole walk for the
    busiest QC account (2,466 records in the window) about 11 ms on this PC, 65 ms at 6x CPU throttle, from a timeout only.
 
+## §128 Users & Access and User access a page of people at a time, fast on a low-end laptop (25-Oct-2026)
+
+The owner, 25-Oct-2026: "so now use pagination in user access because there are many id's we have created currently and
+so low ending devices take time to load that page so make sure it should load fast".
+
+1. **Why they were slow.** Both pages drew every account at once. On Users & Access each staff row of Who may do what is ten
+   level boxes, and each row's "as the owner's table" levels were one build of the access rules per person; the accounts
+   table drew every row with its buttons. Measured with 300 accounts at 6x CPU throttle (a low-end laptop): Users & Access
+   took 10-11 s to draw, 48,000 elements, the page frozen for up to 7.7 s at a time; User access 4-6 s, 21,000 elements.
+2. **A page of 25 people (engine/paging.ts, components/common/Pager.tsx).** The accounts and the removed accounts on Users &
+   Access, its grid of Who may do what, and Today and Who may use which module on User access each draw 25 people. Over
+   each list: "Find a person" (every word typed, in the name or the sign-in, any case), "26–50 of 312 accounts" and the
+   pages (the first, the last, the current one and one each side; ‹ and ›); under it the same pages, whose choice brings
+   the list's top into view. What is typed looks through every account and starts again at the first page; a page that no
+   longer exists (an account removed) is the last one there is. A list that fits one page has no bar and is drawn as
+   before. The super admins stay at the top of the grid on every page.
+3. **Only the page's people are worked out.** The grid's "as the owner's table" levels are built for the people shown; a
+   person with no module setting of their own has as those the levels they have now, read from the page's one build of
+   the rules (the same answer, proved by frontend/tests/accessEditing.test.ts), so the rules are built again only for a
+   person who has module settings. The card of accounts nobody has described names 25 of them at most, "…and N more" after
+   them (each is in the grid, where Find a person finds it). The server's answers are unchanged: one read each.
+4. **Measured again, the same 300 accounts at 6x CPU throttle:** Users & Access drawn in 0.6-1.0 s (was 10-11 s), 5,000
+   elements (was 48,000), its longest freeze under half a second (was 7.7 s); User access in 0.6 s (was 4-6 s), 3,000
+   elements (was 21,000).
+5. **Proved:** frontend/tests/paging.test.ts (the pages, the page numbers, Find a person, the lists drawn through it),
+   frontend/tests/accessEditing.test.ts (the defaults' shortcut gives what a rebuild gives) and tests/e2e_users_paging.py
+   (sixty accounts made: 25 drawn, Next, a page number, the last page, Find a person by name and by sign-in, nobody found,
+   the pages under the table, the grid's 250 level boxes and a level given to a person found, User access's two tables,
+   each page timed at 6x CPU throttle), with the suites that read the two pages.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

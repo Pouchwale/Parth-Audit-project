@@ -21,6 +21,8 @@ import {
 } from "../../engine/accessEditing";
 import { useAppStore } from "../../store/AppStore";
 import { Modal } from "../common/Modal";
+import { Pager, usePaged } from "../common/Pager";
+import { PAGE_SIZE } from "../../engine/paging";
 import { PasswordInput } from "../common/PasswordInput";
 import type { ManagedUser } from "../../types/auth";
 
@@ -136,8 +138,25 @@ export function AccessSection({
     for (const u of users) map.set(u.email.toLowerCase(), u.name);
     return (email: string) => map.get(email) ?? email.split("@")[0].replace(/[._]/g, " ");
   }, [users]);
-  // The grid's default per cell, one build per person (twelve or so), only when the rules or the people change.
-  const defaults = useMemo(() => new Map(staff.map((u) => [u.id, moduleDefaults(rules, docs, u)] as const)), [staff, rules, docs]);
+  // THE GRID A PAGE OF PEOPLE AT A TIME (the owner, 25-Oct-2026: "use pagination in user access because there are many
+  // id's ... low ending devices take time to load that page"; components/common/Pager.tsx). Each staff row is ten level
+  // boxes, and its default per cell is one build of the rules for that person: both for the people of the page shown alone,
+  // so a plant of hundreds of accounts opens as fast as one of twenty-five. A person with no module setting of their own
+  // has as defaults the levels they have now (moduleDefaults takes away only their own module settings): the page's one
+  // build answers for them, and the rules are built again only for those who have some.
+  const staffPaged = usePaged(staff);
+  const defaults = useMemo(
+    () =>
+      new Map(
+        staffPaged.shown.map((u) => {
+          const own = rules.people[u.email.toLowerCase()]?.modules;
+          const levels = own && Object.keys(own).length > 0 ? moduleDefaults(rules, docs, u) : Object.fromEntries(ACCESS_MODULES.map((m) => [m, access.moduleLevel(accountOf(u), m)]));
+          return [u.id, levels] as const;
+        })
+      ),
+    [staffPaged.shown, rules, docs, access]
+  );
+  const flaggedIds = useMemo(() => new Set(flagged.map((f) => f.id)), [flagged]);
   // How many documents of each module each person answers for, for the cell's second line.
   const answering = useMemo(() => {
     const map = new Map<string, number>();
@@ -259,7 +278,7 @@ export function AccessSection({
             </div>
             <p className="text-muted mb-2">Until you choose, each keeps what it had. Choose a level for each module in the grid below.</p>
             <ul className="mb-0" style={{ paddingLeft: 18 }}>
-              {flagged.map((u) => (
+              {flagged.slice(0, PAGE_SIZE).map((u) => (
                 <li key={u.id} data-undescribed={u.email}>
                   <span className="font-semibold" translate="no">
                     {u.name}
@@ -271,6 +290,12 @@ export function AccessSection({
                 </li>
               ))}
             </ul>
+            {/* A page of them named at most: the rest are in the grid below, where Find a person finds each. */}
+            {flagged.length > PAGE_SIZE && (
+              <p className="text-muted mt-1 mb-0" data-field="undescribed-more">
+                …and {flagged.length - PAGE_SIZE} more: find each in the grid below with Find a person.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -286,6 +311,8 @@ export function AccessSection({
       </div>
 
       {!showWho ? (
+        <>
+        <Pager paged={staffPaged} list="access-grid" noun="people" />
         <div className="doc-table compact access-grid" data-section="access-grid">
           <table data-table="access-grid">
             <thead>
@@ -312,13 +339,13 @@ export function AccessSection({
                   </td>
                 </tr>
               ))}
-              {staff.map((u) => {
+              {staffPaged.shown.map((u) => {
                 const email = u.email.toLowerCase();
                 const stored = rules.people[email]?.modules ?? {};
                 const def = defaults.get(u.id) ?? {};
                 const off = u.active === false;
                 return (
-                  <tr key={u.id} data-access-person={u.email} data-active={off ? "no" : "yes"} data-undescribed={flagged.some((f) => f.id === u.id) ? "yes" : "no"}>
+                  <tr key={u.id} data-access-person={u.email} data-active={off ? "no" : "yes"} data-undescribed={flaggedIds.has(u.id) ? "yes" : "no"}>
                     <td className="access-name">
                       <span className="font-semibold" translate="no">
                         {u.name}
@@ -360,6 +387,8 @@ export function AccessSection({
             </tbody>
           </table>
         </div>
+        <Pager paged={staffPaged} list="access-grid" noun="people" foot />
+        </>
       ) : (
         <WhoFillsWhat all={all} access={access} nameOf={nameOf} onOpen={(documentId) => setDrawer({ kind: "document", documentId })} />
       )}

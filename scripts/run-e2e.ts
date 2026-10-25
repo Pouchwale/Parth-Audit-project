@@ -84,6 +84,9 @@ const ARCHIVE_BLANKS_SUITE = "tests/e2e_archive_blanks.py";
 // back, "Keep only these") and the super admin's master list of who does what (product server; it renames and removes
 // accounts of its own making, so it runs after every other suite of the product server).
 const ACCOUNTS_MASTER_SUITE = "tests/e2e_accounts_master.py";
+// Users & Access and User access a page of people at a time (the owner, 25-Oct-2026: "use pagination in user access"):
+// sixty accounts made, the pages, Find a person, and each page timed at 6x CPU (product server; its accounts stay, so last).
+const USERS_PAGING_SUITE = "tests/e2e_users_paging.py";
 const PRODUCT_SUITES = [
   PRODUCT_SUITE,
   LOGIN_ONLY_SUITE,
@@ -100,6 +103,7 @@ const PRODUCT_SUITES = [
   EVERY_RECORD_STARTS_SUITE,
   ARCHIVE_BLANKS_SUITE,
   ACCOUNTS_MASTER_SUITE,
+  USERS_PAGING_SUITE,
 ];
 // THE SHARED DATABASE'S OVERVIEW (REQUIREMENTS §83), set up on this run's
 // database exactly as a DBA sets it up on the plant's: its two new schemas and
@@ -488,6 +492,8 @@ async function main(): Promise<void> {
   EVERY_RECORD_STARTS_SUITE,
   // REQUIREMENTS §110 — the accounts and the master list of who does what; last, because it renames and removes accounts.
   ACCOUNTS_MASTER_SUITE,
+  // Users & Access and User access a page at a time, with sixty accounts more: after everything that counts accounts.
+  USERS_PAGING_SUITE,
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
     const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));

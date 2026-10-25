@@ -13,9 +13,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { accessDocOf } from "../src/engine/departmentScope";
-import { DEFAULT_PEOPLE, buildAccess, normalizeAccessRules, type AccessRules } from "../src/engine/accessRules";
+import { ACCESS_MODULES, DEFAULT_PEOPLE, buildAccess, normalizeAccessRules, type AccessRules } from "../src/engine/accessRules";
 import {
   STALE_RULES_WORDS,
+  accountOf,
   applyAccessChange,
   changeQuestion,
   changeSaved,
@@ -113,4 +114,22 @@ test("the grid's 'as the table' is the person's level without their own setting"
   assert.equal(moduleDefaults(rules, docs, vinay).QC, "none");
   const withDoc = applyAccessChange(EMPTY, { kind: "document", email: vinay.email, documentId: "hr-competence", level: "read" }, docs);
   assert.equal(documentDefaults(withDoc, docs, vinay).level(vinay, "hr-competence"), "edit", "without the document's own setting: Edit, as Vinay answers for it");
+});
+
+test("a person with no module setting of their own has, as the grid's defaults, the levels they have now (Users & Access skips rebuilding the rules for them)", () => {
+  // The owner's table and two settings of others, so the rules are not empty; the people checked have none of their own.
+  let rules = applyAccessChange(EMPTY, { kind: "module", email: "vinay.bhojak@gpp.local", module: "HR", level: "none" }, docs);
+  rules = applyAccessChange(rules, { kind: "document", email: "sandeep.parekh@gpp.local", documentId: "hr-competence", level: "read" }, docs);
+  const access = buildAccess(docs, rules);
+  const people = [
+    { email: "kapila.barad@gpp.local", role: "staff", departments: ["QC"] },
+    { email: "sandeep.parekh@gpp.local", role: "staff", departments: ["HR"] },
+    { email: "paging.person001@gpp.local", role: "staff", departments: ["PRD"] },
+    { email: "paging.person002@gpp.local", role: "staff", departments: [] },
+  ];
+  for (const p of people) {
+    assert.equal(rules.people[p.email]?.modules, undefined, `${p.email} has no module setting of their own`);
+    const now = Object.fromEntries(ACCESS_MODULES.map((m) => [m, access.moduleLevel(accountOf(p), m)]));
+    assert.deepEqual(now, moduleDefaults(rules, docs, p), p.email);
+  }
 });

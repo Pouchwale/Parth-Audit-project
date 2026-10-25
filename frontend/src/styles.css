@@ -2977,6 +2977,18 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
 .notif-filter .pill-tab { border: 0; font: inherit; font-size: 12.5px; font-weight: 600; }
 .notif-filter .pill-tab:not(.active) { background: transparent; }
 .access-cell-note:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+/* A PAGE OF PEOPLE AT A TIME (components/common/Pager.tsx; the owner, 25-Oct-2026: "use pagination in user access"):
+   over a long list of accounts, Find a person, the count and the pages - on a phone, each a row of its own. */
+.pager { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 8px 0; }
+.pager-find { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text-muted); }
+.pager-find .input { width: 220px; }
+.pager-pages { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px; margin-left: auto; }
+.pager-pages .btn { min-width: 32px; justify-content: center; }
+.pager-gap { padding: 0 4px; color: var(--color-text-muted); }
+@media (max-width: 760px) {
+  .pager-find, .pager-find .input { width: 100%; }
+  .pager-pages { margin-left: 0; }
+}
 .access-drawer-overlay { justify-content: flex-end; align-items: stretch; padding: 0; }
 .access-drawer { max-width: 520px; height: 100%; max-height: none; border-radius: 0; border-width: 0 0 0 1px; }
 .access-line { display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--color-border); }

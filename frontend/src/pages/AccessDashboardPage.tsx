@@ -22,6 +22,7 @@ import { Link } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { DEPARTMENTS, departmentOfDocument } from "../data/seed/departments";
 import { Modal } from "../components/common/Modal";
+import { Pager, usePaged } from "../components/common/Pager";
 import { downloadBlob } from "../utils/csv";
 import { formatDisplayDate } from "../utils/date";
 import { useProgressiveCount } from "../utils/useProgressive";
@@ -69,6 +70,11 @@ import { CATEGORY_WORDS, PLACE_WORDS, deviceNameIn, deviceViewWord, type DeviceC
 // browser already has — the same rule the server keeps records to a
 // department's accounts by (departmentOfDocument) — and each person's count is
 // then a sum of at most ten numbers.
+//
+// A PAGE OF PEOPLE AT A TIME (the owner, 25-Oct-2026: "use pagination in user access because there are many id's we
+// have created currently and so low ending devices take time to load that page"): Today and Who may use which module
+// each draw PAGE_SIZE people (25), with the count, the pages and "Find a person" over all of them
+// (components/common/Pager.tsx); a plant whose accounts fit one page sees them as before.
 
 const HISTORY_PAGE = 100;
 
@@ -716,13 +722,14 @@ function DevicesCard({
 }
 
 function TodayTable({ people, clock, onOpen }: { people: AccessPerson[]; clock: (iso: string | null) => string; onOpen: (p: AccessPerson) => void }) {
-  // A plant's accounts are drawn a batch at a time, so a slow computer shows the first at once.
-  const count = useProgressiveCount(people.length, 20, 30);
+  // A page of people at a time, Find a person through all of them (the owner, 25-Oct-2026).
+  const paged = usePaged(people);
   return (
     <div className="card mb-4" data-section="access-today">
       <div className="card-pad" style={{ paddingBottom: 8 }}>
         <h2 className="text-lg">Today</h2>
         <p className="text-xs text-muted">Each person's first sign-in and last sign-out today, and whether they are signed in now.</p>
+        <Pager paged={paged} list="access-today" noun="people" />
       </div>
       <div className="doc-table" style={{ overflowX: "auto" }}>
         <table className="compact" data-table="access-today">
@@ -738,11 +745,14 @@ function TodayTable({ people, clock, onOpen }: { people: AccessPerson[]; clock: 
             </tr>
           </thead>
           <tbody>
-            {people.slice(0, count).map((p) => (
+            {paged.shown.map((p) => (
               <TodayRow key={p.id} p={p} clock={clock} onOpen={onOpen} />
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="card-pad" style={{ paddingTop: 0, paddingBottom: 0 }}>
+        <Pager paged={paged} list="access-today" noun="people" foot />
       </div>
     </div>
   );
@@ -822,7 +832,8 @@ function ModulesTable({
   onEvery: (p: AccessPerson) => void;
   onOpen: (p: AccessPerson) => void;
 }) {
-  const count = useProgressiveCount(people.length, 15, 20);
+  // A page of people at a time, Find a person through all of them (the owner, 25-Oct-2026).
+  const paged = usePaged(people);
   return (
     <div className="card mb-4" data-section="access-modules">
       <div className="card-pad" style={{ paddingBottom: 8 }}>
@@ -835,6 +846,7 @@ function ModulesTable({
           gives the person that module at once; switching one off asks first; with no module set it has every module. {catalogue.unassigned.length} document
           {catalogue.unassigned.length === 1 ? "" : "s"} belong to no module and are seen by everybody. Click a name for the documents that person can see.
         </p>
+        <Pager paged={paged} list="access-modules" noun="people" />
       </div>
       <div className="doc-table" style={{ overflowX: "auto" }}>
         <table className="compact" data-table="access-modules">
@@ -856,11 +868,14 @@ function ModulesTable({
             </tr>
           </thead>
           <tbody>
-            {people.slice(0, count).map((p) => (
+            {paged.shown.map((p) => (
               <ModulesRow key={p.id} p={p} levels={levelsOf(p, levels)} seen={documentsSeen(p, catalogue, levels)} busy={saving === p.id} isMe={p.id === myId} onToggle={onToggle} onEvery={onEvery} onOpen={onOpen} />
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="card-pad" style={{ paddingTop: 0, paddingBottom: 0 }}>
+        <Pager paged={paged} list="access-modules" noun="people" foot />
       </div>
     </div>
   );

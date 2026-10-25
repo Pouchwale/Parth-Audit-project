@@ -13,6 +13,7 @@ import { Link } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { DEPARTMENTS, departmentOfDocument } from "../data/seed/departments";
 import { Modal } from "../components/common/Modal";
+import { Pager, usePaged } from "../components/common/Pager";
 import { PasswordInput } from "../components/common/PasswordInput";
 import { formatDisplayDate, formatDisplayDateTime } from "../utils/date";
 import type { ManagedUser } from "../types/auth";
@@ -56,8 +57,16 @@ import type { ManagedUser } from "../types/auth";
 // (backend/emailRoutes.ts keeps it; backend/emailReminders.ts emails what is still open for the person, three times on
 // a working day, until it is done). Checked here and again on the server by one rule (engine/reminderEmail.ts): one
 // plain address, never a sign-in, never a name that receives no mail. It can be given in "Add a person" too.
+//
+// A PAGE OF ACCOUNTS AT A TIME (the owner, 25-Oct-2026: "use pagination in user access because there are many id's we
+// have created currently and so low ending devices take time to load that page"). The accounts, the removed accounts and
+// the grid of Who may do what each draw PAGE_SIZE people (25), with the count, the pages and "Find a person" over them
+// all (components/common/Pager.tsx); a list that fits one page is drawn as before.
 
 const MIN_PASSWORD = 8;
+
+/** No accounts yet: the same empty list each time, so the page of them is not worked out again while they load. */
+const NO_USERS: ManagedUser[] = [];
 
 /** A first password that can be read down a telephone and typed once: no letter that looks like a digit. */
 function suggestPassword(): string {
@@ -144,6 +153,9 @@ export function UsersPage() {
   /** The accounts on the plant's list: everyone but the removed. */
   const users = useMemo(() => (everyone === null ? null : everyone.filter((u) => !u.removedAt)), [everyone]);
   const removedAccounts = useMemo(() => (everyone ?? []).filter((u) => !!u.removedAt), [everyone]);
+  // Each list a page at a time, Find a person through all of it (the owner, 25-Oct-2026).
+  const usersPaged = usePaged(users ?? NO_USERS);
+  const removedPaged = usePaged(removedAccounts);
   const setUsers = (change: (list: ManagedUser[]) => ManagedUser[]) => setEveryone((list) => change(list ?? []));
   /** One account as the server now has it, put in its place (or added). */
   const putUser = (u: ManagedUser) => setUsers((list) => (list.some((x) => x.id === u.id) ? list.map((x) => (x.id === u.id ? { ...x, ...u } : x)) : [...list, u]));
@@ -444,6 +456,8 @@ export function UsersPage() {
       {users === null ? (
         <p className="text-muted text-sm">Loading the accounts…</p>
       ) : (
+        <>
+        <Pager paged={usersPaged} list="users" noun="accounts" />
         <div className="doc-table">
           <table className="compact" data-table="users">
             <thead>
@@ -459,7 +473,7 @@ export function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => {
+              {usersPaged.shown.map((u) => {
                 const off = u.active === false;
                 const mine = u.id === me?.id;
                 const short = shortSignIn(u.email);
@@ -590,6 +604,8 @@ export function UsersPage() {
             </tbody>
           </table>
         </div>
+        <Pager paged={usersPaged} list="users" noun="accounts" foot />
+        </>
       )}
 
       <p className="text-xs text-muted mt-3">
@@ -614,6 +630,8 @@ export function UsersPage() {
               {removedAccounts.length === 0 ? (
                 <p className="text-sm text-muted">{w("users.removedNone")}</p>
               ) : (
+                <>
+                <Pager paged={removedPaged} list="removed-users" noun="removed accounts" />
                 <div className="doc-table">
                   <table className="compact users-removed" data-table="removed-users">
                     <thead>
@@ -625,7 +643,7 @@ export function UsersPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {removedAccounts.map((u) => {
+                      {removedPaged.shown.map((u) => {
                         const gaveUp = u.signInGivenUp ?? null;
                         const holder = gaveUp ? (users ?? []).find((x) => x.email === gaveUp) : undefined;
                         return (
@@ -651,6 +669,7 @@ export function UsersPage() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           )}
