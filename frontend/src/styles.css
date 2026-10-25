@@ -892,6 +892,22 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   .app-topbar .topbar-name { max-width: 80px; }
   .app-topbar .topbar-role { display: none; }
 }
+/* THE TOP BAR ON A LAPTOP (25-Oct-2026). Measured with the daily streak's counter in it, on the test server
+   (Demo Mode on): at 1280, 1366 and 1440 px the bar was 151, 65 and 162 px wider than the window - every page
+   scrolled sideways on the plant's 1366 x 768 laptops, and it already did before the counter (by 164, 87 and
+   47 px). So the least needed words give way first, each control keeping its icon, its name (aria-label) and
+   its tooltip: the Live / Demo switch's words and "Today's briefing" from 1600 px only, the connection's
+   speed from 1440 px only (its state's word and colour always; the speed stays in its tooltip and its name),
+   the speaker's word from 1440 px (voice.css) and the streak's from 1800 px (motivation.css). The bar then
+   fits at 1280, 1366, 1440 and 1920 px in one row (tests/e2e_daily_streak.py measures it). */
+.topbar-mode-word { margin-left: 5px; }
+@media (max-width: 1599px) {
+  .app-topbar .topbar-mode-word, .app-topbar .topbar-wide-label { display: none; }
+  .app-topbar .pill-tab { padding-left: 10px; padding-right: 10px; }
+}
+@media (min-width: 761px) and (max-width: 1439px) {
+  .app-topbar .conn-badge .conn-speed { display: none; }
+}
 /* The bell's list of reminders (NotificationBell.tsx), hung under the bell and
    running leftwards from it. On a phone the bell is not far enough from the
    left edge for 340 px to fit, so there the list spans the window instead,

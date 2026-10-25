@@ -1,8 +1,9 @@
 /* REQUIREMENTS §81 — the motivation feature's own rules, loaded after assets/styles.css (index.html).
 
    Mitra's cheer line under the reaction toast, the confetti, the all-done card,
-   the badge card (components/common/Celebration.tsx) and the Dashboard's day
-   card (components/common/MyDayCard.tsx).
+   the badge card (components/common/Celebration.tsx), the Dashboard's day
+   card (components/common/MyDayCard.tsx) and the daily streak in the top bar
+   (components/layout/StreakCounter.tsx; the owner, 25-Oct-2026).
 
    Everything that appears over the page is position: fixed, pointer-events:
    none (only the card's own close button takes a click), inside the viewport,
@@ -150,7 +151,6 @@
   font-size: 12px; font-weight: 600; line-height: 1.4;
   background: var(--surface-sunken); border: 1px solid var(--hairline); color: var(--ink);
 }
-.my-day-streak { background: var(--poor-soft); border-color: transparent; color: var(--poor); }
 .my-day-left { background: var(--info-soft); border-color: transparent; color: var(--info); }
 .my-day-purpose { margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); font-style: italic; }
 .my-day-next {
@@ -194,10 +194,88 @@
 .my-day-score-line { margin-top: 2px; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--ink); overflow-wrap: anywhere; }
 .my-day[data-state="loading"] .my-day-score-num { color: var(--hairline-strong); }
 
+/* ---- The daily streak, beside today's score (never inside it) ---------------------------------
+   The big 🔥 and the working days in a row kept, in the flame's orange (the theme's "poor" pair, the
+   streak chip's before); a quiet grey with the flame drained of colour while there is none; amber while
+   today is at risk (from 15:30). Under it how today stands, the last fourteen days as small squares —
+   kept the flame's own colour, missed the danger pair, closed a dashed outline, today an outline in the
+   box's tone, a day with nothing due (judged by the records alone) a plain one — and the best run. Each
+   square is a list item with its words for a screen reader. The score and the streak stand side by side at
+   the same height; the rule's one short line is in the card's main column, after the chips. */
+.my-day-body.has-streak > .my-day-score, .my-day-streak { align-self: stretch; }
+.my-day-streak {
+  --tone: var(--poor); --tone-bg: var(--poor-soft);
+  flex: 0 1 232px; min-width: 0; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  padding: 9px 14px 10px; border-radius: var(--radius-md);
+  background: var(--tone-bg); border: 1px solid transparent; border-left: 4px solid var(--tone);
+}
+.my-day-streak[data-tone="none"] { --tone: var(--ink-3); --tone-bg: var(--surface-sunken); border-color: var(--hairline); border-left-color: var(--tone); }
+.my-day-streak[data-tone="risk"] { --tone: var(--warning); --tone-bg: var(--warning-soft); }
+.my-day-streak-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2);
+}
+:lang(gu) .my-day-streak-label { letter-spacing: 0; }
+.my-day-streak-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 7px; }
+.my-day-streak-flame { font-size: 28px; line-height: 1; }
+.my-day-streak[data-tone="none"] .my-day-streak-flame { filter: grayscale(1); opacity: 0.5; }
+.my-day-streak-num {
+  font-family: var(--font-display, inherit); font-size: 44px; font-weight: 800; line-height: 1.05;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--tone); white-space: nowrap;
+}
+.my-day-streak-unit { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.my-day-streak-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 10px; width: 100%; }
+.my-day-streak-today { font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--ink); }
+.my-day-streak-best { font-size: 12px; font-weight: 600; line-height: 1.4; color: var(--ink-2); }
+.my-day-streak-rule { margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); overflow-wrap: anywhere; }
+.streak-strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0 4px; padding: 0; list-style: none; }
+.streak-day {
+  flex: 0 0 auto; width: 11px; height: 11px; box-sizing: border-box; border-radius: 3px;
+  background: var(--surface); border: 1px solid var(--hairline-strong);
+}
+.streak-day.is-kept { background: var(--poor); border-color: transparent; }
+.streak-day.is-missed { background: var(--danger-soft); border-color: var(--danger); }
+.streak-day.is-closed { background: transparent; border-style: dashed; }
+.streak-day.is-today { background: transparent; border: 2px solid var(--tone); }
+
+/* ---- The daily streak in the top bar ---------------------------------------------------------------
+   A small button like the speaker beside it: "🔥 6 days" in the flame's orange — a tint once today is
+   kept — a quiet grey "🔥 0 Start a streak" with none, and amber "⌛ 6 at risk" from 15:30 while today is
+   not kept.
+   ROOM FOR IT: like the speaker's word (voice.css), the counter's word shows only where the bar has plenty
+   of room, from 1800 px ("Start a streak" alone is 90 px); below that it is the sign and the number, drawn a
+   little tighter. The rest of the bar's room is styles.css's "THE TOP BAR ON A LAPTOP". */
+.app-topbar .streak-counter { gap: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 1799px) {
+  .app-topbar .streak-counter-label { display: none; }
+  .app-topbar .streak-counter { gap: 3px; padding-left: 6px; padding-right: 6px; }
+}
+.streak-counter-icon { display: inline-block; font-size: 14px; line-height: 1; }
+.streak-counter-num { font-weight: 800; }
+.streak-counter.is-open, .streak-counter.is-closed { color: var(--poor); }
+.streak-counter.is-kept { color: var(--poor); background: var(--poor-soft); }
+.streak-counter.is-risk { color: var(--warning); background: var(--warning-soft); }
+.streak-counter.is-none, .streak-counter.is-loading { color: var(--ink-3); }
+.streak-counter.is-none .streak-counter-icon, .streak-counter.is-loading .streak-counter-icon { filter: grayscale(1); opacity: 0.55; }
+.streak-counter.is-kept:hover, .streak-counter.is-risk:hover { box-shadow: 0 0 0 2px var(--accent-soft-hover); }
+/* The flame lights up once when today becomes kept or the streak grows: a short scale, transform and opacity only. */
+@media (prefers-reduced-motion: no-preference) {
+  .streak-counter-icon.is-lit { animation: streak-flame-lit 0.26s cubic-bezier(0.2, 1.4, 0.4, 1) 1 backwards; }
+}
+@keyframes streak-flame-lit {
+  from { opacity: 0.35; transform: scale(0.55); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @media (max-width: 560px) {
   .my-day-body { gap: 12px; padding: 14px; }
   .my-day-score { flex: 1 1 calc(100% - 90px); }
   .my-day-score-num { font-size: 38px; }
+  /* The score and the ring keep their row; the streak takes the next one, whole. */
+  .my-day-streak { order: 1; flex-basis: 100%; }
+  .my-day-streak-num { font-size: 38px; }
+  .my-day-main { order: 2; }
+  .my-day-next { order: 3; }
   .my-day-main { flex-basis: 100%; }
   .my-day-next { flex-basis: 100%; }
   .cheer-card { padding: 14px 40px 14px 14px; }
@@ -206,7 +284,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .cheer-confetti { display: none; }
-  .cheer-card, .cheer-pop, .mitra-reaction-cheer { animation: none; }
+  .cheer-card, .cheer-pop, .mitra-reaction-cheer, .streak-counter-icon { animation: none; }
 }
 
 @media print {

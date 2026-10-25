@@ -7,6 +7,9 @@ import {
   badgeFor,
   celebrationKind,
   cheerText,
+  keptBadge,
+  keptDayToCelebrate,
+  keptLine,
   markCelebrated,
   motivationFor,
   newAchievements,
@@ -15,7 +18,10 @@ import {
   praiseKindFor,
   praiseLine,
   spokenAllDone,
+  spokenKept,
   spokenStreak,
+  STREAK_KEPT_EVENT,
+  STREAK_KEPT_KEY,
   type AllDoneView,
   type BadgeView,
   type MotivationStats,
@@ -41,9 +47,17 @@ import { todayISO } from "../../utils/date";
 //                          card under the top bar — today's score at its best (0: nothing
 //                          missing), today's count, the streak, the month's on-time share,
 //                          the badges earned, and why it matters
-//   a badge earned today   (a streak of 3/5/10/20/50 days, an early bird, a clean week, a
+//   a badge earned today   (a streak of 3/5/10/20/50/100 days, an early bird, a clean week, a
 //                          whole module on time) a smaller card with the badge — once a day
 //                          each (settings celebratedToday)
+//   today's streak kept    (the owner, 25-Oct-2026: "like snapchat") signed in with nothing of
+//                          theirs waiting — at the sign-in itself on a day with nothing due:
+//                          the same smaller card with the streak badge ("🔥 6-day streak"), a
+//                          burst, the "celebrate" sound and Mitra's line with the count, once a
+//                          day (STREAK_KEPT_KEY); on a milestone, the milestone's own card and
+//                          line. Asked by the top bar's counter (STREAK_KEPT_EVENT). When the
+//                          last record of the day is what kept it, its own celebration (the
+//                          all-done card, which shows the streak) counts as today's
 //
 // NEVER IN THE WAY. Everything here is `pointer-events: none` — a click goes
 // straight through to whatever is beneath — except the card's own small close
@@ -156,7 +170,7 @@ function Badges({ badges, field }: { badges: BadgeView[]; field: string }) {
   );
 }
 
-type Slot = "confetti" | "card" | "pop";
+type Slot = "confetti" | "card" | "pop" | "kept";
 
 export function Celebration() {
   const { lang, uiLang } = useAppStore();
@@ -174,7 +188,7 @@ export function Celebration() {
 
   const [confetti, setConfetti] = useState<{ id: number; kind: "burst" | "rain" } | null>(null);
   const [card, setCard] = useState<(AllDoneView & { id: number }) | null>(null);
-  const [pop, setPop] = useState<{ id: number; title: string; line: string; badges: BadgeView[] } | null>(null);
+  const [pop, setPop] = useState<{ id: number; kind: "badge" | "streak-kept"; title: string; line: string; badges: BadgeView[] } | null>(null);
 
   useEffect(() => {
     let seq = 0;
@@ -217,6 +231,8 @@ export function Celebration() {
       // THE BIG ONE: the last thing due today went in (the toast's own 🌟 "last one due today").
       if (kind === "all-done") {
         markCelebrated(fresh, today);
+        // The day's last record kept today's streak: this card (which shows the streak) is today's celebration of it.
+        if (stats?.streak.todayKept) markCelebrated([STREAK_KEPT_KEY], today);
         showConfetti("rain");
         emitCue("celebrate");
         seq += 1;
@@ -232,11 +248,13 @@ export function Celebration() {
       const notable = notableAchievements(fresh);
       if (kind === "badge") {
         markCelebrated(fresh, today);
+        if (stats?.streak.todayKept) markCelebrated([STREAK_KEPT_KEY], today);
         showConfetti("burst");
         emitCue("celebrate");
         seq += 1;
         setPop({
           id: seq,
+          kind: "badge",
           title: cheerText(shown, notable.length === 1 ? "cheer.pop.title.one" : "cheer.pop.title.many"),
           line: praiseLine(praiseKindFor(notable), stats, shown, seed),
           badges: notable.map((k) => badgeFor(k, shown)),
@@ -261,6 +279,49 @@ export function Celebration() {
       else if (outcome.sentBack > 0) emitCue("sentBack");
     };
 
+    // TODAY'S STREAK KEPT, asked by the top bar's counter (StreakCounter.tsx): once a day, after any reaction's own
+    // celebration has had its turn (that one may already count as today's), never for the super admin.
+    const keptDay = () => {
+      if (gather !== null) {
+        later("kept", AFTER_MS * 4, onKept);
+        return;
+      }
+      const { lang: spoken, uiLang: shown, user: person } = live.current;
+      let stats: MotivationStats | null = null;
+      try {
+        stats = motivationFor(person, false);
+      } catch {
+        return;
+      }
+      if (!stats || !keptDayToCelebrate(stats)) return;
+      const today = todayISO();
+      const seed = `${today}|${STREAK_KEPT_KEY}`;
+      // A milestone reached today is this day's badge, said as the milestone's own line.
+      const milestone = newAchievements(stats).find((k) => k.startsWith("streak-"));
+      markCelebrated(milestone ? [milestone, STREAK_KEPT_KEY] : [STREAK_KEPT_KEY], today);
+      showConfetti("burst");
+      emitCue("celebrate");
+      seq += 1;
+      setPop({
+        id: seq,
+        kind: "streak-kept",
+        title: cheerText(shown, milestone ? "cheer.pop.title.one" : "cheer.pop.kept"),
+        line: milestone ? praiseLine("streak", stats, shown, seed) : keptLine(stats, shown, seed),
+        badges: [milestone ? badgeFor(milestone, shown) : keptBadge(stats, shown)],
+      });
+      later("pop", POP_MS, () => setPop(null));
+      const say = (lang: typeof spoken) => (milestone ? spokenStreak(stats!, lang, seed) : spokenKept(stats!, lang, seed));
+      const en = say("en");
+      emitSay({ text: spoken === "en" ? en : say(spoken), lang: spoken, en, key: `${milestone ?? STREAK_KEPT_KEY}:${today}` });
+    };
+    const onKept = () => {
+      try {
+        keptDay();
+      } catch {
+        /* a celebration is never worth an error */
+      }
+    };
+
     const onReaction = (e: Event) => {
       const detail = (e as CustomEvent<ReactionEvent>).detail;
       if (!detail || typeof detail !== "object" || !("kind" in detail)) return;
@@ -278,8 +339,10 @@ export function Celebration() {
       }, AFTER_MS);
     };
     window.addEventListener(REACTION_EVENT, onReaction);
+    window.addEventListener(STREAK_KEPT_EVENT, onKept);
     return () => {
       window.removeEventListener(REACTION_EVENT, onReaction);
+      window.removeEventListener(STREAK_KEPT_EVENT, onKept);
       if (gather !== null) window.clearTimeout(gather);
       for (const slot of Object.keys(timers) as Slot[]) if (timers[slot] !== undefined) window.clearTimeout(timers[slot]);
     };
@@ -335,7 +398,7 @@ export function Celebration() {
         </div>
       )}
       {pop && !card && (
-        <div key={pop.id} className="cheer-pop no-print" data-section="mitra-achievement" role="status" aria-live="polite">
+        <div key={pop.id} className="cheer-pop no-print" data-section="mitra-achievement" data-kind={pop.kind} role="status" aria-live="polite">
           <div className="cheer-pop-title">{pop.title}</div>
           <Badges badges={pop.badges} field="achievement-badges" />
           {pop.line && <div className="cheer-pop-line">{pop.line}</div>}

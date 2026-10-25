@@ -15,6 +15,7 @@ import { ChangePasswordDialog } from "../common/ChangePasswordDialog";
 import { Clock, ConnectionStatus } from "./TopbarStatus";
 import { SoundToggle } from "./SoundToggle";
 import { ThemeSwitch } from "./ThemeSwitch";
+import { StreakCounter } from "./StreakCounter";
 
 export function Topbar() {
   const { mode, setMode } = useAppStore();
@@ -50,11 +51,18 @@ export function Topbar() {
           {/* The Live / Demo switch exists only on a server started with Demo Mode
               (engine/features.ts, REQUIREMENTS §65). The product has one mode, and
               a lone "Live" pill would be a switch to nowhere. */}
+          {/* Its words only where the bar has room (styles.css, from 1600 px): below that the two icons, each
+              keeping its name (aria-label) and its tooltip. */}
           {demoModeAvailable() && (
             <div className="pill-tabs">
-              <div className={`pill-tab ${mode === "live" ? "active" : ""}`} {...pressable(() => setMode("live"), mode === "live")} title={t("top.liveModeTitle")}>
-                <FiCheckCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
-                {t("top.liveMode")}
+              <div
+                className={`pill-tab ${mode === "live" ? "active" : ""}`}
+                {...pressable(() => setMode("live"), mode === "live")}
+                title={t("top.liveModeTitle")}
+                aria-label={t("top.liveMode")}
+              >
+                <FiCheckCircle size={13} style={{ verticalAlign: -2 }} aria-hidden="true" />
+                <span className="topbar-mode-word">{t("top.liveMode")}</span>
               </div>
               <div
                 className={`pill-tab ${mode === "demo" ? "active" : ""}`}
@@ -63,9 +71,10 @@ export function Topbar() {
                   navigate("/demo");
                 }, mode === "demo")}
                 title={t("top.demoModeTitle")}
+                aria-label={t("top.demoMode")}
               >
-                <FiPlayCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
-                {t("top.demoMode")}
+                <FiPlayCircle size={13} style={{ verticalAlign: -2 }} aria-hidden="true" />
+                <span className="topbar-mode-word">{t("top.demoMode")}</span>
               </div>
             </div>
           )}
@@ -83,8 +92,12 @@ export function Topbar() {
           <ThemeSwitch />
           {/* Mitra's sounds and voice, muted or brought back in one press (REQUIREMENTS §81). */}
           <SoundToggle />
+          {/* THE DAILY STREAK, ON EVERY SCREEN (the owner, 25-Oct-2026: "like snapchat"): 🔥 and the working days
+              in a row kept, ⌛ from 15:30 while today is at risk; a press opens the day card. After the sound
+              button, so the bar still begins connection, clock, language, theme, sound. Not for the super admin. */}
+          <StreakCounter />
           <button className="btn btn-secondary btn-sm" onClick={openBriefing} title={t("top.briefingTitle")} aria-label={t("top.todaysBriefing")}>
-            <FiZap size={13} /> <span className="topbar-label">{t("top.todaysBriefing")}</span>
+            <FiZap size={13} /> <span className="topbar-label topbar-wide-label">{t("top.todaysBriefing")}</span>
           </button>
           <NotificationBell />
           {/* PASSWORDS ARE THE SUPER ADMIN'S (REQUIREMENTS §105): only the super admin's
