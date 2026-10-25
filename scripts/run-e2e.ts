@@ -462,6 +462,10 @@ async function main(): Promise<void> {
   // REQUIREMENTS §90: light, dark or the same as the computer: the switch, the choice kept for the person, no flash,
   // the paper white in dark, print the same in either theme, every page in dark (one sign-up, :8842).
   "tests/e2e_theme.py",
+  // The daily streak (the owner, 25-Oct-2026: "like snapchat"): the top bar's counter after the sound button, the person's
+  // own sign-in days (GET /api/me/sign-in-days), a working day kept by the sign-in alone, today at risk from 15:30 on a
+  // moved browser clock, the last record's celebration counting as the streak's, reduced motion (three sign-ups, :8842).
+  "tests/e2e_daily_streak.py",
   // Last of the suites on :8842, because of its signups.
   "tests/e2e_performance.py",
   // REQUIREMENTS §83, the database DCRS shares with the Audit Assistant — the product server, the plant's seeded super admin:
