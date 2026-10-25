@@ -895,18 +895,33 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 /* THE TOP BAR ON A LAPTOP (25-Oct-2026). Measured with the daily streak's counter in it, on the test server
    (Demo Mode on): at 1280, 1366 and 1440 px the bar was 151, 65 and 162 px wider than the window - every page
    scrolled sideways on the plant's 1366 x 768 laptops, and it already did before the counter (by 164, 87 and
-   47 px). So the least needed words give way first, each control keeping its icon, its name (aria-label) and
-   its tooltip: the Live / Demo switch's words and "Today's briefing" from 1600 px only, the connection's
-   speed from 1440 px only (its state's word and colour always; the speed stays in its tooltip and its name),
-   the speaker's word from 1440 px (voice.css) and the streak's from 1800 px (motivation.css). The bar then
-   fits at 1280, 1366, 1440 and 1920 px in one row (tests/e2e_daily_streak.py measures it). */
-.topbar-mode-word { margin-left: 5px; }
-@media (max-width: 1599px) {
-  .app-topbar .topbar-mode-word, .app-topbar .topbar-wide-label { display: none; }
-  .app-topbar .pill-tab { padding-left: 10px; padding-right: 10px; }
+   47 px). So the least needed give way first, each control keeping its icon, its name (aria-label) and its
+   tooltip. Below 1700 px: "Today's briefing" and the speaker's word (voice.css shows it from 1440 px) leave
+   their icons alone, the language box takes only the room its word needs, and the Live / Demo switch keeps
+   its words (a suite clicks them) but leaves out its icons and sits tighter. Below 1440 px: the connection's
+   speed (its state's word and colour always; the speed stays in its tooltip and its name) and the "Admin" tag
+   go, and a long name is cut short (the whole name in its tooltip). Below 1366 px the clock leaves out its
+   seconds and the controls sit 6 px apart (below, after the rule that sets 8). The streak's word shows from
+   1800 px (motivation.css). The Live / Demo words never wrap, and the language box is never squeezed below
+   its word. The bar then fits at 1280, 1366, 1440, 1600 and 1920 px in one row with nothing on two lines and
+   nothing cut, for the super admin and for staff (tests/e2e_daily_streak.py measures it). */
+.app-topbar .pill-tab { white-space: nowrap; }
+@media (max-width: 1699px) {
+  .app-topbar .topbar-wide-label, .app-topbar .sound-toggle-label { display: none; }
+  .app-topbar .lang-select { min-width: 0; }
+  .app-topbar .pill-tab { padding-left: 8px; padding-right: 8px; }
+  .app-topbar .pill-tab > svg { display: none; }
+}
+@media (min-width: 761px) and (max-width: 1365px) {
+  .app-topbar .topbar-clock-sec { display: none; }
+}
+@media (min-width: 761px) {
+  .app-topbar .lang-switcher-compact { flex-shrink: 0; }
 }
 @media (min-width: 761px) and (max-width: 1439px) {
   .app-topbar .conn-badge .conn-speed { display: none; }
+  .app-topbar .topbar-role { display: none; }
+  .app-topbar .topbar-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 /* The bell's list of reminders (NotificationBell.tsx), hung under the bell and
    running leftwards from it. On a phone the bell is not far enough from the
@@ -1373,6 +1388,10 @@ body { top: 0 !important; }
    switch without the bar growing wider than it was. (On a phone they are 4 px apart.) */
 @media (min-width: 761px) {
   .app-topbar .app-topbar-end { gap: 8px; }
+}
+/* ...and 6 px apart below 1366 px, where the bar needs the room ("THE TOP BAR ON A LAPTOP", above). */
+@media (min-width: 761px) and (max-width: 1365px) {
+  .app-topbar .app-topbar-end { gap: 6px; }
 }
 .theme-switch > .btn[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent-text); }
 .theme-menu {

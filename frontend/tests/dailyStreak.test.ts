@@ -8,9 +8,10 @@
 //     once, the flame's within 260 ms and only where no reduced motion is asked for, stilled where it is; no
 //     backdrop-filter, and the new rules on the theme's tokens only;
 //   * the top bar's room on a laptop (styles.css "THE TOP BAR ON A LAPTOP"; the bar measured in
-//     tests/e2e_daily_streak.py at 1280, 1366, 1440 and 1920 px): the Live / Demo words and "Today's
-//     briefing" only from 1600 px, the connection's speed from 1440 px, the streak's word from 1800 px - each
-//     control keeping its icon, its name and its tooltip.
+//     tests/e2e_daily_streak.py at 1280, 1366, 1440 and 1920 px): "Today's briefing" and the speaker's word only
+//     from 1700 px, the connection's speed from 1440 px, the clock's seconds from 1366 px, the streak's word from
+//     1800 px - each control keeping its icon, its name and its tooltip; the Live / Demo switch keeps its words
+//     (e2e_smoke clicks "text=Live Mode") and never wraps.
 // Run: npm run test:unit -- dailyStreak
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -76,15 +77,10 @@ test("the day card's streak box: the flame and the count, fourteen squares in wo
   assert.doesNotMatch(grey, /my-day-streak-best/);
 });
 
-test("the top bar on a laptop: the least needed words give way below 1600 / 1440 / 1800 px, each control keeping its icon, name and tooltip", () => {
-  // The Live / Demo switch: its icon always, its words in a span of their own, its name and tooltip on the pill.
-  for (const [mode, title] of [["top.liveMode", "top.liveModeTitle"], ["top.demoMode", "top.demoModeTitle"]]) {
-    const at = topbarSrc.indexOf(`aria-label={t("${mode}")}`);
-    assert.ok(at > 0, `${mode}: the pill is named`);
-    const pill = topbarSrc.slice(topbarSrc.lastIndexOf("<div", at), topbarSrc.indexOf("</div>", at));
-    assert.match(pill, new RegExp(`title=\\{t\\("${title}"\\)\\}`), `${mode}: its tooltip`);
-    assert.match(pill, new RegExp(`<span className="topbar-mode-word">\\{t\\("${mode}"\\)\\}</span>`), `${mode}: its words, apart`);
-  }
+test("the top bar on a laptop: the least needed words give way below 1700 / 1440 / 1366 / 1800 px, each control keeping its icon, name and tooltip", () => {
+  // The Live / Demo switch keeps its words, on screen: e2e_smoke clicks "text=Live Mode".
+  assert.match(topbarSrc, /<FiCheckCircle size=\{13\} style=\{\{ marginRight: 5, verticalAlign: -2 \}\} \/>\s*\{t\("top\.liveMode"\)\}/);
+  assert.doesNotMatch(appCss, /\.pill-tab\s*\{[^}]*display:\s*none/, "no rule hides a pill, words and all");
   // Today's briefing: an icon with a name and a tooltip; its words may go.
   assert.match(topbarSrc, /title=\{t\("top\.briefingTitle"\)\} aria-label=\{t\("top\.todaysBriefing"\)\}>\s*<FiZap size=\{13\} \/> <span className="topbar-label topbar-wide-label">/);
   // The connection: its state's word always; the speed in its tooltip and its name as well as beside it.
@@ -95,7 +91,14 @@ test("the top bar on a laptop: the least needed words give way below 1600 / 1440
     assert.ok(at >= 0, `styles.css has @media ${query}`);
     return appCss.slice(at, appCss.indexOf("}\n}", at) + 3);
   };
-  assert.match(media("(max-width: 1599px)"), /\.app-topbar \.topbar-mode-word, \.app-topbar \.topbar-wide-label \{ display: none; \}/);
+  const wide = media("(max-width: 1699px)");
+  assert.match(wide, /\.app-topbar \.topbar-wide-label, \.app-topbar \.sound-toggle-label \{ display: none; \}/);
+  assert.match(appCss, /\n\.app-topbar \.pill-tab \{ white-space: nowrap; \}/, "the Live / Demo words never on two lines, at any width");
+  assert.match(wide, /\.app-topbar \.pill-tab > svg \{ display: none; \}/, "only the pills' icons give way, never their words");
+  assert.match(media("(min-width: 761px) and (max-width: 1365px)"), /\.app-topbar \.topbar-clock-sec \{ display: none; \}/);
+  // The clock's text stays whole: the seconds in a span of their own (e2e_topbar_status reads them at 1400 px).
+  assert.match(statusSrc, /\{time\.slice\(0, 5\)\}\s*<span className="topbar-clock-sec">\{time\.slice\(5, 8\)\}<\/span>\s*\{time\.slice\(8\)\}/);
+  assert.equal((topbarSrc.match(/className="topbar-name text-sm font-semibold notranslate" translate="no" title=\{user\?\.name\}/g) ?? []).length, 2, "a name cut short keeps the whole of it in its tooltip");
   assert.match(media("(min-width: 761px) and (max-width: 1439px)"), /\.app-topbar \.conn-badge \.conn-speed \{ display: none; \}/);
   assert.match(motivationCss, /@media \(max-width: 1799px\) \{\s*\.app-topbar \.streak-counter-label \{ display: none; \}/);
   // Never hidden: the sign-out, the bell, the connection's state.

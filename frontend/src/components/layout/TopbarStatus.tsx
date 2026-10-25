@@ -161,16 +161,23 @@ export function ConnectionStatus() {
   );
 }
 
-/** The time of day, ticking: hours, minutes and seconds, 12-hour. Its own state, so the tick redraws these few characters and nothing else. */
+/**
+ * The time of day, ticking: hours, minutes and seconds, 12-hour. Its own state, so the tick redraws these few characters and nothing
+ * else. The seconds in a span of their own: on a laptop narrower than 1366 px the top bar leaves them out (styles.css "THE TOP BAR
+ * ON A LAPTOP"), the text stays whole ("02:05:09 PM").
+ */
 export function Clock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, []);
+  const time = formatClock12h(now);
   return (
     <span className="topbar-clock notranslate" translate="no" data-clock title={now.toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}>
-      {formatClock12h(now)}
+      {time.slice(0, 5)}
+      <span className="topbar-clock-sec">{time.slice(5, 8)}</span>
+      {time.slice(8)}
     </span>
   );
 }

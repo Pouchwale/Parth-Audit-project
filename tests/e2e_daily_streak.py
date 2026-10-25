@@ -238,11 +238,12 @@ def wait_counter(page, states, timeout=10000):
     return counter(page)
 
 
-BAR_WIDTHS = (1280, 1366, 1440, 1920)
+BAR_WIDTHS = (1280, 1366, 1440, 1600, 1920)
 
 
 def check_bar_fits(page, who):
-    """The top bar fits the plant's laptops and a wide screen: no sideways scroll, one row, nothing past the edge."""
+    """The top bar fits the plant's laptops and a wide screen: no sideways scroll, one row, nothing on two lines (no item taller
+    than one line), nothing past the edge."""
     size = page.viewport_size
     for width in BAR_WIDTHS:
         page.set_viewport_size({"width": width, "height": 900})
@@ -253,12 +254,13 @@ def check_bar_fits(page, who):
                  const label = document.querySelector('.streak-counter-label');
                  return { page: document.documentElement.scrollWidth, inner: window.innerWidth, height: Math.round(bar.height),
                           right: Math.max(...items.map((el) => el.getBoundingClientRect().right)),
+                          tallest: Math.round(Math.max(...items.map((el) => el.getBoundingClientRect().height))),
                           spread: (() => { const c = items.map((el) => { const r = el.getBoundingClientRect(); return (r.top + r.bottom) / 2; }); return Math.round(Math.max(...c) - Math.min(...c)); })(),
                           word: label ? getComputedStyle(label).display : null }; }"""
         )
         check(
-            f"{who}: at {width} px the top bar fits - no sideways scroll, one row of 58 px, nothing past the edge",
-            m["page"] <= m["inner"] and m["height"] == 58 and m["right"] <= m["inner"] and m["spread"] < 12,
+            f"{who}: at {width} px the top bar fits - no sideways scroll, one row of 58 px, nothing on two lines, nothing past the edge",
+            m["page"] <= m["inner"] and m["height"] == 58 and m["right"] <= m["inner"] and m["spread"] < 12 and m["tallest"] <= 42,
             m,
         )
         if m["word"] is not None:

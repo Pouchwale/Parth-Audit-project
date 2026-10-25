@@ -51,18 +51,11 @@ export function Topbar() {
           {/* The Live / Demo switch exists only on a server started with Demo Mode
               (engine/features.ts, REQUIREMENTS §65). The product has one mode, and
               a lone "Live" pill would be a switch to nowhere. */}
-          {/* Its words only where the bar has room (styles.css, from 1600 px): below that the two icons, each
-              keeping its name (aria-label) and its tooltip. */}
           {demoModeAvailable() && (
             <div className="pill-tabs">
-              <div
-                className={`pill-tab ${mode === "live" ? "active" : ""}`}
-                {...pressable(() => setMode("live"), mode === "live")}
-                title={t("top.liveModeTitle")}
-                aria-label={t("top.liveMode")}
-              >
-                <FiCheckCircle size={13} style={{ verticalAlign: -2 }} aria-hidden="true" />
-                <span className="topbar-mode-word">{t("top.liveMode")}</span>
+              <div className={`pill-tab ${mode === "live" ? "active" : ""}`} {...pressable(() => setMode("live"), mode === "live")} title={t("top.liveModeTitle")}>
+                <FiCheckCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
+                {t("top.liveMode")}
               </div>
               <div
                 className={`pill-tab ${mode === "demo" ? "active" : ""}`}
@@ -71,10 +64,9 @@ export function Topbar() {
                   navigate("/demo");
                 }, mode === "demo")}
                 title={t("top.demoModeTitle")}
-                aria-label={t("top.demoMode")}
               >
-                <FiPlayCircle size={13} style={{ verticalAlign: -2 }} aria-hidden="true" />
-                <span className="topbar-mode-word">{t("top.demoMode")}</span>
+                <FiPlayCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
+                {t("top.demoMode")}
               </div>
             </div>
           )}
@@ -106,13 +98,17 @@ export function Topbar() {
           {user?.role === "admin" ? (
             <button className="btn btn-ghost btn-sm flex items-center gap-2" data-action="change-password" onClick={() => setChangingPassword(true)} title={`${user?.email ?? ""} — ${t("top.changePassword")}`}>
               <FiUser size={15} className="text-muted" />
-              <span className="topbar-name text-sm font-semibold notranslate" translate="no">{user?.name}</span>
+              <span className="topbar-name text-sm font-semibold notranslate" translate="no" title={user?.name}>
+                {user?.name}
+              </span>
               <span className="topbar-role badge badge-Verified">{t("top.admin")}</span>
             </button>
           ) : (
             <span className="btn btn-ghost btn-sm flex items-center gap-2" data-field="signed-in-as" title={user?.email ?? ""} style={{ cursor: "default" }}>
               <FiUser size={15} className="text-muted" />
-              <span className="topbar-name text-sm font-semibold notranslate" translate="no">{user?.name}</span>
+              <span className="topbar-name text-sm font-semibold notranslate" translate="no" title={user?.name}>
+                {user?.name}
+              </span>
             </span>
           )}
           {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
