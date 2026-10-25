@@ -1,3 +1,4 @@
+import { formatDisplayDateTime } from "../../utils/date";
 import React, { useState } from "react";
 import { FiRefreshCw, FiZap } from "react-icons/fi";
 import type { PreparedInfo, RecordStatus } from "../../types";
@@ -42,7 +43,7 @@ export function PreparedBanner({
                 : "Filled in by your assistant, then reviewed and submitted"}
           </div>
           <div className="text-xs text-muted mt-1">
-            Prepared {when.toLocaleString()} · based on {prepared.basedOn}
+            Prepared {formatDisplayDateTime(when)} · based on {prepared.basedOn}
           </div>
           <ul className="text-sm mt-2" style={{ margin: "8px 0 0 18px", padding: 0 }}>
             {prepared.notes.map((n, i) => (

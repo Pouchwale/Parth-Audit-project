@@ -5,7 +5,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { normalizeServiceLines } from "./serviceMaterials";
 import { codeRulesFor, softFgCodeProblem } from "./documentFormats";
-import { addDays, pad2, todayISO } from "../utils/date";
+import { addDays, pad2, todayISO, twoFigureYear } from "../utils/date";
 import { generateId } from "../utils/id";
 import { clearedLine, insertLines, lineRuleFor, lineWords, newLine, withoutLines, type LineRule } from "./recordLines";
 
@@ -127,12 +127,12 @@ export function normDate(v: unknown, today = todayISO()): string | null {
   if (s === "yesterday") return addDays(today, -1);
   if (s === "tomorrow") return addDays(today, 1);
   let m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
-  if (m) return isoOf(m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]), Number(m[2]), Number(m[1]));
+  if (m) return isoOf(m[3].length === 2 ? twoFigureYear(Number(m[3]), today) : Number(m[3]), Number(m[2]), Number(m[1]));
   m = s.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\.?,?\s*(\d{2,4})?$/);
   if (m) {
     const mi = MONTHS.indexOf(m[2].slice(0, 3));
     if (mi < 0) return null;
-    const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : Number(today.slice(0, 4));
+    const y = m[3] ? (m[3].length === 2 ? twoFigureYear(Number(m[3]), today) : Number(m[3])) : Number(today.slice(0, 4));
     return isoOf(y, mi + 1, Number(m[1]));
   }
   return null;

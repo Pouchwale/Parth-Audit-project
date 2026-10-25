@@ -50,7 +50,7 @@ export const SERVICE_LICENCE = {
   signedDate: "12-04-23",
   seal: "Licensing Authority & Dy Director (Extn.) MAHESANA",
   signatory: { name: "(S. S. PATEL)", title: "Deputy Director of Agriculture (Extension) Mehsana" },
-  printStamp: "Print : 12-Apr-2023 12:51:18 PM",
+  printStamp: "Print : 12-04-23 12:51:18 PM",
 
   termsTitle: "TERMS AND CONDITIONS OF THIS LICENSE",
   applicantLine: "Name of Applicant: Mr. GURUDEV PESTICIDES",

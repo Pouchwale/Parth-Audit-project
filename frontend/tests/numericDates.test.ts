@@ -20,7 +20,7 @@ import { displayDate as notificationDate } from "../src/engine/notificationText"
 import { readDate } from "../src/engine/roundTrip/values";
 import { containsAllTerms, recordSearchText, searchTerms } from "../src/engine/recordText";
 import { readSearchQuery } from "../src/engine/recordSearch";
-import { addDays, displayDateToISO, formatDisplayDate } from "../src/utils/date";
+import { addDays, displayDateToISO, formatDisplayDate, formatDisplayDateTime, twoFigureYear } from "../src/utils/date";
 import { forTheEar } from "../src/utils/earText";
 import { numberFormatKind } from "../src/engine/roundTrip/readFile";
 import { buildXlsx, isoToSerial, unzip } from "../src/utils/xlsx";
@@ -77,7 +77,6 @@ test("displayDateToISO: what is not a real day written that way is null", () => 
     "24-00-26",
     "24-13-26",
     "24-Oct-26", // the old words are the reader's business (roundTrip/values.ts), not this one's
-    "24-10-2026", // four figures for the year
     "2026-10-24",
     "24/10/26",
     "24.10.26",
@@ -90,6 +89,10 @@ test("displayDateToISO: what is not a real day written that way is null", () => 
   ]) {
     assert.equal(displayDateToISO(text), null, JSON.stringify(text));
   }
+  // Four figures for the year are the app's own writing for a date outside 2000-2099 (a date of birth in 1985).
+  assert.equal(displayDateToISO("15-06-1985"), "1985-06-15");
+  assert.equal(displayDateToISO("24-10-2026"), "2026-10-24");
+  assert.equal(displayDateToISO("31-02-1985"), null, "no 31 February in any year");
 });
 
 // ---------------------------------------------------------------------------
@@ -107,7 +110,9 @@ test("a date typed or saved in Excel is read back in every way: 24-10-26 as the 
   const read = (text: string) => readDate({ text }, "2026-10-05");
   assert.equal(read("24-10-26"), "2026-10-24", "the way the app now writes it");
   assert.equal(read("01-01-26"), "2026-01-01");
-  assert.equal(read("31-12-99"), "2099-12-31");
+  assert.equal(read("31-12-99"), "1999-12-31", "a two-figure year as a person means it: 99 is 1999, more than twenty years ahead");
+  assert.equal(read("05-07-98"), "1998-07-05", "a date of birth typed with two figures is the 1900s");
+  assert.equal(read("15-06-1985"), "1985-06-15", "and as the app writes it, with its four");
   assert.equal(read("24-Oct-2026"), "2026-10-24", "the way it was written until 24-Oct-2026");
   assert.equal(read("24-Oct-26"), "2026-10-24");
   assert.equal(read("24/10/2026"), "2026-10-24");
@@ -257,4 +262,38 @@ test("both Excel writers show a date cell as dd-mm-yy, and the reader still know
   assert.equal(numberFormatKind(164, "[$-409]dd\\-mmm\\-yyyy"), "date");
   assert.equal(numberFormatKind(164, "[$-409]dd\\-mm\\-yy"), "date");
   assert.equal(numberFormatKind(170, "dd/mm/yyyy;@"), "date");
+});
+
+// ---------------------------------------------------------------------------
+// a date outside 2000-2099, a typed two-figure year, text that is not a date, a moment (the audit of 25-Oct-2026)
+
+test("a date outside 2000-2099 keeps its four figures, so nothing reads a date of birth back as 20xx", () => {
+  assert.equal(formatDisplayDate("1985-06-15"), "15-06-1985");
+  assert.equal(formatDisplayDate("1999-12-31"), "31-12-1999");
+  assert.equal(formatDisplayDate("2100-01-01"), "01-01-2100");
+  for (const iso of ["1946-03-01", "1985-06-15", "1999-12-31", "2100-01-01"]) assert.equal(displayDateToISO(formatDisplayDate(iso)), iso, iso);
+  assert.equal(formatDisplayDate("2000-01-01"), "01-01-00", "2000 is in the two-figure years");
+});
+
+test("a two-figure year a person types is read as they mean it: up to twenty years ahead in the 2000s, else the 1900s", () => {
+  assert.equal(twoFigureYear(26, "2026-10-24"), 2026);
+  assert.equal(twoFigureYear(0, "2026-10-24"), 2000);
+  assert.equal(twoFigureYear(46, "2026-10-24"), 2046, "twenty years ahead: a calibration or a licence");
+  assert.equal(twoFigureYear(47, "2026-10-24"), 1947);
+  assert.equal(twoFigureYear(85, "2026-10-24"), 1985, "a date of birth");
+});
+
+test("text that is not a date as the app stores one comes back as it was written", () => {
+  assert.equal(formatDisplayDate("12.09.2026"), "12.09.2026", "a date column made Text in the Format Editor");
+  assert.equal(formatDisplayDate("as required"), "as required");
+  assert.equal(formatDisplayDate("2026-10-24T10:30:00"), "24-10-26", "a moment's date");
+});
+
+test("a moment is written as the app writes a date, with the time on the 24-hour clock", () => {
+  assert.equal(formatDisplayDateTime(new Date(2026, 9, 24, 15, 30, 12)), "24-10-26 15:30");
+  assert.equal(formatDisplayDateTime(new Date(2026, 0, 5, 9, 2).toISOString()), "05-01-26 09:02");
+  assert.equal(formatDisplayDateTime(new Date(2026, 0, 5, 9, 2).getTime()), "05-01-26 09:02");
+  assert.equal(formatDisplayDateTime(null), "");
+  assert.equal(formatDisplayDateTime(undefined), "");
+  assert.equal(formatDisplayDateTime("not a moment"), "");
 });

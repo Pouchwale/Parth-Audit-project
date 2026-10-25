@@ -256,10 +256,12 @@ export interface ScoreLine {
   openToday: number;
 }
 
-/** "09-Sep" within the year being looked at from, the whole date otherwise. */
-function shortDate(iso: string, today: string): string {
-  const full = formatDisplayDate(iso);
-  return iso.slice(0, 4) === today.slice(0, 4) ? full.slice(0, 6) : full;
+/**
+ * The date as the app writes one, "09-09-26" — the same as the server's escalation sentence (backend/escalation.ts). It
+ * used to be cut to its first six characters within the year ("09-Sep"); with numbers that left "09-09-" (§124).
+ */
+function shortDate(iso: string, _today: string): string {
+  return formatDisplayDate(iso);
 }
 
 function decide(t: Tally, g: Grade, today: string): Decision {

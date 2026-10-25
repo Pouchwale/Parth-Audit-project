@@ -1074,7 +1074,7 @@ whole calendar of that particular month — like file system."
 - **What opens**: the Document Files view for exactly the span asked for — a folder per module, a
   folder per document inside it, a folder per month, one dated file per record (status, who
   submitted/verified). Nothing dated outside the span is shown, and no other module's documents.
-- **Spans understood**: day to day ("from 3 June to 17 July", "1 to 19 January", ISO or dd-mm-yyyy
+- **Spans understood**: day to day ("from 3 June to 17 July", "1 to 19 January", ISO, dd-mm-yy (§124) or dd-mm-yyyy
   dates), month to month ("June to August" = 1 June – 31 August; "Nov 2025 to Feb 2026";
   "November to February" with no year runs into the next year), a single month, this/last/next
   week or month, and a single day. Month words are matched as whole words, so "marked" is not March
@@ -2345,7 +2345,7 @@ fetching.
 
 - *Download Excel* gives a real .xlsx workbook, *HR Master Data*: the heading row bold, frozen and filtered;
   GP3 No. held as text (a 0101 keeps its zero); Joining Date and Date of Birth as Excel dates shown
-  dd-mmm-yyyy, which read the same whatever Windows' regional setting. It opens in Excel without a repair
+  dd-mmm-yyyy (dd-mm-yy since §124, 24-Oct-2026), which read the same whatever Windows' regional setting. It opens in Excel without a repair
   prompt.
 - *Upload Excel / CSV* takes the sheet back — as HR saved it from Excel (shared strings, compressed, a title
   line above the headings, any column order), or as a CSV (UTF-8 or Excel's own, comma or semicolon). The
@@ -4079,8 +4079,8 @@ Name / Model No.: DCM Usimeca".
   that document's records only, and the count says "… in F/HR/17". Only a query that is nothing but a format number,
   however it is written, or a request to open one ("open F/HR/05"), lists the register. A number none of the person's
   documents carries finds nothing, and says so.
-- **Dates are found as they are shown and written**: a date stored as 2026-08-14 is found as 14-Aug-2026, 14/08/2026,
-  14.08.2026 and 14-08-2026 too, and a result shows it as 14-Aug-2026; a date written by hand as 12.09.2026 is found
+- **Dates are found as they are shown and written**: a date stored as 2026-08-14 is found as 14-08-26 (§124; 14-Aug-2026 before it, still found), 14/08/2026,
+  14.08.2026 and 14-08-2026 too, and a result shows it as 14-08-26 (§124); a date written by hand as 12.09.2026 is found
   as 2026-09-12 and 12-Sep-2026 too. A slashed date written on a record is left as written (the HR sheets carry
   month-first dates), and an impossible date or one inside a sentence is never converted.
 - With Gujarati chosen, a result's heading may be translated; its line and value — what people wrote — carry
@@ -7838,7 +7838,7 @@ and what was done:
   GUAJRAT, INDIA - 384002" under their Format number line; F/QC/21 Flexo Ink its own "308/9 GIDC, DEDIYASAN, MEHSANA -
   384002, GUJARAT, INDIA" above its system-generated line (notesAtFoot). The paper's spellings are kept.
 - *A written date prints as written* (utils/print.ts): for the length of a print every written date or time box in a
-  document prints as text in its place ("14-Oct-2026", "10:17"), not the browser's drawing of it ("14·10·2026",
+  document prints as text in its place ("14-10-26" since §124, "14-Oct-2026" before it; "10:17"), not the browser's drawing of it ("14·10·2026",
   "13 - 10 - 2026", the owner's "12..10..2026").
 - *F-QC-19's tolerance card* draws its nine printed headings (the second "ERROR : OTHER" and "ERROR : IN BATCH COADING
   AREA" were missing). Its sheet prints seven APPROVED BY / SIGN. boxes for nine headings, ten banners and ten DOC NO.
@@ -8811,7 +8811,7 @@ the download expects.
   utility test's nine ruled lines, the ones not written printed blank and never stored; F/QC/20's band title a little above the band's
   middle, its dated foot's Format number at the left of its cell and its "1st" no longer making the line taller. *Stays different:* the
   papers are filled specimens (the Nivea labels, the analysis of 07.01.2022), which a new record does not copy (most of what the utility
-  test's score still counts); dates print as DCRS writes them (14-Oct-2026) where the papers write 01.06.2022.
+  test's score still counts); dates print as DCRS writes them (14-10-26 since §124) where the papers write 01.06.2022.
 - *F/QC/30's minutes of meetings* (60.3 -> 70.0). On the same framed page, they printed their boxes stacked as a web form and their
   key points as a ruled grid. In print (rules scoped to the minutes; the boxes, names and bindings as they were) Client Name, Location
   and Date are now the paper's two-column ruled table, Calibri 12 pt, the words bold; Subject: and Participants : stand on lines of
@@ -8891,7 +8891,7 @@ clearances (none of them prints all four); the Add Row button and each line's bi
 F/QC/16, F-QC-32); the boxes' yellow and the specimen source line under every sheet.
 
 *Stays different from the paper:* the company's one name (the owner's rule of 2-Oct-2026) where a paper spells it otherwise;
-dates print as DCRS writes them (12-Feb-2022) where the papers write 12.02.2022; F-QC-40's degree sign "°" where the papers print
+dates print as DCRS writes them (12-02-22 since §124) where the papers write 12.02.2022; F-QC-40's degree sign "°" where the papers print
 "⁰"; F-QC-30 prints its hour slots' line numbers as the owner asked on 14-Oct-2026; the scans' Gujarati in Nirmala UI, not the
 papers' face; F/QC/13's "QA પર્સન" on one line where the scan runs "પર્સન" under its box's rule.
 
@@ -9425,6 +9425,55 @@ on physical paper the print will come properly but it not cover whole page and f
    lines gone after printing; tests/e2e_print_all_documents.py still finds the reports at the March sheet's 432 pt and
    every document's grids inside the page), frontend/tests/printFill.test.ts (the fill's rules), and the sign-in and
    Mitra suites changed with items 1-3.
+
+## §124 Every date written in numbers, day-month-year: 24-10-26, never 24-Oct-2026 (24-Oct-2026)
+
+The owner, 24-Oct-2026, with a print preview of F/QC/12 (its Date read "22-Oct-2026", cut at the cell's edge): "So just make
+changes in data in all those format and like it should be like date-month-year all are number like this example:- 24-10-26 and
+not 24-oct-2026 and this applies to all document for all modules. SO do it fix fast".
+
+1. **One way of writing a date, in numbers.** `utils/date.ts` `formatDisplayDate` is the app's one writer of a date: day-month-year
+   in numbers with two figures for the year, "24-10-26". A date outside 2000-2099 - a date of birth in 1985 - keeps its four
+   figures, "15-06-1985", so nothing ever reads it back as 20xx; no date still says TO BE CONFIRMED, and text that is not a date
+   as the app stores one comes back as it was written. `displayDateToISO` reads back exactly what it writes. A moment is
+   `formatDisplayDateTime`, "24-10-26 15:30" (a record's Created, Prepared, Submitted, Verified and Last saved, its history and
+   corrections, the activity log, a deleted document), where the browser's own locale wrote it before.
+   It is every record's dates on screen and in print (a date box prints its words as the sheet writes dates, §111 part 6), the
+   header block's Date and Rev Date ("01-12-21"), the registers and forms of every module, Word and Excel downloads (a real date
+   cell's number format is dd-mm-yy, in the documents' writer and in the generic writer HR Master Data uses), Mitra's replies
+   and her briefing, the Performance Scorecard's sentences (its "short" date was cut to six characters, which left "09-09-":
+   the whole date now), the bell and the phone notifications, the escalation notes, the activity log's and the records
+   archive's notes, the Access dashboard's days and device times, the phone API's messages and examples
+   (docs/api/dcrs-api.openapi.json, docs/chatbot-integration.md), the data dictionary's stamp, the adjustment days' holiday
+   labels ("Republic Day (26-01-26)"), the document descriptions' own dates and the licence page. A date short of its box also
+   stops being cut at the edge.
+2. **What keeps its own writing.** A paper's own words: a revision date the paper writes with dots or slashes ("01.12.2021",
+   "01/01.01.2022"), the contractor's service reports ("07.03.2026", §118), F/HR/18's own page ("24/10/26"), the Statements of
+   Compliance's own words, and the owner's own files when downloaded (the filler writes a Rev Date the paper's way,
+   16.02.2022). Not dates: month-year labels ("Oct-26", "October 2026"), long prose ("Friday 2 October at 8:40 am", §84) and the
+   provenance notes of the documents' sources ("as supplied 18-Sep-2026", shown on screen only). A date box open for writing is
+   the browser's own control and shows the browser's order. Master Data already saved on a plant's database keeps the words it
+   was saved with (the new holiday labels are the seed's).
+3. **Read back.** Everything that took a date still takes the old ways, and now the new one too: Mitra reads "24-10-26" and
+   "24/10/26" (and still 24-10-2026, 24 Oct); an Excel or Word file uploaded back reads dd-mm-yy and the old dd-Mmm-yyyy and the
+   serial of a date cell; search finds a date typed eight ways (2026-08-14, 14-08-26, 14-Aug-2026, 14/08/2026, 14.08.2026,
+   14-08-2026, 14/08/26, 14.08.26); the filler of the owner's own files reads a date cell as a month heading by its middle
+   figure; the voice says "24-10-26" as a date ("24th October", in Gujarati and Hindi with the month's own name). A two-figure
+   year a PERSON types is read as they mean it (`twoFigureYear`): in the 2000s up to twenty years ahead, else the 1900s - a
+   date of birth "05-07-98" is 1998. Mitra's history answers keep working on numeric labels: a typed dd-mm-yy counts as a year
+   written, a label that already carries its dates is not dated twice (the old style too, in a conversation kept from before),
+   and "a year back" moves a dd-mm-yy date.
+4. **Proved:** tests/e2e_print_all_documents.py prints every document and finds no date written with a month's name on any
+   printout (what the paper shows, the screen-only notes left out); frontend/tests/numericDates.test.ts and
+   backend/tests/numericDates.test.ts (the writer and its reader over every day of 2000-2099, four figures outside them, a typed
+   two-figure year, a moment, Mitra's, the voice's, search's and the Excel writers' and reader's dates); every unit and browser
+   expectation brought to the new style; the print of F/QC/12, F/PRD/23, F/QC/01, F/HR/18, F/DISP/04 and the service reports looked
+   at; and the suites print_all_documents, smoke, qc_calibration, downloads_and_print, upload_changes, header_editing,
+   hr_master_data, qc_formats, mitra_format, sys_module, voice_and_sounds, sheet_designer, user_access, print_fill and
+   print_and_forms green. Two older failures came to light on the way and fail the same on the code before this change:
+   e2e_marketing_module looked for a record's own date in its header block, which has had no Date cell since §117 (now read
+   from the record), and e2e_portal_controls still expects Rev 01/02 in F/QC/01's header, which became the QC paper's own
+   header (open).
 
 ## Master data provenance summary
 

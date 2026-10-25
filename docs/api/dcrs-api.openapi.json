@@ -1272,7 +1272,7 @@
                   "readyToSubmit": [],
                   "needsInput": [],
                   "awaitingVerification": [],
-                  "facts": "Today: Wednesday, 30-Sep-2026 — Working day.\nTomorrow: Thursday, 01-Oct-2026 — Thursday — weekly off.\n…\nRecords due today: 9 (1 submitted or verified, 8 still open). Prepared by the assistant and waiting for review: 8. Awaiting verification: 0. Overdue: 0.\nUser: Kapila Barad.",
+                  "facts": "Today: Wednesday, 30-09-26 — Working day.\nTomorrow: Thursday, 01-10-26 — Thursday — weekly off.\n…\nRecords due today: 9 (1 submitted or verified, 8 still open). Prepared by the assistant and waiting for review: 8. Awaiting verification: 0. Overdue: 0.\nUser: Kapila Barad.",
                   "workingHours": {
                     "enforced": true,
                     "start": "08:40",
@@ -2133,7 +2133,7 @@
                 },
                 "example": {
                   "question": "which machine broke down most this year?",
-                  "period": "this year, 2026 (01-Jan-2026 to 30-Sep-2026)",
+                  "period": "this year, 2026 (01-01-26 to 30-09-26)",
                   "from": "2026-01-01",
                   "to": "2026-09-30",
                   "topics": [
@@ -2141,7 +2141,7 @@
                   ],
                   "evidence": [
                     "ABOUT THIS EVIDENCE:",
-                    "- Period asked about: this year, 2026 (01-Jan-2026 to 30-Sep-2026). Today: 30-Sep-2026.",
+                    "- Period asked about: this year, 2026 (01-01-26 to 30-09-26). Today: 30-09-26.",
                     "MAINTENANCE:",
                     "- No breakdown memo (F/MNT/05) in the period."
                   ],
@@ -2966,7 +2966,7 @@
                 },
                 "example": {
                   "date": "2026-10-02",
-                  "headline": "Insights (2 high, 0 medium, 0 low): [high] Device 1-54, 2-55, 3-56, 4-57 (F/QC/11): calibration expired on 22-Sep-2025, 375 days ago; [high] Device QC-76 (F/QC/12): calibration expired on 27-Aug-2024, 766 days ago;",
+                  "headline": "Insights (2 high, 0 medium, 0 low): [high] Device 1-54, 2-55, 3-56, 4-57 (F/QC/11): calibration expired on 22-09-25, 375 days ago; [high] Device QC-76 (F/QC/12): calibration expired on 27-08-24, 766 days ago;",
                   "counts": {
                     "high": 2,
                     "medium": 0,
@@ -2982,8 +2982,8 @@
                       "documentId": "mnt-lux-level",
                       "formatNo": "F/MNT/11",
                       "document": "Lux Level Measurement Record",
-                      "title": "QC Lab - Colour matching cabinet: light fell 45% (1863 → 1025 lux) between 11-May-2024 and 12-Aug-2025",
-                      "detail": "Measured on F/MNT/11: 1863 lux on 11-May-2024, 1025 lux on 12-Aug-2025. … check its lamps before the next colour approval.",
+                      "title": "QC Lab - Colour matching cabinet: light fell 45% (1863 → 1025 lux) between 11-05-24 and 12-08-25",
+                      "detail": "Measured on F/MNT/11: 1863 lux on 11-05-24, 1025 lux on 12-08-25. … check its lamps before the next colour approval.",
                       "metric": {
                         "label": "Change",
                         "value": "−45%"
@@ -2999,8 +2999,8 @@
                       ],
                       "evidenceTotal": 2,
                       "suggestedCapa": {
-                        "finding": "Lux level at QC Lab - Colour matching cabinet fell 45% (1863 → 1025 lux) between 11-May-2024 and 12-Aug-2025 (F/MNT/11).",
-                        "comment": "F/MNT/11 of 11-May-2024: 1863 lux; F/MNT/11 of 12-Aug-2025: 1025 lux.",
+                        "finding": "Lux level at QC Lab - Colour matching cabinet fell 45% (1863 → 1025 lux) between 11-05-24 and 12-08-25 (F/MNT/11).",
+                        "comment": "F/MNT/11 of 11-05-24: 1863 lux; F/MNT/11 of 12-08-25: 1025 lux.",
                         "action": "Check and replace the cabinet's lamps as its maker specifies, measure again, and confirm colour judgement there before the next approval."
                       },
                       "route": "/record/seed-mnt-lux-2025",
@@ -3088,7 +3088,7 @@
                       "period": "2026-W40",
                       "late": 3,
                       "neverDone": 0,
-                      "sentence": "3 late in the 30 days to 02-Oct-2026 — F-QC-30: 3 late",
+                      "sentence": "3 late in the 30 days to 02-10-26 — F-QC-30: 3 late",
                       "raisedAt": "2026-10-01T04:30:00.000Z",
                       "updatedAt": "2026-10-02T04:30:00.000Z",
                       "acknowledged": false,
@@ -3244,7 +3244,7 @@
                       "kind": "needs_input",
                       "priority": "high",
                       "title": "12 readings to enter: Daily Pest Control Monitoring Record",
-                      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to enter, then submit.",
+                      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-10-26 is ready for you: 12 readings to enter, then submit.",
                       "data": {
                         "documentId": "daily-pest-monitoring",
                         "formatNo": "F/HR/17",
@@ -3447,7 +3447,7 @@
                       "kind": "needs_input",
                       "priority": "high",
                       "title": "12 readings to enter: Daily Pest Control Monitoring Record",
-                      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to enter, then submit.",
+                      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-10-26 is ready for you: 12 readings to enter, then submit.",
                       "data": {
                         "documentId": "daily-pest-monitoring",
                         "formatNo": "F/HR/17",
@@ -4674,7 +4674,7 @@
             "examples": {
               "needs-reopen": {
                 "value": {
-                  "error": "the Adhesive Mixing Ratio Record of 30-Sep-2026 is Pending Verification and cannot be changed as it stands. Reopen it for correction first, with a reason (action \"reopen\"); it will then need submitting and verifying again.",
+                  "error": "the Adhesive Mixing Ratio Record of 30-09-26 is Pending Verification and cannot be changed as it stands. Reopen it for correction first, with a reason (action \"reopen\"); it will then need submitting and verifying again.",
                   "code": "needs-reopen",
                   "status": "Pending Verification",
                   "canReopen": true
@@ -4682,7 +4682,7 @@
               },
               "wrong-status": {
                 "value": {
-                  "error": "the Adhesive Mixing Ratio Record of 30-Sep-2026 is Pending Verification: only a record being filled in can be submitted.",
+                  "error": "the Adhesive Mixing Ratio Record of 30-09-26 is Pending Verification: only a record being filled in can be submitted.",
                   "code": "wrong-status",
                   "status": "Pending Verification",
                   "actions": [
@@ -4711,7 +4711,7 @@
               },
               "needs-review": {
                 "value": {
-                  "error": "The assistant prepared the Lamination Adhesive Viscosity Record of 09-Oct-2026. Check every value, tick \"Reviewed and correct\", then submit it.",
+                  "error": "The assistant prepared the Lamination Adhesive Viscosity Record of 09-10-26. Check every value, tick \"Reviewed and correct\", then submit it.",
                   "code": "needs-review"
                 }
               }
@@ -6475,7 +6475,7 @@
           },
           "title": {
             "type": "string",
-            "description": "\"the Lamination Adhesive Viscosity Record of 11-Oct-2026\"."
+            "description": "\"the Lamination Adhesive Viscosity Record of 11-10-26\"."
           },
           "status": {
             "type": "string"

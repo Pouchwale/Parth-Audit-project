@@ -362,7 +362,9 @@ with sync_playwright() as p:
     d = stored_doc(page, "mkt-customer-feedback")
     check("The format now carries the new company name, Rev 02 dated 01-09-26 — its number untouched", d.get("companyName") == NEW_COMPANY and d.get("revisionNo") == "02" and d.get("revisionDate") == "2026-09-01" and d.get("formatNo") == "F/MKT/01", d)
     open_page(page, "#/record/seed-mkt-feedback-pidilite-2025-01", settle=1500)
-    check("Pidilite's record is headed with the new name and Rev 02 — its own date kept", header_company(page) == NEW_COMPANY and "02" in page.locator(".doc-header").inner_text() and "22-01-25" in page.locator(".doc-header").inner_text(), page.locator(".doc-header").inner_text())
+    # Its own date is the record's, 22-01-25 (the header block carries no Date cell since REQUIREMENTS §117).
+    pidilite = next((r for r in records(page) if r.get("id") == "seed-mkt-feedback-pidilite-2025-01"), {})
+    check("Pidilite's record is headed with the new name and Rev 02 — its own date kept", header_company(page) == NEW_COMPANY and "02" in page.locator(".doc-header").inner_text() and pidilite.get("dueDate") == "2025-01-22", (page.locator(".doc-header").inner_text(), pidilite.get("dueDate")))
     # Back to the issued format: the designer's dialog restores it.
     open_page(page, "#/document/mkt-customer-feedback", settle=1200)
     page.click("[data-action='edit-format']")

@@ -1,3 +1,4 @@
+import { displayDate } from "../frontend/src/engine/notificationText.ts";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { Express, NextFunction, Request, RequestHandler, Response } from "express";
@@ -803,7 +804,7 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     if (await refuseOtherDepartment(store, res, PEST_DAILY_DOCUMENT_ID, "The daily pest control reports")) return null;
     const record = (await recordsView(store)).pestByDate.get(date);
     if (!record) {
-      fail(res, 404, "no-report", `There is no daily pest control report (F/HR/17) in DCRS for ${date}.`);
+      fail(res, 404, "no-report", `There is no daily pest control report (F/HR/17) in DCRS for ${displayDate(date)}.`);
       return null;
     }
     return { date, record };

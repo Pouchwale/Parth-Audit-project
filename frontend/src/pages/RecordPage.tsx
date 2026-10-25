@@ -54,7 +54,7 @@ import { supersededRevisionOf } from "../engine/validation";
 import { logActivity } from "../utils/activityLog";
 import { recordLabel } from "../engine/recordHistory";
 import { documentLayoutIn, documentTextIn, isGujaratiDocument } from "../i18n/documentText";
-import { formatDisplayDate, todayISO } from "../utils/date";
+import { formatDisplayDate, formatDisplayDateTime, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
@@ -601,19 +601,19 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
       <div className="card mt-4 no-print">
         <div className="card-pad flex gap-6 wrap text-xs text-muted">
-          <div>Created: {new Date(record.createdAt).toLocaleString()}</div>
-          {record.prepared && <div>Prepared by assistant: {new Date(record.prepared.at).toLocaleString()}</div>}
+          <div>Created: {formatDisplayDateTime(record.createdAt)}</div>
+          {record.prepared && <div>Prepared by assistant: {formatDisplayDateTime(record.prepared.at)}</div>}
           {record.submittedAt && (
             <div>
-              Submitted: {new Date(record.submittedAt).toLocaleString()} by <span translate="no">{record.submittedBy}</span>
+              Submitted: {formatDisplayDateTime(record.submittedAt)} by <span translate="no">{record.submittedBy}</span>
             </div>
           )}
           {record.verifiedAt && (
             <div>
-              Verified: {new Date(record.verifiedAt).toLocaleString()} by <span translate="no">{record.verifiedBy}</span>
+              Verified: {formatDisplayDateTime(record.verifiedAt)} by <span translate="no">{record.verifiedBy}</span>
             </div>
           )}
-          <div>Last saved: {new Date(record.updatedAt).toLocaleString()}</div>
+          <div>Last saved: {formatDisplayDateTime(record.updatedAt)}</div>
         </div>
       </div>
 

@@ -557,7 +557,7 @@ It can be refused in three ways:
   "due": [{ "documentId": "qc-adhesive-mixing", "formatNo": "F-QC-32", "document": "Adhesive Mixing Ratio Record", "dueDate": "2026-09-30", "status": "In Progress", "recordId": "rec-munyt9an-14-7g7ku2", "started": true, "route": "/record/rec-munyt9an-14-7g7ku2", "link": "http://dcrs-host:4000/index.html#/record/rec-munyt9an-14-7g7ku2" }],
   "upcoming": [{ "documentId": "qc-viscosity", "formatNo": "F-QC-30", "document": "Lamination Adhesive Viscosity Record", "dueDate": "2026-10-02", "status": null, "recordId": null, "started": false }],
   "readyToSubmit": [], "needsInput": [], "awaitingVerification": [],
-  "facts": "Today: Wednesday, 30-Sep-2026 — Working day.\n…\nRecords due today: 9 (1 submitted or verified, 8 still open). …",
+  "facts": "Today: Wednesday, 30-09-26 — Working day.\n…\nRecords due today: 9 (1 submitted or verified, 8 still open). …",
   "workingHours": { "enforced": true, "start": "08:40", "end": "18:20", "openNow": true, "hoursText": "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.", "todayText": "Today is a working day — staff hours run until 6:20 pm.", "heldToHours": true, "forYou": null }
 }
 ```
@@ -664,13 +664,13 @@ With every message, DCRS gives Mitra one line of what stands out in the records 
 
 ```json
 { "date": "2026-10-02",
-  "headline": "Insights (2 high, 0 medium, 0 low): [high] Device 1-54, 2-55, 3-56, 4-57 (F/QC/11): calibration expired on 22-Sep-2025, 375 days ago; [high] Device QC-76 (F/QC/12): calibration expired on 27-Aug-2024, 766 days ago;",
+  "headline": "Insights (2 high, 0 medium, 0 low): [high] Device 1-54, 2-55, 3-56, 4-57 (F/QC/11): calibration expired on 22-09-25, 375 days ago; [high] Device QC-76 (F/QC/12): calibration expired on 27-08-24, 766 days ago;",
   "counts": { "high": 2, "medium": 0, "low": 0 }, "total": 2,
   "insights": [{ "rule": "C3", "severity": "high", "module": "Quality Control — Inspection Records", "documentId": "qc-weight-scale-calibration", "formatNo": "F/QC/12",
-    "title": "Device QC-76 (F/QC/12): calibration expired on 27-Aug-2024, 766 days ago",
-    "detail": "The latest F/QC/12 sheet for QC-76 (27-Mar-2024) gives Calibration Expiry 27-Aug-2024. …",
+    "title": "Device QC-76 (F/QC/12): calibration expired on 27-08-24, 766 days ago",
+    "detail": "The latest F/QC/12 sheet for QC-76 (27-03-24) gives Calibration Expiry 27-08-24. …",
     "metric": { "label": "Expired", "value": "766 days ago" },
-    "evidence": [{ "recordId": "qc-weight-scale-calibration-2024-03", "documentId": "qc-weight-scale-calibration", "dueDate": "2024-03-27", "field": "calibrationExpiry", "value": "27-Aug-2024" }], "evidenceTotal": 1 }] }
+    "evidence": [{ "recordId": "qc-weight-scale-calibration-2024-03", "documentId": "qc-weight-scale-calibration", "dueDate": "2024-03-27", "field": "calibrationExpiry", "value": "27-08-24" }], "evidenceTotal": 1 }] }
 ```
 
 A record the insight was read from that DCRS's calendar has not stored yet has `recordId` null, as in the lists.
@@ -683,7 +683,7 @@ Every working day DCRS's server works out who keeps handing records in late or l
 { "open": true, "today": "2026-10-02", "week": "2026-W40",
   "summary": "Escalated to the super admin, not yet acknowledged: Kapila Barad (3 late).",
   "waiting": 1, "total": 1,
-  "escalations": [{ "kind": "person", "subjectName": "Kapila Barad", "departmentName": "Quality Control", "late": 3, "neverDone": 0, "sentence": "3 late in the 30 days to 02-Oct-2026 — F-QC-30: 3 late", "acknowledged": false, "records": [{ "what": "F-QC-30", "dueDate": "2026-09-28", "outcome": "late", "daysLate": 2 }] }] }
+  "escalations": [{ "kind": "person", "subjectName": "Kapila Barad", "departmentName": "Quality Control", "late": 3, "neverDone": 0, "sentence": "3 late in the 30 days to 02-10-26 — F-QC-30: 3 late", "acknowledged": false, "records": [{ "what": "F-QC-30", "dueDate": "2026-09-28", "outcome": "late", "daysLate": 2 }] }] }
 ```
 
 Escalations name people, so only the super admin gets them. Anybody else is refused with `403 super-admin-only`. Reading them changes nothing. An escalation is acknowledged in DCRS itself.
@@ -727,7 +727,7 @@ The patch is Mitra's own shape. DCRS applies it exactly as Mitra does:
 **The dry run.** Send the same body with `"dryRun": true` and DCRS answers what the patch would do, writing nothing:
 
 ```json
-{"dryRun": true, "recordId": "rec-…", "title": "the Adhesive Mixing Ratio Record of 14-Oct-2026", "status": "In Progress", "editable": true, "willReopen": false,
+{"dryRun": true, "recordId": "rec-…", "title": "the Adhesive Mixing Ratio Record of 14-10-26", "status": "In Progress", "editable": true, "willReopen": false,
  "changes": [{"label": "Row 3 (10:00)", "before": "10:00, 20.4, Jeni", "after": "(row removed)"}],
  "added": [], "removed": ["line 3 (10:00, 20.4, Jeni)"], "cleared": [], "problems": []}
 ```
@@ -765,7 +765,7 @@ Word the confirmation card from `removed`, `cleared` and `added` (their words ar
 **A record not open for writing.** A submitted, verified or sent-back record is `409 needs-reopen`. Mitra asks the person before she reopens a record, and so must the app. Reopen it with a reason first (the `reopen` action below), then change it.
 
 ```json
-{ "error": "the Adhesive Mixing Ratio Record of 30-Sep-2026 is Pending Verification and cannot be changed as it stands. Reopen it for correction first, with a reason (action \"reopen\"); it will then need submitting and verifying again.", "code": "needs-reopen", "status": "Pending Verification", "canReopen": true }
+{ "error": "the Adhesive Mixing Ratio Record of 30-09-26 is Pending Verification and cannot be changed as it stands. Reopen it for correction first, with a reason (action \"reopen\"); it will then need submitting and verifying again.", "code": "needs-reopen", "status": "Pending Verification", "canReopen": true }
 ```
 
 ### Acting on a record (CHANGE)
@@ -927,7 +927,7 @@ The website reads the same through its session cookie: `GET /api/notifications` 
     {
       "id": 412, "kind": "needs_input", "priority": "high",
       "title": "12 readings to enter: Daily Pest Control Monitoring Record",
-      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to enter, then submit.",
+      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-10-26 is ready for you: 12 readings to enter, then submit.",
       "data": { "documentId": "daily-pest-monitoring", "formatNo": "F/HR/17", "documentName": "Daily Pest Control Monitoring Record", "module": "HR", "recordId": "rec-mgj2k1-7-abcd12", "dueDate": "2026-10-09", "count": 12 },
       "createdAt": "2026-10-09T03:00:12.000Z", "readAt": null, "resolvedAt": null
     }
@@ -947,7 +947,7 @@ DCRS sends the pushes itself, through Expo's push service, to the tokens registe
 {
   "to": "ExponentPushToken[...]",
   "title": "Ready for you: Lamination Adhesive Viscosity Record",
-  "body": "F-QC-30 Lamination Adhesive Viscosity Record of 09-Oct-2026 is ready. Review it, then submit.",
+  "body": "F-QC-30 Lamination Adhesive Viscosity Record of 09-10-26 is ready. Review it, then submit.",
   "data": { "url": "mitra://task/rec-mgj2k1-7-abcd12", "kind": "ready", "notificationId": 413, "recordId": "rec-mgj2k1-7-abcd12", "count": 1 },
   "channelId": "tasks",
   "priority": "high",

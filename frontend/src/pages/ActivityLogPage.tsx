@@ -8,7 +8,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { actionsHeld, activityQuery, anyChip, matchingLines, NO_CHIPS, SPAN_IDS, type ActivityChips, type SpanId } from "../engine/activityFilters";
 import { Modal } from "../components/common/Modal";
 import { downloadCSV, toCSV } from "../utils/csv";
-import { formatDisplayDate } from "../utils/date";
+import { formatDisplayDate, formatDisplayDateTime } from "../utils/date";
 import { oneNumberLabel } from "../engine/lineNumbers";
 import { APPROVED, countOf, FILLED_IN, SUBMITTED, worked, type ActivityTally } from "../engine/activityWork";
 
@@ -154,7 +154,7 @@ export function ActivityLogPage() {
       "activity-log.csv",
       toCSV(
         ["When", "Who", "Email", "What", "On", "Detail", "Department", ...(archived ? ["Archived"] : [])],
-        lines.map((l) => [new Date(l.at).toLocaleString(), l.userName, l.userEmail, l.action, l.target, oneNumberLabel(l.detail), l.department, ...(archived ? [l.archived ? "Yes" : ""] : [])])
+        lines.map((l) => [formatDisplayDateTime(l.at), l.userName, l.userEmail, l.action, l.target, oneNumberLabel(l.detail), l.department, ...(archived ? [l.archived ? "Yes" : ""] : [])])
       )
     );
 
@@ -274,7 +274,7 @@ export function ActivityLogPage() {
                     <td className="text-sm" data-field="active-days">{tl.activeDays}</td>
                     <td className="text-sm text-muted" data-field="total">{tl.total}</td>
                     <td className="text-sm text-muted notranslate" translate="no">
-                      {new Date(tl.lastAt).toLocaleString()}
+                      {formatDisplayDateTime(tl.lastAt)}
                     </td>
                   </tr>
                 ))}
@@ -353,7 +353,7 @@ const Rows = memo(function Rows({ lines }: { lines: Line[] }) {
       {lines.map((l) => (
         <tr key={l.id} data-activity={l.action} data-department={l.department || undefined} data-archived={l.archived ? "1" : undefined}>
           <td className="text-sm notranslate" translate="no">
-            {new Date(l.at).toLocaleString()}
+            {formatDisplayDateTime(l.at)}
           </td>
           <td className="text-sm notranslate" translate="no" title={l.userEmail}>
             {l.userName || "—"}

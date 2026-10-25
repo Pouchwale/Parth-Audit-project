@@ -173,8 +173,8 @@ test("an adjustment Thursday is open; a plain Thursday is the weekly off", () =>
   const adj = plantNow(SEED, ist("2026-10-22", 10, 0), IST);
   assert.equal(adj.today.kind, "adjustment");
   assert.equal(adj.phase, "open");
-  assert.equal(adj.today.name, "Navratri Navam (20-10-2026)");
-  assert.equal(todaySentence(adj), "Today is Thursday, an adjustment day for Navratri Navam (20-10-2026), so the plant works — staff hours run until 6:20 pm.");
+  assert.equal(adj.today.name, "Navratri Navam (20-10-26)");
+  assert.equal(todaySentence(adj), "Today is Thursday, an adjustment day for Navratri Navam (20-10-26), so the plant works — staff hours run until 6:20 pm.");
   for (const d of ["2026-01-22", "2026-08-06", "2026-11-05"]) assert.equal(plantNow(SEED, ist(d, 10, 0), IST).open, true, d);
 
   const plain = plantNow(SEED, ist("2026-10-15", 10, 0), IST);

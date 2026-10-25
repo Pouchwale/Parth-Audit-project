@@ -7,7 +7,7 @@ import { useRouter } from "../store/router";
 import { canDesignGrid } from "../engine/formatOps";
 import { requestDesign } from "../engine/designSession";
 import { getDocumentInfo } from "../engine/documentInfo";
-import { formatDisplayDate, todayISO } from "../utils/date";
+import { formatDisplayDate, formatDisplayDateTime, todayISO } from "../utils/date";
 import { useAppStore } from "../store/AppStore";
 import { createRecordForDocument, deletionLog } from "../engine/recordCrud";
 import type { DocumentDefinition } from "../types";
@@ -450,7 +450,7 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                       <span className="badge badge-Rejected">{d.status}</span>
                     </td>
                     <td translate="no">{d.deletedBy}</td>
-                    <td className="text-sm">{new Date(d.deletedAt).toLocaleString()}</td>
+                    <td className="text-sm">{formatDisplayDateTime(d.deletedAt)}</td>
                     <td className="text-sm">{d.reason || "—"}</td>
                   </tr>
                 ))}

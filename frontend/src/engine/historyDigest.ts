@@ -246,7 +246,8 @@ const SINCE_RE = /\bsince\b(?!\s+(?:the\s+)?(?:start|beginning)\b)/;
 // and read as this year's it was, and the question was dropped. So is "last
 // December", and "last September" asked in September. Not when the message
 // says it is about what is to come.
-const YEAR_WRITTEN_RE = /\b(?:19|20)\d{2}\b/;
+// ...or a date written with its year in two figures, dd-mm-yy, as the app writes one and Mitra reads one (§124).
+const YEAR_WRITTEN_RE = /\b(?:19|20)\d{2}\b|\b\d{1,2}[-/]\d{1,2}[-/]\d{2}\b/;
 const FUTURE_RE = /\b(?:next|coming|upcoming|tomorrow|will|shall|going to|planned|scheduled)\b/;
 const MONTH_NAMES_SRC = "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
 const MONTH_NAMED_RE = new RegExp(`\\b${MONTH_NAMES_SRC}\\b`);
@@ -305,8 +306,9 @@ function periodOf(text: string, today: string): Period | "none" | null {
   return named;
 }
 
-/** A label that already carries a date as the app writes one, "05-08-26" (utils/date.ts formatDisplayDate). */
-const DATE_IN_LABEL = /\d{2}-\d{2}-\d{2}/;
+/** A label that already carries a date as the app writes one, "05-08-26" (utils/date.ts formatDisplayDate) - or as it
+ * wrote one until 24-Oct-2026, "05-Aug-2026", in a conversation kept from before. */
+const DATE_IN_LABEL = /\d{2}-(?:\d{2}-\d{2}|[A-Z][a-z]{2}-\d{4})/;
 
 /** The period a message names in so many words, before anything stretches it (see periodOf). */
 function namedPeriod(text: string, lower: string, today: string): Period | "none" | null {
@@ -395,8 +397,11 @@ function unitOfRange(r: { from: string; to: string }, lower: string): PeriodUnit
   return undefined;
 }
 
-/** A label moved a year back with its dates: "October 2026" → "October 2025". */
-const yearBack = (label: string): string => label.replace(/\b((?:19|20)\d{2})\b/g, (yy) => String(Number(yy) - 1));
+/** A label moved a year back with its dates: "October 2026" → "October 2025", "12-11-26" → "12-11-25". */
+const yearBack = (label: string): string =>
+  label
+    .replace(/\b((?:19|20)\d{2})\b/g, (yy) => String(Number(yy) - 1))
+    .replace(/\b(\d{2})-(\d{2})-(\d{2})\b/g, (_whole, d: string, m: string, y: string) => `${d}-${m}-${y === "00" ? "1999" : pad2(Number(y) - 1)}`);
 
 function defaultPeriod(today: string): Period {
   return { from: addDays(today, -(DEFAULT_WINDOW_DAYS - 1)), to: today, label: `the last ${DEFAULT_WINDOW_DAYS} days`, named: false };

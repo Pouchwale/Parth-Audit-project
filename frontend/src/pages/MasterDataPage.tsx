@@ -416,7 +416,7 @@ export function MasterDataPage() {
           <h3 className="text-sm uppercase text-muted mb-2 mt-5">Adjustment (working) days</h3>
           <p className="text-muted text-xs mb-2">
             "Everyone must report to the company on adjustment Day is written next to this holiday" — the {WEEKDAY_LONG[weeklyOffDay(master)]}s the plant works, as printed on
-            the notice. 20-11-2026 is printed as a Thursday but is a Friday — TO BE CONFIRMED with HR.
+            the notice. 20-11-26 is printed as a Thursday but is a Friday — TO BE CONFIRMED with HR.
           </p>
           <AdjustmentDaysTable
             days={master.adjustmentDays ?? []}
@@ -709,7 +709,7 @@ function AdjustmentDaysTable({
                     </td>
                     <td className="text-sm">{dow}</td>
                     <td>
-                      <input className="input input-sm" placeholder="e.g. Republic Day (26-01-2026)" value={a.forHoliday ?? ""} onChange={(e) => onUpdate(index, { forHoliday: e.target.value })} />
+                      <input className="input input-sm" placeholder="e.g. Republic Day (26-01-26)" value={a.forHoliday ?? ""} onChange={(e) => onUpdate(index, { forHoliday: e.target.value })} />
                     </td>
                     <td>
                       <input className="input input-sm" value={a.note ?? ""} onChange={(e) => onUpdate(index, { note: e.target.value })} />

@@ -1,3 +1,4 @@
+import { formatDisplayDateTime } from "../../utils/date";
 import React, { useEffect, useRef } from "react";
 import { FiAlertTriangle, FiClock, FiEdit3, FiX } from "react-icons/fi";
 import type { CorrectionInfo, HistoryAction, RecordInstance } from "../../types";
@@ -52,7 +53,7 @@ export function RecordHistoryPanel({ record }: { record: RecordInstance }) {
                 <strong>{t(ACTION_KEY[e.action])}</strong>
                 <span className="text-muted">
                   {" "}
-                  — <span translate="no">{e.by}</span> · {new Date(e.at).toLocaleString()}
+                  — <span translate="no">{e.by}</span> · {formatDisplayDateTime(e.at)}
                 </span>
               </div>
               {e.note && <div className="text-sm history-note">{e.note}</div>}
@@ -92,7 +93,7 @@ export function RecordHistoryPanel({ record }: { record: RecordInstance }) {
 function CorrectionBy({ correction }: { correction: CorrectionInfo }) {
   const t = useT();
   const NAME = "";
-  const [before, after = ""] = t("record.correctionBy", { by: NAME, when: new Date(correction.at).toLocaleString(), status: correction.fromStatus }).split(NAME);
+  const [before, after = ""] = t("record.correctionBy", { by: NAME, when: formatDisplayDateTime(correction.at), status: correction.fromStatus }).split(NAME);
   return (
     <>
       {before}

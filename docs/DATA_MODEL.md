@@ -477,7 +477,7 @@ on the client: `matchDocuments(lower)` maps free text to document ids via a stat
 (`DOC_KEYWORDS`), falling back to every recordable document in a named module (`MODULE_KEYWORDS`)
 when no single document is named — returns `[]` (and the function bails to `null`, letting the
 message reach the model) when nothing is recognised. `parseDateRange(text, today)` resolves what span
-was named — `extractExplicitDates()` pulls every ISO / dd-mm-yyyy / "D Month[ Year]" date out of the
+was named — `extractExplicitDates()` pulls every ISO / dd-mm-yy (§124) / dd-mm-yyyy / "D Month[ Year]" date out of the
 message (including the shorthand "D to D Month" where the month is stated once) and takes the
 min/max; failing that, "this/last/next week", "this/last/next month", or a bare month name resolve to
 that whole span; failing that, `parseDateRef()` (the same single-date parser the holiday intent uses)

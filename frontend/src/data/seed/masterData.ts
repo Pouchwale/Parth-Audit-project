@@ -447,11 +447,11 @@ export const SEED_MASTER_DATA: MasterData = {
   // Thursdays are the 19th / 26th) — kept as printed, TO BE CONFIRMED with HR;
   // editable in Master Data → Holidays.
   adjustmentDays: [
-    { id: "adj-2026-01-22", date: "2026-01-22", forHoliday: "Republic Day (26-01-2026)" },
-    { id: "adj-2026-08-06", date: "2026-08-06", forHoliday: "Independence Day (15-08-2026)" },
-    { id: "adj-2026-10-22", date: "2026-10-22", forHoliday: "Navratri Navam (20-10-2026)" },
-    { id: "adj-2026-11-05", date: "2026-11-05", forHoliday: "Padtar Diwas (11-11-2026)" },
-    { id: "adj-2026-11-20", date: "2026-11-20", forHoliday: "Padtar Diwas (13-11-2026)", note: "Printed as Thursday on the notice, but 20-11-2026 is a Friday — TO BE CONFIRMED (19th or 26th?)" },
+    { id: "adj-2026-01-22", date: "2026-01-22", forHoliday: "Republic Day (26-01-26)" },
+    { id: "adj-2026-08-06", date: "2026-08-06", forHoliday: "Independence Day (15-08-26)" },
+    { id: "adj-2026-10-22", date: "2026-10-22", forHoliday: "Navratri Navam (20-10-26)" },
+    { id: "adj-2026-11-05", date: "2026-11-05", forHoliday: "Padtar Diwas (11-11-26)" },
+    { id: "adj-2026-11-20", date: "2026-11-20", forHoliday: "Padtar Diwas (13-11-26)", note: "Printed as Thursday on the notice, but 20-11-26 is a Friday — TO BE CONFIRMED (19th or 26th?)" },
   ],
 };
 

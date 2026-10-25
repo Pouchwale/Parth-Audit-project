@@ -115,7 +115,7 @@ async function main(argv: string[]): Promise<void> {
     const about = (
       await client.query<{ database: string; version: string; today: string }>(
         `SELECT current_database() AS database, current_setting('server_version') AS version,
-                to_char((now() AT TIME ZONE 'Asia/Kolkata')::date, 'DD-Mon-YYYY') AS today`
+                to_char((now() AT TIME ZONE 'Asia/Kolkata')::date, 'DD-MM-YY') AS today`
       )
     ).rows[0];
     const relations = (

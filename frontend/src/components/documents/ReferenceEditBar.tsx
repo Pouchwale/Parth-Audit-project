@@ -1,3 +1,4 @@
+import { formatDisplayDateTime } from "../../utils/date";
 import React from "react";
 import { FiEdit3, FiPrinter, FiRotateCcw, FiSave, FiX } from "react-icons/fi";
 import { useT } from "../../i18n";
@@ -40,7 +41,7 @@ export function ReferenceEditBar({
     <div className="flex items-center justify-end gap-2 wrap no-print" data-section="reference-edit">
       {!editing && edited && (
         <span className="text-xs text-muted">
-          Edited by <span translate="no">{edited.editedBy}</span>, {new Date(edited.editedAt).toLocaleString()}
+          Edited by <span translate="no">{edited.editedBy}</span>, {formatDisplayDateTime(edited.editedAt)}
         </span>
       )}
       {editing && mayEdit ? (

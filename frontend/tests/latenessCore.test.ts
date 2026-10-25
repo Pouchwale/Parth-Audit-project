@@ -148,9 +148,10 @@ namespace REFERENCE {
     if (from.oldestMissed && (!into.oldestMissed || from.oldestMissed.dueDate < into.oldestMissed.dueDate)) into.oldestMissed = from.oldestMissed;
     if (from.worstLate && (!into.worstLate || from.worstLate.days > into.worstLate.days)) into.worstLate = from.worstLate;
   }
-  function shortDate(iso: string, today: string): string {
-    const full = formatDisplayDate(iso);
-    return iso.slice(0, 4) === today.slice(0, 4) ? full.slice(0, 6) : full;
+  // Since REQUIREMENTS §124 the whole date, 09-09-26, as performance.ts now writes it: cut to six characters a
+  // numeric date left "09-09-" (it was "09-Sep" from "09-Sep-2026").
+  function shortDate(iso: string, _today: string): string {
+    return formatDisplayDate(iso);
   }
   function decide(t: Tally, g: ReturnType<typeof grade>, today: string): Decision {
     const due = t.onTime + t.late + t.overdue;

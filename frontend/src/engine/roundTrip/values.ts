@@ -6,7 +6,7 @@
 // bound value (engine/roundTrip/bindPath.ts BindType) is parsed here, and shown
 // back the way the record view shows it, so the preview says "Was 12.5 → Now 13".
 
-import { formatDisplayDate, MONTH_NAMES } from "../../utils/date";
+import { formatDisplayDate, MONTH_NAMES, twoFigureYear } from "../../utils/date";
 import { serialToIso } from "../../utils/xlsx";
 import type { BindOption, BindType } from "./bindPath";
 import type { UploadedValue } from "./readFile";
@@ -75,12 +75,8 @@ function isoOf(y: number, m: number, d: number): string | null {
   return `${y}-${pad2(m)}-${pad2(d)}`;
 }
 
-const fullYear = (y: string, today: string) => {
-  if (y.length === 4) return Number(y);
-  const n = Number(y);
-  const century = Math.floor(Number(today.slice(0, 4) || "2000") / 100) * 100;
-  return century + n;
-};
+// A two-figure year as a person means it (utils/date.ts twoFigureYear): a date of birth 05-07-98 is 1998, not 2098.
+const fullYear = (y: string, today: string) => (y.length === 4 ? Number(y) : twoFigureYear(Number(y), today));
 
 /** An Excel date serial that plausibly is one (1954–2119), as ISO. */
 function serialDate(n: number): string | null {
