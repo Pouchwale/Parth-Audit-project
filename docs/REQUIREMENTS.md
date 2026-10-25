@@ -9566,6 +9566,64 @@ similar document also".
    print suites (print_all_documents, qc_calibration, qc_formats, purchase_module, print_and_forms, downloads_and_print,
    header_editing) and the Ask Mitra suites (mitra_agent, mitra_format, smoke), and the page looked at 1917 px wide.
 
+## §127 The daily streak: come in every working day and keep nothing missed, like Snapchat (25-Oct-2026)
+
+The owner, 24-Oct-2026: "Also add streak for user can atleast login daily for once and complete it work which is help to
+improve there score so there improved like snapchat".
+
+1. **The rule (frontend/src/engine/streakCore.ts, one rule for the page and, should it ever need it, the server).** A
+   STREAK is the working days in a row a person KEPT. A day is kept when they signed in at least once that day - on the
+   website or on the Mitra phone app - and nothing of theirs that fell due that day ended late or was never done. On a
+   working day with nothing of theirs due, the sign-in alone keeps it: the habit asked for is coming in every working day.
+   A working day with no sign-in, or with a record of theirs that ended late or was never done, BREAKS it. Closed days are
+   stepped over - the weekly off (Thursday), a festival holiday, every day before the system went live - and an adjustment
+   day is a working day like any other. On time, late and never done are engine/latenessCore.ts's judgement, the
+   Performance Scorecard's own rule; whose a record is follows it too (a colleague's record handed in for them is the
+   colleague's).
+2. **Today.** Today joins the streak once they have signed in (being signed in now counts) and nothing of theirs is still
+   waiting, due today or from an earlier day. Until then today is AT RISK, never broken: the run ending yesterday stands
+   until the day is over. From 15:30 the top bar says so.
+3. **What is not known never breaks anybody's streak.** Where the sign-ins are not known - the browser offline, the list
+   not read yet, a day before the person's first sign-in on record (user_sessions is kept from 9-Oct-2026) - a day is
+   judged by its records alone, the rule of §81: kept when something of theirs fell due and all of it was in on time,
+   broken by a late or never-done record, neither kept nor broken when nothing fell due.
+4. **Where it shows.** The top bar, on every screen, after the sound button: "🔥 6" (the word "days" beside it on a
+   wide screen), a quiet grey "🔥 0 Start a streak" with none, and from 15:30, while today is not kept yet, "⌛ 6 at risk"
+   with the reason in its tooltip ("2 records still to do today"); once kept, "Sign in tomorrow to keep it going". A press
+   opens the Dashboard's day card, where beside the score (never inside it) stand the big 🔥 and the count, how today
+   stands, the best run, the last fourteen days as small squares (kept, missed, closed, today; each in words for a screen
+   reader and as its tooltip) and one line: a kept day is a day with nothing missed, which is what keeps the score at 0.
+   The score's arithmetic is not touched (§92). A day kept is celebrated once (components/common/Celebration.tsx), the last
+   record's own celebration counting as it; 3, 5, 10, 20, 50 and 100 days are milestones with a badge of their own
+   (💯🔥 at 100). The flame lights once (260 ms) when today becomes kept or the run grows; nothing moves under reduced
+   motion. Its words in English and Gujarati, its dates as 24-10-26. The super admin has no streak of their own and sees none.
+5. **The server keeps the sign-ins; the browser only asks.** GET /api/me/sign-in-days?from=YYYY-MM-DD (backend/meRoutes.ts)
+   answers with the plant days of the CALLER'S OWN sessions - the website and the phone app, never another program signing
+   in for them (place "api") - and the first of them on record: the account is the session's, nothing in the address names
+   anybody, at most 200 days back, never cached (Cache-Control: no-store), 400 for a date that is not one, 503 while the
+   database cannot be reached. It reads one index made for it, user_sessions (user_id, signed_in_at), IF NOT EXISTS with
+   the rest of the schema. The browser asks once a day and again after a sign-in, keeps the answer in the tab's memory only
+   and writes it nowhere (§55: PostgreSQL is the one store).
+6. **Cheap on the plant's laptops (§65).** The streak is worked out from a timeout - a moment after the page paints, after
+   something is handed in, when the sign-in days arrive, a few seconds after the stored records last changed - never while
+   drawing or while a sheet is typed into; a minute's tick only redraws (the hourglass at 15:30). The walk counts back at
+   most 100 working days over 160 calendar days of records.
+7. **The top bar fits the plant's laptops in one row.** Measured before the counter, the bar was already wider than the
+   window at 1280, 1366 and 1440 px (by 164, 87 and 47 px: every page scrolled sideways). Now the least needed give way
+   first, each control keeping its icon, its name and its tooltip: below 1700 px "Today's briefing" and the speaker's word
+   leave their icons alone and the Live / Demo switch drops its icons; below 1440 px the connection's speed and the
+   "Admin" tag go and a long name is cut short (the whole of it in its tooltip); below 1366 px the clock leaves out its
+   seconds; the counter's own word shows from 1800 px. The Live / Demo switch keeps its words. The bar fits in one row at
+   1024, 1280, 1366, 1440, 1600, 1700 and 1920 px, for the super admin and for staff, with nothing on two lines and nothing
+   cut; a narrow tablet (about 560 px), where the bar wraps by design, takes a third row, and a phone keeps its height.
+8. **Proved:** frontend/tests/streakCore.test.ts (hand-made calendars), dailyStreak.test.ts, motivation.test.ts,
+   backend/tests/meRoutes.test.ts (only the caller's own days, the window, bad dates, the database away) and
+   tests/e2e_daily_streak.py (the counter, the day card, a kept day, the hourglass, the top bar at five widths), with the
+   suites that read the top bar (topbar_status, voice_and_sounds, celebrations, theme, performance, smoke, translate,
+   login_only, tour). The route's SQL was run once against a throwaway PostgreSQL: a 23:45 UTC sign-in counted on its plant
+   day, only website and phone sessions counted, the index in place. The rule itself takes 0.15 ms; the whole walk for the
+   busiest QC account (2,466 records in the window) about 11 ms on this PC, 65 ms at 6x CPU throttle, from a timeout only.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
