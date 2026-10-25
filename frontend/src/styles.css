@@ -3293,7 +3293,6 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td .cell-text { display: block; min-width: 0; font-size: calc(8.5 * var(--pt)); line-height: 1.2; color: #000; }
 }
 @media print {
-  .paper-sheet[data-paper-form="lineclear"] .pf-pad { display: table-row; }
   .paper-sheet[data-paper-form="lineclear"] .pf-remove { display: none; }
 }
 /* HR-DOCS begin */
@@ -3568,8 +3567,9 @@ table.svc-paper {
   /* PRINTED, ONLY THE LINES WRITTEN (the owner, 25-Oct-2026, F/QC/12 printed with four entries where one was written:
      "the user filled row are only should show and not whole default format"). A paper's blank ruled lines beyond the
      record's - a QC paper drawn as its own table (tr.pt-pad, and its .pt-padc cells beside the record's lines), F/QC/12's
-     four entries and the utility test's nine lines (tr.pf-pad) - stay on the screen as the paper's look and do not print;
-     nor does a register's line nobody wrote while another is written (LogSheetRecordView data-empty-line). */
+     four entries, a line clearance's ruled lines and the utility test's nine (tr.pf-pad: hidden on the screen by their
+     forms' own rules, which no longer bring them back for print) - stay off the printout; nor does a register's line
+     nobody wrote while another is written (LogSheetRecordView data-empty-line). */
   tr.pf-pad, tr[data-empty-line] { display: none; }
   /* (in print the marked words are the box: its choice box does not print) */
   .pt-table td.pt-c > .field-choices-across.field-in-table > select.input { display: none; }
@@ -3682,7 +3682,6 @@ table.svc-paper {
   .paper-sheet[data-paper-form="calib"] { display: block; position: relative; box-sizing: border-box; width: auto; min-height: calc(205 * var(--u)); padding: var(--cal-top) 0 0 var(--cal-left); border-collapse: separate; }
   .paper-sheet[data-paper-form="calib"] .paper-head, .paper-sheet[data-paper-form="calib"] .paper-body, .paper-sheet[data-paper-form="calib"] .paper-foot { display: block; }
   .paper-sheet[data-paper-form="calib"] .doc-header .meta-row { display: none; }
-  .paper-sheet[data-paper-form="calib"] .pf-pad { display: table-row; }
   .paper-sheet[data-paper-form="calib"] .page-foot-number {
     display: block; position: absolute; top: var(--cal-foot-y); left: var(--cal-left); width: var(--cal-w); margin: 0; text-align: center; color: #000;
     font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(11.04 * var(--pt)); line-height: calc(11.04 * var(--pt));
@@ -3798,7 +3797,6 @@ table.svc-paper {
   .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet td select.input { text-align-last: center; }
 }
 @media print {
-  .paper-sheet[data-paper-form="report"] .pf-pad { display: table-row; }
   /* the boxes above the table: the Date at the right of its line, its words and its value on one line */
   .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field { display: flex; flex-direction: row; align-items: baseline; gap: calc(1 * var(--u)); }
   .paper-sheet[data-paper-form="report"] [data-section="sheet-boxes"] > .field > label { margin: 0; color: #000; text-transform: none; letter-spacing: 0; white-space: nowrap; }
