@@ -54,6 +54,7 @@ import { registerOverviewRoutes } from "./overviewRoutes.ts";
 import { prepareOverview } from "./overviewSetup.ts";
 import { registerAccessRoutes } from "./accessRoutes.ts";
 import { registerNotificationRoutes } from "./notificationRoutes.ts";
+import { registerMeRoutes } from "./meRoutes.ts";
 import { pushDevicesFollow } from "./notifications.ts";
 import { printCompanyNetwork, registerPhoneAppRoutes } from "./phoneApp.ts";
 import { registerSecureAddressRoutes, startSecureAddress } from "./secureAddress.ts";
@@ -1471,6 +1472,8 @@ registerAccessRoutes(app, { requireAuth, logActivity, sessions: devices });
 registerAccountRoutes(app, { requireAuth, logActivity, sessions: devices });
 // EACH PERSON'S NOTIFICATIONS (REQUIREMENTS §97): the bell and the Notifications page (backend/notificationRoutes.ts).
 registerNotificationRoutes(app, { requireAuth });
+// THE PERSON'S OWN SIGN-IN DAYS, FOR THEIR DAILY STREAK (the owner, 25-Oct-2026; backend/meRoutes.ts).
+registerMeRoutes(app, { requireAuth });
 // ...and the notify job ends by pushing them to the phones (backend/push.ts; PUSH_ENABLED=0 sends nothing) and, in
 // the day's three slots, emailing each person what is still open (backend/emailReminders.ts; EMAIL_ENABLED=0 sends nothing).
 setNotificationDeps(() => ({ push: (now) => runPushes(now), email: (now) => runReminderEmails(now) }));

@@ -274,6 +274,22 @@ export const usersApi = {
   keepOnly: (keep: string[], remove: string[]) => api.post<{ removed: ManagedUser[] }>("/users/keep-only", { keep, remove }),
 };
 
+/**
+ * THE SIGNED-IN PERSON'S OWN SIGN-IN DAYS (backend/meRoutes.ts; the daily streak, the owner, 25-Oct-2026): the
+ * plant days they signed in on, the website or the phone, from `from` to today (at most 200 days back), and the
+ * first sign-in of theirs on record. Their own and nobody else's: the route takes no account at all.
+ */
+export interface SignInDaysAnswer {
+  days: string[];
+  firstDay: string | null;
+  from: string;
+  to: string;
+}
+
+export const meApi = {
+  signInDays: (from: string) => api.get<SignInDaysAnswer>(`/me/sign-in-days?from=${encodeURIComponent(from)}`),
+};
+
 // A CANDIDATE'S CV, READ ON THE SERVER (backend/cvExtract.ts, REQUIREMENTS §49).
 export interface CvProfile {
   name: string;

@@ -21,6 +21,8 @@ import { todayISO } from "../src/utils/date";
 import { departmentOfDocument } from "../src/data/seed/departments";
 import {
   LOOKBACK_DAYS,
+  STREAK_KEPT_KEY,
+  STREAK_MILESTONES,
   allDoneView,
   askAccountsFor,
   badgeFor,
@@ -32,17 +34,26 @@ import {
   gapScoreLine,
   gapScoreNote,
   gapTone,
+  keptBadge,
+  keptDayToCelebrate,
+  keptLine,
   lateLine,
+  markCelebrated,
   motivationFor,
   newAchievements,
   outcomeOf,
   praiseLine,
   spokenAllDone,
+  spokenKept,
+  streakBarView,
+  streakCardView,
   variantKeys,
   whenText,
   type MotivationStats,
   type PraiseKind,
 } from "../src/engine/motivation";
+import { askSignInDaysFor, forgetSignInDays, knownSignIns } from "../src/engine/signInDays";
+import { setAccessRules, setAccessScope, setDepartmentScope } from "../src/engine/departmentScope";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { recordRepository } from "../src/data/repositories/recordRepository";
 import { settingsRepository } from "../src/data/repositories/settingsRepository";
@@ -185,6 +196,166 @@ test("a badge is new only until it has been celebrated today", () => {
   assert.ok(newAchievements(s).includes("clean-week"));
 });
 
+// ---- The daily streak, with the sign-ins (the owner, 25-Oct-2026: "login daily ... like snapchat") -------
+//
+// The same fortnight, now with the days Asha signed in (GET /api/me/sign-in-days, engine/streakCore.ts): the
+// 19th and the 20th, a Saturday and a Sunday with nothing of hers due, are kept by the sign-in alone; a working
+// day she did not sign in breaks the streak. Her first sign-in on record is the 19th: the 18th, before it, is
+// judged by its records alone, and its late record still breaks the streak there. Without the sign-ins the
+// rule is the records' alone, which is what every test above holds (none of their figures changed).
+
+const SIGNED_IN = ["2026-09-19", "2026-09-20", "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-25"];
+const DONE_TODAY = () => [...fortnight(), rec(A, TODAY, { on: TODAY, hour: 10 }), rec(B, TODAY, { on: TODAY, hour: 14 })];
+
+function withSignIns(records: RecordInstance[], days: readonly string[] = SIGNED_IN, firstDay: string | null = "2026-09-19", calendar: PlantCalendar = CALENDAR, today = TODAY): MotivationStats {
+  return computeMotivation({ docs: DOCS, records, today, calendar, firstName: "Asha", signIns: { days, firstDay }, signedInNow: true });
+}
+
+test("with the sign-ins: a working day with nothing due is kept by the sign-in alone, and today joins once nothing waits", () => {
+  const s = withSignIns(DONE_TODAY());
+  assert.equal(s.streakDays, 7, "the 19th to the 25th (the 24th closed), and today");
+  assert.equal(s.streakIncludesToday, true);
+  assert.equal(s.streak.before, 6);
+  assert.equal(s.streak.best, 7);
+  assert.equal(stats(DONE_TODAY()).streakDays, 5, "without the sign-ins: the records alone, as before");
+  assert.ok(!s.achievements.includes("streak-5") && !s.achievements.some((k) => k.startsWith("streak-")), "seven is no milestone");
+  assert.deepEqual(
+    s.streak.lastDays.map((d) => d.state),
+    ["free", "free", "free", "free", "closed", "missed", "kept", "kept", "kept", "kept", "kept", "closed", "kept", "kept"],
+    "13th-16th nothing due (before her first sign-in), the 17th and 24th Thursdays, the 18th late, and today kept"
+  );
+  // The score is the score: nothing of the streak goes into it.
+  assert.equal(s.gapScore, stats(DONE_TODAY()).gapScore);
+});
+
+test("with the sign-ins: a working day she did not sign in breaks the streak, however the records went", () => {
+  const gap = withSignIns(DONE_TODAY(), SIGNED_IN.filter((d) => d !== "2026-09-22"));
+  assert.equal(gap.streakDays, 3, "the 23rd, the 25th and today");
+  assert.equal(gap.streak.lastDays.find((d) => d.date === "2026-09-22")?.state, "missed");
+  assert.equal(gap.streak.best, 3, "the 19th, 20th and 21st were three too");
+});
+
+test("nothing of hers due today: kept by the sign-in alone, and celebrated once a day — never for the super admin", () => {
+  const s = withSignIns(fortnight());
+  assert.equal(s.day.total, 0);
+  assert.equal(s.streakIncludesToday, true, "signed in, nothing waiting");
+  assert.equal(s.streakDays, 7);
+  assert.equal(stats(fortnight()).streakIncludesToday, false, "without the sign-ins a day with nothing due is free, as before");
+  assert.equal(keptDayToCelebrate(s, () => false), true);
+  assert.equal(keptDayToCelebrate(s, (k) => k === STREAK_KEPT_KEY), false, "already celebrated today");
+  assert.equal(keptDayToCelebrate({ ...s, plantDay: true }, () => false), false, "the super admin has no streak of his own");
+  assert.equal(keptDayToCelebrate(stats(fortnight()), () => false), false, "not kept: nothing to celebrate");
+  // Remembered in the person's settings, for today only.
+  assert.equal(keptDayToCelebrate(s), true);
+  markCelebrated([STREAK_KEPT_KEY], TODAY);
+  assert.equal(keptDayToCelebrate(s), false);
+});
+
+test("today at risk while a record due today is open: 🔥 before 15:30, ⌛ from it, with the reason in words", () => {
+  const open = withSignIns([...fortnight(), rec(A, TODAY, { on: TODAY, hour: 10 }), rec(B, TODAY)]);
+  assert.equal(open.streakIncludesToday, false);
+  assert.equal(open.streak.todayAtRisk, true);
+  assert.equal(open.streakDays, 6, "the run before today still stands");
+  const early = streakBarView(open, 15 * 60 + 29, "en");
+  assert.deepEqual({ state: early.state, icon: early.icon, days: early.days, label: early.label }, { state: "open", icon: "🔥", days: 6, label: "days" });
+  assert.equal(early.tip, "🔥 Your 6-day streak: finish today's last record to keep it going.");
+  const risk = streakBarView(open, 15 * 60 + 30, "en");
+  assert.deepEqual({ state: risk.state, icon: risk.icon, days: risk.days, label: risk.label }, { state: "risk", icon: "⌛", days: 6, label: "at risk" });
+  assert.equal(risk.tip, "⌛ Your 6-day streak is at risk: 1 record still to do today.");
+  const two = withSignIns([...fortnight(), rec(A, TODAY), rec(B, TODAY)]);
+  assert.equal(streakBarView(two, 16 * 60, "en").tip, "⌛ Your 6-day streak is at risk: 2 records still to do today.");
+  const card = streakCardView(open, 16 * 60, "en")!;
+  assert.equal(card.tone, "risk");
+  assert.equal(card.todayLine, "At risk: 1 still to do");
+  assert.equal(streakCardView(open, 10 * 60, "en")!.todayLine, "Today: 1 to go");
+});
+
+test("the top bar's words: kept says 'sign in tomorrow' (or the day the next working day is), a grey 🔥 0 'Start a streak', a closed day waits", () => {
+  assert.equal(streakBarView(null, 600, "en").state, "loading");
+  const kept = withSignIns(fortnight());
+  const v = streakBarView(kept, 9 * 60, "en");
+  assert.deepEqual({ state: v.state, icon: v.icon, days: v.days, label: v.label }, { state: "kept", icon: "🔥", days: 7, label: "days" });
+  assert.equal(v.tip, "🔥 Your 7-day streak — today is kept. Sign in tomorrow to keep it going.");
+  // Wednesday the 23rd: tomorrow is the Thursday weekly off, so the next working day is Friday the 25th.
+  const wednesday = withSignIns([], ["2026-09-22"], "2026-09-22", CALENDAR, "2026-09-23");
+  assert.equal(streakBarView(wednesday, 9 * 60, "en").tip, "🔥 Your 2-day streak — today is kept. Sign in on 25-09-26, the next working day, to keep it going.");
+  assert.equal(streakBarView(withSignIns([], [], null, CALENDAR, "2026-09-22"), 9 * 60, "en").label, "day", "one day: the word is 'day'");
+  // Nothing yet: the first day the system is live, a record still to do.
+  const fresh = withSignIns([rec(A, TODAY)], [], null, { ...CALENDAR, countedFrom: TODAY });
+  const none = streakBarView(fresh, 9 * 60, "en");
+  assert.deepEqual({ state: none.state, days: none.days, label: none.label }, { state: "none", days: 0, label: "Start a streak" });
+  assert.equal(none.tip, "Start a streak today: finish today's last record.");
+  // Thursday the 24th, the weekly off: the streak waits.
+  const thursday = withSignIns(fortnight(), SIGNED_IN.filter((d) => d < "2026-09-24"), "2026-09-19", CALENDAR, "2026-09-24");
+  const closed = streakBarView(thursday, 11 * 60, "en");
+  assert.equal(closed.state, "closed");
+  assert.equal(closed.tip, "🔥 Your 5-day streak waits for the next working day — the plant is closed today.");
+  // Not known (offline): judged by the records alone, nothing of hers due today.
+  assert.equal(streakBarView(stats(fortnight()), 9 * 60, "en").tip, "🔥 Your 4-day streak stands — nothing of yours is due today.");
+  const gu = streakBarView(kept, 9 * 60, "gu");
+  assert.ok(GUJARATI.test(gu.tip) && gu.tip.includes("7"), gu.tip);
+  assert.ok(GUJARATI.test(gu.label), gu.label);
+});
+
+test("the day card's streak: the big number, how today stands, the best run, the last fourteen days in words — dates as 24-10-26 — and none for the super admin", () => {
+  const kept = withSignIns(fortnight());
+  const card = streakCardView(kept, 10 * 60, "en")!;
+  assert.deepEqual({ days: card.days, best: card.best, tone: card.tone, unit: card.unit }, { days: 7, best: 7, tone: "lit", unit: "days in a row" });
+  assert.equal(card.todayLine, "Today is kept ✓");
+  assert.equal(card.bestLine, "🏆 Your best yet");
+  assert.equal(card.rule, "A kept day = signed in, nothing of yours missed — what keeps your score at 0.");
+  assert.equal(card.strip.length, 14);
+  assert.equal(card.strip[13].label, "26-09-26: kept");
+  assert.equal(card.strip[11].label, "24-09-26: closed");
+  assert.equal(card.strip[5].label, "18-09-26: missed");
+  assert.equal(card.strip[0].label, "13-09-26: nothing due");
+  assert.equal(card.stripLabel, "The last 14 days: 7 kept, 1 missed.");
+  assert.equal(streakCardView({ ...kept, plantDay: true }, 600, "en"), null, "the super admin: no streak of his own");
+  const shorter = streakCardView(withSignIns(fortnight(), SIGNED_IN.filter((d) => d !== "2026-09-23")), 600, "en")!;
+  assert.equal(shorter.days, 2);
+  assert.equal(shorter.bestLine, "Best: 4 days");
+  const fresh = streakCardView(withSignIns([rec(A, TODAY)], [], null, { ...CALENDAR, countedFrom: TODAY }), 600, "en")!;
+  assert.deepEqual({ days: fresh.days, tone: fresh.tone, unit: fresh.unit, bestLine: fresh.bestLine, today: fresh.todayLine }, { days: 0, tone: "none", unit: "Start today", bestLine: "", today: "Today: 1 to go" });
+  const gu = streakCardView(kept, 600, "gu")!;
+  for (const s of [gu.unit, gu.todayLine, gu.rule, gu.stripLabel, gu.strip[13].label]) assert.ok(GUJARATI.test(s), s);
+  assert.ok(gu.strip[13].label.startsWith("26-09-26: "), gu.strip[13].label);
+});
+
+test("the 100-day streak: earned the day today makes it a hundred, and its badge has 💯 beside the flame", () => {
+  assert.deepEqual(badgeFor("streak-100", "en"), { key: "streak-100", emoji: "💯🔥", label: "100-day streak" });
+  assert.equal(badgeFor("streak-50", "en").emoji, "🔥");
+  assert.deepEqual([...STREAK_MILESTONES], [3, 5, 10, 20, 50, 100]);
+  const closed = plantClosedDays({});
+  const days: string[] = [];
+  for (let c = addDaysISO(TODAY, -1); days.length < 99; c = addDaysISO(c, -1)) if (!closed(c)) days.push(c);
+  const first = days[days.length - 1];
+  const s = computeMotivation({ docs: DOCS, records: [], today: TODAY, calendar: { isClosedDay: closed, countedFrom: first }, signIns: { days, firstDay: first }, signedInNow: true });
+  assert.equal(s.streakDays, 100);
+  assert.ok(s.achievements.includes("streak-100"), s.achievements.join(", "));
+  assert.ok(LOOKBACK_DAYS >= 160, "the records read cover a hundred working days");
+});
+
+test("a kept day's own words: the count from the second day, a word of its own for the first; Mitra says it with the first name", () => {
+  const s = withSignIns(fortnight());
+  for (let i = 0; i < 30; i++) {
+    for (const lang of ["en", "gu"] as const) {
+      const line = keptLine(s, lang, `k${i}`);
+      const said = spokenKept(s, lang, `k${i}`);
+      assert.ok(line.includes("7"), `a kept-day line without the streak: ${line}`);
+      assert.ok(said.includes("7") && said.includes("Asha"), `said without the streak or the name: ${said}`);
+      assert.ok(!/[{}]/.test(line + said));
+      if (lang === "gu") assert.ok(GUJARATI.test(line) && GUJARATI.test(said));
+    }
+  }
+  assert.deepEqual(keptBadge(s, "en"), { key: STREAK_KEPT_KEY, emoji: "🔥", label: "7-day streak" });
+  const day1 = withSignIns([], [], null, { ...CALENDAR, countedFrom: TODAY });
+  assert.equal(day1.streakDays, 1);
+  const firstLine = keptLine(day1, "en", "x");
+  assert.ok(firstLine.length > 0 && !/\d/.test(firstLine), `the first day says no count: ${firstLine}`);
+  assert.ok(spokenKept(day1, "en", "x").includes("Asha"));
+  assert.ok(spokenKept(s, "en", "x").length <= 600, "the speak route takes 600 characters at most");
+});
+
 // ---- Today's score, counted from what is missing -------------------------------------------
 //
 // "When some user is given 10 tasks for a day and completes 8 of them, his score
@@ -263,7 +434,29 @@ test("under the score, in both languages: what it means and how to reach 0 — a
 
 // ---- The words ------------------------------------------------------------------------------
 
-const KINDS: PraiseKind[] = ["onTime", "asRequired", "again", "verified", "sentBack", "dayDone", "allDone", "streak", "earlyBird", "cleanWeek", "moduleHero", "progress", "dayHappy", "nothingDue", "sayAllDone", "sayStreak"];
+const KINDS: PraiseKind[] = [
+  "onTime",
+  "asRequired",
+  "again",
+  "verified",
+  "sentBack",
+  "dayDone",
+  "allDone",
+  "streak",
+  "earlyBird",
+  "cleanWeek",
+  "moduleHero",
+  "progress",
+  "dayHappy",
+  "nothingDue",
+  "sayAllDone",
+  "sayStreak",
+  // A kept day (the daily streak, 25-Oct-2026): with the count from the second day, a word of its own on the first.
+  "kept",
+  "keptFirst",
+  "sayKept",
+  "sayKeptFirst",
+];
 const GUJARATI = /[઀-૿]/;
 const placeholders = (s: string) => Array.from(s.matchAll(/\{(\w+)\}/g), (m) => m[1]).sort().join(",");
 
@@ -281,7 +474,7 @@ test("every line is in English and Gujarati, with the same figures in both", () 
 });
 
 // A streak's lines are only ever said about a streak: they are asked with one.
-const WITH_A_STREAK: PraiseKind[] = ["streak", "sayStreak"];
+const WITH_A_STREAK: PraiseKind[] = ["streak", "sayStreak", "kept", "sayKept"];
 
 test("many lines, not one — and every kind can always say something", () => {
   assert.ok(variantKeys("cheer.onTime").length >= 10);
@@ -311,8 +504,12 @@ test("a figure is named only when it is worth saying, and a missing name leaves 
   }
   const streaky = stats([...fortnight(), rec(A, TODAY, { on: TODAY }), rec(B, TODAY, { on: TODAY })]);
   const lines = new Set<string>();
-  for (let i = 0; i < 40; i++) lines.add(praiseLine("streak", streaky, "en", `s${i}`));
+  // Every line about a streak names its number, the kept day's (25-Oct-2026) as much as the milestone's.
+  for (const kind of WITH_A_STREAK) for (const lang of ["en", "gu"] as const) for (let i = 0; i < 40; i++) lines.add(praiseLine(kind, streaky, lang, `s${i}`));
   for (const l of lines) assert.ok(l.includes("5"), `a streak line without the streak: ${l}`);
+  // ...and so does every word of the top bar's counter and the day card that speaks of one.
+  const { en } = MOTIVATION_STRINGS as unknown as { en: Record<string, string> };
+  for (const key of Object.keys(en).filter((k) => /^cheer\.bar\.tip\./.test(k) && !/\.none/.test(k))) assert.ok(en[key].includes("{n}"), `${key} does not name the streak: ${en[key]}`);
 });
 
 test("praise in Gujarati is Gujarati, and picks the same line as the English", () => {
@@ -650,6 +847,57 @@ test("from the repositories: the accounts of the person's departments are asked 
     assert.equal(await askAccountsFor({ name: "Kavya Desai" }, never), false);
   } finally {
     recordRepository.clearDemoData();
+  }
+});
+
+test("from the repositories: the person's own sign-in days, asked once a day and again after a sign-in, and the streak worked out again with them", async () => {
+  ensureDocumentsSeeded();
+  forgetSignInDays();
+  // A Store account: its two documents are as-required, so nothing of theirs ever falls due by itself.
+  const sunil = { id: "u-streak-store", name: "Sunil Streak", role: "staff", departments: ["STR"] };
+  setAccessScope({ email: "sunil.streak@example.com", role: "staff", departments: ["STR"] }, null);
+  try {
+    const today = todayISO();
+    const closedToday = closedDays(masterRepository.get())(today);
+    const before = motivationFor(sunil);
+    assert.equal(before.day.total, 0, "nothing of the Store's is due");
+    assert.equal(before.streak.signInsKnown, false);
+    assert.equal(before.streakIncludesToday, false, "not known yet: a day with nothing due is free, not kept");
+
+    let reads = 0;
+    const asked: string[] = [];
+    const read = async (from: string) => {
+      reads += 1;
+      asked.push(from);
+      return { days: [addDaysISO(today, -1), "not a day"], firstDay: addDaysISO(today, -1), from, to: today };
+    };
+    assert.equal(await askSignInDaysFor(sunil, "session-1", read), true, "a new answer: work the streak out again");
+    assert.equal(await askSignInDaysFor(sunil, "session-1", read), false, "kept for the day: not asked again");
+    assert.equal(reads, 1);
+    assert.equal(asked[0], addDaysISO(today, -LOOKBACK_DAYS), "asked for the whole look-back");
+    assert.deepEqual(knownSignIns(sunil.id)?.days, [addDaysISO(today, -1)], "only plant dates are believed");
+    const after = motivationFor(sunil);
+    assert.notEqual(after, before, "the sign-in days are part of what the figures are remembered against");
+    assert.equal(after.streak.signInsKnown, true);
+    assert.equal(after.streakIncludesToday, !closedToday, "signed in now with nothing due: a working day is kept");
+    assert.equal(motivationFor(sunil), after, "asked again with nothing changed: not worked out again");
+    // Signed in again (a new session): asked again; the same days change nothing.
+    assert.equal(await askSignInDaysFor(sunil, "session-2", read), false);
+    assert.equal(reads, 2);
+    assert.equal(motivationFor(sunil), after, "the same answer keeps what was worked out");
+    // Never for the super admin or a name alone; an answer that cannot be read leaves them not known.
+    const never = () => Promise.reject(new Error("must not be asked"));
+    assert.equal(await askSignInDaysFor({ id: "u-admin", role: "admin" }, "s", never), false);
+    assert.equal(await askSignInDaysFor({}, "s", never), false);
+    forgetSignInDays();
+    assert.equal(await askSignInDaysFor(sunil, "session-3", () => Promise.reject(new Error("offline"))), false, "never rejects");
+    assert.equal(knownSignIns(sunil.id), null);
+    assert.equal(motivationFor(sunil).streak.signInsKnown, false, "unreadable: judged by the records alone, never broken by it");
+    assert.equal(motivationFor(sunil, true).streak.signInsKnown, false, "the demo's year was never signed in to");
+  } finally {
+    setDepartmentScope(null);
+    setAccessRules(null);
+    forgetSignInDays();
   }
 });
 

@@ -15,12 +15,17 @@
 //      or coming up, or else every document their departments may see — so the
 //      day card, the bell and "that was the last one due today" never disagree
 //      about what is left.
-//   2. HOW HAS IT BEEN GOING — the streak: consecutive working days, ending
-//      yesterday (and today, once today's are all in on time), on which
-//      everything of theirs that fell due was handed in on time. A closed day
-//      (the weekly off, a festival) is stepped over; a day with nothing of
-//      theirs due neither adds nor breaks; the streak never reaches back before
-//      the day the system went live, or more than 60 working days. And the
+//   2. HOW HAS IT BEEN GOING — the streak (engine/streakCore.ts, the owner,
+//      25-Oct-2026: "streak for user can atleast login daily for once and
+//      complete it work ... like snapchat"): consecutive working days, ending
+//      yesterday (and today, once today is kept), on which the person SIGNED IN
+//      at least once, on the website or the phone, and nothing of theirs that
+//      fell due ended late or never done. A working day with nothing of theirs
+//      due is kept by the sign-in alone; a closed day (the weekly off, a
+//      festival) is stepped over; the streak never reaches back before the day
+//      the system went live, or more than 100 working days. Where the sign-ins
+//      are not known (offline, not read yet, before their first sign-in on
+//      record) a day is judged by its records alone, as before. And the
 //      month's on-time share. On time and late are engine/latenessCore.ts's
 //      judgement — the Performance Scorecard's own rule — never a second one;
 //      and so is WHOSE a handed-in record is (latenessCore attribute): where a
@@ -28,7 +33,7 @@
 //      in is off the shared plate, but it is that colleague's on time, early
 //      bird, streak and month, never this person's.
 //   3. WHAT DID TODAY EARN — achievements, worked out afresh every time and
-//      never stored: the first on time today, all done today, a 3/5/10/20/50-day
+//      never stored: the first on time today, all done today, a 3/5/10/20/50/100-day
 //      streak reached today, an early bird (handed in on its day before 11:00),
 //      a clean week so far, a whole module on time this month. Which of them
 //      were already celebrated today is the one thing kept (settings
@@ -45,7 +50,7 @@
 // never scolded: "Done — a day late this time; the next one is due tomorrow."
 //
 // COST (the low-end standard, REQUIREMENTS §65): one pass over the person's
-// documents' records of the last hundred days (and every older one still
+// documents' records of the last 160 days (and every older one still
 // open), through the per-document index — and, for somebody Master Data names,
 // the reminders' own walk that says whether the named documents are theirs
 // today. Remembered against the stored records' identity
@@ -54,7 +59,9 @@
 // toast's line, the celebration and the day card ask it three times and the
 // walk happens once. Asked only from an effect, a timeout or an event handler:
 // never while drawing. The accounts (GET /api/users/directory) are asked for
-// apart, once and kept a few minutes (askAccountsFor).
+// apart, once and kept a few minutes (askAccountsFor); so are the person's own
+// sign-in days (GET /api/me/sign-in-days, engine/signInDays.ts), once a day and
+// after a sign-in.
 
 import type { DocumentDefinition, RecordInstance } from "../types";
 import { STRINGS, type Language } from "../i18n/strings";
@@ -73,6 +80,18 @@ import { daysLate, type ReactionEvent } from "./reactions";
 import { generalPurposeLine, purposeLine } from "./purpose";
 import { isMine } from "./departmentScope";
 import { formatDisplayDate, fromISODate, toISODate, todayISO } from "../utils/date";
+import {
+  STREAK_LOOKBACK_DAYS,
+  STREAK_MILESTONES as STREAK_MILESTONE_LIST,
+  STREAK_STRIP_DAYS,
+  STREAK_WORKING_DAYS as STREAK_DAYS_BACK,
+  judgeStreak,
+  showsAtRisk,
+  streakSignIns,
+  type StreakDayState,
+  type StreakResult,
+} from "./streakCore";
+import { knownSignIns, type SignInFacts } from "./signInDays";
 
 // ---- The facts ---------------------------------------------------------------
 
@@ -81,12 +100,12 @@ const OPEN: ReadonlySet<string> = new Set(["Scheduled", "Due", "In Progress", "R
 /** Handed in and not sent back. */
 const HANDED_IN: ReadonlySet<string> = new Set(["Submitted", "Pending Verification", "Verified"]);
 
-/** Calendar days of records read for the streak — 60 working days and the closed days between them. */
-export const LOOKBACK_DAYS = 100;
+/** Calendar days of records read for the streak — 100 working days and the closed days between them (engine/streakCore.ts). */
+export const LOOKBACK_DAYS = STREAK_LOOKBACK_DAYS;
 /** The streak looks back at most this many working days. */
-export const STREAK_WORKING_DAYS = 60;
-/** Streak lengths that are a milestone of their own. */
-export const STREAK_MILESTONES: readonly number[] = [3, 5, 10, 20, 50];
+export const STREAK_WORKING_DAYS = STREAK_DAYS_BACK;
+/** Streak lengths that are a milestone of their own: 3, 5, 10, 20, 50 and 100 days. */
+export const STREAK_MILESTONES: readonly number[] = STREAK_MILESTONE_LIST;
 /** Handed in on its own day before this hour: an early bird. */
 export const EARLY_BIRD_HOUR = 11;
 /** A module's month counts for "module hero" from this many records on time. */
@@ -139,9 +158,12 @@ export interface MotivationStats {
   day: DayProgress;
   /** Today's score, counted from what is missing (dayGapScore of `day`): 8 of 10 done is −20, all done is 0. */
   gapScore: number;
-  /** Consecutive working days all on time, ending yesterday — and today, once today's are all in on time. */
+  /** Consecutive working days kept, ending yesterday — and today, once today is kept (streak.days). */
   streakDays: number;
+  /** Today is kept (streak.todayKept). */
   streakIncludesToday: boolean;
+  /** The whole streak (engine/streakCore.ts): the run before today, today at risk, the best run and the last fourteen days. */
+  streak: StreakResult;
   /** On time ÷ (on time + late + never done) × 100 over their records due this month so far; null when none is judged yet. */
   onTimeThisMonth: number | null;
   judgedThisMonth: number;
@@ -176,6 +198,13 @@ export interface MotivationInput {
   self?: LatenessPerson | null;
   people?: readonly LatenessPerson[] | null;
   departmentOf?: (doc: DocumentDefinition) => string | null;
+  /**
+   * THE DAYS THEY SIGNED IN (GET /api/me/sign-in-days, the website and the phone) and the first of them on record.
+   * Left out, or null, the sign-ins are not known: every day is judged by its records alone, the rule before them.
+   */
+  signIns?: SignInFacts | null;
+  /** Signed in now: today counts as a day they signed in. */
+  signedInNow?: boolean;
 }
 
 function firstHandedInAt(r: RecordInstance): string | null {
@@ -377,21 +406,18 @@ export function computeMotivation(input: MotivationInput): MotivationStats {
   }
   day.total = day.done + day.remaining;
 
-  // ---- the streak: back from yesterday, over working days only
-  let streak = 0;
-  let working = 0;
-  for (let cursor = addDaysISO(today, -1); working < STREAK_WORKING_DAYS && cursor >= lookbackFrom; cursor = addDaysISO(cursor, -1)) {
-    if (countedFrom && cursor < countedFrom) break;
-    if (calendar.isClosedDay(cursor)) continue;
-    working += 1;
-    const t = byDay.get(cursor);
-    if (!t) continue; // nothing of theirs fell due: neither adds nor breaks
-    if (t.bad > 0) break;
-    if (t.onTime > 0) streak += 1;
-  }
-  const todays = byDay.get(today);
-  const streakIncludesToday = !!todays && todays.onTime > 0 && todays.bad === 0 && day.remaining === 0;
-  const streakDays = streak + (streakIncludesToday ? 1 : 0);
+  // ---- the streak (engine/streakCore.ts): back from yesterday, over working days only — kept when they signed
+  // in and nothing of theirs that fell due ended late or never done; today once signed in and nothing is waiting.
+  const streak = judgeStreak({
+    today,
+    judged: byDay,
+    waiting: day.remaining,
+    signIns: input.signIns ? streakSignIns(input.signIns.days, input.signIns.firstDay, today, input.signedInNow === true) : null,
+    isClosedDay: calendar.isClosedDay,
+    countedFrom,
+  });
+  const streakIncludesToday = streak.todayKept;
+  const streakDays = streak.days;
 
   const judgedThisMonth = month.onTime + month.bad;
   const onTimeThisMonth = judgedThisMonth === 0 ? null : Math.round((100 * month.onTime) / judgedThisMonth);
@@ -438,6 +464,7 @@ export function computeMotivation(input: MotivationInput): MotivationStats {
     gapScore: dayGapScore(day.done, day.total),
     streakDays,
     streakIncludesToday,
+    streak,
     onTimeThisMonth,
     judgedThisMonth,
     achievements,
@@ -532,7 +559,14 @@ export function askAccountsFor(
   return answer;
 }
 
-let remembered: { key: string; records: readonly RecordInstance[]; master: unknown; people: readonly LatenessPerson[] | null; stats: MotivationStats } | null = null;
+let remembered: {
+  key: string;
+  records: readonly RecordInstance[];
+  master: unknown;
+  people: readonly LatenessPerson[] | null;
+  signIns: SignInFacts | null;
+  stats: MotivationStats;
+} | null = null;
 
 /**
  * THE SIGNED-IN PERSON'S DAY, STREAK AND BADGES. Their documents are the
@@ -557,8 +591,18 @@ export function motivationFor(person: MotivationPerson | null | undefined, isDem
   const name = person?.name ?? "";
   const self = selfOf(person);
   const people = knownAccounts(self);
+  // Their own sign-in days (engine/signInDays.ts), Live only: the demo's year was never signed in to.
+  const signIns = !isDemo && self ? knownSignIns(self.id) : null;
   const key = [today, isDemo ? "demo" : "live", sameName(name), self ? accountsKeyOf(self) : "", liveStart ?? "", plantDay ? "plant" : "", visible.map((d) => d.id).join(",")].join("|");
-  if (remembered && remembered.key === key && remembered.records === snapshot && remembered.master === master && remembered.people === people) return remembered.stats;
+  if (
+    remembered &&
+    remembered.key === key &&
+    remembered.records === snapshot &&
+    remembered.master === master &&
+    remembered.people === people &&
+    remembered.signIns === signIns
+  )
+    return remembered.stats;
 
   const me = sameName(name);
   const named = me ? visible.filter((d) => resolveResponsibleEmployees(d, master).some((e) => sameName(e.name) === me)) : [];
@@ -583,9 +627,12 @@ export function motivationFor(person: MotivationPerson | null | undefined, isDem
     self,
     people,
     departmentOf: (d) => departmentOfDocument(d.id, d.formatNo),
+    signIns,
+    // The person asking is the one signed in on this page: today is a day they signed in.
+    signedInNow: !!signIns,
   });
   stats.plantDay = plantDay;
-  remembered = { key, records: snapshot, master, people, stats };
+  remembered = { key, records: snapshot, master, people, signIns, stats };
   return stats;
 }
 
@@ -694,7 +741,11 @@ export type PraiseKind =
   | "dayHappy"
   | "nothingDue"
   | "sayAllDone"
-  | "sayStreak";
+  | "sayStreak"
+  | "kept"
+  | "keptFirst"
+  | "sayKept"
+  | "sayKeptFirst";
 
 const PREFIX: Record<PraiseKind, string> = {
   onTime: "cheer.onTime",
@@ -713,6 +764,10 @@ const PREFIX: Record<PraiseKind, string> = {
   nothingDue: "cheer.nothingDue",
   sayAllDone: "cheer.say.allDone",
   sayStreak: "cheer.say.streakMilestone",
+  kept: "cheer.kept",
+  keptFirst: "cheer.keptFirst",
+  sayKept: "cheer.say.kept",
+  sayKeptFirst: "cheer.say.keptFirst",
 };
 
 /** The figures a line may name — each only when it is worth saying. */
@@ -895,7 +950,11 @@ export function badgeFor(key: AchievementKey, lang: Language): BadgeView {
   if (key === "all-done-today") return { key, emoji: "🌟", label: cheerText(lang, "cheer.badge.allDone") };
   if (key === "early-bird") return { key, emoji: "🌅", label: cheerText(lang, "cheer.badge.earlyBird") };
   if (key === "clean-week") return { key, emoji: "✨", label: cheerText(lang, "cheer.badge.cleanWeek") };
-  if (key.startsWith("streak-")) return { key, emoji: "🔥", label: cheerText(lang, "cheer.badge.streak", { n: Number(key.slice(7)) || 0 }) };
+  // A hundred working days in a row is the streak's own top: 💯 beside the flame.
+  if (key.startsWith("streak-")) {
+    const n = Number(key.slice(7)) || 0;
+    return { key, emoji: n >= 100 ? "💯🔥" : "🔥", label: cheerText(lang, "cheer.badge.streak", { n }) };
+  }
   if (key.startsWith("module-hero:")) return { key, emoji: "🏅", label: cheerText(lang, "cheer.badge.moduleHero"), module: key.slice(12) };
   return { key, emoji: "⭐", label: key };
 }
@@ -955,6 +1014,165 @@ export function spokenAllDone(stats: MotivationStats | null, lang: Language, see
 /** What Mitra says aloud on reaching a streak milestone. */
 export function spokenStreak(stats: MotivationStats, lang: Language, seed = ""): string {
   return praiseLine("sayStreak", stats, lang, seed);
+}
+
+// ---- A kept day, celebrated once (the owner, 25-Oct-2026: "like snapchat") ------------------------
+//
+// Today becomes KEPT when the person has signed in and nothing of theirs is waiting (engine/streakCore.ts):
+// at the sign-in itself on a day with nothing of theirs due, or when the last record of the day goes in. The
+// last record's own celebration (the all-done card, which shows the streak) counts as today's; otherwise the
+// top bar's counter asks for one (STREAK_KEPT_EVENT) and components/common/Celebration.tsx gives it: the
+// streak badge, the "celebrate" sound and Mitra's line - or, on a milestone, the milestone's own. Once a day
+// (settings celebratedToday, under STREAK_KEPT_KEY), never for the super admin, who has no streak of their own.
+
+/** The key a kept day is remembered under in settings celebratedToday. */
+export const STREAK_KEPT_KEY = "streak-kept";
+/** Asked by the top bar's counter (components/layout/StreakCounter.tsx) when it sees today kept and not yet celebrated. */
+export const STREAK_KEPT_EVENT = "dcrs:streak-kept";
+/** Asked by the counter: the Dashboard's day card shows itself (components/common/MyDayCard.tsx). */
+export const SHOW_MY_DAY_EVENT = "dcrs:show-my-day";
+
+/** Whether today is kept and still to be celebrated — never for the super admin. */
+export function keptDayToCelebrate(stats: MotivationStats | null, celebrated: (key: string) => boolean = (k) => settingsRepository.doneToday("celebratedToday", stats?.today ?? todayISO(), k)): boolean {
+  return !!stats && !stats.plantDay && stats.streak.todayKept && !celebrated(STREAK_KEPT_KEY);
+}
+
+/** The streak badge of a kept day that is no milestone: "🔥 6-day streak". */
+export function keptBadge(stats: MotivationStats, lang: Language): BadgeView {
+  return { key: STREAK_KEPT_KEY, emoji: "🔥", label: cheerText(lang, "cheer.badge.streak", { n: stats.streakDays }) };
+}
+
+/** The praise under a kept day's badge: the count from two days on, a word for the first day. */
+export function keptLine(stats: MotivationStats, lang: Language, seed = ""): string {
+  return praiseLine(stats.streakDays >= 2 ? "kept" : "keptFirst", stats, lang, seed);
+}
+
+/** What Mitra says aloud on a kept day: the first name and the count. */
+export function spokenKept(stats: MotivationStats, lang: Language, seed = ""): string {
+  return praiseLine(stats.streakDays >= 2 ? "sayKept" : "sayKeptFirst", stats, lang, seed);
+}
+
+// ---- The streak in words: the top bar's counter and the day card -----------------------------------
+
+/**
+ * The counter's state. loading: not worked out yet; none: no streak (a grey flame); open: a streak, today
+ * still to keep; risk: today at risk, from 15:30 (the hourglass); kept: today kept; closed: the plant is
+ * closed today, and the streak waits for the next working day.
+ */
+export type StreakBarState = "loading" | "none" | "open" | "risk" | "kept" | "closed";
+
+export interface StreakBarView {
+  state: StreakBarState;
+  days: number;
+  /** 🔥, or ⌛ while today is at risk. */
+  icon: string;
+  /** The word beside the number where the bar has room: "days", "Start a streak", "at risk". */
+  label: string;
+  /** The whole of it in words: the counter's tooltip and its name. */
+  tip: string;
+}
+
+/** Minutes after midnight on this computer's clock — in the plant's browsers, the plant's. */
+export const minutesOfDay = (when: Date = new Date()): number => when.getHours() * 60 + when.getMinutes();
+
+/** "Sign in tomorrow" when the next working day is tomorrow, else the day it is. */
+function signInNext(streak: StreakResult, today: string, lang: Language, n: number): string {
+  return streak.nextWorkingDay === addDaysISO(today, 1)
+    ? cheerText(lang, "cheer.bar.tip.kept.tomorrow", { n })
+    : cheerText(lang, "cheer.bar.tip.kept.on", { n, date: formatDisplayDate(streak.nextWorkingDay) });
+}
+
+/** THE TOP BAR'S COUNTER, IN WORDS: "🔥 6", the word beside it and the tooltip. `minutesNow` decides the hourglass (from 15:30). */
+export function streakBarView(stats: MotivationStats | null, minutesNow: number, lang: Language): StreakBarView {
+  if (!stats) return { state: "loading", days: 0, icon: "🔥", label: "", tip: cheerText(lang, "cheer.bar.loading") };
+  const { streak } = stats;
+  const n = streak.days;
+  const left = stats.day.remaining;
+  const unit = cheerText(lang, n === 1 ? "cheer.bar.day" : "cheer.bar.days");
+  if (!streak.todayIsWorking) {
+    return n > 0
+      ? { state: "closed", days: n, icon: "🔥", label: unit, tip: cheerText(lang, "cheer.bar.tip.closed", { n }) }
+      : { state: "none", days: 0, icon: "🔥", label: cheerText(lang, "cheer.bar.start"), tip: cheerText(lang, "cheer.bar.tip.closed.none") };
+  }
+  if (streak.todayKept) return { state: "kept", days: n, icon: "🔥", label: unit, tip: signInNext(streak, stats.today, lang, n) };
+  if (showsAtRisk(streak, minutesNow)) {
+    return {
+      state: "risk",
+      days: n,
+      icon: "⌛",
+      label: cheerText(lang, "cheer.bar.risk"),
+      tip: cheerText(lang, left === 1 ? "cheer.bar.tip.risk.one" : "cheer.bar.tip.risk.many", { n, left }),
+    };
+  }
+  if (n === 0) {
+    const tip = left === 0 ? cheerText(lang, "cheer.bar.tip.none") : cheerText(lang, left === 1 ? "cheer.bar.tip.none.one" : "cheer.bar.tip.none.many", { left });
+    return { state: "none", days: 0, icon: "🔥", label: cheerText(lang, "cheer.bar.start"), tip };
+  }
+  const tip = left === 0 ? cheerText(lang, "cheer.bar.tip.open.free", { n }) : cheerText(lang, left === 1 ? "cheer.bar.tip.open.one" : "cheer.bar.tip.open.many", { n, left });
+  return { state: "open", days: n, icon: "🔥", label: unit, tip };
+}
+
+export interface StreakStripDay {
+  date: string;
+  state: StreakDayState;
+  /** "24-10-26: kept" — said by a screen reader, shown as the square's tooltip. */
+  label: string;
+}
+
+export interface StreakCardView {
+  days: number;
+  best: number;
+  /** "lit" (a streak), "none" (a grey flame), "risk" (today at risk, from 15:30). */
+  tone: "lit" | "none" | "risk";
+  /** Under the number: "days in a row", "day in a row", "Start today". */
+  unit: string;
+  /** "Best: 9 days", or "🏆 Your best yet"; "" while the best run is shorter than two days. */
+  bestLine: string;
+  /** How today stands: "Today is kept ✓", "Today: 2 to go", "At risk: 2 still to do", "Closed today". */
+  todayLine: string;
+  /** The rule in one short line: a kept day is a day with nothing missed — what keeps the score at 0. */
+  rule: string;
+  strip: StreakStripDay[];
+  /** The strip as a whole, for a screen reader: "The last 14 days: 9 kept, 1 missed." */
+  stripLabel: string;
+}
+
+/** THE DAY CARD'S STREAK, IN WORDS — null for the super admin, who has no streak of their own (the plant's day). */
+export function streakCardView(stats: MotivationStats | null, minutesNow: number, lang: Language): StreakCardView | null {
+  if (!stats || stats.plantDay) return null;
+  const { streak } = stats;
+  const n = streak.days;
+  const left = stats.day.remaining;
+  const risk = showsAtRisk(streak, minutesNow);
+  const todayLine = !streak.todayIsWorking
+    ? cheerText(lang, "cheer.run.today.closed")
+    : streak.todayKept
+      ? cheerText(lang, "cheer.run.today.kept")
+      : left === 0
+        ? cheerText(lang, "cheer.run.today.free")
+        : cheerText(lang, risk ? (left === 1 ? "cheer.run.today.risk.one" : "cheer.run.today.risk.many") : left === 1 ? "cheer.run.today.open.one" : "cheer.run.today.open.many", { n: left });
+  const word: Record<StreakDayState, string> = {
+    kept: cheerText(lang, "cheer.run.day.kept"),
+    missed: cheerText(lang, "cheer.run.day.missed"),
+    closed: cheerText(lang, "cheer.run.day.closed"),
+    today: cheerText(lang, "cheer.run.day.today"),
+    free: cheerText(lang, "cheer.run.day.free"),
+  };
+  const strip = streak.lastDays.map((d) => ({ ...d, label: cheerText(lang, "cheer.run.day.line", { date: formatDisplayDate(d.date), state: word[d.state] }) }));
+  const kept = strip.filter((d) => d.state === "kept").length;
+  const missed = strip.filter((d) => d.state === "missed").length;
+  return {
+    days: n,
+    best: streak.best,
+    tone: n === 0 ? "none" : risk ? "risk" : "lit",
+    unit: cheerText(lang, n === 0 ? "cheer.run.unit.none" : n === 1 ? "cheer.run.unit.one" : "cheer.run.unit.many"),
+    // A best run is worth a line from two days on: "Best: 9 days", or today's own run, "Your best yet".
+    bestLine: streak.best < 2 ? "" : n === streak.best ? cheerText(lang, "cheer.run.best.yours") : cheerText(lang, "cheer.run.best", { n: streak.best }),
+    todayLine,
+    rule: cheerText(lang, "cheer.run.rule"),
+    strip,
+    stripLabel: cheerText(lang, "cheer.run.strip.sum", { days: STREAK_STRIP_DAYS, kept, missed }),
+  };
 }
 
 // ---- One press, several records: what the batch amounted to ------------------------
