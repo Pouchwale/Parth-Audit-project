@@ -9473,7 +9473,7 @@ not 24-oct-2026 and this applies to all document for all modules. SO do it fix f
    print_and_forms green. Two older failures came to light on the way and fail the same on the code before this change:
    e2e_marketing_module looked for a record's own date in its header block, which has had no Date cell since §117 (now read
    from the record), and e2e_portal_controls still expects Rev 01/02 in F/QC/01's header, which became the QC paper's own
-   header (open).
+   header (closed 25-Oct-2026: the suite's format change is made on F/DISP/04, which DCRS heads with its own block).
 
 ## §125 Reminder emails: each person told by email, free of cost, what is still open, again and again until it is done (25-Oct-2026)
 

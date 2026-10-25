@@ -36,6 +36,16 @@ PASSWORD = "PlaywrightQA123"
 NEW_PASSWORD = "PlaywrightQA456"
 FAILURES = []
 
+# THE FORMAT SECTION 2 CHANGES, which the log's lines and chips in section 3 then find: F/DISP/04, a sheet DCRS draws
+# under its own header block (Format No. | Rev No. | Rev Date), issued at Rev 01, started afresh each time (as-required:
+# New starts a record, never reopens one) and with no page of the plant's on file, so the preview is the format itself.
+# It was F/QC/01 until the QC papers were drawn on their own frame and measured grid (REQUIREMENTS §117): the paper's
+# head holds no Format No. or Rev No. (its number and revision are in its foot line), and a column added there has no
+# width on the paper's grid yet. The QC papers' formats are designed in tests/e2e_sheet_designer.py.
+FORMAT_DOC = "disp-vehicle-cleaning"
+FORMAT_NO = "F/DISP/04"
+FORMAT_DEPARTMENT = "DISP"
+
 
 def check(label, cond, detail=None):
     print(f"[{'PASS' if cond else 'FAIL'}] {label}")
@@ -83,6 +93,13 @@ def open_page(page, route, settle=1300):
 
 def stored(page, key):
     return page.evaluate("(k) => JSON.parse(localStorage.getItem('dcrs:v1:' + k) || 'null')", key)
+
+
+def header_cells(page, within="[data-section='document-preview']"):
+    """The sheet's header block cell by cell, label to value: {"Format No.": "F/DISP/04", "Rev No.": "01", "Rev Date": "01-11-23", ...}."""
+    return page.locator(f"{within} .doc-header .meta-cell").evaluate_all(
+        "els => Object.fromEntries(els.map((e) => [(e.querySelector('.k') || e).textContent.trim(), (e.querySelector('.v') || e).textContent.trim()]))"
+    )
 
 
 def enter_todays_pest_round(page):
@@ -217,9 +234,9 @@ with sync_playwright() as p:
     # ==================================================================
     # 2. A format is changed, and its revision with it
     # ==================================================================
-    open_page(page, "#/document/qc-bopp-film")
-    head = page.locator("[data-section='document-preview'] .doc-header").inner_text()
-    check("F/QC/01 starts at the revision it was issued at, Rev 01", "01" in head and "F/QC/01" in head, head[:200])
+    open_page(page, f"#/document/{FORMAT_DOC}")
+    cells = header_cells(page)
+    check(f"{FORMAT_NO} starts at the revision it was issued at, Rev 01", cells.get("Format No.") == FORMAT_NO and cells.get("Rev No.") == "01", cells)
     # Edit format on a format's own page is design mode on the sheet (REQUIREMENTS s64,
     # tests/e2e_sheet_designer.py); the dialog checked here is under "More options…".
     page.click("[data-action='edit-format']")
@@ -237,11 +254,11 @@ with sync_playwright() as p:
     page.click("[data-action='save-format']")
     page.wait_for_timeout(1200)
     close_assistant(page)
-    head = page.locator("[data-section='document-preview'] .doc-header").inner_text()
+    cells = header_cells(page)
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("Saved: the sheet now carries the new column", "Batch No." in headings, headings)
-    check("...and the format is at Rev 02, dated today", "02" in head and date.today().strftime("%d-%m-%y") in head, head[:240])
-    edit = (stored(page, "formatEdits") or {}).get("qc-bopp-film") or {}
+    check("...and the format is at Rev 02, dated today", cells.get("Rev No.") == "02" and cells.get("Rev Date") == date.today().strftime("%d-%m-%y"), cells)
+    edit = (stored(page, "formatEdits") or {}).get(FORMAT_DOC) or {}
     rev = (edit.get("revisions") or [{}])[0]
     check(
         "The change is on record: who, what and why",
@@ -253,7 +270,8 @@ with sync_playwright() as p:
     dismiss(page)
     close_assistant(page)
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    check("The changed format survives a reload (the issued definitions are put back at start-up, the change is laid over them)", "Batch No." in headings and "02" in page.locator("[data-section='document-preview'] .doc-header").inner_text(), headings)
+    cells = header_cells(page)
+    check("The changed format survives a reload (the issued definitions are put back at start-up, the change is laid over them)", "Batch No." in headings and cells.get("Rev No.") == "02", (headings, cells))
 
     # A record started on the changed format takes a value in the new column.
     page.locator("[data-action='document-new-record']").first.click()
@@ -285,8 +303,8 @@ with sync_playwright() as p:
     lines = log_lines(page)
     flat = [" | ".join(l) for l in lines]
     check("The activity log holds the account being created, by name", any("Account created" in l and "Portal QA" in l for l in flat), flat[:6])
-    check("...the document being opened", any("Document opened" in l and "F/QC/01" in l for l in flat), flat[:8])
-    check("...the record started on it", any("Record started" in l and "F/QC/01" in l for l in flat), flat[:8])
+    check("...the document being opened", any("Document opened" in l and FORMAT_NO in l for l in flat), flat[:8])
+    check("...the record started on it", any("Record started" in l and FORMAT_NO in l for l in flat), flat[:8])
     check("...and the format change with its revisions and its reason", any("Format changed" in l and "Rev 01 → 02" in l and "Customer audit" in l for l in flat), [l for l in flat if "Format" in l][:3])
     found = log_lines(page, "Format changed")
     check("Searching the log narrows it to what was asked for", len(found) >= 1 and all("Format changed" in " ".join(l) for l in found), found[:3])
@@ -304,15 +322,15 @@ with sync_playwright() as p:
     rows = page.locator("[data-table='activity-log'] tbody tr[data-activity]").evaluate_all("els => els.map((e) => e.getAttribute('data-activity'))")
     count = page.locator("[data-field='activity-count']").get_attribute("data-count")
     check("The action chip keeps the log to that action alone, and says how many lines match", len(rows) >= 1 and all(a == "Format changed" for a in rows) and count == str(len(rows)), (rows[:4], count))
-    page.locator("[data-field='activity-chips-department'] [data-chip='department'][data-value='QC']").click()
+    page.locator(f"[data-field='activity-chips-department'] [data-chip='department'][data-value='{FORMAT_DEPARTMENT}']").click()
     page.wait_for_timeout(1500)
     departments = page.locator("[data-table='activity-log'] tbody tr[data-activity]").evaluate_all("els => els.map((e) => [e.getAttribute('data-activity'), e.getAttribute('data-department')])")
-    check("...and the module chip combines with it: QC's format changes only", len(departments) >= 1 and all(a == "Format changed" and d == "QC" for a, d in departments), departments[:4])
-    page.fill("[data-field='activity-document']", "F/QC/01")
+    check(f"...and the module chip combines with it: {FORMAT_DEPARTMENT}'s format changes only", len(departments) >= 1 and all(a == "Format changed" and d == FORMAT_DEPARTMENT for a, d in departments), departments[:4])
+    page.fill("[data-field='activity-document']", FORMAT_NO)
     page.keyboard.press("Enter")
     page.wait_for_timeout(1500)
     targets = page.locator("[data-table='activity-log'] tbody tr[data-activity] td:nth-child(4)").all_inner_texts()
-    check("...and the document chip, typed, keeps it to that format number", len(targets) >= 1 and all("F/QC/01" in t for t in targets), targets[:4])
+    check("...and the document chip, typed, keeps it to that format number", len(targets) >= 1 and all(FORMAT_NO in t for t in targets), targets[:4])
     page.locator("[data-action='activity-clear-chips']").click()
     page.wait_for_timeout(1500)
     rows = page.locator("[data-table='activity-log'] tbody tr[data-activity]").evaluate_all("els => els.map((e) => e.getAttribute('data-activity'))")
@@ -388,7 +406,7 @@ with sync_playwright() as p:
     check("The lizard year is planned from the year alone, like the rodent year", season is True)
 
     # Put the format back, as the last thing, so the suite leaves the library as issued.
-    open_page(page, "#/document/qc-bopp-film")
+    open_page(page, f"#/document/{FORMAT_DOC}")
     page.click("[data-action='edit-format']")
     page.wait_for_timeout(400)
     page.click("[data-action='designer-more']")
@@ -397,7 +415,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(1200)
     close_assistant(page)
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    check("Restore the issued format puts the paper's own transcription back, at its own revision", "Batch No." not in headings and not (stored(page, "formatEdits") or {}).get("qc-bopp-film"), headings)
+    check("Restore the issued format puts the paper's own transcription back, at its own revision", "Batch No." not in headings and not (stored(page, "formatEdits") or {}).get(FORMAT_DOC), headings)
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()
