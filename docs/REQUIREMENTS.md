@@ -8787,7 +8787,7 @@ the download expects.
   three by three, the words bold at the top left of each tall cell), the grids at the papers' widths and heights and faces, the
   PROCEDURE, and the number alone, centred, at the foot of the page ("F/QC/11 (01/01.01.2022)", typed over where it stands). *The owner's
   overrides stay:* the standard weights, one F/QC/12 record a week (its one entry on the paper's first two lines; the paper's three other
-  entries print as its blank ruled lines with their Deviation %, never stored), the carry-forward from the previous record (which is
+  entries print as its blank ruled lines with their Deviation %, never stored - on the screen only since §126, 25-Oct-2026), the carry-forward from the previous record (which is
   most of what F/QC/11's score still counts: the paper is blank, a new sheet is written as the last one was), no DATE cell, F/QC/12
   printed as F/QC/12 where the paper reads F/QC/13 (section 111), and the company's one name. On the screen the header keeps its Format
   No. / Rev No. / Page No. row to be typed over (section 86); it does not print. F/QC/11's paper is a US Letter page: it is drawn at its
@@ -9421,7 +9421,7 @@ on physical paper the print will come properly but it not cover whole page and f
      until it reaches 94% of the A4 page;
    - a register (a grid that takes free lines) is then ruled with 8 mm blank lines down to 86% of the page, as its
      paper is, ready for a pen — the last step of the print, after a long value is written as words; the lines leave the
-     screen when printing ends;
+     screen when printing ends (*withdrawn by §126, 25-Oct-2026: a printout holds the lines written and no others*);
    - a paper form drawn in millimetres, a framed paper, a sheet that names its paper, one standing at its own margin,
      and a sheet drawn in points to its own paper — the contractor's service reports (the March sheet to 1.5 pt, §118:
      "make sure it looks like it only"; that sheet itself is 433 pt across at 9 pt) and F/HR/18 (its Word page) — are
@@ -9537,6 +9537,29 @@ he or she complete his tasks."
    notify run at 10:00 captures exactly one email naming the record with its date 25-10-26; a second run at 10:05 adds nothing;
    the test email captured and a second one refused 429; after the record is submitted the 15:35 run sends nothing; a staff
    account 403 on every email route; no address in the directory or the activity log; the old digest route 410).
+
+## §126 Printed, only the lines written; and Ask Mitra fills the window (25-Oct-2026)
+
+The owner, 25-Oct-2026, with two screenshots - Ask Mitra with a band of empty page under the chat, and F/QC/12's print
+preview with one entry written and four printed: "when i open ask Mitra then it is open like this way which is not good right
+as you can see that blank space also there so do make sure to i don't want that space" and "there is format which is not filled
+from second row and what i want the user filled row are only should show and not whole default format like if user has filled
+one or two or three or four then it should print accordingly and not by default four which are empty and this applies to other
+similar document also".
+
+1. **A printout holds the lines written and no others.** A paper's blank ruled lines beyond the record's - F/QC/12's four
+   entries and the utility test's nine lines (LogSheetRecordView tr.pf-pad), a QC paper drawn as its own table (tr.pt-pad, and
+   its .pt-padc cells beside the record's lines) - stay on the screen as the paper's look and no longer print. A register's line
+   nobody wrote, while another line of it is written, no longer prints either (data-empty-line; a line with words only in a
+   fixed or worked-out column counts as unwritten). A sheet with nothing written at all prints its lines, for writing by hand.
+   The A4 fill (§123 item 4) no longer rules blank lines under a register: its words are still drawn bigger.
+2. **Ask Mitra fills the window.** The page's height was a sum that counted the mode banner (44 px) whether it was shown or not,
+   with the content's 96 px foot (room for the Ask Mitra pill, which this page does not show) under it. On a desktop the page now
+   takes the window's height below the top bar and any banner, 16 px short of the foot; a phone keeps its own layout.
+3. **Proved:** tests/e2e_print_fill.py (F/QC/12 with its one calibration prints one entry, one "Deviation %" line; no blank line
+   is ruled under F/PRD/23, F/PRD/24, F/STR/02 or F/DISP/04; each one page), frontend/tests/printFill.test.ts (the rules), the
+   print suites (print_all_documents, qc_calibration, qc_formats, purchase_module, print_and_forms, downloads_and_print,
+   header_editing) and the Ask Mitra suites (mitra_agent, mitra_format, smoke), and the page looked at 1917 px wide.
 
 ## Master data provenance summary
 
