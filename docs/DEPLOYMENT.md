@@ -546,8 +546,8 @@ for the super admin's eyes only) and the Notifications page say what went, to wh
    for a phone number once). An App Password needs it.
 3. Still in **Security** (or at https://myaccount.google.com/apppasswords), make an **App Password**: name it `DCRS`,
    choose **Create**, and copy the 16 letters it shows. **It is a password: do not email it, chat it or put it in any
-   file but `backend/.env`.** It works only for sending mail; it can be removed there at any time, which stops DCRS
-   sending.
+   file but `backend/.env`.** It opens the plant's mailbox to whoever holds it (DCRS uses it only to send); it can be
+   removed on the same page at any time, which stops DCRS sending until a new one is set.
 4. On the DCRS computer, open `backend/.env` in Notepad and add two lines (the 16 letters without spaces):
    `GMAIL_USER=<the plant's Gmail address>` and `GMAIL_APP_PASSWORD=<the 16 letters>`. Add
    `DCRS_APP_URL=http://<this PC's address>:4000` too (the address the laptops open, "On the company network" in the
