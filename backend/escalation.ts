@@ -57,7 +57,7 @@
 // (GMAIL_USER / GMAIL_APP_PASSWORD), to ESCALATION_EMAIL or else the active
 // administrators, never to a ".local" address.
 import { database, ESCALATION_ACTIONS, insertActivity, listUsers, plantTimeZone, readItem, registerSchema, transaction, withClient, type StoredItem } from "./db.ts";
-import { isEmailConfigured, sendMail } from "./email.ts";
+import { isEmailConfigured, maskAddress, scrubAddresses, sendMail } from "./email.ts";
 import { departmentOfDocument, PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
 import { ACCESS_KEY, AccessCatalogue, answerRule, catalogueDoc } from "./accessLevels.ts";
 import {
@@ -615,15 +615,18 @@ async function mailOut(subject: string, html: string): Promise<string> {
   const to = await recipients();
   if (to.length === 0) return "no email (no address that receives mail; shown in the app)";
   let sent = 0;
+  let captured = 0;
   for (const address of to) {
     try {
-      await sendMail({ to: address, subject, html });
-      sent += 1;
+      // backend/email.ts: from "<company> - DCRS", a plain-text part made from the HTML; kept on the PC with EMAIL_TRANSPORT=capture.
+      if ((await sendMail({ to: address, subject, html })).captured) captured += 1;
+      else sent += 1;
     } catch (err) {
-      console.error(`[escalation] could not email ${address}:`, err instanceof Error ? err.message : err);
+      // Never the mailbox in a log line (25-Oct-2026): masked, and so is any address the error quotes.
+      console.error(`[escalation] could not email ${maskAddress(address)}:`, scrubAddresses(err instanceof Error ? err.message : String(err)));
     }
   }
-  return `emailed ${sent} of ${to.length}`;
+  return captured > 0 ? `emailed ${sent} of ${to.length}; ${captured} captured on this server (EMAIL_TRANSPORT=capture: nothing left the PC)` : `emailed ${sent} of ${to.length}`;
 }
 
 // ---------------------------------------------------------------------------

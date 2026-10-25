@@ -20,8 +20,9 @@
 //                  §97); its period is the day
 //   notify         every NOTIFY_EVERY_MS (default 5 minutes) from PREPARE_AT
 //                  to the close of the plant's hours on working days: each
-//                  person's notifications brought up to date and pushed
-//                  (backend/notificationJobs.ts). It has no period to claim —
+//                  person's notifications brought up to date, pushed and, in
+//                  the day's three slots, emailed (backend/notificationJobs.ts,
+//                  backend/emailReminders.ts). It has no period to claim —
 //                  every run is safe to repeat (the ledger is upserted by key) —
 //                  so two servers sharing the database take turns by a lock
 //                  instead (NOTIFY_LOCK), and a server that cannot take it lets
@@ -318,7 +319,7 @@ async function maybeNotify(now: Date, date: string, time: string, closed: (d: st
       if (!rows[0]?.ok) return; // another server is running it
       try {
         const { outcome, result } = await runNotify({}, notificationDeps());
-        if (result.written > 0 || result.resolved > 0 || !/^nothing|^pushes off/.test(result.push)) console.log(`[jobs] notify ${date} ${time}: ${outcome}`);
+        if (result.written > 0 || result.resolved > 0 || !/^nothing|^pushes off/.test(result.push) || !/^nothing|^no emails|^emails off/.test(result.email)) console.log(`[jobs] notify ${date} ${time}: ${outcome}`);
       } finally {
         await client.query("SELECT pg_advisory_unlock($1)", [NOTIFY_LOCK]).catch(() => undefined);
       }

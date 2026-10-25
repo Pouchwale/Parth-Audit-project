@@ -68,6 +68,10 @@ const WORKING_HOURS_SUITE = "tests/e2e_working_hours.py";
 const MOBILE_MITRA_API_SUITE = "tests/e2e_mobile_mitra_api.py";
 // REQUIREMENTS §85: the guided tour on the Dashboard, for staff and the super admin (product server).
 const TOUR_SUITE = "tests/e2e_tour.py";
+// The reminder emails (the owner, 25-Oct-2026): the super admin sets a person's reminder email, switches them on, and the
+// notify job, run by hand, captures one email per person per slot (EMAIL_TRANSPORT=capture: nothing leaves the PC); with
+// the plant's seeded accounts, so on the product server.
+const EMAIL_REMINDERS_SUITE = "tests/e2e_email_reminders.py";
 // REQUIREMENTS §93: every record starts on its own page and stays, for the super admin and for each department's own
 // account, on a system live since the first of last month (product server; it adds the departments' accounts, so it
 // runs last).
@@ -92,6 +96,7 @@ const PRODUCT_SUITES = [
   WORKING_HOURS_SUITE,
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
+  EMAIL_REMINDERS_SUITE,
   EVERY_RECORD_STARTS_SUITE,
   ARCHIVE_BLANKS_SUITE,
   ACCOUNTS_MASTER_SUITE,
@@ -323,6 +328,13 @@ async function main(): Promise<void> {
         // sender is proved against a stand-in (backend/tests/push.test.ts) and, by a reviewer, against Expo's own
         // endpoint with a fake token.
         PUSH_ENABLED: "0",
+        // NO EMAIL LEAVES A TEST SERVER (the reminder emails, 25-Oct-2026; backend/email.ts). backend/.env's plant mailbox
+        // would otherwise reach these servers through process.env above (backend/env.ts never fills a name that is set,
+        // even blank), and every notify run by hand would write to real people. Blank, and every message CAPTURED: kept
+        // in the email log, which tests/e2e_email_reminders.py reads, and nothing sent.
+        GMAIL_USER: "",
+        GMAIL_APP_PASSWORD: "",
+        EMAIL_TRANSPORT: "capture",
       },
     });
   console.log(`Starting server on :${TEST_PORT}...`);
@@ -466,6 +478,8 @@ async function main(): Promise<void> {
   // REQUIREMENTS §85 — the mobile app's API, DCRS's engine on the server.
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
+  // The reminder emails (25-Oct-2026) — set by the super admin, captured on the server, never sent from a test run.
+  EMAIL_REMINDERS_SUITE,
   // REQUIREMENTS §93 — every record starts and stays; after the others, because it adds the departments' accounts.
   EVERY_RECORD_STARTS_SUITE,
   // REQUIREMENTS §110 — the accounts and the master list of who does what; last, because it renames and removes accounts.
@@ -493,7 +507,9 @@ async function main(): Promise<void> {
       console.log(`Running ${suite}...`);
       // The suite's browsers make no sound (tests/quiet: Python loads its sitecustomize.py at start-up, the owner, 23-Oct-2026).
       const quiet = [path.join(root, "tests", "quiet"), process.env.PYTHONPATH].filter(Boolean).join(path.delimiter);
-      const test = spawnSync(python, [suite], { cwd: root, stdio: "inherit", shell: process.platform === "win32", env: { ...process.env, PYTHONPATH: quiet } });
+      // DCRS_SEED_PASSWORD: the product server's first password of the named accounts, so a suite signs in with it
+      // without writing it in its own file (tests/e2e_access_levels.py reads it too).
+      const test = spawnSync(python, [suite], { cwd: root, stdio: "inherit", shell: process.platform === "win32", env: { ...process.env, PYTHONPATH: quiet, DCRS_SEED_PASSWORD: PRODUCT_SEED_PASSWORD } });
       if (productServer) {
         productServer.kill();
         productServer = null;

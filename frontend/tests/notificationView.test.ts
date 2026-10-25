@@ -92,3 +92,21 @@ test("the super admin's jobs, run now: what was prepared or worked out, in plain
     "Phones: pushed 10 people (12 phones accepted)",
   ]);
 });
+
+test("the reminder emails' line after a run of the notifications, and the page's words around them, in English and Gujarati (the owner, 25-Oct-2026)", () => {
+  const say = (lang: "en" | "gu") => (k: string, v?: Record<string, string | number>) => tr(lang, k, v);
+  const email = "captured 2 emails (the morning email; EMAIL_TRANSPORT=capture: nothing left the PC)";
+  const run = { job: "notify", outcome: `3 notifications for 2 people; 0 new or changed, 0 resolved; pushes off (PUSH_ENABLED=0); ${email}`, result: { planned: 3, written: 0, resolved: 0, push: "pushes off (PUSH_ENABLED=0)", email } };
+  assert.deepEqual(jobRunWords(run, say("en"), (c) => c).slice(1), ["Phones: pushes off (PUSH_ENABLED=0)", `Emails: ${email}`]);
+  assert.equal(jobRunWords(run, say("gu"), (c) => c)[2], `ઇમેઇલ: ${email}`);
+  assert.equal(jobRunWords({ ...run, result: { ...run.result, email: undefined } }, say("en"), (c) => c).length, 2, "a server from before the emails says nothing of them");
+  const en = STRINGS.en as Record<string, string>;
+  const gu = STRINGS.gu as Record<string, string>;
+  const keys = Object.keys(en).filter((k) => k.startsWith("email."));
+  assert.ok(keys.length >= 25, `${keys.length} words`);
+  for (const k of keys) {
+    assert.ok(gu[k] && gu[k] !== en[k] && /[઀-૿]/.test(gu[k]), `${k} has Gujarati of its own`);
+    assert.doesNotMatch(en[k], /\b(he|she|his|her|him)\b/i, `${k} names nobody by a gendered pronoun`);
+    assert.deepEqual((gu[k].match(/\{(\w+)\}/g) ?? []).sort(), (en[k].match(/\{(\w+)\}/g) ?? []).sort(), `${k}: the same names to fill`);
+  }
+});

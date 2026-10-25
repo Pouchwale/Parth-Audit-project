@@ -9,7 +9,7 @@ export interface Employee {
   role: string; // e.g. "Checker", "Verifier", "Technician", "Client Contact"
   department?: string;
   active: boolean;
-  email?: string; // needed to receive reminder digests — blank until an admin sets it
+  email?: string; // the person's email as Master Data keeps it; DCRS sends no mail to it (25-Oct-2026: reminders go to the account's reminder email, set by the super admin on Users & Access)
 }
 
 export interface AreaLocation {

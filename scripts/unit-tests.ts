@@ -107,7 +107,9 @@ function runBackend(chosen: string[]): number {
       // Live record here, as on any test server (REQUIREMENTS §98): the engine host's tests fill with it.
       // No AI key either (REQUIREMENTS §109): backend/.env's real one, which OpenAI bills by the token, would
       // otherwise be loaded by backend/env.ts into every test that imports the server; blank, every name a key
-      // goes by is set, so env.ts leaves it so. A test that needs a key sets a stand-in of its own.
+      // goes by is set, so env.ts leaves it so. A test that needs a key sets a stand-in of its own. No mailbox either
+      // (the reminder emails, 25-Oct-2026): backend/.env's Gmail account and App Password stay out of every test, which
+      // hands the sender a stand-in transport of its own.
       env: {
         ...process.env,
         MITRA_OCR: process.env.MITRA_OCR ?? "0",
@@ -116,6 +118,9 @@ function runBackend(chosen: string[]): number {
         OPENAI_API_KEY: "",
         GROQ_API_KEY: "",
         GEMINI_API_KEY: "",
+        GMAIL_USER: "",
+        GMAIL_APP_PASSWORD: "",
+        EMAIL_TRANSPORT: "",
       },
     }
   );

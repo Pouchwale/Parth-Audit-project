@@ -11,12 +11,15 @@
 //                    engine works out every active account's notifications in one load (op "notifications",
 //                    engine/notificationPlan.ts); they are upserted into the ledger by key and the ones whose record
 //                    moved on are resolved (backend/notifications.ts); the super admin's open escalations are mirrored
-//                    as notifications; then the pushes (backend/push.ts).
+//                    as notifications; then the pushes (backend/push.ts), and last the reminder emails
+//                    (backend/emailReminders.ts, the owner, 25-Oct-2026): one email per person per slot, of what is
+//                    still open for them.
 //
 // AS THE SYSTEM. Both run over every department, in nobody's name: the activity log says "System".
 import { insertActivity, listUsers, type ActivityInput, type UserRow } from "./db.ts";
 import { sharedEngineHost, type ActivityLine, type EngineCaller, type EngineHost } from "./engineHost.ts";
 import { databaseLedger, type LedgerItem, type NotificationLedger } from "./notifications.ts";
+import { scrubAddresses } from "./email.ts";
 import { PLANNED_KINDS } from "../frontend/src/engine/notificationPlan.ts";
 import { MODULE_NAMES } from "../frontend/src/engine/notificationText.ts";
 
@@ -90,6 +93,8 @@ export interface JobDeps {
   activity?: (lines: ActivityInput[]) => Promise<void>;
   /** The pushes after the ledger is up to date (backend/push.ts); none: nothing is pushed. */
   push?: (now: Date) => Promise<{ outcome: string }>;
+  /** The reminder emails after the pushes (backend/emailReminders.ts); none: nothing is emailed. */
+  email?: (now: Date) => Promise<{ outcome: string }>;
 }
 
 const defaultAccounts = async (): Promise<JobAccount[]> => jobAccounts(await listUsers());
@@ -155,6 +160,8 @@ export interface NotifyResult {
   escalations: number;
   cleaned: number;
   push: string;
+  /** What the reminder emails did, in a line (backend/emailReminders.ts). */
+  email: string;
 }
 
 let cleanedOn = "";
@@ -202,6 +209,17 @@ export async function runNotify(opts: { now?: Date } = {}, deps: JobDeps = {}): 
   }
 
   const push = deps.push ? (await deps.push(opts.now ?? new Date())).outcome : "pushes off";
+  // The reminder emails last, at the same moment. The ledger is up to date by now, so an email that cannot go is said in
+  // the outcome and never fails the job: the next run (or the next slot) tries again.
+  let email = "emails off";
+  if (deps.email) {
+    try {
+      email = (await deps.email(opts.now ?? new Date())).outcome;
+    } catch (err) {
+      email = `emails not sent this run: ${scrubAddresses(err instanceof Error ? err.message : String(err)).slice(0, 300)}`;
+      console.error(`[email] ${email}`);
+    }
+  }
   const result: NotifyResult = {
     date: plan.date,
     time: plan.time,
@@ -211,9 +229,10 @@ export async function runNotify(opts: { now?: Date } = {}, deps: JobDeps = {}): 
     escalations: open.length,
     cleaned,
     push,
+    email,
   };
   return {
-    outcome: `${result.planned} notification${result.planned === 1 ? "" : "s"} for ${plan.users.length} people; ${result.written} new or changed, ${result.resolved} resolved; ${push}`,
+    outcome: `${result.planned} notification${result.planned === 1 ? "" : "s"} for ${plan.users.length} people; ${result.written} new or changed, ${result.resolved} resolved; ${push}; ${email}`,
     result,
   };
 }

@@ -2,9 +2,9 @@
 //
 // The server keeps each notification as facts (engine/notificationPlan.ts NotificationData: the document, the date,
 // the counts) and words it here whenever it is read: by the website's bell and Notifications page, by the phone's
-// inbox (through the Mitra server) and by the push to a phone, each in the language asked. One file, so the three
-// can never say different things, and a sentence is never stored: a person who switches language reads every
-// notification in the new one.
+// inbox (through the Mitra server), by the push to a phone and by the reminder email (backend/emailReminders.ts, the
+// owner, 25-Oct-2026), each in the language asked. One file, so they can never say different things, and a sentence is
+// never stored: a person who switches language reads every notification in the new one.
 //
 // The owner's rules for the words (8-Oct-2026): short sentences in plain words; no gendered pronoun (the name, or
 // "you"); never a record's values (a push passes through Expo's and Google's servers). No em dash, as the Hindi
@@ -306,4 +306,156 @@ export function testWords(lang: NotificationLanguage | string = "en"): Notificat
     default:
       return { title: "Test notification", body: "This is a test notification from DCRS. Notifications reach this phone." };
   }
+}
+
+// ---------------------------------------------------------------------------
+// the reminder email (backend/emailReminders.ts)
+//
+// The owner, 25-Oct-2026: "the system will update the user that you have to complete this records and those are the
+// records remaining till now to filled or submit/verify ... and system will remind the user again and again until he or
+// she complete his tasks." One email per person in each of the day's three slots, listing what is still open for them:
+// each line is the notification's own body above (never a send-back's reason: the mail passes through Gmail), under
+// these headings, with these words around them.
+
+/** The slots of the plant's day a reminder email goes out in: after the morning prepare, the "still open" one, the last call. */
+export type EmailSlot = "morning" | ReminderSlot;
+
+/** The groups an email lists a person's open work under, in this order. */
+export type EmailGroup = "overdue" | "sent_back" | "to_fill" | "verify" | "upcoming";
+
+export const EMAIL_GROUPS: readonly EmailGroup[] = ["overdue", "sent_back", "to_fill", "verify", "upcoming"];
+
+/** The group a kind is listed under, or null for one no email carries (the summaries, the escalations, an access change). */
+export function emailGroupOf(kind: string): EmailGroup | null {
+  switch (kind) {
+    case "overdue":
+      return "overdue";
+    case "sent_back":
+      return "sent_back";
+    case "due":
+    case "needs_input":
+    case "ready":
+      return "to_fill";
+    case "verify":
+      return "verify";
+    case "upcoming":
+      return "upcoming";
+    default:
+      return null;
+  }
+}
+
+/** The day's other reminder times, for "DCRS reminds you again at ...". */
+export interface EmailTimes {
+  reminder: string;
+  lastCall: string;
+}
+
+export interface EmailWords {
+  hello: (name: string) => string;
+  intro: Record<EmailSlot, string>;
+  groups: Record<EmailGroup, string>;
+  /** The heading of the lines of a document in no module, in a long list grouped by module. */
+  otherModule: string;
+  /** "and 3 more", after a list cut short. */
+  more: (n: number) => string;
+  /** Before the link to the person's notifications. */
+  openLink: string;
+  /** The link's own words, in the HTML part. */
+  openButton: string;
+  /** With no link to give (DCRS_APP_URL not set). */
+  openNoLink: string;
+  again: (slot: EmailSlot, times: EmailTimes) => string;
+  /** Why this address gets the email, and whom to ask to change it. */
+  why: string;
+  testSubject: string;
+  testBody: string;
+}
+
+const EMAIL_EN: EmailWords = {
+  hello: (name) => (name ? `Hello ${name},` : "Hello,"),
+  intro: {
+    morning: "Here is what is waiting for you in DCRS today.",
+    reminder: "These are still open for you in DCRS.",
+    lastCall: "Last call for today: these are still open for you in DCRS.",
+  },
+  groups: { overdue: "Overdue", sent_back: "Sent back", to_fill: "To fill and submit", verify: "To verify", upcoming: "Coming up" },
+  otherModule: "Other documents",
+  more: (n) => `and ${n} more`,
+  openLink: "Open DCRS to see them all:",
+  openButton: "Open my notifications in DCRS",
+  openNoLink: "Open DCRS, choose the bell, then See all, to see them all.",
+  again: (slot, t) =>
+    slot === "morning"
+      ? `DCRS reminds you again at ${t.reminder} and ${t.lastCall} on working days, until each one is done.`
+      : slot === "reminder"
+        ? `DCRS reminds you once more at ${t.lastCall}, and again on the next working day, until each one is done.`
+        : "DCRS reminds you again on the next working day, until each one is done.",
+  why: "The super admin of DCRS entered this address for your reminders. To change it or stop them, ask the super admin.",
+  testSubject: "Test email from DCRS",
+  testBody: "This is a test email from DCRS. Reminder emails reach this address.",
+};
+
+const EMAIL_HI: EmailWords = {
+  hello: (name) => (name ? `नमस्ते ${name},` : "नमस्ते,"),
+  intro: {
+    morning: "आज DCRS में आपके लिए यह काम बाकी है।",
+    reminder: "DCRS में आपके लिए यह अभी बाकी है।",
+    lastCall: "आज की आख़िरी याद: DCRS में आपके लिए यह अभी बाकी है।",
+  },
+  groups: { overdue: "देर से", sent_back: "वापस भेजे गए", to_fill: "भरकर जमा करने हैं", verify: "सत्यापन के लिए", upcoming: "जल्द देय" },
+  otherModule: "अन्य दस्तावेज़",
+  more: (n) => `और ${n} अन्य`,
+  openLink: "सब देखने के लिए DCRS खोलें:",
+  openButton: "DCRS में मेरी सूचनाएँ खोलें",
+  openNoLink: "सब देखने के लिए DCRS खोलें, घंटी चुनें और सभी सूचनाएँ देखें।",
+  again: (slot, t) =>
+    slot === "morning"
+      ? `जब तक हर काम पूरा नहीं होता, DCRS कामकाज के दिनों में ${t.reminder} और ${t.lastCall} बजे फिर याद दिलाएगा।`
+      : slot === "reminder"
+        ? `जब तक हर काम पूरा नहीं होता, DCRS ${t.lastCall} बजे और अगले कामकाज के दिन फिर याद दिलाएगा।`
+        : "जब तक हर काम पूरा नहीं होता, DCRS अगले कामकाज के दिन फिर याद दिलाएगा।",
+  why: "DCRS के सुपर एडमिन ने आपकी याद के लिए यह पता दर्ज किया है। इसे बदलने या बंद करने के लिए सुपर एडमिन से कहें।",
+  testSubject: "DCRS का परीक्षण ईमेल",
+  testBody: "यह DCRS का परीक्षण ईमेल है। याद दिलाने वाले ईमेल इस पते तक पहुँच रहे हैं।",
+};
+
+const EMAIL_GU: EmailWords = {
+  hello: (name) => (name ? `નમસ્તે ${name},` : "નમસ્તે,"),
+  intro: {
+    morning: "આજે DCRS માં તમારા માટે આ કામ બાકી છે.",
+    reminder: "DCRS માં તમારા માટે આ હજી બાકી છે.",
+    lastCall: "આજની છેલ્લી યાદ: DCRS માં તમારા માટે આ હજી બાકી છે.",
+  },
+  groups: { overdue: "મોડું", sent_back: "પાછું મોકલ્યું", to_fill: "ભરીને સબમિટ કરવાનું", verify: "ચકાસણી માટે", upcoming: "આવનારું" },
+  otherModule: "બીજા દસ્તાવેજ",
+  more: (n) => `અને બીજા ${n}`,
+  openLink: "બધું જોવા DCRS ખોલો:",
+  openButton: "DCRS માં મારી સૂચનાઓ ખોલો",
+  openNoLink: "બધું જોવા DCRS ખોલો, ઘંટડી પસંદ કરો અને બધી સૂચનાઓ જુઓ.",
+  again: (slot, t) =>
+    slot === "morning"
+      ? `દરેક કામ પૂરું ન થાય ત્યાં સુધી DCRS કામકાજના દિવસે ${t.reminder} અને ${t.lastCall} વાગ્યે ફરી યાદ અપાવશે.`
+      : slot === "reminder"
+        ? `દરેક કામ પૂરું ન થાય ત્યાં સુધી DCRS ${t.lastCall} વાગ્યે અને પછીના કામકાજના દિવસે ફરી યાદ અપાવશે.`
+        : "દરેક કામ પૂરું ન થાય ત્યાં સુધી DCRS પછીના કામકાજના દિવસે ફરી યાદ અપાવશે.",
+  why: "DCRS ના સુપર એડમિને તમારી યાદ માટે આ સરનામું નોંધ્યું છે. તેને બદલવા અથવા બંધ કરવા સુપર એડમિનને કહો.",
+  testSubject: "DCRS નો પરીક્ષણ ઇમેઇલ",
+  testBody: "આ DCRS નો પરીક્ષણ ઇમેઇલ છે. યાદ અપાવતા ઇમેઇલ આ સરનામે પહોંચે છે.",
+};
+
+const EMAIL_WORDS: Record<NotificationLanguage, EmailWords> = { en: EMAIL_EN, hi: EMAIL_HI, gu: EMAIL_GU };
+
+/** The reminder email's own words in the language asked (English for one not known). */
+export function emailWords(lang: NotificationLanguage | string = "en"): EmailWords {
+  return EMAIL_WORDS[isNotificationLanguage(lang) ? lang : "en"];
+}
+
+/**
+ * THE SUBJECT of a reminder email: what a push of the same items says ("3 records need you", one item's own title), and
+ * in the afternoon slots with the slot in front ("Still open: 3 records need you", "Last call: Due today: ...").
+ */
+export function emailSubject(items: readonly { kind: string; data: WordsData | null | undefined }[], slot: EmailSlot, lang: NotificationLanguage | string = "en"): string {
+  const words = groupWords(items, lang);
+  return slot === "morning" ? words.title : slotWords(slot, words, lang).title;
 }

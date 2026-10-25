@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiCheck, FiEdit2, FiKey, FiList, FiPlus, FiRefreshCw, FiRotateCcw, FiShield, FiSlash, FiStar, FiTrash2, FiUser, FiUserPlus, FiUsers } from "react-icons/fi";
-import { accessApi, ApiError, usersApi } from "../api/client";
+import { FiCheck, FiEdit2, FiKey, FiList, FiMail, FiPlus, FiRefreshCw, FiRotateCcw, FiShield, FiSlash, FiStar, FiTrash2, FiUser, FiUserPlus, FiUsers } from "react-icons/fi";
+import { accessApi, ApiError, emailApi, usersApi, type ReminderContact } from "../api/client";
 import { AccessSection, useAccessDocs, useAccessRules } from "../components/access/AccessSection";
 import { ACCESS_MODULES, buildAccess } from "../engine/accessRules";
 import { accountOf, lastSuperAdmin } from "../engine/accessEditing";
 import { shortSignIn, signInAddress } from "../engine/accountNames";
 import { accountWord, type AccountKey } from "../engine/accountWords";
+import { reminderAddress, REMINDER_LANGUAGE_NAMES, REMINDER_LANGUAGES, type ReminderLanguage } from "../engine/reminderEmail";
 import { useAuth } from "../store/AuthContext";
 import { useAppStore } from "../store/AppStore";
 import { Link } from "../store/router";
@@ -13,7 +14,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { DEPARTMENTS, departmentOfDocument } from "../data/seed/departments";
 import { Modal } from "../components/common/Modal";
 import { PasswordInput } from "../components/common/PasswordInput";
-import { formatDisplayDate } from "../utils/date";
+import { formatDisplayDate, formatDisplayDateTime } from "../utils/date";
 import type { ManagedUser } from "../types/auth";
 
 // USERS & ACCESS — /users (REQUIREMENTS §66).
@@ -48,6 +49,13 @@ import type { ManagedUser } from "../types/auth";
 // with "Bring back"; "Keep only these" removes every account not ticked in one step, after showing the list of what
 // goes. Never the super admin's own account, never the last super admin. Their words are in English, Gujarati and Hindi
 // (engine/accountWords.ts).
+//
+// EACH PERSON'S REMINDER EMAIL (the owner, 25-Oct-2026: "email the users automatically ... on their given email id's").
+// A sign-in is a name, not a mailbox, and receives no mail; so each row has a "Reminder email" of the person's own, set
+// here by the super admin alone, with the language its emails are written in (English, ગુજરાતી, हिन्दी) and on or off
+// (backend/emailRoutes.ts keeps it; backend/emailReminders.ts emails what is still open for the person, three times on
+// a working day, until it is done). Checked here and again on the server by one rule (engine/reminderEmail.ts): one
+// plain address, never a sign-in, never a name that receives no mail. It can be given in "Add a person" too.
 
 const MIN_PASSWORD = 8;
 
@@ -92,6 +100,16 @@ interface Keeping {
   step: "pick" | "confirm";
 }
 
+/** A reminder email being set in its row, as the box stands, and why it was refused. */
+interface ReminderEdit {
+  userId: string;
+  name: string;
+  address: string;
+  language: ReminderLanguage;
+  enabled: boolean;
+  error: string | null;
+}
+
 export function UsersPage() {
   const { user: me } = useAuth();
   const { uiLang } = useAppStore();
@@ -107,11 +125,17 @@ export function UsersPage() {
   const [renaming, setRenaming] = useState<Renaming | null>(null);
   const [keeping, setKeeping] = useState<Keeping | null>(null);
   const [showRemoved, setShowRemoved] = useState(false);
+  // Each account's reminder email, by account (the super admin's alone: GET /api/email/contacts), and the one being set.
+  const [contacts, setContacts] = useState<Map<string, ReminderContact> | null>(null);
+  const [reminder, setReminder] = useState<ReminderEdit | null>(null);
 
   // The new person, as the form stands.
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newReminder, setNewReminder] = useState("");
+  const [newReminderLanguage, setNewReminderLanguage] = useState<ReminderLanguage>("en");
+  const [newReminderOn, setNewReminderOn] = useState(true);
   const [everyModule, setEveryModule] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   // The password the administrator is about to give somebody, for a reset.
@@ -142,6 +166,10 @@ export function UsersPage() {
       .list()
       .then((res) => setEveryone(res.users))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load the accounts."));
+    emailApi
+      .contacts()
+      .then((res) => setContacts(new Map((res?.contacts ?? []).map((c) => [c.userId, c] as const))))
+      .catch(() => setContacts(new Map()));
   };
   useEffect(() => {
     if (isAdmin) load();
@@ -167,13 +195,22 @@ export function UsersPage() {
     );
   }
 
-  const readyToAdd = name.trim().length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && password.length >= MIN_PASSWORD && (everyModule || picked.length > 0);
+  const newReminderCheck = newReminder.trim() ? reminderAddress(newReminder) : null;
+  const readyToAdd =
+    name.trim().length > 0 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
+    password.length >= MIN_PASSWORD &&
+    (everyModule || picked.length > 0) &&
+    (newReminderCheck === null || newReminderCheck.ok);
 
   const closeAdd = () => {
     setAdding(false);
     setName("");
     setEmail("");
     setPassword("");
+    setNewReminder("");
+    setNewReminderLanguage("en");
+    setNewReminderOn(true);
     setPicked([]);
     setEveryModule(false);
   };
@@ -185,6 +222,15 @@ export function UsersPage() {
       const res = await usersApi.create({ name: name.trim(), email: email.trim(), password, departments: everyModule ? [] : picked });
       setUsers((list) => [...list, res.user]);
       setNote(`${res.user.name} can sign in with ${res.user.email}. Give them the password you typed: it is the one they sign in with, and only you can change it.`);
+      // The reminder email given with the account, set once the account is there; refused, the account stays made.
+      if (newReminderCheck?.ok) {
+        try {
+          const set = await emailApi.setContact(res.user.id, { address: newReminderCheck.address, language: newReminderLanguage, enabled: newReminderOn });
+          setContacts((m) => new Map(m ?? []).set(set.contact.userId, set.contact));
+        } catch (err) {
+          setError(err instanceof ApiError ? err.message : "The reminder email could not be set: set it in the person's row.");
+        }
+      }
       closeAdd();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "The account could not be created.");
@@ -309,6 +355,48 @@ export function UsersPage() {
 
   const renameShort = renaming ? shortSignIn(signInAddress(renaming.email)) : null;
 
+  // EACH PERSON'S REMINDER EMAIL: checked here by the server's own rule, then stored by the server (which checks again).
+  const editReminder = (u: ManagedUser, c: ReminderContact | null) =>
+    setReminder({ userId: u.id, name: u.name, address: c?.address ?? "", language: c?.language ?? "en", enabled: c ? c.enabled : true, error: null });
+  const saveReminder = async () => {
+    if (!reminder) return;
+    const checked = reminderAddress(reminder.address);
+    if (!checked.ok) {
+      setReminder((r) => (r ? { ...r, error: w(`err.email.${checked.problem}` as AccountKey) } : r));
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await emailApi.setContact(reminder.userId, { address: checked.address, language: reminder.language, enabled: reminder.enabled });
+      setContacts((m) => new Map(m ?? []).set(res.contact.userId, res.contact));
+      setNote(res.contact.enabled ? w("users.reminder.saved", { name: reminder.name, address: res.contact.address }) : w("users.reminder.savedOff", { name: reminder.name }));
+      setReminder(null);
+    } catch (err) {
+      const problem = err instanceof ApiError && typeof err.data?.problem === "string" ? err.data.problem : null;
+      setReminder((r) => (r ? { ...r, error: problem ? w(`err.email.${problem}` as AccountKey) : err instanceof ApiError ? err.message : "That could not be done." } : r));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const removeReminder = async () => {
+    if (!reminder) return;
+    setBusy(true);
+    try {
+      await emailApi.removeContact(reminder.userId);
+      setContacts((m) => {
+        const next = new Map(m ?? []);
+        next.delete(reminder.userId);
+        return next;
+      });
+      setNote(w("users.reminder.removedDone", { name: reminder.name }));
+      setReminder(null);
+    } catch (err) {
+      setReminder((r) => (r ? { ...r, error: err instanceof ApiError ? err.message : "That could not be done." } : r));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div data-page="users">
       <div className="flex items-center justify-between mb-1 wrap gap-3">
@@ -362,6 +450,7 @@ export function UsersPage() {
               <tr>
                 <th>Name</th>
                 <th>Signs in with</th>
+                <th style={{ width: 230 }}>{w("users.reminder.col")}</th>
                 <th style={{ width: 120 }}>Role</th>
                 <th style={{ width: 200 }}>Sees</th>
                 <th style={{ width: 110 }}>Last sign-in</th>
@@ -393,6 +482,19 @@ export function UsersPage() {
                       {u.email}
                       {short && <span className="text-xs text-muted block">{short}</span>}
                     </td>
+                    <ReminderCell
+                      user={u}
+                      contact={contacts?.get(u.id) ?? null}
+                      loaded={contacts !== null}
+                      edit={reminder && reminder.userId === u.id ? reminder : null}
+                      busy={busy}
+                      w={w}
+                      onEdit={(c) => editReminder(u, c)}
+                      onChange={(change) => setReminder((r) => (r ? { ...r, ...change, error: null } : r))}
+                      onSave={() => void saveReminder()}
+                      onCancel={() => setReminder(null)}
+                      onRemove={() => void removeReminder()}
+                    />
                     <td>
                       <span className={`badge ${u.role === "admin" ? "badge-Verified" : "badge-Due"}`}>{u.role === "admin" ? "admin" : "staff"}</span>
                       {/* SUPER ADMIN OR STAFF (REQUIREMENTS §96): asked in plain words first; never the last super admin. */}
@@ -493,6 +595,9 @@ export function UsersPage() {
       <p className="text-xs text-muted mt-3">
         What each account may see and do is set below, in <strong>Who may do what</strong>. A change takes effect the next time that person loads the app, and
         they are told. Switching an account off deletes nothing: their name stays on every record they signed.
+      </p>
+      <p className="text-xs text-muted mt-1" data-field="reminder-hint">
+        {w("users.reminder.col")}: {w("users.reminder.hint")}
       </p>
 
       {/* THE REMOVED ACCOUNTS (§110): only when asked for, each with "Bring back". */}
@@ -597,7 +702,49 @@ export function UsersPage() {
                 placeholder="kapila.barad@gpp.local"
                 autoComplete="off"
               />
-              <p className="text-xs text-muted mt-1">A sign-in name, not a mailbox — the system never sends mail to it.</p>
+              <p className="text-xs text-muted mt-1">{w("users.signInNote")}</p>
+            </div>
+            <div className="field">
+              <label htmlFor="new-user-reminder">{w("users.reminder.address")}</label>
+              <div className="flex gap-2">
+                <input
+                  id="new-user-reminder"
+                  className="input"
+                  type="email"
+                  data-field="new-reminder-address"
+                  value={newReminder}
+                  onChange={(e) => setNewReminder(e.target.value)}
+                  placeholder="name@example.com"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <select
+                  className="input"
+                  data-field="new-reminder-language"
+                  aria-label={w("users.reminder.language")}
+                  value={newReminderLanguage}
+                  onChange={(e) => setNewReminderLanguage(e.target.value as ReminderLanguage)}
+                  style={{ maxWidth: 140 }}
+                >
+                  {REMINDER_LANGUAGES.map((l) => (
+                    <option key={l} value={l}>
+                      {REMINDER_LANGUAGE_NAMES[l]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {newReminder.trim() && (
+                <label className="flex items-center gap-2 text-xs mt-1">
+                  <input type="checkbox" data-field="new-reminder-enabled" checked={newReminderOn} onChange={(e) => setNewReminderOn(e.target.checked)} /> {w("users.reminder.enabled")}
+                </label>
+              )}
+              {newReminderCheck && !newReminderCheck.ok ? (
+                <p className="text-xs mt-1" role="alert" data-field="new-reminder-error" style={{ color: "var(--color-danger)" }}>
+                  {w(`err.email.${newReminderCheck.problem}` as AccountKey)}
+                </p>
+              ) : (
+                <p className="text-xs text-muted mt-1">{w("users.reminder.formHint")}</p>
+              )}
             </div>
             <div className="field">
               <label htmlFor="new-user-password">First password</label>
@@ -930,5 +1077,117 @@ export function UsersPage() {
         </Modal>
       )}
     </div>
+  );
+}
+
+/**
+ * ONE PERSON'S REMINDER EMAIL, IN THE ROW: the address with its language and on or off (and the last failure, when the
+ * last email did not go), "Change" or "Add"; or, while it is being set, the box, the language, "Send the reminders",
+ * Save, Cancel and Remove.
+ */
+function ReminderCell({
+  user,
+  contact,
+  loaded,
+  edit,
+  busy,
+  w,
+  onEdit,
+  onChange,
+  onSave,
+  onCancel,
+  onRemove,
+}: {
+  user: ManagedUser;
+  contact: ReminderContact | null;
+  loaded: boolean;
+  edit: ReminderEdit | null;
+  busy: boolean;
+  w: (key: AccountKey, vars?: Record<string, string | number>) => string;
+  onEdit: (c: ReminderContact | null) => void;
+  onChange: (change: Partial<Pick<ReminderEdit, "address" | "language" | "enabled">>) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onRemove: () => void;
+}) {
+  const state = contact ? (contact.enabled ? "on" : "off") : "none";
+  if (edit) {
+    return (
+      <td className="text-sm" data-field="reminder-email" data-state={state}>
+        <div className="flex flex-col gap-1" data-section="reminder-edit" style={{ minWidth: 210 }}>
+          <input
+            className="input"
+            type="email"
+            data-field="reminder-address"
+            aria-label={`${w("users.reminder.address")}: ${user.name}`}
+            value={edit.address}
+            onChange={(e) => onChange({ address: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSave();
+            }}
+            placeholder="name@example.com"
+            autoComplete="off"
+            spellCheck={false}
+            autoFocus
+          />
+          <div className="flex gap-2 items-center wrap">
+            <select className="input" data-field="reminder-language" aria-label={w("users.reminder.language")} value={edit.language} onChange={(e) => onChange({ language: e.target.value as ReminderLanguage })} style={{ maxWidth: 120 }}>
+              {REMINDER_LANGUAGES.map((l) => (
+                <option key={l} value={l}>
+                  {REMINDER_LANGUAGE_NAMES[l]}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-1 text-xs">
+              <input type="checkbox" data-field="reminder-enabled" checked={edit.enabled} onChange={(e) => onChange({ enabled: e.target.checked })} /> {w("users.reminder.enabled")}
+            </label>
+          </div>
+          {edit.error && (
+            <div className="text-xs" role="alert" data-field="reminder-error" style={{ color: "var(--color-danger)" }}>
+              {edit.error}
+            </div>
+          )}
+          <div className="flex gap-1 wrap">
+            <button type="button" className="btn btn-primary btn-sm" data-action="save-reminder-email" disabled={busy} onClick={onSave}>
+              <FiCheck size={12} aria-hidden="true" /> {w("users.reminder.save")}
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" data-action="cancel-reminder-email" onClick={onCancel}>
+              {w("users.reminder.cancel")}
+            </button>
+            {contact && (
+              <button type="button" className="btn btn-ghost btn-sm" data-action="remove-reminder-email" disabled={busy} onClick={onRemove}>
+                <FiTrash2 size={12} aria-hidden="true" /> {w("users.reminder.remove")}
+              </button>
+            )}
+          </div>
+        </div>
+      </td>
+    );
+  }
+  return (
+    <td className="text-sm" data-field="reminder-email" data-state={state}>
+      {contact ? (
+        <>
+          <span className="notranslate" translate="no" data-field="reminder-address-shown">
+            {contact.address}
+          </span>
+          <span className="text-xs text-muted block">
+            {REMINDER_LANGUAGE_NAMES[contact.language]}, {contact.enabled ? w("users.reminder.on") : w("users.reminder.off")}
+          </span>
+          {contact.lastFailure && (
+            <span className="text-xs block" data-field="reminder-failure" style={{ color: "var(--color-danger)" }}>
+              {w("users.reminder.failed", { when: formatDisplayDateTime(contact.lastFailureAt), why: contact.lastFailure })}
+            </span>
+          )}
+        </>
+      ) : (
+        <span className="text-muted">{loaded ? w("users.reminder.none") : ""}</span>
+      )}
+      {loaded && (
+        <button type="button" className="access-cell-note" style={{ display: "block" }} data-action="edit-reminder-email" onClick={() => onEdit(contact)}>
+          <FiMail size={10} aria-hidden="true" /> {contact ? w("users.reminder.change") : w("users.reminder.add")}
+        </button>
+      )}
+    </td>
   );
 }

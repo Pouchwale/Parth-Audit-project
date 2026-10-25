@@ -11,6 +11,9 @@
 // Access's new buttons (pages/UsersPage.tsx), of the master list (pages/MasterListPage.tsx) and of the sign-in box, in
 // the screens' language. "gu" and "hi" are typed against "en": a missing sentence is a compile error.
 //
+// AND EACH PERSON'S REMINDER EMAIL (the owner, 25-Oct-2026): the column and the edit box on Users & Access, and the
+// server's refusals of an address (backend/emailRoutes.ts, by engine/reminderEmail.ts's rule).
+//
 // WITH NO IMPORTS (not even a type), like engine/deviceWords.ts: the server loads this file with Node's type stripping.
 // Plain words; in Hindi and Gujarati never an em dash. A person's or a document's name is a name, kept as written.
 
@@ -165,6 +168,37 @@ const EN = {
 
   // ---- the sign-in box
   "login.label": `Email or short name`,
+
+  // ---- each person's reminder email (the owner, 25-Oct-2026)
+  "users.reminder.col": `Reminder email`,
+  "users.reminder.none": `None yet`,
+  "users.reminder.add": `Add`,
+  "users.reminder.change": `Change`,
+  "users.reminder.address": `Reminder email`,
+  "users.reminder.language": `Emails in`,
+  "users.reminder.enabled": `Send the reminders`,
+  "users.reminder.save": `Save`,
+  "users.reminder.cancel": `Cancel`,
+  "users.reminder.remove": `Remove`,
+  "users.reminder.on": `on`,
+  "users.reminder.off": `off`,
+  "users.reminder.saved": `{name}'s reminder emails go to {address}.`,
+  "users.reminder.savedOff": `{name}'s reminder email is kept, switched off: nothing is sent to it.`,
+  "users.reminder.removedDone": `{name} gets no reminder emails now.`,
+  "users.reminder.failed": `The last email failed on {when}: {why}`,
+  "users.reminder.hint": `A mailbox of the person's own. DCRS emails it what is still open for the person, three times on a working day, until it is done. Never the sign-in: that receives no mail.`,
+  "users.reminder.formHint": `Optional: where DCRS emails this person's reminders. It can be added later in the person's row.`,
+  "users.signInNote": `A sign-in name, not a mailbox: DCRS never sends mail to it. The reminders go to the reminder email below.`,
+  "err.email.superAdminOnly": `Only the super admin reads and sets the reminder emails.`,
+  "err.email.empty": `Give the person's own email address.`,
+  "err.email.too-long": `That address is too long: 254 characters at most.`,
+  "err.email.not-one-address": `Give one plain email address, like name@example.com: no spaces, commas, semicolons, quotes or a name around it.`,
+  "err.email.bad-domain": `That is not an email address: after the @ comes a domain, like example.com.`,
+  "err.email.sign-in": `That is a DCRS sign-in, not a mailbox: DCRS never sends mail to it. Give the person's own email address.`,
+  "err.email.no-mail-domain": `Mail cannot reach that address: .local, .localhost, .test, .invalid and .example receive no mail. Give the person's own email address.`,
+  "err.email.badLanguage": `The emails' language must be English, Gujarati or Hindi (en, gu or hi).`,
+  "err.email.badEnabled": `Say whether the reminders go to it: true or false.`,
+  "err.email.removedAccount": `{name} has been removed. Bring the account back first.`,
 };
 
 export type AccountKey = keyof typeof EN;
@@ -309,6 +343,36 @@ const GU: Record<AccountKey, string> = {
   "ml.moreDocs": `અને {n} વધુ`,
 
   "login.label": `ઇમેઇલ કે ટૂંકું નામ`,
+
+  "users.reminder.col": `યાદ અપાવતો ઇમેઇલ`,
+  "users.reminder.none": `હજી નથી`,
+  "users.reminder.add": `ઉમેરો`,
+  "users.reminder.change": `બદલો`,
+  "users.reminder.address": `યાદ અપાવતો ઇમેઇલ`,
+  "users.reminder.language": `ઇમેઇલની ભાષા`,
+  "users.reminder.enabled": `યાદ મોકલો`,
+  "users.reminder.save": `સાચવો`,
+  "users.reminder.cancel": `રદ કરો`,
+  "users.reminder.remove": `દૂર કરો`,
+  "users.reminder.on": `ચાલુ`,
+  "users.reminder.off": `બંધ`,
+  "users.reminder.saved": `{name} ના યાદ અપાવતા ઇમેઇલ {address} પર જશે.`,
+  "users.reminder.savedOff": `{name} નો યાદ અપાવતો ઇમેઇલ સાચવ્યો છે, પણ બંધ છે: તેના પર કંઈ મોકલાતું નથી.`,
+  "users.reminder.removedDone": `{name} ને હવે યાદ અપાવતા ઇમેઇલ મળશે નહીં.`,
+  "users.reminder.failed": `છેલ્લો ઇમેઇલ {when} ના રોજ મોકલાયો નહીં: {why}`,
+  "users.reminder.hint": `વ્યક્તિનું પોતાનું મેઇલબોક્સ. કામ પૂરું ન થાય ત્યાં સુધી DCRS કામકાજના દિવસે ત્રણ વાર તેના પર બાકી કામ મોકલે છે. સાઇન ઇન ક્યારેય નહીં: તેના પર મેઇલ પહોંચતો નથી.`,
+  "users.reminder.formHint": `જરૂરી નથી: DCRS આ વ્યક્તિના યાદ અપાવતા ઇમેઇલ ક્યાં મોકલે. પછી વ્યક્તિની લાઇનમાં પણ ઉમેરી શકાય.`,
+  "users.signInNote": `આ સાઇન ઇન નામ છે, મેઇલબોક્સ નથી: DCRS તેના પર ક્યારેય મેઇલ મોકલતું નથી. યાદ નીચેના યાદ અપાવતા ઇમેઇલ પર જાય છે.`,
+  "err.email.superAdminOnly": `યાદ અપાવતા ઇમેઇલ ફક્ત સુપર એડમિન જુએ અને સેટ કરે છે.`,
+  "err.email.empty": `વ્યક્તિનું પોતાનું ઇમેઇલ સરનામું આપો.`,
+  "err.email.too-long": `આ સરનામું બહુ લાંબું છે: વધુમાં વધુ 254 અક્ષર.`,
+  "err.email.not-one-address": `એક સાદું ઇમેઇલ સરનામું આપો, જેમ કે name@example.com: જગ્યા, અલ્પવિરામ, અર્ધવિરામ, અવતરણ કે આસપાસ નામ વગર.`,
+  "err.email.bad-domain": `આ ઇમેઇલ સરનામું નથી: @ પછી example.com જેવું ડોમેન આવે છે.`,
+  "err.email.sign-in": `આ DCRS નું સાઇન ઇન છે, મેઇલબોક્સ નથી: DCRS તેના પર ક્યારેય મેઇલ મોકલતું નથી. વ્યક્તિનું પોતાનું ઇમેઇલ સરનામું આપો.`,
+  "err.email.no-mail-domain": `આ સરનામે મેઇલ પહોંચી શકતો નથી: .local, .localhost, .test, .invalid અને .example પર મેઇલ આવતો નથી. વ્યક્તિનું પોતાનું ઇમેઇલ સરનામું આપો.`,
+  "err.email.badLanguage": `ઇમેઇલની ભાષા અંગ્રેજી, ગુજરાતી અથવા હિન્દી હોવી જોઈએ (en, gu અથવા hi).`,
+  "err.email.badEnabled": `યાદ મોકલવી કે નહીં તે કહો: true અથવા false.`,
+  "err.email.removedAccount": `{name} ને દૂર કરવામાં આવ્યું છે. પહેલાં ખાતું પાછું લાવો.`,
 };
 
 const HI: Record<AccountKey, string> = {
@@ -451,6 +515,36 @@ const HI: Record<AccountKey, string> = {
   "ml.moreDocs": `और {n} अधिक`,
 
   "login.label": `ईमेल या छोटा नाम`,
+
+  "users.reminder.col": `याद दिलाने वाला ईमेल`,
+  "users.reminder.none": `अभी नहीं`,
+  "users.reminder.add": `जोड़ें`,
+  "users.reminder.change": `बदलें`,
+  "users.reminder.address": `याद दिलाने वाला ईमेल`,
+  "users.reminder.language": `ईमेल की भाषा`,
+  "users.reminder.enabled": `याद भेजें`,
+  "users.reminder.save": `सहेजें`,
+  "users.reminder.cancel": `रद्द करें`,
+  "users.reminder.remove": `हटाएँ`,
+  "users.reminder.on": `चालू`,
+  "users.reminder.off": `बंद`,
+  "users.reminder.saved": `{name} के याद दिलाने वाले ईमेल {address} पर जाएँगे।`,
+  "users.reminder.savedOff": `{name} का याद दिलाने वाला ईमेल सहेजा गया है, पर बंद है: उस पर कुछ नहीं भेजा जाता।`,
+  "users.reminder.removedDone": `{name} को अब याद दिलाने वाले ईमेल नहीं मिलेंगे।`,
+  "users.reminder.failed": `पिछला ईमेल {when} को नहीं गया: {why}`,
+  "users.reminder.hint": `व्यक्ति का अपना मेलबॉक्स। जब तक काम पूरा नहीं होता, DCRS कामकाज के दिन तीन बार उस पर बाकी काम भेजता है। साइन इन कभी नहीं: उस पर मेल नहीं पहुँचता।`,
+  "users.reminder.formHint": `ज़रूरी नहीं: DCRS इस व्यक्ति के याद दिलाने वाले ईमेल कहाँ भेजे। इसे बाद में व्यक्ति की पंक्ति में भी जोड़ा जा सकता है।`,
+  "users.signInNote": `यह साइन इन नाम है, मेलबॉक्स नहीं: DCRS उस पर कभी मेल नहीं भेजता। याद नीचे दिए याद दिलाने वाले ईमेल पर जाती है।`,
+  "err.email.superAdminOnly": `याद दिलाने वाले ईमेल केवल सुपर एडमिन देख और सेट कर सकते हैं।`,
+  "err.email.empty": `व्यक्ति का अपना ईमेल पता दें।`,
+  "err.email.too-long": `यह पता बहुत लंबा है: अधिक से अधिक 254 अक्षर।`,
+  "err.email.not-one-address": `एक सादा ईमेल पता दें, जैसे name@example.com: बिना स्पेस, अल्पविराम, अर्धविराम, उद्धरण चिह्न या साथ में नाम के।`,
+  "err.email.bad-domain": `यह ईमेल पता नहीं है: @ के बाद example.com जैसा डोमेन आता है।`,
+  "err.email.sign-in": `यह DCRS का साइन इन है, मेलबॉक्स नहीं: DCRS उस पर कभी मेल नहीं भेजता। व्यक्ति का अपना ईमेल पता दें।`,
+  "err.email.no-mail-domain": `इस पते पर मेल नहीं पहुँच सकता: .local, .localhost, .test, .invalid और .example पर मेल नहीं आता। व्यक्ति का अपना ईमेल पता दें।`,
+  "err.email.badLanguage": `ईमेल की भाषा अंग्रेज़ी, गुजराती या हिंदी होनी चाहिए (en, gu या hi)।`,
+  "err.email.badEnabled": `बताएँ कि याद भेजनी है या नहीं: true या false।`,
+  "err.email.removedAccount": `{name} को हटाया जा चुका है। पहले खाता वापस लाएँ।`,
 };
 
 const WORDS: Record<AccountLanguage, Record<AccountKey, string>> = { en: EN, gu: GU, hi: HI };

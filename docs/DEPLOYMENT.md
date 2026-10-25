@@ -133,7 +133,7 @@ The app's operational data is in the same PostgreSQL database — see below.
 ## Database — PostgreSQL only (REQUIREMENTS §55)
 
 **Every piece of data the system keeps is in PostgreSQL** (`backend/db.ts`): the user accounts, the
-reminder digest log, and all of the app's own data — the records, the document definitions, master
+reminder emails' tables, and all of the app's own data — the records, the document definitions, master
 data, the HR Master Data sheet, reference edits, the deletions log and the date the system went live
 (shared by the whole company),
 and each person's settings, assistant conversations and sidebar layout (their own). Nothing is kept
@@ -148,7 +148,7 @@ Tables:
 |---|---|
 | `users` | accounts: id, name, email, bcrypt hash, role, created_at, departments |
 | `user_sessions` | where each person is signed in (REQUIREMENTS §106): one row per session, keyed by the id its token carries — the account, the device's own id, its name in words, its category (computer, mobile or tablet), the website, the Mitra phone app or the API, the browser or app, the system, the address, signed in at, last used (written at most once a minute), ends at, and when, why and by whom it was ended. Read on every request, so a sign-out and the super admin's "Sign out this device" end a session at once. Nothing deletes a row |
-| `digest_log` | the last date a reminder digest was emailed (one row) |
+| `digest_log` | the last date the browser's reminder digest was emailed (one row). Retired on 25-Oct-2026: nothing writes it since the server sends the reminder emails itself (`email_log` below); kept, as every table is |
 | `activity_log` | the Activity Log (REQUIREMENTS §62): one line per thing a person did — `at`, `user_id`, `user_name`, `action`, `target`, `detail`, `department`, `ip`. Indexed by time, by person and time, and by department and time; its search has a trigram index (`activity_log_search_trgm_idx`) when the database account may create the `pg_trgm` extension — without that right the server logs one warning and searches unindexed (REQUIREMENTS §75). **Append-only in the database itself**: a trigger refuses UPDATE, DELETE and TRUNCATE on the log and its archive; the one DELETE allowed is the archive step's, in its own transaction. Created with CREATE OR REPLACE TRIGGER at every start, so PostgreSQL 14 or later is needed. `client_id` holds the browser's own id for a line (a UUID), unique where present, so a batch sent again is written once |
 | `activity_log_archive` | lines of the Activity Log the super admin moved out of it on purpose: the log's columns with the same ids, plus `archived_at` and `archived_by`; indexed like the log. Read with the log on the Activity Log page ("Include archived lines"). Refuses UPDATE, DELETE and TRUNCATE |
 | `activity_daily`, `activity_daily_state` | the Activity Log counted day by day (one row per day, person, department and action; archived or not), which the per-person tally reads for closed days. A copy made from the log, never instead of it: checked against the lines before each day is added, counted again whenever they differ or `PLANT_TIMEZONE` changes. `DELETE FROM activity_daily_state;` makes it recount |
@@ -159,9 +159,12 @@ Tables:
 | `push_devices` | one row per phone registered for pushes (`POST /api/v1/devices`): `token` (the Expo push token, the key), `user_id`, `platform`, `language`, `app_version`, `device_name`, `created_at`, `last_seen_at`, `session_id` (the `user_sessions` row it was registered under). A token Expo says is no longer registered is deleted, and so is a phone whose session was ended on purpose (signed out, by the super admin, the account switched off: REQUIREMENTS §106); a sign-in again on the same phone moves it to the new session |
 | `notification_prefs` | one row per person: `kinds` (JSON, the kinds switched off for pushing) and `reminders` (the phone's own reminders) |
 | `push_tickets` | the tickets Expo's push service answered with (`id`, `token`, `created_at`), until their receipts are read about 15 minutes later; deleted after a day |
+| `email_contacts` | each account's REMINDER EMAIL (the owner, 25-Oct-2026; `backend/emailContacts.ts`), one row per account the super admin gave one: `user_id` (users.id, deleted with the account), `address` (a mailbox of the person's own, never the sign-in), `language` (`en`, `gu` or `hi`: the emails' words), `enabled`, `set_by`, `set_at`, `last_failure` and `last_failure_at` (the last send that failed, its words masked; cleared by the next that goes). Read and written by the super admin alone (`/api/email/*`); never in `/api/users/directory`, a log line or the activity log |
+| `email_settings` | one row: `enabled` (the super admin's switch for the reminder emails, on the Notifications page: off until switched on), `set_by`, `set_at` |
+| `email_log` | one row per person, plant day and slot (`morning`, `reminder`, `lastCall`; a test email `test-<time>`): `items` (how many open records it listed), `state` (`claimed`, `sent`, `captured`, `failed`), `attempts`, `message_id`, `error` (masked: never an address), `subject`, `body` (the plain text, kept only for an email captured with `EMAIL_TRANSPORT=capture`), `claimed_at`, `sent_at`. UNIQUE (`user_id`, `day`, `slot`): each email is claimed here before it is sent, so a restart, a second server or a run by hand never sends a slot's email twice. Deleted after 60 days |
 | `app_storage` | the app's data, one row per stored item: `scope` (`company`, or a user's id), `key` (`records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`, `live-start` for the company; `settings`, `assistant-conversations`, `sidebar-open-modules`, `sidebar-visible` for a person — no other keys are accepted), `value` (the item as JSON text), `version`, `seq`, `updated_at`, `updated_by` |
 
-The four notification tables are DCRS's own: no role of the Audit Assistant is granted them (REQUIREMENTS §83; the shared database's scripts grant nothing in `public`).
+The four notification tables and the three email tables are DCRS's own: no role of the Audit Assistant is granted them (REQUIREMENTS §83; the shared database's scripts grant nothing in `public`).
 
 **Where the database is.**
 
@@ -457,12 +460,15 @@ every AI setting; no one prints, logs or commits `backend/.env` itself — progr
 | `PUSH_SERVICE_URL` | `https://exp.host/--/api/v2/push` | `backend/push.ts` | Where the pushes are sent. Leave it unset; a test points it at a stand-in of its own. |
 | `ESCALATION_EMAIL` | none (the active administrators) | `backend/escalation.ts` | Where escalations and the weekly digest are emailed, when `GMAIL_USER`/`GMAIL_APP_PASSWORD` are set: one address or several separated by commas. `.local` addresses are skipped — the seeded super admin's is one, so the app (bell, day's notification, Performance page) is the channel. |
 | `ACTIVITY_ARCHIVE_AFTER_YEARS` | `3` | `backend/activityArchive.ts` | How old (whole years, 1–10) a line of the Activity Log must be before the page OFFERS to archive it. Nothing is ever archived by itself: the super admin picks 1–10 years, sees how many lines and from when to when, and confirms (REQUIREMENTS §75). Three years is the plant's own: the Master List of Formats & Records (F/SYS/02) retains its records three years — 133 of its 141 formats are then shredded, the master lists maintained as updated (§76). |
-| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | none (digest disabled) | `backend/email.ts` | The mailbox the daily reminder digest is sent from. Recipients are the employees Master Data assigns to each due record; the server accepts only single, well-formed addresses (at most 50 per digest), so the endpoint can't be used to relay mail. |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | none (no email is sent) | `backend/email.ts` | The plant's own Gmail account and its App Password (16 letters, made in the Google account with 2-Step Verification on; see "Reminder emails" below): the FREE way DCRS sends the reminder emails, and the escalations and the weekly digest to `ESCALATION_EMAIL`. Both are needed; without them nothing is sent and the Notifications page says so. Sent through nodemailer's pooled connection to Gmail, one connection, at most one message a second, from "Gujarat Print Pack Publications Pvt Ltd - DCRS" <`GMAIL_USER`> (the company's name from the seed), with a text and an HTML part and no attachment. Never printed, logged or committed. `scripts/run-e2e.ts` and `scripts/unit-tests.ts` blank both. |
+| `EMAIL_ENABLED` | on | `backend/emailReminders.ts` | Set to `0` (or `off`) to send no reminder email from this server, whatever the super admin's switch on the Notifications page says. The test email is held back too. |
+| `EMAIL_DAILY_CAP` | `150` | `backend/emailReminders.ts` | The most reminder emails (test emails included) the plant sends in one day, a whole number from 1 to 2000: well inside a free Gmail account's own limit of about 500 a day. Past it the rest wait for the next slot, said in the notify job's line. Each person gets at most three a day whatever it says. |
+| `EMAIL_TRANSPORT` | unset (Gmail) | `backend/email.ts` | `capture`: no email leaves this PC. Each is kept in the email log instead (state `captured`, its text with it), for a look at what would be sent before it is; the Notifications page says the server is in capture mode. `scripts/run-e2e.ts` sets it for every test server. |
 | `DCRS_WORKING_HOURS` | on | `backend/workingHours.ts` | The plant's working hours (REQUIREMENTS §84): every account but the super admin may use DCRS only on a working day of the company calendar, between the two times in Master Data → Working Hours (8:40 am to 6:20 pm unless changed), and every session ends at the close of its day. Set to `off` to switch the rule off — the e2e runner's test servers do, and so can a developer who must work as a member of staff at night. |
 | `DCRS_MAX_DEVICES` | `2` | `backend/deviceSessions.ts` | The most devices an account may be signed in on at once (REQUIREMENTS §106): a whole number from 1 to 50, or `off` (or `0`) for no limit. A device that signs in again takes its own place; one more device is refused with the devices named and since when, until one is signed out (by the person, or by the super admin on User access). The super admin is never held to it. The e2e runner's test servers set `off`. |
 | `MITRA_SERVER_KEY` | none | `backend/deviceSessions.ts` | The secret the Mitra server proves itself with (REQUIREMENTS §106): set the SAME value in the Mitra server's `server\.env`. At least 16 characters (make one with `node -e "console.log(require('node:crypto').randomBytes(24).toString('base64url'))"`). With it, a phone's sign-in through Mitra is listed on User access by the phone's own name, model and address; without it, as a mobile phone on the Mitra phone app that is not named ("A phone - its name is not known"), at the Mitra server's address. Compared in constant time; never logged, never in an answer. Keep it private like `JWT_SECRET`. |
 | `OVERVIEW_DATABASE_URL` | none: DCRS's own connection, as `overview_viewer` | `backend/overviewRoutes.ts`, `backend/overviewSetup.ts` | The super admin's read-only **Database overview** (REQUIREMENTS §83, §107). Not needed: without it DCRS reads the overview through its own connection, each read in a read-only transaction that becomes the role `overview_viewer` first, and at start-up sets the overview up itself when its database role may (a superuser, or CREATEROLE with CREATE on the database); when it may not, the page says the one step (`npm run db:shared -- setup` once, as a superuser). Set it only to read through a login of the viewer's own instead, e.g. `postgres://overview_viewer:<password>@127.0.0.1:5433/dcrs`, as before. See docs/database/README.md. |
-| `DCRS_APP_URL` | the request's own address | `backend/apiV1.ts` | The app's address as people reach it, for the links the DCRS API hands the Audit Assistant (e.g. `http://dcrs-host:4000`). |
+| `DCRS_APP_URL` | the request's own address | `backend/apiV1.ts`, `backend/emailReminders.ts` | The app's address as people reach it, for the links the DCRS API hands the Audit Assistant (e.g. `http://dcrs-host:4000`), and for the one link in each reminder email (`<DCRS_APP_URL>/#/notifications`). Unset, the emails carry no link and say to open DCRS and its bell instead. |
 | `MITRA_EXPO_PORT` | `8081` | `backend/phoneApp.ts` | Where Expo's server for Expo Go listens on this PC: the port in the QR code of "Mitra on your phone" on the Ask Mitra page (`GET /api/phone-app`, which also says whether it is running). See [phone-app-setup.md](phone-app-setup.md). |
 | `MITRA_SERVER_PORT` | `3000` | `backend/phoneApp.ts` | Where the Mitra server listens on this PC, for the same card. The app on the phones looks for it on 3000. |
 | `DCRS_PDF_BROWSER` | Chrome, then Edge, in their usual places | `backend/pdfReport.ts` | The browser that prints the daily pest control report as a PDF for the Audit Assistant (`GET /api/v1/pest-control/daily-report`). Set it only when Chrome or Edge is installed somewhere unusual. The app must be built (`npm run build`). |
@@ -514,6 +520,51 @@ alerts, which the plant does not have: they get the inbox and the app's own remi
 me a test notification" says in words what went wrong ("The push credentials are not set up yet" means step 4; "This
 phone is no longer registered" means open Mitra on it again). A phone that was reset or had Mitra removed is forgotten
 by DCRS by itself and registers again when Mitra is opened.
+
+## Reminder emails (the owner, 25-Oct-2026)
+
+The owner: "i want a system that will email the users automatically for the updates on their given email id's for the free
+of cost ... and system will remind the user again and again until he or she complete his tasks."
+
+**What runs by itself.** The notify job (every five minutes on a working day, `backend/notificationJobs.ts`) ends by
+emailing each person who has a reminder email what is still open for them: one email in each of the day's three slots,
+the morning (the first run after the plant opens, 08:40), the "Still open" one at 15:30 and the "Last call" at 17:45, never
+on the weekly off or a holiday and never outside the plant's hours. The email lists, in the person's language (English,
+Gujarati or Hindi), what is overdue, sent back, to fill and submit, to verify and, in the morning, coming up: one line per
+record, with the format number, the name and the date (24-10-26). Nothing open, no email: that is how the reminders stop
+when the work is done. Never a record's readings or a send-back's reason (the mail passes through Gmail), and never the
+sign-in address (name.surname@gpp.local receives no mail). A server started late sends only the slot that has begun, not
+the ones it missed. Each email is claimed in `email_log` before it is sent, so nobody gets one twice; one that fails is
+tried again at most twice in the same slot. The job's line, the activity log ("Reminder emails sent", in the System's name,
+for the super admin's eyes only) and the Notifications page say what went, to whom by name, never to which address.
+
+**The owner's steps, once (free of cost, about 15 minutes):**
+1. Make a Gmail account for the plant (for example the plant's own name at gmail.com): DCRS sends from it, and the
+   people see it as "Gujarat Print Pack Publications Pvt Ltd - DCRS". A personal Gmail account works too, but a plant
+   account keeps the reminders apart from anybody's own mail.
+2. Sign in to it at https://myaccount.google.com, choose **Security**, and switch on **2-Step Verification** (Google asks
+   for a phone number once). An App Password needs it.
+3. Still in **Security** (or at https://myaccount.google.com/apppasswords), make an **App Password**: name it `DCRS`,
+   choose **Create**, and copy the 16 letters it shows. **It is a password: do not email it, chat it or put it in any
+   file but `backend/.env`.** It works only for sending mail; it can be removed there at any time, which stops DCRS
+   sending.
+4. On the DCRS computer, open `backend/.env` in Notepad and add two lines (the 16 letters without spaces):
+   `GMAIL_USER=<the plant's Gmail address>` and `GMAIL_APP_PASSWORD=<the 16 letters>`. Add
+   `DCRS_APP_URL=http://<this PC's address>:4000` too (the address the laptops open, "On the company network" in the
+   server's first lines), so each email carries a link straight to the person's notifications. Save.
+5. Restart DCRS (close it and start it again: `npm start`, or the plant's start script).
+6. Sign in as the super admin, open **Users & Access**, and in each person's row under **Reminder email** choose
+   **Add**: type the person's own email address (the one they read on their phone), choose the language of the emails,
+   and **Save**. A DCRS sign-in (name.surname@gpp.local) is refused: it receives no mail. Do your own row too.
+7. Open **Notifications** (the bell's "See all"): under **The server's jobs**, **Reminder emails** says how mail goes on
+   this server. Press **Send me a test email**: it goes to your own reminder email and should arrive within a minute
+   (look in Spam the first time, and mark it "Not spam"). Then switch **Reminder emails** on.
+
+**If an email does not arrive.** "Send me a test email" says in words what went wrong: "Gmail did not accept the sign-in"
+means step 3 or 4 (the App Password copied wrong, or 2-Step Verification switched off, which removes App Passwords);
+"Gmail could not be reached" means the PC has no internet just then. A person whose emails fail shows "The last email
+failed" in their row on Users & Access. `EMAIL_ENABLED=0` in `backend/.env` stops every reminder email at once; the switch
+on the Notifications page does the same without a restart.
 
 ## A note on the build toolchain (why esbuild, not Vite)
 

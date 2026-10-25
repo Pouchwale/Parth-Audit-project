@@ -7,9 +7,7 @@ import { useRouter } from "../../store/router";
 import { prepareDueRecords } from "../../engine/assistantPrepare";
 import { computeBriefing, briefingHeadline, pendingCount, submitPreparedRecords, upcomingLabel, type Briefing, type BriefingItem } from "../../engine/assistantBriefing";
 import { dueBriefingSlot, recordBriefingShown } from "../../engine/briefingSchedule";
-import { computeReminders } from "../../engine/reminders";
 import type { BriefingSlot } from "../../data/repositories/settingsRepository";
-import { reminderDigestApi } from "../../api/client";
 import { formatDisplayDate, todayISO } from "../../utils/date";
 import { emitCue, emitSay } from "../../engine/engageBus";
 import { firstNameOf } from "../../engine/assistantPersona";
@@ -123,20 +121,9 @@ export function AssistantBriefingPopup() {
     return () => window.removeEventListener(OPEN_BRIEFING_EVENT, onOpen);
   }, []);
 
-  // Best-effort e-mail digest of anything due/overdue — the server only
-  // actually sends once per calendar date (see backend/digest.ts).
-  const digestRequestedRef = useRef(false);
-  useEffect(() => {
-    if (digestRequestedRef.current) return;
-    const urgent = computeReminders(false).filter((r) => r.urgency !== "upcoming");
-    if (urgent.length === 0) return;
-    digestRequestedRef.current = true;
-    reminderDigestApi
-      .send(urgent.slice(0, 200).map((r) => ({ documentName: r.documentName, dueDate: r.dueDate, urgency: r.urgency, assignedEmployees: r.assignedEmployees.map((e) => ({ name: e.name, email: e.email })) })))
-      .catch(() => {
-        /* the in-app briefing already surfaced this */
-      });
-  }, [version]);
+  // No email from here (25-Oct-2026): the browser used to post a digest of what it saw due, to addresses of its own
+  // choosing, on every change. The server emails each person's reminders itself now, from the ledger, to the reminder
+  // email the super admin set (backend/emailReminders.ts); POST /api/reminders/send-digest answers 410.
 
   // ANNOUNCED WHEN IT OPENS: the chime, and the briefing said aloud — the
   // automatic showings once a day each (key briefing:<slot>:<date>), one opened

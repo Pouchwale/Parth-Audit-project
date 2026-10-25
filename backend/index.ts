@@ -45,7 +45,6 @@ import { runAgentStep, validateAgentRequest, TRANSCRIBE_PROMPT } from "./mitraAg
 import { readAttachment, picturesReadByModel, MAX_ATTACHMENT_BYTES } from "./attachments.ts";
 import { aiConfigured, aiProviderName, aiSpeakClip, aiTranscribe, aiUsage, geminiSpeaksFirst, speechEngine, speechSetup, voiceStatus } from "./ai.ts";
 import { speakFailure, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VOICE_PROBE_TEXT, VoiceAvailability, VoiceUnavailableError } from "./tts.ts";
-import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
 import { activityFilterOf, registerActivityRoutes } from "./activityRoutes.ts";
@@ -60,6 +59,8 @@ import { printCompanyNetwork, registerPhoneAppRoutes } from "./phoneApp.ts";
 import { registerSecureAddressRoutes, startSecureAddress } from "./secureAddress.ts";
 import { setNotificationDeps, startJobs } from "./jobs.ts";
 import { runPushes } from "./push.ts";
+import { runReminderEmails } from "./emailReminders.ts";
+import { registerEmailRoutes } from "./emailRoutes.ts";
 import { PHOTO_ROUTE } from "./apiV1Records.ts";
 import { registerStorageRoutes, sendCompressedJson } from "./storageRoutes.ts";
 // The archive of the blank sheets from before go-live (REQUIREMENTS §115): its table is registered as this is loaded.
@@ -1411,71 +1412,12 @@ app.get("/api/assistant/usage", requireAdmin, (_req: Request, res: Response): vo
   res.json(aiUsage());
 });
 
-// The digest goes out from the company mailbox to whatever addresses the
-// browser sends, so it is held to what the app itself would send: the
-// briefing posts at most 200 reminders, each naming the employees Master
-// Data assigns to it. A recipient must be one plain address — a comma,
-// semicolon or angle bracket would let one "email" fan out to anyone.
-const MAX_DIGEST_REMINDERS = 500;
-const MAX_DIGEST_RECIPIENTS = 50;
-const MAX_ASSIGNED_PER_REMINDER = 25;
-const PLAIN_EMAIL_RE = /^[^\s@,;<>"'()]+@[^\s@,;<>"'()]+\.[^\s@,;<>"'()]+$/;
-
-function shortString(value: unknown, max: number): string | null {
-  return typeof value === "string" && value.length <= max ? value : null;
-}
-
-// Keeps only well-formed reminders and well-formed recipient addresses. A
-// badly typed email in Master Data drops that one recipient, not the whole
-// day's digest for everyone else.
-function sanitizeDigestReminders(input: unknown[]): DigestReminder[] {
-  const clean: DigestReminder[] = [];
-  for (const raw of input) {
-    if (!raw || typeof raw !== "object") continue;
-    const r = raw as Record<string, unknown>;
-    const documentName = shortString(r.documentName, 200);
-    const dueDate = shortString(r.dueDate, 10);
-    const urgency = shortString(r.urgency, 20);
-    if (!documentName || !dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !urgency) continue;
-    const assignedEmployees: { name: string; email?: string }[] = [];
-    if (Array.isArray(r.assignedEmployees)) {
-      for (const emp of r.assignedEmployees.slice(0, MAX_ASSIGNED_PER_REMINDER)) {
-        if (!emp || typeof emp !== "object") continue;
-        const e = emp as Record<string, unknown>;
-        const email = shortString(e.email, MAX_EMAIL_LENGTH)?.trim();
-        if (!email || !PLAIN_EMAIL_RE.test(email)) continue;
-        assignedEmployees.push({ name: shortString(e.name, 100) ?? "", email: email.toLowerCase() });
-      }
-    }
-    clean.push({ documentName, dueDate, urgency, assignedEmployees });
-  }
-  return clean;
-}
-
-app.post("/api/reminders/send-digest", requireAuth, async (req: Request, res: Response): Promise<void> => {
-  const { reminders } = req.body ?? {};
-  if (!Array.isArray(reminders)) {
-    res.status(400).json({ error: "reminders must be an array." });
-    return;
-  }
-  if (reminders.length > MAX_DIGEST_REMINDERS) {
-    res.status(400).json({ error: "Too many reminders in one digest." });
-    return;
-  }
-  const clean = sanitizeDigestReminders(reminders);
-  const recipients = new Set(clean.flatMap((r) => (r.assignedEmployees ?? []).map((e) => e.email)));
-  if (recipients.size > MAX_DIGEST_RECIPIENTS) {
-    res.status(400).json({ error: "Too many recipients in one digest." });
-    return;
-  }
-  try {
-    const result = await sendReminderDigestIfDue(clean);
-    res.json(result);
-  } catch (err) {
-    console.error(err);
-    res.status(502).json({ error: "Failed to send reminder digest." });
-  }
-});
+// EACH PERSON'S REMINDER EMAILS (the owner, 25-Oct-2026): the reminder email the super admin gives each account, the
+// switch, the test email and the email log, the super admin's alone (backend/emailRoutes.ts); the emails themselves
+// are sent by the notify job (backend/emailReminders.ts, below). The browser's reminder digest that used to be posted
+// here (any signed-in account could make the company mailbox write to 50 addresses of its choosing, audit M-26) is
+// retired: POST /api/reminders/send-digest answers 410 in words.
+registerEmailRoutes(app, { requireAuth, logActivity });
 
 // ESCALATION TO THE SUPER ADMIN AND THE WEEKLY DIGEST (REQUIREMENTS §75):
 // /api/escalations, /api/digests/latest and /api/jobs/run, the super admin's
@@ -1529,8 +1471,9 @@ registerAccessRoutes(app, { requireAuth, logActivity, sessions: devices });
 registerAccountRoutes(app, { requireAuth, logActivity, sessions: devices });
 // EACH PERSON'S NOTIFICATIONS (REQUIREMENTS §97): the bell and the Notifications page (backend/notificationRoutes.ts).
 registerNotificationRoutes(app, { requireAuth });
-// ...and the notify job ends by pushing them to the phones (backend/push.ts; PUSH_ENABLED=0 sends nothing).
-setNotificationDeps(() => ({ push: (now) => runPushes(now) }));
+// ...and the notify job ends by pushing them to the phones (backend/push.ts; PUSH_ENABLED=0 sends nothing) and, in
+// the day's three slots, emailing each person what is still open (backend/emailReminders.ts; EMAIL_ENABLED=0 sends nothing).
+setNotificationDeps(() => ({ push: (now) => runPushes(now), email: (now) => runReminderEmails(now) }));
 // MITRA ON THE PHONES: where Expo Go finds it on this PC, for the QR card on the Ask Mitra page (backend/phoneApp.ts).
 registerPhoneAppRoutes(app, { requireAuth });
 // THE SECURE ADDRESS (backend/secureAddress.ts): the plant's certificate to install, and where https answers, for the

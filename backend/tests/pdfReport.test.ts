@@ -330,7 +330,7 @@ describe("requestIsHeldBack — the browser's lock", () => {
       assert.equal(requestIsHeldBack(method, "https://elsewhere.example/collect", app), true, method);
     }
     assert.equal(requestIsHeldBack("POST", `${app}/api/activity`, app), true);
-    assert.equal(requestIsHeldBack("POST", `${app}/api/reminders/send-digest`, app), true);
+    assert.equal(requestIsHeldBack("POST", `${app}/api/notifications/read`, app), true);
     assert.equal(requestIsHeldBack("POST", `${app}/api/assistant/speak`, app), true);
   });
 

@@ -5,6 +5,7 @@ import { OUTSIDE_HOURS_CODE, type PublicHours } from "../engine/workingHoursCore
 import type { AccessRules } from "../engine/accessRules";
 import type { NotificationData, NotificationKind, NotificationPriority } from "../engine/notificationPlan";
 import type { NotificationLanguage } from "../engine/notificationText";
+import type { ReminderLanguage } from "../engine/reminderEmail";
 
 export type { PublicHours };
 
@@ -128,6 +129,7 @@ export const api = {
   post: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "POST", body: data === undefined ? undefined : JSON.stringify(data) }),
   put: <T>(path: string, data?: unknown) => request<T>(path, { method: "PUT", body: data === undefined ? undefined : JSON.stringify(data) }),
+  del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
 export type AssistantAction = "fill" | "navigate" | "reply";
@@ -306,18 +308,6 @@ export const hrApi = {
     }),
 };
 
-export interface DigestReminderInput {
-  documentName: string;
-  dueDate: string;
-  urgency: string;
-  assignedEmployees: { name: string; email?: string }[];
-}
-
-export const reminderDigestApi = {
-  send: (reminders: DigestReminderInput[]) =>
-    api.post<{ sent: boolean; reason?: string; recipientCount?: number }>("/reminders/send-digest", { reminders }),
-};
-
 // ESCALATION TO THE SUPER ADMIN AND THE WEEKLY DIGEST (REQUIREMENTS §75),
 // worked out on the server from the records in PostgreSQL (backend/escalation.ts,
 // on the rule engine/latenessCore.ts shares with the Performance Scorecard) and
@@ -433,6 +423,8 @@ export interface JobRun {
     written?: number;
     resolved?: number;
     push?: string;
+    /** What the reminder emails did, in the server's line (backend/emailReminders.ts). */
+    email?: string;
   } | null;
   claimed?: string | null;
 }
@@ -654,4 +646,64 @@ export const notificationsApi = {
     return api.get<NotificationList>(`/notifications?${parts.join("&")}`);
   },
   markRead: (which: { ids: number[] } | { all: true }) => api.post<{ unread: number }>("/notifications/read", which),
+};
+
+// EACH PERSON'S REMINDER EMAIL (the owner, 25-Oct-2026; backend/emailRoutes.ts): the super admin's alone, every route
+// refused 403 for anybody else. An address is in these answers only, never in /api/users/directory. The emails
+// themselves go out with the notify job (backend/emailReminders.ts).
+export interface ReminderContact {
+  userId: string;
+  name: string | null;
+  address: string;
+  language: ReminderLanguage;
+  enabled: boolean;
+  setBy: string | null;
+  setAt: string;
+  lastFailure: string | null;
+  lastFailureAt: string | null;
+}
+
+export type MailMode = "capture" | "custom" | "gmail" | "off";
+
+export interface EmailSettingsAnswer {
+  enabled: boolean;
+  setBy: string | null;
+  setAt: string | null;
+  setup: { mode: MailMode; serverOn: boolean; dailyCap: number; link: boolean; times: { morning: string; reminder: string; lastCall: string; overdue: string } };
+}
+
+/** A line of the email log: never an address. `body` is kept only for an email captured on the server. */
+export interface EmailLogLine {
+  id: number;
+  userId: string;
+  name: string | null;
+  day: string;
+  slot: string;
+  items: number;
+  state: "claimed" | "sent" | "failed" | "captured";
+  attempts: number;
+  subject: string | null;
+  body: string | null;
+  error: string | null;
+  claimedAt: string;
+  sentAt: string | null;
+}
+
+export interface TestEmailAnswer {
+  sent: boolean;
+  captured?: boolean;
+  reason?: string;
+  code?: string;
+}
+
+export const emailApi = {
+  contacts: () => api.get<{ contacts: ReminderContact[] }>("/email/contacts"),
+  setContact: (userId: string, contact: { address: string; language: ReminderLanguage; enabled: boolean }) =>
+    api.put<{ contact: ReminderContact }>(`/email/contacts/${encodeURIComponent(userId)}`, contact),
+  removeContact: (userId: string) => api.del<{ removed: boolean }>(`/email/contacts/${encodeURIComponent(userId)}`),
+  settings: () => api.get<EmailSettingsAnswer>("/email/settings"),
+  setEnabled: (enabled: boolean) => api.put<EmailSettingsAnswer>("/email/settings", { enabled }),
+  /** "Send me a test email": to the super admin's own reminder email, one in 20 seconds. */
+  test: () => api.post<TestEmailAnswer>("/email/test"),
+  log: (limit = 10) => api.get<{ rows: EmailLogLine[] }>(`/email/log?limit=${limit}`),
 };

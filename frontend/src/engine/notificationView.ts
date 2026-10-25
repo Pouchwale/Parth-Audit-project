@@ -87,13 +87,14 @@ export function notificationRoute(
 export interface JobRunView {
   job: string;
   outcome: string;
-  result?: { prepared?: number; modules?: { module: string | null; count: number }[]; planned?: number; written?: number; resolved?: number; push?: string } | null;
+  result?: { prepared?: number; modules?: { module: string | null; count: number }[]; planned?: number; written?: number; resolved?: number; push?: string; email?: string } | null;
 }
 
 /**
  * THE LINE A RUN OF THE SERVER'S JOBS IS TOLD IN (the super admin's Notifications page, REQUIREMENTS §97): how many
  * records were prepared and in which modules, or how many notifications were worked out, from the job's own figures,
- * in the words `say` gives (the page's i18n strings). The push's own line is the server's, as the activity log has it.
+ * in the words `say` gives (the page's i18n strings). The push's own line, and the reminder emails' (the owner,
+ * 25-Oct-2026), are the server's, as its log has them.
  */
 export function jobRunWords(run: JobRunView, say: (key: string, vars?: Record<string, string | number>) => string, moduleWords: (code: string) => string): string[] {
   const r = run.result ?? {};
@@ -106,6 +107,7 @@ export function jobRunWords(run: JobRunView, say: (key: string, vars?: Record<st
   if (run.job === "notify") {
     const lines = [say("jobs.notified", { n: r.planned ?? 0, written: r.written ?? 0, resolved: r.resolved ?? 0 })];
     if (typeof r.push === "string" && r.push) lines.push(say("jobs.phones", { push: r.push }));
+    if (typeof r.email === "string" && r.email) lines.push(say("jobs.emails", { email: r.email }));
     return lines;
   }
   return [run.outcome];

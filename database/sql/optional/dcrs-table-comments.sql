@@ -36,7 +36,8 @@ BEGIN
   FROM unnest(ARRAY['public.users', 'public.digest_log', 'public.app_storage', 'public.activity_log',
                     'public.activity_log_archive', 'public.activity_daily', 'public.activity_daily_state',
                     'public.job_runs', 'public.escalations', 'public.weekly_digests', 'public.user_sessions',
-                    'public.notifications', 'public.push_devices', 'public.notification_prefs', 'public.push_tickets']) AS t
+                    'public.notifications', 'public.push_devices', 'public.notification_prefs', 'public.push_tickets',
+                    'public.email_contacts', 'public.email_settings', 'public.email_log']) AS t
   WHERE to_regclass(t) IS NULL;
   IF missing IS NOT NULL THEN
     RAISE EXCEPTION 'DCRS''s tables are not all here (missing: %). Start DCRS once against this database (it makes and updates its own tables), then run this again.', missing;
@@ -98,6 +99,41 @@ COMMENT ON COLUMN public.push_tickets.id IS 'The ticket''s id, as Expo gave it.'
 COMMENT ON COLUMN public.push_tickets.token IS 'The phone''s push token the ticket is for (push_devices.token).';
 COMMENT ON COLUMN public.push_tickets.created_at IS 'When the push was sent.';
 
+-- ---------------------------------------------------------------- the reminder emails (the owner, 25-Oct-2026)
+COMMENT ON TABLE public.email_contacts IS
+  'Each account''s reminder email: a mailbox of the person''s own, set by the super admin on Users & Access, where DCRS emails what is still open for the person three times on a working day until it is done. Never the sign-in (name.surname@gpp.local receives no mail). Read and set by the super admin alone.';
+COMMENT ON COLUMN public.email_contacts.user_id IS 'The account (users.id); the row goes with the account.';
+COMMENT ON COLUMN public.email_contacts.address IS 'The reminder email: one plain address, in small letters.';
+COMMENT ON COLUMN public.email_contacts.language IS 'The language the emails are written in: en (English), gu (Gujarati) or hi (Hindi).';
+COMMENT ON COLUMN public.email_contacts.enabled IS 'False to keep the address but send nothing to it.';
+COMMENT ON COLUMN public.email_contacts.set_by IS 'The super admin who set it, by name.';
+COMMENT ON COLUMN public.email_contacts.set_at IS 'When it was last set.';
+COMMENT ON COLUMN public.email_contacts.last_failure IS 'Why the last email to it failed, with every address masked. Empty once an email has gone.';
+COMMENT ON COLUMN public.email_contacts.last_failure_at IS 'When the last email to it failed.';
+
+COMMENT ON TABLE public.email_settings IS
+  'One row: whether the reminder emails go out (the super admin''s switch on the Notifications page; off until switched on). EMAIL_ENABLED=0 stops them on the server whatever it says.';
+COMMENT ON COLUMN public.email_settings.id IS 'Always 1: the table holds one row.';
+COMMENT ON COLUMN public.email_settings.enabled IS 'True while the reminder emails go out.';
+COMMENT ON COLUMN public.email_settings.set_by IS 'The super admin who last switched them, by name.';
+COMMENT ON COLUMN public.email_settings.set_at IS 'When they were last switched.';
+
+COMMENT ON TABLE public.email_log IS
+  'One row per person, plant day and slot of the reminder emails (morning, reminder at 15:30, lastCall at 17:45; a test email test-<time>), claimed before the email is sent so that nobody is emailed twice for a slot. Never an address. Deleted after 60 days.';
+COMMENT ON COLUMN public.email_log.id IS 'The line''s number.';
+COMMENT ON COLUMN public.email_log.user_id IS 'The account emailed (users.id).';
+COMMENT ON COLUMN public.email_log.day IS 'The plant''s date of the email (YYYY-MM-DD).';
+COMMENT ON COLUMN public.email_log.slot IS 'Which of the day''s emails: morning, reminder, lastCall, or test-<time> for a test email.';
+COMMENT ON COLUMN public.email_log.items IS 'How many open records the email listed.';
+COMMENT ON COLUMN public.email_log.state IS 'claimed (being sent), sent (Gmail took it), captured (kept on this PC: EMAIL_TRANSPORT=capture) or failed.';
+COMMENT ON COLUMN public.email_log.attempts IS 'How many times it was tried: three at most in a slot.';
+COMMENT ON COLUMN public.email_log.message_id IS 'The message''s id as Gmail gave it, or captured-<id>.';
+COMMENT ON COLUMN public.email_log.error IS 'Why the last try failed, with every address masked.';
+COMMENT ON COLUMN public.email_log.subject IS 'The email''s subject: the open records in the push''s own words.';
+COMMENT ON COLUMN public.email_log.body IS 'The email''s plain text, kept only for an email captured on this PC.';
+COMMENT ON COLUMN public.email_log.claimed_at IS 'When it was claimed (and last tried).';
+COMMENT ON COLUMN public.email_log.sent_at IS 'When it was sent or captured. Empty if not (yet).';
+
 -- ---------------------------------------------------------------- user_sessions
 COMMENT ON TABLE public.user_sessions IS
   'Where each person is signed in (REQUIREMENTS §106): one row per session, keyed by the id its sign-in token carries, with the device it was signed in on. DCRS reads it on every request, so a sign-out, the super admin''s Sign out this device (User access, Signed in on) and switching an account off end a session at once. An account may be signed in on at most DCRS_MAX_DEVICES devices (2 unless set); the super admin is never held to it. A session is open while ended_at is empty and ends_at is still to come. Rows are never deleted: an ended one says when, why and by whom.';
@@ -119,7 +155,7 @@ COMMENT ON COLUMN public.user_sessions.ended_by IS 'The account that ended it (u
 
 -- ---------------------------------------------------------------- digest_log
 COMMENT ON TABLE public.digest_log IS
-  'One row: the last date a reminder email digest went out, so the digest goes once a day however many people open DCRS that morning.';
+  'One row: the last date the browser''s reminder email digest went out. Retired on 25-Oct-2026 (the server''s own reminder emails, email_log, replaced it): nothing writes it any more.';
 COMMENT ON COLUMN public.digest_log.id IS 'Always 1: the table holds one row.';
 COMMENT ON COLUMN public.digest_log.last_sent_date IS 'The date the last reminder digest was sent (YYYY-MM-DD).';
 

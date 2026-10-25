@@ -5,6 +5,10 @@
 // The notifications' own titles and bodies are NOT here: the server words them, in the language the page asks for, from
 // the facts the ledger keeps (frontend/src/engine/notificationText.ts, one module for the phone, the bell and the page).
 // These are the page's own words around them. No pronoun names a person: the name, or "you".
+//
+// The reminder emails' part of the jobs card (the owner, 25-Oct-2026; backend/emailReminders.ts): the super admin's
+// switch, "Send me a test email", how mail goes on this server, and the latest emails. The emails' own words are the
+// server's (engine/notificationText.ts emailWords), in the language each person's reminder email is set to.
 const en = {
   "notif.title": "Notifications",
   "notif.intro": "What is waiting for you, by day: records ready for your OK, readings to enter, records due, late or waiting for verification. Open one to go to it.",
@@ -61,7 +65,38 @@ const en = {
   "jobs.prepared.none": "Nothing was left to prepare: today's records are already prepared.",
   "jobs.notified": "{n} notifications worked out for the people who answer for the records: {written} new or changed, {resolved} done.",
   "jobs.phones": "Phones: {push}",
+  "jobs.emails": "Emails: {email}",
   "jobs.failed": "That did not run: {why}",
+  "email.title": "Reminder emails",
+  "email.intro": "Each person with a reminder email (Users & Access) is emailed what is still open for them on working days: in the morning, at {reminder} and at {lastCall}, until it is done. Nothing open, no email.",
+  "email.switch": "Reminder emails",
+  "email.on": "On",
+  "email.off": "Off",
+  "email.setBy": "Switched {state} by {name}, {when}.",
+  "email.mode.gmail": "Sent from the plant's Gmail account (GMAIL_USER), at most {cap} emails a day.",
+  "email.mode.capture": "Capture mode (EMAIL_TRANSPORT=capture): the emails are kept in the log below and nothing leaves this PC.",
+  "email.mode.custom": "Sent through a test's own transport.",
+  "email.mode.off": "Not set up yet: GMAIL_USER and GMAIL_APP_PASSWORD are not set in backend/.env (DEPLOYMENT.md, Reminder emails). Nothing can be sent until they are.",
+  "email.serverOff": "Switched off on this server (EMAIL_ENABLED=0 in backend/.env): nothing is sent, whatever the switch says.",
+  "email.noLink": "The emails carry no link to DCRS: DCRS_APP_URL is not set.",
+  "email.test": "Send me a test email",
+  "email.testing": "Sending…",
+  "email.testSent": "Sent to your reminder email. It should arrive within a minute.",
+  "email.testCaptured": "Captured on this server (EMAIL_TRANSPORT=capture): nothing left the PC. The log below has it.",
+  "email.testFailed": "Not sent: {why}",
+  "email.log": "Latest emails",
+  "email.logNone": "No email yet.",
+  "email.state.sent": "sent",
+  "email.state.captured": "captured",
+  "email.state.failed": "not sent",
+  "email.state.claimed": "sending",
+  "email.slot.morning": "the morning email",
+  "email.slot.reminder": "the {time} email",
+  "email.slot.lastCall": "the {time} last call",
+  "email.slot.test": "a test email",
+  "email.records.one": "1 record",
+  "email.records.many": "{n} records",
+  "email.error": "The reminder emails could not be read just now. Try again in a moment.",
 };
 
 const gu: Record<keyof typeof en, string> = {
@@ -120,7 +155,38 @@ const gu: Record<keyof typeof en, string> = {
   "jobs.prepared.none": "તૈયાર કરવાનું કંઈ બાકી નહોતું: આજના રેકોર્ડ પહેલેથી તૈયાર છે.",
   "jobs.notified": "રેકોર્ડ માટે જવાબદાર લોકો માટે {n} સૂચનાઓ ગણી: {written} નવી અથવા બદલાયેલી, {resolved} પૂરી.",
   "jobs.phones": "ફોન: {push}",
+  "jobs.emails": "ઇમેઇલ: {email}",
   "jobs.failed": "એ ચાલ્યું નહીં: {why}",
+  "email.title": "યાદ અપાવતા ઇમેઇલ",
+  "email.intro": "જેનો યાદ અપાવતો ઇમેઇલ (યુઝર્સ અને ઍક્સેસ) નોંધેલો છે તે દરેકને કામકાજના દિવસે તેનું બાકી કામ ઇમેઇલથી મોકલાય છે: સવારે, {reminder} વાગ્યે અને {lastCall} વાગ્યે, કામ પૂરું ન થાય ત્યાં સુધી. કંઈ બાકી નહીં, તો ઇમેઇલ નહીં.",
+  "email.switch": "યાદ અપાવતા ઇમેઇલ",
+  "email.on": "ચાલુ",
+  "email.off": "બંધ",
+  "email.setBy": "{name} એ {when} ના રોજ {state} કર્યું.",
+  "email.mode.gmail": "પ્લાન્ટના Gmail ખાતા (GMAIL_USER) પરથી, દિવસના વધુમાં વધુ {cap} ઇમેઇલ.",
+  "email.mode.capture": "કેપ્ચર મોડ (EMAIL_TRANSPORT=capture): ઇમેઇલ નીચેના લૉગમાં રખાય છે અને આ PC બહાર કંઈ જતું નથી.",
+  "email.mode.custom": "ટેસ્ટના પોતાના ટ્રાન્સપોર્ટથી મોકલાય છે.",
+  "email.mode.off": "હજી ગોઠવ્યું નથી: backend/.env માં GMAIL_USER અને GMAIL_APP_PASSWORD નથી (DEPLOYMENT.md, Reminder emails). તે ગોઠવાય નહીં ત્યાં સુધી કંઈ મોકલી શકાતું નથી.",
+  "email.serverOff": "આ સર્વર પર બંધ છે (backend/.env માં EMAIL_ENABLED=0): સ્વિચ ગમે તે કહે, કંઈ મોકલાતું નથી.",
+  "email.noLink": "ઇમેઇલમાં DCRS ની લિંક નથી: DCRS_APP_URL ગોઠવેલું નથી.",
+  "email.test": "મને પરીક્ષણ ઇમેઇલ મોકલો",
+  "email.testing": "મોકલી રહ્યા છીએ…",
+  "email.testSent": "તમારા યાદ અપાવતા ઇમેઇલ પર મોકલ્યો. એક મિનિટમાં આવી જવો જોઈએ.",
+  "email.testCaptured": "આ સર્વર પર કેપ્ચર થયો (EMAIL_TRANSPORT=capture): PC બહાર કંઈ ગયું નથી. નીચેના લૉગમાં છે.",
+  "email.testFailed": "મોકલાયો નહીં: {why}",
+  "email.log": "છેલ્લા ઇમેઇલ",
+  "email.logNone": "હજી કોઈ ઇમેઇલ નથી.",
+  "email.state.sent": "મોકલ્યો",
+  "email.state.captured": "કેપ્ચર થયો",
+  "email.state.failed": "મોકલાયો નહીં",
+  "email.state.claimed": "મોકલાઈ રહ્યો છે",
+  "email.slot.morning": "સવારનો ઇમેઇલ",
+  "email.slot.reminder": "{time} નો ઇમેઇલ",
+  "email.slot.lastCall": "{time} ની છેલ્લી યાદ",
+  "email.slot.test": "પરીક્ષણ ઇમેઇલ",
+  "email.records.one": "1 રેકોર્ડ",
+  "email.records.many": "{n} રેકોર્ડ",
+  "email.error": "યાદ અપાવતા ઇમેઇલ અત્યારે વાંચી શકાયા નથી. થોડી વારમાં ફરી પ્રયાસ કરો.",
 };
 
 export const NOTIFICATION_STRINGS = { en, gu };

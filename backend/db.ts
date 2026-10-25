@@ -1,7 +1,7 @@
 // THE DATABASE: PostgreSQL, and nothing else (REQUIREMENTS §55).
 //
 // Every piece of data the system keeps lives here — the user accounts, the
-// reminder digest log, and all of the app's own data: the records, the
+// reminder emails' tables (backend/emailContacts.ts), and all of the app's own data: the records, the
 // document definitions, master data, the HR Master Data sheet, reference
 // edits, the deletions log, the date the system went live (company-wide), and
 // each person's settings and assistant conversations (their own). The browser
@@ -257,8 +257,11 @@ const SCHEMA = `
   ALTER TABLE users ADD COLUMN IF NOT EXISTS active_before_removal BOOLEAN;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS former_emails TEXT NOT NULL DEFAULT '';
 
-  -- Single row (id is always 1): the last date a reminder digest email went
-  -- out, so five people opening the app one morning send one digest.
+  -- Single row (id is always 1): the last date the browser's reminder digest
+  -- email went out. RETIRED on 25-Oct-2026: the server's own reminder emails
+  -- (backend/emailReminders.ts, email_log) replaced the digest a browser asked
+  -- for, and nothing writes this table any more. Kept, as every table is: a
+  -- plant's database still has it, and nothing is deleted.
   CREATE TABLE IF NOT EXISTS digest_log (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     last_sent_date TEXT
@@ -1102,7 +1105,18 @@ function likeContaining(search: string): string {
 // which were filed under the escalated department with its counts and format
 // numbers in the detail and, the log refusing an UPDATE, stay so for ever.
 export const ESCALATION_ACTIONS = { raised: "Escalated to the super admin", acknowledged: "Escalation acknowledged" } as const;
-const SUPER_ADMIN_ACTIONS: string[] = Object.values(ESCALATION_ACTIONS);
+// THE REMINDER EMAILS' LINES (the owner, 25-Oct-2026; backend/emailReminders.ts, backend/emailRoutes.ts) are the super
+// admin's too: who has a reminder email and what went to whom is the super admin's business, as an escalation is. They
+// never name an address.
+export const EMAIL_ACTIONS = {
+  sent: "Reminder emails sent",
+  set: "Reminder email set",
+  removed: "Reminder email removed",
+  on: "Reminder emails switched on",
+  off: "Reminder emails switched off",
+  test: "Test email sent",
+} as const;
+const SUPER_ADMIN_ACTIONS: string[] = [...Object.values(ESCALATION_ACTIONS), ...Object.values(EMAIL_ACTIONS)];
 
 export interface ActivityFilter {
   departments: string[] | null;
@@ -1238,32 +1252,6 @@ export async function listActivity(opts: ActivityFilter & { limit: number; befor
 export async function setUserDepartments(id: string, departments: string): Promise<UserRow | undefined> {
   const { rows } = await database().query<UserRow>("UPDATE users SET departments = $1 WHERE id = $2 RETURNING *", [departments, id]);
   return rows[0];
-}
-
-// ---------------------------------------------------------------------------
-// the reminder digest log
-
-export async function lastDigestDate(): Promise<string | null> {
-  const { rows } = await database().query<{ last_sent_date: string | null }>("SELECT last_sent_date FROM digest_log WHERE id = 1");
-  return rows[0]?.last_sent_date ?? null;
-}
-
-/** Claims `date` for today's digest; false when another request already has. */
-export async function claimDigestDate(date: string): Promise<boolean> {
-  const { rowCount } = await database().query(
-    `INSERT INTO digest_log (id, last_sent_date) VALUES (1, $1)
-     ON CONFLICT (id) DO UPDATE SET last_sent_date = EXCLUDED.last_sent_date
-     WHERE digest_log.last_sent_date IS DISTINCT FROM EXCLUDED.last_sent_date`,
-    [date]
-  );
-  return (rowCount ?? 0) > 0;
-}
-
-export async function setDigestDate(date: string | null): Promise<void> {
-  await database().query(
-    "INSERT INTO digest_log (id, last_sent_date) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET last_sent_date = EXCLUDED.last_sent_date",
-    [date]
-  );
 }
 
 // ---------------------------------------------------------------------------
