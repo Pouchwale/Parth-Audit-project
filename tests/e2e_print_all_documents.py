@@ -56,9 +56,10 @@ def settle_briefing(page):
     )
 
 BASE = "http://localhost:8842"
-# A date written with a month's name (24-Oct-2026, 24 Oct 26, 24 October): since 24-Oct-2026 every date is numbers, 24-10-26
-# (REQUIREMENTS section 124), so none may be on a printout.
-MONTH_NAMED_DATE = re.compile(r"\b\d{1,2}[-\s](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?[-\s,]+\d{2,4}\b")
+# A date the way the app wrote one until 24-Oct-2026 (24-Oct-2026, 24-Oct-26): since then every date it writes is numbers,
+# 24-10-26 (REQUIREMENTS section 124), so none may be on a printout. A paper's own prose is the paper's ("Commission
+# Regulation (EU) 2024/3190 of 19 December 2024" on F/SYS/20) and is not matched.
+MONTH_NAMED_DATE = re.compile(r"\b\d{1,2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{2,4}\b")
 FAILURES = []
 
 STUB_PRINT = "() => { window.__printed = 0; window.print = () => { window.__printed += 1; }; }"
