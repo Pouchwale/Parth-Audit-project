@@ -61,7 +61,8 @@ REFERENCES = [
     _r("Copy of F-QC-15-A-G Line Clearance - Printing.pdf", ORIG + "Copy of F-QC-15-A-G Line Clearance - Printing.pdf", "F/QC/15-F", ["qc-line-clearance-sleeve-gluing"]),
     _r("Copy of F-QC-15-A-G Line Clearance - Printing (2).pdf", ORIG + "Copy of F-QC-15-A-G Line Clearance - Printing (2).pdf", "F/QC/15-G", ["qc-line-clearance-sleeve-cutting"]),
     _r("Copy of F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.pdf", ORIG + "Copy of F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.pdf", "F/QC/16", ["qc-obsolete-artwork"]),
-    _r("Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf", ORIG + "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf", "F/QC/17", ["qc-ruler-verification"]),
+    # The 600 mm scale's page as updated (the owner, 27-Oct-2026: GP-3/MS/36, 100 to 590 mm), in source-documents/.
+    _r("Copy of F-QC-17-Updated Scale (Ruler) internal verification record 600 mm- Copy.pdf", "Copy of F-QC-17-Updated Scale (Ruler) internal verification record 600 mm- Copy.pdf", "F/QC/17", ["qc-ruler-verification"]),
     # The 300 mm scale's page (the owner, 17-Oct-2026: "this PDF is for QC17 for 300mm"), in source-documents/ only.
     _r(
         "Copy of F-QC-17-Updated Scale (Ruler) internal verification record-300.pdf",

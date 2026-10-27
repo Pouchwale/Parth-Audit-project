@@ -235,7 +235,8 @@ test("F/QC/17: the Measuring Scale (Ruler) Internal Verification Record as its p
   assert.equal(tolerance.autoFill?.default, "+ / - 1 mm");
   assert.equal(tolerance.printed, undefined, "editable, not printed read-only");
   assert.ok(layout.rowMode.kind === "fixedRows");
-  assert.deepEqual(layout.rowMode.kind === "fixedRows" && layout.rowMode.rows.map((r) => r.masterReading), ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"]);
+  // The 600 mm page as updated (the owner, 27-Oct-2026): 100 to 590 mm.
+  assert.deepEqual(layout.rowMode.kind === "fixedRows" && layout.rowMode.rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"]);
   const filled = sample(id);
   const html = await sheet(id, filled);
   const words = text(html);
@@ -255,18 +256,18 @@ test("F/QC/17: the Difference is worked out and judged by the printed ± 1 mm, a
   const id = "qc-ruler-verification";
   const blank = createDefaultData(docOf(id), DAY, master) as LogSheetData;
   const read = (observed: number[]) => withComputedCells(id, { ...blank, rows: blank.rows.map((r, i) => ({ ...r, observed: observed[i] ?? null })) }) as LogSheetData;
-  const exact = read([50, 100, 150, 200, 250, 290]);
+  const exact = read([100, 200, 300, 400, 500, 590]);
   assert.deepEqual(exact.rows.map((r) => r.difference), ["0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
   assert.equal(exact.rows[0].status, "Pass");
-  const oneOff = read([50, 101, 150, 199, 250, 290]);
+  const oneOff = read([100, 201, 300, 399, 500, 590]);
   assert.deepEqual(oneOff.rows.map((r) => r.difference), ["0.0", "1.0", "0.0", "-1.0", "0.0", "0.0"]);
   assert.equal(oneOff.rows[0].status, "Pass", "a millimetre is inside + / - 1 mm");
   assert.equal(outOfBandCount(layoutOf(id), oneOff), 0);
-  const worn = read([50, 100, 152]);
+  const worn = read([100, 200, 302]);
   assert.equal(worn.rows[2].difference, "2.0");
   assert.equal(worn.rows[0].status, "Fail", "a point outside the tolerance fails the ruler, before the rest are read");
   assert.equal(outOfBandCount(layoutOf(id), worn), 1);
-  const half = read([50, 100]);
+  const half = read([100, 200]);
   assert.equal(half.rows[0].status ?? "", "", "no verdict while points are still to read");
 });
 
@@ -276,10 +277,10 @@ test("F/QC/17: a sample verification is today's, never the page of 2024; a Live 
   const hd = filled.header;
   assert.deepEqual([hd.masterMake, hd.masterSerialNo, hd.masterRange, hd.masterLeastCount], ["Kristeen", "QC-44", "0 - 600 mm", "1 mm"]);
   assert.deepEqual([hd.masterCalibrationDate, hd.masterCalibrationDueDate, hd.masterCalibrationReportNo], ["2026-09-23", "2027-09-22", "CAL/LPI/GP-23/25"]);
-  assert.deepEqual([hd.make, hd.serialNo, hd.calibrationDate, hd.calibrationDueDate, hd.acceptableTolerance], ["Ajanta", "GP-3/MS/04", DAY, "2027-10-13", "+ / - 1 mm"]);
+  assert.deepEqual([hd.make, hd.serialNo, hd.calibrationDate, hd.calibrationDueDate, hd.acceptableTolerance], ["Ajanta", "GP-3/MS/36", DAY, "2027-10-13", "+ / - 1 mm"]);
   assert.ok(!JSON.stringify(filled).includes("2024") && !JSON.stringify(filled).includes("2025-09"), "no date of the supplied page");
   assert.equal(filled.rows.length, 6);
-  assert.ok(filled.rows.every((r, i) => Math.abs((r.observed as number) - [50, 100, 150, 200, 250, 290][i]) <= 1));
+  assert.ok(filled.rows.every((r, i) => Math.abs((r.observed as number) - [100, 200, 300, 400, 500, 590][i]) <= 1));
   assert.equal(filled.rows[0].status, "Pass");
   assert.ok(hrNames().has(String(filled.rows[0].performedBy)), String(filled.rows[0].performedBy));
   assert.ok(filled.rows.slice(1).every((r) => r.status === "" && r.performedBy === ""), "one Status, one name: the first line's");
@@ -291,7 +292,8 @@ test("F/QC/17: a sample verification is today's, never the page of 2024; a Live 
   const known = live(id);
   assert.deepEqual(
     Object.fromEntries(Object.entries(known.header).filter(([, v]) => String(v ?? "") !== "")),
-    { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", calibrationDate: DAY, acceptableTolerance: "+ / - 1 mm", serialNo: "GP-3/MS/04", range: "0-600 mm" }
+    // The ruler's certificate dates the owner gave (27-Oct-2026), 23-09-26 and 22-09-27: the instrument's, not observed.
+    { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", calibrationDate: "2026-09-23", calibrationDueDate: "2027-09-22", acceptableTolerance: "+ / - 1 mm", serialNo: "GP-3/MS/36", range: "0-600mm" }
   );
   assert.ok(known.rows.every((r) => (r.observed === null || r.observed === "") && r.status === "" && r.performedBy === "" && r.difference === ""));
 });

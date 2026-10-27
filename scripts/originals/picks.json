@@ -1369,313 +1369,313 @@
   "file": "originals/qc-ruler-verification.xlsx",
   "original": "QC/Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
   "originalRoot": "Audit document",
-  "sheet": "4",
-  "notes": "The workbook keeps a sheet to each scale and verification; the sheet matching the owner's PDF (the 600 mm scale) is taken.",
+  "sheet": "36",
+  "notes": "The workbook keeps a sheet to each scale and verification; the sheet matching the owner's PDF of the 600 mm scale, as updated on 27-Oct-2026 (GP-3/MS/36, 100 to 590 mm), is taken.",
   "scores": [
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "1",
-    "score": 0.9307
+    "score": 0.827
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "2",
-    "score": 0.9307
+    "score": 0.8119
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "3",
-    "score": 0.9208
+    "score": 0.8181
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "4",
-    "score": 0.951
+    "score": 0.8154
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "5",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "6",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "7",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "8",
-    "score": 0.9208
+    "score": 0.8181
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "9",
-    "score": 0.9142
+    "score": 0.8119
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "10",
-    "score": 0.8932
+    "score": 0.794
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "11",
-    "score": 0.8416
+    "score": 0.8321
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "12",
-    "score": 0.8388
+    "score": 0.9254
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "13",
-    "score": 0.8294
+    "score": 0.918
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "14",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "15",
-    "score": 0.9208
+    "score": 0.8181
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "16",
-    "score": 0.9081
+    "score": 0.8067
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "17",
-    "score": 0.9408
+    "score": 0.8207
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "18",
-    "score": 0.9342
+    "score": 0.8154
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "19",
-    "score": 0.9177
+    "score": 0.8006
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "20",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "21",
-    "score": 0.9138
+    "score": 0.811
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "22",
-    "score": 0.9
+    "score": 0.8007
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "23",
-    "score": 0.9307
+    "score": 0.827
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15",
-    "score": 0.1381
+    "score": 0.1293
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15 (2)",
-    "score": 0.1356
+    "score": 0.1048
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15 (5)",
-    "score": 0.1217
+    "score": 0.0961
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15 (3)",
-    "score": 0.1225
+    "score": 0.1145
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15 (4)",
-    "score": 0.1195
+    "score": 0.1115
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet1",
-    "score": 0.0404
+    "score": 0.04
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "24",
-    "score": 0.9307
+    "score": 0.827
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "25",
-    "score": 0.9208
+    "score": 0.8181
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "26",
-    "score": 0.9208
+    "score": 0.8181
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "27",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "28",
-    "score": 0.9342
+    "score": 0.8154
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "29",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "30",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "31",
-    "score": 0.9208
+    "score": 0.8181
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "32",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "33",
-    "score": 0.9177
+    "score": 0.8006
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "34",
-    "score": 0.8416
+    "score": 0.8207
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "35",
-    "score": 0.8333
+    "score": 0.9191
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "36",
-    "score": 0.8294
+    "score": 0.9507
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "37",
-    "score": 0.9081
+    "score": 0.8067
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "38",
-    "score": 0.9208
+    "score": 0.8067
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "39",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "40",
-    "score": 0.9342
+    "score": 0.8154
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "41",
-    "score": 0.8479
+    "score": 0.7357
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "42",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "43",
-    "score": 0.9243
+    "score": 0.8216
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "44",
-    "score": 0.9307
+    "score": 0.827
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15 (6)",
-    "score": 0.1093
+    "score": 0.0963
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet2 (2)",
-    "score": 0.0404
+    "score": 0.04
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15 (7)",
-    "score": 0.1356
+    "score": 0.1048
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "40 (3)",
-    "score": 0.9342
+    "score": 0.8154
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15 (8)",
-    "score": 0.1217
+    "score": 0.0961
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15 (9)",
-    "score": 0.1225
+    "score": 0.1145
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet15 (10)",
-    "score": 0.1195
+    "score": 0.1115
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet1 (2)",
-    "score": 0.0404
+    "score": 0.04
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "22 (4)",
-    "score": 0.0437
+    "score": 0.0431
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "22 (2)",
-    "score": 0.0437
+    "score": 0.0431
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     "sheet": "Sheet2",
-    "score": 0.0404
+    "score": 0.04
    },
    {
     "file": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
@@ -1753,8 +1753,12 @@
    "Sheet3",
    "Sheet4"
   ],
-  "bytes": 13121,
-  "copiedToSourceDocuments": "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx"
+  "pagesAsSupplied": 1,
+  "paper": [
+   "36: A4 already"
+  ],
+  "pages": 1,
+  "bytes": 12901
  },
  {
   "id": "qc-ruler-verification-300",

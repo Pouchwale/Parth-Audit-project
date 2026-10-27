@@ -1,4 +1,4 @@
-import { RULER_600_ID, RULER_POINTS, rulerScaleOf } from "../data/seed/qcRulerVerificationLayouts";
+import { RULER_600_ID, rulerScaleOf } from "../data/seed/qcRulerVerificationLayouts";
 import { makeRng } from "../utils/random";
 import { addDays } from "../utils/date";
 
@@ -9,7 +9,8 @@ import { addDays } from "../utils/date";
 //   the master scale  Kristeen, QC-44, 0 - 600 mm, 1 mm (the layout's standing values), calibrated outside every year
 //                     on 23 September as on the supplied page (23.09.2024, due 22.09.2025), its certificate numbered
 //                     on the page's series — CAL/LPI/GP-23/23 for 2024, one on each year
-//   the ruler         the page's own: Ajanta, GP-3/MS/04, 0-600 mm, 1 mm; verified the day the record is for, due a
+//   the ruler         the page's own: Ajanta, GP-3/MS/36, 0-600mm, 1 mm (the updated page of 27-Oct-2026; GP-3/MS/04
+//                     before it); verified the day the record is for, due a
 //                     year less a day later (24.09.2024 -> 23.09.2025). The 300 mm scale's document (§117, 17-Oct-2026)
 //                     is verified as its own page says: Ajanta, GP-3/MS/42, 0-300 mm, 1 mm.
 //   the readings      at the six printed points, read to the ruler's 1 mm least count: most read the master's figure,
@@ -53,7 +54,7 @@ export function rulerVerificationSample(dueDate: string, documentId: string = RU
     calibrationDueDate: addDays(yearAfter(dueDate), -1),
   };
   // One point in five reads a millimetre off the master, never more than one point on a sheet.
-  const off = rng.chance(0.2) ? rng.int(0, RULER_POINTS.length - 1) : -1;
-  const observed = RULER_POINTS.map((mm, i) => (i === off ? mm + (rng.chance(0.5) ? 1 : -1) : mm));
+  const off = rng.chance(0.2) ? rng.int(0, scale.points.length - 1) : -1;
+  const observed = scale.points.map((mm, i) => (i === off ? mm + (rng.chance(0.5) ? 1 : -1) : mm));
   return { header, observed };
 }

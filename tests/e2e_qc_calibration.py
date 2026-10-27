@@ -305,6 +305,15 @@ with sync_playwright() as p:
     close_assistant(page)
     new_id = page.url.split("#/record/")[-1]
     fresh = record(page, new_id)
+    # THE CERTIFICATE'S DUE DATE THE OWNER GAVE (27-Oct-2026: "calibration due date ... 20-9-27"): on the new sheet, before
+    # any fill, in place of the page on file's 27.08.2024 - and editable (a date box of the person's).
+    check(
+        "A new weight scale sheet starts with Calibration Expiry 20-09-27, the certificate's due date, not the page's 2024 one",
+        fresh is not None and fresh["data"]["header"].get("calibrationExpiry") == "2027-09-20",
+        fresh["data"]["header"] if fresh else None,
+    )
+    expiry_box = page.locator("input[data-bind='header/calibrationExpiry']")
+    check("...in a box the person can change", expiry_box.count() >= 1 and expiry_box.first.is_editable(), expiry_box.count())
     # On its Wednesday the week's sheet is already prepared, and New record
     # opens that one; since 8-Oct-2026 the prepare writes only its known parts
     # (REQUIREMENTS s98: the device's identity carried from the page on file,

@@ -154,7 +154,10 @@ function logSheetObservations(doc: DocumentDefinition, d: LogSheetData, dueDate:
     for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
       const v = d.header?.[f.key];
       if (blank(v) || f.computed) continue;
-      const allowed = f.autoFill?.dueDate ? dueDate : typeof f.printed === "string" ? f.printed : p.header?.[f.key];
+      // A calibration certificate's date (autoFill.newest, the owner, 27-Oct-2026) is the instrument's, not observed: the later
+      // of the last sheet's and the date the format starts with.
+      const latest = [String(p.header?.[f.key] ?? ""), String(f.autoFill?.default ?? "")].sort().pop();
+      const allowed = f.autoFill?.dueDate ? dueDate : typeof f.printed === "string" ? f.printed : f.autoFill?.newest ? latest : p.header?.[f.key];
       if (v !== allowed) say(`"${f.label}" holds "${v}", which the sheet of ${prior.dueDate} did not (§117 carries only what was written)`);
     }
     for (const [i, row] of d.rows.entries()) {
@@ -309,7 +312,9 @@ test("what is known IS written: the date, the fixed rows, the standing values ca
   const scale = byId("qc-weight-scale-calibration");
   const prior = confirmedBefore(scale, workDay) as RecordInstance<LogSheetData>;
   const cal = prepareKnownParts(scale, workDay, master, prior)!.data as LogSheetData;
-  for (const key of ["deviceIdNo", "manufacturer", "serialNo", "calibrationExpiry", "acceptableTolerance"]) assert.equal(cal.header[key], prior.data.header[key], key);
+  for (const key of ["deviceIdNo", "manufacturer", "serialNo", "acceptableTolerance"]) assert.equal(cal.header[key], prior.data.header[key], key);
+  // The certificate's date (autoFill.newest, the owner, 27-Oct-2026): the later of the last sheet's and the owner's 20-09-27.
+  assert.equal(cal.header.calibrationExpiry, [String(prior.data.header.calibrationExpiry), "2027-09-20"].sort().pop(), "calibrationExpiry");
   assert.ok(cal.rows.every((r) => r.date === workDay), "each line dated the record's day");
   assert.equal(cal.rows.length, prior.data.rows.length, "the last sheet's lines, carried");
   assert.ok(cal.rows.every((r, i) => r.testedValue1 === prior.data.rows[i].testedValue1 && r.testedBy === prior.data.rows[i].testedBy), "the readings and the tester as last written, for the person to change (§117)");

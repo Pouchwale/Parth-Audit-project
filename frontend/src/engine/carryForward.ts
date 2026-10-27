@@ -65,7 +65,11 @@ export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blan
     }
     if (kind === "computed") continue;
     const v = previous.header?.[f.key];
-    if (written(v)) header[f.key] = String(v);
+    if (!written(v)) continue;
+    // A calibration certificate's date (autoFill.newest, 27-Oct-2026): the later of the last sheet's and the one the
+    // format starts with - dates written YYYY-MM-DD compare as text.
+    const start = header[f.key] ?? "";
+    header[f.key] = f.autoFill?.newest && start && String(v) < start ? start : String(v);
   }
   const allPrevious = Array.isArray(previous.rows) ? previous.rows : [];
   // A sheet of one line takes the previous sheet's last line (the latest week of a page of several); a sheet whose
@@ -76,6 +80,17 @@ export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blan
   const previousRows = single ? allPrevious.slice(-1) : allPrevious;
   const printedLines = layout.rowMode.kind !== "free" && !single;
   if (previousRows.length === 0 || (printedLines && previousRows.length !== blank.rows.length)) return { ...blank, header };
+  // The last sheet's lines are a FORMER page's printed lines (layout.formerRows: F/QC/17's 600 mm page printed 50 to
+  // 290 mm until 27-Oct-2026): they belong to the old paper, so its boxes are carried and its lines are not. Compared as
+  // numbers ("50" is "50 mm"); master readings a person wrote over the points are not a former page's, and carry.
+  const samePoint = (a: unknown, b: unknown): boolean => {
+    const [x, y] = [parseFloat(String(a)), parseFloat(String(b))];
+    return Number.isFinite(x) && Number.isFinite(y) ? x === y : String(a ?? "").trim() === String(b).trim();
+  };
+  const formerPage = (layout.formerRows ?? []).some(
+    (former) => former.length === previousRows.length && former.every((starts, i) => Object.entries(starts).every(([k, v]) => samePoint(previousRows[i][k], v)))
+  );
+  if (formerPage) return { ...blank, header };
   const rows: LogSheetRow[] = previousRows.map((p, i) => {
     const row: LogSheetRow = blank.rows[i] ? { ...blank.rows[i], id: generateId("row") } : blankLogRow(layout);
     for (const c of layout.columns) {

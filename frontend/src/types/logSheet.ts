@@ -24,7 +24,11 @@ export interface LogHeaderField {
   // usual case for operator / machine / batch numbers), use a fixed default,
   // resolve a signature field to the responsible employee, or — for a date box
   // such as "Date of Inspection" — answer it with the date the record is for.
-  autoFill?: { carryForward?: boolean; default?: string; sign?: boolean; dueDate?: boolean };
+  // `newest`: a CALIBRATION CERTIFICATE'S DATE (the owner, 27-Oct-2026: F/QC/11 and F/QC/12 calibrated 21-09-26, due
+  // 20-09-27; F/QC/17's ruler 23-09-26, due 22-09-27): a standing box that starts as `default`, editable, and a new
+  // sheet keeps the LATER of the last sheet's date and that one - a certificate's dates only move forward, so an
+  // older date carried from 2024 never comes back, and a newer one somebody writes is kept (engine/carryForward.ts).
+  autoFill?: { carryForward?: boolean; default?: string; sign?: boolean; dueDate?: boolean; newest?: boolean };
   width?: number;
   /**
    * A box WORKED OUT from what is written on the sheet, never typed — F/MKT/02's
@@ -518,6 +522,13 @@ export interface LogSheetLayout {
    * Without a previous record the sheet starts as the paper's blank, with its standards.
    */
   carryForwardAll?: true;
+  /**
+   * THE LINES A FORMER PAGE OF THE PAPER PRINTED, each as its fixed rows' starts: a previous sheet whose lines are
+   * exactly one of these (as numbers) belongs to the old page, so a new sheet carries its boxes and not its lines
+   * (engine/carryForward.ts). F/QC/17's 600 mm page printed 50 to 290 mm until the owner's updated page of
+   * 27-Oct-2026 (100 to 590 mm); readings a person wrote over the points are theirs and still carry.
+   */
+  formerRows?: Record<string, string>[][];
   /**
    * THE PAPER'S ORIENTATION (REQUIREMENTS §117, the owner, 16-Oct-2026: "Download formatting reqd.", every QC and HR
    * document printed on A4 "portrait or landscape as the paper is"): F/QC/11 and F/QC/12 are landscape pages, F/QC/17

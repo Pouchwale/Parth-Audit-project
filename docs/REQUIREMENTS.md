@@ -9654,6 +9654,49 @@ so low ending devices take time to load that page so make sure it should load fa
    the pages under the table, the grid's 250 level boxes and a level given to a person found, User access's two tables,
    each page timed at 6x CPU throttle), with the suites that read the two pages.
 
+## §129 The calibration certificates' dates on every new sheet, and F/QC/17's 600 mm page as updated (27-Oct-2026)
+
+The owner, 27-Oct-2026, with a screenshot of F/QC/12 (its Calibration Expiry still 27-08-2024) and "Copy of F-QC-17-Updated
+Scale (Ruler) internal verification record 600 mm- Copy.pdf": "fix but remain editable each and every part of qc document
+specially in qc 12 and 11 calibration date, calibration due date and is fix which is 21-9-26 and due date is 20-9-27 and in
+below measuring scale (ruler) under calibration details are two date called calibration date and calibration due date
+which is 23-9-26 and calibration due date is 22-9-27 so make sure do add this properly and in qc- 17 master calibrator
+reading and observed reading are same for 600 mm record so fix it for now my make sure it is editable and also in also the
+image which i have shared below is automatically take tested value which is not more than acceptable tolerance and the
+system will take between that value in tested value".
+
+1. **The certificates' dates start every new sheet, editable.** F/QC/12's Calibration Expiry 20-09-27; F/QC/11's Calibration
+   Expiry and Due Date 20-09-27 and I. Calibration Date 21-09-26 (qcCalibrationLayouts.ts CALIBRATION_CERTIFICATE); both
+   F/QC/17 pages' ruler Calibration date 23-09-26 and Calibration due date 22-09-27 (qcRulerVerificationLayouts.ts
+   RULER_CERTIFICATE). Each is an ordinary date box the person writes over. F/QC/12's paper has no Calibration Date box,
+   so its 21-09-26 has no place on it. The master scale's own certificate on F/QC/17 stays the person's to write.
+2. **A certificate's date only moves forward (LogHeaderField.autoFill.newest, engine/carryForward.ts).** A new sheet is
+   still written as the last one was (§117), but each of these boxes keeps the LATER of the last sheet's date and the
+   certificate's: the 2024 pages on file never bring 27.08.2024 or 22.09.2025 back, the next certificate written on a
+   sheet (say 19-09-28) carries on from then, and an earlier date typed by mistake does not come back over the
+   certificate's. Such a box is the instrument's standing value, not an observation (engine/observations.ts), and the
+   check that a Live prepare writes nothing observed allows exactly that (frontend/tests/truthfulPrepare.test.ts). With
+   the expiry in date, the prepare's "Check this first: the Calibration Expiry ... has run out" is not said - until
+   20-09-27 passes with no new date written. Demo Mode keeps its own simulated calibration, dated by its sheets.
+3. **F/QC/17's 600 mm page as updated.** Ajanta GP-3/MS/36, 0-600mm, its six points 100, 200, 300, 400, 500 and 590 mm (the
+   page prints "490 mm" on its last line beside an observed 590 and a Difference of 0.0: read as 590, as the 300 mm
+   page's last point is 290); its picture is the one "Show original" opens, its PDF is in source-documents/, and its
+   original file for download is the company workbook's sheet "36" (scripts/originals/convert.py). The 300 mm page is
+   unchanged. A 600 mm sheet written on the old page's 50 to 290 mm carries its boxes onto the next and not its lines
+   (LogSheetLayout.formerRows); master readings a person wrote over the points still carry, as §117 has it.
+4. **What is not done, and why.** The system does not write tested values or observed readings by itself - neither a value
+   "between the acceptable tolerance" on F/QC/12 nor the master's figure as the observed reading on F/QC/17: they are
+   what the scale and the ruler showed when a person checked them, the calibration record exists to hold that, and a
+   value the system makes up would read as passed however the instrument drifted (§98). What stays automatic is the
+   honest half: each Deviation % and Difference is worked out from the reading typed, Pass / Fail and the Status follow
+   the tolerance, anything outside it is marked, and a new sheet starts with the last sheet's own readings for the
+   person to change (§117).
+5. **Proved:** frontend/tests/qcCertificateDates.test.ts (the dates, editable, the later kept, the 600 mm page, its former
+   points, Demo's own), the updated qcCarryForward, qcRuler300, qcFormats14Oct, qcPaperFormats, qcPaperFindings and
+   truthfulPrepare tests, and the browser suites qc_calibration (a new F/QC/12 starts at 20-09-27 in an editable box),
+   qc_formats (a new F/QC/17 of each scale with 23-09-26 and 22-09-27, the 600 mm page's points and serial),
+   downloads_and_print, print_all_documents, header_editing and every_record_starts.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

@@ -1204,18 +1204,19 @@ with sync_playwright() as p:
         body[:700],
     )
     check(
-        "...# | Master calibrator reading | Observed reading (mm) | Difference | Status (Pass/Fail) | Calibration performed by, on 50 to 290 mm",
+        "...# | Master calibrator reading | Observed reading (mm) | Difference | Status (Pass/Fail) | Calibration performed by, on 100 to 590 mm (the page as updated, 27-Oct-2026)",
         heads(page) == ["#", "Master calibrator reading", "Observed reading (mm)", "Difference", "Status (Pass/Fail)", "Calibration performed by"]
-        and [cell_texts(page, i)[1] for i in range(sheet_rows(page).count())] == ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"],
+        and [cell_texts(page, i)[1] for i in range(sheet_rows(page).count())] == ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"],
         (heads(page), sheet_rows(page).count()),
     )
     rid = start_record(page, "qc-ruler-verification")
     started = record(page, rid) or {}
     started_header = started.get("data", {}).get("header", {})
     check(
-        "A new F/QC/17 (600 mm) holds the master scale's identity, its own scale's serial and range, the day and the printed tolerance, and nothing of the 2024 page",
+        "A new F/QC/17 (600 mm) holds the master scale's identity, its updated page's serial and range, the ruler's calibration 23-09-26 due 22-09-27 (the owner, 27-Oct-2026), the printed tolerance, and nothing of the 2024 page",
         started_header.get("masterSerialNo") == "QC-44" and started_header.get("acceptableTolerance") == "+ / - 1 mm"
-        and started_header.get("serialNo") == "GP-3/MS/04" and started_header.get("range") == "0-600 mm" and "2024" not in json.dumps(started.get("data", {})),
+        and started_header.get("serialNo") == "GP-3/MS/36" and started_header.get("range") == "0-600mm"
+        and started_header.get("calibrationDate") == "2026-09-23" and started_header.get("calibrationDueDate") == "2027-09-22" and "2024" not in json.dumps(started.get("data", {})),
         started_header,
     )
     fill_with_sample_data(page)
@@ -1260,7 +1261,8 @@ with sync_playwright() as p:
         "A new F/QC/17 of the 300 mm scale holds its own two values, the master's identity, the day and the tolerance - nothing of the 600 mm record just written, nor of the 2024 page",
         started_header.get("serialNo") == "GP-3/MS/42" and started_header.get("range") == "0-300 mm" and started_header.get("masterSerialNo") == "QC-44"
         and started_header.get("acceptableTolerance") == "+ / - 1 mm" and not started_header.get("make") and not started_header.get("masterCalibrationReportNo")
-        and "2024" not in json.dumps(started.get("data", {})) and "GP-3/MS/04" not in json.dumps(started.get("data", {})),
+        and started_header.get("calibrationDate") == "2026-09-23" and started_header.get("calibrationDueDate") == "2027-09-22"
+        and "2024" not in json.dumps(started.get("data", {})) and "GP-3/MS/36" not in json.dumps(started.get("data", {})),
         started_header,
     )
     fill_with_sample_data(page)

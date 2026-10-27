@@ -1656,9 +1656,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "As Required",
     status: "Configured",
     description:
-      "A measuring scale (ruler) verified against the master scale (Kristeen, QC-44, 0 - 600 mm): the master's and the ruler's details and calibration dates, then the ruler read at 50, 100, 150, 200, 250 and 290 mm, each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
+      "The 600 mm measuring scale (Ajanta, GP-3/MS/36, 0-600mm) verified against the master scale (Kristeen, QC-44, 0 - 600 mm): the master's and the scale's details and calibration dates (the scale's 23-09-26, due 22-09-27, on every new sheet), then the scale read at 100, 200, 300, 400, 500 and 590 mm, each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
     sourceFile:
-      "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf (the page of 24.09.2024, as supplied 14-Oct-2026); the company's own original is Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
+      "Copy of F-QC-17-Updated Scale (Ruler) internal verification record 600 mm- Copy.pdf (the 600 mm scale's page as updated, supplied 27-Oct-2026; the page of 24.09.2024 supplied on 14-Oct-2026 before it); the company's own original is Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     schedule: { type: "as-required" },
   },
   // F/QC/17's second page, the 300 mm scale's (REQUIREMENTS §117, the owner, 17-Oct-2026): the same format and the same

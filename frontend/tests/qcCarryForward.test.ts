@@ -64,7 +64,7 @@ test("F/QC/17: the master calibrator readings are the person's to write; the Dif
   assert.equal(master.fixed, undefined, "no longer printed read-only: a 600 mm master's own readings");
   assert.equal(layout.carryForwardAll, true);
   const blank = createDefaultData(doc("qc-ruler-verification"), "2026-10-16", masterRepository.get()) as LogSheetData;
-  assert.deepEqual(blank.rows.map((r) => r.masterReading), ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"], "the six printed points start every new sheet");
+  assert.deepEqual(blank.rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"], "the six printed points of the updated page (27-Oct-2026) start every new sheet");
   const rows = blank.rows.map((r, i) => (i === 0 ? { ...r, masterReading: "48 mm", observed: 50 } : r));
   const worked = withCalibration("qc-ruler-verification", { ...blank, rows });
   assert.equal(worked.rows[0].difference, "2.0", "the observed reading less the master reading as written, not the printed point");
@@ -72,7 +72,7 @@ test("F/QC/17: the master calibrator readings are the person's to write; the Dif
   recordRepository.query({ documentId: "qc-ruler-verification" }).forEach((r) => recordRepository.remove(r.id));
   const prepared = prepareKnownParts(doc("qc-ruler-verification"), "2026-10-16", masterRepository.get(), undefined);
   assert.ok(prepared);
-  assert.deepEqual((prepared!.data as LogSheetData).rows.map((r) => r.masterReading), ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"]);
+  assert.deepEqual((prepared!.data as LogSheetData).rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"]);
 });
 
 test("a new F/QC/17 is written as the previous one was: every box and line carried, the date the new day, every box editable", () => {
@@ -107,7 +107,7 @@ test("a new F/QC/17 is written as the previous one was: every box and line carri
   const h = data(next).header;
   assert.equal(h.masterCalibrationReportNo, "CAL/LPI/GP-25/23");
   assert.equal(h.make, "Ajanta");
-  assert.equal(h.calibrationDate, "2026-10-16", "the ruler's calibration date is the record's day, not the last one's");
+  assert.equal(h.calibrationDate, "2026-09-23", "the ruler's calibration date: the owner's 23-09-26 (27-Oct-2026), the later of the last sheet's and that");
   assert.equal(h.calibrationDueDate, "2027-09-22", "carried, for the person to change");
   assert.equal(h.acceptableTolerance, "+ / - 1 mm", "the paper's printed box stays the paper's");
   assert.deepEqual(data(next).rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "600 mm"], "the 600 mm master's own readings, carried");
@@ -146,8 +146,10 @@ test("the page on file is a previous sheet: a new F/QC/12 starts as the last wee
   assert.equal(start.rows[0].testedValue4, lastWeek.testedValue4);
   const gsm = doc("qc-gsm-plate-calibration");
   const gsmStart = startingData(gsm, "2026-10-31", false) as LogSheetData;
-  assert.equal(gsmStart.header.calibrationExpiry, "2025-09-22", "F/QC/11's page of 31.12.2024 carried");
-  assert.equal(gsmStart.header.calibrationDate, "2026-10-31", "the month's calibration date is the record's day");
+  assert.equal(gsmStart.header.calibrationExpiry, "2027-09-20", "the certificate's due date the owner gave (27-Oct-2026), later than the page's 22.09.2025");
+  assert.equal(gsmStart.header.calibrationDate, "2026-09-21", "the certificate's calibration date the owner gave, later than the page's 31.12.2024");
+  assert.equal(gsmStart.header.dueDate, "2027-09-20");
+  assert.equal(startingData(weight, "2026-10-14", false) && (startingData(weight, "2026-10-14", false) as LogSheetData).header.calibrationExpiry, "2027-09-20", "F/QC/12: the owner's 20-09-27, not the page's 27.08.2024");
   assert.equal(gsmStart.rows.find((r) => r.parameter === "Sign.")?.p54, "Rashmi");
 });
 
@@ -184,7 +186,8 @@ test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what wa
   assert.equal(carried.header.deviceIdNo, "typed over", "the person's own words, carried for the person to change (§117)");
   assert.equal(carried.header.location, "LAB", "a box nobody changed keeps the paper's words");
   assert.equal(carried.header.serialNo, "50");
-  assert.equal(carried.header.calibrationDate, "2026-10-31", "the month's calibration date is the record's day");
+  assert.equal(carried.header.calibrationDate, "2026-09-21", "the certificate's calibration date the owner gave (27-Oct-2026)");
+  assert.equal(carried.header.dueDate, "2027-09-20", "the later of the 31-10-26 written and the certificate's 20-09-27");
   assert.equal(carried.rows.find((r) => r.parameter === "Sign.")?.p54, "Rashmi");
   assert.deepEqual(carried.rows.map((r) => r.parameter), ["Tasted-1", "2", "3", "4", "Pass/Fail", "Sign."], "the paper's own lines");
   recordRepository.query({ documentId: gsm.id }).forEach((r) => recordRepository.remove(r.id));

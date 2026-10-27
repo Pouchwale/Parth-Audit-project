@@ -22,11 +22,22 @@ import type { LogHeaderField, LogSheetLayout } from "../../types";
 // 300mm. So add this also."). The plant verifies two scales against the master, and each has its own page of this one
 // format: the 600 mm scale's (Serial number GP-3/MS/04, Range 0-600 mm) and the 300 mm scale's (GP-3/MS/42, 0-300 mm).
 // The two pages are the same in every other line, so both documents are built by ONE function, rulerVerificationLayout,
-// from a RulerScale that holds the only things which differ — the scale's Serial number and Range and the page each is
-// shown against — and they cannot drift apart.
+// from a RulerScale that holds the only things which differ — the scale's Serial number and Range, its six points and
+// the page each is shown against — and they cannot drift apart.
+//
+// THE 600 MM PAGE UPDATED (the owner, 27-Oct-2026, "Copy of F-QC-17-Updated Scale (Ruler) internal verification record
+// 600 mm- Copy.pdf"): the scale under calibration is Ajanta GP-3/MS/36, 0-600mm, and its six points are 100, 200,
+// 300, 400, 500 and 590 mm (the page prints "490 mm" on its last line against an observed 590 and a Difference of 0.0:
+// 590, as the 300 mm page's last point is 290). And the ruler's Calibration date and Calibration due date start every
+// new sheet of both scales as 23-09-26 and 22-09-27, editable (RULER_CERTIFICATE).
 
-/** The six points the paper prints, in mm. */
-export const RULER_POINTS = [50, 100, 150, 200, 250, 290];
+/**
+ * THE RULER'S CALIBRATION, ON EVERY NEW SHEET (the owner, 27-Oct-2026: "measuring scale (ruler) under calibration details
+ * are two date called calibration date and calibration due date which is 23-9-26 and calibration due date is 22-9-27"):
+ * editable, and a sheet keeps the later of the last sheet's date and these (autoFill.newest). Until then the Calibration
+ * date was the day the record is for.
+ */
+export const RULER_CERTIFICATE = { date: "2026-09-23", due: "2027-09-22" } as const;
 
 /** The paper's acceptable tolerance, printed in its box. */
 export const RULER_TOLERANCE = "+ / - 1 mm";
@@ -44,6 +55,10 @@ export interface RulerScale {
   serialNo: string;
   /** The Range its paper prints there, in the paper's own spelling. */
   range: string;
+  /** The six points its paper prints under "Master calibrator reading", in mm. */
+  points: readonly number[];
+  /** The points a former page of it printed: a sheet with those lines carries its boxes, not its lines (formerRows). */
+  formerPoints?: readonly (readonly number[])[];
   /**
    * Whether the paper's Serial number and Range START a new record's two boxes. The 300 mm paper's do (the owner,
    * 17-Oct-2026: "add this also", the paper's words as the start); the 600 mm document has always started with both
@@ -56,7 +71,7 @@ export interface RulerScale {
   page: { src: string; caption: string };
 }
 
-/** The 600 mm scale's document: the one supplied on 14-Oct-2026, kept exactly as it was. */
+/** The 600 mm scale's document: supplied on 14-Oct-2026, its page updated on 27-Oct-2026. */
 export const RULER_600_ID = "qc-ruler-verification";
 /** The 300 mm scale's document: the second page of F/QC/17, supplied on 17-Oct-2026. */
 export const RULER_300_ID = "qc-ruler-verification-300";
@@ -65,13 +80,17 @@ export const RULER_SCALES: readonly RulerScale[] = [
   {
     documentId: RULER_600_ID,
     lengthMm: 600,
-    serialNo: "GP-3/MS/04",
-    range: "0-600 mm",
+    serialNo: "GP-3/MS/36",
+    range: "0-600mm",
+    points: [100, 200, 300, 400, 500, 590],
+    // The page of 14-Oct-2026 printed the 300 mm page's points: a sheet written on them carries its boxes, not its lines.
+    formerPoints: [[50, 100, 150, 200, 250, 290]],
     startsWithThem: true,
-    specimenSource: "Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf (filled 24.09.2024, supplied 14-Oct-2026)",
+    specimenSource:
+      "Copy of F-QC-17-Updated Scale (Ruler) internal verification record 600 mm- Copy.pdf (supplied 27-Oct-2026; the page of 14-Oct-2026 before it read GP-3/MS/04 and 50 to 290 mm)",
     page: {
-      src: "/source/fqc17-ruler-internal-verification.jpg",
-      caption: "F/QC/17 (00/01.12.2021) - Measuring Scale (Ruler) Internal Verification Record, the page of 24.09.2024 as supplied on 14-Oct-2026",
+      src: "/source/fqc17-600-ruler-internal-verification.jpg",
+      caption: "F/QC/17 (00/01.12.2021) - Measuring Scale (Ruler) Internal Verification Record, the 600 mm scale's page as updated and supplied on 27-Oct-2026",
     },
   },
   {
@@ -79,6 +98,7 @@ export const RULER_SCALES: readonly RulerScale[] = [
     lengthMm: 300,
     serialNo: "GP-3/MS/42",
     range: "0-300 mm",
+    points: [50, 100, 150, 200, 250, 290],
     startsWithThem: true,
     specimenSource: "Copy of F-QC-17-Updated Scale (Ruler) internal verification record-300.pdf (filled 24.09.2024, supplied 17-Oct-2026)",
     page: {
@@ -132,8 +152,9 @@ function rulerBoxes(scale: RulerScale): LogHeaderField[] {
     { key: "serialNo", label: "Serial number", type: "text", required: true, ...(scale.startsWithThem ? { autoFill: { default: scale.serialNo } } : {}) },
     { key: "range", label: "Range", type: "text", ...(scale.startsWithThem ? { autoFill: { default: scale.range } } : {}) },
     { key: "leastCount", label: "Least count", type: "text" },
-    { key: "calibrationDate", label: "Calibration date", type: "date", required: true, autoFill: { dueDate: true } },
-    { key: "calibrationDueDate", label: "Calibration due date", type: "date", required: true },
+    // 23-09-26 and 22-09-27 on every new sheet, editable (RULER_CERTIFICATE, the owner, 27-Oct-2026).
+    { key: "calibrationDate", label: "Calibration date", type: "date", required: true, autoFill: { default: RULER_CERTIFICATE.date, newest: true } },
+    { key: "calibrationDueDate", label: "Calibration due date", type: "date", required: true, autoFill: { default: RULER_CERTIFICATE.due, newest: true } },
     // "Accetable" is the paper's own spelling; the paper's "+ / - 1 mm" starts the box and judges every Difference
     // (toleranceFrom reads what the box holds), and the person may write another over it (REQUIREMENTS §117).
     { key: "acceptableTolerance", label: "Accetable tolerance", type: "text", autoFill: { default: RULER_TOLERANCE } },
@@ -164,7 +185,8 @@ export function rulerVerificationLayout(scale: RulerScale): LogSheetLayout {
       { key: "status", label: "Status (Pass/Fail)", type: "select", options: ["Pass", "Fail"], required: true, merged: {}, width: 110 },
       { key: "performedBy", label: "Calibration performed by", type: "text", required: true, merged: {}, autoFill: { sign: true }, width: 170 },
     ],
-    rowMode: { kind: "fixedRows", rows: RULER_POINTS.map((mm) => ({ masterReading: `${mm} mm` })) },
+    rowMode: { kind: "fixedRows", rows: scale.points.map((mm) => ({ masterReading: `${mm} mm` })) },
+    ...(scale.formerPoints ? { formerRows: scale.formerPoints.map((points) => points.map((mm) => ({ masterReading: `${mm} mm` }))) } : {}),
     // A new record is written as the last one was — of ITS OWN document: the master's and the ruler's details, the
     // readings — every box editable (REQUIREMENTS §117: "once I have filled the data, same should be filled
     // automatically as per previous").

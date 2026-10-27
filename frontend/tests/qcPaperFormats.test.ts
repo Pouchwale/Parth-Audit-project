@@ -516,9 +516,10 @@ test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them
       ["Department:", "LAB"],
       ["Manufacturer:", "Global Eng. Co. (GEC)"],
       ["Serial No:", null],
-      ["Calibration Expiry:", null],
-      ["I. Calibration Date:-", null],
-      ["Due Date:-", null],
+      // The calibration certificate's dates the owner gave (27-Oct-2026): 21-09-26, due 20-09-27, editable.
+      ["Calibration Expiry:", "2027-09-20"],
+      ["I. Calibration Date:-", "2026-09-21"],
+      ["Due Date:-", "2027-09-20"],
     ]
   );
   assert.deepEqual(

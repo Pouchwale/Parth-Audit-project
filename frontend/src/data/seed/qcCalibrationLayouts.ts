@@ -43,6 +43,16 @@ import type { LogColumn, LogSheetLayout } from "../../types";
 // against the sheet's Acceptable Tolerance; measured area against the plate's
 // printed size on the GSM cutting plate. The Deviation columns are `computed`.
 
+/**
+ * THE CALIBRATION CERTIFICATE OF THE WEIGHT SCALE AND THE GSM CUTTING PLATES (the owner, 27-Oct-2026: "in qc 12 and
+ * 11 calibration date, calibration due date and is fix which is 21-9-26 and due date is 20-9-27"). Every new sheet
+ * starts with them - F/QC/12's Calibration Expiry, F/QC/11's Calibration Expiry, I. Calibration Date and Due Date - and
+ * each stays editable; a sheet keeps the later of the last sheet's date and these (autoFill.newest), so the 2024 dates
+ * of the pages on file never come back, and the next certificate's dates, once written, carry on. F/QC/12's paper
+ * has no Calibration Date box, so its 21-09-26 has no place on it.
+ */
+export const CALIBRATION_CERTIFICATE = { date: "2026-09-21", due: "2027-09-20" } as const;
+
 /** The procedure both papers print below the grid, word for word. */
 export const CALIBRATION_PROCEDURE =
   "Calibration to be done by qualified QA person as per calibration work procedure. If any deviation is found during internal calibration, it must be reported to the QA manager. Calibration records of all weights used must be available and valid.";
@@ -142,7 +152,8 @@ const weightScale: LogSheetLayout = {
     { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { carryForward: true } },
     { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { carryForward: true } },
     { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 110, autoFill: { carryForward: true } },
-    { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true } },
+    // The certificate's due date, 20-09-27, on every new sheet (CALIBRATION_CERTIFICATE, the owner, 27-Oct-2026).
+    { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true, default: CALIBRATION_CERTIFICATE.due, newest: true } },
     { key: "minReadingCapacity", label: "Minimum Reading Capacity", printedLabel: "Minimum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true } },
     { key: "maxReadingCapacity", label: "Maximum Reading Capacity", printedLabel: "Maximum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true } },
     { key: "acceptableTolerance", label: "Acceptable Tolerance", printedLabel: "Acceptable Tolerance:", type: "text", width: 140, autoFill: { carryForward: true } },
@@ -240,14 +251,14 @@ const gsmPlate: LogSheetLayout = {
     { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { default: GSM_PRINTED.department, carryForward: true } },
     { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { default: GSM_PRINTED.manufacturer, carryForward: true } },
     { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 120, autoFill: { carryForward: true } },
-    { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true } },
-    // The month's calibration is done on the day its record is for; left to the
-    // specimen it was blank on every sheet (REQUIREMENTS §75). The Calibration
-    // Expiry above is the plates' own, carried as written. The paper prints
+    // THE CERTIFICATE'S DATES ON EVERY NEW SHEET (CALIBRATION_CERTIFICATE, the owner, 27-Oct-2026): Calibration Expiry and
+    // Due Date 20-09-27, I. Calibration Date 21-09-26, each editable and kept when a later one is written (autoFill.newest).
+    // Until then the Calibration Date was the day the record is for (REQUIREMENTS §75). The paper prints
     // "I. Calibration Date:-" over the grid; its name stays "Calibration Date".
-    { key: "calibrationDate", label: "Calibration Date", printedLabel: "I. Calibration Date:-", type: "date", width: 150, autoFill: { dueDate: true } },
+    { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true, default: CALIBRATION_CERTIFICATE.due, newest: true } },
+    { key: "calibrationDate", label: "Calibration Date", printedLabel: "I. Calibration Date:-", type: "date", width: 150, autoFill: { default: CALIBRATION_CERTIFICATE.date, newest: true } },
     // "Due Date:-" at the right of the line, where the paper prints it (paperColumn).
-    { key: "dueDate", label: "Due Date", printedLabel: "Due Date:-", type: "date", width: 150, paperColumn: 3 },
+    { key: "dueDate", label: "Due Date", printedLabel: "Due Date:-", type: "date", width: 150, paperColumn: 3, autoFill: { default: CALIBRATION_CERTIFICATE.due, newest: true } },
   ],
   columns: gsmColumns,
   rowMode: { kind: "fixedRows", rows: GSM_ROWS.map((parameter) => ({ parameter })) },

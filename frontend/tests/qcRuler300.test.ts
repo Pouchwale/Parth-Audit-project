@@ -144,7 +144,7 @@ test("F/QC/17 is two documents, the 600 mm scale's and the 300 mm scale's: one f
   assert.notEqual(pageSrc(layoutOf(RULER_600_ID).originalPages![0]), pageSrc(layoutOf(RULER_300_ID).originalPages![0]), "each is shown its own page");
 });
 
-test("both layouts come from one definition and differ only in the two starting values and the page each is shown against", () => {
+test("both layouts come from one definition and differ only in the two starting values, the six points and the page each is shown against", () => {
   for (const scale of RULER_SCALES) {
     assert.deepEqual(QC_RULER_VERIFICATION_LAYOUTS[scale.documentId], rulerVerificationLayout(scale), `${scale.documentId} is what the one function builds`);
     assert.deepEqual(getLogSheetLayout(scale.documentId), rulerVerificationLayout(scale), `${scale.documentId} is registered as built`);
@@ -159,6 +159,9 @@ test("both layouts come from one definition and differ only in the two starting 
     copy.specimenSource = "";
     copy.originalPages = [];
     for (const f of copy.headerFields) if (f.key === "serialNo" || f.key === "range") delete f.autoFill;
+    // Each scale's own six points (the 600 mm page's updated on 27-Oct-2026), and the 600 mm page's former ones.
+    if (copy.rowMode.kind === "fixedRows") copy.rowMode = { ...copy.rowMode, rows: [] };
+    delete copy.formerRows;
     return copy;
   };
   assert.deepEqual(neutral(layoutOf(RULER_300_ID)), neutral(layoutOf(RULER_600_ID)));
@@ -166,8 +169,12 @@ test("both layouts come from one definition and differ only in the two starting 
   const box = (id: string, key: string) => layoutOf(id).headerFields.find((f) => f.key === key)!;
   assert.equal(box(RULER_300_ID, "serialNo").autoFill?.default, "GP-3/MS/42");
   assert.equal(box(RULER_300_ID, "range").autoFill?.default, "0-300 mm");
-  assert.equal(box(RULER_600_ID, "serialNo").autoFill?.default, "GP-3/MS/04", "the 600 mm document starts with its own scale's serial, as the 300 mm one does (the owner, 17-Oct-2026)");
-  assert.equal(box(RULER_600_ID, "range").autoFill?.default, "0-600 mm");
+  assert.equal(box(RULER_600_ID, "serialNo").autoFill?.default, "GP-3/MS/36", "the 600 mm document starts with its own scale's serial, as its updated page prints it (the owner, 27-Oct-2026)");
+  assert.equal(box(RULER_600_ID, "range").autoFill?.default, "0-600mm");
+  assert.deepEqual(rulerScaleOf(RULER_600_ID)?.points, [100, 200, 300, 400, 500, 590]);
+  assert.deepEqual(rulerScaleOf(RULER_300_ID)?.points, [50, 100, 150, 200, 250, 290]);
+  assert.deepEqual(layoutOf(RULER_600_ID).formerRows, [[50, 100, 150, 200, 250, 290].map((mm) => ({ masterReading: `${mm} mm` }))], "the page of 14-Oct-2026's points");
+  assert.equal(layoutOf(RULER_300_ID).formerRows, undefined);
   // The same print settings, editable boxes, carry-forward and no Date cell of the sheet's own.
   for (const id of BOTH) {
     const l = layoutOf(id);
@@ -178,29 +185,33 @@ test("both layouts come from one definition and differ only in the two starting 
     assert.ok(l.headerFields.every((f) => f.printed === undefined && !f.computed), `${id}: every box is the person's to write over`);
     assert.ok(l.columns.filter((c) => c.key !== "difference").every((c) => !c.fixed && !c.computed), `${id}: every cell but the worked-out Difference is editable`);
     assert.equal(l.headerFields.find((f) => f.key === "acceptableTolerance")?.autoFill?.default, "+ / - 1 mm");
-    assert.equal(l.headerFields.find((f) => f.key === "calibrationDate")?.autoFill?.dueDate, true, `${id}: the ruler's calibration date is the record's day`);
+    // The ruler's certificate dates the owner gave (27-Oct-2026): 23-09-26 and 22-09-27, editable, the later date kept.
+    assert.deepEqual(l.headerFields.find((f) => f.key === "calibrationDate")?.autoFill, { default: "2026-09-23", newest: true }, id);
+    assert.deepEqual(l.headerFields.find((f) => f.key === "calibrationDueDate")?.autoFill, { default: "2027-09-22", newest: true }, id);
   }
 });
 
-test("the 300 mm sheet is the paper: its title in its own letters, the two tables, the six points, GP-3/MS/42 and 0-300 mm — and the 600 mm sheet is as it was", async () => {
+test("the 300 mm sheet is the paper: its title in its own letters, the two tables, the six points, GP-3/MS/42 and 0-300 mm — and the 600 mm sheet its updated page", async () => {
   const wide = await sheet(RULER_600_ID, blank(RULER_600_ID));
   const narrow = await sheet(RULER_300_ID, blank(RULER_300_ID));
   // The printed title stays the paper's on both; the name's scale is not printed on the sheet.
   assert.equal(titleOf(wide), RULER_PAPER_TITLE);
   assert.equal(titleOf(narrow), RULER_PAPER_TITLE);
-  for (const html of [wide, narrow]) {
+  for (const [html, id] of [[wide, RULER_600_ID], [narrow, RULER_300_ID]] as const) {
     assert.match(html, /class="paper-sheet[^"]*"[^>]*data-paper="portrait"/);
     const words = text(html);
     for (const w of ["Master Measuring Scale (Ruler) Details", "Measuring Scale (Ruler) under calibration details", "Accetable tolerance", "Calibration report number", "Master calibrator reading", "Observed reading (mm)", "Status (Pass/Fail)", "Calibration performed by", "F/QC/17"]) {
       assert.ok(words.includes(w), w);
     }
-    for (const mm of ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"]) assert.ok(shows(html, mm), mm);
+    for (const mm of rulerScaleOf(id)!.points) assert.ok(shows(html, `${mm} mm`), `${id}: ${mm} mm`);
     assert.ok(shows(html, "+ / - 1 mm"), "the paper's tolerance starts its box");
     assert.ok(shows(html, "Kristeen") && shows(html, "QC-44") && shows(html, "0 - 600 mm") && shows(html, "1 mm"), "the master scale's identity");
   }
   assert.ok(shows(narrow, "GP-3/MS/42") && shows(narrow, "0-300 mm"), "the 300 mm paper's two values start its boxes");
-  assert.ok(!shows(narrow, "GP-3/MS/04") && !shows(narrow, "0-600 mm"), "and none of the other page's");
-  assert.ok(shows(wide, "GP-3/MS/04") && shows(wide, "0-600 mm") && !shows(wide, "GP-3/MS/42") && !shows(wide, "0-300 mm"), "the 600 mm document starts those two boxes with its own scale's values, and none of the other page's");
+  assert.ok(!shows(narrow, "GP-3/MS/36") && !shows(narrow, "0-600mm"), "and none of the other page's");
+  assert.ok(shows(wide, "GP-3/MS/36") && shows(wide, "0-600mm") && !shows(wide, "GP-3/MS/42") && !shows(wide, "0-300 mm"), "the 600 mm document starts those two boxes with its updated page's values, and none of the other page's");
+  // (Its specimen note names the old page's "50 to 290 mm", so the lines themselves are read.)
+  assert.ok(!blank(RULER_600_ID).rows.some((r) => r.masterReading === "290 mm") && shows(wide, "590 mm"), "the 600 mm page's own last point");
   // The boxes are editable inputs holding the paper's words as their start.
   const editable = await sheet(RULER_300_ID, blank(RULER_300_ID), true);
   assert.ok(editable.includes('<input') && editable.includes('value="GP-3/MS/42"'), "an input, not words");
@@ -209,15 +220,15 @@ test("the 300 mm sheet is the paper: its title in its own letters, the two table
 
 test("a new record starts as its paper's blank with its standards: the master's identity, the day, the tolerance, and for the 300 mm paper its two values", () => {
   clear();
-  const standard = { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", calibrationDate: DAY, acceptableTolerance: "+ / - 1 mm" };
+  // The ruler's certificate dates the owner gave (27-Oct-2026) are standing values: on the blank as on the started record.
+  const standard = { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", calibrationDate: "2026-09-23", calibrationDueDate: "2027-09-22", acceptableTolerance: "+ / - 1 mm" };
   const written = (d: LogSheetData) => Object.fromEntries(Object.entries(d.header).filter(([, v]) => String(v ?? "") !== ""));
-  assert.deepEqual(written(live(RULER_600_ID)), { ...standard, serialNo: "GP-3/MS/04", range: "0-600 mm" }, "the 600 mm document: its own scale's two values start the boxes, as the 300 mm one's do");
+  assert.deepEqual(written(live(RULER_600_ID)), { ...standard, serialNo: "GP-3/MS/36", range: "0-600mm" }, "the 600 mm document: its own scale's two values start the boxes, as the 300 mm one's do");
   assert.deepEqual(written(live(RULER_300_ID)), { ...standard, serialNo: "GP-3/MS/42", range: "0-300 mm" });
-  const { calibrationDate: _day, ...paperBlank } = standard;
-  assert.deepEqual(written(blank(RULER_300_ID)), { ...paperBlank, serialNo: "GP-3/MS/42", range: "0-300 mm" }, "the paper's blank: the day is written when the record is started");
+  assert.deepEqual(written(blank(RULER_300_ID)), { ...standard, serialNo: "GP-3/MS/42", range: "0-300 mm" }, "the paper's blank holds the same: nothing of the day is in the ruler's boxes any more");
   for (const id of BOTH) {
     const rows = live(id).rows;
-    assert.deepEqual(rows.map((r) => r.masterReading), ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"]);
+    assert.deepEqual(rows.map((r) => r.masterReading), rulerScaleOf(id)!.points.map((mm) => `${mm} mm`), id);
     assert.ok(rows.every((r) => (r.observed === null || r.observed === "") && r.status === "" && r.performedBy === "" && r.difference === ""), `${id}: nothing observed is written`);
   }
 });
@@ -235,7 +246,7 @@ test("a new record is written as the last record OF ITS OWN document: the two ne
     });
   };
   const first600 = createRecordForDocument(d600, { dateISO: "2026-09-23" }).record;
-  fill(first600, { make: "Ajanta", serialNo: "GP-3/MS/04", range: "0-600 mm", masterCalibrationReportNo: "CAL/600" }, [50, 100, 150, 200, 250, 290], "Roshni");
+  fill(first600, { make: "Ajanta", serialNo: "GP-3/MS/36", range: "0-600mm", masterCalibrationReportNo: "CAL/600" }, [100, 200, 300, 400, 500, 590], "Roshni");
   // The 300 mm document has no record of its own yet: it does NOT take the 600 mm document's.
   const first300 = createRecordForDocument(d300, { dateISO: "2026-09-24" }).record;
   assert.equal(data(first300).header.make, "", "nothing of the other document's");
@@ -247,15 +258,15 @@ test("a new record is written as the last record OF ITS OWN document: the two ne
   const next300 = createRecordForDocument(d300, { dateISO: "2026-10-17" }).record;
   assert.equal(data(next300).header.masterCalibrationReportNo, "CAL/300");
   assert.equal(data(next300).header.serialNo, "GP-3/MS/42");
-  assert.equal(data(next300).header.calibrationDate, "2026-10-17", "the day is the new record's");
+  assert.equal(data(next300).header.calibrationDate, "2026-09-23", "the ruler's certificate date (27-Oct-2026), not the day");
   assert.deepEqual(data(next300).rows.map((r) => r.observed), [50, 101, 150, 200, 250, 290], "the 300 mm record's own readings");
   assert.equal(data(next300).rows[1].difference, "1.0", "worked out again");
   assert.equal(data(next300).rows[0].performedBy, "Kapila Barad");
   assert.equal(data(next300).header.acceptableTolerance, "+ / - 1 mm");
   const next600 = createRecordForDocument(d600, { dateISO: "2026-10-17" }).record;
   assert.equal(data(next600).header.masterCalibrationReportNo, "CAL/600");
-  assert.equal(data(next600).header.serialNo, "GP-3/MS/04", "the 600 mm scale's own record carries its own writing");
-  assert.deepEqual(data(next600).rows.map((r) => r.observed), [50, 100, 150, 200, 250, 290]);
+  assert.equal(data(next600).header.serialNo, "GP-3/MS/36", "the 600 mm scale's own record carries its own writing");
+  assert.deepEqual(data(next600).rows.map((r) => r.observed), [100, 200, 300, 400, 500, 590]);
   assert.equal(data(next600).rows[0].performedBy, "Roshni");
   assert.ok(data(next300).rows.every((r, i) => r.id !== data(first300).rows[i].id), "its own lines");
   // The morning prepare of each says the same.
@@ -269,29 +280,30 @@ test("a new record is written as the last record OF ITS OWN document: the two ne
 test("the Difference is worked out and judged by the printed ± 1 mm on the 300 mm paper as on the 600 mm one, and the Status follows it", () => {
   for (const id of BOTH) {
     const read = (observed: number[]) => withComputedCells(id, { ...blank(id), rows: blank(id).rows.map((r, i) => ({ ...r, observed: observed[i] ?? null })) }) as LogSheetData;
-    const exact = read([50, 100, 150, 200, 250, 290]);
+    const pts = [...rulerScaleOf(id)!.points];
+    const exact = read(pts);
     assert.deepEqual(exact.rows.map((r) => r.difference), ["0.0", "0.0", "0.0", "0.0", "0.0", "0.0"], id);
     assert.equal(exact.rows[0].status, "Pass", id);
-    const oneOff = read([50, 101, 150, 199, 250, 290]);
+    const oneOff = read(pts.map((p, i) => (i === 1 ? p + 1 : i === 3 ? p - 1 : p)));
     assert.deepEqual(oneOff.rows.map((r) => r.difference), ["0.0", "1.0", "0.0", "-1.0", "0.0", "0.0"], id);
     assert.equal(oneOff.rows[0].status, "Pass", `${id}: a millimetre is inside + / - 1 mm`);
     assert.equal(outOfBandCount(layoutOf(id), oneOff), 0);
-    const worn = read([50, 100, 152]);
+    const worn = read([pts[0], pts[1], pts[2] + 2]);
     assert.equal(worn.rows[2].difference, "2.0", id);
     assert.equal(worn.rows[0].status, "Fail", id);
     assert.equal(outOfBandCount(layoutOf(id), worn), 1);
     // The person may write the master's own readings over the printed points; the Difference follows what is written.
-    const own = withComputedCells(id, { ...blank(id), rows: blank(id).rows.map((r, i) => (i === 0 ? { ...r, masterReading: "48 mm", observed: 50 } : r)) }) as LogSheetData;
+    const own = withComputedCells(id, { ...blank(id), rows: blank(id).rows.map((r, i) => (i === 0 ? { ...r, masterReading: `${pts[0] - 2} mm`, observed: pts[0] } : r)) }) as LogSheetData;
     assert.equal(own.rows[0].difference, "2.0", id);
   }
 });
 
-test("a sample verification of each is its own scale's and today's, never the page of 2024; the 600 mm sample is what it was", () => {
+test("a sample verification of each is its own scale's and today's, never the page of 2024; the 600 mm sample its updated page's", () => {
   const wide = sample(RULER_600_ID);
   const narrow = sample(RULER_300_ID);
   const w = (wide.data as LogSheetData).header;
   const n = (narrow.data as LogSheetData).header;
-  assert.deepEqual([w.make, w.serialNo, w.range, w.leastCount], ["Ajanta", "GP-3/MS/04", "0-600 mm", "1 mm"], "the 600 mm sample: unchanged");
+  assert.deepEqual([w.make, w.serialNo, w.range, w.leastCount], ["Ajanta", "GP-3/MS/36", "0-600mm", "1 mm"], "the 600 mm sample: its updated page's scale (27-Oct-2026)");
   assert.deepEqual([n.make, n.serialNo, n.range, n.leastCount], ["Ajanta", "GP-3/MS/42", "0-300 mm", "1 mm"]);
   for (const h2 of [w, n]) {
     assert.deepEqual([h2.masterMake, h2.masterSerialNo, h2.masterRange, h2.masterLeastCount], ["Kristeen", "QC-44", "0 - 600 mm", "1 mm"]);
@@ -302,10 +314,10 @@ test("a sample verification of each is its own scale's and today's, never the pa
     const d = result.data as LogSheetData;
     assert.ok(!JSON.stringify(d).includes("2024") && !JSON.stringify(d).includes("2025-09"), `${id}: no date of the supplied page`);
     assert.equal(d.rows.length, 6);
-    assert.ok(d.rows.every((r, i) => Math.abs((r.observed as number) - [50, 100, 150, 200, 250, 290][i]) <= 1), id);
+    assert.ok(d.rows.every((r, i) => Math.abs((r.observed as number) - rulerScaleOf(id)!.points[i]) <= 1), id);
     assert.equal(d.rows[0].status, "Pass", id);
     assert.deepEqual(validateForSubmit(docOf(id), recordOf(id, d)).errors, [], id);
-    assert.ok(result.notes.some((line) => line.includes("Verified Ajanta") && line.includes(id === RULER_300_ID ? "GP-3/MS/42" : "GP-3/MS/04")), `${id}: the summary names its own scale`);
+    assert.ok(result.notes.some((line) => line.includes("Verified Ajanta") && line.includes(id === RULER_300_ID ? "GP-3/MS/42" : "GP-3/MS/36")), `${id}: the summary names its own scale`);
   }
 });
 

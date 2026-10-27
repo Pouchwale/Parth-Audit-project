@@ -152,10 +152,11 @@ test("a sample F/QC/11 or F/QC/12 sheet of 2026 carries an instrument still in c
   const names = hrNames();
   for (const plate of ["p54", "p55", "p56", "p57"]) assert.ok(names.has(String(sign[plate])), `Sign. under ${plate}: ${sign[plate]}`);
   assert.equal((autoFillRecord(docOf(SCALE), DAY, master, undefined)!.data as LogSheetData).header.calibrationExpiry, "2027-08-27");
-  // The Live prepare still carries the expiry as written and says first that it has run out.
+  // The Live prepare starts the expiry with the certificate's 20-09-27 the owner gave (27-Oct-2026), later than the page's
+  // 27.08.2024 (autoFill.newest): nothing has run out, so nothing is said of it first.
   const known = prepareKnownParts(docOf(SCALE), DAY, master, undefined)!;
-  assert.equal((known.data as LogSheetData).header.calibrationExpiry, "2024-08-27");
-  assert.match(known.notes[0], /^Check this first: the Calibration Expiry/);
+  assert.equal((known.data as LogSheetData).header.calibrationExpiry, "2027-09-20");
+  assert.ok(!known.notes.some((n) => /^Check this first: the Calibration Expiry/.test(n)), known.notes[0]);
 });
 
 // ---------------------------------------------------------------------------

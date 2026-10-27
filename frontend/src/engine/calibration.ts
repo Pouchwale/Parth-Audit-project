@@ -1,6 +1,6 @@
 import type { LogSheetData, LogSheetRow } from "../types";
 import { GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
-import { RULER_POINTS, isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
+import { isRulerVerification, rulerScaleOf } from "../data/seed/qcRulerVerificationLayouts";
 
 // THE DEVIATION ON THE TWO INTERNAL CALIBRATION RECORDS IS WORKED OUT, NOT
 // TYPED (REQUIREMENTS §61).
@@ -99,14 +99,14 @@ export function formatDifference(mm: number): string {
 }
 
 /** F/QC/17: each line's Difference, and the Status on the first line once a point is outside or all six are within. */
-function rulerRows(rows: LogSheetRow[], tolerance: number | null): LogSheetRow[] {
+function rulerRows(rows: LogSheetRow[], tolerance: number | null, points: readonly number[]): LogSheetRow[] {
   const mm = (v: unknown): number | null => {
     if (typeof v === "number") return Number.isFinite(v) ? v : null;
     const m = String(v ?? "").trim().match(/^-?\d+(?:\.\d+)?/);
     return m ? Number(m[0]) : null;
   };
   const found: (number | null)[] = rows.map((row, i) => {
-    const point = mm(row.masterReading) ?? RULER_POINTS[i] ?? null;
+    const point = mm(row.masterReading) ?? points[i] ?? null;
     const observed = mm(row.observed);
     return point === null || observed === null ? null : observed - point;
   });
@@ -116,7 +116,7 @@ function rulerRows(rows: LogSheetRow[], tolerance: number | null): LogSheetRow[]
   });
   if (tolerance !== null && out.length > 0) {
     const outside = found.some((d) => d !== null && Math.abs(d) > tolerance + 1e-9);
-    const allRead = found.length === RULER_POINTS.length && found.every((d) => d !== null);
+    const allRead = found.length === points.length && found.every((d) => d !== null);
     // The one Status cell is the first line's (LogColumn.merged); left as the tester set it until there is a verdict.
     if (outside) out[0] = { ...out[0], status: "Fail" };
     else if (allRead) out[0] = { ...out[0], status: "Pass" };
@@ -132,7 +132,7 @@ export function withCalibration<T>(documentId: string | undefined, data: T): T {
   if (isRulerVerification(documentId)) {
     // "+ / - 1 mm": the figure printed in the box (engine/printedBands.ts reads it the same way for the highlight).
     const m = String(d.header?.acceptableTolerance ?? "").match(/\d+(?:\.\d+)?/);
-    const worked = rulerRows(d.rows, m ? Number(m[0]) : null);
+    const worked = rulerRows(d.rows, m ? Number(m[0]) : null, rulerScaleOf(documentId)?.points ?? []);
     const rows = worked.map((next, i) => (Object.keys(next).every((k) => next[k] === d.rows[i][k]) ? d.rows[i] : next));
     return rows.every((r, i) => r === d.rows[i]) ? data : ({ ...d, rows } as unknown as T);
   }

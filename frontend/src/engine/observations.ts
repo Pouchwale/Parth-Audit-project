@@ -95,6 +95,8 @@ export function boxKind(f: LogHeaderField, layout: LogSheetLayout): SlotKind {
   if (f.computed) return "computed";
   // A box the paper prints its value in (F/QC/11's Device ID No, REQUIREMENTS §111) is known before anybody writes.
   if (typeof f.printed === "string") return "standing";
+  // A calibration certificate's date (autoFill.newest): the instrument's, known before anybody writes (27-Oct-2026).
+  if (f.autoFill?.newest) return "standing";
   if (f.autoFill?.dueDate) return "date";
   if (f.autoFill?.sign) return "observation";
   // A choice, a yes or no and a clock time are answers: the shift, the pass, the lot's status, a time of day.

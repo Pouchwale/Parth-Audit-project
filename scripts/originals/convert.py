@@ -136,7 +136,7 @@ PICKS = [
         ]
     ],
     D("qc-obsolete-artwork", ["A:QC/F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD (2).xls", "A:QC/F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.xls"], ref="Q:Copy of F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.pdf", note=TWO_VERSIONS + " The workbook's sheet matching that print is taken."),
-    D("qc-ruler-verification", ["A:QC/Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx"], ref="Q:Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.pdf", note="The workbook keeps a sheet to each scale and verification; the sheet matching the owner's PDF (the 600 mm scale) is taken."),
+    D("qc-ruler-verification", ["A:QC/Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx"], ref="S:Copy of F-QC-17-Updated Scale (Ruler) internal verification record 600 mm- Copy.pdf", note="The workbook keeps a sheet to each scale and verification; the sheet matching the owner's PDF of the 600 mm scale, as updated on 27-Oct-2026 (GP-3/MS/36, 100 to 590 mm), is taken."),
     D("qc-ruler-verification-300", ["A:QC/Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx"], ref="S:Copy of F-QC-17-Updated Scale (Ruler) internal verification record-300.pdf", note="The 300 mm scale was supplied only as a PDF of the same F/QC/17 page; the company's F/QC/17 workbook's sheet matching that PDF best is taken (the scale's own boxes come from DCRS)."),
     D("qc-offset-ink", ["A:QC/F-QC-18_Inspection record for Offset Ink.doc"]),
     D("qc-duplex-board", ["A:QC/F-QC-19_Inspection record for Duplex board.doc"], note="F/QC/19 is also the number of the Nivea tolerance card; this is the duplex board inspection record, by its content."),
