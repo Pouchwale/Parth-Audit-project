@@ -9684,15 +9684,21 @@ system will take between that value in tested value".
    original file for download is the company workbook's sheet "36" (scripts/originals/convert.py). The 300 mm page is
    unchanged. A 600 mm sheet written on the old page's 50 to 290 mm carries its boxes onto the next and not its lines
    (LogSheetLayout.formerRows); master readings a person wrote over the points still carry, as §117 has it.
-4. **What is not done, and why.** The system does not write tested values or observed readings by itself - neither a value
+4. **A sheet the schedule made ahead of its day is written as the last one was when it is opened (engine/recordCrud.ts
+   startedIfUntouched).** Found on Tuesday 27-Oct-2026: the schedule makes the month's sheets blank, the morning prepare
+   fills one only on its own day, so New record on F/QC/12 the day before its Wednesday opened that sheet blank - nothing
+   of the last week carried, the line not dated (the owner's screenshot shows such a sheet). Now a calibration or
+   verification sheet still Due, never prepared and with nothing written on it is written as a sheet started by hand is
+   when New record (the library, Mitra, the phone) opens it; one somebody wrote on, or the prepare filled, is left as it is.
+5. **What is not done, and why.** The system does not write tested values or observed readings by itself - neither a value
    "between the acceptable tolerance" on F/QC/12 nor the master's figure as the observed reading on F/QC/17: they are
    what the scale and the ruler showed when a person checked them, the calibration record exists to hold that, and a
    value the system makes up would read as passed however the instrument drifted (§98). What stays automatic is the
    honest half: each Deviation % and Difference is worked out from the reading typed, Pass / Fail and the Status follow
    the tolerance, anything outside it is marked, and a new sheet starts with the last sheet's own readings for the
    person to change (§117).
-5. **Proved:** frontend/tests/qcCertificateDates.test.ts (the dates, editable, the later kept, the 600 mm page, its former
-   points, Demo's own), the updated qcCarryForward, qcRuler300, qcFormats14Oct, qcPaperFormats, qcPaperFindings and
+6. **Proved:** frontend/tests/qcCertificateDates.test.ts (the dates, editable, the later kept, the 600 mm page, its former
+   points, Demo's own, a sheet made ahead opened by New record), the updated qcCarryForward, qcRuler300, qcFormats14Oct, qcPaperFormats, qcPaperFindings and
    truthfulPrepare tests, and the browser suites qc_calibration (a new F/QC/12 starts at 20-09-27 in an editable box),
    qc_formats (a new F/QC/17 of each scale with 23-09-26 and 22-09-27, the 600 mm page's points and serial),
    downloads_and_print, print_all_documents, header_editing and every_record_starts.

@@ -11,6 +11,8 @@
 //   * the 600 mm page reads GP-3/MS/36, 0-600mm, 100 to 590 mm; a sheet written on the old page's 50 to 290 mm carries
 //     its boxes but not its lines; master readings a person wrote over the points still carry (§117);
 //   * Demo Mode keeps its own simulated calibration, dated by its sheets.
+//   * a sheet the schedule made blank ahead of its day, opened by New record before its morning prepare (found on
+//     Tuesday 27-Oct-2026: F/QC/12's Wednesday sheet), is written as the last one was then (§117).
 // Run: npm run test:unit -- qcCertificateDates
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -29,6 +31,7 @@ import { createRecordForDocument, startingData } from "../src/engine/recordCrud"
 import { prepareKnownParts } from "../src/engine/knownParts";
 import { boxKind } from "../src/engine/observations";
 import { autoFillRecord } from "../src/engine/autoFill";
+import { periodKeyFor } from "../src/engine/recordGenerator";
 
 ensureDocumentsSeeded();
 ensureMasterSeeded();
@@ -157,4 +160,36 @@ test("Demo Mode keeps its own simulated calibration, dated by its sheets", () =>
     const ruler = autoFillRecord(doc(id), "2026-03-02", master, undefined)!.data as LogSheetData;
     assert.equal(ruler.header.calibrationDate, "2026-03-02", id);
   }
+});
+
+test("a sheet the schedule made blank ahead of its day is written as the last one was when New record opens it; one written on, or prepared, is left as it is", () => {
+  const d = doc(SCALE);
+  clear(SCALE);
+  if (!recordRepository.getById(SEED_WEIGHT_SCALE_CALIBRATION.id)) recordRepository.upsert(SEED_WEIGHT_SCALE_CALIBRATION);
+  const shell = (due: string, over: Partial<RecordInstance> = {}): RecordInstance => {
+    const now = new Date().toISOString();
+    const r = { id: `rec-shell-${due}`, documentId: SCALE, periodKey: periodKeyFor(d, due), dueDate: due, status: "Due" as const, isDemo: false, data: createDefaultData(d, due, master), createdAt: now, updatedAt: now, ...over };
+    recordRepository.upsert(r);
+    return r;
+  };
+  shell("2026-10-28");
+  const opened = createRecordForDocument(d, { dateISO: "2026-10-28" });
+  assert.equal(opened.existed, true, "the schedule's own sheet, not a second one");
+  assert.equal(opened.record.id, "rec-shell-2026-10-28");
+  const h = data(opened.record).header;
+  assert.deepEqual([h.deviceIdNo, h.acceptableTolerance, h.calibrationExpiry], ["QC-76", "0.05 %", "2027-09-20"], "the page on file's boxes, the certificate's expiry");
+  assert.equal(data(opened.record).rows[0].date, "2026-10-28", "the line dated its own day");
+  assert.equal(data(recordRepository.getById("rec-shell-2026-10-28")!).header.deviceIdNo, "QC-76", "and kept so");
+  clear(SCALE);
+  // Somebody wrote on it already: left as written.
+  const written = shell("2026-10-28");
+  recordRepository.upsert({ ...written, data: { ...data(written), header: { ...data(written).header, deviceIdNo: "QC-99" } } });
+  if (!recordRepository.getById(SEED_WEIGHT_SCALE_CALIBRATION.id)) recordRepository.upsert(SEED_WEIGHT_SCALE_CALIBRATION);
+  assert.equal(data(createRecordForDocument(d, { dateISO: "2026-10-28" }).record).header.deviceIdNo, "QC-99");
+  clear(SCALE);
+  // Prepared already (the morning prepare's own): left as prepared.
+  shell("2026-10-28", { prepared: { at: new Date().toISOString(), waiting: 1, notes: [] } as unknown as RecordInstance["prepared"] });
+  if (!recordRepository.getById(SEED_WEIGHT_SCALE_CALIBRATION.id)) recordRepository.upsert(SEED_WEIGHT_SCALE_CALIBRATION);
+  assert.equal(data(createRecordForDocument(d, { dateISO: "2026-10-28" }).record).header.deviceIdNo, "");
+  clear(SCALE);
 });

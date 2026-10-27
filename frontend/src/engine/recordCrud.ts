@@ -3,7 +3,7 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { createDefaultData } from "./recordDefaults";
-import { carriedFrom, previousWrittenRecord } from "./carryForward";
+import { carriedFrom, hasWriting, previousWrittenRecord } from "./carryForward";
 import { withComputedCells } from "./computedCells";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
@@ -140,7 +140,7 @@ export function createRecordForDocument(
   // complaint for the afternoon's would file the second under the first.
   const asRequired = doc.schedule.type === "as-required";
   const already = recordCoveringDate(doc, dueDate, isDemo);
-  if (already) return { record: already, existed: true };
+  if (already) return { record: startedIfUntouched(doc, already), existed: true };
   // A period with no sheet yet (its date came before the system went live, or
   // its month has not been made yet): the sheet started now is the period's
   // own, under the schedule's key, so the schedule never makes a second one
@@ -164,6 +164,23 @@ export function createRecordForDocument(
   };
   logRecordStarted(record);
   return { record: recordRepository.upsert(record), existed: false };
+}
+
+/**
+ * A SHEET THE SCHEDULE MADE AHEAD OF ITS DAY, OPENED BEFORE ITS MORNING PREPARE (found on Tuesday 27-Oct-2026: New record on
+ * F/QC/12 opened Wednesday's sheet, which the schedule had made blank for the month and the prepare fills only on its own
+ * morning). On a sheet written as the last one was (LogSheetLayout.carryForwardAll, REQUIREMENTS §117) it is written so
+ * now, as a sheet started by hand is: dated its own day, the last sheet's boxes and lines carried. Only a sheet still Due,
+ * never prepared and with nothing written on it; anything else is returned as it is.
+ */
+function startedIfUntouched(doc: DocumentDefinition, rec: RecordInstance): RecordInstance {
+  const layout = doc.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined;
+  if (!layout?.carryForwardAll || rec.status !== "Due" || rec.prepared) return rec;
+  const blank = createDefaultData(doc, rec.dueDate, masterRepository.get()) as LogSheetData;
+  if (hasWriting(layout, rec.data as LogSheetData, blank)) return rec;
+  const data = startingData(doc, rec.dueDate, !!rec.isDemo) as LogSheetData;
+  if (!hasWriting(layout, data, blank)) return rec;
+  return recordRepository.upsert({ ...rec, data, updatedAt: new Date().toISOString() });
 }
 
 /** Deletes a record for good, and records that it happened. */
