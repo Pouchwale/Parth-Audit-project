@@ -9905,9 +9905,14 @@ every document when i click then that date is also editable"; and the three freq
    user open any date new record to fill than it should be filled"): F/QC/17 of either scale - the Observed reading at
    each printed point is the point itself, so the Difference 0.0 and the Status Pass follow (worked out), and
    "Calibration performed by" is the person who opened it; F/QC/11 - the four measured lines at each plate's size, the
-   Deviation 0% following, Pass on the Pass/Fail line and the opener's name on the Sign. line. Written in that person's
-   name with a line in the record's history, and every box stays theirs to change (a point that read differently is
-   typed over; a sheet already written on is never filled over).
+   Deviation 0% following, Pass on the Pass/Fail line and the opener's name on the Sign. line; F/QC/12 (the owner,
+   later the same day, with its new sheet) - each Tested Value the exact weight placed, so the Deviation 0% and Pass
+   follow, Tested By and Sign the opener's name, the Next Due Date theirs to write. Written in that person's name with a
+   line in the record's history, and every box stays theirs to change (a point or a value that read differently is
+   typed over; a sheet already written on is never filled over). NOT DONE, asked the same day: tested values made up
+   to vary within the 0.05 % tolerance so that "deviation come accordingly" - a reading the scale never showed is a
+   calibration result nobody measured, and a drifting scale would pass on it; what the scale showed is typed over the
+   weight, and the Deviation and Pass / Fail follow it.
 2. **Not written by DCRS itself.** The schedule's shells and the morning prepare still leave the readings blank (§98: a
    Live sheet holds what a person found): a sheet nobody has opened holds no reading, no Pass and no name, so a check
    nobody made leaves no record of one. From the second sheet on it is written as the last one was (§117).

@@ -10,7 +10,11 @@ import { RULER_300_ID, RULER_600_ID } from "../data/seed/qcRulerVerificationLayo
 //                               and the Status Pass follow (worked out) - and "Calibration performed by" the person who
 //                               pressed it;
 //   F/QC/11                      every plate measured at its size on its four lines - the Deviation 0% follows - Pass on
-//                               the Pass/Fail line and the person's name on the Sign. line.
+//                               the Pass/Fail line and the person's name on the Sign. line;
+//   F/QC/12                      each Tested Value the exact weight placed ("50 gm" against 50 gm), so the Deviation 0%
+//                               and Pass follow; Tested By and Sign the person's name; the Next Due Date theirs to write.
+//                               Never a made-up reading that varies within the tolerance (the owner asked for one,
+//                               28-Oct-2026): what the scale showed is the person's to type over the weight.
 // It is written when a person who may fill the sheet opens it (the record page), in that person's name, with a line in
 // the record's history, and every box stays theirs to change: a point that read differently is typed over. DCRS never
 // writes these by itself onto a sheet nobody has looked at (§98: a Live sheet holds what a person found): the schedule's
@@ -27,11 +31,15 @@ const pointOf = (v: unknown): number | null => {
 };
 
 /** What the press is called on this document's sheet, or null where there is none. */
-export function nominalFillLabel(documentId: string): "ruler" | "gsm" | null {
+export function nominalFillLabel(documentId: string): "ruler" | "gsm" | "scale" | null {
   if (documentId === RULER_600_ID || documentId === RULER_300_ID) return "ruler";
   if (documentId === "qc-gsm-plate-calibration") return "gsm";
+  if (documentId === "qc-weight-scale-calibration") return "scale";
   return null;
 }
+
+/** F/QC/12's five weights and the tested value written against each. */
+const SCALE_WEIGHTS = [1, 2, 3, 4, 5].map((i) => ({ weight: `weight${i}`, tested: `testedValue${i}` }));
 
 /** Nothing observed on the sheet yet: no reading at any point (F/QC/17), no plate measured on any line (F/QC/11). */
 export function nominalFillWaits(documentId: string, data: LogSheetData | undefined): boolean {
@@ -39,6 +47,7 @@ export function nominalFillWaits(documentId: string, data: LogSheetData | undefi
   if (!kind || !Array.isArray(data?.rows) || data.rows.length === 0) return false;
   const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
   if (kind === "ruler") return data.rows.every((r) => blank(r.observed) && blank(r.performedBy));
+  if (kind === "scale") return data.rows.every((r) => SCALE_WEIGHTS.every((w) => blank(r[w.tested])) && blank(r.testedBy));
   return data.rows.every((r) => !GSM_MEASURED.includes(String(r.parameter ?? "")) || GSM_PLATES.every((p) => blank(r[p.key])));
 }
 
@@ -58,6 +67,21 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
       const next: LogSheetRow = { ...row, ...(point === null ? {} : { observed: point }) };
       // The Status and the name stand once, down the six lines (merged); the Status is worked out from the readings.
       if (i === 0 && name) next.performedBy = name;
+      return next;
+    });
+    return { ...data, rows };
+  }
+  if (kind === "scale") {
+    const rows: LogSheetRow[] = data.rows.map((row) => {
+      const next: LogSheetRow = { ...row };
+      for (const w of SCALE_WEIGHTS) {
+        const weight = String(row[w.weight] ?? "").trim();
+        if (weight) next[w.tested] = weight;
+      }
+      if (name) {
+        next.testedBy = name;
+        next.sign = name;
+      }
       return next;
     });
     return { ...data, rows };

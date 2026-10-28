@@ -47,11 +47,30 @@ test("F/QC/11: every plate at its size on its four lines, 0% worked out, Pass an
   assert.deepEqual(filled.rows.map((r) => r.parameter), ["Tasted-1", "2", "3", "4", "Pass/Fail", "Sign."], "the paper's lines as they were");
 });
 
-test("only these three documents have the press; a new Live sheet still comes with nothing observed on it", () => {
+test("F/QC/12: each Tested Value the exact weight placed, 0% and Pass worked out, Tested By and Sign the opener's name, the Next Due Date theirs", () => {
+  const SCALE = "qc-weight-scale-calibration";
+  // (the tolerance the page on file carries onto every new sheet, 0.05 %, which Pass / Fail is judged by)
+  const fresh = createDefaultData(doc(SCALE), "2026-11-01", master) as LogSheetData;
+  const blank: LogSheetData = { ...fresh, header: { ...fresh.header, acceptableTolerance: "0.05 %" } };
+  const filled = withComputedCells(SCALE, nominalFillOnOpen(SCALE, blank, "Kapila Barad")!);
+  const line = filled.rows[0];
+  assert.deepEqual([line.testedValue1, line.testedValue2, line.testedValue3, line.testedValue4, line.testedValue5], [line.weight1, line.weight2, line.weight3, line.weight4, line.weight5]);
+  assert.equal(line.weight1, "50 gm", "the standard weights as written on every new line (§117)");
+  assert.deepEqual([line.deviation1, line.deviation2, line.deviation3, line.deviation4, line.deviation5], ["0%", "0%", "0%", "0%", "0%"]);
+  assert.equal(line.passFail, "Pass");
+  assert.deepEqual([line.testedBy, line.sign], ["Kapila Barad", "Kapila Barad"]);
+  assert.ok(!line.nextDueDate, "the Next Due Date is the person's");
+  assert.equal(nominalFillOnOpen(SCALE, filled, "x"), null, "written on: left as it is");
+  const typed = { ...blank, rows: blank.rows.map((r) => ({ ...r, testedValue4: "500.010" })) };
+  assert.equal(nominalFillOnOpen(SCALE, typed, "x"), null, "a value the scale showed, typed: left as it is");
+});
+
+test("only these four documents are filled on opening; a new Live sheet still comes with nothing observed on it", () => {
   assert.equal(nominalFillLabel(RULER_600_ID), "ruler");
   assert.equal(nominalFillLabel(RULER_300_ID), "ruler");
   assert.equal(nominalFillLabel(GSM), "gsm");
-  assert.equal(nominalFillLabel("qc-weight-scale-calibration"), null);
+  assert.equal(nominalFillLabel("qc-weight-scale-calibration"), "scale");
+  assert.equal(nominalFillLabel("qc-calibration-master-list"), null);
   assert.equal(nominalFill("qc-viscosity", { header: {}, rows: [] }, "x"), null);
   const known = prepareKnownParts(doc(RULER_600_ID), "2026-10-28", master, undefined)!.data as LogSheetData;
   assert.ok(known.rows.every((r) => (r.observed === null || r.observed === "") && r.status === "" && r.performedBy === ""), "DCRS writes no reading by itself (§98)");
@@ -70,6 +89,6 @@ test("on opening: a sheet nothing is observed on is filled in the opener's name;
   assert.equal(nominalFillWaits(GSM, gsm), true);
   const measured = { ...gsm, rows: gsm.rows.map((r, i) => (i === 0 ? { ...r, p55: "10.1 x 10cm" } : r)) };
   assert.equal(nominalFillOnOpen(GSM, measured, "x"), null, "a plate measured: left as it is");
-  assert.equal(nominalFillOnOpen("qc-weight-scale-calibration", blank, "x"), null);
+  assert.equal(nominalFillOnOpen("qc-calibration-master-list", blank, "x"), null);
   assert.equal(nominalFillOnOpen(RULER_600_ID, undefined, "x"), null);
 });
