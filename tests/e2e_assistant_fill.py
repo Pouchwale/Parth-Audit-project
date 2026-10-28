@@ -173,7 +173,13 @@ def period_of(schedule, day, doc_id):
         return start, start + timedelta(days=6)
     dim = calendar.monthrange(day.year, day.month)[1]
     if t == "fortnightly":
-        second = schedule["anchorDayOfMonth"] + 14
+        # Its anchor day and 14 days on, or, with a weekday (0=Sunday), the month's 1st and 3rd of it (F/HR/18's 1st and
+        # 3rd Monday since 28-Oct-2026, engine/frequencyEngine.ts fortnightFirst).
+        if schedule.get("weekday") is not None:
+            first = 1 + (schedule["weekday"] - (date(day.year, day.month, 1).weekday() + 1) % 7) % 7
+        else:
+            first = schedule["anchorDayOfMonth"]
+        second = first + 14
         if second <= dim and day.day >= second:
             return day.replace(day=second), day.replace(day=dim)
         return day.replace(day=1), day.replace(day=second - 1 if second <= dim else dim)
