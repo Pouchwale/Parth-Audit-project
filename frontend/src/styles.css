@@ -4022,6 +4022,11 @@ table.svc-paper {
    sheets take the widths they PRINT at, so a sheet is fitted to A4 as it will print and not shrunk for the wider screen
    layout (the owner, 22-Oct-2026: "the front is very small printing on it"). Mirrors the print rules above. */
 html.print-measure [data-print-doc] :is(.no-print, .btn) { display: none; }
+/* ...each sheet with the 12 mm margin it prints with ([data-print-doc] in the print rules), not the screen's 20 x 24 px,
+   whose rule is more specific and so held while measuring: F/MKT/01 and F/HR/11, drawn bigger to fill their page, measured
+   277 mm and printed 299 mm, onto a second page (28-Oct-2026); a sheet of pages of its own keeps its margin on its pages */
+html.print-measure [data-print-doc]:not([data-print-doc="ui"]) { padding: 12mm; }
+html.print-measure [data-print-doc]:not([data-print-doc="ui"]):has(.register-page, .caf-page) { padding: 0; }
 /* every sheet of DCRS's make (not a paper form drawn in millimetres): the print's paddings, box minimums and density... */
 html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table :is(th, td) { padding: 2px 5px; font-size: 11px; line-height: 1.2; }
 html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet td .cell-text { font-size: 11px; line-height: 1.2; }

@@ -232,6 +232,24 @@ const SMALLEST_SCALE = 0.3;
 // onto a second page.
 const FILL_TO = 0.94;
 const FILL_SCALE = 1.3;
+// FILLING EACH PAGE (the owner, 28-Oct-2026, with F/HR/17's first page on the screen: "make sure this page will print
+// complete on A4 size paper like fonts should be good which cover the whole page ... when any this kind of page is which is
+// small then it should cover whole A4 size page when user take physical print so it should present completely fill").
+// Measured, F/HR/17's register printed its three pages a third to a half high - each page of its own is never "one-page" -
+// and a one-page sheet drawn to FILL_SCALE could still stop half way down. So:
+//   - a sheet printed as pages of its own (PAGE_SECTIONS: F/HR/17's register - the check points, days 1 to 19, days 20
+//     to 31 and the summary, each page as its paper) has each page drawn bigger as a one-page sheet is (FILL_SCALE at
+//     most, never wider than the page, to FILL_TO of its height);
+//   - then, last of all (stretchToPages, after every box is written for the print), a page still short of STRETCH_TO
+//     has its lines drawn taller, as a ruled paper's: a table's lines all to one height, no taller than ROW_MAX_MM; on
+//     a page with no table, a list's items further apart, by ITEM_MAX_MM each at most. A register printing only its
+//     written lines (§126) keeps them a ruled line high at most - two lines never stretch down a page - and a page that
+//     would run onto a second one is put back as it was.
+// A sheet drawn to its paper (above) is drawn as its paper, as before.
+const PAGE_SECTIONS = "section.register-page";
+const STRETCH_TO = 0.92;
+const ROW_MAX_MM = 11;
+const ITEM_MAX_MM = 14;
 // A form a little too wide for a portrait page stays portrait, slightly smaller.
 const PORTRAIT_SCALE = 0.9;
 let fitted: HTMLElement[] = [];
@@ -317,21 +335,34 @@ function withPrintRules<T>(measure: () => T): T {
 }
 
 /**
- * How many A4 pages `doc` fills printed at `zoom` (FILLING THE PAGE): laid out as wide as the page is at that zoom, its
- * 12 mm margin and all, with the print's rules on (withPrintRules), against the page's full height; then put back.
+ * Runs `measure` with `doc` laid out as wide as the page is at `zoom` - its own zoom and `part`'s off, so that what is
+ * measured is in the sheet's own pixels - then puts it back.
  */
-function pagesAt(doc: HTMLElement, zoom: number, landscape: boolean): number {
+function laidOutAt<T>(doc: HTMLElement, part: HTMLElement, zoom: number, landscape: boolean, measure: () => T): T {
   const pageW = (landscape ? 297 : 210) * PX_PER_MM;
-  const pageH = (landscape ? 210 : 297) * PX_PER_MM;
-  const keep = { width: doc.style.width, boxSizing: doc.style.boxSizing, zoom: doc.style.zoom };
+  const keep = { width: doc.style.width, boxSizing: doc.style.boxSizing, zoom: doc.style.zoom, part: part.style.zoom };
   doc.style.zoom = "";
+  part.style.zoom = "";
   doc.style.boxSizing = "border-box";
   doc.style.width = `${pageW / zoom}px`;
-  const tall = doc.getBoundingClientRect().height * zoom;
-  doc.style.width = keep.width;
-  doc.style.boxSizing = keep.boxSizing;
-  doc.style.zoom = keep.zoom;
-  return tall / pageH;
+  try {
+    return measure();
+  } finally {
+    doc.style.width = keep.width;
+    doc.style.boxSizing = keep.boxSizing;
+    doc.style.zoom = keep.zoom;
+    part.style.zoom = keep.part;
+  }
+}
+
+/**
+ * How many A4 pages `doc` - or `part` of it, a page of its own - fills printed at `zoom` (FILLING THE PAGE): laid out as
+ * wide as the page is at that zoom, its 12 mm margin and all, with the print's rules on (withPrintRules), against the
+ * page's full height; then put back.
+ */
+function pagesAt(doc: HTMLElement, zoom: number, landscape: boolean, part: HTMLElement = doc): number {
+  const pageH = (landscape ? 210 : 297) * PX_PER_MM;
+  return laidOutAt(doc, part, zoom, landscape, () => (part.getBoundingClientRect().height * zoom) / pageH);
 }
 
 // Sheets drawn in points to their own paper (§118): the contractor's service report is the March sheet to 1.5 pt (the
@@ -350,8 +381,26 @@ function fillPage(doc: HTMLElement, zoom: number, width: number, across: number,
   return withPrintRules(() => fillMeasured(doc, zoom, width, across, landscape));
 }
 
-function fillMeasured(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean): number {
-  const now = pagesAt(doc, zoom, landscape);
+/** The pages a sheet prints as pages of its own (PAGE_SECTIONS), its own and not a sheet's inside it. */
+function pageSections(doc: HTMLElement): HTMLElement[] {
+  return (Array.from(doc.querySelectorAll(PAGE_SECTIONS)) as HTMLElement[]).filter((s) => isShown(s) && s.closest(DOC_SELECTOR) === doc);
+}
+
+/** FILLING EACH PAGE (above): each page of a sheet printed as pages of its own, drawn bigger as a one-page sheet is. */
+function fillSections(doc: HTMLElement, sections: HTMLElement[], zoom: number, across: number, landscape: boolean): void {
+  withPrintRules(() => {
+    for (const sec of sections) {
+      const grown = fillMeasured(doc, zoom, narrowestWidth(sec), across, landscape, sec);
+      if (grown <= zoom) continue;
+      // (the page's own zoom, over the sheet's)
+      sec.style.zoom = String(Math.floor((grown / zoom) * 1000) / 1000);
+      fitted.push(sec);
+    }
+  });
+}
+
+function fillMeasured(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean, part: HTMLElement = doc): number {
+  const now = pagesAt(doc, zoom, landscape, part);
   if (now <= 0 || now >= FILL_TO) return zoom;
   // (a document with no table - a form of labelled boxes - flows to whatever width it is given: only FILL_SCALE holds it)
   const byWidth = width > 0 ? Math.floor(((across * 0.98) / width) * 1000) / 1000 : FILL_SCALE;
@@ -359,10 +408,10 @@ function fillMeasured(doc: HTMLElement, zoom: number, width: number, across: num
   const grown = Math.min(FILL_SCALE, byWidth, byHeight);
   if (grown > zoom) {
     // Measured again at that size (its words wrap anew across the narrower layout), else halfway.
-    if (pagesAt(doc, grown, landscape) <= FILL_TO) zoom = grown;
+    if (pagesAt(doc, grown, landscape, part) <= FILL_TO) zoom = grown;
     else {
       const half = Math.floor(((zoom + grown) / 2) * 1000) / 1000;
-      if (pagesAt(doc, half, landscape) <= FILL_TO) zoom = half;
+      if (pagesAt(doc, half, landscape, part) <= FILL_TO) zoom = half;
     }
   }
   return zoom;
@@ -383,8 +432,13 @@ function measureAndFit(docs: Element[]): void {
     const room = own !== null ? (PAGE_WIDTH_MM[landscape ? "landscape" : "portrait"] - own - 2) * PX_PER_MM : paper;
     // (2% of the room kept: the print is measured as it prints, closely but not to the pixel)
     let zoom = width <= room ? 1 : Math.max(SMALLEST_SCALE, Math.floor(((room * 0.98) / width) * 1000) / 1000);
-    // A short one-page sheet is drawn to fill its page (FILLING THE PAGE, above).
-    if (own === null && !isFramed(doc)) zoom = fillPage(doc, zoom, width, room, landscape);
+    // A short one-page sheet is drawn to fill its page (FILLING THE PAGE, above); a sheet printed as pages of its own, each
+    // of its pages (FILLING EACH PAGE).
+    if (own === null && !isFramed(doc)) {
+      const sections = ownMake(doc) ? pageSections(doc) : [];
+      if (sections.length > 1) fillSections(doc, sections, zoom, room, landscape);
+      else zoom = fillPage(doc, zoom, width, room, landscape);
+    }
     if (zoom === 1) continue;
     doc.style.zoom = String(zoom);
     // A framed page is as tall as the paper (styles.css): the zoom shrinks its millimetres, so it says by how much.
@@ -402,12 +456,102 @@ function measureAndFit(docs: Element[]): void {
   }
 }
 
+/** A line drawn taller for the print (FILLING EACH PAGE), and what it was. */
+type Stretched = { el: HTMLElement; prop: "height" | "paddingBottom"; was: string };
+let stretched: Stretched[] = [];
+
+function stretch(el: HTMLElement, prop: Stretched["prop"], value: string): void {
+  stretched.push({ el, prop, was: el.style[prop] });
+  el.style[prop] = value;
+}
+
+/** The lines a page's tables print: their body's rows shown, not the header block's nor a table's inside a cell. */
+function linesOf(part: HTMLElement): HTMLElement[] {
+  return (Array.from(part.querySelectorAll("table > tbody > tr")) as HTMLElement[]).filter(
+    (tr) => isShown(tr) && !tr.closest(".doc-header") && !tr.parentElement?.parentElement?.parentElement?.closest("table")
+  );
+}
+
+/** The items of a page's lists, outside any table and the header block. */
+function itemsOf(part: HTMLElement): HTMLElement[] {
+  return (Array.from(part.querySelectorAll("ol > li, ul > li")) as HTMLElement[]).filter((li) => isShown(li) && !li.closest("table, .doc-header"));
+}
+
+/** FILLING EACH PAGE (above), last of all: on every page of a sheet of DCRS's own make still short of STRETCH_TO, the lines drawn taller. */
+function stretchToPages(docs: Element[]): void {
+  const landscape = document.documentElement.dataset.printPage === "landscape";
+  document.documentElement.classList.add("print-measure");
+  try {
+    withPrintRules(() => {
+      for (const d of docs) {
+        const doc = d as HTMLElement;
+        if (!ownMake(doc) || ownLeftMargin(doc) !== null || isFramed(doc)) continue;
+        const zoom = Number(doc.style.zoom) || 1;
+        const sections = pageSections(doc);
+        if (sections.length > 1) for (const sec of sections) stretchPart(doc, sec, zoom * (Number(sec.style.zoom) || 1), landscape);
+        else stretchPart(doc, doc, zoom, landscape);
+      }
+    });
+  } finally {
+    document.documentElement.classList.remove("print-measure");
+  }
+}
+
+function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscape: boolean): void {
+  const pageH = (landscape ? 210 : 297) * PX_PER_MM;
+  laidOutAt(doc, part, zoom, landscape, () => {
+    const share = () => (part.getBoundingClientRect().height * zoom) / pageH;
+    const before = share();
+    if (before <= 0 || before >= STRETCH_TO) return;
+    // What the page still has, in the sheet's own pixels (before its zoom).
+    let room = ((STRETCH_TO - before) * pageH) / zoom;
+    const from = stretched.length;
+    const rows = linesOf(part);
+    if (rows.length > 0) {
+      // Every line shorter than `line` is drawn `line` high: the one height that takes up the room, a ruled line's at most.
+      const heights = rows.map((r) => r.getBoundingClientRect().height);
+      const most = (ROW_MAX_MM * PX_PER_MM) / zoom;
+      const grow = (t: number) => heights.reduce((sum, h) => sum + Math.max(0, t - h), 0);
+      let line = Math.min(...heights);
+      if (most > line) {
+        if (grow(most) <= room) line = most;
+        else {
+          let [lo, hi] = [line, most];
+          for (let i = 0; i < 24; i++) {
+            const mid = (lo + hi) / 2;
+            if (grow(mid) <= room) lo = mid;
+            else hi = mid;
+          }
+          line = lo;
+        }
+        rows.forEach((r, i) => {
+          if (heights[i] < line - 0.5) stretch(r, "height", `${line.toFixed(2)}px`);
+        });
+        room -= grow(line);
+      }
+    } else {
+      // A page of words and no table (F/HR/17's check points): its list's items further apart.
+      const items = itemsOf(part);
+      if (items.length > 0 && room > 1) {
+        const add = Math.min((ITEM_MAX_MM * PX_PER_MM) / zoom, room / items.length);
+        for (const li of items) stretch(li, "paddingBottom", `${(parseFloat(getComputedStyle(li).paddingBottom) || 0) + add}px`);
+      }
+    }
+    // Never onto a second page: measured again as drawn, and put back as it was if it would be.
+    if (stretched.length > from && share() > FILL_TO) {
+      for (const s of stretched.splice(from).reverse()) s.el.style[s.prop] = s.was;
+    }
+  });
+}
+
 function unfit(): void {
   for (const doc of fitted) {
     doc.style.zoom = "";
     doc.style.removeProperty("--print-zoom");
   }
   fitted = [];
+  for (const s of stretched.reverse()) s.el.style[s.prop] = s.was;
+  stretched = [];
   const style = document.getElementById(PAGE_STYLE_ID);
   if (style) style.textContent = "";
   delete document.documentElement.dataset.printPage;
@@ -470,6 +614,8 @@ function scope(targets: Element[]): void {
   fitAll(docs);
   // ...and a value too long for its box even so prints as words that wrap.
   active.written.push(...writeLongBoxesAsWords(docs));
+  // Then a page still short of its foot has its lines drawn taller (FILLING EACH PAGE).
+  stretchToPages(docs);
 }
 
 /**
