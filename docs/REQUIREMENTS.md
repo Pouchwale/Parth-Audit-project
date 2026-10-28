@@ -9734,6 +9734,28 @@ task in which you have not added in those document where you have not added till
    sheets' dates, Add visit's first Monday), the updated periodSheet tests, and the browser suites qc_calibration,
    print_and_forms, trend_reports, smoke, files, crud and every_record_starts.
 
+## §131 Send test in each person's row, and Users & Access saying when the reminder emails cannot go out (28-Oct-2026)
+
+The owner, 28-Oct-2026, having asked for a test email to his own address: "So when user provide it email address than on
+Reminder email then it system so really send email on that provided email so do work on it fast."
+
+1. **The emails go to the address in the row.** The reminder emails (§125) are sent to each person's Reminder email as
+   entered on Users & Access, once this DCRS has a mailbox to send from (GMAIL_USER and GMAIL_APP_PASSWORD in
+   backend/.env, a Gmail account's App Password: docs/DEPLOYMENT.md, Reminder emails) and the super admin has switched them
+   on (Notifications page). Neither can be done from DCRS: the App Password is made in the plant's own Google account.
+2. **Send test, beside each address.** Each row with a Reminder email has "Send test": that person's test email, to that
+   address, there and then, in the language set for it, and what came of it in words under the address - "Test email sent
+   to ... Look in that inbox, and in its Spam folder", or why not (no mailbox on this server, the day's cap, Gmail's own
+   answer). POST /api/email/test takes { userId } (backend/emailRoutes.ts): the super admin's alone, an account on the
+   plant's list (not removed), one test in 20 seconds a person, a line in the activity log naming whose; with no userId it
+   is still the super admin's own, as before. A failure is noted against the address, as a reminder's is.
+3. **Said plainly over the addresses.** While nothing can go out, a line over the accounts says why: no Gmail mailbox on
+   this server (what to add, and that the addresses are kept and used as soon as it is set up), switched off on the server
+   (EMAIL_ENABLED=0), or not switched on yet. In English, Gujarati and Hindi.
+4. **Proved:** backend/tests/emailRoutes.test.ts (a person's test sent as theirs, another person's own 20 seconds, a removed
+   or unknown account refused, a member of staff refused) and tests/e2e_email_reminders.py (the line while switched off,
+   Send test in Dharmik Mistry's row captured as his on the test server, staff refused).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

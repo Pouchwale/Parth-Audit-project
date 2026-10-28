@@ -55,8 +55,8 @@ export interface EmailRoutesDeps {
   store?: EmailStore;
   /** Every account, the removed ones too (the database's, by default). */
   accounts?: () => Promise<EmailAccount[]>;
-  /** Sends the caller's test email (backend/emailReminders.ts sendTestEmail, by default). */
-  testEmail?: (user: PublicUser) => Promise<TestEmailResult>;
+  /** Sends a person's test email to their reminder email (backend/emailReminders.ts sendTestEmail, by default). */
+  testEmail?: (user: { id: string; name: string }) => Promise<TestEmailResult>;
   /** The clock the one-test-in-20-seconds rule reads (a test sets it). */
   now?: () => number;
   env?: Record<string, string | undefined>;
@@ -217,26 +217,49 @@ export function registerEmailRoutes(app: Express, deps: EmailRoutesDeps): void {
     }
   });
 
-  // "Send me a test email": to the caller's own reminder email, at most once in 20 seconds.
+  // "Send me a test email": to the caller's own reminder email, at most once in 20 seconds. And, with { userId }, the
+  // test email of THAT person, to the reminder email the super admin entered in their row on Users & Access (the
+  // owner, 28-Oct-2026: "when user provide it email address than on Reminder email then it system so really send
+  // email on that provided email"): the same message, the same checks, at most once in 20 seconds a person.
   const lastTest = new Map<string, number>();
   const clock = deps.now ?? (() => Date.now());
   app.post("/api/email/test", requireAuth, async (req: Request, res: Response): Promise<void> => {
     const me = superAdmin(req, res);
     if (!me) return;
+    const asked = typeof req.body?.userId === "string" ? req.body.userId.trim() : "";
+    let target: { id: string; name: string } = me;
+    if (asked && asked !== me.id) {
+      let found: EmailAccount | undefined;
+      try {
+        found = (await accounts()).find((a) => a.id === asked && !a.removed);
+      } catch (err) {
+        unavailable(res, err);
+        return;
+      }
+      if (!found) {
+        res.status(404).json({ error: "That account is not on the plant's list.", code: "no-account" });
+        return;
+      }
+      target = { id: found.id, name: found.name };
+    }
     const at = clock();
-    if (at - (lastTest.get(me.id) ?? -Infinity) < TEST_EMAIL_EVERY_MS) {
+    if (at - (lastTest.get(target.id) ?? -Infinity) < TEST_EMAIL_EVERY_MS) {
       res.status(429).json({ error: "A test email was sent a moment ago. Wait 20 seconds and try again.", code: "too-many" });
       return;
     }
-    lastTest.set(me.id, at);
+    lastTest.set(target.id, at);
     let result: TestEmailResult;
     try {
-      result = await (deps.testEmail ?? ((user: PublicUser) => sendTestEmail(user, { store: store(), env: env() })))(me);
+      result = await (deps.testEmail ?? ((user: { id: string; name: string }) => sendTestEmail(user, { store: store(), env: env() })))(target);
     } catch (err) {
       unavailable(res, err);
       return;
     }
-    logActivity(req, me, EMAIL_ACTIONS.test, me.name, result.sent ? (result.captured ? "Captured on this server (EMAIL_TRANSPORT=capture): nothing left the PC" : "Sent to the super admin's reminder email") : `Not sent: ${result.reason ?? "no reason given"}`.slice(0, 600), "");
+    const own = target.id === me.id;
+    // Another person's row with no address: said of them, not of the super admin.
+    if (!own && result.code === "no-address") result = { ...result, reason: `${target.name} has no reminder email yet. Enter it in their row on Users & Access, then try again.` };
+    const whose = own ? "the super admin's reminder email" : `${target.name}'s reminder email`;
+    logActivity(req, me, EMAIL_ACTIONS.test, target.name, result.sent ? (result.captured ? "Captured on this server (EMAIL_TRANSPORT=capture): nothing left the PC" : `Sent to ${whose}`) : `Not sent: ${result.reason ?? "no reason given"}`.slice(0, 600), "");
     res.json(result);
   });
 

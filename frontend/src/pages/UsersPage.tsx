@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FiCheck, FiEdit2, FiKey, FiList, FiMail, FiPlus, FiRefreshCw, FiRotateCcw, FiShield, FiSlash, FiStar, FiTrash2, FiUser, FiUserPlus, FiUsers } from "react-icons/fi";
-import { accessApi, ApiError, emailApi, usersApi, type ReminderContact } from "../api/client";
+import { accessApi, ApiError, emailApi, usersApi, type EmailSettingsAnswer, type ReminderContact } from "../api/client";
 import { AccessSection, useAccessDocs, useAccessRules } from "../components/access/AccessSection";
 import { ACCESS_MODULES, buildAccess } from "../engine/accessRules";
 import { accountOf, lastSuperAdmin } from "../engine/accessEditing";
@@ -57,6 +57,10 @@ import type { ManagedUser } from "../types/auth";
 // (backend/emailRoutes.ts keeps it; backend/emailReminders.ts emails what is still open for the person, three times on
 // a working day, until it is done). Checked here and again on the server by one rule (engine/reminderEmail.ts): one
 // plain address, never a sign-in, never a name that receives no mail. It can be given in "Add a person" too.
+// SEND TEST beside each address (the owner, 28-Oct-2026: "when user provide it email address than on Reminder email then
+// it system so really send email on that provided email"): the person's test email, to that address, there and then,
+// with what happened in words; and over the accounts a line saying plainly when the reminder emails cannot go out -
+// no Gmail mailbox on this server, switched off on it, or not switched on yet (backend/emailRoutes.ts).
 //
 // A PAGE OF ACCOUNTS AT A TIME (the owner, 25-Oct-2026: "use pagination in user access because there are many id's we
 // have created currently and so low ending devices take time to load that page"). The accounts, the removed accounts and
@@ -137,6 +141,10 @@ export function UsersPage() {
   // Each account's reminder email, by account (the super admin's alone: GET /api/email/contacts), and the one being set.
   const [contacts, setContacts] = useState<Map<string, ReminderContact> | null>(null);
   const [reminder, setReminder] = useState<ReminderEdit | null>(null);
+  // How the reminder emails go on this server (the line over the accounts), the person being sent a test, and each answer.
+  const [mail, setMail] = useState<EmailSettingsAnswer | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [tested, setTested] = useState<Record<string, { text: string; outcome: "sent" | "captured" | "failed" }>>({});
 
   // The new person, as the form stands.
   const [name, setName] = useState("");
@@ -182,6 +190,30 @@ export function UsersPage() {
       .contacts()
       .then((res) => setContacts(new Map((res?.contacts ?? []).map((c) => [c.userId, c] as const))))
       .catch(() => setContacts(new Map()));
+    emailApi
+      .settings()
+      .then(setMail)
+      .catch(() => setMail(null));
+  };
+
+  /** The person's test email, to the reminder email in their row: what happened, in words, under it. */
+  const testReminder = (u: ManagedUser) => {
+    setTesting(u.id);
+    const said = (text: string, outcome: "sent" | "captured" | "failed") => setTested((m) => ({ ...m, [u.id]: { text, outcome } }));
+    emailApi
+      .test(u.id)
+      .then((res) => {
+        if (res.sent && res.captured) said(w("users.reminder.testCaptured"), "captured");
+        else if (res.sent) said(w("users.reminder.testSent", { address: contacts?.get(u.id)?.address ?? "" }), "sent");
+        else said(w("users.reminder.testNotSent", { why: res.reason ?? "" }), "failed");
+        // A failure is noted in the person's row (the address's last failure): read the addresses again.
+        emailApi
+          .contacts()
+          .then((c) => setContacts(new Map((c?.contacts ?? []).map((x) => [x.userId, x] as const))))
+          .catch(() => undefined);
+      })
+      .catch((err) => said(w("users.reminder.testNotSent", { why: err instanceof ApiError ? err.message : "" }), "failed"))
+      .finally(() => setTesting(null));
   };
   useEffect(() => {
     if (isAdmin) load();
@@ -453,6 +485,23 @@ export function UsersPage() {
         </div>
       )}
 
+      {/* WHEN THE REMINDER EMAILS CANNOT GO OUT, SAID OVER THE ADDRESSES (28-Oct-2026). Nothing when they can. */}
+      {mail && (!mail.setup.serverOn || mail.setup.mode === "off" || !mail.enabled) && (
+        <div
+          className="card mb-3"
+          role="status"
+          data-section="email-status"
+          data-mode={mail.setup.mode}
+          data-enabled={mail.enabled ? "yes" : "no"}
+          style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}
+        >
+          <div className="card-pad text-sm flex items-center gap-2">
+            <FiMail size={14} aria-hidden="true" />
+            <span>{!mail.setup.serverOn ? w("users.email.serverOff") : mail.setup.mode === "off" ? w("users.email.notSetUp") : w("users.email.switchedOff")}</span>
+          </div>
+        </div>
+      )}
+
       {users === null ? (
         <p className="text-muted text-sm">Loading the accounts…</p>
       ) : (
@@ -508,6 +557,9 @@ export function UsersPage() {
                       onSave={() => void saveReminder()}
                       onCancel={() => setReminder(null)}
                       onRemove={() => void removeReminder()}
+                      testing={testing === u.id}
+                      tested={tested[u.id] ?? null}
+                      onTest={() => testReminder(u)}
                     />
                     <td>
                       <span className={`badge ${u.role === "admin" ? "badge-Verified" : "badge-Due"}`}>{u.role === "admin" ? "admin" : "staff"}</span>
@@ -1116,6 +1168,9 @@ function ReminderCell({
   onSave,
   onCancel,
   onRemove,
+  testing,
+  tested,
+  onTest,
 }: {
   user: ManagedUser;
   contact: ReminderContact | null;
@@ -1128,6 +1183,11 @@ function ReminderCell({
   onSave: () => void;
   onCancel: () => void;
   onRemove: () => void;
+  /** A test email to this address is on its way. */
+  testing: boolean;
+  /** What the last test of this address came to, in words. */
+  tested: { text: string; outcome: "sent" | "captured" | "failed" } | null;
+  onTest: () => void;
 }) {
   const state = contact ? (contact.enabled ? "on" : "off") : "none";
   if (edit) {
@@ -1203,9 +1263,28 @@ function ReminderCell({
         <span className="text-muted">{loaded ? w("users.reminder.none") : ""}</span>
       )}
       {loaded && (
-        <button type="button" className="access-cell-note" style={{ display: "block" }} data-action="edit-reminder-email" onClick={() => onEdit(contact)}>
-          <FiMail size={10} aria-hidden="true" /> {contact ? w("users.reminder.change") : w("users.reminder.add")}
-        </button>
+        <span className="flex gap-3 wrap">
+          <button type="button" className="access-cell-note" data-action="edit-reminder-email" onClick={() => onEdit(contact)}>
+            <FiMail size={10} aria-hidden="true" /> {contact ? w("users.reminder.change") : w("users.reminder.add")}
+          </button>
+          {/* The person's test email, to this very address (28-Oct-2026). */}
+          {contact && (
+            <button type="button" className="access-cell-note" data-action="test-reminder-email" disabled={testing} onClick={onTest}>
+              {testing ? w("users.reminder.testing") : w("users.reminder.test")}
+            </button>
+          )}
+        </span>
+      )}
+      {tested && (
+        <span
+          className="text-xs block"
+          role="status"
+          data-field="reminder-test-result"
+          data-outcome={tested.outcome}
+          style={{ color: tested.outcome === "failed" ? "var(--color-danger)" : "var(--color-success)", maxWidth: 260 }}
+        >
+          {tested.text}
+        </span>
       )}
     </td>
   );

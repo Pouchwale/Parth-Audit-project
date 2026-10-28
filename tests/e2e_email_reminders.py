@@ -289,6 +289,27 @@ with sync_playwright() as p:
         )
         stored = next((c for c in (api(api_ctx, "GET", "/api/email/contacts").get("body") or {}).get("contacts") or [] if c.get("userId") == ids.get(DHARMIK)), {})
         check("...and the server has it so", stored.get("address") == DHARMIK_MAIL and stored.get("language") == "gu" and stored.get("enabled") is True, stored)
+        # SEND TEST IN THE PERSON'S ROW (the owner, 28-Oct-2026: "when user provide it email address than on Reminder email
+        # then it system so really send email on that provided email"): his test email, to the address just entered.
+        status_line = admin.locator("[data-section='email-status']")
+        check(
+            "Over the accounts, while the reminder emails are switched off, a line says nothing is sent until they are",
+            status_line.count() == 1 and status_line.get_attribute("data-enabled") == "no" and "switched off" in status_line.inner_text(),
+            status_line.inner_text() if status_line.count() else None,
+        )
+        row.locator("[data-action='test-reminder-email']").click()
+        admin.wait_for_selector(f"[data-table='users'] tr[data-user='{DHARMIK}'] [data-field='reminder-test-result']", timeout=30000)
+        result_line = row.locator("[data-field='reminder-test-result']")
+        check(
+            "Send test in Dharmik Mistry's row sends his test email to his address - kept on this server, as a test server keeps every email",
+            result_line.get_attribute("data-outcome") == "captured" and "EMAIL_TRANSPORT=capture" in result_line.inner_text(),
+            result_line.inner_text(),
+        )
+        his_tests = [r for r in email_log(api_ctx) if r.get("userId") == ids.get(DHARMIK) and str(r.get("slot") or "").startswith("test-")]
+        check("...the email log has it, as his", len(his_tests) == 1 and his_tests[0].get("state") == "captured", his_tests)
+        staff_probe, _ = api_session(browser, KAPILA)
+        check("...and a member of staff cannot send anybody's test", api(staff_probe, "POST", "/api/email/test", {"userId": ids.get(DHARMIK)})["status"] == 403)
+        staff_probe.close()
 
         # ==============================================================
         # 3. The switch, on the Notifications page
@@ -314,7 +335,8 @@ with sync_playwright() as p:
         check("The notify job runs by hand at 10:00 of the working day", ran["status"] == 200, ran["text"][:400])
         check("...and its line says the emails were captured", str(result.get("email") or "").startswith("captured"), result.get("email"))
         log = email_log(api_ctx)
-        dharmik_rows = [r for r in log if r.get("userId") == ids.get(DHARMIK) and r.get("day") == day]
+        # His reminders of the day (his test email of a moment ago is not one).
+        dharmik_rows = [r for r in log if r.get("userId") == ids.get(DHARMIK) and r.get("day") == day and not str(r.get("slot") or "").startswith("test-")]
         check("The email log has ONE email for Dharmik Mistry, the morning one, captured", len(dharmik_rows) == 1 and dharmik_rows[0].get("slot") == "morning" and dharmik_rows[0].get("state") == "captured", dharmik_rows)
         body = (dharmik_rows[0].get("body") or "") if dharmik_rows else ""
         check("...naming the record: F/PRD/10 of the day, as dd-mm-yy", "F/PRD/10" in body and shown(day) in body, body[:900])

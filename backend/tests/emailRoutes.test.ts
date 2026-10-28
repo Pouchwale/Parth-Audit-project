@@ -226,6 +226,28 @@ describe("the switch, the test email and the log", () => {
     assert.equal(tests.length, 2);
   });
 
+  it("a test email to any person's reminder email, from their row (the owner, 28-Oct-2026): that person's, the super admin's alone, one in 20 seconds a person", async () => {
+    clockMs += TEST_EMAIL_EVERY_MS;
+    const before = tests.length;
+    const dharmik = await call("POST", "/api/email/test", "boss", { userId: "u-dharmik" });
+    assert.equal(dharmik.status, 200);
+    assert.deepEqual(dharmik.body, { sent: true, captured: true });
+    assert.deepEqual(tests.slice(before), ["u-dharmik"], "sent as Dharmik's, to his reminder email");
+    assert.equal(lines[lines.length - 1].action, EMAIL_ACTIONS.test);
+    assert.equal(lines[lines.length - 1].target, "Dharmik Mistry", "the activity log names whose");
+    // Another person's own 20 seconds: Kapila's test goes at once, Dharmik's second waits.
+    assert.equal((await call("POST", "/api/email/test", "boss", { userId: "u-kapila" })).status, 200);
+    assert.equal((await call("POST", "/api/email/test", "boss", { userId: "u-dharmik" })).status, 429);
+    // An account removed or not on the list: refused, nothing sent.
+    const sentSoFar = tests.length;
+    assert.equal((await call("POST", "/api/email/test", "boss", { userId: "u-gone" })).body.code, "no-account");
+    assert.equal((await call("POST", "/api/email/test", "boss", { userId: "u-nobody" })).status, 404);
+    assert.equal(tests.length, sentSoFar);
+    // Only the super admin sends a test, to anybody's address.
+    assert.equal((await call("POST", "/api/email/test", "kapila", { userId: "u-dharmik" })).status, 403);
+    assert.equal(tests.length, sentSoFar);
+  });
+
   it("the email log: newest first, with each person's name, never an address", async () => {
     await store.setContact({ userId: "u-dharmik", address: DHARMIK_MAIL, language: "en", enabled: true, setBy: "Super Admin" });
     const a = (await store.claim({ userId: "u-dharmik", day: "2026-10-09", slot: "morning", items: 2 }))!;

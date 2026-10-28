@@ -720,6 +720,7 @@ export const emailApi = {
   settings: () => api.get<EmailSettingsAnswer>("/email/settings"),
   setEnabled: (enabled: boolean) => api.put<EmailSettingsAnswer>("/email/settings", { enabled }),
   /** "Send me a test email": to the super admin's own reminder email, one in 20 seconds. */
-  test: () => api.post<TestEmailAnswer>("/email/test"),
+  /** A test email to the super admin's own reminder email, or, with a person's id, to theirs. */
+  test: (userId?: string) => api.post<TestEmailAnswer>("/email/test", userId ? { userId } : {}),
   log: (limit = 10) => api.get<{ rows: EmailLogLine[] }>(`/email/log?limit=${limit}`),
 };
