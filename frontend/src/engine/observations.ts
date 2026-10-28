@@ -48,6 +48,9 @@ const STANDING_BOX_KEYS = new Set([
   "modelSerial",
   "makeModel",
   "manufacturer",
+  // an instrument's make and least count (F/QC/17's scale under calibration, F/QC/08's instruments): its identity, as its serial is
+  "make",
+  "leastCount",
   "range",
   "minReadingCapacity",
   "maxReadingCapacity",

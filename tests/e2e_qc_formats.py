@@ -1261,7 +1261,7 @@ with sync_playwright() as p:
     check(
         "A new F/QC/17 of the 300 mm scale holds its own two values, the master's identity, the day and the tolerance - nothing of the 600 mm record just written, nor of the 2024 page",
         started_header.get("serialNo") == "GP-3/MS/42" and started_header.get("range") == "0-300 mm" and started_header.get("masterSerialNo") == "QC-44"
-        and started_header.get("acceptableTolerance") == "+ / - 1 mm" and not started_header.get("make") and not started_header.get("masterCalibrationReportNo")
+        and started_header.get("acceptableTolerance") == "+ / - 1 mm" and started_header.get("make") == "Ajanta" and started_header.get("leastCount") == "1 mm" and not started_header.get("masterCalibrationReportNo")
         and started_header.get("calibrationDate") == "2026-09-23" and started_header.get("calibrationDueDate") == "2027-09-22"
         and started_header.get("masterCalibrationDate") == "2026-09-21" and started_header.get("masterCalibrationDueDate") == "2027-09-20"
         and "2024" not in json.dumps(started.get("data", {})) and "GP-3/MS/36" not in json.dumps(started.get("data", {})),

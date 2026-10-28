@@ -160,11 +160,14 @@ function rulerBoxes(scale: RulerScale): LogHeaderField[] {
       label: "Make",
       type: "text",
       required: true,
+      // The scale's Make and Least count as the plant's own pages print them (Ajanta, 1 mm), on every new sheet of either
+      // scale and editable, as its serial and range are (the owner, 28-Oct-2026: "make this also fix ... but should be editable").
+      autoFill: { default: "Ajanta" },
       boxTable: { corner: "Measuring Scale (Ruler) under calibration details", columns: [], rows: RULER_ROWS },
     },
     { key: "serialNo", label: "Serial number", type: "text", required: true, ...(scale.startsWithThem ? { autoFill: { default: scale.serialNo } } : {}) },
     { key: "range", label: "Range", type: "text", ...(scale.startsWithThem ? { autoFill: { default: scale.range } } : {}) },
-    { key: "leastCount", label: "Least count", type: "text" },
+    { key: "leastCount", label: "Least count", type: "text", autoFill: { default: "1 mm" } },
     // 23-09-26 and 22-09-27 on every new sheet, editable (RULER_CERTIFICATE, the owner, 27-Oct-2026).
     { key: "calibrationDate", label: "Calibration date", type: "date", required: true, autoFill: { default: RULER_CERTIFICATE.date, newest: true } },
     { key: "calibrationDueDate", label: "Calibration due date", type: "date", required: true, autoFill: { default: RULER_CERTIFICATE.due, newest: true } },

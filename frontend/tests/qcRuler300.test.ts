@@ -237,6 +237,8 @@ test("a new record starts as its paper's blank with its standards: the master's 
     masterSerialNo: "QC-44",
     masterRange: "0 - 600 mm",
     masterLeastCount: "1 mm",
+    make: "Ajanta",
+    leastCount: "1 mm",
     masterCalibrationDate: "2026-09-21",
     masterCalibrationDueDate: "2027-09-20",
     calibrationDate: "2026-09-23",
@@ -270,7 +272,7 @@ test("a new record is written as the last record OF ITS OWN document: the two ne
   fill(first600, { make: "Ajanta", serialNo: "GP-3/MS/36", range: "0-600mm", masterCalibrationReportNo: "CAL/600" }, [100, 200, 300, 400, 500, 490], "Roshni");
   // The 300 mm document has no record of its own yet: it does NOT take the 600 mm document's.
   const first300 = createRecordForDocument(d300, { dateISO: "2026-09-24" }).record;
-  assert.equal(data(first300).header.make, "", "nothing of the other document's");
+  assert.equal(data(first300).header.make, "Ajanta", "its own scale's make, as the plant's pages print it - nothing of the other document's");
   assert.equal(data(first300).header.masterCalibrationReportNo, "");
   assert.equal(data(first300).header.serialNo, "GP-3/MS/42", "the paper's own starting value");
   assert.equal(data(first300).rows[0].performedBy, "");

@@ -294,7 +294,7 @@ test("F/QC/17: a sample verification is today's, never the page of 2024; a Live 
     Object.fromEntries(Object.entries(known.header).filter(([, v]) => String(v ?? "") !== "")),
     // The certificates' dates the owner gave, the instruments', not observed: the master's 21-09-26 and 20-09-27
     // (28-Oct-2026), the ruler's 23-09-26 and 22-09-27 (27-Oct-2026).
-    { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", masterCalibrationDate: "2026-09-21", masterCalibrationDueDate: "2027-09-20", calibrationDate: "2026-09-23", calibrationDueDate: "2027-09-22", acceptableTolerance: "+ / - 1 mm", serialNo: "GP-3/MS/36", range: "0-600mm" }
+    { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", masterCalibrationDate: "2026-09-21", masterCalibrationDueDate: "2027-09-20", calibrationDate: "2026-09-23", calibrationDueDate: "2027-09-22", acceptableTolerance: "+ / - 1 mm", serialNo: "GP-3/MS/36", range: "0-600mm", make: "Ajanta", leastCount: "1 mm" }
   );
   assert.ok(known.rows.every((r) => (r.observed === null || r.observed === "") && r.status === "" && r.performedBy === "" && r.difference === ""));
 });
