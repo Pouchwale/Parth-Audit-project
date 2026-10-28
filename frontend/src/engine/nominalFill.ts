@@ -41,13 +41,14 @@ export function nominalFillLabel(documentId: string): "ruler" | "gsm" | "scale" 
 /** F/QC/12's five weights and the tested value written against each. */
 const SCALE_WEIGHTS = [1, 2, 3, 4, 5].map((i) => ({ weight: `weight${i}`, tested: `testedValue${i}` }));
 
-/** Nothing observed on the sheet yet: no reading at any point (F/QC/17), no plate measured on any line (F/QC/11). */
+/** No reading on the sheet yet: at no point (F/QC/17), against no weight (F/QC/12), of no plate (F/QC/11). A name carried
+ * from the last sheet (its signer) is no reading, and is kept. */
 export function nominalFillWaits(documentId: string, data: LogSheetData | undefined): boolean {
   const kind = nominalFillLabel(documentId);
   if (!kind || !Array.isArray(data?.rows) || data.rows.length === 0) return false;
   const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
-  if (kind === "ruler") return data.rows.every((r) => blank(r.observed) && blank(r.performedBy));
-  if (kind === "scale") return data.rows.every((r) => SCALE_WEIGHTS.every((w) => blank(r[w.tested])) && blank(r.testedBy));
+  if (kind === "ruler") return data.rows.every((r) => blank(r.observed));
+  if (kind === "scale") return data.rows.every((r) => SCALE_WEIGHTS.every((w) => blank(r[w.tested])));
   return data.rows.every((r) => !GSM_MEASURED.includes(String(r.parameter ?? "")) || GSM_PLATES.every((p) => blank(r[p.key])));
 }
 
@@ -65,8 +66,9 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
     const rows: LogSheetRow[] = data.rows.map((row, i) => {
       const point = pointOf(row.masterReading);
       const next: LogSheetRow = { ...row, ...(point === null ? {} : { observed: point }) };
-      // The Status and the name stand once, down the six lines (merged); the Status is worked out from the readings.
-      if (i === 0 && name) next.performedBy = name;
+      // The Status and the name stand once, down the six lines (merged); the Status is worked out from the readings. A
+      // name already there (the last sheet's signer, carried) is kept.
+      if (i === 0 && name && !String(row.performedBy ?? "").trim()) next.performedBy = name;
       return next;
     });
     return { ...data, rows };
@@ -78,10 +80,8 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
         const weight = String(row[w.weight] ?? "").trim();
         if (weight) next[w.tested] = weight;
       }
-      if (name) {
-        next.testedBy = name;
-        next.sign = name;
-      }
+      if (name && !String(row.testedBy ?? "").trim()) next.testedBy = name;
+      if (name && !String(row.sign ?? "").trim()) next.sign = name;
       return next;
     });
     return { ...data, rows };
@@ -92,7 +92,7 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
     for (const plate of GSM_PLATES) {
       if (GSM_MEASURED.includes(line)) next[plate.key] = plate.size;
       else if (line === "Pass/Fail") next[plate.key] = "Pass";
-      else if (line === "Sign." && name) next[plate.key] = name;
+      else if (line === "Sign." && name && !String(row[plate.key] ?? "").trim()) next[plate.key] = name;
     }
     return next;
   });

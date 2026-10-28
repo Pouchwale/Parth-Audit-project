@@ -387,7 +387,14 @@ export function LogSheetRecordView({
   // THE REPORTS ON THE FRAMED PAGE (F/QC/20, F/QC/29's two; data/seed/qcReportGeometry.ts, §117 round 2): their grids at the papers' columns and heights.
   const rep = frame && !pf ? reportGeometryFor(layout.documentId) : undefined;
   // A line of the calibration grid: F/QC/12's entries take two lines each (the first, then its Deviation % line).
-  const calLine = (i: number, second = false): number | undefined => (cal ? cal.grid.lines[(lines.second ? 2 * i + (second ? 1 : 0) : i)] : undefined);
+  // A line beyond the paper's measured ones (F/QC/12's fifth entry, added on the screen) is as tall as the paper's last
+  // (the owner, 28-Oct-2026: an added line drawn with no height at all).
+  const calLine = (i: number, second = false): number | undefined => {
+    if (!cal) return undefined;
+    const n = cal.grid.lines.length;
+    const at = lines.second ? 2 * i + (second ? 1 : 0) : i;
+    return cal.grid.lines[at < n ? at : Math.max(0, lines.second ? n - 2 + (second ? 1 : 0) : n - 1)];
+  };
   const lcWidth = lc ? lc.cols.reduce((a, b) => a + b, 0) : 0;
   // The grid's columns and rows in the paper's millimetres, on either paper form: the columns as the paper measures them
   // (laid out again by key, below, once the plant has changed them: gridCols).

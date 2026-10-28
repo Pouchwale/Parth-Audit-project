@@ -356,6 +356,22 @@ with sync_playwright() as p:
     check("...a reading changed is kept when the sheet is opened again, not filled over", [r.get("observed") for r in again][:2] == [101, 200], [r.get("observed") for r in again])
 
     scale_id = new_record("qc-weight-scale-calibration")
+    page.wait_for_timeout(800)
+    srows = (stored(page, scale_id) or {}).get("data", {}).get("rows", [])
+    check(
+        "F/QC/12, opened: each Tested Value the exact weight placed, 0%, Pass, Tested By and Sign the person who opened it",
+        len(srows) >= 1 and all(srows[0].get(f"testedValue{i}") == srows[0].get(f"weight{i}") and srows[0].get(f"deviation{i}") == "0%" for i in range(1, 6))
+        and srows[0].get("passFail") == "Pass" and srows[0].get("testedBy") == "Editing QA" and srows[0].get("sign") == "Editing QA" and not srows[0].get("nextDueDate"),
+        srows[:1],
+    )
+    # A line added beyond the paper's four is as tall as the others (the owner, 28-Oct-2026: it was drawn with no height).
+    firsts = page.locator("[data-print-doc] table.log-sheet tbody tr[data-line='first']")
+    before_rows = firsts.count()
+    page.click("button:has-text('Add Row')")
+    page.wait_for_timeout(700)
+    firsts = page.locator("[data-print-doc] table.log-sheet tbody tr[data-line='first']")
+    heights = firsts.evaluate_all("els => els.map((e) => Math.round(e.getBoundingClientRect().height))")
+    check("...a line added on the screen is as tall as the paper's lines", firsts.count() == before_rows + 1 and len(heights) >= 2 and heights[-1] >= heights[0] - 2, heights)
     procedure = page.locator("[data-print-doc] [data-section='notes-below'] [data-editable-words]")
     check("F/QC/12: the PROCEDURE below its grid is there to type over too", procedure.count() >= 1, procedure.count())
     if procedure.count():
