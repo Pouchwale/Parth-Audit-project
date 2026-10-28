@@ -189,7 +189,12 @@ export interface RodentCatch {
   count: number;
 }
 
+/** A record's own wording of the words its form prints, by place (REQUIREMENTS §137): a place not listed keeps the form's. */
+export type PrintedWords = Record<string, string>;
+
 export interface DailyPestMonitoringData {
+  /** The day's own wording of its printed words (REQUIREMENTS §137). */
+  printedWords?: PrintedWords;
   isHoliday: boolean;
   checkpoints: Record<number, DailyCheckpointAnswer>; // key = checkpoint no. 1-10
   timeOfChecking: string;
@@ -209,6 +214,8 @@ export interface FlyCatcherEntry {
 }
 
 export interface FlyCatcherData {
+  /** The visit's own wording of its printed words (REQUIREMENTS §137). */
+  printedWords?: PrintedWords;
   monthYear: string; // e.g. "September-26" for display, matches source style
   entries: FlyCatcherEntry[];
 }
@@ -224,6 +231,8 @@ export interface ServiceReportAreaLine {
 }
 
 export interface ServiceReportData {
+  /** The report's own wording of its printed words (REQUIREMENTS §137). */
+  printedWords?: PrintedWords;
   serviceName: string;
   lines: ServiceReportAreaLine[];
   technicianSign: string;

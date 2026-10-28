@@ -25,6 +25,8 @@ import { bindProps, serviceReportBind } from "../../engine/roundTrip/bindingsFor
 // The quantity is typed once, on the first line of its material, and holds for every line with it; the Remarks is one
 // remark for the visit and is the first line's — a remark an earlier version (or Mitra) wrote against another line is
 // shown under it, never dropped.
+import { PrintedWordsAt } from "./PrintedWordsAt";
+
 export function ServiceReportRecordView({
   doc,
   record,
@@ -58,6 +60,13 @@ export function ServiceReportRecordView({
   const lead = lines[0];
   const others = lines.slice(1).filter((l) => l.remarks.trim() && l.remarks.trim() !== (lead?.remarks ?? "").trim());
   const customerOpen = editable || countersignEditable;
+  // EVERY PRINTED WORD OF THE REPORT, TYPED OVER ON THIS REPORT (REQUIREMENTS §137): the title, the contractor, the plant,
+  // the service, the headings, each area, each material and method, the captions - the report's own words once changed.
+  const at = (place: string, original: string, children?: React.ReactNode, label?: string) => (
+    <PrintedWordsAt place={place} words={data.printedWords} original={original} editable={editable} onWords={(printedWords) => onChange({ ...data, printedWords })} label={label}>
+      {children}
+    </PrintedWordsAt>
+  );
 
   // Every value a person writes carries where it lives in the record, so an
   // edited Excel file can be read back (REQUIREMENTS §81). Material and method
@@ -74,40 +83,46 @@ export function ServiceReportRecordView({
         <tbody>
           <tr className="svc-title-row">
             <td colSpan={6} className="svc-title">
-              {SERVICE_PAPER_TITLE}
+              {at("title", SERVICE_PAPER_TITLE)}
             </td>
           </tr>
           <tr className="svc-band-row">
             <td colSpan={3} className="svc-band svc-left notranslate" translate="no">
-              {SERVICE_PAPER_LABELS.provider}
+              {at("provider", SERVICE_PAPER_LABELS.provider)}
             </td>
             <td colSpan={2} className="svc-band svc-left">
-              {SERVICE_PAPER_LABELS.serviceName}
+              {at("serviceNameLabel", SERVICE_PAPER_LABELS.serviceName)}
             </td>
-            <td className="svc-band svc-date-label">{SERVICE_PAPER_LABELS.date}</td>
+            <td className="svc-band svc-date-label">{at("dateLabel", SERVICE_PAPER_LABELS.date)}</td>
           </tr>
           <tr className="svc-unit-row">
             {/* The provider, the plant and its address read as issued in either language (REQUIREMENTS §58). */}
             <td colSpan={3} className="svc-band svc-left notranslate" translate="no" data-cell="unit">
-              {SERVICE_PAPER_LABELS.unit} {COMPANY.name}, {COMPANY.address.toUpperCase().replace("–", "-")}
+              {at("unit", `${SERVICE_PAPER_LABELS.unit} ${COMPANY.name}, ${COMPANY.address.toUpperCase().replace("–", "-")}`)}
             </td>
             <td colSpan={2} className="svc-band svc-left" data-cell="service-name">
-              {data.serviceName}
-              {pests && (
+              {at(
+                "serviceName",
+                pests ? `${data.serviceName}\n${pests}` : data.serviceName,
                 <>
-                  <br />
-                  {pests}
+                  {data.serviceName}
+                  {pests && (
+                    <>
+                      <br />
+                      {pests}
+                    </>
+                  )}
                 </>
               )}
             </td>
             <td className="svc-band svc-date-value" data-cell="date">
-              {servicePaperDate(record.dueDate)}
+              {at("date", servicePaperDate(record.dueDate))}
             </td>
           </tr>
           <tr className="svc-head-row">
             {SERVICE_PAPER_LABELS.headings.map((h, i) => (
               <td key={h} className={`svc-head${i === 1 || i === 5 ? " svc-left" : ""}`}>
-                {h}
+                {at(`heading:${i}`, h)}
               </td>
             ))}
           </tr>
@@ -127,7 +142,7 @@ export function ServiceReportRecordView({
               <tr key={l.slNo} data-line={l.slNo} className={`${group ? "svc-group-start" : ""}${tall.has(l.areaName) ? " svc-tall" : ""}${narrow.has(l.areaName) ? " svc-narrow" : ""}`}>
                 <td className="svc-no">{l.slNo}</td>
                 <td className="svc-area" data-cell="area">
-                  <span {...bindProps(serviceReportBind.line(l, "areaName"))}>{l.areaName}</span>
+                  <span {...bindProps(serviceReportBind.line(l, "areaName"))}>{at(`area:${l.slNo}`, l.areaName, undefined, "Area")}</span>
                 </td>
                 {group && (
                   <>
@@ -139,7 +154,7 @@ export function ServiceReportRecordView({
                       data-cell="material"
                       title="Fixed for this service — the SOP / Chemical Master material for these areas"
                     >
-                      {l.materialName || <span className="text-faint">—</span>}
+                      {at(`material:${l.slNo}`, l.materialName, l.materialName || <span className="text-faint">—</span>, "Material Name")}
                     </td>
                     <td rowSpan={group.size} className="svc-merged" data-cell="qty">
                       {editable && entersQty ? (
@@ -159,7 +174,7 @@ export function ServiceReportRecordView({
                       )}
                     </td>
                     <td rowSpan={group.size} className="svc-merged notranslate" translate="no" data-cell="method" title="Fixed for this service — the SOP method for these areas">
-                      {l.methodOfApplication || <span className="text-faint">—</span>}
+                      {at(`method:${l.slNo}`, l.methodOfApplication, l.methodOfApplication || <span className="text-faint">—</span>, "Method of Application")}
                     </td>
                   </>
                 )}
@@ -222,9 +237,9 @@ export function ServiceReportRecordView({
           </tr>
           <tr className="svc-sign-captions">
             <td className="svc-edge svc-foot" />
-            <td className="svc-caption">{SERVICE_PAPER_LABELS.technician}</td>
+            <td className="svc-caption">{at("technicianCaption", SERVICE_PAPER_LABELS.technician)}</td>
             <td colSpan={3} className="svc-caption">
-              {SERVICE_PAPER_LABELS.customer}
+              {at("customerCaption", SERVICE_PAPER_LABELS.customer)}
             </td>
             <td className="svc-edge svc-edge-right svc-foot" />
           </tr>
@@ -232,8 +247,8 @@ export function ServiceReportRecordView({
       </table>
       {editable && (
         <div className="text-xs text-muted mt-2 no-print" data-section="service-note">
-          Material and method are fixed for this service. The quantity is entered once, on the first line of each material, and is the same on every line with
-          that material. The areas are set in Master Data.
+          Every printed word can be typed over for this report (a click puts the caret in it). The quantity is entered once, on the first line of each
+          material, and is the same on every line with that material. The areas and their material are the Chemical Master's for every new report.
         </div>
       )}
       {countersignEditable && !data.customerSign.trim() && (

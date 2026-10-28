@@ -18,6 +18,8 @@ import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 // The choice that says the person writes the place in their own words.
 const OTHER_PLACE = "__other__";
 
+import { PrintedWordsAt } from "./PrintedWordsAt";
+
 export function DailyPestMonitoringRecordView({
   doc,
   record,
@@ -51,6 +53,11 @@ export function DailyPestMonitoringRecordView({
   const rodentTrapped = data.checkpoints[7]?.value === "Yes";
   const catches = data.rodentCatches ?? [];
 
+  // EVERY PRINTED WORD OF THE DAY'S RECORD, TYPED OVER ON IT (REQUIREMENTS §137): the instructions, each check point's
+  // question, the headings - this day's own words once changed; the register and every other day keep the form's.
+  const at = (place: string, original: string, label?: string) => (
+    <PrintedWordsAt place={place} words={data.printedWords} original={original} editable={editable} onWords={(printedWords) => onChange({ ...data, printedWords })} label={label} />
+  );
   const setField = <K extends keyof DailyPestMonitoringData>(key: K, value: DailyPestMonitoringData[K]) => {
     onChange({ ...data, [key]: value });
   };
@@ -99,8 +106,8 @@ export function DailyPestMonitoringRecordView({
 
       <div className="card mt-4">
         <div className="card-pad">
-          <p className="text-sm mb-2">{FHR17_INSTRUCTION_1}</p>
-          <p className="text-sm font-semibold">{FHR17_INSTRUCTION_2}</p>
+          <p className="text-sm mb-2">{at("instruction:1", FHR17_INSTRUCTION_1)}</p>
+          <p className="text-sm font-semibold">{at("instruction:2", FHR17_INSTRUCTION_2)}</p>
 
           <label className="flex items-center gap-2 mt-4" style={{ cursor: editable ? "pointer" : "default" }}>
             <input
@@ -130,10 +137,10 @@ export function DailyPestMonitoringRecordView({
           <table>
             <thead>
               <tr>
-                <th style={{ width: 40 }}>No.</th>
-                <th>Check Point</th>
-                <th style={{ width: 200 }}>Response</th>
-                <th style={{ width: 220 }}>Note</th>
+                <th style={{ width: 40 }}>{at("head:no", "No.")}</th>
+                <th>{at("head:checkPoint", "Check Point")}</th>
+                <th style={{ width: 200 }}>{at("head:response", "Response")}</th>
+                <th style={{ width: 220 }}>{at("head:note", "Note")}</th>
               </tr>
             </thead>
             <tbody>
@@ -143,7 +150,7 @@ export function DailyPestMonitoringRecordView({
                 return (
                   <tr key={cp.no}>
                     <td>{cp.no}</td>
-                    <td className="text-sm">{cp.text}</td>
+                    <td className="text-sm">{at(`cp:${cp.no}`, cp.text, "Check Point")}</td>
                     <td>
                       {cp.responseType === "number" ? (
                         <input
@@ -213,9 +220,9 @@ export function DailyPestMonitoringRecordView({
             <table className="compact">
               <thead>
                 <tr>
-                  <th style={{ width: 120 }}>Trap box no.</th>
-                  <th>Location</th>
-                  <th style={{ width: 130 }}>No. of rodents</th>
+                  <th style={{ width: 120 }}>{at("head:trapBox", "Trap box no.")}</th>
+                  <th>{at("head:location", "Location")}</th>
+                  <th style={{ width: 130 }}>{at("head:rodents", "No. of rodents")}</th>
                   {editable && <th style={{ width: 36 }}></th>}
                 </tr>
               </thead>
@@ -346,7 +353,7 @@ export function DailyPestMonitoringRecordView({
 
       <div className="card mt-4">
         <div className="card-header">
-          <h3 className="text-base font-semibold">Summary of Actions Taken if Pest Observed</h3>
+          <h3 className="text-base font-semibold">{at("summaryTitle", "Summary of Actions Taken if Pest Observed")}</h3>
           {editable && (
             <button className="btn btn-secondary btn-sm" onClick={addAction}>
               <FiPlus size={13} /> Add Row
@@ -365,10 +372,10 @@ export function DailyPestMonitoringRecordView({
           <table>
             <thead>
               <tr>
-                <th>Date of Observation</th>
-                <th>Description of Observation</th>
-                <th>Action Taken</th>
-                <th>Remarks</th>
+                <th>{at("head:dateOfObservation", "Date of Observation")}</th>
+                <th>{at("head:description", "Description of Observation")}</th>
+                <th>{at("head:actionTaken", "Action Taken")}</th>
+                <th>{at("head:remarks", "Remarks")}</th>
                 {editable && <th></th>}
               </tr>
             </thead>

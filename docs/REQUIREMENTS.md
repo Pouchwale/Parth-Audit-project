@@ -9927,6 +9927,29 @@ every document when i click then that date is also editable"; and the three freq
    kept on reopening; the date typed over, the record moved with its history), with
    qc_formats, qc_calibration, smoke and header_editing.
 
+## §137 The HR module's own views: every printed word typed over on the record (28-Oct-2026)
+
+The owner, 28-Oct-2026, with the contractor's General Pest Control service report: "So now make HR Module each and every
+part of all documents editable so do it fast ad perfectly."
+
+1. **Measured first** (scratchpad tool locked_parts.py, every HR document's new record on the current build): after §135
+   the HR sheets drawn as log sheets (F/HR/04, 05, 06, 07, 11, 12, 13, 14, 15, 16, 19, 20, 22) had nothing left that could
+   not be typed over. What was: the forms the HR module draws with views of their own - the three service reports (26 to
+   35 places each), F/HR/17's day (19) and F/HR/18's visit (52).
+2. **Those places are typed over on the record now** (components/records/PrintedWordsAt.tsx over EditableWords, §135),
+   kept as the record's own words by place (printedWords on the service report, the day and the visit): the service
+   report's title, contractor, plant line, service name, date, headings, every area, material and method, and both
+   captions; F/HR/17's two instructions, every check point's question and every heading; F/HR/18's catcher numbers and
+   areas, the visit's date on each line and the headings. A place nobody changed draws exactly what it drew before (the
+   same markup), so printouts and downloads are as they were; the Chemical Master, Master Data's check points and catcher
+   areas, and every other record keep the plant's words for every new one.
+3. **Already so, and why some still read locked on a measure:** F/HR/01, 03, 08, 09 and 21 open on the register on file,
+   which is verified - a verified record is reopened with Edit, as every record is (§86); then each of its boxes is typed
+   over. A worked-out cell (F/HR/21's analysis, read from the surveys) follows what it is worked out from (§135).
+4. **Proved:** frontend/tests/printedWords.test.ts (a place's words, the unchanged markup, the caret, every place of the
+   three views) and tests/e2e_editing.py (a service report's area typed over and kept as the report's own), with
+   hr_module, smoke and print_all_documents.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

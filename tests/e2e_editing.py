@@ -379,6 +379,17 @@ with sync_playwright() as p:
         words = ((stored(page, scale_id) or {}).get("data", {}).get("words") or {}).get("notesBelow") or []
         check("...kept as this record's own text below the grid, the format's untouched", words[:1] == ["PROCEDURE: as our lab does it this week."], words)
 
+    # THE HR MODULE'S OWN VIEWS (REQUIREMENTS s137): the contractor's service report's printed words typed over on the report.
+    svc_id = new_record("service-report-general")
+    area = page.locator("[data-print-doc] [data-cell='area'] [data-editable-words]")
+    check("The service report: its areas, material and method are there to type over on a new report",
+          area.count() >= 3 and page.locator("[data-print-doc] [data-cell='material'] [data-editable-words]").count() >= 1
+          and page.locator("[data-print-doc] [data-cell='method'] [data-editable-words]").count() >= 1, area.count())
+    if area.count():
+        type_over(area.first, "Ground floor - Main gate")
+        words = ((stored(page, svc_id) or {}).get("data", {}).get("printedWords") or {})
+        check("...an area typed over is this report's own words, the Chemical Master's untouched", "Ground floor - Main gate" in words.values(), words)
+
     page.goto(f"{BASE}/index.html#/record/qc-gsm-plate-calibration-2024-12")
     page.wait_for_timeout(1500)
     dismiss(page)

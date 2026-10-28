@@ -1,3 +1,5 @@
+import { PrintedWordsAt } from "./PrintedWordsAt";
+import type { PrintedWords } from "../../types";
 import React from "react";
 import type { DocumentDefinition, FlyCatcherData, FlyCatcherEntry, RecordInstance } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
@@ -63,6 +65,12 @@ export function FlyCatcherRecordView({
   // or Excel file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
   const bound = (pcId: string, field: FlyEntryField) => bindProps(flyCatcherBind.entry(pcId, field));
   const serviceDate = paperDate(record.dueDate);
+  // EVERY PRINTED WORD OF THE VISIT'S SHEET, TYPED OVER ON IT (REQUIREMENTS §137): each catcher's number and area, the
+  // visit's date on each line, the headings - this visit's own words once changed; Master Data keeps the plant's.
+  const host = { words: data.printedWords, editable, onWords: (printedWords: PrintedWords) => onChange({ ...data, printedWords }) };
+  const at = (place: string, original: string, label?: string) => (
+    <PrintedWordsAt place={place} words={data.printedWords} original={original} editable={editable} onWords={host.onWords} label={label} />
+  );
 
   return (
     <div className="fhr18-record" data-bind-record={record.id}>
@@ -93,11 +101,11 @@ export function FlyCatcherRecordView({
           />
         </div>
 
-        <Fhr18Legend pcLocations={pcLocations} />
+        <Fhr18Legend pcLocations={pcLocations} host={host} />
 
         <div className="doc-table register-grid-wrap">
           <table className="register-grid fhr18-grid">
-            <Fhr18GridHead />
+            <Fhr18GridHead host={host} />
             <tbody className="fhr18-gap" data-gap="first" aria-hidden="true">
               <tr>
                 <td colSpan={7} />
@@ -109,11 +117,11 @@ export function FlyCatcherRecordView({
                 <tbody key={e.pcId} className="fhr18-unit" data-pc={e.pcId}>
                   <tr className="register-row">
                     <td className="pc-cell notranslate" translate="no">
-                      {e.pcId}
+                      {at(`pc:${e.pcId}`, e.pcId, "Catcher")}
                     </td>
                     {/* The visit's date, as the paper writes it (3/08/26). */}
                     <td className="date-cell notranslate" translate="no">
-                      {serviceDate}
+                      {at(`date:${e.pcId}`, serviceDate, "Date of service")}
                     </td>
                     <td className="edit-cell">
                       <input

@@ -1,3 +1,5 @@
+import { PrintedWordsAt } from "./PrintedWordsAt";
+import type { PrintedWords } from "../../types";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { FiCheck, FiEdit3, FiLoader, FiPlus, FiPrinter, FiX } from "react-icons/fi";
@@ -120,7 +122,20 @@ export function fhr18LegendRows(pcLocations: readonly PCLocation[]): [string | n
  * The legend of the thirteen units and where they hang, as the paper prints
  * it under "Month & Year" — on the register and on a visit's own page.
  */
-export function Fhr18Legend({ pcLocations }: { pcLocations: readonly PCLocation[] }) {
+/** Where a sheet's printed words may be typed over (REQUIREMENTS §137): the record's own words and how to keep them. */
+export interface WordsHost {
+  words: PrintedWords | undefined;
+  editable: boolean;
+  onWords: (next: PrintedWords) => void;
+}
+
+/** The words at a place, typed over on the record where a host is given; as before (the same markup) where none is. */
+function wordsHere(host: WordsHost | undefined, place: string, original: string, label?: string): React.ReactNode {
+  if (!host) return original;
+  return <PrintedWordsAt place={place} words={host.words} original={original} editable={host.editable} onWords={host.onWords} label={label} />;
+}
+
+export function Fhr18Legend({ pcLocations, host }: { pcLocations: readonly PCLocation[]; host?: WordsHost }) {
   const byId = new Map(pcLocations.map((pc) => [pc.id, pc]));
   const label = (id: string | null) => (id && byId.get(id) ? locationLabel(byId.get(id)!) : "");
   return (
@@ -130,16 +145,16 @@ export function Fhr18Legend({ pcLocations }: { pcLocations: readonly PCLocation[
           <tr key={i}>
             {/* The catcher numbers and the areas they hang in are master data, named as the plant names them (REQUIREMENTS §58). */}
             <td className="pc-id notranslate" translate="no">
-              {left ?? ""}
+              {left ? wordsHere(host, `legendId:${left}`, left) : ""}
             </td>
             <td className="pc-loc notranslate" translate="no">
-              {label(left)}
+              {left ? wordsHere(host, `legendArea:${left}`, label(left), "Area") : ""}
             </td>
             <td className="pc-id notranslate" translate="no">
-              {right ?? ""}
+              {right ? wordsHere(host, `legendId:${right}`, right) : ""}
             </td>
             <td className="pc-loc notranslate" translate="no">
-              {label(right)}
+              {right ? wordsHere(host, `legendArea:${right}`, label(right), "Area") : ""}
             </td>
           </tr>
         ))}
@@ -149,13 +164,13 @@ export function Fhr18Legend({ pcLocations }: { pcLocations: readonly PCLocation[
 }
 
 /** The grid's heading line: the seven headings as the paper prints them. */
-export function Fhr18GridHead() {
+export function Fhr18GridHead({ host }: { host?: WordsHost } = {}) {
   return (
     <thead>
       <tr>
         {FHR18_HEADINGS.map((heading, i) => (
           <th key={heading} className={i === 0 ? "pc-head" : undefined}>
-            {heading}
+            {wordsHere(host, `heading:${i}`, heading)}
           </th>
         ))}
       </tr>
