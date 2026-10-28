@@ -45,7 +45,7 @@ import { PreparedBanner } from "../components/records/PreparedBanner";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { mayDo } from "../engine/departmentScope";
 import { periodKeyFor } from "../engine/recordGenerator";
-import { nominalFill, nominalFillLabel } from "../engine/nominalFill";
+import { NOMINAL_FILL_NOTE, nominalFillOnOpen } from "../engine/nominalFill";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -237,14 +237,16 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     [flush, doc, currentUser, persistLocal]
   );
 
-  // ONE PRESS FILLS A CALIBRATION SHEET AS THE PLANT'S PAGES ARE FILLED (REQUIREMENTS §136, engine/nominalFill.ts): in
-  // the presser's own name, every box still theirs; saved as any typing is, line by line in the history.
-  const fillKind = doc && record && doc.kind === "log-sheet" ? nominalFillLabel(doc.id) : null;
-  const fillNominal = () => {
-    if (!doc || !record || !fillKind) return;
-    const filled = nominalFill(doc.id, (latest.current.data ?? data) as LogSheetData, currentUser);
-    if (filled) handleChange(filled);
-  };
+  // A CALIBRATION SHEET IS FILLED AS THE PLANT'S PAGES ARE THE MOMENT A PERSON OPENS IT (REQUIREMENTS §136, the owner,
+  // 28-Oct-2026: "whenever user open any date new record to fill than it should be filled"; engine/nominalFill.ts): a
+  // sheet nothing is observed on yet, opened by somebody who may fill it, is written in their name, with a line in its
+  // history, every box still theirs to change. One already written on is left as it is.
+  useEffect(() => {
+    if (!record || !doc || doc.kind !== "log-sheet" || !editable || superseded || dirty) return;
+    const filled = nominalFillOnOpen(doc.id, record.data as LogSheetData | undefined, currentUser);
+    if (filled) persistLocal(saveDraft(record, withComputedCells(doc.id, filled), currentUser, { note: NOMINAL_FILL_NOTE }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record?.id, editable, superseded]);
 
   useEffect(() => {
     flush(); // anything pending on the record we're leaving
@@ -554,11 +556,6 @@ export function RecordPage({ recordId }: { recordId?: string }) {
                 {formatDisplayDate(record.dueDate)}
               </span>
             </span>
-          )}
-          {editable && !superseded && fillKind && (
-            <button type="button" className="btn btn-secondary btn-sm" data-action="fill-nominal" title={t("record.fillNominalHint")} onClick={fillNominal}>
-              {t(fillKind === "ruler" ? "record.fillNominalRuler" : "record.fillNominalGsm")}
-            </button>
           )}
           {record.isDemo && <DemoTag />}
           <StatusBadge status={record.status} overdue={overdue} />

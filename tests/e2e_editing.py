@@ -331,28 +331,29 @@ with sync_playwright() as p:
               and any(any(c.get("field") == "dueDate" for c in (e.get("changes") or [])) for e in (moved.get("history") or [])),
               (was, moved.get("dueDate"), moved.get("periodKey")))
 
-    # ONE PRESS FILLS A CALIBRATION SHEET AS THE PLANT'S PAGES ARE FILLED (REQUIREMENTS s136): F/QC/17 read as the master's at
-    # every point, in the presser's name; the Difference and the Status follow; a new sheet comes blank until then (s98).
+    # A CALIBRATION SHEET IS FILLED AS THE PLANT'S PAGES ARE THE MOMENT A PERSON OPENS IT (REQUIREMENTS s136): F/QC/17 read as
+    # the master's at every point, in the opener's name, with a line in its history; the Difference and the Status follow.
     ruler_id = new_record("qc-ruler-verification")
-    fresh = (stored(page, ruler_id) or {}).get("data", {}).get("rows", [])
-    check("F/QC/17 (600 mm): a new sheet holds its six printed points and no reading of DCRS's own (s98)",
-          len(fresh) == 6 and all(r.get("observed") in (None, "") and not r.get("performedBy") for r in fresh), fresh[:2])
-    press = page.locator("[data-action='fill-nominal']")
-    check("...and offers one press to read it as the master's at every point", press.count() == 1 and "master" in press.inner_text().lower(), press.count())
-    if press.count():
-        press.click()
-        page.wait_for_timeout(600)
-        page.locator("h1, .page-title").first.click(force=True) if page.locator("h1, .page-title").count() else page.mouse.click(5, 5)
-        page.wait_for_timeout(1200)
-        rows = (stored(page, ruler_id) or {}).get("data", {}).get("rows", [])
-        check(
-            "...pressed: Observed = the master's at every point, Difference 0.0, Status Pass, performed by the person who pressed it",
-            [r.get("observed") for r in rows] == [100, 200, 300, 400, 500, 490] and all(str(r.get("difference")) == "0.0" for r in rows)
-            and rows[0].get("status") == "Pass" and rows[0].get("performedBy") == "Editing QA",
-            [(r.get("observed"), r.get("difference"), r.get("status"), r.get("performedBy")) for r in rows],
-        )
-        first = page.locator("[data-print-doc] input[type='number']").first
-        check("...every reading still a box to change", first.count() == 1 and first.is_editable(), first.count())
+    page.wait_for_timeout(800)
+    opened = stored(page, ruler_id) or {}
+    rows = opened.get("data", {}).get("rows", [])
+    check(
+        "F/QC/17 (600 mm), opened: Observed = the master's at every point, Difference 0.0, Status Pass, performed by the person who opened it",
+        [r.get("observed") for r in rows] == [100, 200, 300, 400, 500, 490] and all(str(r.get("difference")) == "0.0" for r in rows)
+        and rows[0].get("status") == "Pass" and rows[0].get("performedBy") == "Editing QA",
+        [(r.get("observed"), r.get("difference"), r.get("status"), r.get("performedBy")) for r in rows],
+    )
+    check("...with a line in its history, in that person's name", any("on opening" in str(e.get("note", "")) and e.get("by") == "Editing QA" for e in (opened.get("history") or [])), [e.get("note") for e in (opened.get("history") or [])][-2:])
+    first = page.locator("[data-print-doc] input[type='number']").first
+    check("...every reading still a box to change", first.count() == 1 and first.is_editable(), first.count())
+    check("...and no press to do it: it is done on opening", page.locator("[data-action='fill-nominal']").count() == 0)
+    first.fill("101")
+    page.wait_for_timeout(900)
+    page.reload()
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    again = (stored(page, ruler_id) or {}).get("data", {}).get("rows", [])
+    check("...a reading changed is kept when the sheet is opened again, not filled over", [r.get("observed") for r in again][:2] == [101, 200], [r.get("observed") for r in again])
 
     scale_id = new_record("qc-weight-scale-calibration")
     procedure = page.locator("[data-print-doc] [data-section='notes-below'] [data-editable-words]")

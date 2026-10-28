@@ -9,7 +9,7 @@ import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/dat
 import { RULER_300_ID, RULER_600_ID } from "../src/data/seed/qcRulerVerificationLayouts";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { withComputedCells } from "../src/engine/computedCells";
-import { nominalFill, nominalFillLabel } from "../src/engine/nominalFill";
+import { nominalFill, nominalFillLabel, nominalFillOnOpen, nominalFillWaits } from "../src/engine/nominalFill";
 import { prepareKnownParts } from "../src/engine/knownParts";
 
 ensureDocumentsSeeded();
@@ -55,4 +55,21 @@ test("only these three documents have the press; a new Live sheet still comes wi
   assert.equal(nominalFill("qc-viscosity", { header: {}, rows: [] }, "x"), null);
   const known = prepareKnownParts(doc(RULER_600_ID), "2026-10-28", master, undefined)!.data as LogSheetData;
   assert.ok(known.rows.every((r) => (r.observed === null || r.observed === "") && r.status === "" && r.performedBy === ""), "DCRS writes no reading by itself (§98)");
+});
+
+test("on opening: a sheet nothing is observed on is filled in the opener's name; one written on - a reading, or carried as the last one was - is left", () => {
+  const blank = createDefaultData(doc(RULER_600_ID), "2026-10-28", master) as LogSheetData;
+  assert.equal(nominalFillWaits(RULER_600_ID, blank), true);
+  const opened = nominalFillOnOpen(RULER_600_ID, blank, "Kapila Barad")!;
+  assert.deepEqual(opened.rows.map((r) => r.observed), [100, 200, 300, 400, 500, 490]);
+  assert.equal(opened.rows[0].performedBy, "Kapila Barad");
+  assert.equal(nominalFillOnOpen(RULER_600_ID, opened, "Somebody Else"), null, "written on: left as it is");
+  const oneReading = { ...blank, rows: blank.rows.map((r, i) => (i === 2 ? { ...r, observed: 301 } : r)) };
+  assert.equal(nominalFillOnOpen(RULER_600_ID, oneReading, "x"), null, "a reading a person wrote: left as it is");
+  const gsm = createDefaultData(doc(GSM), "2026-11-03", master) as LogSheetData;
+  assert.equal(nominalFillWaits(GSM, gsm), true);
+  const measured = { ...gsm, rows: gsm.rows.map((r, i) => (i === 0 ? { ...r, p55: "10.1 x 10cm" } : r)) };
+  assert.equal(nominalFillOnOpen(GSM, measured, "x"), null, "a plate measured: left as it is");
+  assert.equal(nominalFillOnOpen("qc-weight-scale-calibration", blank, "x"), null);
+  assert.equal(nominalFillOnOpen(RULER_600_ID, undefined, "x"), null);
 });
