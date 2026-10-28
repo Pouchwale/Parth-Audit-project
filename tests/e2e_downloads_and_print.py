@@ -247,7 +247,7 @@ with sync_playwright() as p:
     rows, sheet_xml, _ = workbook(path)
     lines = [[c[0] for c in r.values()] for r in rows.values()]
     check("F/QC/17 downloads as a portrait workbook, as its paper is (s117)", fmt == "xlsx" and 'orientation="portrait"' in sheet_xml, (fmt, suggested))
-    check("...with the paper's + / - 1 mm starting its tolerance box and its six points, 100 to 590 mm as updated (27-Oct-2026)", any("+ / - 1 mm" in l for l in lines) and any("590 mm" in l for l in lines), lines[:20])
+    check("...with the paper's + / - 1 mm starting its tolerance box and its six points, 100 to 500 mm and 490 mm as printed (28-Oct-2026)", any("+ / - 1 mm" in l for l in lines) and any("490 mm" in l for l in lines) and not any("590 mm" in l for l in lines), lines[:20])
     # F/QC/17's second page, the 300 mm scale's (REQUIREMENTS s117, 17-Oct-2026): the same workbook, its own two values.
     goto(page, "#/library")
     page.locator("[data-action='new-record'][data-document='qc-ruler-verification-300']").first.evaluate("el => el.click()")

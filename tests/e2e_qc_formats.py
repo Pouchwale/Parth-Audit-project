@@ -1204,17 +1204,18 @@ with sync_playwright() as p:
         body[:700],
     )
     check(
-        "...# | Master calibrator reading | Observed reading (mm) | Difference | Status (Pass/Fail) | Calibration performed by, on 100 to 590 mm (the page as updated, 27-Oct-2026)",
+        "...# | Master calibrator reading | Observed reading (mm) | Difference | Status (Pass/Fail) | Calibration performed by, on 100 to 500 mm and 490 mm (the page as updated, its last point as printed, 28-Oct-2026)",
         heads(page) == ["#", "Master calibrator reading", "Observed reading (mm)", "Difference", "Status (Pass/Fail)", "Calibration performed by"]
-        and [cell_texts(page, i)[1] for i in range(sheet_rows(page).count())] == ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"],
+        and [cell_texts(page, i)[1] for i in range(sheet_rows(page).count())] == ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "490 mm"],
         (heads(page), sheet_rows(page).count()),
     )
     rid = start_record(page, "qc-ruler-verification")
     started = record(page, rid) or {}
     started_header = started.get("data", {}).get("header", {})
     check(
-        "A new F/QC/17 (600 mm) holds the master scale's identity, its updated page's serial and range, the ruler's calibration 23-09-26 due 22-09-27 (the owner, 27-Oct-2026), the printed tolerance, and nothing of the 2024 page",
+        "A new F/QC/17 (600 mm) holds the master scale's identity and its calibration 21-09-26 due 20-09-27 (28-Oct-2026), its updated page's serial and range, the ruler's calibration 23-09-26 due 22-09-27 (27-Oct-2026), the printed tolerance, and nothing of the 2024 page",
         started_header.get("masterSerialNo") == "QC-44" and started_header.get("acceptableTolerance") == "+ / - 1 mm"
+        and started_header.get("masterCalibrationDate") == "2026-09-21" and started_header.get("masterCalibrationDueDate") == "2027-09-20"
         and started_header.get("serialNo") == "GP-3/MS/36" and started_header.get("range") == "0-600mm"
         and started_header.get("calibrationDate") == "2026-09-23" and started_header.get("calibrationDueDate") == "2027-09-22" and "2024" not in json.dumps(started.get("data", {})),
         started_header,
@@ -1262,6 +1263,7 @@ with sync_playwright() as p:
         started_header.get("serialNo") == "GP-3/MS/42" and started_header.get("range") == "0-300 mm" and started_header.get("masterSerialNo") == "QC-44"
         and started_header.get("acceptableTolerance") == "+ / - 1 mm" and not started_header.get("make") and not started_header.get("masterCalibrationReportNo")
         and started_header.get("calibrationDate") == "2026-09-23" and started_header.get("calibrationDueDate") == "2027-09-22"
+        and started_header.get("masterCalibrationDate") == "2026-09-21" and started_header.get("masterCalibrationDueDate") == "2027-09-20"
         and "2024" not in json.dumps(started.get("data", {})) and "GP-3/MS/36" not in json.dumps(started.get("data", {})),
         started_header,
     )

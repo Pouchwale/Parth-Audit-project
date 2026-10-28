@@ -8,24 +8,33 @@
 // such box, the later of what it holds and the certificate's date, with ONE line in its history saying so; a later date a
 // person wrote is kept. Only a sheet the signed-in person may fill is changed from their browser (REQUIREMENTS §96). Run
 // on every start by data/bootstrap.ts: nothing to do, nothing written.
-import type { LogSheetData, RecordInstance } from "../types";
+//
+// AND THE PAGE'S OWN LINES (the owner, 28-Oct-2026, F/QC/17's 600 mm page: "master calibration reading is totally
+// wrong"; its last point is 490 mm, as printed, REQUIREMENTS §132). An open sheet still on a former page's printed
+// lines (LogSheetLayout.formerRows: 50 to 290 mm, or 100 to 590 mm) with nothing written on them takes the page's own
+// lines, in the same history line; lines a person wrote a reading on are theirs and are left as they are.
+import type { LogSheetData, LogSheetLayout, RecordInstance } from "../types";
 import { recordRepository } from "./repositories/recordRepository";
 import { getLogSheetLayout } from "./seed/logSheetLayouts";
 import { appendHistory, diffRecordData, historyOf, makeEntry } from "../engine/recordHistory";
 import { mayWriteRecordsOf } from "../engine/departmentScope";
+import { columnKind } from "../engine/observations";
 
 /** What each changed sheet's history says. */
-export const CERTIFICATE_NOTE = "The calibration certificate's dates the owner gave (27-Oct-2026) written in where the sheet held an earlier date (REQUIREMENTS §129)";
+export const CERTIFICATE_NOTE = "The calibration certificates' dates the owner gave (27 and 28-Oct-2026) written in where the sheet held an earlier date (REQUIREMENTS §129, §132)";
+/** ...and when its lines are the page's own again. */
+export const PAGE_LINES_NOTE = "The page's own printed lines as updated (the owner, 28-Oct-2026) written in where the sheet held a former page's, nothing written on them (REQUIREMENTS §132)";
 
 const OPEN: ReadonlySet<string> = new Set(["Scheduled", "Due", "In Progress", "Rejected"]);
 
-/** Brings the open sheets' certificate dates up to the certificate's; returns how many sheets changed. */
+/** Brings the open sheets' certificate dates up to the certificate's, and a former page's untouched lines to the page's own; returns how many sheets changed. */
 export function alignCertificateDates(): number {
   const updates: RecordInstance[] = [];
   for (const r of recordRepository.snapshot()) {
     if (r.isDemo || r.correction || !OPEN.has(r.status)) continue;
-    const boxes = getLogSheetLayout(r.documentId)?.headerFields.filter((f) => f.autoFill?.newest && f.autoFill.default) ?? [];
-    if (boxes.length === 0 || !mayWriteRecordsOf(r.documentId)) continue;
+    const layout = getLogSheetLayout(r.documentId);
+    const boxes = layout?.headerFields.filter((f) => f.autoFill?.newest && f.autoFill.default) ?? [];
+    if (!layout || (boxes.length === 0 && !layout.formerRows) || !mayWriteRecordsOf(r.documentId)) continue;
     const d = r.data as LogSheetData | undefined;
     if (!d?.header) continue;
     let header: Record<string, string> | null = null;
@@ -37,11 +46,30 @@ export function alignCertificateDates(): number {
       header = header ?? { ...d.header };
       header[f.key] = want;
     }
-    if (!header) continue;
-    const data: LogSheetData = { ...d, header };
-    const entry = appendHistory({ ...r, history: [] }, makeEntry("edited", "System", { changes: diffRecordData(r.data, data), note: CERTIFICATE_NOTE })).history![0];
+    const rows = pageLinesAgain(layout, d.rows);
+    if (!header && !rows) continue;
+    const data: LogSheetData = { ...d, ...(header ? { header } : {}), ...(rows ? { rows } : {}) };
+    const note = [header ? CERTIFICATE_NOTE : "", rows ? PAGE_LINES_NOTE : ""].filter(Boolean).join(". ");
+    const entry = appendHistory({ ...r, history: [] }, makeEntry("edited", "System", { changes: diffRecordData(r.data, data), note })).history![0];
     updates.push({ ...r, data, history: [...historyOf(r), entry] });
   }
   if (updates.length) recordRepository.upsertMany(updates);
   return updates.length;
+}
+
+/** A former page's printed lines with nothing written on them: the page's own lines now (their ids kept); else null. */
+function pageLinesAgain(layout: LogSheetLayout, rows: LogSheetData["rows"] | undefined): LogSheetData["rows"] | null {
+  const mode = layout.rowMode;
+  if (mode.kind !== "fixedRows" || !Array.isArray(rows) || rows.length !== mode.rows.length) return null;
+  const former = (layout.formerRows ?? []).find((page) => page.length === rows.length && page.every((starts, i) => Object.entries(starts).every(([k, v]) => String(rows[i][k] ?? "") === String(v))));
+  if (!former) return null;
+  const starts = new Set(former.flatMap((line) => Object.keys(line)));
+  const written = rows.some((row) =>
+    layout.columns.some((c) => {
+      const kind = columnKind(c);
+      const v = row[c.key];
+      return kind !== "computed" && kind !== "date" && !starts.has(c.key) && v !== null && v !== undefined && String(v).trim() !== "";
+    })
+  );
+  return written ? null : rows.map((row, i) => ({ ...row, ...mode.rows[i] }));
 }

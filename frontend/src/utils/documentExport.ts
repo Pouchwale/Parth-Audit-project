@@ -581,7 +581,7 @@ function walk(el: Element, out: ExportBlock[]): void {
     if (cell.bind && !cell.bind.label && name) cell.bind.label = name;
     const last = out[out.length - 1];
     if (last?.kind === "fields" && !closedFields.has(last)) {
-      // A box in its column of the line (paperColumn: F/QC/11's Due Date at the right) leaves the columns before it empty.
+      // A box in its column of the line (paperColumn: an incoming record's Date of Inspection at the right) leaves the columns before it empty.
       const column = Number(el.getAttribute("data-paper-column")) || 0;
       if (last.perLine && column > 1 && column <= last.perLine) while (last.pairs.length % last.perLine !== column - 1) last.pairs.push(["", { text: "" }]);
       last.pairs.push([name, cell]);

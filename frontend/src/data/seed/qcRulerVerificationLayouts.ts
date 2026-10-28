@@ -27,9 +27,10 @@ import type { LogHeaderField, LogSheetLayout } from "../../types";
 //
 // THE 600 MM PAGE UPDATED (the owner, 27-Oct-2026, "Copy of F-QC-17-Updated Scale (Ruler) internal verification record
 // 600 mm- Copy.pdf"): the scale under calibration is Ajanta GP-3/MS/36, 0-600mm, and its six points are 100, 200,
-// 300, 400, 500 and 590 mm (the page prints "490 mm" on its last line against an observed 590 and a Difference of 0.0:
-// 590, as the 300 mm page's last point is 290). And the ruler's Calibration date and Calibration due date start every
-// new sheet of both scales as 23-09-26 and 22-09-27, editable (RULER_CERTIFICATE).
+// 300, 400, 500 and 490 mm - the last exactly as the page prints it, though it stands beside an observed 590 and a
+// Difference of 0.0 (the owner chose it, 28-Oct-2026: "490 mm, exactly as printed"; 590 from 27-Oct until then). The
+// ruler's Calibration date and Calibration due date start every new sheet of both scales as 23-09-26 and 22-09-27
+// (RULER_CERTIFICATE), the master scale's as 21-09-26 and 20-09-27 (MASTER_CERTIFICATE), each editable.
 
 /**
  * THE RULER'S CALIBRATION, ON EVERY NEW SHEET (the owner, 27-Oct-2026: "measuring scale (ruler) under calibration details
@@ -38,6 +39,13 @@ import type { LogHeaderField, LogSheetLayout } from "../../types";
  * date was the day the record is for.
  */
 export const RULER_CERTIFICATE = { date: "2026-09-23", due: "2027-09-22" } as const;
+
+/**
+ * THE MASTER SCALE'S CERTIFICATE, ON EVERY NEW SHEET (the owner, 28-Oct-2026, the upper table "Master Measuring Scale
+ * (Ruler) Details": "Calibration 21-9-26, due date 20-9-27"): editable, the later date kept (autoFill.newest), on both
+ * scales' pages. Its report number stays the person's to write.
+ */
+export const MASTER_CERTIFICATE = { date: "2026-09-21", due: "2027-09-20" } as const;
 
 /** The paper's acceptable tolerance, printed in its box. */
 export const RULER_TOLERANCE = "+ / - 1 mm";
@@ -82,9 +90,13 @@ export const RULER_SCALES: readonly RulerScale[] = [
     lengthMm: 600,
     serialNo: "GP-3/MS/36",
     range: "0-600mm",
-    points: [100, 200, 300, 400, 500, 590],
-    // The page of 14-Oct-2026 printed the 300 mm page's points: a sheet written on them carries its boxes, not its lines.
-    formerPoints: [[50, 100, 150, 200, 250, 290]],
+    points: [100, 200, 300, 400, 500, 490],
+    // The page of 14-Oct-2026 printed the 300 mm page's points, and 27-Oct-2026's read its last as 590: a sheet written
+    // on either carries its boxes, not its lines.
+    formerPoints: [
+      [50, 100, 150, 200, 250, 290],
+      [100, 200, 300, 400, 500, 590],
+    ],
     startsWithThem: true,
     specimenSource:
       "Copy of F-QC-17-Updated Scale (Ruler) internal verification record 600 mm- Copy.pdf (supplied 27-Oct-2026; the page of 14-Oct-2026 before it read GP-3/MS/04 and 50 to 290 mm)",
@@ -134,8 +146,9 @@ const masterBoxes = (): LogHeaderField[] => [
   { key: "masterSerialNo", label: "Master Serial number", type: "text", required: true, autoFill: { default: "QC-44" } },
   { key: "masterRange", label: "Master Range", type: "text", autoFill: { default: "0 - 600 mm" } },
   { key: "masterLeastCount", label: "Master Least count", type: "text", autoFill: { default: "1 mm" } },
-  { key: "masterCalibrationDate", label: "Master Calibration date", type: "date", required: true },
-  { key: "masterCalibrationDueDate", label: "Master Calibration due date", type: "date", required: true },
+  // 21-09-26 and 20-09-27 on every new sheet, editable (MASTER_CERTIFICATE, the owner, 28-Oct-2026).
+  { key: "masterCalibrationDate", label: "Master Calibration date", type: "date", required: true, autoFill: { default: MASTER_CERTIFICATE.date, newest: true } },
+  { key: "masterCalibrationDueDate", label: "Master Calibration due date", type: "date", required: true, autoFill: { default: MASTER_CERTIFICATE.due, newest: true } },
   { key: "masterCalibrationReportNo", label: "Master Calibration report number", type: "text", required: true },
 ];
 

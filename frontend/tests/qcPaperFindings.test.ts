@@ -136,7 +136,7 @@ test("the page on file stored with DCRS's TO BE CONFIRMED takes the paper's blan
 // ---------------------------------------------------------------------------
 // 2. The calibration sheets of Demo Mode and sample data read as a real week's or month's
 
-test("a sample F/QC/11 or F/QC/12 sheet of 2026 carries an instrument still in calibration, F/QC/11 its Due Date and a signer of HR Master Data", () => {
+test("a sample F/QC/11 or F/QC/12 sheet of 2026 carries an instrument still in calibration, and F/QC/11 a signer of HR Master Data", () => {
   for (const id of [GSM, SCALE]) {
     const filled = autoFillRecord(docOf(id), DAY, master, undefined)!;
     const header = (filled.data as LogSheetData).header;
@@ -146,8 +146,7 @@ test("a sample F/QC/11 or F/QC/12 sheet of 2026 carries an instrument still in c
   }
   const gsm = autoFillRecord(docOf(GSM), DAY, master, undefined)!.data as LogSheetData;
   assert.equal(gsm.header.calibrationExpiry, "2027-09-22", "the plates' yearly date, its next anniversary");
-  assert.equal(gsm.header.calibrationDate, DAY);
-  assert.equal(gsm.header.dueDate, "2026-11-14", "the next month's calibration");
+  assert.ok(!("calibrationDate" in gsm.header) && !("dueDate" in gsm.header), "F/QC/11's Calibration Date / Due Date row is taken away (28-Oct-2026)");
   const sign = gsm.rows.find((r) => r.parameter === "Sign.")!;
   const names = hrNames();
   for (const plate of ["p54", "p55", "p56", "p57"]) assert.ok(names.has(String(sign[plate])), `Sign. under ${plate}: ${sign[plate]}`);
@@ -162,17 +161,18 @@ test("a sample F/QC/11 or F/QC/12 sheet of 2026 carries an instrument still in c
 // ---------------------------------------------------------------------------
 // 3. The boxes and the grid as the papers draw them
 
-test("both calibration records carry the paper's own box words, F/QC/11's Due Date:- at the right, and its Pass/Fail and Sign. one cell a plate", async () => {
+test("both calibration records carry the paper's own box words, F/QC/11 without its Calibration Date / Due Date row, and its Pass/Fail and Sign. one cell a plate", async () => {
   assert.deepEqual(
     layoutOf(SCALE).headerFields.map((f) => f.printedLabel),
     ["Device ID No:", "Location:", "Department:", "Manufacturer:", "Serial No:", "Calibration Expiry:", "Minimum Reading Capacity:", "Maximum Reading Capacity:", "Acceptable Tolerance:"]
   );
-  const due = layoutOf(GSM).headerFields.find((f) => f.key === "dueDate")!;
-  assert.equal(due.printedLabel, "Due Date:-");
-  assert.equal(due.paperColumn, 3);
+  // The owner, 28-Oct-2026: "remove whole that row because in upper side ... there is already calibration expiry date".
+  assert.deepEqual(
+    layoutOf(GSM).headerFields.map((f) => f.printedLabel),
+    ["Device ID No:", "Location:", "Department:", "Manufacturer:", "Serial No:", "Calibration Expiry:"]
+  );
   const html = await sheet(GSM, withComputedCells(GSM, autoFillRecord(docOf(GSM), DAY, master, undefined)!.data as LogSheetData));
-  assert.match(html, /<div class="field" data-paper-column="3"><label>Due Date:-<\/label>/);
-  assert.ok(text(html).includes("I. Calibration Date:-"));
+  assert.ok(!text(html).includes("I. Calibration Date") && !text(html).includes("Due Date:-") && !html.includes("data-paper-column"), "nothing of the row printed");
   const rows = bodyRows(html);
   assert.equal(rows.length, 6);
   // Tasted-1 to 4: Index and the eight cells; Pass/Fail and Sign.: Index and one cell under each plate.

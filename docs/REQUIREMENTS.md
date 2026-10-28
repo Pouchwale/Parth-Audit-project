@@ -9756,6 +9756,46 @@ Reminder email then it system so really send email on that provided email so do 
    or unknown account refused, a member of staff refused) and tests/e2e_email_reminders.py (the line while switched off,
    Send test in Dharmik Mistry's row captured as his on the test server, staff refused).
 
+## §132 F/QC/11 without its Calibration Date / Due Date row; F/QC/17's master scale dates; the 600 mm page's 490 mm (28-Oct-2026)
+
+The owner, 28-Oct-2026, with a picture of F/QC/11's empty "I. Calibration Date:- / Due Date:-" row and one of the 600 mm
+page's table: "you need to add calibration expiry date is 20-9-27 in qc-11 and 12 and in Measuring Scale (Ruler) Internal
+Verification Record - 600 mm and 300 mm record there is calibration date in upper portion ... also in Measuring Scale
+(Ruler) Internal Verification Record - 600 mm master calibration reading is totally wrong ... also make sure each and
+every part of module QC every document is editable". Asked, the owner answered: F/QC/11 "Remove both means basically
+remove whole that row because in upper side as you can see there is already calibration expiry date is present which
+should be 20-9-27"; the upper table of F/QC/17 "Calibration 21-9-26, due date 20-9-27"; the 600 mm page's sixth
+point "490 mm, exactly as printed".
+
+1. **F/QC/11's row is taken away.** The paper's line of "I. Calibration Date:-" and "Due Date:-" under the device's boxes
+   is no longer on the sheet, on the screen, in print or in the downloads; the sheet has six boxes, its Calibration
+   Expiry starting at the certificate's 20-09-27 as F/QC/12's does (§129), editable, the later date kept. The printed
+   page's box table is two lines high (data/seed/qcCalibrationGeometry.ts): no empty band is left above the grid, and a
+   box added on Edit format stands in the three columns as the rest. The sample fill no longer writes a Due Date. What a
+   sheet held in the row before (the page of 31.12.2024's calibration date among them) stays in its data, shown nowhere.
+2. **F/QC/17's master scale.** Both pages (600 mm and 300 mm) start every new sheet with the master's Calibration date
+   21-09-26 and Calibration due date 20-09-27 (MASTER_CERTIFICATE in data/seed/qcRulerVerificationLayouts.ts), beside
+   the ruler's own 23-09-26 and 22-09-27; editable, the later of the last sheet's and these kept (autoFill.newest); its
+   report number stays the person's to write. Demo Mode keeps its own simulated calibration, dated by its sheets.
+3. **The 600 mm page's points as printed:** 100, 200, 300, 400, 500 and 490 mm. The page beside it shows an observed
+   590 and a Difference of 0.0 on that line; DCRS works the Difference out from what is written, so an observed 590
+   against 490 reads 100.0 and fails the ruler - the master reading is the person's to write over, as every one is
+   (§117). A sheet written on a former page's points (50 to 290 mm before 27-Oct-2026, 100 to 590 mm since) carries
+   its boxes and not its lines (LogSheetLayout.formerRows).
+4. **The sheets already open.** At start-up (data/certificateDatesMigration.ts, §130) an open Live sheet - due, a
+   draft, sent back - takes the master's dates where it held earlier ones, and one still on a former page's lines with
+   nothing written on them takes the page's own lines, with one line in its history; a line with a reading written, a
+   sheet handed in or verified, a correction and Demo Mode's are left as they are.
+5. **Every part editable.** Every box and every reading of the QC documents is the person's to write, as §117 made
+   them; only the worked-out cells (Deviation, Difference, the Pass/Fail that follows them) are not typed. The words the
+   paper prints on its lines (a checklist's questions, a report's test parameters) stay as printed on each sheet and
+   are changed for every new sheet on Edit format, as before.
+6. **Proved:** the updated frontend/tests/qcCertificateDates.test.ts (the dates, the row gone, 490 mm, the former
+   pages, an open sheet's lines), qcCarryForward, qcPaperFindings, qcPaperFormats, qcFormats14Oct, qcRuler300 and
+   scheduleChange28Oct tests, and the browser suites qc_calibration (a new F/QC/11: 20-09-27, no row, two lines of
+   boxes), qc_formats (a new F/QC/17 of each scale with the master's 21-09-26 and 20-09-27, the 600 mm points),
+   downloads_and_print, print_all_documents, header_editing and every_record_starts.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

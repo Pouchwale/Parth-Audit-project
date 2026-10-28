@@ -268,13 +268,18 @@ with sync_playwright() as p:
     check("...the four plates as the paper heads them: No. 54 to 57, each over its size and Deviation (s111)", headings == expected, headings)
     check("...Device ID No, Location, Department and Manufacturer are boxes, not printed words (s117: every part editable)", printed_values(page) == {}, printed_values(page))
     values = header_values(page)
+    # Six boxes: the paper's I. Calibration Date / Due Date row is taken away (the owner, 28-Oct-2026, s132).
     check(
-        "...the four boxes holding the paper's words, then serial blank as the paper's box (s111 part 6), expiry 22.09.2025, calibrated 31.12.2024, due date blank",
-        values[:8] == ["1-54, 2-55, 3-56, 4-57", "LAB", "LAB", "Global Eng. Co. (GEC)", "", "2025-09-22", "2024-12-31", ""],
+        "...the four boxes holding the paper's words, then serial blank as the paper's box (s111 part 6) and expiry 22.09.2025, the page's calibration date no longer shown",
+        values[:6] == ["1-54, 2-55, 3-56, 4-57", "LAB", "LAB", "Global Eng. Co. (GEC)", "", "2025-09-22"] and "2024-12-31" not in values,
         values,
     )
     labels = sheet.locator(".field label").all_inner_texts()
-    check("...the calibration date headed 'I. Calibration Date:-' and its Due Date:-, as printed (s111 part 6)", "I. Calibration Date:-" in labels and "Due Date:-" in labels and "Serial No:" in labels, labels)
+    check(
+        "...the boxes headed in the paper's words, and no 'I. Calibration Date:-' or 'Due Date:-' row (s132)",
+        "Serial No:" in labels and "Calibration Expiry:" in labels and not any("Calibration Date" in l or "Due Date" in l for l in labels),
+        labels,
+    )
     one_a_plate = sheet.locator("table.log-sheet tbody tr").evaluate_all("rows => rows.map((r) => r.querySelectorAll('td').length)")
     check("...Pass/Fail and Sign. one cell under each plate, as printed (s111 part 6)", one_a_plate == [9, 9, 9, 9, 5, 5], one_a_plate)
     body = sheet_text(page)
@@ -294,6 +299,7 @@ with sync_playwright() as p:
             rows[0],
         )
         check("...all four plates Pass, signed Rashmi", all(rows[4].get(k) == "Pass" and rows[5].get(k) == "Rashmi" for k, _ in PLATES), (rows[4], rows[5]))
+        # (The page's own data keeps the row's 31.12.2024 and its blank due date, shown nowhere since 28-Oct-2026.)
         check("...the due date beside the calibration date left blank, being illegible on the copy", stored["data"]["header"].get("dueDate") == "")
 
     # ==================================================================
@@ -400,6 +406,19 @@ with sync_playwright() as p:
         "...and a new sheet starts its Device ID No box with the paper's words, in a box to type into (s117)",
         device_box.count() == 1 and device_box.input_value() == "1-54, 2-55, 3-56, 4-57" and printed_values(page) == {},
         printed_values(page),
+    )
+    # THE ROW TAKEN AWAY (the owner, 28-Oct-2026: "remove whole that row because in upper side ... there is already
+    # calibration expiry date is present which should be 20-9-27"): the certificate's due date in Calibration Expiry, no
+    # I. Calibration Date / Due Date row, and the boxes' table two lines high - no empty band left above the grid.
+    gsm_header = (record(page, gsm_id) or {}).get("data", {}).get("header", {})
+    gsm_labels = page.locator("[data-print-doc] .field label").all_inner_texts()
+    box_table = page.locator("[data-print-doc] [data-pf~='calib']")
+    tracks = box_table.first.evaluate("e => getComputedStyle(e).gridTemplateRows.trim().split(/\\s+/).length") if box_table.count() else None
+    check(
+        "...its Calibration Expiry the certificate's 20-09-27, no I. Calibration Date / Due Date row, its boxes two lines high (s132)",
+        gsm_header.get("calibrationExpiry") == "2027-09-20" and "calibrationDate" not in gsm_header and "dueDate" not in gsm_header
+        and "Calibration Expiry:" in gsm_labels and not any("Calibration Date" in l or "Due Date" in l for l in gsm_labels) and tracks == 2,
+        (gsm_header, gsm_labels, tracks),
     )
     location_box = page.locator("[data-print-doc] input[data-bind='header/location']")
     location_box.fill("QC Lab")

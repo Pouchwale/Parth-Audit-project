@@ -1017,7 +1017,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Weekly",
     status: "Configured",
     description:
-      "Internal calibration of the four GSM cutting plates (No. 54 20 x 20cm, No. 55 10 x 10cm, No. 56 5 x 5cm, No. 57 2.5 x 2.5cm, Global Eng. Co.): each plate measured four times with the deviation beside every measurement, then Pass / Fail and the tester's sign per plate, against the calibration date and the next due date. The 31.12.2024 calibration is on file as supplied. The deviation is entered as found — it is not calculated yet.",
+      "Internal calibration of the four GSM cutting plates (No. 54 20 x 20cm, No. 55 10 x 10cm, No. 56 5 x 5cm, No. 57 2.5 x 2.5cm, Global Eng. Co.): each plate measured four times with the deviation beside every measurement, then Pass / Fail and the tester's sign per plate; the Calibration Expiry starts every new sheet at the certificate's due date, 20-09-27 (the paper's I. Calibration Date / Due Date row taken away, the owner, 28-Oct-2026). The 31.12.2024 calibration is on file as supplied. Each Deviation is worked out from the size written beside it.",
     sourceFile: "weekly and monthly internal calibration records.pdf (page 2, scanned)",
     // Every Tuesday (the owner, 28-Oct-2026: "20-10-26 and 27-10-26 every tuesday due date"); the 1st of each month
     // until then. The paper's own title still says MONTHLY, as printed.
@@ -1664,7 +1664,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "As Required",
     status: "Configured",
     description:
-      "The 600 mm measuring scale (Ajanta, GP-3/MS/36, 0-600mm) verified against the master scale (Kristeen, QC-44, 0 - 600 mm): the master's and the scale's details and calibration dates (the scale's 23-09-26, due 22-09-27, on every new sheet), then the scale read at 100, 200, 300, 400, 500 and 590 mm, each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
+      "The 600 mm measuring scale (Ajanta, GP-3/MS/36, 0-600mm) verified against the master scale (Kristeen, QC-44, 0 - 600 mm): the master's and the scale's details and calibration dates (the master's 21-09-26, due 20-09-27, and the scale's 23-09-26, due 22-09-27, on every new sheet), then the scale read at 100, 200, 300, 400, 500 and 490 mm (as printed), each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
     sourceFile:
       "Copy of F-QC-17-Updated Scale (Ruler) internal verification record 600 mm- Copy.pdf (the 600 mm scale's page as updated, supplied 27-Oct-2026; the page of 24.09.2024 supplied on 14-Oct-2026 before it); the company's own original is Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
     schedule: { type: "as-required" },

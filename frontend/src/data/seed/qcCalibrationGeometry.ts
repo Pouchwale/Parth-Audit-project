@@ -5,7 +5,8 @@
 //
 // Both papers are Word pages: a ruled box with the company's name (underlined) and the line under it, a rule, the title
 // (underlined); the ruled table of the device's boxes (F/QC/11 three columns of two lines each, the value under its words;
-// F/QC/12 three by three, the words at the top left of a tall cell); F/QC/11's Calibration Date / Due Date line; the grid;
+// F/QC/12 three by three, the words at the top left of a tall cell); the grid (F/QC/11's Calibration Date / Due Date line
+// above it is taken away, the owner, 28-Oct-2026: its Calibration Expiry box holds the certificate's due date);
 // the PROCEDURE under it; the format number alone, centred, at the foot of the page. Every number below is read off the
 // owner's PDFs by tests/qc_visual (rules and words, in millimetres). The sheet keeps every box a box and its owner's
 // overrides (REQUIREMENTS §111, §117): the standard weights, one F/QC/12 record a week (its one entry on the paper's first
@@ -42,8 +43,9 @@ export const CALIBRATION_GEOMETRY: Record<string, CalibrationGeometry> = {
     width: 262.38,
     gridWidth: 262.38,
     head: { company: 9.52, companyY: 0.51, linesGap: 0.53, title: 9.54, titleY: 0.52 },
-    // Two lines of three boxes, a space, then the Calibration Date (two columns wide) and the Due Date.
-    boxes: { cols: [89.13, 89.12, 84.13], rows: [9.52, 9.53, 9.95, 9.01], x: [0, 0, 0], labelY: [0.42, 0.4, 0, 0.4], valueY: [0.6, 0.6, 0, 0.6], centred: true },
+    // Two lines of three boxes. The paper's space and its Calibration Date / Due Date line under them are taken away
+    // (the owner, 28-Oct-2026): no empty band is left between the boxes and the grid.
+    boxes: { cols: [89.13, 89.12, 84.13], rows: [9.52, 9.53], x: [0, 0, 0], labelY: [0.42, 0.4], valueY: [0.6, 0.6], centred: true },
     grid: { cols: [24.14, 35.26, 29.73, 29.72, 29.68, 29.72, 29.77, 29.72, 24.64], head: [9.24, 9.82], lines: [9.23, 9.82, 9.24, 9.82, 9.23, 9.52], gapAbove: 0 },
     notes: { gapAbove: 5.0, pitch: 4.45, x: 1.88 },
     foot: { y: 198.98 },

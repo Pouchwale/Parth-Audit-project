@@ -2,14 +2,18 @@
 //   "in qc 12 and 11 calibration date, calibration due date and is fix which is 21-9-26 and due date is 20-9-27 and in
 //    below measuring scale (ruler) under calibration details are two date called calibration date and calibration due
 //    date which is 23-9-26 and calibration due date is 22-9-27 ... make sure it is editable"
+// and on 28-Oct-2026: "you need to add calibration expiry date is 20-9-27 in qc-11 and 12 and in Measuring Scale (Ruler)
+// ... there is calibration date in upper portion" (the master scale's: "Calibration 21-9-26, due date 20-9-27"), F/QC/11's
+// I. Calibration Date / Due Date row "remove whole that row", and the 600 mm page's last point "490 mm, exactly as printed";
 // held to it:
-//   * a new F/QC/12 starts with Calibration Expiry 20-09-27; a new F/QC/11 with Calibration Expiry and Due Date 20-09-27
-//     and I. Calibration Date 21-09-26; a new F/QC/17 of either scale with the ruler's Calibration date 23-09-26 and
-//     Calibration due date 22-09-27 - every one an editable date box, nothing observed;
+//   * a new F/QC/12 and a new F/QC/11 start with Calibration Expiry 20-09-27 (F/QC/11's I. Calibration Date / Due Date
+//     row is taken away); a new F/QC/17 of either scale with the master's Calibration date 21-09-26 and due date
+//     20-09-27 and the ruler's 23-09-26 and 22-09-27 - every one an editable date box, nothing observed;
 //   * a sheet keeps the later of the last sheet's date and these: the pages of 2024 on file never bring theirs back, a
 //     later certificate written carries on, an earlier one written is not carried over the certificate's;
-//   * the 600 mm page reads GP-3/MS/36, 0-600mm, 100 to 590 mm; a sheet written on the old page's 50 to 290 mm carries
-//     its boxes but not its lines; master readings a person wrote over the points still carry (§117);
+//   * the 600 mm page reads GP-3/MS/36, 0-600mm, 100 to 500 mm and 490 mm; a sheet written on a former page's 50 to
+//     290 mm or 100 to 590 mm carries its boxes but not its lines; master readings a person wrote over the points still
+//     carry (§117); an open sheet still on a former page's lines with nothing written on them takes the page's own (§132);
 //   * Demo Mode keeps its own simulated calibration, dated by its sheets.
 //   * a sheet the schedule made blank ahead of its day, opened by New record before its morning prepare (found on
 //     Tuesday 27-Oct-2026: F/QC/12's Wednesday sheet), is written as the last one was then (§117).
@@ -25,7 +29,8 @@ import { recordRepository } from "../src/data/repositories/recordRepository";
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { CALIBRATION_CERTIFICATE } from "../src/data/seed/qcCalibrationLayouts";
 import { SEED_GSM_PLATE_CALIBRATION, SEED_WEIGHT_SCALE_CALIBRATION } from "../src/data/seed/qcCalibrationRecords";
-import { RULER_300_ID, RULER_600_ID, RULER_CERTIFICATE, rulerScaleOf } from "../src/data/seed/qcRulerVerificationLayouts";
+import { MASTER_CERTIFICATE, RULER_300_ID, RULER_600_ID, RULER_CERTIFICATE, rulerScaleOf } from "../src/data/seed/qcRulerVerificationLayouts";
+import { alignCertificateDates, PAGE_LINES_NOTE } from "../src/data/certificateDatesMigration";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { createRecordForDocument, startingData } from "../src/engine/recordCrud";
 import { prepareKnownParts } from "../src/engine/knownParts";
@@ -52,8 +57,10 @@ test("the dates the owner gave, as the formats hold them", () => {
   const boxes: [string, string, string][] = [
     [SCALE, "calibrationExpiry", "2027-09-20"],
     [GSM, "calibrationExpiry", "2027-09-20"],
-    [GSM, "calibrationDate", "2026-09-21"],
-    [GSM, "dueDate", "2027-09-20"],
+    [RULER_600_ID, "masterCalibrationDate", "2026-09-21"],
+    [RULER_600_ID, "masterCalibrationDueDate", "2027-09-20"],
+    [RULER_300_ID, "masterCalibrationDate", "2026-09-21"],
+    [RULER_300_ID, "masterCalibrationDueDate", "2027-09-20"],
     [RULER_600_ID, "calibrationDate", "2026-09-23"],
     [RULER_600_ID, "calibrationDueDate", "2027-09-22"],
     [RULER_300_ID, "calibrationDate", "2026-09-23"],
@@ -68,8 +75,10 @@ test("the dates the owner gave, as the formats hold them", () => {
     assert.ok(f.printed === undefined && !f.computed && !f.autoFill?.dueDate, `${id} ${key}: editable`);
     assert.equal(boxKind(f, layoutOf(id)), "standing", `${id} ${key}: the instrument's, not something observed`);
   }
-  // The master scale's own certificate is the person's to write, as before (not given by the owner).
-  assert.equal(box(RULER_600_ID, "masterCalibrationDate").autoFill, undefined);
+  assert.deepEqual(MASTER_CERTIFICATE, { date: "2026-09-21", due: "2027-09-20" }, "F/QC/17's master scale: 21-09-26, due 20-09-27 (28-Oct-2026)");
+  for (const id of [RULER_600_ID, RULER_300_ID]) assert.equal(box(id, "masterCalibrationReportNo").autoFill, undefined, `${id}: the report number stays the person's to write`);
+  // F/QC/11's I. Calibration Date:- / Due Date:- row is taken away (the owner, 28-Oct-2026): its Calibration Expiry holds the due date.
+  assert.deepEqual(layoutOf(GSM).headerFields.filter((f) => f.key === "calibrationDate" || f.key === "dueDate"), []);
 });
 
 test("a new sheet with nothing before it starts with them: F/QC/12, F/QC/11 and both F/QC/17 pages", () => {
@@ -77,11 +86,13 @@ test("a new sheet with nothing before it starts with them: F/QC/12, F/QC/11 and 
   const scale = data(createRecordForDocument(doc(SCALE), { dateISO: "2026-10-28" }).record);
   assert.equal(scale.header.calibrationExpiry, "2027-09-20");
   const gsm = data(createRecordForDocument(doc(GSM), { dateISO: "2026-11-01" }).record);
-  assert.deepEqual([gsm.header.calibrationExpiry, gsm.header.calibrationDate, gsm.header.dueDate], ["2027-09-20", "2026-09-21", "2027-09-20"]);
+  assert.equal(gsm.header.calibrationExpiry, "2027-09-20");
+  assert.ok(!("calibrationDate" in gsm.header) && !("dueDate" in gsm.header), "no row of its own for them any more");
   for (const id of [RULER_600_ID, RULER_300_ID]) {
     const ruler = data(createRecordForDocument(doc(id), { dateISO: "2026-10-28" }).record);
     assert.deepEqual([ruler.header.calibrationDate, ruler.header.calibrationDueDate], ["2026-09-23", "2027-09-22"], id);
-    assert.equal(ruler.header.masterCalibrationDate, "", `${id}: the master's own certificate stays the person's`);
+    assert.deepEqual([ruler.header.masterCalibrationDate, ruler.header.masterCalibrationDueDate], ["2026-09-21", "2027-09-20"], `${id}: the master scale's certificate`);
+    assert.equal(ruler.header.masterCalibrationReportNo, "", `${id}: its report number stays the person's`);
   }
   // The morning prepare of a scheduled sheet says the same.
   const prepared = prepareKnownParts(doc(SCALE), "2026-11-04", master, undefined)!.data as LogSheetData;
@@ -95,7 +106,8 @@ test("from the pages of 2024 on file, the certificate's dates and not the pages'
   assert.equal(scale.header.calibrationExpiry, "2027-09-20", "not the page's 27.08.2024");
   assert.equal(scale.header.deviceIdNo, "QC-76", "the rest of the page carried as before (§117)");
   const gsm = startingData(doc(GSM), "2026-11-01", false) as LogSheetData;
-  assert.deepEqual([gsm.header.calibrationExpiry, gsm.header.calibrationDate, gsm.header.dueDate], ["2027-09-20", "2026-09-21", "2027-09-20"], "not the page's 22.09.2025 and 31.12.2024");
+  assert.equal(gsm.header.calibrationExpiry, "2027-09-20", "not the page's 22.09.2025");
+  assert.ok(!("calibrationDate" in gsm.header) && !("dueDate" in gsm.header), "nor its 31.12.2024: the row is taken away");
   clear(SCALE);
   // The next certificate, written on a sheet: a new sheet carries it, the later date.
   const week = createRecordForDocument(doc(SCALE), { dateISO: "2027-09-22" }).record;
@@ -111,11 +123,11 @@ test("from the pages of 2024 on file, the certificate's dates and not the pages'
   clear(SCALE);
 });
 
-test("the 600 mm page as updated: GP-3/MS/36, 0-600mm, 100 to 590 mm, its picture and its PDF cited", () => {
+test("the 600 mm page as updated: GP-3/MS/36, 0-600mm, 100 to 500 mm and 490 mm as printed, its picture and its PDF cited", () => {
   const scale = rulerScaleOf(RULER_600_ID)!;
-  assert.deepEqual([scale.serialNo, scale.range, [...scale.points]], ["GP-3/MS/36", "0-600mm", [100, 200, 300, 400, 500, 590]]);
+  assert.deepEqual([scale.serialNo, scale.range, [...scale.points]], ["GP-3/MS/36", "0-600mm", [100, 200, 300, 400, 500, 490]], "the last as the page prints it (28-Oct-2026)");
   const blank = createDefaultData(doc(RULER_600_ID), "2026-10-28", master) as LogSheetData;
-  assert.deepEqual(blank.rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"]);
+  assert.deepEqual(blank.rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "490 mm"]);
   assert.deepEqual([blank.header.serialNo, blank.header.range], ["GP-3/MS/36", "0-600mm"]);
   const page = layoutOf(RULER_600_ID).originalPages![0];
   const src = typeof page === "string" ? page : page.src;
@@ -139,12 +151,19 @@ test("a 600 mm sheet written on the old page's points carries its boxes, not its
   const afterOld = data(createRecordForDocument(d, { dateISO: "2026-10-28" }).record);
   assert.equal(afterOld.header.make, "Ajanta", "the boxes carried");
   assert.equal(afterOld.header.masterCalibrationReportNo, "CAL/LPI/GP-23/25");
-  assert.deepEqual(afterOld.rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"], "the updated page's points");
+  assert.deepEqual(afterOld.rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "490 mm"], "the updated page's points");
   assert.ok(afterOld.rows.every((r) => (r.observed === null || r.observed === "") && r.status === "" && r.performedBy === ""), "no reading of the old page's points on the new lines");
   clear(d.id);
-  fill("2026-10-20", null, [100, 200, 300, 400, 500, 590]);
+  // The page of 27-Oct-2026, its last point read as 590: a former page too.
+  fill("2026-10-20", ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"], [100, 200, 300, 400, 500, 590]);
+  const afterMid = data(createRecordForDocument(d, { dateISO: "2026-10-28" }).record);
+  assert.deepEqual(afterMid.rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "490 mm"], "490 mm as printed");
+  assert.ok(afterMid.rows.every((r) => r.observed === null || r.observed === ""), "no reading of the 590 mm line on the 490 mm one");
+  assert.equal(afterMid.header.make, "Ajanta", "the boxes carried");
+  clear(d.id);
+  fill("2026-10-20", null, [100, 200, 300, 400, 500, 490]);
   const afterNew = data(createRecordForDocument(d, { dateISO: "2026-10-28" }).record);
-  assert.deepEqual(afterNew.rows.map((r) => r.observed), [100, 200, 300, 400, 500, 590], "the last sheet's own readings, carried for the person to change (§117)");
+  assert.deepEqual(afterNew.rows.map((r) => r.observed), [100, 200, 300, 400, 500, 490], "the last sheet's own readings, carried for the person to change (§117)");
   clear(d.id);
   fill("2026-10-20", ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "600 mm"], [100, 200, 300, 400, 500, 600]);
   const afterOwn = data(createRecordForDocument(d, { dateISO: "2026-10-28" }).record);
@@ -154,12 +173,42 @@ test("a 600 mm sheet written on the old page's points carries its boxes, not its
 
 test("Demo Mode keeps its own simulated calibration, dated by its sheets", () => {
   const gsm = autoFillRecord(doc(GSM), "2026-03-02", master, undefined)!.data as LogSheetData;
-  assert.equal(gsm.header.calibrationDate, "2026-03-02", "a demo month's calibration is that month's");
+  assert.ok(!("calibrationDate" in gsm.header), "F/QC/11's row is taken away in Demo Mode too");
   assert.ok(String(gsm.header.calibrationExpiry) > "2026-03-02");
   for (const id of [RULER_600_ID, RULER_300_ID]) {
     const ruler = autoFillRecord(doc(id), "2026-03-02", master, undefined)!.data as LogSheetData;
     assert.equal(ruler.header.calibrationDate, "2026-03-02", id);
+    assert.equal(ruler.header.masterCalibrationDate, "2025-09-23", `${id}: the master's simulated calibration before that day`);
   }
+});
+
+test("an open 600 mm sheet still on a former page's lines, nothing written on them, takes the page's own (§132); one with a reading, or handed in, is left", () => {
+  clear(RULER_600_ID);
+  const now = new Date().toISOString();
+  const sheet = (id: string, status: RecordInstance["status"], points: number[], observed: (number | null)[]): string => {
+    const blank = createDefaultData(doc(RULER_600_ID), "2026-10-28", master) as LogSheetData;
+    const rows = blank.rows.map((r, i) => ({ ...r, masterReading: `${points[i]} mm`, observed: observed[i] }));
+    recordRepository.upsert({ id, documentId: RULER_600_ID, periodKey: `${RULER_600_ID}:${id}`, dueDate: "2026-10-28", status, isDemo: false, data: { ...blank, rows }, createdAt: now, updatedAt: now });
+    return id;
+  };
+  const OLD = [50, 100, 150, 200, 250, 290];
+  const MID = [100, 200, 300, 400, 500, 590];
+  const NONE = [null, null, null, null, null, null];
+  const fresh = sheet("ruler-fresh", "Due", MID, NONE);
+  const older = sheet("ruler-older", "In Progress", OLD, NONE);
+  const read = sheet("ruler-read", "In Progress", MID, MID);
+  const handedIn = sheet("ruler-handed-in", "Pending Verification", MID, NONE);
+  const lines = (id: string) => data(recordRepository.getById(id)!).rows.map((r) => r.masterReading);
+  alignCertificateDates();
+  for (const id of [fresh, older]) {
+    assert.deepEqual(lines(id), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "490 mm"], id);
+    assert.ok(recordRepository.getById(id)!.history?.some((e) => e.note?.includes(PAGE_LINES_NOTE)), `${id}: a line in its history`);
+    assert.deepEqual(data(recordRepository.getById(id)!).rows.map((r) => r.observed), NONE, `${id}: nothing written for anybody`);
+  }
+  assert.deepEqual(lines(read), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"], "a reading written: the person's lines, left");
+  assert.deepEqual(lines(handedIn), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "590 mm"], "a sheet handed in is left as handed in");
+  assert.equal(alignCertificateDates(), 0, "nothing to do the next time");
+  clear(RULER_600_ID);
 });
 
 test("a sheet the schedule made blank ahead of its day is written as the last one was when New record opens it; one written on, or prepared, is left as it is", () => {

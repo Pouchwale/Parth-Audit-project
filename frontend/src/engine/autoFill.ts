@@ -1047,15 +1047,6 @@ function anniversaryFrom(iso: string, onOrAfter: string): string {
   return at(year);
 }
 
-/** The same day a month on ("2026-10-14" → "2026-11-14"; the 31st into a shorter month is that month's last day). */
-function monthOn(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const year = m === 12 ? y + 1 : y;
-  const month = m === 12 ? 1 : m + 1;
-  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
-}
-
 /**
  * THE INTERNAL CALIBRATION RECORDS AS A REAL SHEET (REQUIREMENTS §111 part 6, rule 3 of the brief). Demo Mode's and a
  * test server's sample data only, as everything in this file is; a Live sheet is prepared by engine/knownParts.ts,
@@ -1063,7 +1054,6 @@ function monthOn(iso: string): string {
  *   - The Calibration Expiry the supplied 2024 pages wrote (22.09.2025 on F/QC/11, 27.08.2024 on F/QC/12) is past on
  *     a sheet of 2026, and every line on it read Pass: an instrument out of calibration passed. A sample sheet's
  *     instrument was calibrated on its yearly date since, so its expiry is that date's next anniversary.
- *   - F/QC/11's Due Date is the next month's calibration, a month after this one (it was left blank).
  *   - F/QC/11's Sign. line is signed, plate by plate, by the QC lab executive of HR Master Data who calibrated (the
  *     supplied page's "Rashmi" is not on HR Master Data).
  */
@@ -1072,8 +1062,6 @@ function calibrationSample(documentId: string, dueDate: string, header: Record<s
   const expiry = header.calibrationExpiry;
   if (typeof expiry === "string" && ISO_DATE.test(expiry) && compareISO(expiry, dueDate) < 0) header.calibrationExpiry = anniversaryFrom(expiry, addDays(dueDate, 1));
   if (documentId !== "qc-gsm-plate-calibration") return;
-  const calibrated = ISO_DATE.test(header.calibrationDate ?? "") ? header.calibrationDate : dueDate;
-  header.dueDate = monthOn(calibrated);
   const signer = qcShiftSigner(dueDate, "09:00", "");
   const sign = rows.find((r) => r.parameter === "Sign.");
   if (sign && signer) for (const plate of GSM_PLATES) sign[plate.key] = signer;
