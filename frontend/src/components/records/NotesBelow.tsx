@@ -1,3 +1,4 @@
+import { EditableWords } from "./EditableWords";
 import React from "react";
 
 /**
@@ -8,7 +9,17 @@ import React from "react";
  * paper prints at the foot of the sheet after every box (the certificates' "THIS IS A SYSTEM
  * GENERATED DOCUMENT.").
  */
-export function NotesBelow({ lines, section = "notes-below" }: { lines: string[]; section?: "notes-below" | "notes-at-foot" }) {
+export function NotesBelow({
+  lines,
+  section = "notes-below",
+  editable = false,
+  onLine,
+}: {
+  lines: string[];
+  /** Each line typed over on the record (REQUIREMENTS §135), while it can be written on. */
+  editable?: boolean;
+  onLine?: (index: number, words: string) => void;
+  section?: "notes-below" | "notes-at-foot" }) {
   return (
     <div className="mt-3 sheet-notes-below" data-section={section}>
       {lines.map((line, i) => {
@@ -16,6 +27,7 @@ export function NotesBelow({ lines, section = "notes-below" }: { lines: string[]
         const capitals = /[A-Z]/.test(line) && line === line.toUpperCase();
         return (
           <p key={i} className={`text-sm${i < lines.length - 1 ? " mb-1" : ""}`} style={{ whiteSpace: "pre-wrap" }}>
+            <EditableWords shown={line} editable={editable && !!onLine} onChange={(words) => onLine?.(i, words)} label="A line of the paper's text">
             {capitals ? (
               <strong>{line}</strong>
             ) : m ? (
@@ -27,6 +39,7 @@ export function NotesBelow({ lines, section = "notes-below" }: { lines: string[]
             ) : (
               line
             )}
+            </EditableWords>
           </p>
         );
       })}

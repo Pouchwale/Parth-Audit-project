@@ -4027,6 +4027,15 @@ html.print-measure [data-print-doc] :is(.no-print, .btn) { display: none; }
    277 mm and printed 299 mm, onto a second page (28-Oct-2026); a sheet of pages of its own keeps its margin on its pages */
 html.print-measure [data-print-doc]:not([data-print-doc="ui"]) { padding: 12mm; }
 html.print-measure [data-print-doc]:not([data-print-doc="ui"]):has(.register-page, .caf-page) { padding: 0; }
+
+/* A SHEET'S PRINTED WORDS, TYPED OVER ON THE RECORD (REQUIREMENTS §135; components/records/EditableWords.tsx): drawn as the
+   paper draws them, with a faint dashed line on hover and a ring while being typed in - on the screen only; printed, they
+   are the paper's words as before. */
+@media screen {
+  [data-editable-words] { cursor: text; border-radius: 2px; outline: 1px dashed transparent; outline-offset: 1px; }
+  [data-editable-words]:hover { outline-color: var(--hairline-strong, #9aa5b1); }
+  [data-editable-words]:focus { outline: 2px solid var(--focus-ring, #7E3C40); outline-offset: 1px; }
+}
 /* every sheet of DCRS's make (not a paper form drawn in millimetres): the print's paddings, box minimums and density... */
 html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table :is(th, td) { padding: 2px 5px; font-size: 11px; line-height: 1.2; }
 html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet td .cell-text { font-size: 11px; line-height: 1.2; }

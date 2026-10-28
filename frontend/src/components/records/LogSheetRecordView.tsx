@@ -1,6 +1,6 @@
 import React from "react";
 import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
-import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance, SheetPhoto } from "../../types";
+import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance, SheetPhoto, SheetWords } from "../../types";
 import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHeader";
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
@@ -81,6 +81,7 @@ import {
 } from "../../engine/paperLayout";
 import { BoxTable } from "./BoxTable";
 import { NotesBelow } from "./NotesBelow";
+import { EditableWords } from "./EditableWords";
 import { PrintedTable } from "./PrintedTable";
 
 /** A sheet open for writing with more lines than this draws only those near the screen (REQUIREMENTS §76). */
@@ -519,7 +520,14 @@ export function LogSheetRecordView({
   // parts are a table's header, body and footer groups (styles.css, "Print"), so the header block and the foot stand
   // on every page a long sheet runs to; on screen they are plain blocks. The paper's text below the grid is a foot
   // line unless the paper prints a photograph or a chart under it (F/QC/29), which keep their place in the body.
-  const notesBelow = layout.notesBelow && layout.notesBelow.length > 0 ? <NotesBelow lines={layout.notesBelow} /> : null;
+  // THE PAPER'S PARAGRAPHS AS THIS RECORD WORDS THEM (REQUIREMENTS §135): each line the format's until it is typed over here.
+  const recordWords = (part: keyof SheetWords, lines: readonly string[]): string[] => lines.map((line, i) => data.words?.[part]?.[i] ?? line);
+  const setWords = (part: keyof SheetWords, lines: readonly string[], index: number, words: string) =>
+    save({ ...data, words: { ...data.words, [part]: recordWords(part, lines).map((line, i) => (i === index ? words : line)) } });
+  const notesBelow =
+    layout.notesBelow && layout.notesBelow.length > 0 ? (
+      <NotesBelow lines={recordWords("notesBelow", layout.notesBelow)} editable={editable} onLine={(i, w) => setWords("notesBelow", layout.notesBelow!, i, w)} />
+    ) : null;
   const footHoldsNotes = !layout.photoBelowGrid && !(layout.charts?.length ?? 0);
   const headerProps = {
     doc: doc,
@@ -624,7 +632,15 @@ export function LogSheetRecordView({
       const fixedRow = mode.kind === "fixedRows" ? mode.rows[line] : undefined;
       const col = effectiveColumn(c, fixedRow);
       // (a printed cell's lines the paper underlines, F-QC-14's specification under each check's name)
-      if (col.fixed) return <span className="pt-words">{withUnderlinedLines(documentTextIn(printedCell(row, key, fixedRow), lang), cell?.ul)}</span>;
+      // ...typed over on the record while it can be written on (REQUIREMENTS §135), drawn as the paper draws them.
+      if (col.fixed) {
+        const words = documentTextIn(printedCell(row, key, fixedRow), lang);
+        return (
+          <EditableWords className="pt-words" shown={String(words ?? "")} editable={editable} onChange={(w) => onCell(row.id, key, w)} label={c.label}>
+            {withUnderlinedLines(words, cell?.ul)}
+          </EditableWords>
+        );
+      }
       // A worked-out cell (F/QC/17's Difference) reads as words, never a box, and says it is worked out (not bound).
       if (col.computed) {
         const v = row[key];
@@ -810,12 +826,14 @@ export function LogSheetRecordView({
         <div className="card mt-4">
           <div className={`card-pad${boxesFirst ? " boxes-above-instructions" : ""}`}>
             {boxesFirst && headerBoxes}
-            {layout.instructions?.map((line, i) => (
+            {recordWords("instructions", layout.instructions ?? []).map((line, i) => (
               <p
                 key={i}
                 className={`text-sm ${i === 0 ? "font-semibold" : "text-muted"} ${i < (layout.instructions?.length ?? 0) - 1 ? "mb-1" : ""}${boxesFirst && i === 0 ? " mt-3" : ""}`}
               >
-                {lc && i === 0 ? underlinedLead(line) : line}
+                <EditableWords shown={line} editable={editable} onChange={(w) => setWords("instructions", layout.instructions ?? [], i, w)} label="A line of the paper's instructions">
+                  {lc && i === 0 ? underlinedLead(line) : line}
+                </EditableWords>
               </p>
             ))}
             {topTables.map((t) => (
@@ -1101,7 +1119,12 @@ export function LogSheetRecordView({
       {cal && <DocumentHeader {...headerProps} numberFoot part="foot" />}
       {/* The paper's own text at the foot of the sheet, after every box (REQUIREMENTS §111): the certificates' "THIS IS A SYSTEM GENERATED DOCUMENT." */}
       {layout.notesAtFoot && layout.notesAtFoot.length > 0 ? (
-        <NotesBelow lines={layout.notesAtFoot} section="notes-at-foot" />
+        <NotesBelow
+          lines={recordWords("notesAtFoot", layout.notesAtFoot)}
+          section="notes-at-foot"
+          editable={editable}
+          onLine={(i, w) => setWords("notesAtFoot", layout.notesAtFoot!, i, w)}
+        />
       ) : (
         frame?.address && <NotesBelow lines={[frame.address]} section="notes-at-foot" />
       )}
@@ -1542,7 +1565,7 @@ function PanelGrid({
                             bind={bindProps(logCellBind(row, i, c, rowName))}
                             issuedLabel={issuedColumns?.[at]?.label ?? c.label}
                             value={c.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
-                            editable={editable && !c.fixed && !c.computed}
+                            editable={editable && !c.computed}
                             onChange={(v) => onCell(row.id, c.key, v)}
                             employees={employees}
                             list={lists?.[c.key] ?? c.list}
@@ -1715,7 +1738,7 @@ function AcrossGrid({
                       issuedLabel={issuedColumns?.[ci]?.label ?? c.label}
                       // A printed cell (the colour's number) reads in the chosen language; a written one as it was written.
                       value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
-                      editable={editable && !col.fixed && !col.computed}
+                      editable={editable && !col.computed}
                       onChange={(v) => onCell(row.id, c.key, v)}
                       employees={employees}
                       list={lists?.[c.key] ?? c.list}
@@ -1780,7 +1803,7 @@ function AnswerAcrossGrid({
           issuedLabel={issuedColumns?.[at]?.label ?? c.label}
           // A printed cell (the line's number, its words) reads in the chosen language; a written one as it was written.
           value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
-          editable={editable && !col.fixed && !col.computed}
+          editable={editable && !col.computed}
           onChange={(v) => onCell(row.id, c.key, v)}
           employees={employees}
           list={lists?.[c.key] ?? c.list}
@@ -2005,7 +2028,7 @@ const SheetRow = React.memo(function SheetRow({
               // the form prints down its side — reads in the chosen language;
               // a written one reads exactly as it was written. Its own number is the Sr. No.'s (§102).
               value={col.fixed ? documentTextIn(numbered ? withoutLineNumber(printedCell(row, c.key, fixedRow), index + 1) : printedCell(row, c.key, fixedRow), lang) : row[c.key]}
-              editable={editable && !col.fixed && !col.computed}
+              editable={editable && !col.computed}
               paper={paper}
               onChange={(v) => onCell(row.id, c.key, v)}
               employees={employees}
@@ -2050,7 +2073,7 @@ const SheetRow = React.memo(function SheetRow({
                 bind={bindProps(logCellBind(row, index, under, rowName))}
                 issuedLabel={under.label}
                 value={row[under.key]}
-                editable={editable && !under.fixed && !under.computed}
+                editable={editable && !under.computed}
                 onChange={(v) => onCell(row.id, under.key, v)}
                 employees={employees}
                 list={lists?.[under.key] ?? under.list}
@@ -2385,18 +2408,33 @@ function CellInput({
   /** On the paper's own table: a printed cell's lines are the paper's paragraphs, a heading of a few capitals ending in a colon in bold (F/QC/05's PVC BLOWN:). */
   paper?: boolean;
 }) {
+  // A LINE'S PRINTED WORDS (a parameter, a specification, a check point's question) are drawn as the paper draws them,
+  // and typed over on the record while it can be written on (REQUIREMENTS §135): the record's own words for the line.
   if (col.fixed && paper) {
     return (
-      <span className="pf-text">
+      <EditableWords className="pf-text" shown={String(value ?? "")} editable={editable} onChange={(w) => onChange(w)} label={col.label}>
         {String(value ?? "").split("\n").map((line, i) => (
           <span key={i} className={PAPER_HEADING_LINE.test(line) ? "pf-par pf-bold" : "pf-par"}>
             {withOrdinals(line)}
           </span>
         ))}
-      </span>
+      </EditableWords>
     );
   }
-  if (col.fixed) return <span className={`text-sm ${col.key === "specification" || col.key === "testChart" ? "text-muted" : "font-semibold"}`} style={{ whiteSpace: "pre-line" }}>{value ?? ""}</span>;
+  if (col.fixed) {
+    return (
+      <EditableWords
+        className={`text-sm ${col.key === "specification" || col.key === "testChart" ? "text-muted" : "font-semibold"}`}
+        style={{ whiteSpace: "pre-line" }}
+        shown={String(value ?? "")}
+        editable={editable}
+        onChange={(w) => onChange(w)}
+        label={col.label}
+      >
+        {value ?? ""}
+      </EditableWords>
+    );
+  }
   // A sheet that cannot be written on (a preview, a submitted or verified record)
   // shows what is written as text: the same words, without a greyed-out box —
   // and a fraction of the page to build (a disabled choice box carried every

@@ -143,6 +143,18 @@ export interface LogSheetData {
    * analysis report's label roll. A scaled-down JPEG kept inside the record, as the complaint report keeps its own.
    */
   photos?: SheetPhoto[];
+  /**
+   * The paper's paragraphs as THIS record words them (REQUIREMENTS §135): its instructions, its text below the grid and
+   * its text at the foot, each line the format's until a person types over it on the record. The format keeps its own.
+   */
+  words?: SheetWords;
+}
+
+/** A record's own wording of its paper's paragraphs, line by line (an empty place keeps the format's line). */
+export interface SheetWords {
+  instructions?: string[];
+  notesBelow?: string[];
+  notesAtFoot?: string[];
 }
 
 /** A photograph on a log sheet: its own id, the file's name and the picture (a scaled-down JPEG's data URL). */

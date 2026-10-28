@@ -271,6 +271,67 @@ with sync_playwright() as p:
     page.locator(".pill-tab:has-text('Rodent Stations')").first.click()
     page.wait_for_timeout(300)
     check("...and its Station ID, typed over, sticks", page.locator(".doc-table tbody tr").last.locator("input").first.input_value() == "RBS-07")
+
+    # EVERY PRINTED WORD OF AN HR OR QC SHEET IS THE PERSON'S TO TYPE OVER ON THE RECORD (REQUIREMENTS s135, the owner,
+    # 28-Oct-2026: "each and every document of HR and QC in that each and every single part make sure it is always
+    # editable"): a line's printed words and the paper's text below the grid, the record's own once typed over; the
+    # printout draws them as before; a verified record is locked as before.
+    def new_record(doc):
+        page.goto(f"{BASE}/index.html#/library")
+        page.wait_for_timeout(900)
+        dismiss(page)
+        page.locator(f"[data-action='new-record'][data-document='{doc}']").first.evaluate("el => el.click()")
+        page.wait_for_timeout(1600)
+        dismiss(page)
+        return page.url.split("#/record/")[-1]
+
+    def type_over(locator, words):
+        locator.click()
+        page.keyboard.press("Control+A")
+        page.keyboard.type(words)
+        page.locator("h1, .page-title").first.click(force=True) if page.locator("h1, .page-title").count() else page.mouse.click(5, 5)
+        page.wait_for_timeout(900)
+
+    qc_id = new_record("qc-bopp-film")
+    printed = page.locator("[data-print-doc] table tbody [data-editable-words]")
+    check("F/QC/01 (a paper drawn in millimetres): its lines' printed words are there to type over on a new record", printed.count() >= 3, printed.count())
+    if printed.count():
+        cell = printed.first
+        was = cell.inner_text().strip()
+        type_over(cell, "Thickness as we test it")
+        rows = (stored(page, qc_id) or {}).get("data", {}).get("rows", [])
+        check(
+            "...a line's printed words typed over are this record's own words for the line",
+            any("Thickness as we test it" in str(v) for r in rows for v in r.values()),
+            (was, [list(r.values())[:3] for r in rows[:2]]),
+        )
+        page.reload()
+        page.wait_for_timeout(1500)
+        dismiss(page)
+        check("...and they stay after a reload", page.locator("[data-print-doc] table tbody [data-editable-words]", has_text="Thickness as we test it").count() == 1)
+        page.evaluate("() => { window.print = () => {}; window.dispatchEvent(new Event('beforeprint')); }")
+        page.emulate_media(media="print")
+        outline = page.locator("[data-print-doc] [data-editable-words]").first.evaluate("(e) => getComputedStyle(e).outlineStyle")
+        body = page.locator("[data-print-doc]").first.inner_text()
+        page.emulate_media(media="screen")
+        page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
+        check("...printed as the paper's words, with no line or ring of the screen's", outline == "none" and "Thickness as we test it" in body, outline)
+
+    scale_id = new_record("qc-weight-scale-calibration")
+    procedure = page.locator("[data-print-doc] [data-section='notes-below'] [data-editable-words]")
+    check("F/QC/12: the PROCEDURE below its grid is there to type over too", procedure.count() >= 1, procedure.count())
+    if procedure.count():
+        type_over(procedure.first, "PROCEDURE: as our lab does it this week.")
+        words = ((stored(page, scale_id) or {}).get("data", {}).get("words") or {}).get("notesBelow") or []
+        check("...kept as this record's own text below the grid, the format's untouched", words[:1] == ["PROCEDURE: as our lab does it this week."], words)
+
+    page.goto(f"{BASE}/index.html#/record/qc-gsm-plate-calibration-2024-12")
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    check(
+        "A verified record (F/QC/11's page of 31.12.2024) is locked as before: no printed word to type over",
+        page.locator("[data-print-doc]").count() >= 1 and page.locator("[data-print-doc] [data-editable-words]").count() == 0,
+    )
     browser.close()
 
 if FAILURES:

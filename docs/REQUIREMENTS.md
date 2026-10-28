@@ -9863,6 +9863,36 @@ created for testing so that id should access of those all."
    RBS-NN, its ID typed over and kept), departments (a testing account still opens Master Data), with archive_blanks,
    smoke, tour, theme, translate, voice_languages, voice_and_sounds and hr_module.
 
+## §135 Every printed word of an HR or QC sheet typed over on the record (28-Oct-2026)
+
+The owner, 28-Oct-2026: "And i have told that i want each and every document of HR and QC in that each and every single
+part make sure it is always editable every single part of it." (After §117 every box and reading was the person's; the
+words the paper prints on its lines and under its grid were the format's, changed only on Edit format.)
+
+1. **A line's printed words** - a parameter, a specification, a check point's question, a line's name - are typed over
+   where they stand on any record that can be written on (components/records/EditableWords.tsx): a click puts the caret
+   in them, and what is typed is THIS record's own words for that line (kept in its line, as a written value is). The
+   format, and every other record, keep theirs; Edit format still changes the format for every new sheet. On every
+   grid a sheet is drawn with: DCRS's own sheets, the paper forms drawn in millimetres, the papers drawn as their own
+   table (the certificates of analysis), each line's second line.
+2. **The paper's paragraphs** - its instructions, its text below the grid (F/QC/11's and F/QC/12's PROCEDURE) and its
+   text at the foot - the same way: the record keeps its own wording of a line once it is typed over (LogSheetData.words),
+   the format's otherwise.
+3. **Drawn and printed as before.** The words keep the paper's look - its bold headings, its lines, its underlines; on
+   the screen a faint dashed line shows them on hover and a ring while they are typed in; printed, nothing of that. Kept
+   when the words are left; Escape puts them back. A record that cannot be written on (handed in, verified, another's)
+   draws them exactly as before - the same markup - and takes no typing; a correction reopens it as before (§86).
+4. **What stays as it is, and why.** A worked-out cell (a Deviation %, a Difference, a total) follows what is written
+   in its readings: it changes when they do, never by hand, so a result always agrees with the readings it comes from.
+   The registers drawn from HR Master Data (F/HR/01, 03, 08, 09) are changed in HR Master Data, which every one of them
+   reads. F/HR/17's check points are Master Data's (the super admin's, §134); the contractor's service report's
+   material and method follow its areas by the service's own rules (§118); the header block was already typed over (§86).
+5. **Proved:** frontend/tests/editableWords.test.ts (the markup unchanged where nothing can be typed, the caret where it
+   can, every place a sheet prints words, worked-out cells still worked out) and tests/e2e_editing.py (F/QC/01: a line's
+   words typed over, kept as the record's own, kept after a reload, printed without the screen's marks; F/QC/12's
+   PROCEDURE typed over, the format untouched; a verified record locked), with qc_formats, qc_calibration,
+   print_all_documents, print_fill, hr_module, downloads_and_print, header_editing, smoke and translate.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
