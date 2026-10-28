@@ -407,11 +407,18 @@ function fillMeasured(doc: HTMLElement, zoom: number, width: number, across: num
   const byHeight = Math.floor(zoom * (FILL_TO / now) * 1000) / 1000;
   const grown = Math.min(FILL_SCALE, byWidth, byHeight);
   if (grown > zoom) {
-    // Measured again at that size (its words wrap anew across the narrower layout), else halfway.
+    // Measured again at that size (its words wrap anew across the narrower layout); a hair too tall there, the largest
+    // zoom between that keeps to FILL_TO, the gap halved six times (once the margin was measured as it prints, a sheet
+    // just over at the grown zoom fell back to half the growth, or to none: 92% of the page became 67%, 28-Oct-2026).
     if (pagesAt(doc, grown, landscape, part) <= FILL_TO) zoom = grown;
     else {
-      const half = Math.floor(((zoom + grown) / 2) * 1000) / 1000;
-      if (pagesAt(doc, half, landscape, part) <= FILL_TO) zoom = half;
+      let [fits, over] = [zoom, grown];
+      for (let i = 0; i < 6; i++) {
+        const mid = Math.floor(((fits + over) / 2) * 1000) / 1000;
+        if (pagesAt(doc, mid, landscape, part) <= FILL_TO) fits = mid;
+        else over = mid;
+      }
+      zoom = fits;
     }
   }
   return zoom;

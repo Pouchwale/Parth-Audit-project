@@ -9796,6 +9796,43 @@ point "490 mm, exactly as printed".
    boxes), qc_formats (a new F/QC/17 of each scale with the master's 21-09-26 and 20-09-27, the 600 mm points),
    downloads_and_print, print_all_documents, header_editing and every_record_starts.
 
+## §133 Each printed page filled to its foot; F/HR/17 stays what the person on the round found (28-Oct-2026)
+
+The owner, 28-Oct-2026, with a picture of F/HR/17's register, its page 1 on the screen: "So now i want that the system
+will automatically fill this record and for rodent it should be like 3 to 4 in 6 month duration and once i provide you
+rodent stations details with location then system should automatically select any random place and station present at
+location and also ... make sure this page will print complete on A4 size paper like fonts should be good which cover the
+whole page so this should also applies to many other documents so when any this kind of page is which is small then it
+should cover whole A4 size page when user take physical print so it should present completely fill".
+
+1. **Not done: catches the system makes up.** As on 8-Oct and 17-Oct-2026 (§98, §118): a Live F/HR/17 holds what the
+   person on the round found. DCRS does not write rodent catches at a chosen rate, nor at a station picked at random, nor
+   any answer nobody gave: a monitoring record a person did not fill hides a real infestation and, found by an auditor
+   (catches too regular, a station the contractor's reports never name), costs the certificate. Offered instead: the
+   rodent stations, once the owner sends them, as a Master Data list the person picks the station (and its location)
+   from when there is a catch; quicker real entry for the person on the round.
+2. **Each page of a sheet printed as pages of its own is filled** (utils/print.ts, FILLING EACH PAGE; PAGE_SECTIONS =
+   section.register-page). F/HR/17's register prints its three pages as its paper - the check points; days 1 to 19;
+   days 20 to 31 and the summary - and each page is now drawn bigger as a one-page sheet is (to 1.3x at most, never
+   wider than the page, to 94% of its height). Until now only a sheet of one page was, so each of these pages printed
+   a third to a half high.
+3. **Then a page still short of its foot has its lines drawn taller** (stretchToPages, last of all, once every box is
+   written for the print): a table's lines all to one height, as a ruled paper's, no taller than 11 mm; on a page with
+   no table (F/HR/17's check points), its list's items further apart, by 14 mm each at most; to 92% of the page. A
+   register printing only the lines written (§126) keeps them a ruled line high at most - two written lines never
+   stretch down a page, and no blank line is ruled. A page that would run onto a second one is put back as it was, and
+   after printing the screen is as it was.
+4. **For every sheet of DCRS's own make** - HR, production, maintenance, stores, dispatch, CAPA, the system registers,
+   the pest pages. A sheet drawn to the plant's own paper (the QC papers in the paper's millimetres, a framed paper,
+   the contractor's service report, F/HR/18's Word page) prints at its paper's measures, as §117 asked.
+5. **Measured** (scratchpad tool coverage_a4.py: every document's new record and F/HR/17's register printed by the
+   browser to A4, how far down each page the ink reaches): of 132 documents (a new record of each, and F/HR/17's register) printed by the browser to A4, F/HR/17's register went from 47, 89 and 82% of the page to 92, 94 and 94%, its first page in 12.7 pt (9.7 before); the one-page printouts reaching 85% of the page or more from 39 to 47; F/MKT/01 and F/HR/11, which ran onto a second page, are one page each (all printouts 185 pages, now 183); no printout gained a page. Found on the way: the fill measured a sheet with the screen's margin (20 x 24 px), its rule more specific than the print's 12 mm, so a sheet drawn bigger could print taller than measured; it now measures with the margin it prints with, and takes the largest size that keeps to 94% of the page (halving the gap six times) where it took that size or half of it. A new record with a single line written still prints that one line (§126): a register reaches its page's foot with the lines written in it.
+6. **Proved:** frontend/tests/printFill.test.ts (the rules, read from the source) and tests/e2e_print_fill.py (F/HR/17:
+   three pages, each covered to 85% of its height or more, the check points in writing of 12 pt or more, its lines no
+   taller than 11 mm, the screen as it was after printing; a register's written lines no taller than a ruled line; the
+   papers drawn to their measures left as drawn), with print_all_documents, print_and_forms, downloads_and_print,
+   smoke, departments, translate, find_every_document, header_editing and theme.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
