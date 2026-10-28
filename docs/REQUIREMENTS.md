@@ -9834,6 +9834,35 @@ should cover whole A4 size page when user take physical print so it should prese
    papers drawn to their measures left as drawn), with print_all_documents, print_and_forms, downloads_and_print,
    smoke, departments, translate, find_every_document, header_editing and theme.
 
+## §134 Master Data the super admin's (and the testing accounts'); the rodent station's ID the plant's to write (28-Oct-2026)
+
+The owner, 28-Oct-2026, with a picture of Master Data's Rodent Stations (Station ID "RBS-mvrtzde3-a-dbilag", not a box)
+and of the System menu: "So make rodent Station id editable and from kapila barad id and other except superadmin id's no
+one can see in there id so remove them from all other id's and but make sure there are lots of testing id which you have
+created for testing so that id should access of those all."
+
+1. **Who opens Master Data** (frontend/src/engine/masterDataAccess.ts, one rule the server runs too): the super admin, and
+   the testing accounts - every account whose address is at example.com, the domain kept for testing: the test runs'
+   own, and those the early runs left in the plant's database ("Playwright QA", e2e-...@example.com, §99). Kapila Barad
+   and every other account of the plant's people are not shown it: no Master Data in the System menu, its address
+   (#/master-data) says it is the super admin's, and the assistant no longer offers it to them beside the calendar.
+   Reports, the Activity Log, the Performance Scorecard and Insights are as they were; HR Master Data is HR's page, as
+   before. The forms still read Master Data's lists (people, chemicals, areas, check points, the calendar) for everybody.
+2. **The server keeps it so** (backend/storageRoutes.ts, withStoredMaster): a write of the master data by an account that
+   may not open it keeps every list as stored - only the Chemical Master's list (serviceTypeChemicals), a pest-control
+   document of its own filled from its own page, stays theirs to change as before. A testing account's write is taken
+   as before, the plant's hours kept the super admin's (§84). A new plant's first sync is taken, its hours left to the
+   super admin.
+3. **The rodent station's ID is a box** like the rest of its line: typed over as the plant numbers its stations (no
+   record or form refers to a station by it). A new station starts as the next free number - RBS-01, RBS-02 ... -
+   where it was a made-up code.
+4. **Proved:** frontend/tests/masterDataAccess.test.ts (who may, the link, the page, the assistant, the server, the
+   station's ID and its numbering), backend/tests/storageRoutes.test.ts (Kapila's write kept as stored but the Chemical
+   Master's, a testing account's taken, the super admin's taken, a new plant's first sync), and the browser suites
+   working_hours (Kapila: no link, refused at its address, her forged write changes nothing), editing (a new station
+   RBS-NN, its ID typed over and kept), departments (a testing account still opens Master Data), with archive_blanks,
+   smoke, tour, theme, translate, voice_languages, voice_and_sounds and hr_module.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

@@ -5,6 +5,7 @@ import { deleteItem, readItem, storedItems, writeItem, type StoredItem, type Sto
 import { ACCESS_KEY, AccessRefused, checkFormatChange, composeDefinitions, composeRecords, holdsHrMaster, languageOf, levelRefusal, viewFor, writesHrMaster, type AccessView } from "./accessLevels.ts";
 import { accessAccountOf, catalogueLoader, databaseItemSource } from "./accessStore.ts";
 import type { AccessCatalogue } from "./accessLevels.ts";
+import { mayOpenMasterData } from "../frontend/src/engine/masterDataAccess.ts";
 
 // THE APP'S DATA, IN POSTGRESQL (REQUIREMENTS §55). The browser keeps a
 // working copy of each stored item (frontend/src/data/serverSync.ts): it
@@ -114,6 +115,24 @@ function visibleLines(value: string, visible: (line: unknown) => boolean): strin
 }
 
 /** A master-data write with the working hours put back as they are stored (unchanged, when they already are). */
+/**
+ * A write of the master data by an account that may not open Master Data (REQUIREMENTS §134): every list as stored but
+ * the Chemical Master's (serviceTypeChemicals, a pest-control document of its own). With nothing stored yet - a new
+ * plant's first sync - what is posted is taken, the hours as the super admin's.
+ */
+export function withStoredMaster(posted: string, stored: string | null): string {
+  if (!stored) return withStoredHours(posted, stored);
+  try {
+    const theirs = JSON.parse(stored) as Record<string, unknown> | null;
+    if (!theirs || typeof theirs !== "object" || Array.isArray(theirs)) return withStoredHours(posted, stored);
+    const mine = JSON.parse(posted) as Record<string, unknown> | null;
+    if (!mine || typeof mine !== "object" || Array.isArray(mine) || !("serviceTypeChemicals" in mine)) return stored;
+    return JSON.stringify({ ...theirs, serviceTypeChemicals: mine.serviceTypeChemicals });
+  } catch {
+    return stored;
+  }
+}
+
 export function withStoredHours(posted: string, stored: string | null): string {
   try {
     const mine = JSON.parse(posted) as Record<string, unknown> | null;
@@ -277,8 +296,11 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
         // THE PLANT'S HOURS ARE THE SUPER ADMIN'S TO CHANGE (REQUIREMENTS §84): the
         // Master Data page offers them to nobody else, and a write of the master data
         // by anybody else keeps the hours exactly as they are stored — the screen is
-        // never the lock (§66). Everything else in that write is theirs as before.
-        compose = (stored) => withStoredHours(posted, stored);
+        // never the lock (§66).
+        // AND MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS §134, the owner, 28-Oct-2026): an account that may not open it
+        // (frontend/src/engine/masterDataAccess.ts) keeps every list as stored - only the Chemical Master's, a pest-control
+        // document of its own, is theirs to change as before; a testing account's write is taken, the hours kept.
+        compose = mayOpenMasterData(user) ? (stored) => withStoredHours(posted, stored) : (stored) => withStoredMaster(posted, stored);
       }
       // THE ARCHIVED SHEETS STAY ARCHIVED (REQUIREMENTS §115): a browser whose old copy still holds blank sheets the
       // server moved to the archive writes everything but those. Looked for in what was posted first, so a browser

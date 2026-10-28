@@ -595,6 +595,8 @@ const en = {
   // ---- other pages -------------------------------------------------------
   "search.title": "Search",
   "master.title": "Master Data",
+  "master.onlySuperAdmin": "Only the super admin can open Master Data",
+  "master.onlySuperAdminWhy": "The lists every form draws on, the plant's hours and the calendar are the super admin's to keep. Your forms still read them for you; ask the super admin if something in them needs changing.",
   "demo.title": "Demo Mode",
   "training.title": "Training Records",
   "chem.title": "Pesticide Application Chart",
@@ -1408,6 +1410,8 @@ const gu: Record<StringKey, string> = {
   // ---- other pages -------------------------------------------------------
   "search.title": "શોધ",
   "master.title": "માસ્ટર ડેટા",
+  "master.onlySuperAdmin": "માસ્ટર ડેટા ફક્ત સુપર એડમિન ખોલી શકે છે",
+  "master.onlySuperAdminWhy": "દરેક ફોર્મ જે યાદીઓ વાપરે છે, પ્લાન્ટના કલાકો અને કેલેન્ડર સુપર એડમિન સંભાળે છે. તમારા ફોર્મ તે તમારા માટે વાંચે જ છે; તેમાં કંઈ બદલવાનું હોય તો સુપર એડમિનને કહો.",
   "demo.title": "ડેમો મોડ",
   "training.title": "તાલીમ રેકોર્ડ",
   "chem.title": "જંતુનાશક ઉપયોગ ચાર્ટ",

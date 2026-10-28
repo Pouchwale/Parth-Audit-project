@@ -299,3 +299,59 @@ describe("the definitions, the format edits, HR Master Data and the access rules
     assert.ok(s.lines.some((l) => l.action === "Access changed" && l.target === "Everybody"));
   });
 });
+
+// MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS §134, the owner, 28-Oct-2026): and the testing accounts' (example.com).
+describe("Master Data, the super admin's and the testing accounts'", () => {
+  let s: Server;
+  before(async () => (s = await start()));
+  after(() => s.close());
+  const MASTER = {
+    workingHours: { start: "08:40", end: "18:20" },
+    employees: [{ id: "e-1", name: "Kapila Barad" }],
+    rodentStations: [{ id: "RBS-01", location: "Gate", type: "Bait Tray", status: "Active" }],
+    serviceTypeChemicals: [{ id: "c-1", chemical: "Bromadiolone" }],
+  };
+  const changed = (by: string) => ({
+    ...MASTER,
+    workingHours: { start: "06:00", end: "06:30" },
+    employees: [{ id: "e-1", name: `changed by ${by}` }],
+    rodentStations: [{ id: `RBS-${by}`, location: "Store", type: "Bait Tray", status: "Active" }],
+    serviceTypeChemicals: [{ id: "c-1", chemical: `Chemical Master by ${by}` }],
+  });
+
+  it("Kapila Barad: every list kept as stored, only the Chemical Master's (a pest-control document of its own) hers to change", async () => {
+    s.store.put("master", MASTER);
+    const res = await put(s, "kapila", "master", changed("kapila"));
+    assert.equal(res.status, 200);
+    const stored = s.store.value("master") as typeof MASTER;
+    assert.deepEqual(stored.rodentStations, MASTER.rodentStations, "a rodent station: as stored");
+    assert.deepEqual(stored.employees, MASTER.employees);
+    assert.deepEqual(stored.workingHours, MASTER.workingHours, "the hours: as stored");
+    assert.deepEqual(stored.serviceTypeChemicals, [{ id: "c-1", chemical: "Chemical Master by kapila" }], "the Chemical Master: hers, as before");
+  });
+
+  it("a testing account (its address at example.com): its write taken as before, the hours kept", async () => {
+    s.store.put("master", MASTER);
+    const res = await put(s, "clerk", "master", changed("clerk"));
+    assert.equal(res.status, 200);
+    const stored = s.store.value("master") as typeof MASTER;
+    assert.deepEqual(stored.rodentStations, [{ id: "RBS-clerk", location: "Store", type: "Bait Tray", status: "Active" }]);
+    assert.deepEqual(stored.workingHours, MASTER.workingHours, "the hours stay the super admin's");
+  });
+
+  it("the super admin: taken as it is", async () => {
+    s.store.put("master", MASTER);
+    const res = await put(s, "admin", "master", changed("admin"));
+    assert.equal(res.status, 200);
+    assert.deepEqual(s.store.value("master"), changed("admin"));
+  });
+
+  it("with nothing stored yet (a new plant's first sync): what is posted is taken, the hours left to the super admin", async () => {
+    s.store.items.delete("company|master");
+    const res = await put(s, "kapila", "master", MASTER, { base: 0 });
+    assert.equal(res.status, 200);
+    const stored = s.store.value("master") as Record<string, unknown>;
+    assert.deepEqual(stored.rodentStations, MASTER.rodentStations);
+    assert.equal(stored.workingHours, undefined);
+  });
+});

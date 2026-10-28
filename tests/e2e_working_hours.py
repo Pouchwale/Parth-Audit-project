@@ -869,19 +869,22 @@ def throttle_checks(browser):
 
 
 def staff_master_view(browser, admin_ctx):
-    """A member of staff reads the plant's hours and cannot change them - not on the page, not through the API."""
+    """A member of staff is not shown Master Data, and cannot change it - not on the page, not through the API (s134)."""
     ctx = new_context(browser)
     page = new_page(ctx)
     try:
         if sign_in(page, STAFF):
+            # MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS s134, the owner, 28-Oct-2026: "from kapila barad id and other
+            # except superadmin id's no one can see in there id"): no link in her menu, and its address refuses her.
+            check("A member of staff (Kapila Barad) has no Master Data in her menu", page.locator("#app-sidebar a[href='#/master-data']").count() == 0)
             page.goto(f"{BASE}/index.html#/master-data")
             page.wait_for_timeout(1200)
             dismiss(page)
-            page.locator(".pill-tab", has_text="Working Hours & Briefing").first.click()
-            page.wait_for_selector("[data-section='plant-hours']", timeout=10000)
-            card = page.locator("[data-section='plant-hours']")
-            check("A member of staff reads the plant's hours, with no box to change them", card.locator("#plant-hours-start").count() == 0 and card.locator("[data-field='plant-hours-admin-only']").count() == 1, card.inner_text()[:300])
-            check("...and no line of the super admin's", card.locator("[data-field='plant-hours-for-you']").count() == 0)
+            check(
+                "...and its address tells her it is the super admin's: no list, no tab, no hours",
+                page.locator("[data-state='master-not-allowed']").count() == 1 and page.locator(".pill-tab").count() == 0 and page.locator("[data-section='plant-hours']").count() == 0,
+                page.locator(".app-content").inner_text()[:200],
+            )
             sign_out(page)
         else:
             check("A member of staff signs in to the app", False)
@@ -897,11 +900,16 @@ def staff_master_view(browser, admin_ctx):
             note("No master data is stored yet: the forged write was not tried.")
             return
         forged = json.loads(value)
-        before_hours = forged.get("workingHours")
+        before = json.loads(value)
         forged["workingHours"] = {"start": "06:00", "end": "06:30"}
+        forged["rodentStations"] = [{"id": "RBS-99", "location": "Forged", "type": "Bait Tray", "status": "Active"}]
         status, _ = put_master(staff_ctx, json.dumps(forged), version)
-        after_hours = json.loads(stored_master(admin_ctx)[0] or "{}").get("workingHours")
-        check("A member of staff writing the master data through the API cannot change the hours: they stay as stored", status == 200 and after_hours == before_hours, (status, before_hours, after_hours))
+        after = json.loads(stored_master(admin_ctx)[0] or "{}")
+        check(
+            "A member of staff writing the master data through the API changes none of it: the hours and the lists stay as stored",
+            status == 200 and after.get("workingHours") == before.get("workingHours") and after.get("rodentStations") == before.get("rodentStations"),
+            (status, before.get("workingHours"), after.get("workingHours"), after.get("rodentStations")),
+        )
     finally:
         staff_ctx.close()
 

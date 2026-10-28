@@ -62,6 +62,7 @@ import { HR_RECORD_PAGES } from "../../data/seed/hrModule";
 import { QC_OVERVIEW_DOCUMENT_IDS } from "../../data/seed/qcModule";
 import { demoModeAvailable } from "../../engine/features";
 import { useAuth } from "../../store/AuthContext";
+import { mayOpenMasterData } from "../../engine/masterDataAccess";
 import { currentAddress } from "../../utils/moduleSlug";
 
 interface NavItem {
@@ -617,9 +618,11 @@ export function Sidebar() {
   // Demo Mode only where the server has it (§65); Users & Access only for the
   // administrator, whose own it is (§66).
   const systemItems = useMemo(() => {
-    const items = demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM;
+    const all = demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM;
+    // Master Data is the super admin's, and the testing accounts' (engine/masterDataAccess.ts, the owner, 28-Oct-2026).
+    const items = mayOpenMasterData(user) ? all : all.filter((item) => item.to !== "/master-data");
     return user?.role === "admin" ? [...items, USERS_ITEM, MASTER_LIST_ITEM, ACCESS_ITEM, DATABASE_OVERVIEW_ITEM] : items;
-  }, [user?.role]);
+  }, [user]);
   const { visible, narrow, close } = useSidebar();
   const [openState, setOpenState] = useState<Record<string, boolean>>(loadOpenState);
   // WHICH MODULES AND LINKS THIS PERSON MAY OPEN (REQUIREMENTS §40).

@@ -487,6 +487,13 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/index.html#/master-data")
     page.wait_for_timeout(1100)
     dismiss(page)
+    # Master Data is the super admin's and the testing accounts' (REQUIREMENTS s134, the owner, 28-Oct-2026: "make sure there
+    # are lots of testing id ... that id should access of those all"): this one, at example.com, still opens it.
+    check(
+        "A testing account (its address at example.com) still opens Master Data, its tabs and all",
+        page.locator("[data-state='master-not-allowed']").count() == 0 and page.locator(".pill-tab").count() > 0
+        and page.locator("#app-sidebar a[href='#/master-data']").count() == 1,
+    )
     page.locator(".pill-tab", has_text="Departments & access").first.click()
     page.wait_for_timeout(800)
     check(

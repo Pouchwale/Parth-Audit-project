@@ -13,6 +13,7 @@ are understood locally, engine/recordPatch.ts):
     nothing until the user says yes;
   * a Master Data row can be corrected in place, and deleting one takes two taps.
 """
+import re
 import sys
 import time
 from datetime import date, timedelta
@@ -246,6 +247,30 @@ with sync_playwright() as p:
     page.click("button:has-text('Keep')")
     page.wait_for_timeout(200)
     check("'Keep' leaves the row", page.locator(".doc-table tbody tr").count() == rows_before)
+
+    # THE RODENT STATION'S ID IS THE PLANT'S OWN TO WRITE (REQUIREMENTS s134, the owner, 28-Oct-2026: "make rodent Station
+    # id editable"): a new station is numbered RBS-01, RBS-02 ..., not a made-up code, and its ID is a box to type into.
+    page.locator(".pill-tab:has-text('Rodent Stations')").first.click()
+    page.wait_for_timeout(300)
+    stations = page.locator(".doc-table tbody tr")
+    before_add = stations.count()
+    page.click("button:has-text('Add Row')")
+    page.wait_for_timeout(400)
+    station_id = page.locator(".doc-table tbody tr").last.locator("input").first
+    added = station_id.input_value() if station_id.count() else None
+    check(
+        "A new rodent station is numbered as a plant numbers its stations (RBS-01, RBS-02 ...), in a box to type into",
+        page.locator(".doc-table tbody tr").count() == before_add + 1 and added is not None and re.fullmatch(r"RBS-\d{2,}", added) is not None,
+        added,
+    )
+    station_id.fill("RBS-07")
+    page.wait_for_timeout(400)
+    page.reload()
+    page.wait_for_timeout(800)
+    dismiss(page)
+    page.locator(".pill-tab:has-text('Rodent Stations')").first.click()
+    page.wait_for_timeout(300)
+    check("...and its Station ID, typed over, sticks", page.locator(".doc-table tbody tr").last.locator("input").first.input_value() == "RBS-07")
     browser.close()
 
 if FAILURES:

@@ -19,6 +19,8 @@ import { machineNumbersIn } from "./equipmentMaster";
 import { scopedInsightsHeadline } from "./scopedInsights";
 import { demoModeAvailable } from "./features";
 import { superAdminSignedIn } from "./signedInPerson";
+import { accessAccount } from "./departmentScope";
+import { mayOpenMasterData } from "./masterDataAccess";
 import { hoursSentence, workingHoursOf } from "./workingHoursCore";
 import { escalationsSeen } from "../api/client";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO, twoFigureYear } from "../utils/date";
@@ -217,10 +219,12 @@ function parseDateRef(text: string, today: string): { date: string; phrase: stri
 }
 
 function holidayChips(): Chip[] {
-  return [
-    { label: t("ai.chip.calendar"), action: { type: "navigate", route: "/calendar" } },
-    { label: t("ai.chip.holidayMaster"), action: { type: "navigate", route: "/master-data" } },
-  ];
+  const chips: Chip[] = [{ label: t("ai.chip.calendar"), action: { type: "navigate", route: "/calendar" } }];
+  // Master Data is the super admin's, and the testing accounts' (engine/masterDataAccess.ts, 28-Oct-2026): nobody else is
+  // offered it. (With nobody signed in - the tests, the engine host - it is offered as before.)
+  const person = accessAccount();
+  if (!person || mayOpenMasterData(person)) chips.push({ label: t("ai.chip.holidayMaster"), action: { type: "navigate", route: "/master-data" } });
+  return chips;
 }
 
 function listUpcoming(today: string, limit: number): string {

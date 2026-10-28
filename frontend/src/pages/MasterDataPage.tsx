@@ -15,6 +15,7 @@ import { DepartmentsAccess } from "../components/master/DepartmentsAccess";
 import { useT } from "../i18n";
 import { documentTextIn } from "../i18n/documentText";
 import { useAuth } from "../store/AuthContext";
+import { mayOpenMasterData } from "../engine/masterDataAccess";
 import { CUE_NAMES, type CueName } from "../engine/engageBus";
 import { playCue } from "../utils/sounds";
 import { onVoiceChange, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceInUse } from "../utils/voice";
@@ -60,6 +61,18 @@ export function MasterDataPage() {
   const { bump, version, lang } = useAppStore();
   const [tab, setTab] = useState<Tab>("employees");
   const master = masterRepository.get();
+  const { user } = useAuth();
+
+  // THE SUPER ADMIN'S, AND THE TESTING ACCOUNTS' (engine/masterDataAccess.ts, the owner, 28-Oct-2026): nobody else opens
+  // it, by its link or its address; the forms still read its lists for them.
+  if (!mayOpenMasterData(user)) {
+    return (
+      <div className="empty-state" data-state="master-not-allowed">
+        <h2 className="text-xl mb-2">{t("master.onlySuperAdmin")}</h2>
+        <p className="text-muted">{t("master.onlySuperAdminWhy")}</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -167,17 +180,22 @@ export function MasterDataPage() {
           <SimpleTable
             columns={["Station ID", "Location", "Type", "Status"]}
             rows={master.rodentStations.map((r) => [r.id, r.location, r.type, r.status])}
-            editableCols={[1, 2, 3]}
+            // The Station ID is the plant's own to write too (the owner, 28-Oct-2026: "make rodent Station id editable"): no
+            // record or form refers to a station by it, so it is changed in place like the rest of the line.
+            editableCols={[0, 1, 2, 3]}
             onEdit={(i, col, value) => {
               const field = (["id", "location", "type", "status"] as const)[col];
               masterRepository.update({ rodentStations: master.rodentStations.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)) });
               bump();
             }}
             onAdd={() => {
+              // The next free number - RBS-01, RBS-02 ... - where it was a made-up code ("RBS-mvrtzde3-a-dbilag"); typed over as
+              // the plant numbers its stations.
+              const nextNum = Math.max(0, ...master.rodentStations.map((r) => Number(/^RBS-(\d+)$/i.exec(r.id.trim())?.[1] ?? 0))) + 1;
               masterRepository.update({
                 rodentStations: [
                   ...master.rodentStations,
-                  { id: generateId("RBS"), location: "TO BE CONFIRMED", type: "TO BE CONFIRMED", status: "TO BE CONFIRMED" },
+                  { id: `RBS-${String(nextNum).padStart(2, "0")}`, location: "TO BE CONFIRMED", type: "TO BE CONFIRMED", status: "TO BE CONFIRMED" },
                 ],
               });
               bump();
