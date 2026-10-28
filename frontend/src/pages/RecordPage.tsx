@@ -9,6 +9,7 @@ import {
   isEditableStatus,
   rejectRecord,
   cancelCorrection,
+  changeRecordDate,
   correctionChanges,
   reopenForCorrection,
   resumeAfterRejection,
@@ -43,6 +44,8 @@ import { PestResponsibilitiesRecordView } from "../components/records/PestRespon
 import { PreparedBanner } from "../components/records/PreparedBanner";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { mayDo } from "../engine/departmentScope";
+import { periodKeyFor } from "../engine/recordGenerator";
+import { nominalFill, nominalFillLabel } from "../engine/nominalFill";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -218,6 +221,30 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     },
     [flush, currentUser, persistLocal]
   );
+
+  // THE RECORD'S OWN DATE (REQUIREMENTS §136): typed over beside the status while the record can be written on. A sheet
+  // filled as required moves with its place in the schedule; a scheduled sheet keeps its place (its slot) and is dated anew.
+  const changeDate = useCallback(
+    (dateISO: string) => {
+      if (!/^20\d\d-\d\d-\d\d$/.test(dateISO)) return;
+      const stored = flush();
+      if (!stored || !doc) return;
+      const asRequired = doc.schedule?.type === "as-required";
+      const { record: updated, refused } = changeRecordDate(stored, dateISO, asRequired || !stored.periodKey ? periodKeyFor(doc, dateISO) : stored.periodKey, currentUser);
+      if (refused) setNotice(refused);
+      else if (updated !== stored) persistLocal(updated);
+    },
+    [flush, doc, currentUser, persistLocal]
+  );
+
+  // ONE PRESS FILLS A CALIBRATION SHEET AS THE PLANT'S PAGES ARE FILLED (REQUIREMENTS §136, engine/nominalFill.ts): in
+  // the presser's own name, every box still theirs; saved as any typing is, line by line in the history.
+  const fillKind = doc && record && doc.kind === "log-sheet" ? nominalFillLabel(doc.id) : null;
+  const fillNominal = () => {
+    if (!doc || !record || !fillKind) return;
+    const filled = nominalFill(doc.id, (latest.current.data ?? data) as LogSheetData, currentUser);
+    if (filled) handleChange(filled);
+  };
 
   useEffect(() => {
     flush(); // anything pending on the record we're leaving
@@ -514,6 +541,25 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           <FiArrowLeft size={13} /> Back
         </button>
         <div className="flex items-center gap-2">
+          {/* The day the sheet is for, typed over here while the record can be written on (REQUIREMENTS §136). */}
+          {editable && !superseded ? (
+            <label className="text-sm flex items-center gap-1" data-field="record-date">
+              <span className="text-muted">{t("record.dated")}</span>
+              <input type="date" className="input input-sm" style={{ width: 150 }} value={record.dueDate} onChange={(e) => changeDate(e.target.value)} aria-label={t("record.dated")} />
+            </label>
+          ) : (
+            <span className="text-sm text-muted" data-field="record-date">
+              {t("record.dated")}{" "}
+              <span className="notranslate" translate="no">
+                {formatDisplayDate(record.dueDate)}
+              </span>
+            </span>
+          )}
+          {editable && !superseded && fillKind && (
+            <button type="button" className="btn btn-secondary btn-sm" data-action="fill-nominal" title={t("record.fillNominalHint")} onClick={fillNominal}>
+              {t(fillKind === "ruler" ? "record.fillNominalRuler" : "record.fillNominalGsm")}
+            </button>
+          )}
           {record.isDemo && <DemoTag />}
           <StatusBadge status={record.status} overdue={overdue} />
         </div>

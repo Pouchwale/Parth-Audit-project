@@ -9893,6 +9893,34 @@ words the paper prints on its lines and under its grid were the format's, change
    PROCEDURE typed over, the format untouched; a verified record locked), with qc_formats, qc_calibration,
    print_all_documents, print_fill, hr_module, downloads_and_print, header_editing, smoke and translate.
 
+## §136 A calibration sheet filled at one press, in the presser's name; the record's own date typed over (28-Oct-2026)
+
+The owner, 28-Oct-2026, with the plant's own filled F/QC/17 pages (600 mm: 100 to 490 mm read 100 ... 590, Difference 0.0,
+Pass, Kapila Barad; 300 mm: 50 to 290 read the same, Pass, Kapila Barad) and a filled F/QC/11 (every plate at its size,
+0%, Pass): "i want this same ... i want all the field are editable but filled"; and, with the records list: "each and
+every document when i click then that date is also editable"; and the three frequencies again (done, §130).
+
+1. **One press fills the sheet as the plant's pages are filled** (engine/nominalFill.ts; the record page, beside the
+   status, while the sheet can be written on): F/QC/17 of either scale - "Read as the master's at every point": the
+   Observed reading at each printed point is the point itself, so the Difference 0.0 and the Status Pass follow (worked
+   out), and "Calibration performed by" is the person who pressed it; F/QC/11 - "Every plate at its size": the four
+   measured lines at each plate's size, the Deviation 0% following, Pass on the Pass/Fail line and the presser's name on
+   the Sign. line. Every box stays theirs to change (a point that read differently is typed over), and the press is
+   saved as typing is, line by line in the record's history in their name.
+2. **Not written by DCRS itself.** A new sheet still comes with its printed points and no reading (§98: a Live sheet
+   holds what a person found; a reading, a Pass and a name that nobody entered would be a calibration record of a check
+   nobody made, which an auditor reads as such). From the second sheet on it is written as the last one was (§117),
+   so the press is needed once; the Status and the Difference are worked out from the readings either way.
+3. **The record's own date.** Beside the status, while the record can be written on, its date is a box: typed over, the
+   record is dated that day - a sheet filled as required moves with its place in the schedule, a scheduled sheet keeps
+   its place (its slot) and is dated anew - with a line in its history (engine/recordLifecycle.ts changeRecordDate).
+   Another record of the document already on that day: nothing changes, and the page says so. The printed header's
+   date follows unless one was typed over on the header (§86). A record that cannot be written on shows its date.
+4. **Proved:** frontend/tests/nominalFill.test.ts (both scales and F/QC/11 filled, the printed points and lines as they
+   were, nothing written by the prepare) and tests/e2e_editing.py (a new F/QC/17 blank, the press, the readings as
+   the master's in the presser's name, still boxes; the date typed over, the record moved with its history), with
+   qc_formats, qc_calibration, smoke and header_editing.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

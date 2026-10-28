@@ -193,6 +193,8 @@ export const GSM_PLATES: { key: string; no: string; size: string }[] = [
 ];
 
 export const GSM_ROWS = ["Tasted-1", "2", "3", "4", "Pass/Fail", "Sign."];
+/** The four lines a plate is measured on (engine/nominalFill.ts). */
+export const GSM_MEASURED = ["Tasted-1", "2", "3", "4"];
 
 const gsmColumns: LogColumn[] = [{ key: "parameter", label: "Index", type: "text", fixed: true, width: 90 }];
 for (const plate of GSM_PLATES) {

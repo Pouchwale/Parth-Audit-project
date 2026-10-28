@@ -113,6 +113,25 @@ export function saveHeaderBlock(record: RecordInstance, next: RecordHeaderBlock,
 }
 
 /**
+ * THE RECORD'S OWN DATE, CHANGED ON THE RECORD (REQUIREMENTS §136; the owner, 28-Oct-2026: "each and every document
+ * when i click then that date is also editable"): the day the sheet is for, typed over beside its status while it can be
+ * written on. The record moves to that day (its due date; its place in the schedule too, where the document is filled as
+ * required rather than by a schedule), with a line in its history; the printed header's date follows unless one was typed
+ * over on the header (§86). Another record of the document already on that day: nothing is changed, and the answer says so.
+ */
+export function changeRecordDate(record: RecordInstance, dateISO: string, periodKey: string, actorName: string): { record: RecordInstance; refused?: string } {
+  if (!isEditableStatus(record.status) || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO) || dateISO === record.dueDate) return { record };
+  const taken = recordRepository
+    .queryUnscoped({ documentId: record.documentId, isDemo: !!record.isDemo })
+    .find((r) => r.id !== record.id && (r.dueDate === dateISO || (r.periodKey !== undefined && r.periodKey === periodKey)));
+  if (taken) return { record, refused: `There is already a record of this document dated ${formatDisplayDate(dateISO)}: open that one, or choose another day.` };
+  const changes: FieldChange[] = [{ field: "dueDate", label: "Dated", before: formatDisplayDate(record.dueDate), after: formatDisplayDate(dateISO) }];
+  const nextStatus = record.status === "Due" || record.status === "Scheduled" ? "In Progress" : record.status;
+  const updated = appendHistory({ ...record, dueDate: dateISO, periodKey, status: nextStatus }, makeEntry("edited", actorName, { changes }));
+  return { record: recordRepository.upsert(updated) };
+}
+
+/**
  * What a record's header prints where nothing was typed over (REQUIREMENTS §86): the record's own date, and
  * "1 of 1". One rule for the views and for the history of a correction, so both say what the header prints.
  * The Page No. holds a page number only (REQUIREMENTS §117, the owner, 16-Oct-2026, with "row 16 of the
