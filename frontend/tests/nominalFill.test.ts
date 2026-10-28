@@ -9,7 +9,9 @@ import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/dat
 import { RULER_300_ID, RULER_600_ID } from "../src/data/seed/qcRulerVerificationLayouts";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { withComputedCells } from "../src/engine/computedCells";
-import { nominalFill, nominalFillLabel, nominalFillOnOpen, nominalFillWaits } from "../src/engine/nominalFill";
+import { nominalFill, nominalFillAdded, nominalFillLabel, nominalFillOnOpen, nominalFillWaits } from "../src/engine/nominalFill";
+import { newRow } from "../src/engine/recordLines";
+import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { prepareKnownParts } from "../src/engine/knownParts";
 
 ensureDocumentsSeeded();
@@ -63,6 +65,28 @@ test("F/QC/12: each Tested Value the exact weight placed, 0% and Pass worked out
   assert.equal(nominalFillOnOpen(SCALE, filled, "x"), null, "written on: left as it is");
   const typed = { ...blank, rows: blank.rows.map((r) => ({ ...r, testedValue4: "500.010" })) };
   assert.equal(nominalFillOnOpen(SCALE, typed, "x"), null, "a value the scale showed, typed: left as it is");
+});
+
+test("F/QC/12: a line added with Add Row is filled as the sheet is on opening, in the adder's name; the lines above are left as they are", () => {
+  const SCALE = "qc-weight-scale-calibration";
+  const fresh = createDefaultData(doc(SCALE), "2026-11-01", master) as LogSheetData;
+  // (the sheet's Acceptable Tolerance, carried from the last sheet on a real one: Pass / Fail is judged by it)
+  const blank: LogSheetData = { ...fresh, header: { ...fresh.header, acceptableTolerance: "0.05 %" } };
+  const typed: LogSheetData = { ...blank, rows: blank.rows.map((r) => ({ ...r, testedValue4: "500.010", testedBy: "Parth" })) };
+  const line = nominalFillAdded(SCALE, typed, newRow(getLogSheetLayout(SCALE)!, typed.rows, "row-added"), "Kapila Barad");
+  const sheet = withComputedCells(SCALE, { ...typed, rows: [...typed.rows, line] });
+  const added = sheet.rows[sheet.rows.length - 1];
+  assert.deepEqual([added.weight1, added.weight5], ["50 gm", "600 gm"], "the standard weights, as on every new line");
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => added[`testedValue${i}`]), [1, 2, 3, 4, 5].map((i) => added[`weight${i}`]));
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => added[`deviation${i}`]), ["0%", "0%", "0%", "0%", "0%"]);
+  assert.equal(added.passFail, "Pass");
+  assert.deepEqual([added.testedBy, added.sign, added.id], ["Kapila Barad", "Kapila Barad", "row-added"]);
+  assert.ok(!added.nextDueDate, "the Next Due Date is the person's");
+  assert.equal(sheet.rows[0].testedValue4, "500.010", "a value typed above is left as it is");
+  assert.equal(sheet.rows[0].testedBy, "Parth");
+  // Any other sheet's added line starts blank (§98).
+  const other = { id: "row-x", parameter: "" };
+  for (const id of ["qc-gsm-plate-calibration", RULER_600_ID, "qc-calibration-master-list"]) assert.equal(nominalFillAdded(id, blank, other, "Kapila Barad"), other, id);
 });
 
 test("only these four documents are filled on opening; a new Live sheet still comes with nothing observed on it", () => {

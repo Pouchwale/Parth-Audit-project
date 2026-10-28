@@ -50,6 +50,7 @@ import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { logRowsRule, newRow } from "../../engine/recordLines";
+import { nominalFillAdded } from "../../engine/nominalFill";
 import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
 import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
@@ -119,7 +120,7 @@ export function LogSheetRecordView({
   // (REQUIREMENTS §58, i18n/documentText.ts). The KEYS never change, so what a
   // record holds is untouched either way.
   // A QC paper printed in Gujarati reads as issued in every language (REQUIREMENTS §111): its own words are its Gujarati.
-  const { lang: chosenLang, version } = useAppStore();
+  const { lang: chosenLang, version, currentUser } = useAppStore();
   const lang = sheetLanguage(doc.id, chosenLang);
   // The layout THIS RECORD was filled on: the format as it stands, or — for a
   // page kept on a revision the format has since replaced — that revision's
@@ -270,7 +271,8 @@ export function LogSheetRecordView({
   // Add Row starts a line blank in every box (REQUIREMENTS §98): no "ALC DONE: Yes" or "Cleaning: Dry" decided for the
   // person. A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111) gets the next number.
   // The line is the one registry's (engine/recordLines.ts, §113): the same line Mitra's "add a row" and its patch build.
-  const addRow = () => save({ ...data, rows: [...data.rows, newRow(layout, data.rows, generateId("row"))] });
+  // F/QC/12's line is the exception (§140): filled as the sheet is on opening, in the name of the person who adds it.
+  const addRow = () => save({ ...data, rows: [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser)] });
   const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
 
   // HR formats that name a person fetch them from HR Master Data (REQUIREMENTS

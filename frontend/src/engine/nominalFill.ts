@@ -53,6 +53,16 @@ export function nominalFillWaits(documentId: string, data: LogSheetData | undefi
 }
 
 /** The sheet filled as the plant's pages are, in `signer`'s name, where nothing is observed on it yet; null otherwise. */
+/**
+ * A line a person adds to F/QC/12 with Add Row, filled as the sheet is on opening and in that person's name (REQUIREMENTS
+ * §140, the owner, 28-Oct-2026): each Tested Value its own weight, Tested By and Sign theirs. A line added to any other
+ * sheet starts blank, as Add Row always has (§98).
+ */
+export function nominalFillAdded(documentId: string, data: LogSheetData, line: LogSheetRow, signer: string): LogSheetRow {
+  if (nominalFillLabel(documentId) !== "scale") return line;
+  return nominalFill(documentId, { ...data, rows: [line] }, signer)?.rows[0] ?? line;
+}
+
 export function nominalFillOnOpen(documentId: string, data: LogSheetData | undefined, signer: string): LogSheetData | null {
   return data && nominalFillWaits(documentId, data) ? nominalFill(documentId, data, signer) : null;
 }

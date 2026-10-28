@@ -421,6 +421,10 @@ with sync_playwright() as p:
     firsts = page.locator(OWN_LINES)
     heights = firsts.evaluate_all("els => els.map((e) => Math.round(e.getBoundingClientRect().height))")
     check("...a line added on the screen is as tall as the paper's lines", firsts.count() == before_rows + 1 and len(heights) >= 2 and heights[-1] >= heights[0] - 2, heights)
+    added = ((stored(page, scale_id) or {}).get("data", {}).get("rows") or [{}])[-1]
+    check("...the line added is filled as a sheet opened is: each Tested Value its weight, 0%, Pass, Tested By and Sign the person who added it (REQUIREMENTS s140)",
+          tested(added) and added.get("passFail") == "Pass" and added.get("testedBy") == "Editing QA" and added.get("sign") == "Editing QA" and not added.get("nextDueDate"),
+          added)
     # A long name in Tested By is written whole (the owner, 28-Oct-2026: "Ms. Kapila Barad" was cut at the column's edge in
     # print - the name list's arrow kept its room; REQUIREMENTS s139): on the screen and in print, nothing of it cut.
     who = page.locator("[data-print-doc] input[data-bind$='testedBy']").first

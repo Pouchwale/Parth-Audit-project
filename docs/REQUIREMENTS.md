@@ -10001,6 +10001,20 @@ is big name ... that is going out of column so do fix it also".
    shows is typed over it, the Deviation and Pass / Fail following.
 4. **Proved:** tests/e2e_editing.py (Tested By "Ms. Kapila Barad" whole on the screen and in print).
 
+## §140 F/QC/12: a line added with Add Row filled as a sheet opened is (28-Oct-2026)
+
+The owner, 28-Oct-2026, answering "a line added with Add Row starts with its weights only - should it be filled the way a
+newly opened sheet is, in the name of whoever added it?": "yes".
+
+1. **Now** (engine/nominalFill.ts nominalFillAdded, the sheet's Add Row in LogSheetRecordView.tsx): a line added to
+   F/QC/12 comes with each Tested Value its own weight (the standard 50 / 100 / 200 / 500 / 600 gm of every new line), so
+   the Deviation 0% and Pass follow, and Tested By and Sign the name of the person who pressed Add Row. The date and the
+   Next Due Date are theirs to write; every box stays theirs to change, and the lines above are left as they are.
+2. **The same line as §136:** only the exact weight, only when a signed-in person acts (opens the sheet, adds a line), in
+   that person's name - never by the schedule or the morning prepare, never a value that differs from the weight. A line
+   added to any other sheet starts blank, as Add Row always has (§98); Mitra's "add a row" builds the plain line too.
+3. **Proved:** frontend/tests/nominalFill.test.ts and tests/e2e_editing.py (the added line's values and names).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
