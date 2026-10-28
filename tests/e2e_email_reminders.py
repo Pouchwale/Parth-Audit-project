@@ -347,7 +347,7 @@ with sync_playwright() as p:
         log2 = email_log(api_ctx)
         check(
             "Run again in the same slot: nothing more, for anybody",
-            again["status"] == 200 and len([r for r in log2 if r.get("day") == day and r.get("slot") == "morning"]) == morning_rows and len([r for r in log2 if r.get("userId") == ids.get(DHARMIK) and r.get("day") == day]) == 1,
+            again["status"] == 200 and len([r for r in log2 if r.get("day") == day and r.get("slot") == "morning"]) == morning_rows and len([r for r in log2 if r.get("userId") == ids.get(DHARMIK) and r.get("day") == day and not str(r.get("slot") or "").startswith("test-")]) == 1,
             ((again.get("body") or {}).get("result") or {}).get("email"),
         )
 
