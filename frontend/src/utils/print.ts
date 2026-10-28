@@ -537,11 +537,12 @@ function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscap
         room -= grow(line);
       }
     } else {
-      // A page of words and no table (F/HR/17's check points): its list's items further apart.
-      const items = itemsOf(part);
-      if (items.length > 0 && room > 1) {
-        const add = Math.min((ITEM_MAX_MM * PX_PER_MM) / zoom, room / items.length);
-        for (const li of items) stretch(li, "paddingBottom", `${(parseFloat(getComputedStyle(li).paddingBottom) || 0) + add}px`);
+      // A page of words and no table (F/HR/17's check points): its list's items further apart - the room between them,
+      // none under the last, which would be blank paper (the tenth check point stopped at 84% of the page so).
+      const gaps = itemsOf(part).slice(0, -1);
+      if (gaps.length > 0 && room > 1) {
+        const add = Math.min((ITEM_MAX_MM * PX_PER_MM) / zoom, room / gaps.length);
+        for (const li of gaps) stretch(li, "paddingBottom", `${(parseFloat(getComputedStyle(li).paddingBottom) || 0) + add}px`);
       }
     }
     // Never onto a second page: measured again as drawn, and put back as it was if it would be.

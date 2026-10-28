@@ -9814,11 +9814,12 @@ should cover whole A4 size page when user take physical print so it should prese
 2. **Each page of a sheet printed as pages of its own is filled** (utils/print.ts, FILLING EACH PAGE; PAGE_SECTIONS =
    section.register-page). F/HR/17's register prints its three pages as its paper - the check points; days 1 to 19;
    days 20 to 31 and the summary - and each page is now drawn bigger as a one-page sheet is (to 1.3x at most, never
-   wider than the page, to 94% of its height). Until now only a sheet of one page was, so each of these pages printed
-   a third to a half high.
+   wider than the page, to 94% of its height). Until now only a sheet of one page was, so the check points page printed
+   its words to 43% of the page, in 9.7 pt.
 3. **Then a page still short of its foot has its lines drawn taller** (stretchToPages, last of all, once every box is
    written for the print): a table's lines all to one height, as a ruled paper's, no taller than 11 mm; on a page with
-   no table (F/HR/17's check points), its list's items further apart, by 14 mm each at most; to 92% of the page. A
+   no table (F/HR/17's check points), its list's items further apart, by 14 mm each at most and none under the last (blank
+   paper there left the tenth check point at 84% of the page); to 92% of the page. A
    register printing only the lines written (§126) keeps them a ruled line high at most - two written lines never
    stretch down a page, and no blank line is ruled. A page that would run onto a second one is put back as it was, and
    after printing the screen is as it was.
@@ -9826,9 +9827,9 @@ should cover whole A4 size page when user take physical print so it should prese
    the pest pages. A sheet drawn to the plant's own paper (the QC papers in the paper's millimetres, a framed paper,
    the contractor's service report, F/HR/18's Word page) prints at its paper's measures, as §117 asked.
 5. **Measured** (scratchpad tool coverage_a4.py: every document's new record and F/HR/17's register printed by the
-   browser to A4, how far down each page the ink reaches): of 132 documents (a new record of each, and F/HR/17's register) printed by the browser to A4, F/HR/17's register went from 47, 89 and 82% of the page to 92, 94 and 94%, its first page in 12.7 pt (9.7 before); the one-page printouts reaching 85% of the page or more from 39 to 47; F/MKT/01 and F/HR/11, which ran onto a second page, are one page each (all printouts 185 pages, now 183); no printout gained a page. Found on the way: the fill measured a sheet with the screen's margin (20 x 24 px), its rule more specific than the print's 12 mm, so a sheet drawn bigger could print taller than measured; it now measures with the margin it prints with, and takes the largest size that keeps to 94% of the page (halving the gap six times) where it took that size or half of it. A new record with a single line written still prints that one line (§126): a register reaches its page's foot with the lines written in it.
+   browser to A4, how far down each page the ink reaches): of 132 documents (a new record of each, and F/HR/17's register) printed by the browser to A4, how far down each page its ink reaches (its words and its rules, a white background not counted): F/HR/17's register from 43, 85 and 78% of the page to 86, 89 and 89%, its first page in 12.7 pt (9.7 before); the one-page printouts reaching 85% of the page or more from 38 to 44; F/MKT/01 and F/HR/11, which ran onto a second page, are one page each (all printouts 185 pages, now 183); no printout gained a page. Found on the way: the fill measured a sheet with the screen's margin (20 x 24 px), its rule more specific than the print's 12 mm, so a sheet drawn bigger could print taller than measured; it now measures with the margin it prints with, and takes the largest size that keeps to 94% of the page (halving the gap six times) where it took that size or half of it. A new record with a single line written still prints that one line (§126): a register reaches its page's foot with the lines written in it.
 6. **Proved:** frontend/tests/printFill.test.ts (the rules, read from the source) and tests/e2e_print_fill.py (F/HR/17:
-   three pages, each covered to 85% of its height or more, the check points in writing of 12 pt or more, its lines no
+   three pages, each covered to 82% of its height or more, the check points in writing of 12 pt or more, its lines no
    taller than 11 mm, the screen as it was after printing; a register's written lines no taller than a ruled line; the
    papers drawn to their measures left as drawn), with print_all_documents, print_and_forms, downloads_and_print,
    smoke, departments, translate, find_every_document, header_editing and theme.
