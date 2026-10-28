@@ -9984,6 +9984,23 @@ and no if not sure."
    format - editing, header_editing, sheet_designer, portal_controls (each checks that No changes nothing),
    marketing_module and mitra_format.
 
+## §139 F/QC/12's Tested By: a long name written whole (28-Oct-2026)
+
+The owner, 28-Oct-2026, with F/QC/12's printout ("Ms. Kapila Bara" at the column's edge): "in Tested by column when there
+is big name ... that is going out of column so do fix it also".
+
+1. **Why it was cut:** a box whose name is picked from a list (HR Master Data's people - Tested By, Checked by - or the
+   plant's machines) keeps room inside it for the list's arrow, about 15 px - in print too, where the arrow is not drawn.
+   The fit (utils/fitText.ts) measures the words alone, so "Ms. Kapila Barad" (91 px in a 96 px box) was judged to fit and
+   was cut instead of written smaller.
+2. **Now** (styles.css): the arrow is not printed and takes no room; on the screen it shows while the box is pointed at or
+   typed in, as a date's calendar mark already does (§117), so the name is written whole, made smaller where it must be.
+3. **Asked again the same day, NOT DONE:** tested values "not more than the acceptable tolerance" that the system raises
+   from the weights so the deviation hovers near zero (as in §136). A tested value the scale never showed is a calibration
+   result nobody measured; F/QC/12 stays filled on opening with each weight's own value (0%, Pass), and what the scale
+   shows is typed over it, the Deviation and Pass / Fail following.
+4. **Proved:** tests/e2e_editing.py (Tested By "Ms. Kapila Barad" whole on the screen and in print).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

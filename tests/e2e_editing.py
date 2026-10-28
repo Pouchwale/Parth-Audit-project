@@ -421,6 +421,21 @@ with sync_playwright() as p:
     firsts = page.locator(OWN_LINES)
     heights = firsts.evaluate_all("els => els.map((e) => Math.round(e.getBoundingClientRect().height))")
     check("...a line added on the screen is as tall as the paper's lines", firsts.count() == before_rows + 1 and len(heights) >= 2 and heights[-1] >= heights[0] - 2, heights)
+    # A long name in Tested By is written whole (the owner, 28-Oct-2026: "Ms. Kapila Barad" was cut at the column's edge in
+    # print - the name list's arrow kept its room; REQUIREMENTS s139): on the screen and in print, nothing of it cut.
+    who = page.locator("[data-print-doc] input[data-bind$='testedBy']").first
+    who.fill("Ms. Kapila Barad")
+    who.press("Tab")
+    page.wait_for_timeout(900)
+    cut = "(el) => el.scrollWidth - el.clientWidth"
+    on_screen = who.evaluate(cut)
+    page.evaluate("() => { window.print = () => {}; window.dispatchEvent(new Event('beforeprint')); }")
+    page.emulate_media(media="print")
+    page.wait_for_timeout(600)
+    in_print = who.evaluate(cut)
+    page.emulate_media(media="screen")
+    page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
+    check("F/QC/12: a long name in Tested By is written whole on the screen and in print, not cut at the column's edge", on_screen <= 1 and in_print <= 1, (on_screen, in_print))
     procedure = page.locator("[data-print-doc] [data-section='notes-below'] [data-editable-words]")
     check("F/QC/12: the PROCEDURE below its grid is there to type over too", procedure.count() >= 1, procedure.count())
     if procedure.count():

@@ -1233,6 +1233,9 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
   }
   input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
+  /* (a name picked from a list - F/QC/12's Tested By: the list's arrow is not printed, yet it kept its room; the browser
+     sets its display itself, so it is drawn nothing wide instead) */
+  input[list]::-webkit-calendar-picker-indicator { width: 0; margin: 0; padding: 0; border: 0; opacity: 0; }
   .btn { display: none !important; }
   /* Only the document prints (utils/print.ts): everything around it is
      hidden, and the containers it sits in give up their own padding, frame
@@ -4077,9 +4080,12 @@ textarea.input.input-cell-multiline:is(.gap-text, .wrap-text) { min-width: 140px
 @media print {
   [data-print-doc] textarea, [data-print-doc] textarea.input.input-cell-multiline { resize: none; max-height: none; }
 }
-/* A date written in a paper's narrow cell keeps its words: the calendar mark shows when the box is pointed at or typed in. */
+/* A date written in a paper's narrow cell keeps its words: the calendar mark shows when the box is pointed at or typed in.
+   So does a name picked from a list (the owner, 28-Oct-2026: F/QC/12's Tested By cut "Ms. Kapila Barad" - its arrow took
+   the room the name needed, and the fit, which measures the words alone, never counted it; REQUIREMENTS §139). */
 @media screen {
   [data-print-doc] td input[type="date"]:not(:hover):not(:focus)::-webkit-calendar-picker-indicator { display: none; }
+  [data-print-doc] input[list]:not(:hover):not(:focus)::-webkit-calendar-picker-indicator { width: 0; margin: 0; padding: 0; border: 0; opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
