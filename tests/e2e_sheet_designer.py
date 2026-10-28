@@ -70,6 +70,20 @@ def settle_briefing(page):
     )
 
 
+def sure(page, yes=True, timeout=2500):
+    """Answers the question every change to what a form prints asks first (REQUIREMENTS s138): "Yes, I am sure" or
+    "No". Returns what the question said, or None when nothing was asked."""
+    button = f"[data-action='{'sure-yes' if yes else 'sure-no'}']"
+    try:
+        page.wait_for_selector(button, state="visible", timeout=timeout)
+    except Exception:
+        return None
+    said = page.locator("[data-section='sure-first']").inner_text()
+    page.click(button)
+    page.wait_for_timeout(400)
+    return said
+
+
 def dismiss(page):
     for _ in range(3):
         g = page.locator("button:has-text('Got it')")
@@ -492,6 +506,12 @@ def design_and_save(page, doc_id, format_no, anchor, issued_rev, next_rev, fixed
     )
     page.fill("[data-field='designer-reason']", reason)
     page.click("[data-action='designer-confirm-save']")
+    asked = sure(page, yes=False)
+    check("With its reason, Confirm and save asks first: Are you sure? - No stores nothing, the save pop-up still open (REQUIREMENTS s138)",
+          bool(asked) and f"Rev {next_rev}" in asked and not (stored(page, "formatEdits") or {}).get(doc_id)
+          and page.locator("[data-section='designer-save-dialog']").count() == 1, asked)
+    page.click("[data-action='designer-confirm-save']")
+    check("...asked again, Yes, I am sure", bool(sure(page)))
     page.wait_for_timeout(1200)
     saved = page.locator("[data-section='designer-saved']")
     said = squash(saved.text_content()) if saved.count() else ""
@@ -567,6 +587,7 @@ def design_and_save(page, doc_id, format_no, anchor, issued_rev, next_rev, fixed
     history = squash(page.locator("[data-table='format-history']").text_content()) if editor.count() else ""
     check("More options opens the Edit format dialog, whose change history holds what the sheet saved", editor.count() == 1 and reason in history and "added column" in history, history[:300])
     page.click("[data-action='restore-format']")
+    sure(page)
     page.wait_for_timeout(1200)
     close_assistant(page)
     shown = sheet_headings(page)

@@ -5,7 +5,9 @@ import { Modal } from "../common/Modal";
 import { getIssuedLogSheetLayout, getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
 import { formatEditFor, nextRevisionNo } from "../../data/formatEdits";
-import { BOX_TYPES, COLUMN_TYPES, FIELD_TYPE_LABELS, commitFormatChange, newKey, restoreIssuedFormat, setInstructions as withInstructions } from "../../engine/formatOps";
+import { BOX_TYPES, COLUMN_TYPES, FIELD_TYPE_LABELS, commitFormatChange, formatChangeRefusal, newKey, restoreIssuedFormat, setInstructions as withInstructions } from "../../engine/formatOps";
+import { useSureFirst } from "../common/SureFirst";
+import { t } from "../../i18n";
 import { SEED_DOCUMENTS } from "../../data/seed/documentDefinitions";
 import { COMPANY } from "../../data/seed/masterData";
 import { formatDisplayDate, todayISO } from "../../utils/date";
@@ -128,6 +130,8 @@ export function FormatEditor({ doc, actor, onClose, onSaved }: { doc: DocumentDe
   const fixedMode = current?.rowMode.kind === "fixedRows" ? current.rowMode : null;
   const [printedRows, setPrintedRows] = useState<Record<string, string | number | null>[]>(fixedMode ? fixedMode.rows : []);
   const [error, setError] = useState<string | null>(null);
+  const sure = useSureFirst();
+  const number = doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo;
 
   const printedColumns = (columns as LogColumn[]).filter((c) => c.fixed);
 
@@ -168,13 +172,22 @@ export function FormatEditor({ doc, actor, onClose, onSaved }: { doc: DocumentDe
         };
       }
     }
-    const result = commitFormatChange(doc, { name, layout, companyName, formatNo, revisionDate }, { actor, reason, revisionNo });
-    if (!result.ok) return setError(result.error);
-    onSaved();
+    const draft = { name, layout, companyName, formatNo, revisionDate };
+    const opts = { actor, reason, revisionNo };
+    // A change that would be refused says why first; one that would be saved is asked about (REQUIREMENTS §138).
+    const refused = formatChangeRefusal(doc, draft, opts);
+    if (refused) return setError(refused);
+    sure.ask(t("sure.format", { number, rev: revisionNo.trim() }), () => {
+      const result = commitFormatChange(doc, draft, opts);
+      if (!result.ok) return setError(result.error);
+      onSaved();
+    });
   };
 
   const restore = () => {
-    if (restoreIssuedFormat(doc)) onSaved();
+    sure.ask(t("sure.restore", { number, rev: issuedDoc?.revisionNo ?? "—" }), () => {
+      if (restoreIssuedFormat(doc)) onSaved();
+    });
   };
 
   const issuedLayout = getIssuedLogSheetLayout(doc.id);
@@ -327,6 +340,7 @@ export function FormatEditor({ doc, actor, onClose, onSaved }: { doc: DocumentDe
           </table>
         </div>
       </div>
+      {sure.dialog}
     </Modal>
   );
 }

@@ -64,6 +64,20 @@ def settle_briefing(page):
     )
 
 
+def sure(page, yes=True, timeout=2500):
+    """Answers the question every change to what a form prints asks first (REQUIREMENTS s138): "Yes, I am sure" or
+    "No". Returns what the question said, or None when nothing was asked."""
+    button = f"[data-action='{'sure-yes' if yes else 'sure-no'}']"
+    try:
+        page.wait_for_selector(button, state="visible", timeout=timeout)
+    except Exception:
+        return None
+    said = page.locator("[data-section='sure-first']").inner_text()
+    page.click(button)
+    page.wait_for_timeout(400)
+    return said
+
+
 def dismiss(page):
     for _ in range(3):
         g = page.locator("button:has-text('Got it')")
@@ -485,6 +499,7 @@ with sync_playwright() as p:
         restore = page.locator("[data-action='restore-format']")
         if restore.count():
             restore.first.click()
+            sure(page)
             page.wait_for_timeout(1200)
         check(f"Restore the issued format puts {doc_id} back as issued", format_edit(page, doc_id) is None, format_edit(page, doc_id))
 

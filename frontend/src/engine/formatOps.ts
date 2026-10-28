@@ -550,6 +550,33 @@ export function validateDraft(draft: FormatDraft, now?: FormatDraft): string | n
   return null;
 }
 
+type FormatChangeOptions = { reason: string; revisionNo?: string; reissue?: boolean };
+
+/** What saving `draft` would number and describe, or why it would be refused. */
+function planFormatChange(doc: DocumentDefinition, draft: FormatDraft, opts: FormatChangeOptions): { error: string } | { revisionNo: string; summary: string[] } {
+  const before = draftOf(doc);
+  const invalid = validateDraft(draft, before);
+  if (invalid) return { error: invalid };
+  if (!opts.reason.trim()) return { error: "Say why the format is changing — it goes in its change history." };
+  // The number typed over on the header, when it was; the next number otherwise.
+  const typed = draft.revisionNo?.trim();
+  const revisionNo = (opts.revisionNo ?? (typed && typed !== doc.revisionNo ? typed : nextRevisionNo(doc.revisionNo))).trim();
+  const described = describeFormatChange(before, draft);
+  const summary = described.length === 0 && opts.reissue && revisionNo && revisionNo !== doc.revisionNo ? [`re-issued as Rev ${revisionNo}`] : described;
+  if (summary.length === 0) return { error: "Nothing about the format has been changed yet." };
+  if (!revisionNo) return { error: "Give the new revision number." };
+  return { revisionNo, summary };
+}
+
+/**
+ * Why `draft` would be refused (nothing changed, a box with no name, no reason given), or null when it would be saved.
+ * Asked before "Are you sure?" (REQUIREMENTS §138), so a change that cannot be saved says so first.
+ */
+export function formatChangeRefusal(doc: DocumentDefinition, draft: FormatDraft, opts: FormatChangeOptions): string | null {
+  const plan = planFormatChange(doc, draft, opts);
+  return "error" in plan ? plan.error : null;
+}
+
 /**
  * Saves `draft` as the format's next revision: numbered (the next one, unless
  * `revisionNo` says otherwise), dated today, with who changed what and why at
@@ -573,17 +600,9 @@ export function commitFormatChange(
     reissue?: boolean;
   }
 ): CommitResult {
-  const before = draftOf(doc);
-  const invalid = validateDraft(draft, before);
-  if (invalid) return { ok: false, error: invalid };
-  if (!opts.reason.trim()) return { ok: false, error: "Say why the format is changing — it goes in its change history." };
-  // The number typed over on the header, when it was; the next number otherwise.
-  const typed = draft.revisionNo?.trim();
-  const revisionNo = (opts.revisionNo ?? (typed && typed !== doc.revisionNo ? typed : nextRevisionNo(doc.revisionNo))).trim();
-  const described = describeFormatChange(before, draft);
-  const summary = described.length === 0 && opts.reissue && revisionNo && revisionNo !== doc.revisionNo ? [`re-issued as Rev ${revisionNo}`] : described;
-  if (summary.length === 0) return { ok: false, error: "Nothing about the format has been changed yet." };
-  if (!revisionNo) return { ok: false, error: "Give the new revision number." };
+  const plan = planFormatChange(doc, draft, opts);
+  if ("error" in plan) return { ok: false, error: plan.error };
+  const { revisionNo, summary } = plan;
 
   const existing = formatEditFor(doc.id);
   const issued = SEED_DOCUMENTS.find((d) => d.id === doc.id);

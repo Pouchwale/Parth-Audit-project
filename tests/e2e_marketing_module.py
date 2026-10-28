@@ -77,6 +77,20 @@ def settle_briefing(page):
     )
 
 
+def sure(page, yes=True, timeout=2500):
+    """Answers the question every change to what a form prints asks first (REQUIREMENTS s138): "Yes, I am sure" or
+    "No". Returns what the question said, or None when nothing was asked."""
+    button = f"[data-action='{'sure-yes' if yes else 'sure-no'}']"
+    try:
+        page.wait_for_selector(button, state="visible", timeout=timeout)
+    except Exception:
+        return None
+    said = page.locator("[data-section='sure-first']").inner_text()
+    page.click(button)
+    page.wait_for_timeout(400)
+    return said
+
+
 def dismiss(page):
     for _ in range(3):
         g = page.locator("button:has-text('Got it')")
@@ -353,6 +367,7 @@ with sync_playwright() as p:
     check("Saving says what changed, in words: the company name and the date", dialog.count() == 1 and "company name" in dialog.inner_text() and "01-09-26" in dialog.inner_text(), dialog.inner_text()[:300] if dialog.count() else None)
     page.fill("[data-field='designer-reason']", "The letterhead prints the plant's place after the name")
     page.click("[data-action='designer-confirm-save']")
+    sure(page)
     page.wait_for_timeout(800)
     saved = page.locator("[data-section='designer-saved']")
     check("...and is saved as the next revision", saved.count() == 1 and "02" in saved.inner_text(), saved.inner_text()[:200] if saved.count() else None)
@@ -375,6 +390,7 @@ with sync_playwright() as p:
     check("The format's dialog offers to restore the issued format", restore.count() == 1)
     if restore.count():
         restore.first.click()
+        sure(page)
         page.wait_for_timeout(800)
     d2 = stored_doc(page, "mkt-customer-feedback")
     check("Restored, the format is the issued one again: no company name of its own, Rev 01 of 01-12-21", not d2.get("companyName") and d2.get("revisionNo") == "01" and d2.get("revisionDate") == "2021-12-01" and d2.get("edited") is False, d2)
@@ -395,6 +411,7 @@ with sync_playwright() as p:
     page.fill("[data-field='format-company']", DAILY_COMPANY)
     page.fill("[data-field='format-reason']", "The header is to carry the plant's place")
     page.click("[data-action='save-format']")
+    sure(page)
     page.wait_for_timeout(1000)
     dd = stored_doc(page, "daily-pest-monitoring")
     check("Saved as the next revision with the new company name", dd.get("companyName") == DAILY_COMPANY and dd.get("edited") is True, dd)
@@ -409,6 +426,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(600)
     if page.locator("[data-action='restore-format']").count():
         page.click("[data-action='restore-format']")
+        sure(page)
         page.wait_for_timeout(800)
     check("...and restored, the issued header is back", stored_doc(page, "daily-pest-monitoring").get("edited") is False and not stored_doc(page, "daily-pest-monitoring").get("companyName"), stored_doc(page, "daily-pest-monitoring"))
 
@@ -449,6 +467,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     if page.locator("[data-action='restore-format']").count():
         page.click("[data-action='restore-format']")
+        sure(page)
         page.wait_for_timeout(800)
     check("Restored, the header is the issued one again: F/MKT/01, Rev 01", stored_doc(page, "mkt-customer-feedback").get("formatNo") == "F/MKT/01" and stored_doc(page, "mkt-customer-feedback").get("revisionNo") == "01", stored_doc(page, "mkt-customer-feedback"))
 

@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { t } from "../../i18n";
+import { useSureFirst } from "../common/SureFirst";
 
 // EVERY PRINTED WORD OF A SHEET IS THE PERSON'S TO TYPE OVER (REQUIREMENTS §135; the owner, 28-Oct-2026: "each and every
 // document of HR and QC in that each and every single part make sure it is always editable every single part of it").
@@ -9,11 +11,17 @@ import React, { useState } from "react";
 // place. The format, and every other record, keep theirs (Edit format changes the format for every new sheet). Kept when
 // the words are left (they are typed in place, so nothing is redrawn under the caret); Escape puts them back as they were.
 // The element is drawn afresh after a change (its key), so the words the browser typed into are never the ones React
-// keeps.
+// keeps. A change is asked about first (REQUIREMENTS §138): kept on "Yes, I am sure", put back as it was on "No".
 
 /** The words as they stand in the element: its lines, without the browser's last line break. */
 function wordsIn(el: HTMLElement): string {
   return el.innerText.replace(/\r/g, "").replace(/\n+$/, "");
+}
+
+/** The words as the question quotes them: on one line, cut short past 160 letters. */
+function quoted(words: string): string {
+  const one = words.replace(/\s+/g, " ").trim();
+  return one.length > 160 ? `${one.slice(0, 159)}…` : one;
 }
 
 export function EditableWords({
@@ -37,6 +45,7 @@ export function EditableWords({
   children: React.ReactNode;
 }) {
   const [round, setRound] = useState(0);
+  const sure = useSureFirst();
   // (exactly the markup it had before: its own span where it had one, the words alone where they stood in their line)
   if (!editable) {
     return className || style ? (
@@ -47,32 +56,44 @@ export function EditableWords({
       <>{children}</>
     );
   }
+  // Drawn afresh after every visit: the browser's own edits never stay under React's feet.
+  const again = () => setRound((r) => r + 1);
   return (
-    <span
-      key={`${round}|${shown}`}
-      className={className ? `${className} editable-words` : "editable-words"}
-      style={style}
-      contentEditable
-      suppressContentEditableWarning
-      role="textbox"
-      aria-multiline="true"
-      aria-label={label ? `${label} (the printed words, yours to change on this record)` : "The printed words, yours to change on this record"}
-      spellCheck={false}
-      data-editable-words=""
-      onBlur={(e) => {
-        const next = wordsIn(e.currentTarget);
-        if (next.trim() !== shown.trim()) onChange(next);
-        // Drawn afresh either way: the browser's own edits never stay under React's feet.
-        setRound((r) => r + 1);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          setRound((r) => r + 1);
-        }
-      }}
-    >
-      {children}
-    </span>
+    <>
+      <span
+        key={`${round}|${shown}`}
+        className={className ? `${className} editable-words` : "editable-words"}
+        style={style}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        aria-label={label ? `${label} (the printed words, yours to change on this record)` : "The printed words, yours to change on this record"}
+        spellCheck={false}
+        data-editable-words=""
+        onBlur={(e) => {
+          const next = wordsIn(e.currentTarget);
+          if (next.trim() === shown.trim()) return again();
+          // Asked first (REQUIREMENTS §138); what was typed stays on the screen while the question is open.
+          sure.ask(
+            next.trim() ? t("sure.words", { from: quoted(shown), to: quoted(next) }) : t("sure.wordsRubbedOut", { from: quoted(shown) }),
+            () => {
+              onChange(next);
+              again();
+            },
+            again
+          );
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            again();
+          }
+        }}
+      >
+        {children}
+      </span>
+      {sure.dialog}
+    </>
   );
 }

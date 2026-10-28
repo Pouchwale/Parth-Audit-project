@@ -77,6 +77,20 @@ def settle_briefing(page):
     )
 
 
+def sure(page, yes=True, timeout=2500):
+    """Answers the question every change to what a form prints asks first (REQUIREMENTS s138): "Yes, I am sure" or
+    "No". Returns what the question said, or None when nothing was asked."""
+    button = f"[data-action='{'sure-yes' if yes else 'sure-no'}']"
+    try:
+        page.wait_for_selector(button, state="visible", timeout=timeout)
+    except Exception:
+        return None
+    said = page.locator("[data-section='sure-first']").inner_text()
+    page.click(button)
+    page.wait_for_timeout(400)
+    return said
+
+
 def dismiss(page):
     for _ in range(3):
         g = page.locator("button:has-text('Got it')")
@@ -120,8 +134,8 @@ def clickable(page, action):
     return page.evaluate(CLICKABLE, f"{HEAD} [data-action='{action}']")
 
 
-def type_over(page, action, field, value):
-    """Click a header value and type over it; Enter keeps it."""
+def type_over(page, action, field, value, yes=True):
+    """Click a header value and type over it; Enter keeps it - asked first where it changes the record at once (s138)."""
     page.locator(f"{HEAD} [data-action='{action}']").first.click()
     page.wait_for_timeout(250)
     box = page.locator(f"[data-field='{field}']")
@@ -130,6 +144,7 @@ def type_over(page, action, field, value):
         box.first.fill(value)
         box.first.press("Enter")
         page.wait_for_timeout(700)
+        sure(page, yes, timeout=600)
     return initial
 
 
@@ -203,6 +218,9 @@ with sync_playwright() as p:
           before.get("Format No.") == "F/QC/33" and before.get("Rev No.") == "00" and before.get("Rev Date") == "15.12.2024" and before.get("Page No.") == "1 of 1"
           and list(before.keys()) == ["Format No.", "Rev No.", "Rev Date", "Page No."], before)
 
+    type_over(page, "rename-page-no", "header-page", "1 of 3", yes=False)
+    check("The Page No. typed over is asked about first (REQUIREMENTS s138); No keeps the header's 1 of 1",
+          header(page).get("Page No.") == "1 of 1" and not ((record_by_id(page, rid) or {}).get("headerBlock") or {}).get("page"), header(page))
     initial = type_over(page, "rename-page-no", "header-page", "1 of 2")
     check("The Page No. is clicked and becomes a box, holding what the header prints", initial == "1 of 1", initial)
     now = header(page)
@@ -235,6 +253,11 @@ with sync_playwright() as p:
     check("Saved without a reason, it is refused and nothing is saved", err.count() == 1 and format_edit(page, DOC) is None, err.inner_text() if err.count() else None)
     page.fill("[data-field='header-change-reason']", "The master list numbers it F/QC/33-A")
     page.click("[data-action='header-change-save']")
+    asked = sure(page, yes=False)
+    check("With a reason, Save asks first: Are you sure? - and No saves nothing, the panel still open (REQUIREMENTS s138)",
+          bool(asked) and "Are you sure?" in asked and "Rev 01" in asked and format_edit(page, DOC) is None and panel.count() == 1, asked)
+    page.click("[data-action='header-change-save']")
+    check("...asked again, Yes, I am sure", bool(sure(page)))
     page.wait_for_timeout(900)
     now = header(page)
     edit = format_edit(page, DOC) or {}
@@ -258,6 +281,7 @@ with sync_playwright() as p:
     check("...and saving it alone is a re-issue as Rev 02", panel.count() == 1 and "Save as Rev 02" in panel.inner_text(), panel.inner_text() if panel.count() else None)
     page.fill("[data-field='header-change-reason']", "Re-issued after the audit")
     page.click("[data-action='header-change-save']")
+    sure(page)
     page.wait_for_timeout(900)
     edit = format_edit(page, DOC) or {}
     check("...saved as Rev 02, described as a re-issue", header(page).get("Rev No.") == "02" and (edit.get("revisions") or [{}])[0].get("summary") == "re-issued as Rev 02", edit.get("revisions"))

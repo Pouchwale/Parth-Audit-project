@@ -5,7 +5,9 @@ import { RenameBox } from "./RenameBox";
 import { COMPANY } from "../../data/seed/masterData";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { nextRevisionNo } from "../../data/formatEdits";
-import { commitFormatChange, draftOf, type FormatDraft } from "../../engine/formatOps";
+import { commitFormatChange, draftOf, formatChangeRefusal, type FormatDraft } from "../../engine/formatOps";
+import { useSureFirst } from "../common/SureFirst";
+import { t } from "../../i18n";
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate } from "../../utils/date";
 import { mayDo } from "../../engine/departmentScope";
@@ -141,6 +143,7 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const reasonId = useId();
+  const sure = useSureFirst();
   const { doc, record } = o;
   const enabled = o.enabled !== false && !!doc;
   // The format's own values change the format: Edit on the document (REQUIREMENTS §96). The record's page needs Write, as the record's boxes do.
@@ -159,8 +162,11 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
       const value = typed.trim();
       if (isRecordField(field)) {
         if (!record || !record.editable) return;
-        // Rubbed out, the page number is the view's own again.
-        record.save({ page: !value || value === record.defaultPage ? undefined : value });
+        // Rubbed out, the page number is the view's own again. Left as it was, nothing is asked; changed, it is asked
+        // first (REQUIREMENTS §138).
+        const page = !value || value === record.defaultPage ? undefined : value;
+        if ((page ?? "") === (record.block?.page ?? "")) return;
+        sure.ask(page ? t("sure.page", { page }) : t("sure.pageBack"), () => record.save({ page }));
         return;
       }
       // The format's own value: blank or unchanged keeps what is there; otherwise the page asks why.
@@ -170,27 +176,35 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
       setReason("");
       setPending({ field, value });
     },
-    [doc, record]
+    [doc, record, sure.ask]
   );
 
   const save = () => {
     if (!pending || !doc) return;
+    const opts = { actor: currentUser, reason, reissue: pending.field === "revisionNo" || pending.field === "revisionDate" };
     // The format as it stands NOW — a colleague's change made while this one was typed is kept.
-    const fresh = documentRepository.getById(doc.id) ?? doc;
-    const result = commitFormatChange(fresh, headerDraft(fresh, pending.field, pending.value), {
-      actor: currentUser,
-      reason,
-      reissue: pending.field === "revisionNo" || pending.field === "revisionDate",
-    });
-    if (!result.ok) {
-      setError(result.error);
+    const fresh = () => documentRepository.getById(doc.id) ?? doc;
+    // A change that would be refused says why first; one that would be saved is asked about (REQUIREMENTS §138).
+    const now = fresh();
+    const refused = formatChangeRefusal(now, headerDraft(now, pending.field, pending.value), opts);
+    if (refused) {
+      setError(refused);
       return;
     }
-    setPending(null);
-    setReason("");
     setError(null);
-    // Every view of the format reads its header again.
-    bump();
+    sure.ask(t("sure.format", { number, rev: nextRev }), () => {
+      const latest = fresh();
+      const result = commitFormatChange(latest, headerDraft(latest, pending.field, pending.value), opts);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setPending(null);
+      setReason("");
+      setError(null);
+      // Every view of the format reads its header again.
+      bump();
+    });
   };
 
   const edit = useMemo<HeaderEdit | undefined>(() => {
@@ -268,5 +282,6 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
     </div>
   ) : null;
 
-  return { edit, panel };
+  // The question goes with the panel: a page number typed over asks it with no panel open.
+  return { edit, panel: panel || sure.dialog ? <>{panel}{sure.dialog}</> : null };
 }

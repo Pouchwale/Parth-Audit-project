@@ -9950,6 +9950,40 @@ part of all documents editable so do it fast ad perfectly."
    three views) and tests/e2e_editing.py (a service report's area typed over and kept as the report's own), with
    hr_module, smoke and print_all_documents.
 
+## §138 Are you sure? before any change to what a form prints (28-Oct-2026)
+
+The owner, 28-Oct-2026, after every printed part of the HR and QC documents became editable (§135, §137): "and whenever
+any user make any change in format then system will ask him that are you sure or not? so user will click yes i am sure
+and no if not sure."
+
+1. **What asks** (components/common/SureFirst.tsx): every change to what a form prints - the format itself and a record's
+   printed parts:
+   - Edit format's **Save as Rev NN** and **Restore the issued format** (FormatEditor.tsx);
+   - the sheet's designer's **Confirm and save** (SheetDesigner.tsx);
+   - the header typed over: **Save as Rev NN** for the format's company, title, number, revision or date, and the
+     record's own **Page No.** (HeaderEditing.tsx);
+   - **printed words typed over on a record** (EditableWords.tsx, so every place of §135 and §137): a line's parameter,
+     a check point's question, the PROCEDURE under a grid, a service report's area.
+2. **How it asks:** "Are you sure?", saying in words what changes (the printed words from "..." to "...", only on this
+   record; the format saved as Rev NN for every record of it from now on; the issued format back), and two buttons:
+   **Yes, I am sure** and **No**. It has to be answered: no cross, a click beside it does nothing, Escape is No. In
+   Gujarati too (sure.* in i18n/strings.ts). **No** changes nothing: typed words are put back as the paper prints them,
+   and the pop-up or panel the person was in stays open, its reason kept, so Save can be pressed again.
+3. **Refused first, then asked:** a change that cannot be saved (no reason given, nothing changed, no revision number)
+   says so at once, as before; only a change that would be saved is asked about (engine/formatOps.ts
+   formatChangeRefusal, the same checks commitFormatChange makes).
+4. **Not asked:** what a person writes in a record's boxes (readings, names, the record's own date, §136) - those are the
+   record's entries, saved as they are typed, with their history. Mitra's change to a format is asked in her chat as it
+   always was ("Yes, save as Rev NN" / "No, leave it").
+5. **Also mended the same day:** the e2e checks of F/QC/12's fill on opening (§136) expected a blank new sheet; a new
+   week's sheet is written as the last one was (§117, the page on file of March 2024 on a test server), so the check now
+   rubs out its five tested values and opens it again - the owner's case - and finds each the weight placed, 0%, Pass,
+   the Sign the opener's; and the added line is measured among the sheet's own lines, not the paper's blank ruled ones.
+6. **Proved:** frontend/tests/sureFirst.test.ts (the refusals on their own; every save, restore and typed-over word
+   inside the question's Yes; nowhere else on a page saves a format; both languages) and the e2e suites that change a
+   format - editing, header_editing, sheet_designer, portal_controls (each checks that No changes nothing),
+   marketing_module and mitra_format.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

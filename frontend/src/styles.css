@@ -1335,6 +1335,8 @@ html.print-scoped .paper-sheet .doc-table table th, html.print-scoped .paper-she
 /* A pop-up over the page: the overlay in the theme's shade, the box on the raised
    surface with a strong hairline (REQUIREMENTS §90). */
 .modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+/* "Are you sure?" (REQUIREMENTS §138) is asked from inside other pop-ups (Edit format, Save the format): above them all. */
+.sure-first .modal-overlay { z-index: 1000; }
 .modal-box { background: var(--surface-raised); color: var(--ink); border: 1px solid var(--hairline-strong); border-radius: var(--radius-lg); max-width: 560px; width: 100%; max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
 .empty-state { text-align: center; padding: 48px 20px; color: var(--color-text-muted); }
 .kbd { background: var(--color-surface-alt); border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 6px; font-family: var(--font-mono); font-size: 11px; }

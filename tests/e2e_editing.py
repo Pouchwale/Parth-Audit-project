@@ -65,6 +65,20 @@ def check(label, cond, detail=None):
             print("    ", str(detail)[:600])
 
 
+def sure(page, yes=True, timeout=2500):
+    """Answers the question every change to what a form prints asks first (REQUIREMENTS s138): "Yes, I am sure" or
+    "No". Returns what the question said, or None when nothing was asked."""
+    button = f"[data-action='{'sure-yes' if yes else 'sure-no'}']"
+    try:
+        page.wait_for_selector(button, state="visible", timeout=timeout)
+    except Exception:
+        return None
+    said = page.locator("[data-section='sure-first']").inner_text()
+    page.click(button)
+    page.wait_for_timeout(400)
+    return said
+
+
 def dismiss(page):
     for _ in range(3):
         g = page.locator("button:has-text('Got it')")
@@ -285,12 +299,15 @@ with sync_playwright() as p:
         dismiss(page)
         return page.url.split("#/record/")[-1]
 
-    def type_over(locator, words):
+    def type_over(locator, words, yes=True):
         locator.click()
         page.keyboard.press("Control+A")
         page.keyboard.type(words)
         page.locator("h1, .page-title").first.click(force=True) if page.locator("h1, .page-title").count() else page.mouse.click(5, 5)
-        page.wait_for_timeout(900)
+        page.wait_for_timeout(300)
+        asked = sure(page, yes)
+        page.wait_for_timeout(600)
+        return asked
 
     qc_id = new_record("qc-bopp-film")
     printed = page.locator("[data-print-doc] table tbody [data-editable-words]")
@@ -298,7 +315,15 @@ with sync_playwright() as p:
     if printed.count():
         cell = printed.first
         was = cell.inner_text().strip()
-        type_over(cell, "Thickness as we test it")
+        asked = type_over(cell, "Thickness as we guess it", yes=False)
+        check("Printed words typed over: the page asks first, Are you sure? (REQUIREMENTS s138)",
+              bool(asked) and "Are you sure?" in asked and "Thickness as we guess it" in asked and "Yes, I am sure" in asked, asked)
+        rows = (stored(page, qc_id) or {}).get("data", {}).get("rows", [])
+        check("...No: the words are put back as the paper prints them and nothing is kept",
+              printed.first.inner_text().strip() == was and not any("Thickness as we guess it" in str(v) for r in rows for v in r.values()),
+              (was, printed.first.inner_text().strip()))
+        asked = type_over(cell, "Thickness as we test it")
+        check("...Yes, I am sure: kept", bool(asked), asked)
         rows = (stored(page, qc_id) or {}).get("data", {}).get("rows", [])
         check(
             "...a line's printed words typed over are this record's own words for the line",
@@ -358,18 +383,42 @@ with sync_playwright() as p:
     scale_id = new_record("qc-weight-scale-calibration")
     page.wait_for_timeout(800)
     srows = (stored(page, scale_id) or {}).get("data", {}).get("rows", [])
+    tested = lambda r: all(r.get(f"testedValue{i}") and r.get(f"testedValue{i}") == r.get(f"weight{i}") and r.get(f"deviation{i}") == "0%" for i in range(1, 6))
+    # A new week's sheet is written as the last one was (REQUIREMENTS s117) - on this server the page on file of
+    # March 2024, tested by Anjali - so it arrives written, and the fill on opening leaves a written sheet as it is.
     check(
-        "F/QC/12, opened: each Tested Value the exact weight placed, 0%, Pass, Tested By and Sign the person who opened it",
-        len(srows) >= 1 and all(srows[0].get(f"testedValue{i}") == srows[0].get(f"weight{i}") and srows[0].get(f"deviation{i}") == "0%" for i in range(1, 6))
-        and srows[0].get("passFail") == "Pass" and srows[0].get("testedBy") == "Editing QA" and srows[0].get("sign") == "Editing QA" and not srows[0].get("nextDueDate"),
+        "F/QC/12, opened: each Tested Value is the weight placed, 0%, Pass - the sheet written as the last week's",
+        len(srows) >= 1 and tested(srows[0]) and srows[0].get("passFail") == "Pass" and bool(srows[0].get("testedBy")) and not srows[0].get("nextDueDate"),
+        srows[:1],
+    )
+    # The owner's case (28-Oct-2026: "when i open any new date record then it has not filled"): a sheet with no reading
+    # on it is filled the moment it is opened - here its five tested values rubbed out, then the sheet opened again.
+    carried_by = srows[0].get("testedBy") if srows else None
+    for i in range(1, 6):
+        box = page.locator(f"[data-print-doc] input[data-bind$='testedValue{i}']").first
+        if box.count():
+            box.fill("")
+    page.wait_for_timeout(1200)
+    blanked = (stored(page, scale_id) or {}).get("data", {}).get("rows", [])
+    check("...its five tested values rubbed out on the screen", len(blanked) >= 1 and not any(blanked[0].get(f"testedValue{i}") for i in range(1, 6)), blanked[:1])
+    page.reload()
+    page.wait_for_timeout(1800)
+    dismiss(page)
+    srows = (stored(page, scale_id) or {}).get("data", {}).get("rows", [])
+    check(
+        "...opened again with no reading on it: each Tested Value the exact weight placed, 0%, Pass, the Sign the person who opened it, the tester carried kept",
+        len(srows) >= 1 and tested(srows[0]) and srows[0].get("passFail") == "Pass" and srows[0].get("testedBy") == (carried_by or "Editing QA")
+        and srows[0].get("sign") in ("Editing QA", carried_by) and bool(srows[0].get("sign")) and not srows[0].get("nextDueDate"),
         srows[:1],
     )
     # A line added beyond the paper's four is as tall as the others (the owner, 28-Oct-2026: it was drawn with no height).
-    firsts = page.locator("[data-print-doc] table.log-sheet tbody tr[data-line='first']")
+    # The sheet's own lines only: the paper's blank ruled lines below them (pf-pad) are the page's, not the record's.
+    OWN_LINES = "[data-print-doc] table.log-sheet tbody tr[data-line='first']:not(.pf-pad)"
+    firsts = page.locator(OWN_LINES)
     before_rows = firsts.count()
     page.click("button:has-text('Add Row')")
     page.wait_for_timeout(700)
-    firsts = page.locator("[data-print-doc] table.log-sheet tbody tr[data-line='first']")
+    firsts = page.locator(OWN_LINES)
     heights = firsts.evaluate_all("els => els.map((e) => Math.round(e.getBoundingClientRect().height))")
     check("...a line added on the screen is as tall as the paper's lines", firsts.count() == before_rows + 1 and len(heights) >= 2 and heights[-1] >= heights[0] - 2, heights)
     procedure = page.locator("[data-print-doc] [data-section='notes-below'] [data-editable-words]")

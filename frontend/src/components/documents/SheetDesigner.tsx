@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { FiAlignLeft, FiArrowDown, FiArrowLeft, FiArrowRight, FiArrowUp, FiCheckCircle, FiChevronDown, FiCopy, FiCornerUpLeft, FiCornerUpRight, FiEdit3, FiPlus, FiSave, FiSliders, FiTrash2, FiX } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogFieldType, LogHeaderField, LogSheetLayout } from "../../types";
 import { Modal } from "../common/Modal";
+import { useSureFirst } from "../common/SureFirst";
+import { t } from "../../i18n";
 import { DocumentHeader, type HeaderField } from "./DocumentHeader";
 import { RenameBox } from "./RenameBox";
 import { FormatEditor } from "./FormatEditor";
@@ -24,6 +26,7 @@ import {
   addInstructionLine,
   addPrintedRow,
   commitFormatChange,
+  formatChangeRefusal,
   copyLabel,
   describeFormatChange,
   draftOf,
@@ -1753,10 +1756,17 @@ function SaveDialog({ doc, draft, changes, actor, onClose, onSaved }: { doc: Doc
   const [revisionNo, setRevisionNo] = useState(draft.revisionNo && draft.revisionNo !== doc.revisionNo ? draft.revisionNo : nextRevisionNo(doc.revisionNo));
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const sure = useSureFirst();
   const save = () => {
-    const result = commitFormatChange(doc, draft, { actor, reason, revisionNo });
-    if (result.ok) onSaved(result.revision);
-    else setError(result.error);
+    // A change that would be refused says why first; one that would be saved is asked about (REQUIREMENTS §138).
+    const refused = formatChangeRefusal(doc, draft, { reason, revisionNo });
+    if (refused) return setError(refused);
+    setError(null);
+    sure.ask(t("sure.format", { number: doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo, rev: revisionNo.trim() }), () => {
+      const result = commitFormatChange(doc, draft, { actor, reason, revisionNo });
+      if (result.ok) onSaved(result.revision);
+      else setError(result.error);
+    });
   };
   return (
     <Modal
@@ -1830,6 +1840,7 @@ function SaveDialog({ doc, draft, changes, actor, onClose, onSaved }: { doc: Doc
           . Records already on file keep everything written on them.
         </p>
       </div>
+      {sure.dialog}
     </Modal>
   );
 }

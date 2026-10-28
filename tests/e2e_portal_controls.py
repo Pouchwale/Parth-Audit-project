@@ -68,6 +68,20 @@ def settle_briefing(page):
     )
 
 
+def sure(page, yes=True, timeout=2500):
+    """Answers the question every change to what a form prints asks first (REQUIREMENTS s138): "Yes, I am sure" or
+    "No". Returns what the question said, or None when nothing was asked."""
+    button = f"[data-action='{'sure-yes' if yes else 'sure-no'}']"
+    try:
+        page.wait_for_selector(button, state="visible", timeout=timeout)
+    except Exception:
+        return None
+    said = page.locator("[data-section='sure-first']").inner_text()
+    page.click(button)
+    page.wait_for_timeout(400)
+    return said
+
+
 def dismiss(page):
     for _ in range(3):
         g = page.locator("button:has-text('Got it')")
@@ -252,6 +266,12 @@ with sync_playwright() as p:
     check("A change needs its reason: without one it is refused, saying so", "why the format is changing" in page.locator("[data-section='format-error']").inner_text())
     page.fill("[data-field='format-reason']", "Customer audit asked for the batch number on every line")
     page.click("[data-action='save-format']")
+    asked = sure(page, yes=False)
+    check("With its reason, Save asks first: Are you sure? - No saves nothing and Edit format stays open (REQUIREMENTS s138)",
+          bool(asked) and "Rev 02" in asked and not (stored(page, "formatEdits") or {}).get(FORMAT_DOC)
+          and page.locator("[data-section='format-editor']").count() == 1, asked)
+    page.click("[data-action='save-format']")
+    check("...asked again, Yes, I am sure", bool(sure(page)))
     page.wait_for_timeout(1200)
     close_assistant(page)
     cells = header_cells(page)
@@ -412,6 +432,7 @@ with sync_playwright() as p:
     page.click("[data-action='designer-more']")
     page.wait_for_timeout(400)
     page.click("[data-action='restore-format']")
+    sure(page)
     page.wait_for_timeout(1200)
     close_assistant(page)
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
