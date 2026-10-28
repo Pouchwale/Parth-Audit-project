@@ -28,6 +28,11 @@ export interface DocumentDefinition {
   sourceFile: string; // which uploaded source file this was digitized from
   // Scheduling configuration consumed by the frequency engine.
   schedule: ScheduleConfig;
+  // The day the schedule above took effect, when it was changed (the owner, 28-Oct-2026: F/QC/11 every Tuesday,
+  // F/QC/12 every Sunday, F/HR/18 the 1st and 3rd Monday): no Live sheet is made for a date of it before then
+  // (engine/recordGenerator.ts), and the old schedule's untouched sheets from today on are taken away
+  // (engine/calendarMigration.ts removeOffScheduleShells), so a change leaves no trail of overdue sheets behind it.
+  scheduleSince?: string;
   // Optional: for documents that come in several variants sharing one renderer
   // (e.g. Service Report has 3 service types), each variant is its own
   // DocumentDefinition with a distinguishing `variantKey`.
@@ -46,7 +51,10 @@ export interface DocumentDefinition {
 export type ScheduleConfig =
   | { type: "daily" }
   | { type: "weekly"; weekday: number } // 0=Sunday
-  | { type: "fortnightly"; anchorDayOfMonth: number } // e.g. 4 -> 4th & 18th
+  // Twice a month, fourteen days apart: the anchor day and the day 14 later (4 -> 4th & 18th), or, with `weekday`
+  // (0=Sunday), the month's 1st and 3rd of that weekday (F/HR/18: the 1st and 3rd Monday, the owner, 28-Oct-2026).
+  | { type: "fortnightly"; anchorDayOfMonth: number; weekday?: undefined }
+  | { type: "fortnightly"; weekday: number; anchorDayOfMonth?: undefined }
   | { type: "monthly"; dayOfMonth: number }
   | { type: "quarterly"; anchorMonth: number; dayOfMonth: number } // anchorMonth 0-11, first quarter month
   | { type: "yearly"; month: number; dayOfMonth: number }

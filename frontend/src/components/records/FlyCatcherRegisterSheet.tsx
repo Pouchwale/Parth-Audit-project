@@ -27,7 +27,7 @@ import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roun
 //   Both pages — header (company / title / Format No. / Rev No. / Date /
 //                Page No.), the Month & Year box, and the PC location legend.
 //   Page 1 of 2 — PC-01 to PC-08.   Page 2 of 2 — PC-09 to PC-13.
-//   Each unit gets one row per fortnightly visit (the 3rd and the 17th):
+//   Each unit gets one row per fortnightly visit (the 1st and 3rd Monday since 28-Oct-2026; the 3rd and 17th before):
 //   PC ID NO. | DATE OF SERVICE | FLIES CATCH COUNT APPROX. | DATE OF TUBE
 //   LIGHT INSTALLATION | DUE DATE FOR TUBE LIGHT REPLACEMENT | CLEANING DONE
 //   BY | VERIFIED BY.
@@ -624,7 +624,7 @@ export function FlyCatcherRegisterSheet({
 
       {onOpenVisit && !editing && (
         <div className="text-xs text-faint mt-2 no-print">
-          One line per unit per fortnightly visit (scheduled on the 3rd and the 17th; a visit falling on the weekly off is carried out the next working day). Click a
+          One line per unit per fortnightly visit (scheduled on the 1st and 3rd Monday of the month; a visit falling on a holiday is carried out the next working day). Click a
           line to open that visit's record. Date colour: green = Verified, blue = Submitted /
           Pending Verification, red = Rejected. A visit not yet carried out is left blank, as on paper. None of that colouring prints.
         </div>

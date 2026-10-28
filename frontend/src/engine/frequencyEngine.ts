@@ -1,5 +1,12 @@
-import type { DocumentDefinition } from "../types";
+import type { DocumentDefinition, ScheduleConfig } from "../types";
 import { addDays, daysInMonth, MONTH_NAMES, pad2 } from "../utils/date";
+
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** A fortnightly schedule's first date in a month: its anchor day, or the month's first of its weekday (the second is 14 days on). */
+export function fortnightFirst(s: Extract<ScheduleConfig, { type: "fortnightly" }>, year: number, month: number): number {
+  return s.weekday !== undefined ? 1 + ((s.weekday - new Date(year, month, 1).getDay() + 7) % 7) : s.anchorDayOfMonth;
+}
 
 // Given a document's configured schedule, compute every date within the given
 // (year, month) [month is 0-indexed] on which an instance of that document is
@@ -27,8 +34,8 @@ export function dueDatesInMonth(doc: DocumentDefinition, year: number, month: nu
     }
     case "fortnightly": {
       const out: string[] = [];
-      const first = s.anchorDayOfMonth;
-      const second = s.anchorDayOfMonth + 14;
+      const first = fortnightFirst(s, year, month);
+      const second = first + 14;
       if (first >= 1 && first <= dim) out.push(iso(first));
       if (second >= 1 && second <= dim) out.push(iso(second));
       return out;
@@ -95,7 +102,7 @@ export function schedulePeriodOf(doc: DocumentDefinition, dateISO: string): Sche
     }
     case "fortnightly": {
       const dim = daysInMonth(year, month);
-      const first = s.anchorDayOfMonth;
+      const first = fortnightFirst(s, year, month);
       const second = first + 14;
       if (first < 1 || first > dim) return null;
       if (second <= dim && day >= second) return { from: iso(year, month, second), to: iso(year, month, dim), scheduled: iso(year, month, second) };
@@ -132,7 +139,7 @@ export function scheduleLabel(doc: DocumentDefinition): string {
     case "weekly":
       return `Every ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][s.weekday]}`;
     case "fortnightly":
-      return `Day ${s.anchorDayOfMonth} & ${s.anchorDayOfMonth + 14} of each month`;
+      return s.weekday !== undefined ? `1st & 3rd ${WEEKDAY_NAMES[s.weekday]} of each month` : `Day ${s.anchorDayOfMonth} & ${s.anchorDayOfMonth + 14} of each month`;
     case "monthly":
       return `Day ${s.dayOfMonth} of each month`;
     case "quarterly":

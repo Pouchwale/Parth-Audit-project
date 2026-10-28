@@ -11,8 +11,8 @@ import { generateId } from "../utils/id";
 
 // THE F/HR/18 REGISTER, MONTH BY MONTH. The register for a Month & Year is the
 // fly catcher visits dated in it (components/records/FlyCatcherRegisterSheet
-// .tsx). The frequency engine creates the scheduled visits (the 3rd and the
-// 17th) from the day the system went live; a visit it didn't create — one from
+// .tsx). The frequency engine creates the scheduled visits (the 1st and 3rd
+// Monday of the month since 28-Oct-2026, the 3rd and 17th before) from the day the system went live; a visit it didn't create — one from
 // before go-live copied in from the paper register, or an extra inspection —
 // is added here, for the date it was carried out, and then filled in on the
 // register itself.

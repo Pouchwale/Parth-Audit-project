@@ -1066,7 +1066,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
               {records.length === 0 && (
                 <tr>
                   <td colSpan={7} className="text-muted text-center" style={{ padding: 24 }}>
-                    No fly catcher inspections recorded in {year}{isDemo ? " (demo)" : ""} yet — inspections fall on the 3rd and 17th of each month.
+                    No fly catcher inspections recorded in {year}{isDemo ? " (demo)" : ""} yet — inspections fall on the 1st and 3rd Monday of each month.
                   </td>
                 </tr>
               )}

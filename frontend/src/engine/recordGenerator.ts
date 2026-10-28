@@ -61,6 +61,9 @@ export function ensureRecordsGeneratedForMonth(
       // the date the record is actually due: a visit scheduled for the
       // Thursday before go-live but due on go-live Friday IS an obligation.
       if (liveStartDate && compareISO(due, liveStartDate) < 0) continue;
+      // Nor for a date before the document's schedule took effect, when it was changed (scheduleSince, the owner,
+      // 28-Oct-2026): the old schedule's sheets stand as they were, and the new one starts from that day.
+      if (!opts.isDemo && doc.scheduleSince && compareISO(due, doc.scheduleSince) < 0) continue;
       // Daily Monitoring has its own on-paper "holiday" concept (a checkbox,
       // no checkpoints required — see recordDefaults.ts/validation.ts), so it
       // still gets a record shell on a closed day, just pre-flagged. Every

@@ -5,7 +5,7 @@ import { ensureSeeded as ensureRecordsSeeded, recordRepository } from "./reposit
 import { RETIRED_DOCUMENT_IDS } from "./seed/documentDefinitions";
 import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
 import { prepareDueRecords } from "../engine/assistantPrepare";
-import { alignRecordsToWorkingCalendar } from "../engine/calendarMigration";
+import { alignRecordsToWorkingCalendar, removeOffScheduleShells } from "../engine/calendarMigration";
 import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
 import { alignTubeLightDates } from "../engine/tubeLightMigration";
 import { pinSchedulesWrittenOnRev00 } from "../engine/pmSchedule";
@@ -13,6 +13,7 @@ import { alignCompanyName } from "./companyNameMigration";
 import { alignSeededLineNumbers } from "./lineNumbersMigration";
 import { alignPapersOnFile } from "./paperOnFileMigration";
 import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
+import { alignCertificateDates } from "./certificateDatesMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -80,6 +81,11 @@ export function bootstrap(): void {
   // every new sheet: it takes the paper's blank box (REQUIREMENTS §111 part 6). Before the month's preparation, so
   // nothing carries it forward.
   alignSeededPlaceholders();
+  // A changed schedule's sheets (the owner, 28-Oct-2026: F/QC/11 every Tuesday, F/QC/12 every Sunday, F/HR/18 the 1st and
+  // 3rd Monday): the old schedule's untouched sheets from today on go, before the month's generation makes the new ones.
+  removeOffScheduleShells();
+  // The calibration certificate's dates (§129) in the sheets still open, each with a line in its history.
+  alignCertificateDates();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

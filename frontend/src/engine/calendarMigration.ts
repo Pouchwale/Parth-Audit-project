@@ -2,7 +2,8 @@ import type { DailyPestMonitoringData, RecordInstance } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
-import { dayInfo, isCompanyHoliday, nextWorkingDay } from "./holidays";
+import { dayInfo, effectiveDueDatesInMonth, isCompanyHoliday, nextWorkingDay } from "./holidays";
+import { compareISO, todayISO } from "../utils/date";
 import { mayWriteRecordsOf } from "./departmentScope";
 
 // ALIGN EXISTING RECORDS WITH THE WORKING CALENDAR. Runs at every boot
@@ -92,4 +93,30 @@ export function alignRecordsToWorkingCalendar(): CalendarAlignment {
   if (updates.length) recordRepository.upsertMany(updates);
   const removed = removeIds.length ? recordRepository.removeIds(removeIds) : 0;
   return { moved: updates.length - remarked, removed, remarked };
+}
+
+/**
+ * SHEETS A CHANGED SCHEDULE NO LONGER NAMES (the owner, 28-Oct-2026: F/QC/11 every Tuesday, F/QC/12 every Sunday,
+ * F/HR/18 the 1st and 3rd Monday). On a document whose schedule was changed (DocumentDefinition.scheduleSince), a
+ * Live sheet the schedule made for today or later, that nobody has worked on (untouchedByPeople), on a date the
+ * schedule no longer names (its periodKey's), is taken away: nobody is asked for a sheet that is no longer due, and the
+ * generator makes the new schedule's. A sheet a person wrote on, and every sheet of a day gone by, stays as it is.
+ * Runs at every start (data/bootstrap.ts): nothing to do, nothing written.
+ */
+export function removeOffScheduleShells(today: string = todayISO()): number {
+  const master = masterRepository.get();
+  const docs = new Map(documentRepository.getAllUnscoped().filter((d) => d.scheduleSince).map((d) => [d.id, d] as const));
+  if (docs.size === 0) return 0;
+  const named = new Map<string, Set<string>>();
+  const removeIds: string[] = [];
+  for (const r of recordRepository.getAll()) {
+    const doc = docs.get(r.documentId);
+    if (!doc || r.isDemo || compareISO(r.dueDate, today) < 0 || !untouchedByPeople(r) || !mayWriteRecordsOf(doc.id)) continue;
+    if (doc.schedule.type === "daily" || doc.schedule.type === "as-required") continue;
+    const filed = /(\d{4}-\d{2}-\d{2})/.exec(r.periodKey ?? "")?.[1] ?? r.dueDate;
+    const month = `${doc.id}|${filed.slice(0, 7)}`;
+    if (!named.has(month)) named.set(month, new Set(effectiveDueDatesInMonth(doc, Number(filed.slice(0, 4)), Number(filed.slice(5, 7)) - 1, master).map((s) => s.scheduled)));
+    if (!named.get(month)!.has(filed)) removeIds.push(r.id);
+  }
+  return removeIds.length ? recordRepository.removeIds(removeIds) : 0;
 }

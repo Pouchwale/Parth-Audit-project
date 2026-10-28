@@ -54,19 +54,23 @@ const generate = (ids: string[], ...months: [number, number][]) => {
 };
 
 test("the week, the fortnight, the month, the quarter and the year a date falls in, each with the one date its schedule names", () => {
-  // F/QC/12, weekly on Wednesday: Monday to Sunday.
+  // F/QC/12, weekly on Sunday since 28-Oct-2026: Monday to Sunday.
   const weekly = doc("qc-weight-scale-calibration");
-  assert.deepEqual(schedulePeriodOf(weekly, "2026-10-07"), { from: "2026-10-05", to: "2026-10-11", scheduled: "2026-10-07" });
-  assert.deepEqual(schedulePeriodOf(weekly, "2026-10-05"), { from: "2026-10-05", to: "2026-10-11", scheduled: "2026-10-07" }, "Monday: this week's Wednesday");
-  assert.deepEqual(schedulePeriodOf(weekly, "2026-10-11"), { from: "2026-10-05", to: "2026-10-11", scheduled: "2026-10-07" }, "Sunday: the same week");
-  assert.deepEqual(schedulePeriodOf(weekly, "2026-10-12"), { from: "2026-10-12", to: "2026-10-18", scheduled: "2026-10-14" }, "the next Monday: the next week");
-  assert.deepEqual(schedulePeriodOf(weekly, "2026-11-01"), { from: "2026-10-26", to: "2026-11-01", scheduled: "2026-10-28" }, "a week across two months");
+  // F/QC/12 every Sunday since 28-Oct-2026 (the owner): the week Monday to Sunday holds its Sunday.
+  assert.deepEqual(schedulePeriodOf(weekly, "2026-10-07"), { from: "2026-10-05", to: "2026-10-11", scheduled: "2026-10-11" });
+  assert.deepEqual(schedulePeriodOf(weekly, "2026-10-05"), { from: "2026-10-05", to: "2026-10-11", scheduled: "2026-10-11" }, "Monday: this week's Sunday");
+  assert.deepEqual(schedulePeriodOf(weekly, "2026-10-11"), { from: "2026-10-05", to: "2026-10-11", scheduled: "2026-10-11" }, "Sunday: the same week, its own day");
+  assert.deepEqual(schedulePeriodOf(weekly, "2026-10-12"), { from: "2026-10-12", to: "2026-10-18", scheduled: "2026-10-18" }, "the next Monday: the next week");
+  assert.deepEqual(schedulePeriodOf(weekly, "2026-11-01"), { from: "2026-10-26", to: "2026-11-01", scheduled: "2026-11-01" }, "a week across two months");
   // The pest service visits, the 4th and the 18th; the fly catcher, the 3rd and the 17th.
   const visits = doc("service-report-rodent");
   assert.deepEqual(schedulePeriodOf(visits, "2026-10-02"), { from: "2026-10-01", to: "2026-10-17", scheduled: "2026-10-04" });
   assert.deepEqual(schedulePeriodOf(visits, "2026-10-17"), { from: "2026-10-01", to: "2026-10-17", scheduled: "2026-10-04" });
   assert.deepEqual(schedulePeriodOf(visits, "2026-10-18"), { from: "2026-10-18", to: "2026-10-31", scheduled: "2026-10-18" });
-  assert.deepEqual(schedulePeriodOf(doc("fly-catcher"), "2026-10-17"), { from: "2026-10-17", to: "2026-10-31", scheduled: "2026-10-17" });
+  // F/HR/18 the 1st and 3rd Monday since 28-Oct-2026 (the owner): October 2026's are the 5th and the 19th.
+  assert.deepEqual(schedulePeriodOf(doc("fly-catcher"), "2026-10-17"), { from: "2026-10-01", to: "2026-10-18", scheduled: "2026-10-05" });
+  assert.deepEqual(schedulePeriodOf(doc("fly-catcher"), "2026-10-19"), { from: "2026-10-19", to: "2026-10-31", scheduled: "2026-10-19" });
+  assert.deepEqual(schedulePeriodOf(doc("fly-catcher"), "2026-11-20"), { from: "2026-11-16", to: "2026-11-30", scheduled: "2026-11-16" }, "November's: the 2nd and the 16th");
   // Monthly: due on the 1st (F/MNT/09) or the month's last day (F/HR/15, even in February).
   assert.deepEqual(schedulePeriodOf(doc("mnt-glass-breakage"), "2026-10-07"), { from: "2026-10-01", to: "2026-10-31", scheduled: "2026-10-01" });
   assert.deepEqual(schedulePeriodOf(doc("hr-daily-cleaning"), "2027-02-10"), { from: "2027-02-01", to: "2027-02-28", scheduled: "2027-02-28" });
@@ -102,15 +106,16 @@ test("New on a monthly document opens the month's sheet (F/MNT/09), never a seco
 
 test("New on a weekly document opens the week's sheet (F/QC/12), Monday to Sunday", () => {
   const weekly = doc("qc-weight-scale-calibration");
-  generate([weekly.id], [2026, 9]);
+  // Every Sunday since 28-Oct-2026 (scheduleSince): November's Sundays are the 1st, 8th, 15th, 22nd and 29th.
+  generate([weekly.id], [2026, 10]);
   const before = recordsOf(weekly.id).length;
-  const wednesday = recordsOf(weekly.id).find((r) => r.periodKey === "qc-weight-scale-calibration:2026-10-07");
-  assert.ok(wednesday, "the schedule made the 7 October sheet");
-  assert.equal(createRecordForDocument(weekly, { dateISO: "2026-10-05" }).record.id, wednesday!.id, "Monday: this week's sheet");
-  assert.equal(createRecordForDocument(weekly, { dateISO: "2026-10-10" }).record.id, wednesday!.id, "Saturday: the same week's sheet");
-  const next = createRecordForDocument(weekly, { dateISO: "2026-10-12" });
+  const sunday = recordsOf(weekly.id).find((r) => r.periodKey === "qc-weight-scale-calibration:2026-11-08");
+  assert.ok(sunday, "the schedule made the 8 November sheet");
+  assert.equal(createRecordForDocument(weekly, { dateISO: "2026-11-02" }).record.id, sunday!.id, "Monday: this week's sheet");
+  assert.equal(createRecordForDocument(weekly, { dateISO: "2026-11-07" }).record.id, sunday!.id, "Saturday: the same week's sheet");
+  const next = createRecordForDocument(weekly, { dateISO: "2026-11-09" });
   assert.equal(next.existed, true);
-  assert.equal(next.record.periodKey, "qc-weight-scale-calibration:2026-10-14", "the next Monday: the next week's sheet");
+  assert.equal(next.record.periodKey, "qc-weight-scale-calibration:2026-11-15", "the next Monday: the next week's sheet");
   assert.equal(recordsOf(weekly.id).length, before, "nothing new was made");
 });
 

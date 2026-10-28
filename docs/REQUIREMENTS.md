@@ -9703,6 +9703,37 @@ system will take between that value in tested value".
    qc_formats (a new F/QC/17 of each scale with 23-09-26 and 22-09-27, the 600 mm page's points and serial),
    downloads_and_print, print_all_documents, header_editing and every_record_starts.
 
+## §130 The schedules of F/QC/11, F/QC/12 and F/HR/18 as the owner gave them, and the certificate's dates in the open sheets (28-Oct-2026)
+
+The owner, 28-Oct-2026: "QC - 11 GSM Cutting blade 20-10-26 and 27-10-26 every tuesday due date and qc-12 weekly internal
+record weight scale 25-10-26 and 1-11-26 every sunday and F-HR-18 Fly catcher twice per month 5-10-26 and 19-10-26 monday
+wise. So this is are frequency of those documents Also you have not added date in format which i have given you in previous
+task in which you have not added in those document where you have not added till now."
+
+1. **The schedules.** F/QC/11 (GSM cutting plate) every Tuesday - weekly now, though its paper is headed MONTHLY, as printed;
+   F/QC/12 (weight scale) every Sunday, where it was every Wednesday; F/HR/18 (fly catcher) the 1st and 3rd Monday of each
+   month, where it was the 3rd and the 17th. The owner's dates are among them (20-10-26 and 27-10-26; 25-10-26 and 01-11-26;
+   05-10-26 and 19-10-26). A fortnightly schedule may now name a weekday (ScheduleConfig fortnightly `weekday`: the month's
+   1st and 3rd of it, engine/frequencyEngine.ts fortnightFirst), the rodent and fly contractors' visits keep their days of
+   the month; the library says "Every Tue", "Every Sun" and "1st & 3rd Monday of each month". A date on a festival holiday
+   moves to the next working day as before (Tuesday 10-11-26, in the Diwali holidays, is due on the 14th).
+2. **From 28-Oct-2026, with nothing left overdue behind it (DocumentDefinition.scheduleSince).** No Live sheet is made for
+   a date of the new schedule before the day it took effect (engine/recordGenerator.ts), so the change does not put past
+   Sundays, Tuesdays or Mondays on anybody's list as missed; the old schedule's sheets of the days gone by stand as they
+   were. The old schedule's sheets from today on that nobody has worked on (a blank one the schedule made, or one the
+   morning prepare filled and nobody touched) are taken away at start-up (engine/calendarMigration.ts
+   removeOffScheduleShells), so nobody is asked for a sheet no longer due; a sheet a person wrote on stays where it is.
+   Only documents whose schedule was changed are looked at. Demo Mode's year follows the new schedules throughout.
+3. **The certificate's dates in the sheets already open (data/certificateDatesMigration.ts).** §129 started every NEW
+   F/QC/11, F/QC/12 and F/QC/17 sheet with the dates the owner gave; a sheet made before kept its old date (F/QC/12's
+   Calibration Expiry 27-08-2024). Now a Live sheet still open - due, prepared, a draft, or sent back - takes in each
+   certificate box the later of what it holds and the certificate's date, with one line in its history; a later date a
+   person wrote, a sheet handed in or verified, one reopened for correction and Demo Mode's are left as they are.
+4. **Proved:** frontend/tests/scheduleChange28Oct.test.ts (the three schedules with the owner's dates, nothing before
+   28-Oct-2026, the new dates after it, the old untouched sheets from today on taken away and the rest kept, the open
+   sheets' dates, Add visit's first Monday), the updated periodSheet tests, and the browser suites qc_calibration,
+   print_and_forms, trend_reports, smoke, files, crud and every_record_starts.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

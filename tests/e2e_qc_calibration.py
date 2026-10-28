@@ -314,7 +314,7 @@ with sync_playwright() as p:
     )
     expiry_box = page.locator("input[data-bind='header/calibrationExpiry']")
     check("...in a box the person can change", expiry_box.count() >= 1 and expiry_box.first.is_editable(), expiry_box.count())
-    # On its Wednesday the week's sheet is already prepared, and New record
+    # On its Sunday (every Sunday since 28-Oct-2026) the week's sheet is already prepared, and New record
     # opens that one; since 8-Oct-2026 the prepare writes only its known parts
     # (REQUIREMENTS s98: the device's identity carried from the page on file,
     # one dated line, never a weight or a tested value). Any other day New

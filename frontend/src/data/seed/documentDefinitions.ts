@@ -198,7 +198,10 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
       "Fortnightly inspection and cleaning of fly catcher units PC-01 through PC-13 — approximate flies caught per unit (the Fly Catcher Infestation trend adds these up per unit and per month), tube light install / due dates, cleaning done by and verified by.",
     sourceFile:
       "F-HR-18_Fly Catcher Inspection & Cleaning Record.doc (the company's own Word original, sent 16-Oct-2026); Kapila mam department reports .pdf (pages 5-6, the August-2026 register filled, photographed)",
-    schedule: { type: "fortnightly", anchorDayOfMonth: 3 },
+    // Twice a month, the 1st and 3rd Monday (the owner, 28-Oct-2026: "twice per month 5-10-26 and 19-10-26 monday
+    // wise"); the 3rd and 17th until then.
+    schedule: { type: "fortnightly", weekday: 1 },
+    scheduleSince: "2026-10-28",
   },
   {
     id: "gap-inspection",
@@ -997,7 +1000,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     description:
       "Internal calibration of the laboratory weight scale (QC-76, 0.1 gm to 600 gm, acceptable tolerance 0.05%): each week the five standard test weights (50, 100, 200, 500 and 600 gm, written on every new sheet) are placed and the value the scale shows is written beside each; the deviation is worked out, with Pass / Fail, the tester's sign and the next due date. One sheet a week, written as the last week's was; the four calibrations of Feb–Mar 2024 are on file as supplied.",
     sourceFile: "weekly and monthly internal calibration records.pdf (page 1, scanned)",
-    schedule: { type: "weekly", weekday: 3 },
+    // Every Sunday (the owner, 28-Oct-2026: "25-10-26 and 1-11-26 every sunday"); every Wednesday until then.
+    schedule: { type: "weekly", weekday: 0 },
+    scheduleSince: "2026-10-28",
   },
   {
     id: "qc-gsm-plate-calibration",
@@ -1009,12 +1014,15 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionDate: "2022-01-01",
     department: "Quality Control",
     module: "Quality Control — Inspection Records",
-    frequency: "Monthly",
+    frequency: "Weekly",
     status: "Configured",
     description:
       "Internal calibration of the four GSM cutting plates (No. 54 20 x 20cm, No. 55 10 x 10cm, No. 56 5 x 5cm, No. 57 2.5 x 2.5cm, Global Eng. Co.): each plate measured four times with the deviation beside every measurement, then Pass / Fail and the tester's sign per plate, against the calibration date and the next due date. The 31.12.2024 calibration is on file as supplied. The deviation is entered as found — it is not calculated yet.",
     sourceFile: "weekly and monthly internal calibration records.pdf (page 2, scanned)",
-    schedule: { type: "monthly", dayOfMonth: 1 },
+    // Every Tuesday (the owner, 28-Oct-2026: "20-10-26 and 27-10-26 every tuesday due date"); the 1st of each month
+    // until then. The paper's own title still says MONTHLY, as printed.
+    schedule: { type: "weekly", weekday: 2 },
+    scheduleSince: "2026-10-28",
   },
 
   // ---------------------------------------------------------------------
