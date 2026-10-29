@@ -443,6 +443,8 @@ async function main(): Promise<void> {
       "tests/e2e_insights.py",
       "tests/e2e_format_numbers.py",
       "tests/e2e_hr_master_data.py",
+      // REQUIREMENTS §143: the super admin sets every document's frequency; the schedule and the heads-up follow.
+      "tests/e2e_master_data_frequency.py",
       "tests/e2e_downloads_and_print.py",
       "tests/e2e_postgres_storage.py",
   // The portal's own controls (REQUIREMENTS §62): reviewed before submitted, formats revised on record, the activity log.
