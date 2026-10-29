@@ -101,6 +101,8 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
           next[w.weight] = STANDARD_WEIGHTS[i];
           if (String(row[w.tested] ?? "").trim()) next[w.tested] = "";
         });
+        // A Pass that stood on the line with no reading of a person's was never a verdict: it waits for the readings.
+        next.passFail = "";
       }
       // The fixed Tested Values 1 and 2, where a line lacks them (a sheet started before §142); 3 to 5 are the person's.
       for (const w of SCALE_WEIGHTS.slice(0, FIXED_TESTED_VALUES)) {

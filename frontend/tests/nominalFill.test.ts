@@ -79,7 +79,7 @@ test("F/QC/12: an older open sheet (the former 50 .. 600 gm weights, nothing rea
   const old = withComputedCells(SCALE, nominalFillOnOpen(SCALE, { ...base, rows: [former()] }, "Kapila Barad")!);
   assert.deepEqual([1, 2, 3, 4, 5].map((i) => old.rows[0][`weight${i}`]), ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"]);
   assert.deepEqual([1, 2, 3, 4, 5].map((i) => old.rows[0][`testedValue${i}`]), ["0.050mg", "50.000gm", "", "", ""], "the former nominal readings are no readings: rubbed out, 3 to 5 the person's");
-  assert.ok(!old.rows[0].passFail);
+  assert.ok(!old.rows[0].passFail, "the Pass that stood with no reading was never a verdict: cleared, it waits for the readings");
   // A reading a person wrote against the former weights is a reading: the line is left as it is.
   const read = nominalFillOnOpen(SCALE, { ...base, rows: [former({ testedValue4: "500.010" })] }, "Kapila Barad")!;
   assert.equal(read.rows[0].weight4, "500 gm");
