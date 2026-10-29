@@ -71,6 +71,21 @@ test("F/QC/12 (§142): the five weights and the fixed Tested Values 1 and 2 (0%)
   assert.deepEqual([off.rows[0].deviation5, off.rows[0].passFail], ["0.1%", "Fail"]);
 });
 
+test("F/QC/12: an older open sheet (the former 50 .. 600 gm weights, nothing read) opened takes the laboratory's weights; a weight or a reading a person wrote is kept", () => {
+  const SCALE = "qc-weight-scale-calibration";
+  const fresh = createDefaultData(doc(SCALE), "2026-10-20", master) as LogSheetData;
+  const base: LogSheetData = { ...fresh, header: { ...fresh.header, acceptableTolerance: "0.05 %" } };
+  const former = (over: Record<string, string> = {}) => ({ ...base.rows[0], weight1: "50 gm", weight2: "100 gm", weight3: "200 gm", weight4: "500 gm", weight5: "600 gm", testedValue1: "50 gm", testedValue2: "100 gm", testedValue3: "200 gm", testedValue4: "500 gm", testedValue5: "600 gm", testedBy: "", sign: "", ...over });
+  const old = withComputedCells(SCALE, nominalFillOnOpen(SCALE, { ...base, rows: [former()] }, "Kapila Barad")!);
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => old.rows[0][`weight${i}`]), ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"]);
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => old.rows[0][`testedValue${i}`]), ["0.050mg", "50.000gm", "", "", ""], "the former nominal readings are no readings: rubbed out, 3 to 5 the person's");
+  assert.ok(!old.rows[0].passFail);
+  // A reading a person wrote against the former weights is a reading: the line is left as it is.
+  const read = nominalFillOnOpen(SCALE, { ...base, rows: [former({ testedValue4: "500.010" })] }, "Kapila Barad")!;
+  assert.equal(read.rows[0].weight4, "500 gm");
+  assert.equal(read.rows[0].testedValue4, "500.010");
+});
+
 test("F/QC/12: a line added with Add Row is the same standard line, in the adder's name; the lines above are left as they are", () => {
   const SCALE = "qc-weight-scale-calibration";
   const fresh = createDefaultData(doc(SCALE), "2026-11-01", master) as LogSheetData;

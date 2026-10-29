@@ -1,5 +1,5 @@
 import type { LogSheetData, LogSheetRow } from "../types";
-import { FIXED_TESTED_VALUES, GSM_MEASURED, GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
+import { FIXED_TESTED_VALUES, GSM_MEASURED, GSM_PLATES, STANDARD_WEIGHTS } from "../data/seed/qcCalibrationLayouts";
 import { RULER_300_ID, RULER_600_ID } from "../data/seed/qcRulerVerificationLayouts";
 
 // A CALIBRATION SHEET IS FILLED AS THE PLANT'S OWN PAGES ARE THE MOMENT A PERSON OPENS IT (REQUIREMENTS §136; the owner,
@@ -41,6 +41,11 @@ export function nominalFillLabel(documentId: string): "ruler" | "gsm" | "scale" 
 
 /** F/QC/12's five weights and the tested value written against each. */
 const SCALE_WEIGHTS = [1, 2, 3, 4, 5].map((i) => ({ weight: `weight${i}`, tested: `testedValue${i}` }));
+
+/** The weights every F/QC/12 line started with before §142 ("50 gm" .. "600 gm", §117): an older open sheet's, put onto
+ * the standards of the laboratory's page when a person opens it, as its readings are then that person's to type. */
+const FORMER_WEIGHTS = ["50 gm", "100 gm", "200 gm", "500 gm", "600 gm"];
+const sameFigure = (a: unknown, b: string): boolean => String(a ?? "").replace(/\s+/g, "").toLowerCase() === b.replace(/\s+/g, "").toLowerCase();
 
 /** No reading on the sheet yet: at no point (F/QC/17), of no plate (F/QC/11); on F/QC/12, whose fixed Tested Values come
  * with the line (§142), nobody's name on it yet. A name carried from the last sheet (its signer) is no reading, and is kept. */
@@ -87,10 +92,20 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
   if (kind === "scale") {
     const rows: LogSheetRow[] = data.rows.map((row) => {
       const next: LogSheetRow = { ...row };
+      // A line of a sheet started before §142, still holding every one of the former weights and no reading: its weights
+      // become the laboratory's page's (the owner, 29-Oct-2026). A weight a person wrote is kept.
+      const former = SCALE_WEIGHTS.every((w, i) => sameFigure(row[w.weight], FORMER_WEIGHTS[i]));
+      const unread = SCALE_WEIGHTS.every((w) => !String(row[w.tested] ?? "").trim() || sameFigure(row[w.tested], FORMER_WEIGHTS[SCALE_WEIGHTS.indexOf(w)]));
+      if (former && unread) {
+        SCALE_WEIGHTS.forEach((w, i) => {
+          next[w.weight] = STANDARD_WEIGHTS[i];
+          if (String(row[w.tested] ?? "").trim()) next[w.tested] = "";
+        });
+      }
       // The fixed Tested Values 1 and 2, where a line lacks them (a sheet started before §142); 3 to 5 are the person's.
       for (const w of SCALE_WEIGHTS.slice(0, FIXED_TESTED_VALUES)) {
-        const weight = String(row[w.weight] ?? "").trim();
-        if (weight && !String(row[w.tested] ?? "").trim()) next[w.tested] = weight;
+        const weight = String(next[w.weight] ?? "").trim();
+        if (weight && !String(next[w.tested] ?? "").trim()) next[w.tested] = weight;
       }
       if (name && !String(row.testedBy ?? "").trim()) next.testedBy = name;
       if (name && !String(row.sign ?? "").trim()) next.sign = name;

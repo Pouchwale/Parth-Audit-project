@@ -12,7 +12,7 @@ import type {
   ServiceReportData,
   TrainingRecordData,
 } from "../types";
-import { GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
+import { FIXED_TESTED_VALUES, GSM_PLATES, STANDARD_WEIGHTS } from "../data/seed/qcCalibrationLayouts";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { createDefaultData } from "./recordDefaults";
@@ -1061,7 +1061,19 @@ function calibrationSample(documentId: string, dueDate: string, header: Record<s
   if (documentId !== "qc-gsm-plate-calibration" && documentId !== "qc-weight-scale-calibration") return;
   const expiry = header.calibrationExpiry;
   if (typeof expiry === "string" && ISO_DATE.test(expiry) && compareISO(expiry, dueDate) < 0) header.calibrationExpiry = anniversaryFrom(expiry, addDays(dueDate, 1));
-  if (documentId !== "qc-gsm-plate-calibration") return;
+  if (documentId === "qc-weight-scale-calibration") {
+    // The laboratory's page since §142 (29-Oct-2026): the five standard weights, Tested Values 1 and 2 the weight itself,
+    // 3 to 5 the person's - so a sample sheet is shaped as a real one, never the 2024 page's lines copied.
+    for (const row of rows) {
+      STANDARD_WEIGHTS.forEach((w, i) => {
+        row[`weight${i + 1}`] = w;
+        row[`testedValue${i + 1}`] = i < FIXED_TESTED_VALUES ? w : "";
+        row[`deviation${i + 1}`] = "";
+      });
+      row.passFail = "";
+    }
+    return;
+  }
   const signer = qcShiftSigner(dueDate, "09:00", "");
   const sign = rows.find((r) => r.parameter === "Sign.");
   if (sign && signer) for (const plate of GSM_PLATES) sign[plate.key] = signer;

@@ -10052,8 +10052,13 @@ deviation will come accordingly".
    the device, the tolerance, the calibration expiry - are carried as before (§117), its line is not: last week's readings
    are never this week's. Opening it puts the opener's name in Tested By and Sign (§136); Add Row gives the same standard
    line in the adder's name (§140).
-4. **Proved:** frontend/tests/nominalFill.test.ts and qcCarryForward.test.ts, tests/e2e_editing.py (a new sheet and a
-   line added: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty; typed readings give their deviations and Pass).
+4. **A sheet started before this, opened** (the owner, later the same day, with such a sheet: the former 50 .. 600 gm
+   weights cut at the column's edge, Pass filled with no reading): a line still holding every former weight and no
+   reading of a person's takes the page's weights, the former nominal values rubbed out, Tested Values 1 and 2 fixed; a
+   weight or a reading a person wrote is kept. A sample sheet (Demo Mode, a test server) is shaped the same way.
+5. **Proved:** frontend/tests/nominalFill.test.ts (the standard line, the older sheet) and qcCarryForward.test.ts,
+   tests/e2e_editing.py (a new sheet and a line added: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty;
+   typed readings give their deviations and Pass).
 
 ## §143 Told the working day before; the super admin sets every document's frequency (29-Oct-2026)
 
