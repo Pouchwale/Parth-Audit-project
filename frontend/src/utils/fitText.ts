@@ -94,6 +94,9 @@ export function fitChanged(docs: Element[]): void {
     for (const el of Array.from(d.querySelectorAll<HTMLElement>(BOXES))) {
       const v = valueOf(el);
       if (lastValue.get(el) === v) continue;
+      // A box with no room yet (hidden under Ask Mitra while she filled the sheet, not laid out) cannot be measured: left
+      // unseen, so the next look measures it (the owner, 29-Oct-2026: F/QC/12's weights cut at full size after a fill).
+      if (el.clientWidth <= 0) continue;
       lastValue.set(el, v);
       if (v !== "" || base.has(el)) changed.push(el);
     }

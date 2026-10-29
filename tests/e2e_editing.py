@@ -404,6 +404,22 @@ with sync_playwright() as p:
         len(srows) >= 1 and [srows[0].get(f"deviation{i}") for i in (3, 4, 5)] == ["0.004%", "0.01%", "0.01%"] and srows[0].get("passFail") == "Pass",
         srows[:1],
     )
+    # Words written while the sheet was hidden under Ask Mitra are still measured once it shows (the owner, 29-Oct-2026:
+    # the weights cut at full size after Mitra's fill): a box that had no room is not marked as seen.
+    if page.locator("button:has-text('Ask Mitra')").count():
+        page.click("button:has-text('Ask Mitra')")
+        page.wait_for_timeout(400)
+    mitra_box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
+    if mitra_box.count():
+        mitra_box.fill("row 1 tested value 3 is 100.004 gm")
+        mitra_box.press("Enter")
+        page.wait_for_timeout(1800)
+    close = page.locator("button[aria-label='Close assistant']")
+    if close.count():
+        close.first.click()
+    page.wait_for_timeout(1600)
+    cut = page.locator("[data-print-doc] input[data-bind$='weight3'], [data-print-doc] input[data-bind$='testedValue3']").evaluate_all("els => els.map((e) => [e.value, e.scrollWidth - e.clientWidth])")
+    check("F/QC/12: a value written while the sheet was under Ask Mitra is measured once she closes - nothing cut at the column's edge", bool(cut) and all(d <= 1 for _, d in cut), cut)
     # A line added beyond the paper's four is as tall as the others (the owner, 28-Oct-2026: it was drawn with no height).
     # The sheet's own lines only: the paper's blank ruled lines below them (pf-pad) are the page's, not the record's.
     OWN_LINES = "[data-print-doc] table.log-sheet tbody tr[data-line='first']:not(.pf-pad)"
