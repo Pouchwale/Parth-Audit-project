@@ -243,7 +243,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   // history, every box still theirs to change. One already written on is left as it is.
   useEffect(() => {
     if (!record || !doc || doc.kind !== "log-sheet" || !editable || superseded || dirty) return;
-    const filled = nominalFillOnOpen(doc.id, record.data as LogSheetData | undefined, currentUser);
+    const filled = nominalFillOnOpen(doc.id, record.data as LogSheetData | undefined, currentUser, record.headerBlock?.date ?? record.dueDate);
     if (filled) persistLocal(saveDraft(record, withComputedCells(doc.id, filled), currentUser, { note: NOMINAL_FILL_NOTE }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id, editable, superseded]);

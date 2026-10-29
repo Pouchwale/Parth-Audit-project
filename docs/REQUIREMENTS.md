@@ -10056,7 +10056,11 @@ deviation will come accordingly".
    weights cut at the column's edge, Pass filled with no reading): a line still holding every former weight and no
    reading of a person's takes the page's weights, the former nominal values rubbed out, Tested Values 1 and 2 fixed; a
    weight or a reading a person wrote is kept. A sample sheet (Demo Mode, a test server) is shaped the same way.
-5. **Proved:** frontend/tests/nominalFill.test.ts (the standard line, the older sheet) and qcCarryForward.test.ts,
+5. **The Next Due Date a week on** (the owner, later the same day, with the page's dates 29|09 - 06|10 - 12|10 - 18|10:
+   "there is a weekly due of 7 days and so date should come accordingly"): written as the line's date + 7 days where
+   none is written, on opening and on Add Row (a line added takes the sheet's day as its date); a date a person wrote
+   is kept. A standing fact of a weekly calibration, not an observation.
+6. **Proved:** frontend/tests/nominalFill.test.ts (the standard line, the older sheet, the next due date) and qcCarryForward.test.ts,
    tests/e2e_editing.py (a new sheet and a line added: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty;
    typed readings give their deviations and Pass).
 

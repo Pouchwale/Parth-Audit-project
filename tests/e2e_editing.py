@@ -391,7 +391,7 @@ with sync_playwright() as p:
     check(
         "F/QC/12, opened: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty for the person, Tested By and Sign the opener, no Pass yet",
         len(srows) == 1 and standard(srows[0]) and srows[0].get("testedBy") == "Editing QA" and srows[0].get("sign") == "Editing QA"
-        and not srows[0].get("passFail") and not srows[0].get("nextDueDate"),
+        and not srows[0].get("passFail") and srows[0].get("nextDueDate") == (date.fromisoformat(srows[0]["date"]) + timedelta(days=7)).isoformat(),
         srows[:1],
     )
     # The person's readings, as the laboratory's page has them: each deviation worked out, and Pass.
@@ -432,7 +432,8 @@ with sync_playwright() as p:
     check("...a line added on the screen is as tall as the paper's lines", firsts.count() == before_rows + 1 and len(heights) >= 2 and heights[-1] >= heights[0] - 2, heights)
     added = ((stored(page, scale_id) or {}).get("data", {}).get("rows") or [{}])[-1]
     check("...the line added is the same standard line, in the name of the person who added it (REQUIREMENTS s140, s142)",
-          standard(added) and added.get("testedBy") == "Editing QA" and added.get("sign") == "Editing QA" and not added.get("passFail") and not added.get("nextDueDate"),
+          standard(added) and added.get("testedBy") == "Editing QA" and added.get("sign") == "Editing QA" and not added.get("passFail")
+          and added.get("date") and added.get("nextDueDate") == (date.fromisoformat(added["date"]) + timedelta(days=7)).isoformat(),
           added)
     # A long name in Tested By is written whole (the owner, 28-Oct-2026: "Ms. Kapila Barad" was cut at the column's edge in
     # print - the name list's arrow kept its room; REQUIREMENTS s139): on the screen and in print, nothing of it cut.

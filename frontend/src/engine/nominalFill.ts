@@ -1,6 +1,7 @@
 import type { LogSheetData, LogSheetRow } from "../types";
 import { FIXED_TESTED_VALUES, GSM_MEASURED, GSM_PLATES, STANDARD_WEIGHTS } from "../data/seed/qcCalibrationLayouts";
 import { RULER_300_ID, RULER_600_ID } from "../data/seed/qcRulerVerificationLayouts";
+import { addDays } from "../utils/date";
 
 // A CALIBRATION SHEET IS FILLED AS THE PLANT'S OWN PAGES ARE THE MOMENT A PERSON OPENS IT (REQUIREMENTS §136; the owner,
 // 28-Oct-2026, with his filled F/QC/17 and F/QC/11 pages: "i want same observation and difference, status and calibration
@@ -39,6 +40,10 @@ export function nominalFillLabel(documentId: string): "ruler" | "gsm" | "scale" 
   return null;
 }
 
+/** A weekly calibration's next due date: a week on from the line's date, as the laboratory's page writes it (§142). */
+export const WEEKLY_NEXT_DUE_DAYS = 7;
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
 /** F/QC/12's five weights and the tested value written against each. */
 const SCALE_WEIGHTS = [1, 2, 3, 4, 5].map((i) => ({ weight: `weight${i}`, tested: `testedValue${i}` }));
 
@@ -63,18 +68,18 @@ export function nominalFillWaits(documentId: string, data: LogSheetData | undefi
  * §140, §142): its standards (the weights, the fixed Tested Values 1 and 2) and Tested By and Sign theirs; Tested Values
  * 3 to 5 the person's to type. A line added to any other sheet starts blank, as Add Row always has (§98).
  */
-export function nominalFillAdded(documentId: string, data: LogSheetData, line: LogSheetRow, signer: string): LogSheetRow {
+export function nominalFillAdded(documentId: string, data: LogSheetData, line: LogSheetRow, signer: string, dueDate?: string): LogSheetRow {
   if (nominalFillLabel(documentId) !== "scale") return line;
-  return nominalFill(documentId, { ...data, rows: [line] }, signer)?.rows[0] ?? line;
+  return nominalFill(documentId, { ...data, rows: [line] }, signer, dueDate)?.rows[0] ?? line;
 }
 
 /** The sheet filled as the plant's pages are, in `signer`'s name, where nothing is observed on it yet; null otherwise. */
-export function nominalFillOnOpen(documentId: string, data: LogSheetData | undefined, signer: string): LogSheetData | null {
-  return data && nominalFillWaits(documentId, data) ? nominalFill(documentId, data, signer) : null;
+export function nominalFillOnOpen(documentId: string, data: LogSheetData | undefined, signer: string, dueDate?: string): LogSheetData | null {
+  return data && nominalFillWaits(documentId, data) ? nominalFill(documentId, data, signer, dueDate) : null;
 }
 
 /** The sheet filled as the plant's pages are, in `signer`'s name; null where the document is not one of the three. */
-export function nominalFill(documentId: string, data: LogSheetData, signer: string): LogSheetData | null {
+export function nominalFill(documentId: string, data: LogSheetData, signer: string, dueDate?: string): LogSheetData | null {
   const kind = nominalFillLabel(documentId);
   if (!kind) return null;
   const name = signer.trim();
@@ -111,6 +116,12 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
       }
       if (name && !String(row.testedBy ?? "").trim()) next.testedBy = name;
       if (name && !String(row.sign ?? "").trim()) next.sign = name;
+      // The Next Due Date a week on from the line's date where none is written (the owner, 29-Oct-2026: "a weekly due of
+      // 7 days"): a standing fact of a weekly calibration, the person's to change. A line with no date takes the sheet's.
+      // (a line with no date of its own - the sheet's date stands on the record - is dated the sheet's day)
+      if (!String(next.date ?? "").trim() && dueDate && ISO.test(dueDate)) next.date = dueDate;
+      const lineDate = String(next.date ?? "").trim();
+      if (ISO.test(lineDate) && !String(next.nextDueDate ?? "").trim()) next.nextDueDate = addDays(lineDate, WEEKLY_NEXT_DUE_DAYS);
       return next;
     });
     return { ...data, rows };

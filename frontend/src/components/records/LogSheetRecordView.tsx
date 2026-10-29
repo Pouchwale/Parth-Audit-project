@@ -272,7 +272,7 @@ export function LogSheetRecordView({
   // person. A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111) gets the next number.
   // The line is the one registry's (engine/recordLines.ts, §113): the same line Mitra's "add a row" and its patch build.
   // F/QC/12's line is the exception (§140): filled as the sheet is on opening, in the name of the person who adds it.
-  const addRow = () => save({ ...data, rows: [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser)] });
+  const addRow = () => save({ ...data, rows: [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser, record.headerBlock?.date ?? headerDefaults.date)] });
   const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
 
   // HR formats that name a person fetch them from HR Master Data (REQUIREMENTS

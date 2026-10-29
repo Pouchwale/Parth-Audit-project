@@ -54,15 +54,17 @@ test("F/QC/12 (§142): the five weights and the fixed Tested Values 1 and 2 (0%)
   // (the tolerance the page on file carries onto every new sheet, 0.05 %, which Pass / Fail is judged by)
   const fresh = createDefaultData(doc(SCALE), "2026-11-01", master) as LogSheetData;
   const blank: LogSheetData = { ...fresh, header: { ...fresh.header, acceptableTolerance: "0.05 %" } };
-  const filled = withComputedCells(SCALE, nominalFillOnOpen(SCALE, blank, "Kapila Barad")!);
+  const filled = withComputedCells(SCALE, nominalFillOnOpen(SCALE, blank, "Kapila Barad", "2026-11-01")!);
   const line = filled.rows[0];
   assert.deepEqual([1, 2, 3, 4, 5].map((i) => line[`weight${i}`]), ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"]);
   assert.deepEqual([1, 2, 3, 4, 5].map((i) => line[`testedValue${i}`]), ["0.050mg", "50.000gm", "", "", ""]);
   assert.deepEqual([1, 2, 3, 4, 5].map((i) => line[`deviation${i}`]), ["0%", "0%", "", "", ""]);
   assert.ok(!line.passFail, "no Pass before the person's three readings");
   assert.deepEqual([line.testedBy, line.sign], ["Kapila Barad", "Kapila Barad"]);
-  assert.ok(!line.nextDueDate, "the Next Due Date is the person's");
+  assert.deepEqual([line.date, line.nextDueDate], ["2026-11-01", "2026-11-08"], "the Next Due Date a week on from the line's date (the owner, 29-Oct-2026)");
   assert.equal(nominalFillOnOpen(SCALE, filled, "x"), null, "a name on it: left as it is");
+  const dueWritten = withComputedCells(SCALE, nominalFillOnOpen(SCALE, { ...blank, rows: [{ ...blank.rows[0], nextDueDate: "2026-11-15" }] }, "Kapila Barad", "2026-11-01")!);
+  assert.equal(dueWritten.rows[0].nextDueDate, "2026-11-15", "a Next Due Date a person wrote is kept");
   // The person's readings, as the laboratory's page has them: the deviations follow, and Pass; one off by 0.1 %, Fail.
   const read: LogSheetData = withComputedCells(SCALE, { ...filled, rows: [{ ...line, testedValue3: "100.000gm", testedValue4: "200.020gm", testedValue5: "400.040gm" }] } as LogSheetData);
   assert.deepEqual([3, 4, 5].map((i) => read.rows[0][`deviation${i}`]), ["0%", "0.01%", "0.01%"]);
@@ -92,7 +94,7 @@ test("F/QC/12: a line added with Add Row is the same standard line, in the adder
   // (the sheet's Acceptable Tolerance, carried from the last sheet on a real one: Pass / Fail is judged by it)
   const blank: LogSheetData = { ...fresh, header: { ...fresh.header, acceptableTolerance: "0.05 %" } };
   const typed: LogSheetData = { ...blank, rows: blank.rows.map((r) => ({ ...r, testedValue4: "500.010", testedBy: "Parth" })) };
-  const line = nominalFillAdded(SCALE, typed, newRow(getLogSheetLayout(SCALE)!, typed.rows, "row-added"), "Kapila Barad");
+  const line = nominalFillAdded(SCALE, typed, newRow(getLogSheetLayout(SCALE)!, typed.rows, "row-added"), "Kapila Barad", "2026-11-01");
   const sheet = withComputedCells(SCALE, { ...typed, rows: [...typed.rows, line] });
   const added = sheet.rows[sheet.rows.length - 1];
   assert.deepEqual([1, 2, 3, 4, 5].map((i) => added[`weight${i}`]), ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"], "the standard weights, as on every new line");
@@ -100,7 +102,7 @@ test("F/QC/12: a line added with Add Row is the same standard line, in the adder
   assert.deepEqual([1, 2, 3, 4, 5].map((i) => added[`deviation${i}`]), ["0%", "0%", "", "", ""]);
   assert.ok(!added.passFail, "no Pass before the readings");
   assert.deepEqual([added.testedBy, added.sign, added.id], ["Kapila Barad", "Kapila Barad", "row-added"]);
-  assert.ok(!added.nextDueDate, "the Next Due Date is the person's");
+  assert.deepEqual([added.date, added.nextDueDate], ["2026-11-01", "2026-11-08"], "dated the sheet's day, due a week on");
   assert.equal(sheet.rows[0].testedValue4, "500.010", "a value typed above is left as it is");
   assert.equal(sheet.rows[0].testedBy, "Parth");
   // Any other sheet's added line starts blank (§98).
