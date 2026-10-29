@@ -3,6 +3,7 @@ import { RETIRED_DOCUMENT_IDS, SEED_DOCUMENTS } from "../seed/documentDefinition
 import { isDocumentVisible, noteAccessCatalogue, registerAccessCatalogue } from "../../engine/departmentScope";
 import { readJSON, readJSONCached, writeJSON } from "../storageAdapter";
 import { formatEdits } from "../formatEdits";
+import type { MasterData } from "../../types";
 
 const KEY = "documents";
 
@@ -19,19 +20,31 @@ const KEY = "documents";
 // (a format revised, a re-seed, a colleague's edit arriving) is laid over
 // afresh. Nothing here is ever changed in place — upsert and ensureSeeded read
 // with readJSON and get a copy of their own.
-let overlaid: { issued: DocumentDefinition[]; edits: object; value: DocumentDefinition[] } | null = null;
+let overlaid: { issued: DocumentDefinition[]; edits: object; schedules: object; value: DocumentDefinition[] } | null = null;
+
+// THE FREQUENCIES THE SUPER ADMIN SET (REQUIREMENTS §143) are Master Data's; read here through the storage adapter
+// (not masterRepository, which would be a cycle), cached by the stored string as everything in this file is.
+const MASTER_KEY = "master";
+function scheduleOverrides(): NonNullable<MasterData["scheduleOverrides"]> {
+  return readJSONCached<Partial<MasterData>>(MASTER_KEY, {}).scheduleOverrides ?? EMPTY_OVERRIDES;
+}
+const EMPTY_OVERRIDES: NonNullable<MasterData["scheduleOverrides"]> = {};
 
 function loadAll(): DocumentDefinition[] {
   const issued = readJSONCached<DocumentDefinition[]>(KEY, []);
   const edits = formatEdits();
-  if (Object.keys(edits).length === 0) return issued;
-  if (overlaid && overlaid.issued === issued && overlaid.edits === edits) return overlaid.value;
+  const schedules = scheduleOverrides();
+  if (Object.keys(edits).length === 0 && Object.keys(schedules).length === 0) return issued;
+  if (overlaid && overlaid.issued === issued && overlaid.edits === edits && overlaid.schedules === schedules) return overlaid.value;
   const value = issued.map((d) => {
     const e = edits[d.id];
     // The header's company name and format number too, when the plant changed them (REQUIREMENTS §77).
-    return e ? { ...d, name: e.name ?? d.name, companyName: e.companyName ?? d.companyName, formatNo: e.formatNo ?? d.formatNo, revisionNo: e.revisionNo, revisionDate: e.revisionDate } : d;
+    const edited = e ? { ...d, name: e.name ?? d.name, companyName: e.companyName ?? d.companyName, formatNo: e.formatNo ?? d.formatNo, revisionNo: e.revisionNo, revisionDate: e.revisionDate } : d;
+    // The frequency the super admin set (REQUIREMENTS §143), from the day it took effect; a reference document has none.
+    const s = schedules[d.id];
+    return s && !d.isReferenceOnly ? { ...edited, schedule: s.schedule, frequency: s.frequency, scheduleSince: s.since } : edited;
   });
-  overlaid = { issued, edits, value };
+  overlaid = { issued, edits, schedules, value };
   return value;
 }
 

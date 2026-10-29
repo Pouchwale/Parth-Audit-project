@@ -10055,6 +10055,33 @@ deviation will come accordingly".
 4. **Proved:** frontend/tests/nominalFill.test.ts and qcCarryForward.test.ts, tests/e2e_editing.py (a new sheet and a
    line added: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty; typed readings give their deviations and Pass).
 
+## §143 Told the working day before; the super admin sets every document's frequency (29-Oct-2026)
+
+The owner, 29-Oct-2026: "make sure system will notify the user before one day of it due date ... give me options of
+frequency in superadmin only in which superadmin can set the frequency of all documents so ... user ... can fill it and
+verify and submit it".
+
+1. **Told the working day before.** The heads-up (`upcoming`, §97) now comes the working day before ANY scheduled
+   document falls due - across the Thursday off and the festival holidays - not only for weekly and fortnightly ones. A
+   monthly, quarterly or yearly document is still also told three days ahead (ADVANCE_WARNING_DAYS), whichever is earlier.
+   Daily documents are prepared in the morning and told the same day; as-required ones only when started. The heads-up
+   goes to everybody who answers for the document, in the app, on the phone and in the morning's reminder email
+   ("Coming up"). Nothing changes in what the person then does: fill, submit, verify as before.
+2. **The frequency, the super admin's to set** (Master Data -> Documents / Formats, a page only the super admin and the
+   test accounts open, §134): beside each document, its frequency now and the choices - every day; every week on a
+   weekday; twice a month on the 1st and 3rd of a weekday; a day of every month; every quarter; every year on a day of a
+   month; as required. **Set** asks "Are you sure?" (§138) and saves it as Master Data's `scheduleOverrides` (on the
+   server with the rest of Master Data), with who set it and the day; **As issued** puts the paper's own frequency back.
+3. **What a change does:** it takes effect from the day it was set (DocumentDefinition.scheduleSince): the sheets
+   already made stand as they are, the schedule's blank shells for days the new frequency does not name are removed
+   (§130 removeOffScheduleShells), and from then on the calendar, the Day View, the generator, the morning prepare,
+   the reminders and every screen read the same definition (data/repositories/documentRepository.ts lays the override
+   over the issued definition, as a format edit's name is). A reference document (a licence, a chart) takes none. The
+   change is a line in the activity log ("Frequency changed").
+4. **Proved:** frontend/tests/notificationPlan.test.ts (the day before, across the off day; the earlier of the two
+   for a long period), frontend/tests/scheduleOverride.test.ts (the override for every reader, from its day; dropped;
+   never on a reference document; asked first), tests/e2e_master_data_frequency.py.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

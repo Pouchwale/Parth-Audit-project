@@ -70,6 +70,7 @@ export function ensureSeeded(): void {
     rodentStations: raw.rodentStations ?? [],
     checkpoints: raw.checkpoints?.length ? raw.checkpoints : SEED_MASTER_DATA.checkpoints,
     documentRoleKeywords: { ...raw.documentRoleKeywords },
+    scheduleOverrides: { ...(raw.scheduleOverrides ?? {}) },
     // Working-calendar fields added later: the weekly off defaults from the
     // seed (Thursday) only when the stored copy has never set one; adjustment
     // days merge additively like every other list.

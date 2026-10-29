@@ -8,6 +8,7 @@ import { generateId } from "../utils/id";
 import { pressable } from "../utils/pressable";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { scheduleLabel } from "../engine/frequencyEngine";
+import { FrequencyPicker } from "../components/master/FrequencyPicker";
 import { resolveResponsibleEmployees } from "../engine/documentInfo";
 import { weeklyOffDay, WEEKDAY_LONG } from "../engine/holidays";
 import type { AdjustmentDay, CompanyHoliday, Employee } from "../types";
@@ -257,7 +258,9 @@ export function MasterDataPage() {
       {tab === "documents" && (
         <>
           <p className="text-muted text-sm mb-3">
-            "Assigned Role Keyword" is matched case-insensitively against each employee's Role (Employees tab) to
+            <strong>Frequency</strong> is how often each document falls due - yours to set (REQUIREMENTS §143): a change takes
+            effect from today, the sheets already made stand as they are, and everybody who answers for the document is told the
+            working day before each new due date. "Assigned Role Keyword" is matched case-insensitively against each employee's Role (Employees tab) to
             decide who gets reminders for that document — e.g. "Checker" matches "Checker / Verifier — ...".
           </p>
           <div className="doc-table">
@@ -281,7 +284,24 @@ export function MasterDataPage() {
                       <td className="font-semibold">{documentTextIn(d.name, lang)}</td>
                       <td className={d.formatNo === "TO BE CONFIRMED" ? "tbc" : ""}>{d.formatNo}</td>
                       <td className={d.revisionNo === "TO BE CONFIRMED" ? "tbc" : ""}>{d.revisionNo}</td>
-                      <td className="text-sm">{scheduleLabel(d)}</td>
+                      <td className="text-sm" data-cell="frequency" data-document={d.id}>
+                        {d.isReferenceOnly ? (
+                          <span className="text-muted">—</span>
+                        ) : (
+                          <FrequencyPicker
+                            doc={d}
+                            override={master.scheduleOverrides?.[d.id]}
+                            onChange={(next) => {
+                              const overrides = { ...(master.scheduleOverrides ?? {}) };
+                              if (next) overrides[d.id] = next;
+                              else delete overrides[d.id];
+                              masterRepository.update({ scheduleOverrides: overrides });
+                              logActivity("Frequency changed", `${d.formatNo.startsWith("TO BE") ? "" : `${d.formatNo} `}${d.name}`, next ? `${scheduleLabel({ ...d, schedule: next.schedule })}, from ${formatDisplayDate(next.since)}` : "back to the issued frequency", d.id);
+                              bump();
+                            }}
+                          />
+                        )}
+                      </td>
                       <td>
                         {d.isReferenceOnly ? (
                           <span className="text-muted text-sm">—</span>

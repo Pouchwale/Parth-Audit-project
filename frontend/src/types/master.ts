@@ -3,6 +3,9 @@
 // add more rows later from the Master Data screen; nothing here is invented
 // historical data.
 
+import type { Frequency } from "./common";
+import type { ScheduleConfig } from "./document";
+
 export interface Employee {
   id: string;
   name: string;
@@ -87,6 +90,14 @@ export interface PlantWorkingHours {
   end: string;
 }
 
+/** A document's frequency as the super admin set it, and the day it took effect. */
+export interface ScheduleOverride {
+  schedule: ScheduleConfig;
+  frequency: Frequency;
+  since: string;
+  by: string;
+}
+
 export interface MasterData {
   employees: Employee[];
   areas: AreaLocation[];
@@ -101,6 +112,11 @@ export interface MasterData {
   // read defensively (`?? {}`) since browsers that used the app before this
   // field existed won't have it in their stored data.
   documentRoleKeywords: Record<string, string>;
+  // THE FREQUENCY THE SUPER ADMIN SET for a document (REQUIREMENTS §143, the owner, 29-Oct-2026): laid over the issued
+  // schedule by data/repositories/documentRepository.ts, so the calendar, the generator, the reminders and every screen
+  // follow it; `since` is the day it took effect (DocumentDefinition.scheduleSince: the old schedule's sheets stand).
+  // Read defensively (`?? {}`): stored data from before this field has no key.
+  scheduleOverrides?: Record<string, ScheduleOverride>;
   // The company's working calendar — see src/engine/holidays.ts, the one
   // place that decides whether a date is a working day:
   //   holidays       festival holidays from the Gujarat Print Pack Leave

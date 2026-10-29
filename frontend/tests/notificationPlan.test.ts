@@ -110,13 +110,16 @@ test("the rules it shares are the browser's own: periodDays, priorityOf, ADVANCE
   assert.deepEqual([...PLANNED_KINDS].filter((k) => !NOTIFICATION_KINDS.includes(k)), []);
 });
 
-test("the heads-up by frequency: the working day before (across the Thursday off), three days ahead, never for daily or as-required", () => {
+test("the heads-up by frequency: the working day before everything scheduled (across the Thursday off); three days ahead too for a long period; never for daily or as-required", () => {
   assert.equal(headsUpFrom({ type: "daily" }, "2026-10-10", closed), null);
   assert.equal(headsUpFrom({ type: "as-required" }, "2026-10-10", closed), null);
   assert.equal(headsUpFrom({ type: "weekly" }, "2026-10-10", closed), "2026-10-09", "Saturday's: Friday");
   assert.equal(headsUpFrom({ type: "weekly" }, "2026-10-16", closed), "2026-10-14", "Friday's: Wednesday, past the Thursday off");
   assert.equal(headsUpFrom({ type: "fortnightly" }, "2026-10-20", closed), "2026-10-18", "Tuesday's: Sunday (a working day), past the Monday festival");
-  for (const type of ["monthly", "quarterly", "yearly"]) assert.equal(headsUpFrom({ type }, "2026-10-12", closed), "2026-10-09", type);
+  for (const type of ["monthly", "quarterly", "yearly"]) assert.equal(headsUpFrom({ type }, "2026-10-12", closed), "2026-10-09", `${type}: three days ahead`);
+  // A monthly one due Friday 16-Oct: three days ahead is Tuesday 13th; the working day before is Wednesday 14th (past the
+  // Thursday off) - the earlier of the two, so the person is told on both counts (the owner, 29-Oct-2026: the day before).
+  assert.equal(headsUpFrom({ type: "monthly" }, "2026-10-16", closed), "2026-10-13");
   assert.equal(asRequiredDeadline("2026-10-07", closed), "2026-10-09", "two days on");
   assert.equal(asRequiredDeadline("2026-10-13", closed), "2026-10-16", "never ending on the Thursday off");
 });

@@ -8,8 +8,9 @@
 //   ready         an open record that passes DCRS's checks (the assistant prepared it, or a person filled it): review, submit
 //   needs_input   an open record a person must still add to (`count`: what still stops a submit, the readings to enter)
 //   due           due today and not started (a sheet the assistant could not prepare)
-//   upcoming      a heads-up by the document's frequency: the working day before for weekly and fortnightly documents,
-//                 ADVANCE_WARNING_DAYS before for monthly, quarterly and yearly ones; never for daily or as-required ones
+//   upcoming      a heads-up the working day before any scheduled document is due (the owner, 29-Oct-2026, REQUIREMENTS
+//                 §143) - and from ADVANCE_WARNING_DAYS before for monthly, quarterly and yearly ones, whose day is easy
+//                 to lose sight of; never for daily or as-required ones
 //   overdue       still open after its day (an as-required record: after its AS_REQUIRED_DAYS allowance), one per record
 //   verify        submitted and waiting: for everybody with Write on the document but the person who submitted it
 //   sent_back     sent back: for the person who submitted it, with the reason
@@ -134,23 +135,31 @@ export function asRequiredDeadline(dueDate: string, isClosedDay: (d: string) => 
   return deadline;
 }
 
+/** The working day before `dueDate`: the day before, or the last working day before that (across the Thursday off, a festival). */
+export function workingDayBefore(dueDate: string, isClosedDay: (d: string) => boolean): string {
+  let day = addDays(dueDate, -1);
+  for (let i = 0; i < 14 && isClosedDay(day); i++) day = addDays(day, -1);
+  return day;
+}
+
 /**
  * THE DAY A HEADS-UP STARTS for a record due on `dueDate`, or null when its frequency has none: daily documents are
- * prepared in the morning and told the same day; as-required ones only when started. Weekly and fortnightly: the
- * working day before. Monthly, quarterly and yearly: ADVANCE_WARNING_DAYS before.
+ * prepared in the morning and told the same day; as-required ones only when started. Every other document: the
+ * working day before (the owner, 29-Oct-2026, REQUIREMENTS §143) - and a monthly, quarterly or yearly one from
+ * ADVANCE_WARNING_DAYS before, whichever is earlier, so a long period's day is not lost sight of.
  */
 export function headsUpFrom(schedule: { type: string }, dueDate: string, isClosedDay: (d: string) => boolean): string | null {
   switch (schedule.type) {
     case "weekly":
-    case "fortnightly": {
-      let day = addDays(dueDate, -1);
-      for (let i = 0; i < 14 && isClosedDay(day); i++) day = addDays(day, -1);
-      return day;
-    }
+    case "fortnightly":
+      return workingDayBefore(dueDate, isClosedDay);
     case "monthly":
     case "quarterly":
-    case "yearly":
-      return addDays(dueDate, -ADVANCE_WARNING_DAYS);
+    case "yearly": {
+      const ahead = addDays(dueDate, -ADVANCE_WARNING_DAYS);
+      const before = workingDayBefore(dueDate, isClosedDay);
+      return ahead < before ? ahead : before;
+    }
     default:
       return null;
   }
