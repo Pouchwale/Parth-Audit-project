@@ -1064,14 +1064,18 @@ function calibrationSample(documentId: string, dueDate: string, header: Record<s
   if (documentId === "qc-weight-scale-calibration") {
     // The laboratory's page since §142 (29-Oct-2026): the five standard weights, Tested Values 1 and 2 the weight itself,
     // 3 to 5 the person's - so a sample sheet is shaped as a real one, never the 2024 page's lines copied.
-    for (const row of rows) {
+    // A sheet a month, a line a week (§145): the first line dated the sheet's day, the others left for the chain (each a
+    // week after the Next Due Date above it, engine/nextDueChain.ts).
+    rows.forEach((row, n) => {
       STANDARD_WEIGHTS.forEach((w, i) => {
         row[`weight${i + 1}`] = w;
         row[`testedValue${i + 1}`] = i < FIXED_TESTED_VALUES ? w : "";
         row[`deviation${i + 1}`] = "";
       });
       row.passFail = "";
-    }
+      row.date = n === 0 ? dueDate : "";
+      row.nextDueDate = "";
+    });
     return;
   }
   const signer = qcShiftSigner(dueDate, "09:00", "");

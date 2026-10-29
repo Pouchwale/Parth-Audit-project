@@ -431,7 +431,7 @@ function throughStore(plan: ImportPlan, recordId: string, opts: ApplyOptions, fi
   try {
     const doc = documentRepository.getById(record.documentId);
     const labels = doc ? fieldLabels(doc.kind, doc.id, record) : undefined;
-    saveDraft(record, withComputedCells(record.documentId, next.data), opts.actor, { action: "imported", note, labels });
+    saveDraft(record, withComputedCells(record.documentId, next.data, record.data), opts.actor, { action: "imported", note, labels });
   } catch {
     return { ...out, skipped: "not-saved" };
   }

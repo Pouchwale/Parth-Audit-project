@@ -34,16 +34,19 @@ const layoutOf = (id: string) => {
 };
 const data = (r: RecordInstance): LogSheetData => r.data as LogSheetData;
 
-test("F/QC/12: one sheet a week starts with the week's one line, a line may be added, the five standard weights written in and editable", () => {
+test("F/QC/12: a sheet a month of four weekly lines, a line may be added, the five standard weights written in and editable, the dates the person's", () => {
   const layout = layoutOf("qc-weight-scale-calibration");
-  assert.equal(layout.rowMode.kind, "free", "the week's calibration: a new week is a new record");
-  assert.equal(logRowsRule(layout).canAdd, true, "Add Row for a second calibration the same week (the owner, 22-Oct-2026)");
-  assert.equal(doc("qc-weight-scale-calibration").schedule.type, "weekly");
+  assert.deepEqual(layout.rowMode, { kind: "free", minRows: 4, typicalRows: 4 }, "a line a week on the month's sheet (the owner, 29-Oct-2026, §145)");
+  assert.equal(logRowsRule(layout).canAdd, true, "Add Row for a fifth week or a re-test (the owner, 22-Oct-2026)");
+  assert.deepEqual(doc("qc-weight-scale-calibration").schedule, { type: "monthly", dayOfMonth: 1 });
   assert.deepEqual(STANDARD_WEIGHTS, ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"], "the laboratory's page (§142)");
-  const blank = createDefaultData(doc("qc-weight-scale-calibration"), "2026-10-14", masterRepository.get()) as LogSheetData;
-  assert.equal(blank.rows.length, 1);
-  assert.deepEqual([1, 2, 3, 4, 5].map((i) => blank.rows[0][`weight${i}`]), STANDARD_WEIGHTS, "the paper's standard weights on the new line");
-  assert.deepEqual([1, 2, 3, 4, 5].map((i) => blank.rows[0][`testedValue${i}`]), ["0.050mg", "50.000gm", "", "", ""], "Tested Values 1 and 2 fixed (§142), 3 to 5 the person's");
+  const blank = createDefaultData(doc("qc-weight-scale-calibration"), "2026-11-01", masterRepository.get()) as LogSheetData;
+  assert.equal(blank.rows.length, 4);
+  for (const row of blank.rows) {
+    assert.deepEqual([1, 2, 3, 4, 5].map((i) => row[`weight${i}`]), STANDARD_WEIGHTS, "the paper's standard weights on every line");
+    assert.deepEqual([1, 2, 3, 4, 5].map((i) => row[`testedValue${i}`]), ["0.050mg", "50.000gm", "", "", ""], "Tested Values 1 and 2 fixed (§142), 3 to 5 the person's");
+    assert.equal(row.date, "", "the date is the person's, not the system's (§145)");
+  }
   assert.equal(blankLogRow(layout).weight3, "100.000gm", "Add line and Mitra's new line carry them too");
   for (let i = 1; i <= 5; i++) {
     const col = layout.columns.find((c) => c.key === `weight${i}`)!;
@@ -138,9 +141,9 @@ test("the page on file is a previous sheet: a new F/QC/12 starts as the last wee
   const start = startingData(weight, "2026-10-14", false) as LogSheetData;
   assert.equal(start.header.deviceIdNo, "QC-76", "the device carried");
   assert.equal(start.header.acceptableTolerance, "0.05 %", "its tolerance carried");
-  assert.equal(start.rows.length, 1, "the week's one line");
+  assert.equal(start.rows.length, 4, "a line a week (§145)");
   const lastWeek = onFile!.data.rows[onFile!.data.rows.length - 1];
-  assert.equal(start.rows[0].date, "2026-10-14", "dated the new day");
+  assert.equal(start.rows[0].date, "", "the date is the person's (§145)");
   // Its line is not carried since §142: the standards, the week's own readings, the opener's name on opening.
   assert.notEqual(start.rows[0].testedBy, lastWeek.testedBy, "not the last week's tester");
   assert.equal(start.rows[0].weight4, "200.000gm", "the standard weights");
@@ -169,12 +172,12 @@ test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what wa
     rows: [{ ...data(week1).rows[0], testedBy: "Roshni", weight2: "100 gm", testedValue1: "50.004", testedValue2: "100.004", testedValue3: "200.007", testedValue4: "500.010", testedValue5: "600.015", sign: "Kapila Barad", nextDueDate: "2026-10-21" }],
   };
   recordRepository.upsert({ ...week1, data: filled });
-  const week2 = createRecordForDocument(weight, { dateISO: "2026-10-21" }).record;
-  assert.equal(week2.id === week1.id, false, "the next week is a new record");
+  const week2 = createRecordForDocument(weight, { dateISO: "2026-11-04" }).record;
+  assert.equal(week2.id === week1.id, false, "the next month is a new record (§145)");
   assert.equal(data(week2).header.deviceIdNo, "QC-76");
-  assert.equal(data(week2).rows.length, 1);
-  assert.equal(data(week2).rows[0].date, "2026-10-21", "dated the new week");
-  assert.equal(data(week2).rows[0].testedValue4, "", "last week's reading is not this week's (§142)");
+  assert.equal(data(week2).rows.length, 4, "a line a week");
+  assert.equal(data(week2).rows[0].date, "", "the date is the person's (§145)");
+  assert.equal(data(week2).rows[0].testedValue4, "", "last month's reading is not this month's (§142)");
   assert.deepEqual([data(week2).rows[0].testedValue1, data(week2).rows[0].deviation1], ["0.050mg", "0%"], "the fixed Tested Value 1");
   assert.ok(!data(week2).rows[0].passFail, "no Pass before the week's readings");
   recordRepository.query({ documentId: weight.id }).forEach((r) => recordRepository.remove(r.id));
@@ -209,7 +212,7 @@ test("F/QC/12: the boxes above the grid are the format's fixed values on every n
     ...week1,
     data: { ...data(week1), header: { ...h, manufacturer: "Force Strain Sensors Pvt Ltd", location: "", serialNo: "06" }, rows: [{ ...data(week1).rows[0], testedBy: "Meet", sign: "Meet", testedValue3: "100.004gm" }] },
   });
-  const week2 = createRecordForDocument(weight, { dateISO: "2026-11-11" }).record;
+  const week2 = createRecordForDocument(weight, { dateISO: "2026-12-02" }).record;
   assert.equal(data(week2).header.manufacturer, "Force Strain Sensors Pvt Ltd", "what the person wrote over a fixed box carries (§117)");
   assert.equal(data(week2).header.serialNo, "06", "the serial written carries");
   assert.equal(data(week2).header.location, "Laboratory", "a box left blank starts from the format's fixed value again");

@@ -10120,6 +10120,34 @@ The owner, 29-Oct-2026: "make sure that ai bot can else add anything if user tel
 5. **Proved:** frontend/tests/mitraTools.test.ts (a printed line added after the yes as the next revision, at the end
    and after a named line, blank lines by count, printed words, a free sheet refused with the reason, the record's tool
    pointing to the format's).
+
+## §145 F/QC/12 a sheet a month, a line a week; the first date the person's, the rest a week apart (29-Oct-2026)
+
+The owner, 29-Oct-2026, with the F/QC/12 list (a sheet every Sunday, several with lines added) and a sheet's boxes: "now
+want this month wise from January to December and date will decide by user not system ... there are 4 rows in document
+each row denotes one week and it frequency is 7 day so ... user fill date in first row like date and weight and tested
+value are already fixed and next date should be after 6 day and 7th day date will be enter over there and in next
+second new row it will take old date and start".
+
+1. **A sheet a month** (data/seed/documentDefinitions.ts): F/QC/12 falls due on the 1st of every month from November 2026
+   (`scheduleSince` 2026-11-01); until then every Sunday (§130), and every Wednesday before that. A sheet's period is
+   its due date, so a Sunday sheet already started for 1-11-2026 is November's; the old schedule's blank shells for the
+   other Sundays go at start-up (§130), and a sheet a person wrote on stays as it is.
+2. **A line a week** (data/seed/qcCalibrationLayouts.ts): the sheet starts with four lines (`rowMode` free, `minRows` 4),
+   each with the five weights and the fixed Tested Values 1 and 2 (§142); a fifth week, or a re-test, is a line added.
+3. **The date is the person's** - the date column no longer takes the record's day (`autoFill.dueDate` removed): the
+   first line's date is typed by the person. Then, on every save (engine/nextDueChain.ts, run in the computed cells,
+   `LogSheetLayout.nextDueChain`): a line's Next Due Date is its date + 7 days where none is written, and the line
+   below starts on that Next Due Date where it has no date of its own - so one typed date sets the month's weeks. A
+   date changed later moves what the chain wrote from it (that line's Next Due Date, the next line's date, on down);
+   a date a person typed differently is kept. A line added with Add Row starts on the Next Due Date above it.
+4. **Tested By and Sign** go on the week's own line - the first not read yet - in the name of the person who opens the
+   sheet (§136, §140); the weeks below wait for whoever tests them. A demo sheet's weeks are its month's (the first
+   dated the sheet's day, a week apart), never the supplied page's 2024 dates (§75).
+5. **Proved:** frontend/tests/nominalFill.test.ts (four lines, the name on the week's line, the chain, a changed date, a
+   typed date kept, Add Row), qcCarryForward, periodSheet, scheduleChange28Oct, truthfulPrepare and qcPaperFormats;
+   tests/e2e_editing.py (four lines on opening, a first date typed and changed, Add Row on the Next Due Date above),
+   e2e_qc_calibration.py, e2e_print_fill.py; e2e_master_data_frequency.py now proves the picker on F/QC/11 (weekly).
 ## Master data provenance summary
 
 | Master list | Source | Notes |

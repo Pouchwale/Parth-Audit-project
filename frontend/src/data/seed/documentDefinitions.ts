@@ -995,14 +995,17 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionDate: "2022-01-01",
     department: "Quality Control",
     module: "Quality Control — Inspection Records",
-    frequency: "Weekly",
+    frequency: "Monthly",
     status: "Configured",
     description:
-      "Internal calibration of the laboratory weight scale (QC-76, 0.1 gm to 600 gm, acceptable tolerance 0.05%): each week the five standard test weights (50, 100, 200, 500 and 600 gm, written on every new sheet) are placed and the value the scale shows is written beside each; the deviation is worked out, with Pass / Fail, the tester's sign and the next due date. One sheet a week, written as the last week's was; the four calibrations of Feb–Mar 2024 are on file as supplied.",
+      "Internal calibration of the laboratory weight scale (QC-76, 0.1 gm to 600 gm, acceptable tolerance 0.05%): each week the five standard test weights (0.050mg, 50.000gm, 100.000gm, 200.000gm and 400.000gm, with Tested Values 1 and 2 fixed) are placed and the value the scale shows is written beside each; the deviation is worked out, with Pass / Fail, the tester's sign and the next due date. One sheet a month with a line for each week: the first date is the tester's, each Next Due Date a week on, and the next line starts on it. The four calibrations of Feb–Mar 2024 are on file as supplied.",
     sourceFile: "weekly and monthly internal calibration records.pdf (page 1, scanned)",
-    // Every Sunday (the owner, 28-Oct-2026: "25-10-26 and 1-11-26 every sunday"); every Wednesday until then.
-    schedule: { type: "weekly", weekday: 0 },
-    scheduleSince: "2026-10-28",
+    // A sheet a month from November 2026, its weeks lines on it (the owner, 29-Oct-2026, REQUIREMENTS §145: "month wise
+    // from January to December"); every Sunday from 28-Oct-2026 (the owner: "25-10-26 and 1-11-26 every sunday") and
+    // every Wednesday until then. The 1st's sheet is the month's: its period is the same, so a sheet already started
+    // for Sunday 1-11-26 is November's.
+    schedule: { type: "monthly", dayOfMonth: 1 },
+    scheduleSince: "2026-11-01",
   },
   {
     id: "qc-gsm-plate-calibration",

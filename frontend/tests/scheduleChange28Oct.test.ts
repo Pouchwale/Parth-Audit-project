@@ -43,12 +43,12 @@ const shell = (id: string, due: string, over: Partial<RecordInstance> = {}): Rec
   return r;
 };
 
-test("the schedules: F/QC/11 every Tuesday, F/QC/12 every Sunday, F/HR/18 the 1st and 3rd Monday - the owner's dates among them", () => {
+test("the schedules: F/QC/11 every Tuesday, F/QC/12 a sheet a month (every Sunday until 29-Oct-2026's change), F/HR/18 the 1st and 3rd Monday - the owner's dates among them", () => {
   assert.deepEqual(doc(GSM).schedule, { type: "weekly", weekday: 2 });
   assert.equal(doc(GSM).frequency, "Weekly");
   assert.deepEqual(dueDatesInMonth(doc(GSM), 2026, 9), ["2026-10-06", "2026-10-13", "2026-10-20", "2026-10-27"], "20-10-26 and 27-10-26, Tuesdays");
-  assert.deepEqual(doc(SCALE).schedule, { type: "weekly", weekday: 0 });
-  assert.ok(dueDatesInMonth(doc(SCALE), 2026, 9).includes("2026-10-25") && dueDatesInMonth(doc(SCALE), 2026, 10)[0] === "2026-11-01", "25-10-26 and 1-11-26, Sundays");
+  assert.deepEqual(doc(SCALE).schedule, { type: "monthly", dayOfMonth: 1 }, "a sheet a month, a line a week on it (the owner, 29-Oct-2026, §145)");
+  assert.deepEqual(dueDatesInMonth(doc(SCALE), 2026, 10), ["2026-11-01"], "November's sheet: the 1st - the Sunday sheet already begun for 1-11-26 is it");
   assert.deepEqual(doc(FLY).schedule, { type: "fortnightly", weekday: 1 });
   assert.deepEqual(dueDatesInMonth(doc(FLY), 2026, 9), ["2026-10-05", "2026-10-19"], "5-10-26 and 19-10-26, the 1st and 3rd Monday");
   assert.deepEqual(dueDatesInMonth(doc(FLY), 2026, 10), ["2026-11-02", "2026-11-16"]);
@@ -56,10 +56,11 @@ test("the schedules: F/QC/11 every Tuesday, F/QC/12 every Sunday, F/HR/18 the 1s
   assert.deepEqual(dueDatesInMonth(doc(FLY), 2027, 1), ["2027-02-01", "2027-02-15"], "a month that starts on a Monday");
   assert.equal(scheduleLabel(doc(FLY)), "1st & 3rd Monday of each month");
   assert.equal(scheduleLabel(doc(GSM)), "Every Tue");
-  assert.equal(scheduleLabel(doc(SCALE)), "Every Sun");
+  assert.equal(scheduleLabel(doc(SCALE)), "Day 1 of each month");
   // Another fortnightly document keeps its days of the month.
   assert.equal(scheduleLabel(doc("service-report-rodent")), "Day 4 & 18 of each month");
-  for (const id of [GSM, SCALE, FLY]) assert.equal(doc(id).scheduleSince, "2026-10-28", id);
+  for (const id of [GSM, FLY]) assert.equal(doc(id).scheduleSince, "2026-10-28", id);
+  assert.equal(doc(SCALE).scheduleSince, "2026-11-01", "the monthly sheet from November 2026");
 });
 
 test("from 28-Oct-2026: no Live sheet of the new schedule before it, the new dates after it", () => {
@@ -67,7 +68,7 @@ test("from 28-Oct-2026: no Live sheet of the new schedule before it, the new dat
   ensureRecordsGeneratedForMonth(2026, 9, { documentIds: [GSM, SCALE, FLY] });
   for (const id of [GSM, SCALE, FLY]) assert.deepEqual(live(id).map((r) => r.dueDate), [], `${id}: nothing overdue made for October's past dates`);
   ensureRecordsGeneratedForMonth(2026, 10, { documentIds: [GSM, SCALE, FLY] });
-  assert.deepEqual(live(SCALE).map((r) => r.dueDate).sort(), ["2026-11-01", "2026-11-08", "2026-11-15", "2026-11-22", "2026-11-29"]);
+  assert.deepEqual(live(SCALE).map((r) => r.dueDate).sort(), ["2026-11-01"], "November's one sheet (§145)");
   // Tuesday 10-Nov-2026 is in the Diwali holidays (9 to 13 November): that week's is due the next working day, the 14th.
   assert.deepEqual(live(GSM).map((r) => r.dueDate).sort(), ["2026-11-03", "2026-11-14", "2026-11-17", "2026-11-24"]);
   assert.ok(live(GSM).some((r) => r.periodKey === `${GSM}:2026-11-10` && r.dueDate === "2026-11-14"), "still the 10th's sheet");

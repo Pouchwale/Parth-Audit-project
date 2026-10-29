@@ -315,10 +315,10 @@ test("what is known IS written: the date, the fixed rows, the standing values ca
   for (const key of ["deviceIdNo", "manufacturer", "serialNo", "acceptableTolerance"]) assert.equal(cal.header[key], prior.data.header[key], key);
   // The certificate's date (autoFill.newest, the owner, 27-Oct-2026): the later of the last sheet's and the owner's 20-09-27.
   assert.equal(cal.header.calibrationExpiry, [String(prior.data.header.calibrationExpiry), "2027-09-20"].sort().pop(), "calibrationExpiry");
-  assert.ok(cal.rows.every((r) => r.date === workDay), "each line dated the record's day");
-  // Its line is not carried since §142 (F/QC/12): the standards - the weights, the fixed Tested Values 1 and 2 - never
-  // last week's readings or tester.
-  assert.equal(cal.rows.length, 1, "the week's one standard line");
+  assert.ok(cal.rows.every((r) => r.date === ""), "each line's date is the person's (§145)");
+  // Its lines are not carried since §142 (F/QC/12): the standards - the weights, the fixed Tested Values 1 and 2 - never
+  // last month's readings or tester.
+  assert.equal(cal.rows.length, 4, "a standard line a week (§145)");
   assert.ok(cal.rows.every((r) => r.testedValue1 === "0.050mg" && !r.testedValue3 && !r.testedBy), "the fixed Tested Value 1; the readings and the tester left for the week");
   // The chemicals in use and the machine; never the operator, the batch or the shift.
   const pp = byId("prd-process-parameter");

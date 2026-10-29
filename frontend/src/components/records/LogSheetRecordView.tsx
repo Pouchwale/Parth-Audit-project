@@ -264,15 +264,16 @@ export function LogSheetRecordView({
     return <div className="empty-state">No layout is configured for this document (id: {doc.id}).</div>;
   }
 
-  const save = (next: LogSheetData) => onChange(withComputedCells(doc.id, next));
+  const save = (next: LogSheetData) => onChange(withComputedCells(doc.id, next, data));
   const setHeader = (key: string, value: string) => save({ ...data, header: { ...data.header, [key]: value } });
   const setCell = (rowId: string, key: string, value: string | number | null) =>
     save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)) });
   // Add Row starts a line blank in every box (REQUIREMENTS §98): no "ALC DONE: Yes" or "Cleaning: Dry" decided for the
   // person. A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111) gets the next number.
   // The line is the one registry's (engine/recordLines.ts, §113): the same line Mitra's "add a row" and its patch build.
-  // F/QC/12's line is the exception (§140): filled as the sheet is on opening, in the name of the person who adds it.
-  const addRow = () => save({ ...data, rows: [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser, record.headerBlock?.date ?? headerDefaults.date)] });
+  // F/QC/12's line is the exception (§140): filled as the sheet is on opening, in the name of the person who adds it;
+  // its date is the line above's Next Due Date (§145, the chain in the computed cells).
+  const addRow = () => save({ ...data, rows: [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser)] });
   const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
 
   // HR formats that name a person fetch them from HR Master Data (REQUIREMENTS

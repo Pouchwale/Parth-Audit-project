@@ -54,7 +54,7 @@ export function commitRecord(doc: DocumentDefinition, recordId: string, next: un
   const base = recordRepository.getById(recordId);
   if (!base || !isEditableStatus(base.status)) return false;
   const page = pageOf(doc) ?? "record";
-  const data = page === "record" ? withComputedCells(doc.id, next) : page === "complaint" ? next : { ...(isObj(base.data) ? base.data : {}), ...(isObj(next) ? next : {}) };
+  const data = page === "record" ? withComputedCells(doc.id, next, base.data) : page === "complaint" ? next : { ...(isObj(base.data) ? base.data : {}), ...(isObj(next) ? next : {}) };
   const save = (b: RecordInstance): RecordInstance => saveDraft(b, data, userName, { action, note, ...(page === "record" ? { labels: labelsFor(doc, base) } : {}) });
   if (opts.save) opts.save(base, save);
   else recordRepository.upsert(save(base));

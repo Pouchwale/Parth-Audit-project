@@ -243,7 +243,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   // history, every box still theirs to change. One already written on is left as it is.
   useEffect(() => {
     if (!record || !doc || doc.kind !== "log-sheet" || !editable || superseded || dirty) return;
-    const filled = nominalFillOnOpen(doc.id, record.data as LogSheetData | undefined, currentUser, record.headerBlock?.date ?? record.dueDate);
+    const filled = nominalFillOnOpen(doc.id, record.data as LogSheetData | undefined, currentUser);
     if (filled) persistLocal(saveDraft(record, withComputedCells(doc.id, filled), currentUser, { note: NOMINAL_FILL_NOTE }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id, editable, superseded]);
@@ -371,7 +371,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
               setNotice((said) => said ?? changedElsewhere(base, true));
               return;
             }
-            persistLocal(saveDraft(base, withComputedCells(doc?.id, next), currentUser, { action: action ?? "assistant-edit", note, labels: latest.current.labels }));
+            persistLocal(saveDraft(base, withComputedCells(doc?.id, next, base.data), currentUser, { action: action ?? "assistant-edit", note, labels: latest.current.labels }));
           },
           reopen: isCorrectableStatus(record.status) && !superseded && mayDo(record.documentId, "correct")
             ? (reason) => {

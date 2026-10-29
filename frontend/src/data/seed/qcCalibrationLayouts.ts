@@ -66,12 +66,10 @@ const text = (key: string, label: string, width?: number): LogColumn => ({ key, 
 
 /** The five test weights of the weight scale sheet, as the form prints them. */
 export const WEIGHT_SCALE_COLUMNS: LogColumn[] = [
-  // A calibration line prepared for a week is that week's calibration, so its
-  // Date is the day the record is for, and the Next Due Date on the line keeps
-  // its own interval after it (engine/autoFill.ts). Copied as written, every
-  // weekly sheet of a demo year read the supplied page's 2024 dates
-  // (REQUIREMENTS §75).
-  { key: "date", label: "Date", type: "date", width: 130, autoFill: { dueDate: true } },
+  // THE DATE IS THE PERSON'S (the owner, 29-Oct-2026, REQUIREMENTS §145: "date will decide by user not system"): the
+  // first line's is typed; each line below starts on the Next Due Date above it (LogSheetLayout.nextDueChain). A demo
+  // sheet's are its month's weeks (engine/autoFill.ts calibrationSample), never the supplied page's 2024 dates (§75).
+  { key: "date", label: "Date", type: "date", width: 130 },
   { key: "testedBy", label: "Tested By", type: "text", width: 130, autoFill: { sign: true } },
 ];
 /**
@@ -189,17 +187,16 @@ const weightScale: LogSheetLayout = {
     { key: "acceptableTolerance", label: "Acceptable Tolerance", printedLabel: "Acceptable Tolerance:", type: "text", width: 140, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.acceptableTolerance } },
   ],
   columns: WEIGHT_SCALE_COLUMNS,
-  // ONE SHEET A WEEK, ONE CALIBRATION ON IT (REQUIREMENTS §111 rule 3, §117): the owner, 16-Oct-2026, on a sheet
-  // DCRS had printed with five weeks on it — "Weekly → for new record → New Record!". Every week is a new record
-  // of its own; the sheet is the week's one line (and its Deviation % line), with no line added to it. The supplied
-  // page of February–March 2024 keeps its four weeks, as written (data/seed/qcCalibrationRecords.ts).
-  // ADD ROW WHEN IT IS NEEDED (the owner, 22-Oct-2026): the week's sheet still starts with its one calibration, and a
-  // second one the same week (a re-test after a Fail) is a line added to it, never a line written for the person.
-  rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
-  // A new week's sheet is written as the last one was — every box and the line, editable (§117)...
+  // A SHEET A MONTH, A LINE A WEEK (the owner, 29-Oct-2026, REQUIREMENTS §145: "month wise from January to December ...
+  // 4 rows in document each row denotes one week"), as the laboratory's own page has four weeks on it - until then one
+  // sheet a week (§111 rule 3, §117). A fifth week, or a re-test after a Fail, is a line added (22-Oct-2026).
+  rowMode: { kind: "free", minRows: 4, typicalRows: 4 },
+  // The weeks follow one another: a line's Next Due Date a week on from its date, the next line starting on it (§145).
+  nextDueChain: { dateKey: "date", nextKey: "nextDueDate", days: 7 },
+  // A new month's sheet is written as the last one was — every box, editable (§117)...
   carryForwardAll: true,
-  // ...but not its line (the owner, 29-Oct-2026, REQUIREMENTS §142): the week's line starts from its standards - the five
-  // weights and the fixed Tested Values 1 and 2 - and its readings are that week's own, never last week's.
+  // ...but not its lines (the owner, 29-Oct-2026, REQUIREMENTS §142): each week's line starts from its standards - the
+  // five weights and the fixed Tested Values 1 and 2 - and its readings and date are that week's own.
   carryLines: false,
   // A landscape page, as the original is (§117): the print, the PDF, the Word and Excel files follow it.
   paper: "landscape",

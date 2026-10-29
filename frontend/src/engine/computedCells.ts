@@ -4,6 +4,7 @@ import { withCalibration } from "./calibration";
 import { withMaintenanceCalc } from "./maintenanceCalc";
 import { withPurchaseRatings } from "./purchaseRatings";
 import { withPrintedBoxes } from "./paperLayout";
+import { withNextDueChain } from "./nextDueChain";
 
 // EVERY WORKED-OUT CELL, IN ONE PASS (REQUIREMENTS §74, building on §61 and
 // §68). Four families of form print a cell that is arithmetic on the cells
@@ -26,9 +27,12 @@ import { withPrintedBoxes } from "./paperLayout";
 // demo year). Each pass returns the very same object when it changed nothing,
 // and passes any other document's data straight through, so calling it on
 // every render costs nothing for the forms without such a cell.
-export function withComputedCells<T>(documentId: string | undefined, data: T): T {
+export function withComputedCells<T>(documentId: string | undefined, data: T, before?: unknown): T {
   // F/MKT/02's satisfaction index and F/MKT/04's Pareto (REQUIREMENTS §77) join the pass the same way.
   // So does a box whose value the paper prints (REQUIREMENTS §111): F/QC/11's Device ID No reads
   // "1-54, 2-55, 3-56, 4-57" on every record, whatever was typed into it before it was printed.
-  return withPrintedBoxes(documentId, withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, data))))));
+  // F/QC/12's weeks follow one another (REQUIREMENTS §145): `before`, where the caller has it, lets a changed date move
+  // what the chain had written from it.
+  const chained = withNextDueChain(documentId, data, before);
+  return withPrintedBoxes(documentId, withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, chained))))));
 }

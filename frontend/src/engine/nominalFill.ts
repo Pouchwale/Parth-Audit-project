@@ -1,7 +1,6 @@
 import type { LogSheetData, LogSheetRow } from "../types";
 import { FIXED_TESTED_VALUES, GSM_MEASURED, GSM_PLATES, STANDARD_WEIGHTS } from "../data/seed/qcCalibrationLayouts";
 import { RULER_300_ID, RULER_600_ID } from "../data/seed/qcRulerVerificationLayouts";
-import { addDays } from "../utils/date";
 
 // A CALIBRATION SHEET IS FILLED AS THE PLANT'S OWN PAGES ARE THE MOMENT A PERSON OPENS IT (REQUIREMENTS §136; the owner,
 // 28-Oct-2026, with his filled F/QC/17 and F/QC/11 pages: "i want same observation and difference, status and calibration
@@ -40,10 +39,6 @@ export function nominalFillLabel(documentId: string): "ruler" | "gsm" | "scale" 
   return null;
 }
 
-/** A weekly calibration's next due date: a week on from the line's date, as the laboratory's page writes it (§142). */
-export const WEEKLY_NEXT_DUE_DAYS = 7;
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
-
 /** F/QC/12's five weights and the tested value written against each. */
 const SCALE_WEIGHTS = [1, 2, 3, 4, 5].map((i) => ({ weight: `weight${i}`, tested: `testedValue${i}` }));
 
@@ -52,6 +47,19 @@ const SCALE_WEIGHTS = [1, 2, 3, 4, 5].map((i) => ({ weight: `weight${i}`, tested
 const FORMER_WEIGHTS = ["50 gm", "100 gm", "200 gm", "500 gm", "600 gm"];
 const sameFigure = (a: unknown, b: string): boolean => String(a ?? "").replace(/\s+/g, "").toLowerCase() === b.replace(/\s+/g, "").toLowerCase();
 
+/** No reading of a person's on the line: Tested Values 3 to 5 blank - or, on a sheet started before §142, the former
+ *  nominal figures (each weight's own) - so the week it stands for is still to be written. */
+const unreadLine = (r: LogSheetRow): boolean => {
+  const former = SCALE_WEIGHTS.every((w, i) => sameFigure(r[w.weight], FORMER_WEIGHTS[i]));
+  return SCALE_WEIGHTS.slice(FIXED_TESTED_VALUES).every((w) => {
+    const v = String(r[w.tested] ?? "").trim();
+    return !v || (former && sameFigure(v, FORMER_WEIGHTS[SCALE_WEIGHTS.indexOf(w)]));
+  });
+};
+
+/** The line this week's calibration goes on (a sheet a month, a line a week, §145): the first not read yet; -1 when all are. */
+const lineNow = (rows: LogSheetRow[]): number => rows.findIndex(unreadLine);
+
 /** No reading on the sheet yet: at no point (F/QC/17), of no plate (F/QC/11); on F/QC/12, whose fixed Tested Values come
  * with the line (§142), nobody's name on it yet. A name carried from the last sheet (its signer) is no reading, and is kept. */
 export function nominalFillWaits(documentId: string, data: LogSheetData | undefined): boolean {
@@ -59,7 +67,11 @@ export function nominalFillWaits(documentId: string, data: LogSheetData | undefi
   if (!kind || !Array.isArray(data?.rows) || data.rows.length === 0) return false;
   const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
   if (kind === "ruler") return data.rows.every((r) => blank(r.observed));
-  if (kind === "scale") return data.rows.every((r) => blank(r.testedBy) && blank(r.sign));
+  if (kind === "scale") {
+    // The week's line, nobody's name on it yet: the opener's (§145 - the weeks below wait for their own testers).
+    const now = lineNow(data.rows);
+    return now >= 0 && blank(data.rows[now].testedBy) && blank(data.rows[now].sign);
+  }
   return data.rows.every((r) => !GSM_MEASURED.includes(String(r.parameter ?? "")) || GSM_PLATES.every((p) => blank(r[p.key])));
 }
 
@@ -68,18 +80,18 @@ export function nominalFillWaits(documentId: string, data: LogSheetData | undefi
  * §140, §142): its standards (the weights, the fixed Tested Values 1 and 2) and Tested By and Sign theirs; Tested Values
  * 3 to 5 the person's to type. A line added to any other sheet starts blank, as Add Row always has (§98).
  */
-export function nominalFillAdded(documentId: string, data: LogSheetData, line: LogSheetRow, signer: string, dueDate?: string): LogSheetRow {
+export function nominalFillAdded(documentId: string, data: LogSheetData, line: LogSheetRow, signer: string): LogSheetRow {
   if (nominalFillLabel(documentId) !== "scale") return line;
-  return nominalFill(documentId, { ...data, rows: [line] }, signer, dueDate)?.rows[0] ?? line;
+  return nominalFill(documentId, { ...data, rows: [line] }, signer)?.rows[0] ?? line;
 }
 
 /** The sheet filled as the plant's pages are, in `signer`'s name, where nothing is observed on it yet; null otherwise. */
-export function nominalFillOnOpen(documentId: string, data: LogSheetData | undefined, signer: string, dueDate?: string): LogSheetData | null {
-  return data && nominalFillWaits(documentId, data) ? nominalFill(documentId, data, signer, dueDate) : null;
+export function nominalFillOnOpen(documentId: string, data: LogSheetData | undefined, signer: string): LogSheetData | null {
+  return data && nominalFillWaits(documentId, data) ? nominalFill(documentId, data, signer) : null;
 }
 
 /** The sheet filled as the plant's pages are, in `signer`'s name; null where the document is not one of the three. */
-export function nominalFill(documentId: string, data: LogSheetData, signer: string, dueDate?: string): LogSheetData | null {
+export function nominalFill(documentId: string, data: LogSheetData, signer: string): LogSheetData | null {
   const kind = nominalFillLabel(documentId);
   if (!kind) return null;
   const name = signer.trim();
@@ -95,7 +107,7 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
     return { ...data, rows };
   }
   if (kind === "scale") {
-    const rows: LogSheetRow[] = data.rows.map((row) => {
+    const standard: LogSheetRow[] = data.rows.map((row) => {
       const next: LogSheetRow = { ...row };
       // A line of a sheet started before §142, still holding every one of the former weights and no reading: its weights
       // become the laboratory's page's (the owner, 29-Oct-2026). A weight a person wrote is kept.
@@ -114,14 +126,17 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
         const weight = String(next[w.weight] ?? "").trim();
         if (weight && !String(next[w.tested] ?? "").trim()) next[w.tested] = weight;
       }
-      if (name && !String(row.testedBy ?? "").trim()) next.testedBy = name;
-      if (name && !String(row.sign ?? "").trim()) next.sign = name;
-      // The Next Due Date a week on from the line's date where none is written (the owner, 29-Oct-2026: "a weekly due of
-      // 7 days"): a standing fact of a weekly calibration, the person's to change. A line with no date takes the sheet's.
-      // (a line with no date of its own - the sheet's date stands on the record - is dated the sheet's day)
-      if (!String(next.date ?? "").trim() && dueDate && ISO.test(dueDate)) next.date = dueDate;
-      const lineDate = String(next.date ?? "").trim();
-      if (ISO.test(lineDate) && !String(next.nextDueDate ?? "").trim()) next.nextDueDate = addDays(lineDate, WEEKLY_NEXT_DUE_DAYS);
+      return next;
+    });
+    // Tested By and Sign the opener's on the week's own line only (a sheet a month, a line a week, the owner,
+    // 29-Oct-2026, §145): the weeks below wait for whoever tests them. No date is written: the date is the person's, and
+    // each Next Due Date and the next line's date follow it (engine/nextDueChain.ts).
+    const now = lineNow(standard);
+    const rows = standard.map((row, i) => {
+      if (i !== now || !name) return row;
+      const next: LogSheetRow = { ...row };
+      if (!String(row.testedBy ?? "").trim()) next.testedBy = name;
+      if (!String(row.sign ?? "").trim()) next.sign = name;
       return next;
     });
     return { ...data, rows };

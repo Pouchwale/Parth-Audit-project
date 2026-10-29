@@ -525,6 +525,10 @@ export interface LogSheetLayout {
   /** With carryForwardAll: the boxes are carried but not the lines - each new sheet's lines start from the columns'
    *  standards (F/QC/12, REQUIREMENTS §142: its readings are the week's own). */
   carryLines?: false;
+  /** THE WEEKS OF A PAGE FOLLOW ONE ANOTHER (F/QC/12, REQUIREMENTS §145): a line's `nextKey` is its `dateKey` + `days`
+   *  where none is written, and the line below starts on it; the first line's date is the person's
+   *  (engine/nextDueChain.ts). */
+  nextDueChain?: { dateKey: string; nextKey: string; days: number };
   /**
    * THE LINES A FORMER PAGE OF THE PAPER PRINTED, each as its fixed rows' starts: a previous sheet whose lines are
    * exactly one of these (as numbers) belongs to the old page, so a new sheet carries its boxes and not its lines

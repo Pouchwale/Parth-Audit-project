@@ -13,7 +13,7 @@ ensureMasterSeeded();
 const root = process.env.DCRS_REPO_ROOT ?? process.cwd();
 
 test("a frequency set in Master Data is the document's for every reader, from its day; As issued puts the seed's back", () => {
-  const id = "qc-weight-scale-calibration";
+  const id = "qc-gsm-plate-calibration";
   const issued = documentRepository.getByIdUnscoped(id)!;
   assert.equal(issued.schedule.type, "weekly");
   masterRepository.update({ scheduleOverrides: { [id]: { schedule: { type: "monthly", dayOfMonth: 5 }, frequency: "Monthly", since: "2026-10-29", by: "Super Admin" } } });

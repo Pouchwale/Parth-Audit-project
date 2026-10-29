@@ -339,9 +339,10 @@ with sync_playwright() as p:
         page.wait_for_timeout(1500)
         close_assistant(page)
         fresh = record(page, new_id)
+    # A sheet a month, a line a week (s145, the owner, 29-Oct-2026): four lines with the standards, their dates the person's.
     check(
-        "A new weight scale sheet holds the week's one calibration, dated the sheet's day, from the page on file",
-        fresh is not None and len(fresh["data"]["rows"]) == 1 and fresh["data"]["rows"][0].get("date") == fresh["dueDate"],
+        "A new weight scale sheet holds the month's four weekly lines, the standard weights on each, no date written for the person",
+        fresh is not None and len(fresh["data"]["rows"]) == 4 and all(r.get("weight4") == "200.000gm" and not r.get("date") for r in fresh["data"]["rows"]),
         [(r.get("date"), r.get("weight4")) for r in fresh["data"]["rows"]] if fresh else None,
     )
     if fresh:
@@ -456,13 +457,15 @@ with sync_playwright() as p:
     page.wait_for_timeout(1400)
     dismiss(page)
     close_assistant(page)
-    due = page.locator("table.log-sheet tbody tr[data-line='first']").first.locator("td").nth(14).locator("input")
-    due.fill("")
+    # (a line's Next Due Date follows its date, s145: the first line, its date not written, has none; the second's typed)
+    firsts = page.locator("table.log-sheet tbody tr[data-line='first']")
+    due = firsts.first.locator("td").nth(14).locator("input")
+    written_date = firsts.nth(1).locator("td").nth(0).locator("input")
+    written_date.fill("2026-10-14")
     page.wait_for_timeout(800)
     shoot(page, "F-QC-12")
     page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
     page.emulate_media(media="print")
-    written_date = page.locator("table.log-sheet tbody tr[data-line='first']").first.locator("td").nth(0).locator("input")
     try:
         empty = due.evaluate("e => ({ marked: e.hasAttribute('data-empty'), fill: getComputedStyle(e).webkitTextFillColor })")
         # A written date prints its words, not the browser's drawing of the date (s111 part 6: '14·10·2026').

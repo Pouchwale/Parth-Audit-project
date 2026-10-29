@@ -392,13 +392,32 @@ with sync_playwright() as p:
     std = ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"]
     standard = lambda r: ([r.get(f"weight{i}") for i in range(1, 6)] == std and [r.get(f"testedValue{i}") for i in range(1, 6)] == ["0.050mg", "50.000gm", "", "", ""]
                           and r.get("deviation1") == "0%" and r.get("deviation2") == "0%")
-    # F/QC/12 as the laboratory's own page (REQUIREMENTS s142, the owner, 29-Oct-2026): the new line holds the five weights
-    # and the fixed Tested Values 1 and 2 (0%) - never last week's line - and the opener's name; 3 to 5 are the person's.
+    # F/QC/12 as the laboratory's own page (REQUIREMENTS s142, s145, the owner, 29-Oct-2026): a sheet a month, a line a
+    # week - each with the five weights and the fixed Tested Values 1 and 2 (0%), never last month's lines; the opener's
+    # name on the week's own line only; no date written (the person's); 3 to 5 are the person's.
     check(
-        "F/QC/12, opened: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty for the person, Tested By and Sign the opener, no Pass yet",
-        len(srows) == 1 and standard(srows[0]) and srows[0].get("testedBy") == "Editing QA" and srows[0].get("sign") == "Editing QA"
-        and not srows[0].get("passFail") and srows[0].get("nextDueDate") == (date.fromisoformat(srows[0]["date"]) + timedelta(days=7)).isoformat(),
-        srows[:1],
+        "F/QC/12, opened: four weekly lines, the weights and Tested Values 1 and 2 at 0% on each, the opener on the first only, no date and no Pass yet",
+        len(srows) == 4 and all(standard(r) for r in srows) and [r.get("testedBy") for r in srows] == ["Editing QA", "", "", ""]
+        and [r.get("sign") for r in srows] == ["Editing QA", "", "", ""] and all(not r.get("date") and not r.get("nextDueDate") and not r.get("passFail") for r in srows),
+        srows,
+    )
+    # The person writes the first date: each Next Due Date a week on, the next line starting on it (s145).
+    first_date = page.locator("[data-print-doc] table.log-sheet input[data-bind$='/date']").first
+    first_date.fill("2026-10-05")
+    page.wait_for_timeout(1200)
+    chain = [[r.get("date"), r.get("nextDueDate")] for r in (stored(page, scale_id) or {}).get("data", {}).get("rows", [])]
+    check(
+        "F/QC/12: the first date typed - each Next Due Date a week on, the next line starting on it",
+        chain == [["2026-10-05", "2026-10-12"], ["2026-10-12", "2026-10-19"], ["2026-10-19", "2026-10-26"], ["2026-10-26", "2026-11-02"]],
+        chain,
+    )
+    first_date.fill("2026-10-06")
+    page.wait_for_timeout(1200)
+    chain = [[r.get("date"), r.get("nextDueDate")] for r in (stored(page, scale_id) or {}).get("data", {}).get("rows", [])]
+    check(
+        "...the first date changed: the weeks after it move with it",
+        chain == [["2026-10-06", "2026-10-13"], ["2026-10-13", "2026-10-20"], ["2026-10-20", "2026-10-27"], ["2026-10-27", "2026-11-03"]],
+        chain,
     )
     # Its boxes above the grid are the format's fixed values (the owner's header block, 29-Oct-2026, s142 note 6), each
     # editable; the Serial No is the person's.
@@ -450,10 +469,11 @@ with sync_playwright() as p:
     firsts = page.locator(OWN_LINES)
     heights = firsts.evaluate_all("els => els.map((e) => Math.round(e.getBoundingClientRect().height))")
     check("...a line added on the screen is as tall as the paper's lines", firsts.count() == before_rows + 1 and len(heights) >= 2 and heights[-1] >= heights[0] - 2, heights)
-    added = ((stored(page, scale_id) or {}).get("data", {}).get("rows") or [{}])[-1]
-    check("...the line added is the same standard line, in the name of the person who added it (REQUIREMENTS s140, s142)",
+    lines_now = (stored(page, scale_id) or {}).get("data", {}).get("rows") or [{}, {}]
+    added, above = lines_now[-1], lines_now[-2]
+    check("...the line added is the same standard line, in the name of the person who added it, starting on the Next Due Date above it (s140, s142, s145)",
           standard(added) and added.get("testedBy") == "Editing QA" and added.get("sign") == "Editing QA" and not added.get("passFail")
-          and added.get("date") and added.get("nextDueDate") == (date.fromisoformat(added["date"]) + timedelta(days=7)).isoformat(),
+          and added.get("date") == above.get("nextDueDate") == "2026-11-03" and added.get("nextDueDate") == "2026-11-10",
           added)
     # A long name in Tested By is written whole (the owner, 28-Oct-2026: "Ms. Kapila Barad" was cut at the column's edge in
     # print - the name list's arrow kept its room; REQUIREMENTS s139): on the screen and in print, nothing of it cut.

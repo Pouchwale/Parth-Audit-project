@@ -227,7 +227,7 @@ test("a sheet the schedule made blank ahead of its day is written as the last on
   assert.equal(opened.record.id, "rec-shell-2026-10-28");
   const h = data(opened.record).header;
   assert.deepEqual([h.deviceIdNo, h.acceptableTolerance, h.calibrationExpiry], ["QC-76", "0.05 %", "2027-09-20"], "the page on file's boxes, the certificate's expiry");
-  assert.equal(data(opened.record).rows[0].date, "2026-10-28", "the line dated its own day");
+  assert.equal(data(opened.record).rows[0].date, "", "the line's date is the person's (§145)");
   assert.equal(data(recordRepository.getById("rec-shell-2026-10-28")!).header.deviceIdNo, "QC-76", "and kept so");
   clear(SCALE);
   // Somebody wrote on it already: left as written.

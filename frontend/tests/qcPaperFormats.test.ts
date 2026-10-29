@@ -317,12 +317,13 @@ test("the PROCEDURE is printed below the grid, word for word, and DCRS's explana
 
 test("an empty date, time or choice box is marked, and the print rules print it empty (no dd-mm-yyyy)", async () => {
   const data = autoFillRecord(docOf(SCALE), DAY, master, undefined)!.data as LogSheetData;
-  data.rows[0].nextDueDate = "";
+  // (each line's Next Due Date follows its date on F/QC/12, §145: the empty date box here is the Calibration Expiry)
+  data.header.calibrationExpiry = "";
   // With no Acceptable Tolerance written, Pass / Fail is left as the tester set it: here, not yet.
   data.header.acceptableTolerance = "";
   data.rows[0].passFail = "";
   const html = await sheet(SCALE, data, true);
-  assert.match(html, /<input type="date"[^>]*data-bind="rows\/@[^"]+\/nextDueDate"[^>]*data-empty=""|<input type="date"[^>]*data-empty=""[^>]*data-bind="rows\/@[^"]+\/nextDueDate"/, "the empty Next Due Date is marked");
+  assert.match(html, /<input[^>]*data-bind="header\/calibrationExpiry"[^>]*type="date"[^>]*data-empty=""/, "the empty Calibration Expiry is marked");
   assert.match(html, /<select[^>]*data-empty=""/, "the empty Pass / Fail is marked");
   assert.ok(!/<input type="date"[^>]*data-bind="rows\/@[^"]+\/date"[^>]*data-empty/.test(html), "a written date is not");
   const css = readFileSync(path.join(process.cwd(), "frontend", "src", "styles.css"), "utf8");
@@ -547,18 +548,18 @@ test("F/QC/12 weighing balance: nine boxes three to a line, no Sr. No., each ent
   assert.deepEqual(layout.secondLine, { label: "Deviation %" });
   assert.deepEqual(layout.notesBelow, ["PROCEDURE:", CALIBRATION_PROCEDURE]);
   assert.deepEqual(layout.columns.filter((c) => c.beneath).map((c) => [c.key, c.beneath, !!c.computed]), [1, 2, 3, 4, 5].map((i) => [`deviation${i}`, `testedValue${i}`, true]));
-  // One sheet a week holds that week's calibration: one line, dated the record's day — never four on one day.
+  // A sheet a month, a line a week (§145): a demo sheet's weeks follow its first, a week apart - never four on one day;
+  // a Live sheet's dates are the person's.
   const demo = autoFillRecord(docOf(SCALE), DAY, master, undefined)!.data as LogSheetData;
-  assert.equal(demo.rows.length, 1);
-  assert.equal(demo.rows[0].date, DAY);
+  assert.deepEqual(demo.rows.map((r) => r.date), [DAY, "2026-10-21", "2026-10-28", "2026-11-04"]);
   const known = prepareKnownParts(docOf(SCALE), DAY, master, undefined)!.data as LogSheetData;
-  assert.equal(known.rows.length, 1);
-  assert.equal(known.rows[0].date, DAY);
+  assert.equal(known.rows.length, 4);
+  assert.ok(known.rows.every((r) => r.date === ""), "the dates are the person's");
   const html = await sheet(SCALE, demo);
   assert.ok(!headings(html).includes("Sr. No."));
   assert.ok(!headings(html).includes("Deviation %"));
   const entry = bodyRows(html).filter((r) => !/pf-pad/.test(r.attrs));
-  assert.deepEqual(entry.map((r) => r.cells[0].text), ["14-10-26", "Deviation %"], "the entry's Date, and its second line headed Deviation %");
-  // ...and the paper's three other entries as its blank ruled lines in the markup (§117 round 2; not printed since 25-Oct-2026), never in the record.
-  assert.deepEqual(bodyRows(html).filter((r) => /pf-pad/.test(r.attrs)).map((r) => r.cells[0].text), ["", "Deviation %", "", "Deviation %", "", "Deviation %"]);
+  assert.deepEqual(entry.map((r) => r.cells[0].text), ["14-10-26", "Deviation %", "21-10-26", "Deviation %", "28-10-26", "Deviation %", "04-11-26", "Deviation %"], "each week's Date, and its second line headed Deviation %");
+  // The paper's four entries are the record's own four lines (§145): no blank ruled line is added under them.
+  assert.deepEqual(bodyRows(html).filter((r) => /pf-pad/.test(r.attrs)).map((r) => r.cells[0].text), []);
 });
