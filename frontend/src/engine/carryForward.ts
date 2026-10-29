@@ -71,6 +71,16 @@ export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blan
     const start = header[f.key] ?? "";
     header[f.key] = f.autoFill?.newest && start && String(v) < start ? start : String(v);
   }
+  // A sheet whose lines start from their standards each time (F/QC/12, REQUIREMENTS §142) carries its boxes alone; its
+  // lines are dated the new day, as a carried line is.
+  if (layout.carryLines === false) {
+    const dated = blank.rows.map((r) => {
+      const row: LogSheetRow = { ...r };
+      for (const c of layout.columns) if (columnKind(c) === "date") row[c.key] = dueDate;
+      return row;
+    });
+    return { ...blank, header, rows: dated };
+  }
   const allPrevious = Array.isArray(previous.rows) ? previous.rows : [];
   // A sheet of one line takes the previous sheet's last line (the latest week of a page of several); a sheet whose
   // lines the paper prints keeps the paper's count of them, and a previous sheet with another count (the format

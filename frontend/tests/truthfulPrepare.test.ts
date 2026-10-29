@@ -316,8 +316,10 @@ test("what is known IS written: the date, the fixed rows, the standing values ca
   // The certificate's date (autoFill.newest, the owner, 27-Oct-2026): the later of the last sheet's and the owner's 20-09-27.
   assert.equal(cal.header.calibrationExpiry, [String(prior.data.header.calibrationExpiry), "2027-09-20"].sort().pop(), "calibrationExpiry");
   assert.ok(cal.rows.every((r) => r.date === workDay), "each line dated the record's day");
-  assert.equal(cal.rows.length, prior.data.rows.length, "the last sheet's lines, carried");
-  assert.ok(cal.rows.every((r, i) => r.testedValue1 === prior.data.rows[i].testedValue1 && r.testedBy === prior.data.rows[i].testedBy), "the readings and the tester as last written, for the person to change (§117)");
+  // Its line is not carried since §142 (F/QC/12): the standards - the weights, the fixed Tested Values 1 and 2 - never
+  // last week's readings or tester.
+  assert.equal(cal.rows.length, 1, "the week's one standard line");
+  assert.ok(cal.rows.every((r) => r.testedValue1 === "0.050mg" && !r.testedValue3 && !r.testedBy), "the fixed Tested Value 1; the readings and the tester left for the week");
   // The chemicals in use and the machine; never the operator, the batch or the shift.
   const pp = byId("prd-process-parameter");
   const ppPrior = confirmedBefore(pp, workDay) as RecordInstance<LogSheetData>;

@@ -75,9 +75,11 @@ function weightScaleRow(row: LogSheetRow, tolerance: number | null): LogSheetRow
     next[`deviation${i}`] = dev === null ? "" : formatDeviation(dev);
     if (dev !== null) found.push(dev);
   }
-  // Pass / Fail follows the tolerance once there is something to judge and a
-  // tolerance to judge it by; otherwise it is left as the tester set it.
-  if (found.length > 0 && tolerance !== null) next.passFail = found.every((d) => Math.abs(d) <= tolerance + 1e-9) ? "Pass" : "Fail";
+  // Pass / Fail follows the tolerance once every weight placed has its reading (REQUIREMENTS §142: a line with only its
+  // fixed Tested Values 1 and 2 is no Pass yet) and there is a tolerance to judge it by; otherwise it is left as the
+  // tester set it.
+  const placed = [1, 2, 3, 4, 5].filter((i) => String(row[`weight${i}`] ?? "").trim() !== "").length;
+  if (found.length > 0 && found.length >= placed && tolerance !== null) next.passFail = found.every((d) => Math.abs(d) <= tolerance + 1e-9) ? "Pass" : "Fail";
   return next;
 }
 

@@ -1,5 +1,5 @@
 import type { LogSheetData, LogSheetRow } from "../types";
-import { GSM_MEASURED, GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
+import { FIXED_TESTED_VALUES, GSM_MEASURED, GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
 import { RULER_300_ID, RULER_600_ID } from "../data/seed/qcRulerVerificationLayouts";
 
 // A CALIBRATION SHEET IS FILLED AS THE PLANT'S OWN PAGES ARE THE MOMENT A PERSON OPENS IT (REQUIREMENTS §136; the owner,
@@ -11,10 +11,11 @@ import { RULER_300_ID, RULER_600_ID } from "../data/seed/qcRulerVerificationLayo
 //                               pressed it;
 //   F/QC/11                      every plate measured at its size on its four lines - the Deviation 0% follows - Pass on
 //                               the Pass/Fail line and the person's name on the Sign. line;
-//   F/QC/12                      each Tested Value the exact weight placed ("50 gm" against 50 gm), so the Deviation 0%
-//                               and Pass follow; Tested By and Sign the person's name; the Next Due Date theirs to write.
-//                               Never a made-up reading that varies within the tolerance (the owner asked for one,
-//                               28-Oct-2026): what the scale showed is the person's to type over the weight.
+//   F/QC/12                      (since 29-Oct-2026, the owner's own page, REQUIREMENTS §142) Tested Values 1 and 2 are
+//                               the plant's fixed ones, the weight itself (0.050mg, 50.000gm: standards of every new
+//                               line, 0%); 3 to 5 are what the scale shows, the person's to type, the Deviation and
+//                               Pass / Fail following; Tested By and Sign the opener's name; the Next Due Date theirs.
+//                               Never a made-up reading (asked for 28 and 29-Oct-2026, declined).
 // It is written when a person who may fill the sheet opens it (the record page), in that person's name, with a line in
 // the record's history, and every box stays theirs to change: a point that read differently is typed over. DCRS never
 // writes these by itself onto a sheet nobody has looked at (§98: a Live sheet holds what a person found): the schedule's
@@ -41,28 +42,28 @@ export function nominalFillLabel(documentId: string): "ruler" | "gsm" | "scale" 
 /** F/QC/12's five weights and the tested value written against each. */
 const SCALE_WEIGHTS = [1, 2, 3, 4, 5].map((i) => ({ weight: `weight${i}`, tested: `testedValue${i}` }));
 
-/** No reading on the sheet yet: at no point (F/QC/17), against no weight (F/QC/12), of no plate (F/QC/11). A name carried
- * from the last sheet (its signer) is no reading, and is kept. */
+/** No reading on the sheet yet: at no point (F/QC/17), of no plate (F/QC/11); on F/QC/12, whose fixed Tested Values come
+ * with the line (§142), nobody's name on it yet. A name carried from the last sheet (its signer) is no reading, and is kept. */
 export function nominalFillWaits(documentId: string, data: LogSheetData | undefined): boolean {
   const kind = nominalFillLabel(documentId);
   if (!kind || !Array.isArray(data?.rows) || data.rows.length === 0) return false;
   const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
   if (kind === "ruler") return data.rows.every((r) => blank(r.observed));
-  if (kind === "scale") return data.rows.every((r) => SCALE_WEIGHTS.every((w) => blank(r[w.tested])));
+  if (kind === "scale") return data.rows.every((r) => blank(r.testedBy) && blank(r.sign));
   return data.rows.every((r) => !GSM_MEASURED.includes(String(r.parameter ?? "")) || GSM_PLATES.every((p) => blank(r[p.key])));
 }
 
-/** The sheet filled as the plant's pages are, in `signer`'s name, where nothing is observed on it yet; null otherwise. */
 /**
  * A line a person adds to F/QC/12 with Add Row, filled as the sheet is on opening and in that person's name (REQUIREMENTS
- * §140, the owner, 28-Oct-2026): each Tested Value its own weight, Tested By and Sign theirs. A line added to any other
- * sheet starts blank, as Add Row always has (§98).
+ * §140, §142): its standards (the weights, the fixed Tested Values 1 and 2) and Tested By and Sign theirs; Tested Values
+ * 3 to 5 the person's to type. A line added to any other sheet starts blank, as Add Row always has (§98).
  */
 export function nominalFillAdded(documentId: string, data: LogSheetData, line: LogSheetRow, signer: string): LogSheetRow {
   if (nominalFillLabel(documentId) !== "scale") return line;
   return nominalFill(documentId, { ...data, rows: [line] }, signer)?.rows[0] ?? line;
 }
 
+/** The sheet filled as the plant's pages are, in `signer`'s name, where nothing is observed on it yet; null otherwise. */
 export function nominalFillOnOpen(documentId: string, data: LogSheetData | undefined, signer: string): LogSheetData | null {
   return data && nominalFillWaits(documentId, data) ? nominalFill(documentId, data, signer) : null;
 }
@@ -86,9 +87,10 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
   if (kind === "scale") {
     const rows: LogSheetRow[] = data.rows.map((row) => {
       const next: LogSheetRow = { ...row };
-      for (const w of SCALE_WEIGHTS) {
+      // The fixed Tested Values 1 and 2, where a line lacks them (a sheet started before §142); 3 to 5 are the person's.
+      for (const w of SCALE_WEIGHTS.slice(0, FIXED_TESTED_VALUES)) {
         const weight = String(row[w.weight] ?? "").trim();
-        if (weight) next[w.tested] = weight;
+        if (weight && !String(row[w.tested] ?? "").trim()) next[w.tested] = weight;
       }
       if (name && !String(row.testedBy ?? "").trim()) next.testedBy = name;
       if (name && !String(row.sign ?? "").trim()) next.sign = name;

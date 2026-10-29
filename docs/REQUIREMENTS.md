@@ -10035,6 +10035,26 @@ super admin, so I don't want to see any QA IDs over there."
 4. **Proved:** backend/tests/testAccounts.test.ts (which sign-ins are a test's; deleted at start-up on the plant's
    server only, before the seeding).
 
+## §142 F/QC/12 as the laboratory's own page: fixed weights, fixed Tested Values 1 and 2, the rest typed (29-Oct-2026)
+
+The owner, 29-Oct-2026, with a photo of the laboratory's F/QC/12 page (Meet's and Harsh's weeks, Sep-Oct 2026) and two
+screenshots of his DCRS sheet: "weight 1 is always 0.050 mg and weight 2 is always 50.000 gm and weight 3 is 100.000 gm and
+weight 4 is 200.000gm and weight 5 is always 400.000 gm", "tested value 1 has fix 0.050 mg and tested value 2 is
+50.000gm" with the deviation 0% by default, and Tested Values 3 to 5 "completely fix and user need to enter manually so
+deviation will come accordingly".
+
+1. **The standards of every new line** (data/seed/qcCalibrationLayouts.ts): the weights 0.050mg, 50.000gm, 100.000gm,
+   200.000gm and 400.000gm (until now 50 / 100 / 200 / 500 / 600 gm, §117), and Tested Values 1 and 2 the weight itself
+   (FIXED_TESTED_VALUES), so their Deviation reads 0%. All editable, as a standard always is.
+2. **Tested Values 3 to 5 are the person's** to type from the scale; the Deviation follows each, and Pass / Fail once every
+   weight placed has its reading (engine/calibration.ts) - a line with only its fixed values is no Pass yet.
+3. **A new week's sheet starts from the standards** (LogSheetLayout.carryLines false, engine/carryForward.ts): its boxes -
+   the device, the tolerance, the calibration expiry - are carried as before (§117), its line is not: last week's readings
+   are never this week's. Opening it puts the opener's name in Tested By and Sign (§136); Add Row gives the same standard
+   line in the adder's name (§140).
+4. **Proved:** frontend/tests/nominalFill.test.ts and qcCarryForward.test.ts, tests/e2e_editing.py (a new sheet and a
+   line added: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty; typed readings give their deviations and Pass).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

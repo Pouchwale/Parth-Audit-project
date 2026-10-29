@@ -49,25 +49,29 @@ test("F/QC/11: every plate at its size on its four lines, 0% worked out, Pass an
   assert.deepEqual(filled.rows.map((r) => r.parameter), ["Tasted-1", "2", "3", "4", "Pass/Fail", "Sign."], "the paper's lines as they were");
 });
 
-test("F/QC/12: each Tested Value the exact weight placed, 0% and Pass worked out, Tested By and Sign the opener's name, the Next Due Date theirs", () => {
+test("F/QC/12 (§142): the five weights and the fixed Tested Values 1 and 2 (0%) on the line, the opener's name on opening; 3 to 5 the person's, Pass / Fail once all are in", () => {
   const SCALE = "qc-weight-scale-calibration";
   // (the tolerance the page on file carries onto every new sheet, 0.05 %, which Pass / Fail is judged by)
   const fresh = createDefaultData(doc(SCALE), "2026-11-01", master) as LogSheetData;
   const blank: LogSheetData = { ...fresh, header: { ...fresh.header, acceptableTolerance: "0.05 %" } };
   const filled = withComputedCells(SCALE, nominalFillOnOpen(SCALE, blank, "Kapila Barad")!);
   const line = filled.rows[0];
-  assert.deepEqual([line.testedValue1, line.testedValue2, line.testedValue3, line.testedValue4, line.testedValue5], [line.weight1, line.weight2, line.weight3, line.weight4, line.weight5]);
-  assert.equal(line.weight1, "50 gm", "the standard weights as written on every new line (§117)");
-  assert.deepEqual([line.deviation1, line.deviation2, line.deviation3, line.deviation4, line.deviation5], ["0%", "0%", "0%", "0%", "0%"]);
-  assert.equal(line.passFail, "Pass");
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => line[`weight${i}`]), ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"]);
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => line[`testedValue${i}`]), ["0.050mg", "50.000gm", "", "", ""]);
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => line[`deviation${i}`]), ["0%", "0%", "", "", ""]);
+  assert.ok(!line.passFail, "no Pass before the person's three readings");
   assert.deepEqual([line.testedBy, line.sign], ["Kapila Barad", "Kapila Barad"]);
   assert.ok(!line.nextDueDate, "the Next Due Date is the person's");
-  assert.equal(nominalFillOnOpen(SCALE, filled, "x"), null, "written on: left as it is");
-  const typed = { ...blank, rows: blank.rows.map((r) => ({ ...r, testedValue4: "500.010" })) };
-  assert.equal(nominalFillOnOpen(SCALE, typed, "x"), null, "a value the scale showed, typed: left as it is");
+  assert.equal(nominalFillOnOpen(SCALE, filled, "x"), null, "a name on it: left as it is");
+  // The person's readings, as the laboratory's page has them: the deviations follow, and Pass; one off by 0.1 %, Fail.
+  const read: LogSheetData = withComputedCells(SCALE, { ...filled, rows: [{ ...line, testedValue3: "100.000gm", testedValue4: "200.020gm", testedValue5: "400.040gm" }] } as LogSheetData);
+  assert.deepEqual([3, 4, 5].map((i) => read.rows[0][`deviation${i}`]), ["0%", "0.01%", "0.01%"]);
+  assert.equal(read.rows[0].passFail, "Pass");
+  const off: LogSheetData = withComputedCells(SCALE, { ...read, rows: [{ ...read.rows[0], testedValue5: "400.400gm" }] } as LogSheetData);
+  assert.deepEqual([off.rows[0].deviation5, off.rows[0].passFail], ["0.1%", "Fail"]);
 });
 
-test("F/QC/12: a line added with Add Row is filled as the sheet is on opening, in the adder's name; the lines above are left as they are", () => {
+test("F/QC/12: a line added with Add Row is the same standard line, in the adder's name; the lines above are left as they are", () => {
   const SCALE = "qc-weight-scale-calibration";
   const fresh = createDefaultData(doc(SCALE), "2026-11-01", master) as LogSheetData;
   // (the sheet's Acceptable Tolerance, carried from the last sheet on a real one: Pass / Fail is judged by it)
@@ -76,10 +80,10 @@ test("F/QC/12: a line added with Add Row is filled as the sheet is on opening, i
   const line = nominalFillAdded(SCALE, typed, newRow(getLogSheetLayout(SCALE)!, typed.rows, "row-added"), "Kapila Barad");
   const sheet = withComputedCells(SCALE, { ...typed, rows: [...typed.rows, line] });
   const added = sheet.rows[sheet.rows.length - 1];
-  assert.deepEqual([added.weight1, added.weight5], ["50 gm", "600 gm"], "the standard weights, as on every new line");
-  assert.deepEqual([1, 2, 3, 4, 5].map((i) => added[`testedValue${i}`]), [1, 2, 3, 4, 5].map((i) => added[`weight${i}`]));
-  assert.deepEqual([1, 2, 3, 4, 5].map((i) => added[`deviation${i}`]), ["0%", "0%", "0%", "0%", "0%"]);
-  assert.equal(added.passFail, "Pass");
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => added[`weight${i}`]), ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"], "the standard weights, as on every new line");
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => added[`testedValue${i}`]), ["0.050mg", "50.000gm", "", "", ""]);
+  assert.deepEqual([1, 2, 3, 4, 5].map((i) => added[`deviation${i}`]), ["0%", "0%", "", "", ""]);
+  assert.ok(!added.passFail, "no Pass before the readings");
   assert.deepEqual([added.testedBy, added.sign, added.id], ["Kapila Barad", "Kapila Barad", "row-added"]);
   assert.ok(!added.nextDueDate, "the Next Due Date is the person's");
   assert.equal(sheet.rows[0].testedValue4, "500.010", "a value typed above is left as it is");

@@ -522,6 +522,9 @@ export interface LogSheetLayout {
    * Without a previous record the sheet starts as the paper's blank, with its standards.
    */
   carryForwardAll?: true;
+  /** With carryForwardAll: the boxes are carried but not the lines - each new sheet's lines start from the columns'
+   *  standards (F/QC/12, REQUIREMENTS §142: its readings are the week's own). */
+  carryLines?: false;
   /**
    * THE LINES A FORMER PAGE OF THE PAPER PRINTED, each as its fixed rows' starts: a previous sheet whose lines are
    * exactly one of these (as numbers) belongs to the old page, so a new sheet carries its boxes and not its lines

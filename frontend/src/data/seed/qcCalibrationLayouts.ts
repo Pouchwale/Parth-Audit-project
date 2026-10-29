@@ -79,11 +79,23 @@ export const WEIGHT_SCALE_COLUMNS: LogColumn[] = [
  * fixed (default) (ex: 50, 100, 200)" — the five weights the laboratory places each week, written in the Weight cells
  * of every new sheet, in the unit the plant writes on the paper ("gm"), and editable. The scale reads 0.1 gm to 600 gm.
  */
-export const STANDARD_WEIGHTS = ["50 gm", "100 gm", "200 gm", "500 gm", "600 gm"];
+// The owner, 29-Oct-2026, with the laboratory's own page (Meet's and Harsh's weeks of Sep-Oct 2026) and his DCRS sheet:
+// "weight 1 is always 0.050 mg and weight 2 is always 50.000 gm and weight 3 is 100.000 gm and weight 4 is 200.000gm and
+// weight 5 is always 400.000 gm" - as the page writes them (REQUIREMENTS §142).
+export const STANDARD_WEIGHTS = ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"];
+/**
+ * TESTED VALUES 1 AND 2 ARE FIXED (REQUIREMENTS §142; the owner, 29-Oct-2026: "tested value 1 has fix 0.050 mg and tested
+ * value 2 is 50.000gm", deviation 0% "always by default"): written on every new line as the weight itself, as the
+ * laboratory's page has them every week. Tested Values 3 to 5 are what the scale shows: the person's to type, the
+ * Deviation and Pass / Fail following.
+ */
+export const FIXED_TESTED_VALUES = 2;
 
 for (let i = 1; i <= 5; i++) {
   WEIGHT_SCALE_COLUMNS.push({ ...text(`weight${i}`, `Weight ${i}`, 110), standard: STANDARD_WEIGHTS[i - 1] });
-  WEIGHT_SCALE_COLUMNS.push(text(`testedValue${i}`, `Tested Value ${i}`, 120));
+  WEIGHT_SCALE_COLUMNS.push(
+    i <= FIXED_TESTED_VALUES ? { ...text(`testedValue${i}`, `Tested Value ${i}`, 120), standard: STANDARD_WEIGHTS[i - 1] } : text(`testedValue${i}`, `Tested Value ${i}`, 120)
+  );
   // On the entry's second line, under its Tested Value (REQUIREMENTS §111). Its
   // name says which weight it is: the paper heads the line "Deviation %" once.
   // Highlighted outside ± the Acceptable Tolerance written above the grid (REQUIREMENTS §111, rule 2).
@@ -168,8 +180,11 @@ const weightScale: LogSheetLayout = {
   // ADD ROW WHEN IT IS NEEDED (the owner, 22-Oct-2026): the week's sheet still starts with its one calibration, and a
   // second one the same week (a re-test after a Fail) is a line added to it, never a line written for the person.
   rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
-  // A new week's sheet is written as the last one was — every box and the line, editable (§117).
+  // A new week's sheet is written as the last one was — every box and the line, editable (§117)...
   carryForwardAll: true,
+  // ...but not its line (the owner, 29-Oct-2026, REQUIREMENTS §142): the week's line starts from its standards - the five
+  // weights and the fixed Tested Values 1 and 2 - and its readings are that week's own, never last week's.
+  carryLines: false,
   // A landscape page, as the original is (§117): the print, the PDF, the Word and Excel files follow it.
   paper: "landscape",
   notesBelow: ["PROCEDURE:", CALIBRATION_PROCEDURE],
