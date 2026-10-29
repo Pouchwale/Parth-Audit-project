@@ -10015,6 +10015,26 @@ newly opened sheet is, in the name of whoever added it?": "yes".
    added to any other sheet starts blank, as Add Row always has (§98); Mitra's "add a row" builds the plain line too.
 3. **Proved:** frontend/tests/nominalFill.test.ts and tests/e2e_editing.py (the added line's values and names).
 
+## §141 No test account in the plant's database (29-Oct-2026)
+
+The owner, 29-Oct-2026: "whatever ID make of testing ... lots of testing ID are present on the super admin panel. So make
+sure you create it for testing purpose only and remove it when testing is done. So whenever I open my dashboard as a
+super admin, so I don't want to see any QA IDs over there."
+
+1. **Where they came from:** every test signs in as name@example.com (a domain kept for examples, nobody's address).
+   Since the test runner was given a database of its own (scripts/run-e2e.ts, the private servers of tests/), a test's
+   accounts live and die with that database; the "Playwright QA" / "... QA" accounts on the plant's list are what the
+   early runs left in the plant's database.
+2. **Now:** the plant's server deletes every account signing in as name@example.com when it starts (backend/db.ts
+   deleteTestAccounts, backend/index.ts) - with its sessions, its reminder-email address and its own items in the
+   storage (settings, Mitra's conversations); what it wrote keeps its name, as text, as for any account. Never the last
+   super admin. A test server (ALLOW_SAMPLE_FILL=1) keeps its own, so the suites run as before. Any test account that
+   ever reached the plant's database again would go at the next start.
+3. **For the owner:** start DCRS once (npm run dev); the server says how many it deleted, and the Users & Access list
+   and the dashboards show the plant's people alone.
+4. **Proved:** backend/tests/testAccounts.test.ts (which sign-ins are a test's; deleted at start-up on the plant's
+   server only, before the seeding).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

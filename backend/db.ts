@@ -774,6 +774,43 @@ async function lockAccounts(client: pg.PoolClient): Promise<void> {
   await client.query("SELECT pg_advisory_xact_lock(4712)");
 }
 
+/**
+ * A TEST ACCOUNT (REQUIREMENTS §141; the owner, 29-Oct-2026: "create it for testing purpose only and remove it when
+ * testing is done ... I don't want to see any QA IDs over there"): every test signs in as name@example.com - a domain
+ * kept for examples, nobody's address - on a database of its own, thrown away after the run. A sign-in given up to
+ * another ("...@example.com#removed-<id>") is one too.
+ */
+export const isTestSignIn = (email: string): boolean => /@example\.com(#|$)/i.test(String(email ?? "").trim());
+
+/**
+ * The test accounts the early test runs left in the plant's database, deleted (backend/index.ts, at start-up on the
+ * plant's server only): with them go their sessions and reminder-email address (both cascade), and their own items
+ * in app_storage (settings, Mitra's conversations). What they wrote keeps their name, as text. Never the last super
+ * admin. Answers the ids deleted.
+ */
+export async function deleteTestAccounts(): Promise<string[]> {
+  const client = await database().connect();
+  try {
+    await client.query("BEGIN");
+    await lockAccounts(client);
+    const { rows } = await client.query<{ id: string; email: string }>("SELECT id, email FROM users");
+    const ids = rows.filter((r) => isTestSignIn(r.email)).map((r) => r.id);
+    if (ids.length === 0 || !(await anotherSuperAdmin(client, ids))) {
+      await client.query("ROLLBACK");
+      return [];
+    }
+    await client.query("DELETE FROM app_storage WHERE scope = ANY($1::text[])", [ids]);
+    await client.query("DELETE FROM users WHERE id = ANY($1::text[])", [ids]);
+    await client.query("COMMIT");
+    return ids;
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 /** Whether the plant still has a super admin who can sign in once these accounts are gone. */
 async function anotherSuperAdmin(client: pg.PoolClient, leaving: readonly string[]): Promise<boolean> {
   const { rowCount } = await client.query("SELECT 1 FROM users WHERE role = 'admin' AND active AND removed_at IS NULL AND NOT (id = ANY($1::text[])) LIMIT 1", [leaving]);

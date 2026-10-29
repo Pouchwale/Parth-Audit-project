@@ -20,6 +20,7 @@ import {
   listActivity,
   activitySummary,
   listAllUsers,
+  deleteTestAccounts,
   listUsers,
   markSignedIn,
   openDatabase,
@@ -1576,6 +1577,14 @@ await prepareOverview({ pool: database });
 // the super admin's now, so the wait is lifted once, and an account still on the built-in
 // first password, which anybody can read, is locked until the super admin gives it one.
 await settleFirstPasswords({ accounts: listAllUsers, verify: verifyPassword, setPassword: setUserPassword, log: (line) => console.log(line) });
+
+// NO TEST ACCOUNT IN THE PLANT'S DATABASE (REQUIREMENTS §141, the owner, 29-Oct-2026): the early test runs' accounts
+// (name@example.com) are deleted at start-up. A test server (ALLOW_SAMPLE_FILL=1, scripts/run-e2e.ts) keeps its own:
+// its database is thrown away after the run.
+if (process.env.ALLOW_SAMPLE_FILL !== "1") {
+  const gone = await deleteTestAccounts();
+  if (gone.length) console.log(`Deleted ${gone.length} test account(s) (name@example.com) left in this database by early test runs.`);
+}
 
 if (process.env.SEED_ACCOUNTS !== "0") {
   const chosen = process.env.SEED_ACCOUNT_PASSWORD;
