@@ -146,6 +146,21 @@ export const WEIGHT_SCALE_HEADER: Record<string, string> = {
   acceptableTolerance: "0.05 %",
 };
 
+/** THE BOXES EVERY NEW F/QC/12 SHEET STARTS WITH (the owner, 29-Oct-2026, with his sheet's header block: "i want this
+ * values fix in but editable in format of qc-12", REQUIREMENTS §142 note 6): the balance's standing facts as the format's
+ * own fixed values (autoFill.default), there with or without an earlier page, each editable on the sheet; what a person
+ * writes over one carries to the next sheet as before (§117), and a box left blank starts fixed again. The Serial No is
+ * the person's, as the owner's page leaves it; the Calibration Expiry is the certificate's (CALIBRATION_CERTIFICATE). */
+export const WEIGHT_SCALE_FIXED_BOXES: Record<string, string> = {
+  deviceIdNo: "QC-76",
+  location: "Laboratory",
+  department: "LAB",
+  manufacturer: "Force Strain Sensors",
+  minReadingCapacity: "0.1 gm",
+  maxReadingCapacity: "600 gm",
+  acceptableTolerance: "0.05 %",
+};
+
 const weightScale: LogSheetLayout = {
   documentId: "qc-weight-scale-calibration",
   // The paper has no Sr. No. column: its entries are known by their Date (REQUIREMENTS §111).
@@ -161,16 +176,17 @@ const weightScale: LogSheetLayout = {
   headingsAsPrinted: true,
   // Each box's words as the paper prints them, its colon included; the names stay those the history and Mitra go by.
   headerFields: [
-    { key: "deviceIdNo", label: "Device ID No", printedLabel: "Device ID No:", type: "text", width: 140, autoFill: { carryForward: true } },
-    { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 140, autoFill: { carryForward: true } },
-    { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { carryForward: true } },
-    { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { carryForward: true } },
+    // The balance's standing facts as the format's own fixed values, editable on the sheet (WEIGHT_SCALE_FIXED_BOXES).
+    { key: "deviceIdNo", label: "Device ID No", printedLabel: "Device ID No:", type: "text", width: 140, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.deviceIdNo } },
+    { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 140, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.location } },
+    { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.department } },
+    { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.manufacturer } },
     { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 110, autoFill: { carryForward: true } },
     // The certificate's due date, 20-09-27, on every new sheet (CALIBRATION_CERTIFICATE, the owner, 27-Oct-2026).
     { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true, default: CALIBRATION_CERTIFICATE.due, newest: true } },
-    { key: "minReadingCapacity", label: "Minimum Reading Capacity", printedLabel: "Minimum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true } },
-    { key: "maxReadingCapacity", label: "Maximum Reading Capacity", printedLabel: "Maximum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true } },
-    { key: "acceptableTolerance", label: "Acceptable Tolerance", printedLabel: "Acceptable Tolerance:", type: "text", width: 140, autoFill: { carryForward: true } },
+    { key: "minReadingCapacity", label: "Minimum Reading Capacity", printedLabel: "Minimum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.minReadingCapacity } },
+    { key: "maxReadingCapacity", label: "Maximum Reading Capacity", printedLabel: "Maximum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.maxReadingCapacity } },
+    { key: "acceptableTolerance", label: "Acceptable Tolerance", printedLabel: "Acceptable Tolerance:", type: "text", width: 140, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.acceptableTolerance } },
   ],
   columns: WEIGHT_SCALE_COLUMNS,
   // ONE SHEET A WEEK, ONE CALIBRATION ON IT (REQUIREMENTS §111 rule 3, §117): the owner, 16-Oct-2026, on a sheet

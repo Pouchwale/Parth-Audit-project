@@ -451,6 +451,44 @@ test("change_format changes a designable format after the person's yes and saves
   assert.ok(!mitraTools(ctxOf()).some((x) => x.name === "change_format"), "no document on screen: not even offered");
 });
 
+test("Mitra adds anything a person can, in any document (the owner, 29-Oct-2026, REQUIREMENTS §144): a printed line and printed words through change_format; a line asked on a form that prints its lines is pointed there", async () => {
+  const id = "hr-gmp-checklist";
+  const before = documentRepository.getById(id)!;
+  const printedRows = () => (getLogSheetLayout(id)!.rowMode as { rows: Record<string, unknown>[] }).rows;
+  const rowsBefore = printedRows().length;
+  const canteen = "Whether the canteen is clean and free of pests?";
+  // The record's own tool: on this form a line is the format's, and Mitra is told where it goes.
+  const { target } = fakeTarget("log-sheet", id, createDefaultData(before, today, masterRepository.get()));
+  const asked = await run(ctxOf({ target, userWords: `add a line: ${canteen}` }), "edit_open_record", { patch: { addItems: { rows: [{ parameter: canteen }] } } });
+  assert.equal(asked.ok, false);
+  assert.match(asked.content, /change_format op add_line/);
+  // The format's tool: the printed line added after the person's yes, saved as the next revision.
+  const ctx = ctxOf({ currentRoute: `/document/${id}`, userWords: `add a line ${canteen}` });
+  const line = await run(ctx, "change_format", { change: { op: "add_line", label: canteen } });
+  assert.equal(line.ok, true, line.content);
+  assert.equal(ctx.confirmations.length, 1, "asked first");
+  assert.equal(printedRows().length, rowsBefore + 1);
+  assert.equal(printedRows()[rowsBefore].parameter, canteen, "at the end of the printed lines");
+  assert.notEqual(documentRepository.getById(id)!.revisionNo, before.revisionNo, "a new revision");
+  // "add" with the noun of a line is the same op; blank printed lines by count; a place among the lines.
+  assert.equal((await run(ctxOf({ currentRoute: `/document/${id}` }), "change_format", { change: { op: "add", noun: "line", count: 2 } })).ok, true);
+  assert.equal(printedRows().length, rowsBefore + 3);
+  const first = String(printedRows()[0].parameter);
+  const placed = await run(ctxOf({ currentRoute: `/document/${id}` }), "change_format", { change: { op: "add_line", label: "Whether the gate is locked at night?", after: first } });
+  assert.equal(placed.ok, true, placed.content);
+  assert.equal(printedRows()[1].parameter, "Whether the gate is locked at night?", "after the line named");
+  // Printed words the format carries.
+  const words = await run(ctxOf({ currentRoute: `/document/${id}` }), "change_format", { change: { op: "add_instruction", value: "Walk every area before ticking." } });
+  assert.equal(words.ok, true, words.content);
+  assert.match((words.result as { described: string }).described, /Walk every area before ticking/);
+  // Nothing to add: the op asks for its words.
+  assert.equal((await run(ctxOf({ currentRoute: `/document/${id}` }), "change_format", { change: { op: "add_line" } })).ok, false);
+  // A sheet whose lines are each record's own (F/QC/12): no printed line to add - the record's Add Row is the way.
+  const own = await run(ctxOf({ currentRoute: "/document/qc-weight-scale-calibration" }), "change_format", { change: { op: "add_line", label: "Extra" } });
+  assert.equal(own.ok, false);
+  assert.match(own.content, /written on each record/);
+});
+
 test("fill_open_record_with_sample_data fills a draft through commit with the sample-data note", async () => {
   const doc = documentRepository.getById("gap-inspection")!;
   const { record: fresh } = createRecordForDocument(doc, { dateISO: today, isDemo: true });

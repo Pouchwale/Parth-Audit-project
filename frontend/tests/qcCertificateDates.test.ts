@@ -239,6 +239,7 @@ test("a sheet the schedule made blank ahead of its day is written as the last on
   // Prepared already (the morning prepare's own): left as prepared.
   shell("2026-10-28", { prepared: { at: new Date().toISOString(), waiting: 1, notes: [] } as unknown as RecordInstance["prepared"] });
   if (!recordRepository.getById(SEED_WEIGHT_SCALE_CALIBRATION.id)) recordRepository.upsert(SEED_WEIGHT_SCALE_CALIBRATION);
-  assert.equal(data(createRecordForDocument(d, { dateISO: "2026-10-28" }).record).header.deviceIdNo, "");
+  const prepared = data(createRecordForDocument(d, { dateISO: "2026-10-28" }).record).header;
+  assert.deepEqual([prepared.deviceIdNo, prepared.serialNo], ["QC-76", ""], "the format's own fixed box (§142 note 6); nothing of the page on file (its serial 06) written over a prepared sheet");
   clear(SCALE);
 });

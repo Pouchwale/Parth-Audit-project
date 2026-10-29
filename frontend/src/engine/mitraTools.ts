@@ -43,6 +43,7 @@ import { analyticIntent, buildEvidence } from "./historyDigest";
 import { describePerson, searchPeople } from "./hrMaster";
 import { hrMasterVisible } from "./hrMasterAssistant";
 import { isDocumentIdVisible } from "./departmentScope";
+import { WHY_FIXED } from "./recordLines";
 import { refusalForWords } from "./accessRefusal";
 import { ACCESS_LEVEL_CODE } from "./accessWords";
 import { levelNeeded, type DocumentAction } from "./accessRules";
@@ -115,6 +116,9 @@ const stepOn = (tgt: { editable: boolean; status: string; correction?: boolean }
   tgt.correction ? "correct" : tgt.editable || ["Scheduled", "Due", "In Progress", "Rejected"].includes(tgt.status) ? "fill" : "correct";
 
 const noteOf = (ctx: MitraToolContext): string => `Asked of ${ASSISTANT_NAME}: ${short(ctx.userWords.trim() || "(spoken)", 200)}`;
+
+/** Where a line goes on a form that prints its own lines: the format, through change_format, asked first (§144). */
+export const PRINTED_LINE_HINT = "this form prints its own lines: add the line to the format with change_format op add_line (asked first, saved as the next revision)";
 
 // THE ROUTER'S OWN CHECK OF A ROUTE (store/router.tsx isValidAppRoute — the one
 // list of pages the app has). That module reads window.location the moment it
@@ -432,7 +436,36 @@ function formatCommandOf(c: Obj): FormatCommand | { why: string } {
   const after = str(c.after);
   const before = str(c.before);
   const place = (): Place | undefined => (after ? { rel: "after", ref: ref(after) } : before ? { rel: "before", ref: ref(before) } : undefined);
-  switch (op) {
+  // "add" with a noun of a printed line or of printed words is that op (the model may say either).
+  const noun = str(c.noun).toLowerCase();
+  const kind = op === "add" && /^(line|row|printed_?line)$/.test(noun) ? "add_line" : op === "add" && /^(instruction|words|text|printed_?words)$/.test(noun) ? "add_instruction" : op;
+  switch (kind) {
+    // A PRINTED LINE on a form that prints its own lines (the owner, 29-Oct-2026, REQUIREMENTS §144): its words, or its
+    // words one per printed column ("Printing / Special ink"), or blank lines; where it goes, as for a column.
+    case "add_line":
+    case "add_printed_line":
+    case "add_row": {
+      const values = Array.isArray(c.values) ? c.values.map((v) => str(v)).filter(Boolean) : [];
+      const words = label || values.join(" / ");
+      const count = Math.min(20, Math.max(0, int(c.count, 0)));
+      if (!words && count === 0) return { why: "label needed: the printed line's words (values: one per printed column), or count: how many blank lines" };
+      return {
+        kind: "add",
+        noun: "line",
+        label: words,
+        ...(values.length > 1 ? { values } : {}),
+        ...(!words ? { count } : {}),
+        ...(place() ? { place: place() } : {}),
+      };
+    }
+    // PRINTED WORDS the format carries (an instruction, a note), as the format's dialog adds them (§144).
+    case "add_instruction":
+    case "add_words":
+    case "add_text": {
+      const text = str(c.value) || label;
+      if (!text) return { why: "value needed: the words the format is to print" };
+      return { kind: "addInstruction", text };
+    }
     case "add_column":
     case "add_box":
     case "add": {
@@ -475,7 +508,7 @@ function formatCommandOf(c: Obj): FormatCommand | { why: string } {
       return { kind: "setHeader", changes: [{ field: field as HeaderField, value }] };
     }
     default:
-      return { why: `unknown op "${op}" — use add_column, add_box, remove, rename, move or set_header` };
+      return { why: `unknown op "${op}" — use add_column, add_box, add_line, add_instruction, remove, rename, move or set_header` };
   }
 }
 
@@ -743,7 +776,9 @@ const EDIT_OPEN_RECORD: MitraTool = {
     // The dry run first: what the patch would do, nothing written yet (§113).
     const preview = previewPatch(tgt.documentKind, tgt.documentId, before, patch, record, tgt.labels);
     const { data: next, problems, changes } = preview;
-    if (changes.length === 0) return no("nothing on the form changed", { rejected: problems.slice(0, 6) });
+    // A line asked for on a form that prints its own lines is the format's (§64): Mitra is told where it goes (§144).
+    const printedLine = problems.includes(WHY_FIXED.fixedRows) ? { printedLine: PRINTED_LINE_HINT } : {};
+    if (changes.length === 0) return no("nothing on the form changed", { rejected: problems.slice(0, 6), ...printedLine });
     const note = noteOf(ctx);
     const title = tgt.title ?? documentRepository.getById(tgt.documentId)?.name ?? "this record";
     const asked = linesAsked(preview);
@@ -781,6 +816,7 @@ const EDIT_OPEN_RECORD: MitraTool = {
         ...(preview.added.length ? { added: preview.added.slice(0, 10).map((l) => l.words) } : {}),
         ...(preview.removed.length ? { removed: preview.removed.slice(0, 10) } : {}),
         ...(problems.length ? { rejected: problems.slice(0, 8) } : {}),
+        ...printedLine,
       },
       preview.added.length && changes.length === preview.added.length
         ? say("ai.step.linesAdded", "Added {n} line(s) to {title}", { n: preview.added.length, title })
@@ -911,9 +947,25 @@ const RECORD_ACTION: MitraTool = {
 
 const CHANGE_FORMAT: MitraTool = {
   name: "change_format",
-  description: "Change the format on screen: op add_column|add_box|remove|rename|move|set_header (companyName|title|formatNo|revisionNo|revisionDate).",
+  description: "Change the format on screen: add a column, box, printed line or printed words; remove, rename, move; set its header. Asked first.",
   parameters: objectSchema({
-    change: objectSchema({ op: S, label: S, newLabel: S, after: S, before: S, type: S, field: S, value: S }, ["op"]),
+    change: objectSchema(
+      {
+        op: { type: "string", description: "add_column|add_box|add_line (a printed line)|add_instruction (printed words, in value)|remove|rename|move|set_header" },
+        label: S,
+        newLabel: S,
+        after: S,
+        before: S,
+        type: S,
+        field: { type: "string", description: "set_header: companyName|title|formatNo|revisionNo|revisionDate" },
+        value: S,
+        values: { type: "array", items: S, description: "add_line: its words, one per printed column" },
+        count: { type: "integer", description: "add_line: blank lines" },
+        options: { type: "array", items: S, description: "a choice box's choices" },
+        area: { type: "string", description: "add_box: header|footer" },
+      },
+      ["op"]
+    ),
   }, ["change"]),
   writes: true,
   run: async (args, ctx) => {

@@ -111,10 +111,16 @@ with sync_playwright() as p:
     # weekly off, a festival holiday - today's record is the holiday line, with
     # no checker to write, so the suite would fail on those days only.
     today = next_working_day(date.today()).isoformat()
-    rid = page.evaluate(
-        "(d) => (JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find(r => r.documentId === 'daily-pest-monitoring' && !r.isDemo && r.dueDate === d) || {}).id",
-        today,
-    )
+    # Looked for until the schedule has made it (a loaded machine makes it later than a fixed wait).
+    rid = None
+    for _ in range(40):
+        rid = page.evaluate(
+            "(d) => (JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find(r => r.documentId === 'daily-pest-monitoring' && !r.isDemo && r.dueDate === d) || {}).id",
+            today,
+        )
+        if rid:
+            break
+        page.wait_for_timeout(250)
     check("The next working day's Live daily record exists", bool(rid))
     page.goto(f"{BASE}/index.html#/record/{rid}")
     page.wait_for_timeout(900)
@@ -394,6 +400,20 @@ with sync_playwright() as p:
         and not srows[0].get("passFail") and srows[0].get("nextDueDate") == (date.fromisoformat(srows[0]["date"]) + timedelta(days=7)).isoformat(),
         srows[:1],
     )
+    # Its boxes above the grid are the format's fixed values (the owner's header block, 29-Oct-2026, s142 note 6), each
+    # editable; the Serial No is the person's.
+    shead = (stored(page, scale_id) or {}).get("data", {}).get("header", {})
+    check(
+        "F/QC/12, opened: the balance's boxes fixed - QC-76, Laboratory, LAB, Force Strain Sensors, 0.1 gm, 600 gm, 0.05 %, expiry 2027-09-20",
+        [shead.get(k) for k in ("deviceIdNo", "location", "department", "manufacturer", "minReadingCapacity", "maxReadingCapacity", "acceptableTolerance", "calibrationExpiry")]
+        == ["QC-76", "Laboratory", "LAB", "Force Strain Sensors", "0.1 gm", "600 gm", "0.05 %", "2027-09-20"],
+        shead,
+    )
+    # ...and every one of them editable: a Serial No written over is kept.
+    page.locator("[data-print-doc] input[data-bind$='serialNo']").first.fill("07")
+    page.wait_for_timeout(1200)
+    shead = (stored(page, scale_id) or {}).get("data", {}).get("header", {})
+    check("F/QC/12: a fixed box is editable - the Serial No written over is kept", shead.get("serialNo") == "07", shead.get("serialNo"))
     # The person's readings, as the laboratory's page has them: each deviation worked out, and Pass.
     for i, v in ((3, "100.004gm"), (4, "200.020gm"), (5, "400.040gm")):
         page.locator(f"[data-print-doc] input[data-bind$='testedValue{i}']").first.fill(v)

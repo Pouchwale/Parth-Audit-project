@@ -161,7 +161,7 @@ test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what wa
   recordRepository.query({ documentId: weight.id }).forEach((r) => recordRepository.remove(r.id));
   assert.equal(previousWrittenRecord(weight.id, "2026-10-14", false, layoutOf(weight.id), createDefaultData(weight, "2026-10-14", master) as LogSheetData), undefined);
   const blankStart = startingData(weight, "2026-10-14", false) as LogSheetData;
-  assert.equal(blankStart.header.deviceIdNo, "", "nothing to carry: the paper's blank, its weights written");
+  assert.deepEqual([blankStart.header.deviceIdNo, blankStart.header.manufacturer, blankStart.header.serialNo], ["QC-76", "Force Strain Sensors", ""], "nothing to carry: the format's fixed boxes (§142 note 6), the serial the person's, its weights written");
   assert.equal(blankStart.rows[0].weight1, "0.050mg");
   const week1 = createRecordForDocument(weight, { dateISO: "2026-10-14" }).record;
   const filled: LogSheetData = {
@@ -193,4 +193,25 @@ test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what wa
   assert.equal(carried.rows.find((r) => r.parameter === "Sign.")?.p54, "Rashmi");
   assert.deepEqual(carried.rows.map((r) => r.parameter), ["Tasted-1", "2", "3", "4", "Pass/Fail", "Sign."], "the paper's own lines");
   recordRepository.query({ documentId: gsm.id }).forEach((r) => recordRepository.remove(r.id));
+});
+
+test("F/QC/12: the boxes above the grid are the format's fixed values on every new sheet, editable; a box a person wrote carries, a box left blank starts fixed again (REQUIREMENTS §142 note 6)", () => {
+  const weight = doc("qc-weight-scale-calibration");
+  recordRepository.query({ documentId: weight.id }).forEach((r) => recordRepository.remove(r.id));
+  const week1 = createRecordForDocument(weight, { dateISO: "2026-11-04" }).record;
+  const h = data(week1).header;
+  assert.deepEqual(
+    [h.deviceIdNo, h.location, h.department, h.manufacturer, h.serialNo, h.calibrationExpiry, h.minReadingCapacity, h.maxReadingCapacity, h.acceptableTolerance],
+    ["QC-76", "Laboratory", "LAB", "Force Strain Sensors", "", "2027-09-20", "0.1 gm", "600 gm", "0.05 %"],
+    "the owner's header block of 29-Oct-2026, the Serial No the person's"
+  );
+  recordRepository.upsert({
+    ...week1,
+    data: { ...data(week1), header: { ...h, manufacturer: "Force Strain Sensors Pvt Ltd", location: "", serialNo: "06" }, rows: [{ ...data(week1).rows[0], testedBy: "Meet", sign: "Meet", testedValue3: "100.004gm" }] },
+  });
+  const week2 = createRecordForDocument(weight, { dateISO: "2026-11-11" }).record;
+  assert.equal(data(week2).header.manufacturer, "Force Strain Sensors Pvt Ltd", "what the person wrote over a fixed box carries (§117)");
+  assert.equal(data(week2).header.serialNo, "06", "the serial written carries");
+  assert.equal(data(week2).header.location, "Laboratory", "a box left blank starts from the format's fixed value again");
+  recordRepository.query({ documentId: weight.id }).forEach((r) => recordRepository.remove(r.id));
 });

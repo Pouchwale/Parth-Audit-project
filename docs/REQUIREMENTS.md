@@ -10060,9 +10060,17 @@ deviation will come accordingly".
    "there is a weekly due of 7 days and so date should come accordingly"): written as the line's date + 7 days where
    none is written, on opening and on Add Row (a line added takes the sheet's day as its date); a date a person wrote
    is kept. A standing fact of a weekly calibration, not an observation.
-6. **Proved:** frontend/tests/nominalFill.test.ts (the standard line, the older sheet, the next due date) and qcCarryForward.test.ts,
-   tests/e2e_editing.py (a new sheet and a line added: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty;
-   typed readings give their deviations and Pass).
+6. **The boxes above the grid fixed, editable** (the owner, later the same day, with his sheet's header block: "i want
+   this values fix in but editable in format of qc-12"): Device ID No QC-76, Location Laboratory, Department LAB,
+   Manufacturer Force Strain Sensors, Minimum Reading Capacity 0.1 gm, Maximum Reading Capacity 600 gm and Acceptable
+   Tolerance 0.05 % are the format's own fixed values (WEIGHT_SCALE_FIXED_BOXES, autoFill.default), beside the
+   certificate's expiry 20-09-2027 (the owner, 27-Oct-2026). Every new sheet starts with them, with or without an
+   earlier page; each is editable on the sheet, what a person writes over one carries to the next sheet as before
+   (§117), and a box left blank starts fixed again. The Serial No is the person's, as the owner's page leaves it blank.
+7. **Proved:** frontend/tests/nominalFill.test.ts (the standard line, the older sheet, the next due date) and
+   qcCarryForward.test.ts (the fixed boxes, a written one carried, a blank one fixed again), tests/e2e_editing.py (a new
+   sheet and a line added: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty; typed readings give their
+   deviations and Pass; the boxes fixed).
 
 ## §143 Told the working day before; the super admin sets every document's frequency (29-Oct-2026)
 
@@ -10091,6 +10099,27 @@ verify and submit it".
    for a long period), frontend/tests/scheduleOverride.test.ts (the override for every reader, from its day; dropped;
    never on a reference document; asked first), tests/e2e_master_data_frequency.py.
 
+
+## §144 Mitra adds anything a person tells her, in any document (29-Oct-2026)
+
+The owner, 29-Oct-2026: "make sure that ai bot can else add anything if user tell me in any document".
+
+1. **What a record holds** was already hers (§113): every box, every line a person may add (the shared registry,
+   engine/recordLines.ts - the screen's Add Row and Mitra answer to the same rule), every value in a line.
+2. **What the format holds** was half hers: change_format added a column or a box, but not a PRINTED LINE (a form that
+   prints its own lines down the sheet, rowMode fixedRows) and not PRINTED WORDS (an instruction), though the format
+   engine (engine/formatCommands.ts) adds both from a typed sentence. Now her tool has `add_line` (its words, or its
+   words one per printed column, or blank lines by count, placed after or before a line) and `add_instruction` (the
+   words in `value`); `add` with the noun of a line or of words is the same. The schema now names what the code always
+   read: a choice box's options, a box's area (header or footer), a line's values and count.
+3. **A line asked of the record on a form that prints its lines** (edit_open_record) is still refused there - the
+   lines are the format's (§64) - and the result tells Mitra where it goes: change_format add_line.
+4. **Unchanged:** a format change is asked first and saved as the next revision in the person's name (§138's "Are you
+   sure?" for the person, Mitra's own question for her), and only for a person whose level allows a format change
+   (§96); a record's readings stay the person's (§98) - Mitra writes what she is told, never an invented observation.
+5. **Proved:** frontend/tests/mitraTools.test.ts (a printed line added after the yes as the next revision, at the end
+   and after a named line, blank lines by count, printed words, a free sheet refused with the reason, the record's tool
+   pointing to the format's).
 ## Master data provenance summary
 
 | Master list | Source | Notes |
