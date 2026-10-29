@@ -363,6 +363,17 @@ with sync_playwright() as p:
         "The Deviation % cells are worked out, not typed: no box to type into, while the weights and tested values keep theirs",
         under(3).locator("input").count() == 0 and under(9).locator("input").count() == 0 and cell(2).locator("input").count() == 1 and cell(3).locator("input").count() == 1,
     )
+    # Since s142 the line comes with Tested Values 1 and 2 (the weight, 0%); 3 to 5 are the person's: typed here, so the
+    # line's verdict can be given (Pass / Fail waits for every reading).
+    first = record(page, new_id)["data"]["rows"][0]
+    check(
+        "...the new line comes with Tested Values 1 and 2 at the weight, 0%; 3 to 5 empty for the person, no Pass yet (s142)",
+        [first.get("testedValue1"), first.get("testedValue2"), first.get("deviation1"), first.get("deviation2")] == ["0.050mg", "50.000gm", "0%", "0%"]
+        and not first.get("testedValue3") and not first.get("testedValue5") and not first.get("passFail"),
+        first,
+    )
+    cell(7).locator("input").fill("100.000gm")
+    cell(11).locator("input").fill("400.040gm")
     cell(9).locator("input").fill("200.04 gm")
     page.wait_for_timeout(1500)
     row = record(page, new_id)["data"]["rows"][0]
@@ -371,7 +382,7 @@ with sync_playwright() as p:
         row["deviation4"] == "0.02%" and under(9).inner_text().strip() == "0.02%",
         (row["deviation4"], under(9).inner_text()),
     )
-    check("...inside the 0.05 % tolerance, so the line stays Pass, and the other weights stay 0%", row["passFail"] == "Pass" and row["deviation1"] == "0%" and row["deviation5"] == "0%", row)
+    check("...inside the 0.05 % tolerance with every reading in, so the line is Pass; the fixed ones stay 0%", row["passFail"] == "Pass" and row["deviation1"] == "0%" and row["deviation5"] == "0.01%", row)
     cell(9).locator("input").fill("200400 mg")
     page.wait_for_timeout(1500)
     row = record(page, new_id)["data"]["rows"][0]

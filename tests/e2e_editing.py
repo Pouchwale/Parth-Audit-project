@@ -383,32 +383,25 @@ with sync_playwright() as p:
     scale_id = new_record("qc-weight-scale-calibration")
     page.wait_for_timeout(800)
     srows = (stored(page, scale_id) or {}).get("data", {}).get("rows", [])
-    tested = lambda r: all(r.get(f"testedValue{i}") and r.get(f"testedValue{i}") == r.get(f"weight{i}") and r.get(f"deviation{i}") == "0%" for i in range(1, 6))
-    # A new week's sheet is written as the last one was (REQUIREMENTS s117) - on this server the page on file of
-    # March 2024, tested by Anjali - so it arrives written, and the fill on opening leaves a written sheet as it is.
+    std = ["0.050mg", "50.000gm", "100.000gm", "200.000gm", "400.000gm"]
+    standard = lambda r: ([r.get(f"weight{i}") for i in range(1, 6)] == std and [r.get(f"testedValue{i}") for i in range(1, 6)] == ["0.050mg", "50.000gm", "", "", ""]
+                          and r.get("deviation1") == "0%" and r.get("deviation2") == "0%")
+    # F/QC/12 as the laboratory's own page (REQUIREMENTS s142, the owner, 29-Oct-2026): the new line holds the five weights
+    # and the fixed Tested Values 1 and 2 (0%) - never last week's line - and the opener's name; 3 to 5 are the person's.
     check(
-        "F/QC/12, opened: each Tested Value is the weight placed, 0%, Pass - the sheet written as the last week's",
-        len(srows) >= 1 and tested(srows[0]) and srows[0].get("passFail") == "Pass" and bool(srows[0].get("testedBy")) and not srows[0].get("nextDueDate"),
+        "F/QC/12, opened: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty for the person, Tested By and Sign the opener, no Pass yet",
+        len(srows) == 1 and standard(srows[0]) and srows[0].get("testedBy") == "Editing QA" and srows[0].get("sign") == "Editing QA"
+        and not srows[0].get("passFail") and not srows[0].get("nextDueDate"),
         srows[:1],
     )
-    # The owner's case (28-Oct-2026: "when i open any new date record then it has not filled"): a sheet with no reading
-    # on it is filled the moment it is opened - here its five tested values rubbed out, then the sheet opened again.
-    carried_by = srows[0].get("testedBy") if srows else None
-    for i in range(1, 6):
-        box = page.locator(f"[data-print-doc] input[data-bind$='testedValue{i}']").first
-        if box.count():
-            box.fill("")
+    # The person's readings, as the laboratory's page has them: each deviation worked out, and Pass.
+    for i, v in ((3, "100.004gm"), (4, "200.020gm"), (5, "400.040gm")):
+        page.locator(f"[data-print-doc] input[data-bind$='testedValue{i}']").first.fill(v)
     page.wait_for_timeout(1200)
-    blanked = (stored(page, scale_id) or {}).get("data", {}).get("rows", [])
-    check("...its five tested values rubbed out on the screen", len(blanked) >= 1 and not any(blanked[0].get(f"testedValue{i}") for i in range(1, 6)), blanked[:1])
-    page.reload()
-    page.wait_for_timeout(1800)
-    dismiss(page)
     srows = (stored(page, scale_id) or {}).get("data", {}).get("rows", [])
     check(
-        "...opened again with no reading on it: each Tested Value the exact weight placed, 0%, Pass, the Sign the person who opened it, the tester carried kept",
-        len(srows) >= 1 and tested(srows[0]) and srows[0].get("passFail") == "Pass" and srows[0].get("testedBy") == (carried_by or "Editing QA")
-        and srows[0].get("sign") in ("Editing QA", carried_by) and bool(srows[0].get("sign")) and not srows[0].get("nextDueDate"),
+        "...the person's readings typed: each deviation worked out (0.004%, 0.01%, 0.01%), and Pass with all five in",
+        len(srows) >= 1 and [srows[0].get(f"deviation{i}") for i in (3, 4, 5)] == ["0.004%", "0.01%", "0.01%"] and srows[0].get("passFail") == "Pass",
         srows[:1],
     )
     # A line added beyond the paper's four is as tall as the others (the owner, 28-Oct-2026: it was drawn with no height).
@@ -422,8 +415,8 @@ with sync_playwright() as p:
     heights = firsts.evaluate_all("els => els.map((e) => Math.round(e.getBoundingClientRect().height))")
     check("...a line added on the screen is as tall as the paper's lines", firsts.count() == before_rows + 1 and len(heights) >= 2 and heights[-1] >= heights[0] - 2, heights)
     added = ((stored(page, scale_id) or {}).get("data", {}).get("rows") or [{}])[-1]
-    check("...the line added is filled as a sheet opened is: each Tested Value its weight, 0%, Pass, Tested By and Sign the person who added it (REQUIREMENTS s140)",
-          tested(added) and added.get("passFail") == "Pass" and added.get("testedBy") == "Editing QA" and added.get("sign") == "Editing QA" and not added.get("nextDueDate"),
+    check("...the line added is the same standard line, in the name of the person who added it (REQUIREMENTS s140, s142)",
+          standard(added) and added.get("testedBy") == "Editing QA" and added.get("sign") == "Editing QA" and not added.get("passFail") and not added.get("nextDueDate"),
           added)
     # A long name in Tested By is written whole (the owner, 28-Oct-2026: "Ms. Kapila Barad" was cut at the column's edge in
     # print - the name list's arrow kept its room; REQUIREMENTS s139): on the screen and in print, nothing of it cut.

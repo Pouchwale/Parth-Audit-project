@@ -236,9 +236,11 @@ with sync_playwright() as p:
     lines = [r for t in tables for r in t]
     three_a_line = [l for l in lines if len(l) == 3 and l[0].startswith("Device ID No")]
     check("...its boxes three to a line, the Device ID No first on the first line (s117)", bool(three_a_line) and three_a_line[0][1].strip().startswith("Location") and three_a_line[0][2].strip().startswith("Department"), lines[:6])
-    # The line is the last week of the plant's own 2024 page on file, carried (REQUIREMENTS §117): its weights and its
-    # tester, not the standard weights (those start a line only where no earlier page exists).
-    check("...and its line carried from the page on file: the last week's weights and tester", any(any("200.000gm" in c for c in l) and any("Anjali" in c for c in l) for l in lines), lines[-6:])
+    # The line starts from the standards since REQUIREMENTS s142 (the owner, 29-Oct-2026): the five weights and the fixed
+    # Tested Values 1 and 2 - never the last week's line (the page on file's tester, Anjali).
+    rec_lines = [l for l in lines if any("200.000gm" in c for c in l)]
+    check("...and its line the standard one: the weights and the fixed Tested Values 1 and 2, not the last week's tester (s142)",
+          bool(rec_lines) and any(sum(1 for c in l if "0.050mg" in c) >= 2 for l in rec_lines) and not any("Anjali" in c for l in rec_lines for c in l), lines[-6:])
     goto(page, "#/library")
     page.locator("[data-action='new-record'][data-document='qc-ruler-verification']").first.evaluate("el => el.click()")
     page.wait_for_timeout(1500)
