@@ -278,9 +278,17 @@ def main():
                 page.wait_for_timeout(200)
             check("Status persists after reload", "Verified" in page.content() or "Pending Verification" in page.content())
         else:
+            # The record's own 23 lines, counted as the check above counts them (the paper's ruled table prints 35 since
+            # s117 round 2), and waited for as the working day's status is: the page is drawn again from the database.
+            own = page.locator("[data-print-doc] tbody tr:has([data-bind])")
+            for _ in range(40):
+                if own.count() == 23:
+                    break
+                page.wait_for_timeout(200)
             check(
                 "Status persists after reload (a closed day: the sheet is still there, not submitted)",
-                page.locator("table.log-sheet tbody tr").count() == 23 and "Pending Verification" not in page.content(),
+                own.count() == 23 and "Pending Verification" not in page.content(),
+                own.count(),
             )
 
         # ---- 5. Dashboard reflects update ----
