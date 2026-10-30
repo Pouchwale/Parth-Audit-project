@@ -10243,7 +10243,9 @@ is theirs to change before submitting. A rodent or lizard really found is answer
 and only that reaches the rodent trend. Asked the same day for random catches written by the system ("4 or 5 rodent ...
 in whole year and other are lizards"): declined, as on 28-Oct-2026 - a record shows what was found. A holiday and a day
 already answered are left as they are; the schedule and the morning prepare still write no answer (§98).
-Proved: frontend/tests/dailyPestFill.test.ts.
+Submitted, the day is signed by whoever verifies and submits it (the owner, later the same day): the checker and the
+time of checking become that person and that moment (engine/recordLifecycle.ts submitRecord), so the record names who
+checked it, not only who opened it. Proved: frontend/tests/dailyPestFill.test.ts, tests/e2e_hr_module.py.
 
 ## §150 F/QC/11 opens every month filled and signed, every value editable (30-Oct-2026)
 

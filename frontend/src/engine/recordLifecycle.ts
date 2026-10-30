@@ -141,6 +141,19 @@ export function recordHeaderDefaults(record: Pick<RecordInstance, "documentId" |
   return { date: record.dueDate, page: "1 of 1" };
 }
 
+/**
+ * F/HR/17 IS SIGNED BY WHOEVER SUBMITS IT (the owner, 30-Oct-2026, REQUIREMENTS §149): the day comes answered on
+ * opening (engine/dailyPestFill.ts) with the opener as the checker; the person who verifies it and presses Submit is the
+ * one who checked it, so the checker and the time of checking are theirs at that moment. Every other document's data
+ * is submitted as written.
+ */
+function submittedBy(doc: DocumentDefinition, data: unknown, actorName: string, nowISO: string): unknown {
+  if (doc.kind !== "daily-pest-monitoring" || !data || typeof data !== "object" || !actorName.trim()) return data;
+  const at = new Date(nowISO);
+  const time = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+  return { ...(data as Record<string, unknown>), checker: actorName.trim(), timeOfChecking: time };
+}
+
 export function submitRecord(
   doc: DocumentDefinition,
   record: RecordInstance,
@@ -153,6 +166,7 @@ export function submitRecord(
   const updated: RecordInstance = appendHistory(
     {
       ...record,
+      data: submittedBy(doc, record.data, actorName, now),
       status: "Pending Verification",
       submittedBy: actorName,
       submittedAt: now,

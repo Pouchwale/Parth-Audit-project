@@ -8,6 +8,9 @@ import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../sr
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { DAILY_PEST_USUAL, dailyPestFillOnOpen } from "../src/engine/dailyPestFill";
+import { submitRecord } from "../src/engine/recordLifecycle";
+import { recordRepository } from "../src/data/repositories/recordRepository";
+import type { RecordInstance } from "../src/types";
 
 ensureDocumentsSeeded();
 ensureMasterSeeded();
@@ -30,4 +33,23 @@ test("a day already answered, or a holiday, is left as it is", () => {
   assert.equal(dailyPestFillOnOpen(answered, "x", "09:00"), null);
   assert.equal(dailyPestFillOnOpen({ ...day, isHoliday: true }, "x", "09:00"), null);
   assert.equal(dailyPestFillOnOpen(undefined, "x", "09:00"), null);
+});
+
+test("submitted, the day is signed by whoever submits it: the checker and the time of checking are theirs (REQUIREMENTS §149)", () => {
+  const doc = documentRepository.getByIdUnscoped("daily-pest-monitoring")!;
+  const data = dailyPestFillOnOpen(blankDay(), "Kapila Barad", "09:15")!;
+  const now = new Date().toISOString();
+  const rec: RecordInstance = { id: "unit-fhr17-submit", documentId: doc.id, periodKey: `${doc.id}:2026-11-02`, dueDate: "2026-11-02", status: "In Progress", isDemo: false, data, createdAt: now, updatedAt: now };
+  recordRepository.upsert(rec);
+  try {
+    const { record, result } = submitRecord(doc, rec, "Meet Patel");
+    assert.ok(result.valid, JSON.stringify(result));
+    const d = record.data as DailyPestMonitoringData;
+    assert.equal(d.checker, "Meet Patel", "the submitter is the checker");
+    assert.match(d.timeOfChecking, /^\d{2}:\d{2}$/);
+    assert.notEqual(d.timeOfChecking, "09:15", "the time of submitting, not of opening");
+    assert.equal(record.submittedBy, "Meet Patel");
+  } finally {
+    recordRepository.remove(rec.id);
+  }
 });
