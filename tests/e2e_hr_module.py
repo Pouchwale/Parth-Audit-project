@@ -659,13 +659,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(700)
     problems = page.locator(".app-content").inner_text()
     check("Submit refuses the empty row, naming the place and the number", "Rodent catch #1: location is required" in problems and "Rodent catch #1: number of rodents must be at least 1" in problems, problems[:400])
-    where.first.select_option(label="Canteen")
     how_many.first.fill("2")
-    page.wait_for_timeout(500)
-    page.locator("button[data-action='submit']").first.click()
-    page.wait_for_timeout(700)
-    problems = page.locator(".app-content").inner_text()
-    check("...and a row with a place and a count is no longer refused", "Rodent catch #1" not in problems, problems[:300])
     where.first.select_option(label="Another place…")
     page.wait_for_timeout(300)
     other = page.locator("[data-field='catch-location-other']")
@@ -675,7 +669,15 @@ with sync_playwright() as p:
     rid = page.url.split("/record/")[-1].split("?")[0].split("#")[0]
     rec = page.evaluate("(id) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find((r) => r.id === id) || null", rid)
     saved = ((rec or {}).get("data") or {}).get("rodentCatches") or []
-    check("...and the place written is the record's, the count too - nothing was filled in for the person", len(saved) == 1 and saved[0]["location"] == "Scrap yard" and saved[0]["count"] == 2, saved)
+    check("...and the place written is the record's, the count too - the catch is only what the person wrote", len(saved) == 1 and saved[0]["location"] == "Scrap yard" and saved[0]["count"] == 2, saved)
+    # The day came answered as the plant's usual day on opening (s149), so with its catch written it submits.
+    answers = ((rec or {}).get("data") or {}).get("checkpoints") or {}
+    check("The day opened answered as usual - 1 Yes, 4 100, 8 No - the checker the opener (s149)",
+          (answers.get("1") or {}).get("value") == "Yes" and (answers.get("4") or {}).get("value") == 100 and (answers.get("8") or {}).get("value") == "No" and bool(((rec or {}).get("data") or {}).get("checker")), answers)
+    page.locator("button[data-action='submit']").first.click()
+    page.wait_for_timeout(700)
+    problems = page.locator(".app-content").inner_text()
+    check("...and a row with a place and a count is no longer refused", "Rodent catch #1" not in problems, problems[:300])
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()
