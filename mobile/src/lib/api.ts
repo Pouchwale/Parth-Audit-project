@@ -7,7 +7,6 @@ import type {
   ConversationDetail,
   ConversationExport,
   ConversationSummary,
-  CurrentUser,
   DecisionRequest,
   DeviceRegistration,
   ExportDetail,
@@ -17,6 +16,7 @@ import type {
   FilePurpose,
   LoginRequest,
   LoginResponse,
+  MeResponse,
   MessageRequest,
   NotificationLanguage,
   NotificationList,
@@ -257,7 +257,7 @@ export const api = {
   login: (body: LoginRequest, lang?: NotificationLanguage) => request<LoginResponse>('/auth/login', { method: 'POST', body, headers: inLanguage(lang) }),
   /** Waits 5 seconds at most: signing out goes ahead on the phone either way, and its server may be gone. */
   logout: (token: string) => request<void>('/auth/logout', { method: 'POST', token, signal: deadline(5_000) }),
-  me: (token: string) => request<{ user: CurrentUser }>('/me', { token }),
+  me: (token: string) => request<MeResponse>('/me', { token }),
   capabilities: (token: string) => request<Capabilities>('/assistant/capabilities', { token }),
   send: (token: string, body: MessageRequest) => request<AssistantReply>('/assistant/messages', { method: 'POST', body, token }),
   decide: (token: string, conversationId: string, body: DecisionRequest) =>

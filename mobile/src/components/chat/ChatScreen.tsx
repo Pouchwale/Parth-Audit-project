@@ -24,6 +24,7 @@ import { Composer } from './Composer';
 import { Disclaimer } from './Disclaimer';
 import { HistoryError, HistorySkeleton } from './HistoryState';
 import { MessageList } from './MessageList';
+import { SessionEndNotice } from './SessionEndNotice';
 import { ShareNotice } from './ShareNotice';
 import { UnsentRequest } from './UnsentRequest';
 import { Welcome } from './Welcome';
@@ -203,6 +204,7 @@ export function ChatScreen({ conversationId, initialDraft }: { conversationId?: 
       <KeyboardAvoidingView behavior="padding" style={styles.body}>
         <View style={styles.column}>
           <ChatControlsProvider value={controls}>{content}</ChatControlsProvider>
+          <SessionEndNotice />
           <Composer
             value={draft}
             onChangeText={setDraft}
