@@ -10148,6 +10148,34 @@ second new row it will take old date and start".
    typed date kept, Add Row), qcCarryForward, periodSheet, scheduleChange28Oct, truthfulPrepare and qcPaperFormats;
    tests/e2e_editing.py (four lines on opening, a first date typed and changed, Add Row on the Next Due Date above),
    e2e_qc_calibration.py, e2e_print_fill.py; e2e_master_data_frequency.py now proves the picker on F/QC/11 (weekly).
+
+## §146 F/QC/12's five weights fixed on every line (30-Oct-2026)
+
+The owner, 30-Oct-2026: "keep weight which is fix ... weight 1 is 0.050 mg, weight 2 is 50.000 gm and weight 3 is 100.000
+gm, weight 4 is 200.000 gm, and weight 5 is 400.000 gm so first fix this in all four rows". Sheets started on an earlier
+build kept the former weights (50 / 100 / 200 / 500 / 600 gm, §117) on lines that already had a name on them - the
+opening fill of §142 note 4 converted only lines with nobody's name - so a reading typed against the weight really
+placed (100.004 against 100 g) was worked out against 200 gm: a deviation of tens of per cent.
+
+1. **Fixed, never typed over** (`LogColumn.locked`, data/seed/qcCalibrationLayouts.ts): Weight 1 to 5 hold the five
+   weights on every line and are drawn as words, like a worked-out cell, not a box; Mitra is refused a weight ("is fixed
+   on the form"), and a Word or Excel file read back never writes one (not bound). Tested Values 1 and 2 stay the fixed
+   readings of §142, and 3 to 5 the person's.
+2. **Every open sheet put right at start** (data/standardWeightsMigration.ts, run by data/bootstrap.ts like §129's
+   dates): on every Scheduled, Due, In Progress or sent-back F/QC/12 sheet each line takes the five weights; Tested
+   Values 1 and 2 the fixed figures where blank or where the old fill had written the former weight; the old fill's
+   former figure in 3 to 5 is rubbed out (no reading), with a Pass that stood on no reading; a reading a person typed is
+   kept and its deviation worked out again against the right weight; a line in each sheet's history. A sheet handed in,
+   verified or under correction is left as it was handed in. The opening fill uses the same rule
+   (engine/nominalFill.ts onStandardWeights).
+3. **The deviation is not made to fit** (asked again the same day: "what ever the number user enter the deviation should
+   not exceed ... 0.05 percent"): it is worked out from the reading typed against the fixed weight (a bare figure takes
+   the weight's unit, 0.050 against 0.050mg is 0%), and a reading outside ± the Acceptable Tolerance is a Fail - a
+   calibration record shows what the scale read (§98, declined 28 and 29-Oct-2026). With the weights right, a reading
+   the scale really shows gives its true, small deviation.
+4. **Proved:** frontend/tests/nominalFill.test.ts (the columns fixed, a former line put right, a typed reading kept and
+   worked out, Mitra refused, the start-up fix with its history line, a verified sheet left), qcPaperFormats.test.ts (the
+   weights drawn as words, no box), tests/e2e_editing.py (twenty fixed weights as words on the four lines).
 ## Master data provenance summary
 
 | Master list | Source | Notes |

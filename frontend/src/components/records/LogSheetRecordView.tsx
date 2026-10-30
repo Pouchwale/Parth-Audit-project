@@ -2445,6 +2445,15 @@ function CellInput({
       </EditableWords>
     );
   }
+  // A STANDARD NOBODY TYPES OVER (F/QC/12's weights, the owner, 30-Oct-2026, REQUIREMENTS §146): the format's own figure
+  // on every line, shown as words, never a box.
+  if (col.locked) {
+    return (
+      <span className="cell-text notranslate" translate="no" data-locked={col.key}>
+        {value ?? ""}
+      </span>
+    );
+  }
   // A sheet that cannot be written on (a preview, a submitted or verified record)
   // shows what is written as text: the same words, without a greyed-out box —
   // and a fraction of the page to build (a disabled choice box carried every

@@ -3,14 +3,17 @@
 // and nothing of it written by DCRS itself onto a sheet nobody has looked at (§98). Run: npm run test:unit -- nominalFill
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { DocumentDefinition, LogSheetData } from "../src/types";
+import type { DocumentDefinition, LogSheetData, RecordInstance } from "../src/types";
+import { recordRepository } from "../src/data/repositories/recordRepository";
+import { applyAssistantPatch } from "../src/engine/recordPatch";
+import { STANDARD_WEIGHTS_NOTE, standardWeightsOnOpenSheets } from "../src/data/standardWeightsMigration";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { RULER_300_ID, RULER_600_ID } from "../src/data/seed/qcRulerVerificationLayouts";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { withComputedCells } from "../src/engine/computedCells";
-import { nominalFill, nominalFillAdded, nominalFillLabel, nominalFillOnOpen, nominalFillWaits } from "../src/engine/nominalFill";
-import { newRow } from "../src/engine/recordLines";
+import { nominalFill, nominalFillAdded, nominalFillLabel, nominalFillOnOpen, nominalFillWaits, onStandardWeights } from "../src/engine/nominalFill";
+import { logRowsRule, newRow } from "../src/engine/recordLines";
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { prepareKnownParts } from "../src/engine/knownParts";
 
@@ -110,6 +113,45 @@ test("F/QC/12: an older open sheet (the former 50 .. 600 gm weights, nothing rea
   assert.ok(!old.rows[0].passFail, "the Pass that stood with no reading was never a verdict: cleared, it waits for the readings");
   // A reading a person wrote against the former weights is a reading: the line is left as it is.
   assert.equal(nominalFillOnOpen(SCALE, { ...base, rows: [former({ testedValue4: "500.010" })] }, "Kapila Barad"), null);
+});
+
+test("F/QC/12 (§146): the five weights are fixed on every line - never a box a person or Mitra writes; a line of the former weights is put onto them, a reading typed on it kept", () => {
+  const layout = getLogSheetLayout(SCALE)!;
+  for (let i = 1; i <= 5; i++) assert.equal(layout.columns.find((c) => c.key === `weight${i}`)!.locked, true, `Weight ${i} fixed (the owner, 30-Oct-2026)`);
+  assert.ok(!logRowsRule(layout).writable.includes("weight3"), "not a box the person writes");
+  const sheet = scaleSheet("2026-11-01");
+  const formerLine = { ...sheet.rows[0], weight1: "50 gm", weight2: "100 gm", weight3: "200 gm", weight4: "500 gm", weight5: "600 gm", testedValue1: "50 gm", testedValue2: "100 gm", testedValue3: "200 gm", testedValue4: "500 gm", testedValue5: "600 gm", passFail: "Pass", testedBy: "Kapila Barad" };
+  const fixed = onStandardWeights(formerLine);
+  assert.deepEqual(five(fixed, "weight"), STD, "the laboratory's weights");
+  assert.deepEqual(five(fixed, "testedValue"), ["0.050mg", "50.000gm", "", "", ""], "the old fill's nominal figures were no readings");
+  assert.equal(fixed.passFail, "", "a Pass on no reading was never a verdict");
+  assert.equal(fixed.testedBy, "Kapila Barad", "the name is left");
+  // A reading typed on such a line (against the weight really placed) is kept, and its deviation is right at last.
+  const typed: LogSheetData = withComputedCells(SCALE, { ...sheet, rows: [onStandardWeights({ ...formerLine, testedValue3: "100.004gm" })] } as LogSheetData);
+  assert.deepEqual([typed.rows[0].testedValue3, typed.rows[0].deviation3], ["100.004gm", "0.004%"]);
+  assert.equal(onStandardWeights({ ...sheet.rows[0], weight3: "150 gm" }).weight3, "100.000gm", "a weight typed over: the fixed one again");
+  assert.equal(onStandardWeights(sheet.rows[0]), sheet.rows[0], "a line already right: left as it is");
+  // Mitra is refused a weight; the reading beside it is written.
+  const { data: patched, problems } = applyAssistantPatch("log-sheet", SCALE, sheet, { itemEdits: [{ collection: "rows", match: { id: sheet.rows[0].id }, set: { weight3: "150 gm", testedValue3: "100.002gm" } }] });
+  assert.deepEqual([patched.rows[0].weight3, patched.rows[0].testedValue3], ["100.000gm", "100.002gm"]);
+  assert.match(problems.join(" "), /Weight 3 is fixed on the form/);
+});
+
+test("F/QC/12 (§146): at start every open sheet's lines go onto the fixed weights, with a line in its history; a sheet handed in or verified is left; nothing to do the next time", () => {
+  recordRepository.query({ documentId: SCALE }).forEach((r) => recordRepository.remove(r.id));
+  const sheet = scaleSheet("2026-11-01");
+  const former = { ...sheet.rows[1], weight1: "50 gm", weight2: "100 gm", weight3: "200 gm", weight4: "500 gm", weight5: "600 gm", testedValue1: "50 gm", testedValue2: "100 gm", testedValue3: "200 gm", testedValue4: "500 gm", testedValue5: "600 gm" };
+  const now = new Date().toISOString();
+  const rec = (id: string, status: RecordInstance["status"], rows: LogSheetData["rows"]): RecordInstance => ({ id, documentId: SCALE, periodKey: `${SCALE}:${id}`, dueDate: "2026-11-01", status, isDemo: false, data: { ...sheet, rows }, createdAt: now, updatedAt: now });
+  recordRepository.upsert(rec("wt-open", "In Progress", [sheet.rows[0], former, { ...sheet.rows[2], weight3: "150 gm" }, sheet.rows[3]]));
+  recordRepository.upsert(rec("wt-verified", "Verified", [former]));
+  assert.equal(standardWeightsOnOpenSheets(), 1, "the open one");
+  const open = recordRepository.getById("wt-open")!;
+  for (const row of (open.data as LogSheetData).rows) assert.deepEqual(five(row, "weight"), STD, "every line on the fixed weights");
+  assert.ok(open.history?.some((e) => e.note === STANDARD_WEIGHTS_NOTE), "a line in its history");
+  assert.equal((recordRepository.getById("wt-verified")!.data as LogSheetData).rows[0].weight4, "500 gm", "a verified sheet is left as it was verified");
+  assert.equal(standardWeightsOnOpenSheets(), 0, "nothing to do the next time");
+  recordRepository.query({ documentId: SCALE }).forEach((r) => recordRepository.remove(r.id));
 });
 
 test("F/QC/12: a line added with Add Row is the same standard line, in the adder's name, starting on the Next Due Date above it; the lines above are left as they are", () => {

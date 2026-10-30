@@ -543,6 +543,11 @@ function normRow(layout: LogSheetLayout, row: Obj, set: Obj, problems: string[])
     }
     // Worked out from the other cells (engine/calibration.ts): whatever is sent is dropped.
     if (col.computed) continue;
+    // A standard nobody types over (F/QC/12's weights, the owner, 30-Oct-2026, §146): refused, the line keeps it.
+    if (col.locked) {
+      if (String(v ?? "") !== String(row[k] ?? "")) problems.push(`${col.label.split(" (")[0]} is fixed on the form (${String(row[k] ?? col.standard ?? "")}) and can't be changed.`);
+      continue;
+    }
     if (col.fixed) {
       if (String(v ?? "") !== String(row[k] ?? "")) problems.push(`${col.label.split(" (")[0]} is printed on the form and can't be changed.`);
       continue;

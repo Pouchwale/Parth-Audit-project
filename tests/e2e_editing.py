@@ -401,6 +401,11 @@ with sync_playwright() as p:
         and [r.get("sign") for r in srows] == ["Editing QA", "", "", ""] and all(not r.get("date") and not r.get("nextDueDate") and not r.get("passFail") for r in srows),
         srows,
     )
+    # The five weights are fixed on every line (the owner, 30-Oct-2026, s146): words, never a box to type into.
+    weight_boxes = page.locator("[data-print-doc] table.log-sheet input[data-bind*='/weight']").count()
+    fixed_words = page.locator("[data-print-doc] table.log-sheet [data-locked^='weight']").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    check("F/QC/12: the five weights fixed on every line - 0.050mg, 50.000gm, 100.000gm, 200.000gm, 400.000gm - as words, no box",
+          weight_boxes == 0 and len(fixed_words) == 20 and fixed_words[:5] == std, (weight_boxes, fixed_words[:6]))
     # The person writes the first date: each Next Due Date a week on, the next line starting on it (s145).
     first_date = page.locator("[data-print-doc] table.log-sheet input[data-bind$='/date']").first
     first_date.fill("2026-10-05")

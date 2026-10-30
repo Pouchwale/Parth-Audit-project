@@ -57,6 +57,30 @@ const unreadLine = (r: LogSheetRow): boolean => {
   });
 };
 
+/**
+ * A LINE ON THE LABORATORY'S FIXED WEIGHTS (the owner, 30-Oct-2026, REQUIREMENTS §146: "weight 1 is 0.050 mg, weight 2 is
+ * 50.000 gm and weight 3 is 100.000 gm, weight 4 is 200.000 gm, and weight 5 is 400.000 gm so first fix this in all four
+ * rows"): the five weights are the standards whatever the line held; Tested Values 1 and 2 the fixed ones where blank, or
+ * where a line of the former weights held their nominal figure; that former nominal figure in 3 to 5 is no reading and
+ * is rubbed out, with a Pass that stood on no reading. A reading a person typed is kept: its deviation is worked out
+ * against the right weight. The same object back when nothing changes.
+ */
+export function onStandardWeights(row: LogSheetRow): LogSheetRow {
+  const former = SCALE_WEIGHTS.every((w, i) => sameFigure(row[w.weight], FORMER_WEIGHTS[i]));
+  const next: LogSheetRow = { ...row };
+  SCALE_WEIGHTS.forEach((w, i) => {
+    next[w.weight] = STANDARD_WEIGHTS[i];
+    const tested = String(row[w.tested] ?? "").trim();
+    const nominal = former && tested !== "" && sameFigure(tested, FORMER_WEIGHTS[i]);
+    if (i < FIXED_TESTED_VALUES) {
+      if (!tested || nominal) next[w.tested] = STANDARD_WEIGHTS[i];
+    } else if (nominal) next[w.tested] = "";
+  });
+  if (former && unreadLine(next) && String(row.passFail ?? "").trim()) next.passFail = "";
+  const changed = Object.keys(next).some((k) => next[k] !== row[k]);
+  return changed ? next : row;
+}
+
 /** The line this week's calibration goes on (a sheet a month, a line a week, §145): the first not read yet; -1 when all are. */
 const lineNow = (rows: LogSheetRow[]): number => rows.findIndex(unreadLine);
 
@@ -107,27 +131,7 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
     return { ...data, rows };
   }
   if (kind === "scale") {
-    const standard: LogSheetRow[] = data.rows.map((row) => {
-      const next: LogSheetRow = { ...row };
-      // A line of a sheet started before §142, still holding every one of the former weights and no reading: its weights
-      // become the laboratory's page's (the owner, 29-Oct-2026). A weight a person wrote is kept.
-      const former = SCALE_WEIGHTS.every((w, i) => sameFigure(row[w.weight], FORMER_WEIGHTS[i]));
-      const unread = SCALE_WEIGHTS.every((w) => !String(row[w.tested] ?? "").trim() || sameFigure(row[w.tested], FORMER_WEIGHTS[SCALE_WEIGHTS.indexOf(w)]));
-      if (former && unread) {
-        SCALE_WEIGHTS.forEach((w, i) => {
-          next[w.weight] = STANDARD_WEIGHTS[i];
-          if (String(row[w.tested] ?? "").trim()) next[w.tested] = "";
-        });
-        // A Pass that stood on the line with no reading of a person's was never a verdict: it waits for the readings.
-        next.passFail = "";
-      }
-      // The fixed Tested Values 1 and 2, where a line lacks them (a sheet started before §142); 3 to 5 are the person's.
-      for (const w of SCALE_WEIGHTS.slice(0, FIXED_TESTED_VALUES)) {
-        const weight = String(next[w.weight] ?? "").trim();
-        if (weight && !String(next[w.tested] ?? "").trim()) next[w.tested] = weight;
-      }
-      return next;
-    });
+    const standard: LogSheetRow[] = data.rows.map(onStandardWeights);
     // Tested By and Sign the opener's on the week's own line only (a sheet a month, a line a week, the owner,
     // 29-Oct-2026, §145): the weeks below wait for whoever tests them. No date is written: the date is the person's, and
     // each Next Due Date and the next line's date follow it (engine/nextDueChain.ts).

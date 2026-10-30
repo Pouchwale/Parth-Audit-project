@@ -245,6 +245,12 @@ export interface LogColumn {
    * part of the line, as a fixed column is (engine/observations.ts), but it stays editable.
    */
   standard?: string;
+  /**
+   * A STANDARD NOBODY TYPES OVER (the owner, 30-Oct-2026, REQUIREMENTS §146: F/QC/12's weights "fix ... in all four
+   * rows"): the `standard` on every line, shown as words like a worked-out cell, never a box; not bound for a file read
+   * back, refused to Mitra, and put back on every open sheet at start (data/standardWeightsMigration.ts).
+   */
+  locked?: true;
   // Auto-fill behaviour for this column. Precedence in engine/autoFill.ts:
   //   dueDate → sign → nominal (random reading inside the band) → carryForward
   //   (copy the template value exactly) → jitter (template value ± jitter%) →

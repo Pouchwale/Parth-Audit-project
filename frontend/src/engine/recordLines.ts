@@ -86,7 +86,7 @@ export const WHY_FIXED: Record<Exclude<LogSheetLayout["rowMode"]["kind"], "free"
 /** A log sheet's rows, by the layout the record was filled on (REQUIREMENTS §74). */
 export function logRowsRule(layout: LogSheetLayout): LineRule {
   const mode = layout.rowMode;
-  const writable = layout.columns.filter((c) => !c.fixed && !c.computed && !c.linkedFrom).map((c) => c.key);
+  const writable = layout.columns.filter((c) => !c.fixed && !c.computed && !c.linkedFrom && !c.locked).map((c) => c.key);
   const numberKey = layout.columns.find((c) => c.autoFill?.lineNumber)?.key;
   const blank = blankLogRow(layout, "");
   delete (blank as Obj).id;

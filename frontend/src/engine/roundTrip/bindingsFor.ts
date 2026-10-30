@@ -205,7 +205,8 @@ export function logRowName(row: LogSheetRow, columns: readonly LogColumn[]): str
 
 /** One cell of the grid; none for a printed (fixed) or worked-out (computed) cell. */
 export function logCellBind(row: LogSheetRow, index: number, col: LogColumn, rowName?: string): Bound | null {
-  if (col.fixed || col.computed) return null;
+  // (a standard nobody types over, F/QC/12's weights §146, is shown as words and never read back either)
+  if (col.fixed || col.computed || col.locked) return null;
   const type = logFieldType(col.type, col.multiline);
   return {
     path: join("rows", bindPath({ id: row.id }), propSeg(col.key)),
@@ -220,7 +221,7 @@ export function logCellBind(row: LogSheetRow, index: number, col: LogColumn, row
 
 /** A grid column new lines are written in (a free-row sheet's heading cell), or null for a printed or worked-out one. */
 export function logColumnBind(col: LogColumn): { key: string; type: BindType; options?: readonly string[] } | null {
-  if (col.fixed || col.computed) return null;
+  if (col.fixed || col.computed || col.locked) return null;
   const type = logFieldType(col.type, col.multiline);
   return { key: col.key, type, options: type === "select" ? col.options : undefined };
 }

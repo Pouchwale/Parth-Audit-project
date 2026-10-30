@@ -324,6 +324,9 @@ test("an empty date, time or choice box is marked, and the print rules print it 
   data.rows[0].passFail = "";
   const html = await sheet(SCALE, data, true);
   assert.match(html, /<input[^>]*data-bind="header\/calibrationExpiry"[^>]*type="date"[^>]*data-empty=""/, "the empty Calibration Expiry is marked");
+  // F/QC/12's weights are fixed (§146): written as words on the sheet open for writing, never a box.
+  assert.match(html, /<span class="cell-text notranslate" translate="no" data-locked="weight3">100\.000gm<\/span>/, "Weight 3 fixed, as words");
+  assert.ok(!/data-bind="rows\/@[^"]+\/weight\d"/.test(html), "no weight is a box");
   assert.match(html, /<select[^>]*data-empty=""/, "the empty Pass / Fail is marked");
   assert.ok(!/<input type="date"[^>]*data-bind="rows\/@[^"]+\/date"[^>]*data-empty/.test(html), "a written date is not");
   const css = readFileSync(path.join(process.cwd(), "frontend", "src", "styles.css"), "utf8");

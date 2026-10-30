@@ -90,7 +90,8 @@ export const STANDARD_WEIGHTS = ["0.050mg", "50.000gm", "100.000gm", "200.000gm"
 export const FIXED_TESTED_VALUES = 2;
 
 for (let i = 1; i <= 5; i++) {
-  WEIGHT_SCALE_COLUMNS.push({ ...text(`weight${i}`, `Weight ${i}`, 110), standard: STANDARD_WEIGHTS[i - 1] });
+  // Fixed on every line, never typed over (the owner, 30-Oct-2026, REQUIREMENTS §146).
+  WEIGHT_SCALE_COLUMNS.push({ ...text(`weight${i}`, `Weight ${i}`, 110), standard: STANDARD_WEIGHTS[i - 1], locked: true });
   WEIGHT_SCALE_COLUMNS.push(
     i <= FIXED_TESTED_VALUES ? { ...text(`testedValue${i}`, `Tested Value ${i}`, 120), standard: STANDARD_WEIGHTS[i - 1] } : text(`testedValue${i}`, `Tested Value ${i}`, 120)
   );

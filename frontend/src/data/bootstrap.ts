@@ -14,6 +14,7 @@ import { alignSeededLineNumbers } from "./lineNumbersMigration";
 import { alignPapersOnFile } from "./paperOnFileMigration";
 import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
 import { alignCertificateDates } from "./certificateDatesMigration";
+import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -86,6 +87,8 @@ export function bootstrap(): void {
   removeOffScheduleShells();
   // The calibration certificate's dates (§129) in the sheets still open, each with a line in its history.
   alignCertificateDates();
+  // F/QC/12's fixed weights on every line of the sheets still open (§146), each with a line in its history.
+  standardWeightsOnOpenSheets();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

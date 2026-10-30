@@ -486,7 +486,8 @@ test("every value on every record page carries a binding that leads to it — op
           const inGrid = t.ancestors.some((a) => a.name === "table" && classes(a).includes("log-sheet"));
           if (!td || !inGrid) return null;
           const col = tr?.attrs["data-line"] === "second" ? lines.second?.under[td.index] : lines.first[td.index - before];
-          return col?.computed ? "a worked-out cell" : null;
+          // (a standard nobody types over, F/QC/12's weights, §146, is shown as words and needs no way back either)
+          return col?.computed ? "a worked-out cell" : col?.locked ? "a fixed standard" : null;
         };
         const found = markupProblems(where, html, (id) => (id === record.id ? recordRepository.getById(id)?.data : undefined), computedCell);
         if (found.bound === 0) problems.push(`${where}: nothing on the page is bound`);
