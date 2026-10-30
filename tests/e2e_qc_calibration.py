@@ -361,8 +361,8 @@ with sync_playwright() as p:
     cell = lambda n: line.locator("td").nth(n)
     under = lambda n: below.locator("td").nth(n)
     check(
-        "The Deviation % cells are worked out, not typed: no box to type into, while the weights and tested values keep theirs",
-        under(3).locator("input").count() == 0 and under(9).locator("input").count() == 0 and cell(2).locator("input").count() == 1 and cell(3).locator("input").count() == 1,
+        "The Deviation % cells are worked out, not typed: no box to type into; the weights fixed words (s146), the tested values keep their boxes",
+        under(3).locator("input").count() == 0 and under(9).locator("input").count() == 0 and cell(2).locator("input").count() == 0 and cell(2).locator("[data-locked='weight1']").count() == 1 and cell(3).locator("input").count() == 1,
     )
     # Since s142 the line comes with Tested Values 1 and 2 (the weight, 0%); 3 to 5 are the person's: typed here, so the
     # line's verdict can be given (Pass / Fail waits for every reading).
