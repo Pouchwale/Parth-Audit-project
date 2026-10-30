@@ -550,7 +550,8 @@ export function validateDraft(draft: FormatDraft, now?: FormatDraft): string | n
   return null;
 }
 
-type FormatChangeOptions = { reason: string; revisionNo?: string; reissue?: boolean };
+// keepRevision: saved without a new revision (REQUIREMENTS §148) - the format keeps its number and date.
+type FormatChangeOptions = { reason: string; revisionNo?: string; reissue?: boolean; keepRevision?: boolean; revisionDate?: string };
 
 /** What saving `draft` would number and describe, or why it would be refused. */
 function planFormatChange(doc: DocumentDefinition, draft: FormatDraft, opts: FormatChangeOptions): { error: string } | { revisionNo: string; summary: string[] } {
@@ -560,12 +561,12 @@ function planFormatChange(doc: DocumentDefinition, draft: FormatDraft, opts: For
   if (!opts.reason.trim()) return { error: "Say why the format is changing — it goes in its change history." };
   // The number typed over on the header, when it was; the next number otherwise.
   const typed = draft.revisionNo?.trim();
-  const revisionNo = (opts.revisionNo ?? (typed && typed !== doc.revisionNo ? typed : nextRevisionNo(doc.revisionNo))).trim();
+  const revisionNo = (opts.keepRevision ? (doc.revisionNo ?? "") : (opts.revisionNo ?? (typed && typed !== doc.revisionNo ? typed : nextRevisionNo(doc.revisionNo)))).trim();
   const described = describeFormatChange(before, draft);
   const summary = described.length === 0 && opts.reissue && revisionNo && revisionNo !== doc.revisionNo ? [`re-issued as Rev ${revisionNo}`] : described;
   if (summary.length === 0) return { error: "Nothing about the format has been changed yet." };
   if (!revisionNo) return { error: "Give the new revision number." };
-  return { revisionNo, summary };
+  return { revisionNo, summary: opts.keepRevision ? [...summary, `saved without a new revision (Rev ${revisionNo})`] : summary };
 }
 
 /**
@@ -598,6 +599,10 @@ export function commitFormatChange(
      * dated today, would be refused as "nothing changed".
      */
     reissue?: boolean;
+    /** Saved without a new revision: the format keeps its number and date (REQUIREMENTS §148). */
+    keepRevision?: boolean;
+    /** A new revision's date, as asked (REQUIREMENTS §148); today otherwise. */
+    revisionDate?: string;
   }
 ): CommitResult {
   const plan = planFormatChange(doc, draft, opts);
@@ -609,7 +614,14 @@ export function commitFormatChange(
   // Dated today, unless the header's date was itself typed over (REQUIREMENTS
   // §77): the draft carries the format's own date until then.
   const dated = draft.revisionDate?.trim();
-  const revisionDate = dated && ISO_DATE.test(dated) && dated !== (doc.revisionDate ?? "") ? dated : todayISO();
+  const asked = opts.revisionDate?.trim();
+  const revisionDate = opts.keepRevision
+    ? doc.revisionDate || todayISO()
+    : asked && ISO_DATE.test(asked)
+      ? asked
+      : dated && ISO_DATE.test(dated) && dated !== (doc.revisionDate ?? "")
+        ? dated
+        : todayISO();
   const at = new Date().toISOString();
   const revision: FormatRevision = { id: revisionId({ at, by: opts.actor, revisionNo }), revisionNo, revisionDate, by: opts.actor, at, reason: opts.reason.trim(), summary: summary.join("; ") };
   // The header's company name and format number are kept only where they

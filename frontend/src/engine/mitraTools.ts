@@ -963,6 +963,9 @@ const CHANGE_FORMAT: MitraTool = {
         count: { type: "integer", description: "add_line: blank lines" },
         options: { type: "array", items: S, description: "a choice box's choices" },
         area: { type: "string", description: "add_box: header|footer" },
+        revision: { type: "string", description: "how it is saved, asked of the person first: new (revisionNo, revisionDate YYYY-MM-DD) or keep" },
+        revisionNo: S,
+        revisionDate: S,
       },
       ["op"]
     ),
@@ -989,18 +992,34 @@ const CHANGE_FORMAT: MitraTool = {
       session.apply(res.draft, `${ASSISTANT_NAME} ${res.what}`);
       return ok({ described: res.what, unsaved: true, note: "put on the open designer's draft; the person saves it there" }, say("ai.step.formatDrafted", "Changed the sheet on screen: {what}", { what: res.what }));
     }
-    const rev = res.draft.revisionNo && res.draft.revisionNo !== doc.revisionNo ? res.draft.revisionNo : nextRevisionNo(doc.revisionNo);
+    // WHICH REVISION (the owner, 30-Oct-2026, REQUIREMENTS §148): as the person answered - a new one, its number and date
+    // (the next and today unless said), or none, the format keeping the one it has.
+    const keep = str(change.revision).toLowerCase() === "keep";
+    const askedDate = /^\d{4}-\d{2}-\d{2}$/.test(str(change.revisionDate)) ? str(change.revisionDate) : "";
+    const rev = keep
+      ? doc.revisionNo ?? ""
+      : str(change.revisionNo) || (res.draft.revisionNo && res.draft.revisionNo !== doc.revisionNo ? res.draft.revisionNo : nextRevisionNo(doc.revisionNo));
     const yes = await ctx.confirm(
-      say("ai.confirm.formatChange", "I will {plan} on {doc}. Save it as Rev {rev}, in your name, with your words as the reason? Records on file are not touched.", {
-        plan: res.plan,
-        doc: formatAndName(doc),
-        rev,
-      }),
-      say("ai.confirm.yesSaveRev", "Yes, save as Rev {rev}", { rev }),
+      keep
+        ? say("ai.confirm.formatKeepRev", "I will {plan} on {doc}. Save it without a new revision (it stays Rev {rev}), in your name, with your words as the reason? Records on file are not touched.", {
+            plan: res.plan,
+            doc: formatAndName(doc),
+            rev,
+          })
+        : say("ai.confirm.formatChange", "I will {plan} on {doc}. Save it as Rev {rev}, in your name, with your words as the reason? Records on file are not touched.", {
+            plan: res.plan,
+            doc: formatAndName(doc),
+            rev,
+          }),
+      keep ? say("ai.confirm.yesSaveKeep", "Yes, save it (stays Rev {rev})", { rev }) : say("ai.confirm.yesSaveRev", "Yes, save as Rev {rev}", { rev }),
       say("ai.confirm.noLeave", "No, leave it")
     );
     if (!yes) return no("the person chose not to save the format change", {}, say("ai.step.leftAsWas", "Left as it was"));
-    const saved = commitFormatChange(doc, res.draft, { actor: ctx.userName, reason: noteOf(ctx) });
+    const saved = commitFormatChange(doc, res.draft, {
+      actor: ctx.userName,
+      reason: noteOf(ctx),
+      ...(keep ? { keepRevision: true } : { revisionNo: rev, ...(askedDate ? { revisionDate: askedDate } : {}) }),
+    });
     if (!saved.ok) return no(saved.error);
     ctx.bump();
     return ok(

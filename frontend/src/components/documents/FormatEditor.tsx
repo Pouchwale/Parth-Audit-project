@@ -177,11 +177,17 @@ export function FormatEditor({ doc, actor, onClose, onSaved }: { doc: DocumentDe
     // A change that would be refused says why first; one that would be saved is asked about (REQUIREMENTS §138).
     const refused = formatChangeRefusal(doc, draft, opts);
     if (refused) return setError(refused);
-    sure.ask(t("sure.format", { number, rev: revisionNo.trim() }), () => {
-      const result = commitFormatChange(doc, draft, opts);
-      if (!result.ok) return setError(result.error);
-      onSaved();
-    });
+    // Which revision is asked with it (REQUIREMENTS §148): the number and date typed here to start with, or none.
+    sure.ask(
+      t("sure.formatChange", { number }),
+      (choice) => {
+        const result = commitFormatChange(doc, draft, { ...opts, ...choice });
+        if (!result.ok) return setError(result.error);
+        onSaved();
+      },
+      undefined,
+      { current: { no: doc.revisionNo ?? "", date: doc.revisionDate ?? "" }, next: { no: revisionNo.trim(), date: revisionDate || todayISO() } }
+    );
   };
 
   const restore = () => {

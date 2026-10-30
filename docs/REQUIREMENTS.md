@@ -10206,6 +10206,32 @@ showing second row so do fix it and when any document i download or even take pr
    (the row's boxes, words, dates, place and print), hrPaperFormats (two lines a unit, this visit's date on its own),
    roundTripBindings (the other visit's boxes bound to it), hrPaperFormats (the blank line's date box, the other open visit's boxes, a signed-off one's words); tests/e2e_print_and_forms.py (a count typed on the other visit's line saved into it); tests/e2e_qc_calibration.py (the page on file's
    31.12.2024 shown again, a new sheet's 21-09-26 and 20-09-27, the box table four tracks high).
+
+## §148 A format change asks which revision: a new one, its number and date, or none (30-Oct-2026)
+
+The owner, 30-Oct-2026, with F/QC/11 on the screen: "in qc-11 the everything you are seeing now is fix but make sure it
+also editable so whenever used open any new record then this are fix values in it but also editable and also when user
+change anything in format so system should ask whether to save it with changing revision number and date or without it
+if user select change with revision number and date so system will ask him what the number and date of revision".
+
+1. **F/QC/11's values on every new record, every one a box** (as built, §111, §129, §136, §147): the eight boxes above
+   the grid (1-54 .. 4-57, LAB, LAB, Global Eng. Co. (GEC), the Serial No blank, the Calibration Expiry 20-09-27, the
+   I. Calibration Date 21-09-26, the Due Date 20-09-27), each plate's four sizes, Pass on its Pass/Fail line and the
+   opener's name on its Sign. line, written when a person opens the sheet; each one typed over at will. The Deviation
+   is worked out from the size written, so it always says what that size means.
+2. **Which revision** (components/common/SureFirst.tsx, engine/formatOps.ts): "Are you sure?" for a change to a format
+   - Edit format's Save, the sheet designer's Save, a header cell of the format typed over - now asks how it is saved:
+   "Save it as a new revision" with its Revision No and Revision date in boxes (the next number - or the one typed in
+   Edit format or the designer - and today to start with, both the person's to change), or "Save it without changing
+   the revision" (it stays Rev NN of its date; the change history says "saved without a new revision"). No saves
+   nothing. The revision number or date itself typed over on the header is a re-issue and asked as before (§86).
+3. **Mitra too:** her change_format takes revision new (revisionNo, revisionDate) or keep, as the person answered, and
+   her question names it ("Save it as Rev 03?" or "Save it without a new revision (it stays Rev 02)?"); without the AI
+   her question has a third answer, "Save without a new revision".
+4. **Proved:** frontend/tests/sureFirst.test.ts (kept: number and date unchanged, the history's words; asked: Rev 07 of
+   02-11-2026; every screen asks which revision), mitraTools.test.ts; tests/e2e_header_editing.py (Rev 01 offered in its
+   box, No saves nothing, a change saved without a new revision keeps Rev 01), e2e_qc_calibration.py (every value of a new
+   F/QC/11 a box).
 ## Master data provenance summary
 
 | Master list | Source | Notes |

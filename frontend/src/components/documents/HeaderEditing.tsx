@@ -6,10 +6,10 @@ import { COMPANY } from "../../data/seed/masterData";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { nextRevisionNo } from "../../data/formatEdits";
 import { commitFormatChange, draftOf, formatChangeRefusal, type FormatDraft } from "../../engine/formatOps";
-import { useSureFirst } from "../common/SureFirst";
+import { useSureFirst, type RevisionChoice } from "../common/SureFirst";
 import { t } from "../../i18n";
 import { useAppStore } from "../../store/AppStore";
-import { formatDisplayDate } from "../../utils/date";
+import { formatDisplayDate, todayISO } from "../../utils/date";
 import { mayDo } from "../../engine/departmentScope";
 const NO_FIELDS: readonly HeaderField[] = [];
 
@@ -192,19 +192,27 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
       return;
     }
     setError(null);
-    sure.ask(t("sure.format", { number, rev: nextRev }), () => {
-      const latest = fresh();
-      const result = commitFormatChange(latest, headerDraft(latest, pending.field, pending.value), opts);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setPending(null);
-      setReason("");
-      setError(null);
-      // Every view of the format reads its header again.
-      bump();
-    });
+    // The revision number or date itself typed over is a re-issue (§86): asked as it is. Anything else asks which
+    // revision it is saved as - a new one, its number and date, or the one it has (REQUIREMENTS §148).
+    const revision = opts.reissue ? undefined : { current: { no: now.revisionNo ?? "", date: now.revisionDate ?? "" }, next: { no: nextRev, date: todayISO() } };
+    sure.ask(
+      opts.reissue ? t("sure.format", { number, rev: nextRev }) : t("sure.formatChange", { number }),
+      (choice?: RevisionChoice) => {
+        const latest = fresh();
+        const result = commitFormatChange(latest, headerDraft(latest, pending.field, pending.value), { ...opts, ...choice });
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        setPending(null);
+        setReason("");
+        setError(null);
+        // Every view of the format reads its header again.
+        bump();
+      },
+      undefined,
+      revision
+    );
   };
 
   const edit = useMemo<HeaderEdit | undefined>(() => {

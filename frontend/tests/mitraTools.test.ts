@@ -489,6 +489,23 @@ test("Mitra adds anything a person can, in any document (the owner, 29-Oct-2026,
   assert.match(own.content, /written on each record/);
 });
 
+test("change_format saves without a new revision when the person said so, or as the revision number and date they gave (REQUIREMENTS §148)", async () => {
+  const id = "qc-adhesive-mixing";
+  const before = documentRepository.getById(id)!;
+  const layout = getLogSheetLayout(id)!;
+  const column = layout.columns.find((c) => !c.fixed && !c.computed && !c.label.includes("("))!;
+  const ctx = ctxOf({ currentRoute: `/document/${id}`, userWords: "rename it, keep the revision" });
+  const kept = await run(ctx, "change_format", { change: { op: "rename", label: column.label, newLabel: "Kept Rev Column", revision: "keep" } });
+  assert.equal(kept.ok, true, kept.content);
+  assert.match(ctx.confirmations[0], /without a new revision/);
+  assert.equal(documentRepository.getById(id)!.revisionNo, before.revisionNo, "the revision kept");
+  const ctx2 = ctxOf({ currentRoute: `/document/${id}`, userWords: "rename it as Rev 09 of 2 November" });
+  const asked = await run(ctx2, "change_format", { change: { op: "rename", label: "Kept Rev Column", newLabel: "Rev 09 Column", revision: "new", revisionNo: "09", revisionDate: "2026-11-02" } });
+  assert.equal(asked.ok, true, asked.content);
+  const after = documentRepository.getById(id)!;
+  assert.deepEqual([after.revisionNo, after.revisionDate], ["09", "2026-11-02"]);
+});
+
 test("fill_open_record_with_sample_data fills a draft through commit with the sample-data note", async () => {
   const doc = documentRepository.getById("gap-inspection")!;
   const { record: fresh } = createRecordForDocument(doc, { dateISO: today, isDemo: true });

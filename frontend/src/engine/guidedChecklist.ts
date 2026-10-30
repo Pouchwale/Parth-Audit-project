@@ -97,7 +97,8 @@ export type ChipAction =
   | { type: "cancelMasterFill" }
   // A change to the FORMAT told to Mitra in words — asked about first, saved as
   // the next revision only on "Yes" (engine/formatCommands.ts, REQUIREMENTS §64).
-  | { type: "confirmFormatChange" }
+  // ...or saved keeping the revision it has (REQUIREMENTS §148).
+  | { type: "confirmFormatChange"; keep?: true }
   | { type: "cancelFormatChange" }
   // "Which one?" — the chip says the completed sentence for the person.
   | { type: "sendText"; text: string }

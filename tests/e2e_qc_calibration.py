@@ -443,6 +443,11 @@ with sync_playwright() as p:
     rows = record(page, gsm_id)["data"]["rows"]
     check("...and back at its own size, 0% - with nothing worked out on the Pass/Fail and Sign lines", rows[0]["p54dev"] == "0%" and (rows[4].get("p54dev") or "") == "" and (rows[5].get("p54dev") or "") == "", [r.get("p54dev") for r in rows])
     check("...and the record holds the paper's words where nobody wrote over them", record(page, gsm_id)["data"]["header"].get("manufacturer") == "Global Eng. Co. (GEC)", record(page, gsm_id)["data"]["header"])
+    # Every value on a new F/QC/11 fixed and a box to type over (the owner, 30-Oct-2026): the eight boxes above the grid,
+    # each plate's four sizes, its Pass/Fail and its Sign. - the Deviation worked out from the size written.
+    grid_boxes = page.locator("[data-print-doc] table.log-sheet tbody").locator("input, select")
+    head_boxes = page.locator("[data-print-doc] .field input")
+    check("F/QC/11: every value a box to type over - eight above the grid, each plate's sizes, Pass/Fail and Sign. (s148)", grid_boxes.count() >= 24 and head_boxes.count() >= 8, (grid_boxes.count(), head_boxes.count()))
     shoot(page, "F-QC-11")
 
     # ==================================================================

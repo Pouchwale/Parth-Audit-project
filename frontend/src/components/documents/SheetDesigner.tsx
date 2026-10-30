@@ -59,7 +59,7 @@ import {
   type NewItemOptions,
   type PrintedRow,
 } from "../../engine/formatOps";
-import { formatDisplayDate } from "../../utils/date";
+import { formatDisplayDate, todayISO } from "../../utils/date";
 import { useProgressiveCount } from "../../utils/useProgressive";
 
 // DESIGN A FORMAT ON THE SHEET ITSELF, THE WAY A SPREADSHEET IS EDITED
@@ -1762,11 +1762,17 @@ function SaveDialog({ doc, draft, changes, actor, onClose, onSaved }: { doc: Doc
     const refused = formatChangeRefusal(doc, draft, { reason, revisionNo });
     if (refused) return setError(refused);
     setError(null);
-    sure.ask(t("sure.format", { number: doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo, rev: revisionNo.trim() }), () => {
-      const result = commitFormatChange(doc, draft, { actor, reason, revisionNo });
-      if (result.ok) onSaved(result.revision);
-      else setError(result.error);
-    });
+    // Which revision is asked with it (REQUIREMENTS §148): the number typed here and today to start with, or none.
+    sure.ask(
+      t("sure.formatChange", { number: doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo }),
+      (choice) => {
+        const result = commitFormatChange(doc, draft, { actor, reason, revisionNo, ...choice });
+        if (result.ok) onSaved(result.revision);
+        else setError(result.error);
+      },
+      undefined,
+      { current: { no: doc.revisionNo ?? "", date: doc.revisionDate ?? "" }, next: { no: revisionNo.trim(), date: todayISO() } }
+    );
   };
   return (
     <Modal

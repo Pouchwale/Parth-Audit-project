@@ -1091,7 +1091,7 @@ export function DocumentAssistant() {
         // Taken before the "Yes" is echoed: whatever is said next sets the question aside (see post).
         const waiting = pendingFormatRef.current;
         me(chip.label);
-        saveFormatChange(waiting);
+        saveFormatChange(waiting, a.keep === true);
         return;
       }
       case "cancelFormatChange":
@@ -1709,7 +1709,7 @@ export function DocumentAssistant() {
   // One path for the question and for its "Yes": the change is worked out on the
   // format as it stands at that moment — it may have been changed, or a designer
   // opened on it, since the question was put — and only `confirmed` saves it.
-  const carryOutFormatChange = (doc: DocumentDefinition, cmd: FormatCommand, words: string, confirmed: boolean) => {
+  const carryOutFormatChange = (doc: DocumentDefinition, cmd: FormatCommand, words: string, confirmed: boolean, keepRevision = false) => {
     const session = designSessionFor(doc.id);
     const res = applyFormatCommand(session ? session.getDraft() : draftOf(doc), cmd, lang);
     if (!res.ok) {
@@ -1731,6 +1731,8 @@ export function DocumentAssistant() {
         `I will ${res.plan} on ${formatAndName(doc)}.\n\nThat makes it Rev ${rev}, dated ${dated}, in your name, with your words as the reason. Records already on file are not touched — each keeps everything written on it.\n\nShall I save it?`,
         [
           { label: `Yes, save as Rev ${rev}`, action: { type: "confirmFormatChange" }, tone: "primary" },
+          // Or without a new revision (REQUIREMENTS §148): the format keeps its number and date.
+          { label: `Save without a new revision (stays Rev ${doc.revisionNo || "—"})`, action: { type: "confirmFormatChange", keep: true } },
           { label: "No, leave it", action: { type: "cancelFormatChange" } },
         ]
       );
@@ -1738,7 +1740,7 @@ export function DocumentAssistant() {
       pendingFormatRef.current = { documentId: doc.id, cmd, words };
       return;
     }
-    const saved = commitFormatChange(doc, res.draft, { actor: currentUser, reason: `Asked of Mitra: ${words}` });
+    const saved = commitFormatChange(doc, res.draft, { actor: currentUser, reason: `Asked of Mitra: ${words}`, ...(keepRevision ? { keepRevision: true } : {}) });
     if (!saved.ok) {
       bot(`🚫 ${saved.error}`);
       return;
@@ -1771,7 +1773,7 @@ export function DocumentAssistant() {
     carryOutFormatChange(doc, cmd, words, false);
   };
 
-  const saveFormatChange = (p: { documentId: string; cmd: FormatCommand; words: string } | null) => {
+  const saveFormatChange = (p: { documentId: string; cmd: FormatCommand; words: string } | null, keepRevision = false) => {
     pendingFormatRef.current = null;
     if (!p) {
       bot("That question has been set aside since, so nothing was changed — tell me the change again and I'll ask once more.");
@@ -1782,7 +1784,7 @@ export function DocumentAssistant() {
       bot("That document isn't on screen any more, so nothing was changed — open it and tell me again.");
       return;
     }
-    carryOutFormatChange(doc, p.cmd, p.words, true);
+    carryOutFormatChange(doc, p.cmd, p.words, true, keepRevision);
   };
 
   // ---- MITRA AS AN AGENT (REQUIREMENTS §80) ---------------------------------------

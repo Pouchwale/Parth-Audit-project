@@ -11,7 +11,7 @@ import type { DocumentDefinition } from "../src/types";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { formatEditFor } from "../src/data/formatEdits";
-import { commitFormatChange, draftOf, formatChangeRefusal } from "../src/engine/formatOps";
+import { commitFormatChange, draftOf, formatChangeRefusal, restoreIssuedFormat } from "../src/engine/formatOps";
 import { STRINGS } from "../src/i18n/strings";
 
 ensureDocumentsSeeded();
@@ -53,7 +53,7 @@ function everyCallAsksFirst(src: string, call: string, file: string): void {
 
 test("every save of a format, every restore, and every printed word or page number typed over on a record waits for Yes, I am sure", () => {
   const editor = read("frontend", "src", "components", "documents", "FormatEditor.tsx");
-  everyCallAsksFirst(editor, "commitFormatChange(doc, draft, opts)", "FormatEditor");
+  everyCallAsksFirst(editor, "commitFormatChange(doc, draft, { ...opts, ...choice })", "FormatEditor");
   everyCallAsksFirst(editor, "restoreIssuedFormat(doc)", "FormatEditor");
   everyCallAsksFirst(read("frontend", "src", "components", "documents", "SheetDesigner.tsx"), "commitFormatChange(doc, draft,", "SheetDesigner");
   const header = read("frontend", "src", "components", "documents", "HeaderEditing.tsx");
@@ -81,9 +81,30 @@ test("the question in English and in Gujarati: Are you sure? - Yes, I am sure / 
   assert.equal(STRINGS.en["sure.title"], "Are you sure?");
   assert.equal(STRINGS.en["sure.yes"], "Yes, I am sure");
   assert.equal(STRINGS.en["sure.no"], "No");
-  const keys = ["sure.title", "sure.yes", "sure.no", "sure.words", "sure.wordsRubbedOut", "sure.page", "sure.pageBack", "sure.format", "sure.restore"] as const;
+  const keys = ["sure.title", "sure.yes", "sure.no", "sure.words", "sure.wordsRubbedOut", "sure.page", "sure.pageBack", "sure.format", "sure.restore", "sure.formatChange", "sure.revisionNew", "sure.revisionNo", "sure.revisionDate", "sure.revisionKeep", "sure.revisionNoNeeded", "sure.revisionDateNeeded"] as const;
   for (const key of keys) {
     assert.ok(STRINGS.gu[key] && STRINGS.gu[key] !== STRINGS.en[key], `${key} in Gujarati`);
     for (const slot of STRINGS.en[key].match(/\{\w+\}/g) ?? []) assert.ok(STRINGS.gu[key].includes(slot), `${key} keeps ${slot} in Gujarati`);
+  }
+});
+
+test("a format change is saved as a new revision with the number and date asked, or without a new revision, keeping both (REQUIREMENTS §148)", () => {
+  const d = doc("qc-bopp-film");
+  const before = { no: d.revisionNo, date: d.revisionDate };
+  const renamed = { ...draftOf(d), name: `${draftOf(d).name} (lab copy)` };
+  const kept = commitFormatChange(d, renamed, { actor: "Test Desk", reason: "the lab asked", keepRevision: true });
+  assert.ok(kept.ok, JSON.stringify(kept));
+  const now = documentRepository.getByIdUnscoped(d.id)!;
+  assert.deepEqual([now.revisionNo, now.revisionDate], [before.no, before.date], "the format keeps its number and date");
+  assert.ok(kept.ok && /saved without a new revision/.test(kept.revision.summary), "and its history says so");
+  const renamedAgain = { ...draftOf(now), name: `${draftOf(now).name} again` };
+  const asked = commitFormatChange(now, renamedAgain, { actor: "Test Desk", reason: "the lab asked", revisionNo: "07", revisionDate: "2026-11-02" });
+  assert.ok(asked.ok, JSON.stringify(asked));
+  const after = documentRepository.getByIdUnscoped(d.id)!;
+  assert.deepEqual([after.revisionNo, after.revisionDate], ["07", "2026-11-02"], "the number and the date asked");
+  restoreIssuedFormat(after);
+  // Every screen that saves a format asks which revision (the dialog's revision offer), the re-issue of the header excepted.
+  for (const file of ["FormatEditor.tsx", "SheetDesigner.tsx", "HeaderEditing.tsx"]) {
+    assert.match(read("frontend", "src", "components", "documents", file), /t\("sure\.formatChange"/, `${file} asks which revision`);
   }
 });
