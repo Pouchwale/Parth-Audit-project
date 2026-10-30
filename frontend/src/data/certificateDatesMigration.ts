@@ -22,6 +22,8 @@ import { columnKind } from "../engine/observations";
 
 /** What each changed sheet's history says. */
 export const CERTIFICATE_NOTE = "The calibration certificates' dates the owner gave (27 and 28-Oct-2026) written in where the sheet held an earlier date (REQUIREMENTS §129, §132)";
+/** ...and when a box the sheet was made without (F/QC/11's row, taken away 28 to 30-Oct-2026) holds them now. */
+export const ROW_BACK_NOTE = "The certificate's dates written in the I. Calibration Date / Due Date row, which this sheet was made without while the row was taken away (28 to 30-Oct-2026; back on the owner's word, REQUIREMENTS §147)";
 /** ...and when its lines are the page's own again. */
 export const PAGE_LINES_NOTE = "The page's own printed lines as updated (the owner, 28-Oct-2026) written in where the sheet held a former page's, nothing written on them (REQUIREMENTS §132)";
 
@@ -31,25 +33,32 @@ const OPEN: ReadonlySet<string> = new Set(["Scheduled", "Due", "In Progress", "R
 export function alignCertificateDates(): number {
   const updates: RecordInstance[] = [];
   for (const r of recordRepository.snapshot()) {
-    if (r.isDemo || r.correction || !OPEN.has(r.status)) continue;
+    // An open sheet: every certificate box raised to the certificate's. A sheet handed in, verified or under correction:
+    // only a box it was made WITHOUT (F/QC/11's row while it was taken away, §147) - what it holds stays as handed in.
+    if (r.isDemo) continue;
+    const open = OPEN.has(r.status) && !r.correction;
     const layout = getLogSheetLayout(r.documentId);
     const boxes = layout?.headerFields.filter((f) => f.autoFill?.newest && f.autoFill.default) ?? [];
     if (!layout || (boxes.length === 0 && !layout.formerRows) || !mayWriteRecordsOf(r.documentId)) continue;
     const d = r.data as LogSheetData | undefined;
     if (!d?.header) continue;
     let header: Record<string, string> | null = null;
+    let rowBack = false;
     for (const f of boxes) {
       const want = String(f.autoFill!.default);
+      const absent = !(f.key in d.header);
+      if (!open && !absent) continue;
+      if (absent) rowBack = true;
       const have = String(d.header[f.key] ?? "").trim();
       // Dates are written YYYY-MM-DD and compare as text; a later one (the next certificate) is kept.
       if (have && have >= want) continue;
       header = header ?? { ...d.header };
       header[f.key] = want;
     }
-    const rows = pageLinesAgain(layout, d.rows);
+    const rows = open ? pageLinesAgain(layout, d.rows) : null;
     if (!header && !rows) continue;
     const data: LogSheetData = { ...d, ...(header ? { header } : {}), ...(rows ? { rows } : {}) };
-    const note = [header ? CERTIFICATE_NOTE : "", rows ? PAGE_LINES_NOTE : ""].filter(Boolean).join(". ");
+    const note = [header ? (rowBack ? ROW_BACK_NOTE : CERTIFICATE_NOTE) : "", rows ? PAGE_LINES_NOTE : ""].filter(Boolean).join(". ");
     const entry = appendHistory({ ...r, history: [] }, makeEntry("edited", "System", { changes: diffRecordData(r.data, data), note })).history![0];
     updates.push({ ...r, data, history: [...historyOf(r), entry] });
   }

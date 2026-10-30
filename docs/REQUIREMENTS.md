@@ -10188,7 +10188,11 @@ showing second row so do fix it and when any document i download or even take pr
    downloads (data/seed/qcCalibrationLayouts.ts, qcCalibrationGeometry.ts, styles.css). Every new sheet starts them at the
    certificate's 21-09-26 and 20-09-27, editable, the later kept (autoFill.newest, §129); a sheet that held a date there
    shows it again (the 2024 page's 31.12.2024), and an open sheet's blank Due Date takes the certificate's at start
-   (data/certificateDatesMigration.ts). A demo sheet's Due Date is the next month's calibration, as before 28-Oct.
+   (data/certificateDatesMigration.ts). A sheet MADE WITHOUT the row while it was taken away (28 to 30-Oct-2026) takes the
+   certificate's dates at start whatever its status - signed off or not, the owner's sheet of that week signed and
+   passed showed the row empty ("Still you have not added qc-11 calibration date and due due in above index") - with a
+   line in its history (ROW_BACK_NOTE); a box a handed-in sheet holds stays as handed in. A demo sheet's Due Date is
+   the next month's calibration, as before 28-Oct.
 2. **F/HR/18's visit page draws the paper's two lines a unit, every one to fill in** (components/records/
    FlyCatcherRecordView.tsx; the owner, later the same day: "make sure user can add anything so make sure give option
    over there like you can see in format which i have provided"): the month's visits in date order - this visit's line;

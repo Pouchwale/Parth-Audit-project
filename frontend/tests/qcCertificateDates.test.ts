@@ -30,7 +30,7 @@ import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { CALIBRATION_CERTIFICATE } from "../src/data/seed/qcCalibrationLayouts";
 import { SEED_GSM_PLATE_CALIBRATION, SEED_WEIGHT_SCALE_CALIBRATION } from "../src/data/seed/qcCalibrationRecords";
 import { MASTER_CERTIFICATE, RULER_300_ID, RULER_600_ID, RULER_CERTIFICATE, rulerScaleOf } from "../src/data/seed/qcRulerVerificationLayouts";
-import { alignCertificateDates, PAGE_LINES_NOTE } from "../src/data/certificateDatesMigration";
+import { alignCertificateDates, PAGE_LINES_NOTE, ROW_BACK_NOTE } from "../src/data/certificateDatesMigration";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { createRecordForDocument, startingData } from "../src/engine/recordCrud";
 import { prepareKnownParts } from "../src/engine/knownParts";
@@ -244,4 +244,34 @@ test("a sheet the schedule made blank ahead of its day is written as the last on
   const prepared = data(createRecordForDocument(d, { dateISO: "2026-10-28" }).record).header;
   assert.deepEqual([prepared.deviceIdNo, prepared.serialNo], ["QC-76", ""], "the format's own fixed box (§142 note 6); nothing of the page on file (its serial 06) written over a prepared sheet");
   clear(SCALE);
+});
+
+test("F/QC/11 sheets made while the I. Calibration Date / Due Date row was taken away take the certificate's dates at start, signed off or not; a box a handed-in sheet holds stays as handed in (REQUIREMENTS §147)", () => {
+  clear(GSM);
+  const d = doc(GSM);
+  const now = new Date().toISOString();
+  const made = (id: string, status: RecordInstance["status"], drop: boolean, over: Record<string, string> = {}): RecordInstance => {
+    const blank = createDefaultData(d, "2026-10-29", master) as LogSheetData;
+    const header: Record<string, string> = { ...blank.header, ...over };
+    if (drop) {
+      delete header.calibrationDate;
+      delete header.dueDate;
+    }
+    const r: RecordInstance = { id, documentId: GSM, periodKey: `${GSM}:${id}`, dueDate: "2026-10-29", status, isDemo: false, data: { ...blank, header }, createdAt: now, updatedAt: now };
+    recordRepository.upsert(r);
+    return r;
+  };
+  made("gsm-verified-without", "Verified", true);
+  made("gsm-handed-in-without", "Pending Verification", true);
+  made("gsm-open-without", "In Progress", true);
+  made("gsm-verified-blank", "Verified", false, { calibrationDate: "", dueDate: "" });
+  assert.equal(alignCertificateDates(), 3, "the three made without the row");
+  const h = (id: string) => data(recordRepository.getById(id)!).header;
+  for (const id of ["gsm-verified-without", "gsm-handed-in-without", "gsm-open-without"]) {
+    assert.deepEqual([h(id).calibrationDate, h(id).dueDate], ["2026-09-21", "2027-09-20"], id);
+    assert.ok(recordRepository.getById(id)!.history?.some((e) => e.note === ROW_BACK_NOTE), `${id}: a line in its history`);
+  }
+  assert.deepEqual([h("gsm-verified-blank").calibrationDate, h("gsm-verified-blank").dueDate], ["", ""], "a verified sheet that held the boxes stays as verified");
+  assert.equal(alignCertificateDates(), 0, "nothing to do the next time");
+  clear(GSM);
 });
