@@ -1771,7 +1771,8 @@ function SaveDialog({ doc, draft, changes, actor, onClose, onSaved }: { doc: Doc
         else setError(result.error);
       },
       undefined,
-      { current: { no: doc.revisionNo ?? "", date: doc.revisionDate ?? "" }, next: { no: revisionNo.trim(), date: todayISO() } }
+      // (the date typed over on the designer's header, when it was, as the number is - REQUIREMENTS §77)
+      { current: { no: doc.revisionNo ?? "", date: doc.revisionDate ?? "" }, next: { no: revisionNo.trim(), date: draft.revisionDate && draft.revisionDate !== doc.revisionDate ? draft.revisionDate : todayISO() } }
     );
   };
   return (

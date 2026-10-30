@@ -254,7 +254,7 @@ with sync_playwright() as p:
     page.fill("[data-field='header-change-reason']", "The master list numbers it F/QC/33-A")
     page.click("[data-action='header-change-save']")
     # Which revision is asked with it (the owner, 30-Oct-2026, s148): a new one, Rev 01 and today offered in boxes, or none.
-    page.wait_for_selector("[data-section='sure-first']", state="visible", timeout=2500)
+    page.wait_for_selector("[data-action='sure-yes']", state="visible", timeout=2500)
     offered = page.locator("[data-section='sure-first'] [data-field='revision-no']")
     offered_no = offered.input_value() if offered.count() else None
     keep_offered = page.locator("[data-section='sure-first'] [data-choice='revision-keep']").count() == 1
