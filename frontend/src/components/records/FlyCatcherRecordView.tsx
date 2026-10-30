@@ -10,6 +10,7 @@ import { masterRepository } from "../../data/repositories/masterRepository";
 import { formatDisplayDate } from "../../utils/date";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 import { FHR18_PAPER_CELLS, FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate } from "./FlyCatcherRegisterSheet";
+import { visitsInMonth } from "../../engine/flyRegister";
 
 // A FLY CATCHER VISIT ON ITS OWN PAGE, LAID OUT AS F/HR/18 PRINTS — the
 // company's own Word original (source-documents/F-HR-18_Fly Catcher Inspection
@@ -17,9 +18,13 @@ import { FHR18_PAPER_CELLS, FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate }
 // header block, the "Month & Year" line, the legend of the thirteen units and
 // where they hang, then the grid — PC ID NO. | DATE OF SERVICE | FLIES CATCH
 // COUNT APPROX. | DATE OF TUBE LIGHT INSTALLATION | DUE DATE FOR TUBE LIGHT
-// REPLACEMENT | CLEANING DONE BY | VERIFIED BY — one line per unit for this
-// visit. (The monthly register, FlyCatcherRegisterSheet.tsx, draws the paper's
-// two lines per unit from the month's visits, PC-01..08 on its first page and
+// REPLACEMENT | CLEANING DONE BY | VERIFIED BY — the paper's two lines per unit,
+// one for each of the month's fortnightly visits (the owner, 30-Oct-2026,
+// REQUIREMENTS §147: the visit "is not showing second row"): this visit's line
+// to fill in, the month's other visit's as written on its own record, and a
+// blank line for a visit still to come - on the screen only, as a line nobody
+// wrote never prints (§126). (The monthly register, FlyCatcherRegisterSheet.tsx,
+// draws the same from the month's visits, PC-01..08 on its first page and
 // PC-09..13 on its second.) Every box the person fills on the paper is a box
 // here — the Month & Year, the count, both tube-light dates and the two names;
 // the date of service is the visit's own date, written as the paper writes it.
@@ -65,6 +70,16 @@ export function FlyCatcherRecordView({
   // or Excel file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
   const bound = (pcId: string, field: FlyEntryField) => bindProps(flyCatcherBind.entry(pcId, field));
   const serviceDate = paperDate(record.dueDate);
+  // The month's visits in date order, this one among them; at least the paper's two lines a unit (§147).
+  const [year, month] = record.dueDate.split("-").map(Number);
+  const others = React.useMemo(
+    () => visitsInMonth(year, month - 1, record.isDemo).filter((r) => r.id !== record.id),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [year, month, record.isDemo, record.id]
+  );
+  const lines: (RecordInstance<FlyCatcherData> | null)[] = [...others, record].sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0));
+  while (lines.length < 2) lines.push(null);
+  const otherDate = (iso: string | null | undefined) => (iso ? paperDate(iso) : "");
   // EVERY PRINTED WORD OF THE VISIT'S SHEET, TYPED OVER ON IT (REQUIREMENTS §137): each catcher's number and area, the
   // visit's date on each line, the headings - this visit's own words once changed; Master Data keeps the plant's.
   const host = { words: data.printedWords, editable, onWords: (printedWords: PrintedWords) => onChange({ ...data, printedWords }) };
@@ -113,12 +128,57 @@ export function FlyCatcherRecordView({
             </tbody>
             {data.entries.map((e) => {
               const label = `${e.pcId}, visit of ${formatDisplayDate(record.dueDate)}`;
+              const pcCell = (
+                <td className="pc-cell notranslate" translate="no" rowSpan={lines.length}>
+                  {at(`pc:${e.pcId}`, e.pcId, "Catcher")}
+                </td>
+              );
               return (
                 <tbody key={e.pcId} className="fhr18-unit" data-pc={e.pcId}>
-                  <tr className="register-row">
-                    <td className="pc-cell notranslate" translate="no">
-                      {at(`pc:${e.pcId}`, e.pcId, "Catcher")}
-                    </td>
+                  {lines.map((line, i) => {
+                    if (line && line.id !== record.id) {
+                      // The month's other visit, as written on its own record: words, not boxes - it is changed there.
+                      const o = (line.data as FlyCatcherData | undefined)?.entries?.find((x) => x.pcId === e.pcId);
+                      const written = !!o && (o.catchCountApprox !== null || !!o.cleaningDoneBy || !!o.verifiedBy);
+                      return (
+                        <tr key={line.id} className="register-row fhr18-other-visit" data-visit={line.dueDate} data-empty-line={written ? undefined : ""}>
+                          {i === 0 && pcCell}
+                          <td className="date-cell notranslate" translate="no">
+                            {written ? paperDate(line.dueDate) : ""}
+                          </td>
+                          <td className="fhr18-other">{o?.catchCountApprox ?? ""}</td>
+                          <td className="fhr18-other notranslate" translate="no">
+                            {otherDate(o?.tubeLightInstallDate)}
+                          </td>
+                          <td className="fhr18-other notranslate" translate="no">
+                            {otherDate(o?.tubeLightDueDate)}
+                          </td>
+                          <td className="fhr18-other notranslate" translate="no">
+                            {o?.cleaningDoneBy ?? ""}
+                          </td>
+                          <td className="fhr18-other notranslate" translate="no">
+                            {o?.verifiedBy ?? ""}
+                          </td>
+                        </tr>
+                      );
+                    }
+                    if (!line) {
+                      // A fortnight's visit still to come: the paper's blank line, on the screen only (§126).
+                      return (
+                        <tr key={`blank-${i}`} className="register-row fhr18-other-visit" data-empty-line="">
+                          {i === 0 && pcCell}
+                          <td className="date-cell" />
+                          <td className="fhr18-other" />
+                          <td className="fhr18-other" />
+                          <td className="fhr18-other" />
+                          <td className="fhr18-other" />
+                          <td className="fhr18-other" />
+                        </tr>
+                      );
+                    }
+                    return (
+                  <tr key={record.id} className="register-row" data-visit={record.dueDate}>
+                    {i === 0 && pcCell}
                     {/* The visit's date, as the paper writes it (3/08/26). */}
                     <td className="date-cell notranslate" translate="no">
                       {at(`date:${e.pcId}`, serviceDate, "Date of service")}
@@ -195,6 +255,8 @@ export function FlyCatcherRecordView({
                       />
                     </td>
                   </tr>
+                    );
+                  })}
                 </tbody>
               );
             })}

@@ -115,9 +115,9 @@ test("the sheets still open take the certificate's dates where they held earlier
   assert.equal(header(due).calibrationExpiry, "2027-09-20");
   assert.equal(header(due).deviceIdNo, "QC-76", "nothing else changed");
   assert.equal(header(draft).calibrationExpiry, "2027-09-20", "the later of what it held and the certificate's");
-  // F/QC/11's I. Calibration Date / Due Date row is taken away (28-Oct-2026): what the sheet held in it stays in its
-  // data as it was, shown nowhere, and is not raised.
-  assert.deepEqual([header(draft).calibrationDate, header(draft).dueDate], ["2026-10-31", ""]);
+  // F/QC/11's I. Calibration Date / Due Date row, back since 30-Oct-2026 (§147): the later of what it held and the
+  // certificate's - its 31-10-26 kept, its blank Due Date the certificate's 20-09-27.
+  assert.deepEqual([header(draft).calibrationDate, header(draft).dueDate], ["2026-10-31", "2027-09-20"]);
   assert.ok(recordRepository.getById(due)!.history?.some((e) => e.note === CERTIFICATE_NOTE), "a line in its history");
   assert.equal(header(later).calibrationExpiry, "2028-09-19", "a later date written is kept");
   assert.equal(header(handedIn).calibrationExpiry, "2024-08-27", "a sheet handed in is the person's as handed in");

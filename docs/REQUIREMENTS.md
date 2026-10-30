@@ -10176,6 +10176,28 @@ placed (100.004 against 100 g) was worked out against 200 gm: a deviation of ten
 4. **Proved:** frontend/tests/nominalFill.test.ts (the columns fixed, a former line put right, a typed reading kept and
    worked out, Mitra refused, the start-up fix with its history line, a verified sheet left), qcPaperFormats.test.ts (the
    weights drawn as words, no box), tests/e2e_editing.py (twenty fixed weights as words on the four lines).
+
+## §147 F/QC/11's I. Calibration Date / Due Date row back; F/HR/18's visit page with the paper's two lines a unit (30-Oct-2026)
+
+The owner, 30-Oct-2026, with F/QC/11's paper and DCRS's F/HR/18 visit page: "in qc-11 when in our system you have missed
+the calibration date and due date in format so add that and in fly catcher- HR-18 when i open visit list then it is not
+showing second row so do fix it and when any document i download or even take print then it should be proper".
+
+1. **F/QC/11's row back** (taken away on 28-Oct-2026 at the owner's word, §132): "I. Calibration Date:-" two columns wide
+   and "Due Date:-" at the right of its line, under the boxes after the paper's space, on the screen, in print and in the
+   downloads (data/seed/qcCalibrationLayouts.ts, qcCalibrationGeometry.ts, styles.css). Every new sheet starts them at the
+   certificate's 21-09-26 and 20-09-27, editable, the later kept (autoFill.newest, §129); a sheet that held a date there
+   shows it again (the 2024 page's 31.12.2024), and an open sheet's blank Due Date takes the certificate's at start
+   (data/certificateDatesMigration.ts). A demo sheet's Due Date is the next month's calibration, as before 28-Oct.
+2. **F/HR/18's visit page draws the paper's two lines a unit** (components/records/FlyCatcherRecordView.tsx): the month's
+   visits in date order - this visit's line to fill in; the month's other visit's line as written on its own record,
+   words not boxes (it is changed there, and a file read back never writes it); a blank line for a fortnight's visit
+   still to come. A line nobody wrote is on the screen only (§126); the monthly register (FlyCatcherRegisterSheet) is
+   as before.
+3. **Proved:** frontend/tests/qcCertificateDates, qcCarryForward, qcPaperFindings, qcPaperFormats, scheduleChange28Oct
+   (the row's boxes, words, dates, place and print), hrPaperFormats (two lines a unit, this visit's date on its own),
+   roundTripBindings (nothing unbound but the other visit's words); tests/e2e_qc_calibration.py (the page on file's
+   31.12.2024 shown again, a new sheet's 21-09-26 and 20-09-27, the box table four tracks high).
 ## Master data provenance summary
 
 | Master list | Source | Notes |

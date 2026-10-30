@@ -268,18 +268,14 @@ with sync_playwright() as p:
     check("...the four plates as the paper heads them: No. 54 to 57, each over its size and Deviation (s111)", headings == expected, headings)
     check("...Device ID No, Location, Department and Manufacturer are boxes, not printed words (s117: every part editable)", printed_values(page) == {}, printed_values(page))
     values = header_values(page)
-    # Six boxes: the paper's I. Calibration Date / Due Date row is taken away (the owner, 28-Oct-2026, s132).
+    # Eight boxes: the paper's I. Calibration Date / Due Date row, taken away on 28-Oct-2026, is back (the owner, 30-Oct-2026, s147).
     check(
-        "...the four boxes holding the paper's words, then serial blank as the paper's box (s111 part 6) and expiry 22.09.2025, the page's calibration date no longer shown",
-        values[:6] == ["1-54, 2-55, 3-56, 4-57", "LAB", "LAB", "Global Eng. Co. (GEC)", "", "2025-09-22"] and "2024-12-31" not in values,
+        "...the four boxes holding the paper's words, then serial blank as the paper's box (s111 part 6), expiry 22.09.2025, calibrated 31.12.2024, due date blank",
+        values[:8] == ["1-54, 2-55, 3-56, 4-57", "LAB", "LAB", "Global Eng. Co. (GEC)", "", "2025-09-22", "2024-12-31", ""],
         values,
     )
     labels = sheet.locator(".field label").all_inner_texts()
-    check(
-        "...the boxes headed in the paper's words, and no 'I. Calibration Date:-' or 'Due Date:-' row (s132)",
-        "Serial No:" in labels and "Calibration Expiry:" in labels and not any("Calibration Date" in l or "Due Date" in l for l in labels),
-        labels,
-    )
+    check("...the calibration date headed 'I. Calibration Date:-' and its Due Date:-, as printed (s111 part 6, s147)", "I. Calibration Date:-" in labels and "Due Date:-" in labels and "Serial No:" in labels, labels)
     one_a_plate = sheet.locator("table.log-sheet tbody tr").evaluate_all("rows => rows.map((r) => r.querySelectorAll('td').length)")
     check("...Pass/Fail and Sign. one cell under each plate, as printed (s111 part 6)", one_a_plate == [9, 9, 9, 9, 5, 5], one_a_plate)
     body = sheet_text(page)
@@ -419,17 +415,17 @@ with sync_playwright() as p:
         device_box.count() == 1 and device_box.input_value() == "1-54, 2-55, 3-56, 4-57" and printed_values(page) == {},
         printed_values(page),
     )
-    # THE ROW TAKEN AWAY (the owner, 28-Oct-2026: "remove whole that row because in upper side ... there is already
-    # calibration expiry date is present which should be 20-9-27"): the certificate's due date in Calibration Expiry, no
-    # I. Calibration Date / Due Date row, and the boxes' table two lines high - no empty band left above the grid.
+    # THE ROW BACK (the owner, 30-Oct-2026: "in qc-11 ... you have missed the calibration date and due date in format so add
+    # that", s147; taken away on 28-Oct-2026): the certificate's dates - Calibration Expiry and Due Date 20-09-27, I.
+    # Calibration Date 21-09-26 - and the boxes' table as the paper's: two lines of boxes, the space, the date line.
     gsm_header = (record(page, gsm_id) or {}).get("data", {}).get("header", {})
     gsm_labels = page.locator("[data-print-doc] .field label").all_inner_texts()
     box_table = page.locator("[data-print-doc] [data-pf~='calib']")
     tracks = box_table.first.evaluate("e => getComputedStyle(e).gridTemplateRows.trim().split(/\\s+/).length") if box_table.count() else None
     check(
-        "...its Calibration Expiry the certificate's 20-09-27, no I. Calibration Date / Due Date row, its boxes two lines high (s132)",
-        gsm_header.get("calibrationExpiry") == "2027-09-20" and "calibrationDate" not in gsm_header and "dueDate" not in gsm_header
-        and "Calibration Expiry:" in gsm_labels and not any("Calibration Date" in l or "Due Date" in l for l in gsm_labels) and tracks == 2,
+        "...its Calibration Expiry and Due Date the certificate's 20-09-27, its I. Calibration Date 21-09-26, the row as the paper's (s147)",
+        gsm_header.get("calibrationExpiry") == "2027-09-20" and gsm_header.get("calibrationDate") == "2026-09-21" and gsm_header.get("dueDate") == "2027-09-20"
+        and "I. Calibration Date:-" in gsm_labels and "Due Date:-" in gsm_labels and tracks == 4,
         (gsm_header, gsm_labels, tracks),
     )
     location_box = page.locator("[data-print-doc] input[data-bind='header/location']")

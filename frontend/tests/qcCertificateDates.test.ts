@@ -57,6 +57,8 @@ test("the dates the owner gave, as the formats hold them", () => {
   const boxes: [string, string, string][] = [
     [SCALE, "calibrationExpiry", "2027-09-20"],
     [GSM, "calibrationExpiry", "2027-09-20"],
+    [GSM, "calibrationDate", "2026-09-21"],
+    [GSM, "dueDate", "2027-09-20"],
     [RULER_600_ID, "masterCalibrationDate", "2026-09-21"],
     [RULER_600_ID, "masterCalibrationDueDate", "2027-09-20"],
     [RULER_300_ID, "masterCalibrationDate", "2026-09-21"],
@@ -77,8 +79,8 @@ test("the dates the owner gave, as the formats hold them", () => {
   }
   assert.deepEqual(MASTER_CERTIFICATE, { date: "2026-09-21", due: "2027-09-20" }, "F/QC/17's master scale: 21-09-26, due 20-09-27 (28-Oct-2026)");
   for (const id of [RULER_600_ID, RULER_300_ID]) assert.equal(box(id, "masterCalibrationReportNo").autoFill, undefined, `${id}: the report number stays the person's to write`);
-  // F/QC/11's I. Calibration Date:- / Due Date:- row is taken away (the owner, 28-Oct-2026): its Calibration Expiry holds the due date.
-  assert.deepEqual(layoutOf(GSM).headerFields.filter((f) => f.key === "calibrationDate" || f.key === "dueDate"), []);
+  // F/QC/11's I. Calibration Date:- / Due Date:- row: taken away on 28-Oct-2026, back on the owner's word of 30-Oct-2026 (§147).
+  assert.deepEqual(layoutOf(GSM).headerFields.filter((f) => f.key === "calibrationDate" || f.key === "dueDate").map((f) => f.printedLabel), ["I. Calibration Date:-", "Due Date:-"]);
 });
 
 test("a new sheet with nothing before it starts with them: F/QC/12, F/QC/11 and both F/QC/17 pages", () => {
@@ -87,7 +89,7 @@ test("a new sheet with nothing before it starts with them: F/QC/12, F/QC/11 and 
   assert.equal(scale.header.calibrationExpiry, "2027-09-20");
   const gsm = data(createRecordForDocument(doc(GSM), { dateISO: "2026-11-01" }).record);
   assert.equal(gsm.header.calibrationExpiry, "2027-09-20");
-  assert.ok(!("calibrationDate" in gsm.header) && !("dueDate" in gsm.header), "no row of its own for them any more");
+  assert.deepEqual([gsm.header.calibrationDate, gsm.header.dueDate], ["2026-09-21", "2027-09-20"], "the row back (§147)");
   for (const id of [RULER_600_ID, RULER_300_ID]) {
     const ruler = data(createRecordForDocument(doc(id), { dateISO: "2026-10-28" }).record);
     assert.deepEqual([ruler.header.calibrationDate, ruler.header.calibrationDueDate], ["2026-09-23", "2027-09-22"], id);
@@ -107,7 +109,7 @@ test("from the pages of 2024 on file, the certificate's dates and not the pages'
   assert.equal(scale.header.deviceIdNo, "QC-76", "the rest of the page carried as before (§117)");
   const gsm = startingData(doc(GSM), "2026-11-01", false) as LogSheetData;
   assert.equal(gsm.header.calibrationExpiry, "2027-09-20", "not the page's 22.09.2025");
-  assert.ok(!("calibrationDate" in gsm.header) && !("dueDate" in gsm.header), "nor its 31.12.2024: the row is taken away");
+  assert.deepEqual([gsm.header.calibrationDate, gsm.header.dueDate], ["2026-09-21", "2027-09-20"], "nor its 31.12.2024");
   clear(SCALE);
   // The next certificate, written on a sheet: a new sheet carries it, the later date.
   const week = createRecordForDocument(doc(SCALE), { dateISO: "2027-09-22" }).record;
@@ -173,7 +175,7 @@ test("a 600 mm sheet written on the old page's points carries its boxes, not its
 
 test("Demo Mode keeps its own simulated calibration, dated by its sheets", () => {
   const gsm = autoFillRecord(doc(GSM), "2026-03-02", master, undefined)!.data as LogSheetData;
-  assert.ok(!("calibrationDate" in gsm.header), "F/QC/11's row is taken away in Demo Mode too");
+  assert.equal(gsm.header.calibrationDate, "2026-03-02", "a demo month's calibration is that month's");
   assert.ok(String(gsm.header.calibrationExpiry) > "2026-03-02");
   for (const id of [RULER_600_ID, RULER_300_ID]) {
     const ruler = autoFillRecord(doc(id), "2026-03-02", master, undefined)!.data as LogSheetData;

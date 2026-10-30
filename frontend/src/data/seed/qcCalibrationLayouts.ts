@@ -30,7 +30,7 @@ import type { LogColumn, LogSheetLayout } from "../../types";
 //
 // AND FROM THE FINDINGS ON §111 (13-Oct-2026, REQUIREMENTS §111 part 6): every box
 // carries the paper's own words, colons and ":-" included ("Device ID No:",
-// "Calibration Expiry:"), F/QC/11's Due Date stood at the right of its line (the line is taken away, 28-Oct-2026);
+// "I. Calibration Date:-"), F/QC/11's Due Date stands at the right of its line (taken away 28-Oct-2026, back 30-Oct-2026);
 // the headings print in the paper's letters ("No. 54", "20 x 20cm", "Deviation %"),
 // not the sheet's capitals; F/QC/11's Pass/Fail and Sign. lines are one cell a
 // plate (groupCellLines); a Deviation % outside F/QC/12's Acceptable Tolerance is
@@ -49,9 +49,9 @@ import type { LogColumn, LogSheetLayout } from "../../types";
  * "you need to add calibration expiry date is 20-9-27 in qc-11 and 12"). Every new sheet starts with the due date in
  * its Calibration Expiry - F/QC/12's and F/QC/11's - and it stays editable; a sheet keeps the later of the last sheet's
  * date and this (autoFill.newest), so the 2024 dates of the pages on file never come back, and the next certificate's
- * date, once written, carries on. Neither paper has a box for the certificate's own date (F/QC/11's "I. Calibration
- * Date / Due Date" row is taken away, the owner, 28-Oct-2026: "remove whole that row because in upper side ... there
- * is already calibration expiry date").
+ * date, once written, carries on. F/QC/11's "I. Calibration Date:- / Due Date:-" row holds the certificate's 21-09-26 and
+ * 20-09-27 the same way (taken away on 28-Oct-2026, back on the owner's word of 30-Oct-2026: "you have missed the
+ * calibration date and due date in format so add that", REQUIREMENTS §147); F/QC/12's paper has no Calibration Date box.
  */
 export const CALIBRATION_CERTIFICATE = { date: "2026-09-21", due: "2027-09-20" } as const;
 
@@ -284,11 +284,14 @@ const gsmPlate: LogSheetLayout = {
     { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { default: GSM_PRINTED.department, carryForward: true } },
     { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { default: GSM_PRINTED.manufacturer, carryForward: true } },
     { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 120, autoFill: { carryForward: true } },
-    // THE CERTIFICATE'S DUE DATE ON EVERY NEW SHEET (CALIBRATION_CERTIFICATE, the owner, 27/28-Oct-2026): 20-09-27,
-    // editable, kept when a later one is written (autoFill.newest). The paper's "I. Calibration Date:- / Due Date:-" row
-    // over the grid is taken away (the owner, 28-Oct-2026: "remove whole that row because in upper side as you can see
-    // there is already calibration expiry date"); what a sheet stored in it before stays in its data, not shown.
+    // THE CERTIFICATE'S DATES ON EVERY NEW SHEET (CALIBRATION_CERTIFICATE, the owner, 27-Oct-2026): Calibration Expiry and
+    // Due Date 20-09-27, I. Calibration Date 21-09-26, each editable and kept when a later one is written (autoFill.newest).
+    // The paper prints "I. Calibration Date:-" over the grid; its name stays "Calibration Date". The row was taken away on
+    // 28-Oct-2026 and is back on the owner's word of 30-Oct-2026 (REQUIREMENTS §147): what a sheet held in it shows again.
     { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true, default: CALIBRATION_CERTIFICATE.due, newest: true } },
+    { key: "calibrationDate", label: "Calibration Date", printedLabel: "I. Calibration Date:-", type: "date", width: 150, autoFill: { default: CALIBRATION_CERTIFICATE.date, newest: true } },
+    // "Due Date:-" at the right of the line, where the paper prints it (paperColumn).
+    { key: "dueDate", label: "Due Date", printedLabel: "Due Date:-", type: "date", width: 150, paperColumn: 3, autoFill: { default: CALIBRATION_CERTIFICATE.due, newest: true } },
   ],
   columns: gsmColumns,
   rowMode: { kind: "fixedRows", rows: GSM_ROWS.map((parameter) => ({ parameter })) },

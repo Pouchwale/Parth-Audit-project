@@ -178,10 +178,12 @@ test("F/HR/18: a visit's own page is the paper, every box the person fills a box
   assert.ok(month.includes('data-bind="monthYear"'), month);
   assert.ok(month.includes('value="Aug-26"'), "written as the record writes it");
   assert.ok(!month.includes("disabled"), "open for writing");
-  // Thirteen units, one line each for this visit, the date of service on every line.
+  // Thirteen units, the paper's two lines each (the owner, 30-Oct-2026, §147): this visit's line with its date of service,
+  // and the month's other fortnight's line.
   assert.equal(count(page, 'class="fhr18-unit"'), 13);
   assert.equal(cells(page, "td", "pc-cell").join(" "), LEGEND.map(([id]) => id).sort().join(" "), "PC-01 to PC-13 in order");
-  assert.deepEqual(cells(page, "td", "date-cell"), Array(13).fill("3/08/26"), "the visit's date, as the paper writes it");
+  assert.equal(count(page, 'class="register-row'), 26, "two lines a unit, as the paper");
+  assert.equal(cells(page, "td", "date-cell").filter((d) => d === "3/08/26").length, 13, "the visit's date on its own line of every unit");
   for (const field of ["count", "installed", "due", "cleaning", "verified"]) {
     assert.equal(count(page, `data-field="${field}"`), 13, `a ${field} box on every line`);
   }

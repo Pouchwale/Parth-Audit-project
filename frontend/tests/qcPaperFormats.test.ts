@@ -506,7 +506,7 @@ test("F-QC-32 Adhesive Mixing Ratio Record: the paper's ten columns with the Dat
   assert.ok(demo.rows.length >= 1 && demo.rows.every((r) => r.date === DAY), JSON.stringify(demo.rows.map((r) => r.date)));
 });
 
-test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them, its Calibration Date / Due Date row taken away, No. 54 to 57 over size and Deviation, PROCEDURE below", async () => {
+test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them, I. Calibration Date and Due Date, No. 54 to 57 over size and Deviation, PROCEDURE below", async () => {
   const layout = layoutOf(GSM);
   assert.equal(layout.instructions, undefined);
   assert.equal(layout.headerColumns, 3);
@@ -520,9 +520,11 @@ test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them
       ["Department:", "LAB"],
       ["Manufacturer:", "Global Eng. Co. (GEC)"],
       ["Serial No:", null],
-      // The calibration certificate's due date the owner gave (27-Oct-2026), 20-09-27, editable. The paper's row of
-      // "I. Calibration Date:-" and "Due Date:-" under these is taken away (the owner, 28-Oct-2026).
+      // The calibration certificate's dates the owner gave (27-Oct-2026): 21-09-26, due 20-09-27, editable; the paper's
+      // "I. Calibration Date:-" / "Due Date:-" row taken away on 28-Oct-2026 and back on 30-Oct-2026 (§147).
       ["Calibration Expiry:", "2027-09-20"],
+      ["I. Calibration Date:-", "2026-09-21"],
+      ["Due Date:-", "2027-09-20"],
     ]
   );
   assert.deepEqual(
@@ -534,7 +536,7 @@ test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them
   assert.deepEqual(layout.notesBelow, [`PROCEDURE: ${CALIBRATION_PROCEDURE}`]);
   const html = await sheet(GSM, createDefaultData(docOf(GSM), DAY, master) as LogSheetData);
   assert.deepEqual(headings(html), ["Index", "No. 54", "No. 55", "No. 56", "No. 57", "20 x 20cm", "Deviation", "10 x 10cm", "Deviation", "5 x 5cm", "Deviation", "2.5 x 2.5cm", "Deviation"]);
-  assert.ok(!text(html).includes("I. Calibration Date") && !text(html).includes("Due Date:-"), "the row taken away");
+  assert.ok(text(html).includes("I. Calibration Date:-") && text(html).includes("Due Date:-"), "the row back (§147)");
   assert.match(html, /class="grid sheet-boxes-paper"/, "three boxes to a line, as the paper");
 });
 

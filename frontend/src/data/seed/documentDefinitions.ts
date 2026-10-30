@@ -1020,7 +1020,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Weekly",
     status: "Configured",
     description:
-      "Internal calibration of the four GSM cutting plates (No. 54 20 x 20cm, No. 55 10 x 10cm, No. 56 5 x 5cm, No. 57 2.5 x 2.5cm, Global Eng. Co.): each plate measured four times with the deviation beside every measurement, then Pass / Fail and the tester's sign per plate; the Calibration Expiry starts every new sheet at the certificate's due date, 20-09-27 (the paper's I. Calibration Date / Due Date row taken away, the owner, 28-Oct-2026). The 31.12.2024 calibration is on file as supplied. Each Deviation is worked out from the size written beside it.",
+      "Internal calibration of the four GSM cutting plates (No. 54 20 x 20cm, No. 55 10 x 10cm, No. 56 5 x 5cm, No. 57 2.5 x 2.5cm, Global Eng. Co.): each plate measured four times with the deviation beside every measurement, then Pass / Fail and the tester's sign per plate; the Calibration Expiry and the Due Date start every new sheet at the certificate's due date, 20-09-27, and the I. Calibration Date at its 21-09-26, each editable (the row taken away on 28-Oct-2026 and back on 30-Oct-2026). The 31.12.2024 calibration is on file as supplied. Each Deviation is worked out from the size written beside it.",
     sourceFile: "weekly and monthly internal calibration records.pdf (page 2, scanned)",
     // Every Tuesday (the owner, 28-Oct-2026: "20-10-26 and 27-10-26 every tuesday due date"); the 1st of each month
     // until then. The paper's own title still says MONTHLY, as printed.

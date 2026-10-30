@@ -3686,13 +3686,18 @@ table.svc-paper {
     flex: none; display: block; box-sizing: border-box; width: 100%; min-width: 0; height: calc(12 * var(--pt)); min-height: 0; margin: var(--cal-box-value-y) 0 0; padding: 0;
     border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000; font-family: var(--cal-arial); font-size: calc(11 * var(--pt)); line-height: calc(12 * var(--pt)); text-align: left;
   }
-  /* F/QC/11: each box's words and its value centred in their cell, in the paper's faces (its Calibration Date / Due Date
-     line is taken away, the owner, 28-Oct-2026: a box added on Edit format stands in the three columns as the rest). */
+  /* F/QC/11: each box's words and its value centred in their cell, in the paper's faces; its Calibration Date two columns
+     wide and its Due Date beside it, after the paper's space, words at the left (back 30-Oct-2026, REQUIREMENTS §147). */
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field { padding: 0; align-items: stretch; }
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > label { font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 400; text-align: center; font-family: var(--cal-arial); }
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(-n+3) > label { font-family: var(--cal-times); padding-top: calc(0.44 * var(--u)); }
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > .input,
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > .print-box-text { font-family: var(--cal-times); font-size: calc(9.96 * var(--pt)); height: calc(9.96 * var(--pt) * 1.25); line-height: calc(9.96 * var(--pt) * 1.25); text-align: center; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(7) { grid-row: 4; grid-column: 1 / span 2; border-top: var(--pf-bd); flex-direction: row; align-items: flex-start; gap: calc(2 * var(--u)); padding-left: calc(1.88 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(8) { grid-row: 4; grid-column: 3; border-top: var(--pf-bd); flex-direction: row; align-items: flex-start; gap: calc(2 * var(--u)); padding-left: calc(3.7 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > label { text-align: left; flex: none; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > .input,
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > .print-box-text { width: calc(40 * var(--u)); margin-top: calc(0.4 * var(--u)); text-align: left; font-family: var(--cal-arial); }
   /* the grid */
   .paper-sheet[data-paper-form="calib"] .paper-body > .doc-table { width: auto; margin: var(--cal-grid-gap) 0 0 0; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
   .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet th,
