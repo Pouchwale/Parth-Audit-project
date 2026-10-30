@@ -1,0 +1,14 @@
+{
+  "name": "mitra",
+  "private": true,
+  "scripts": {
+    "setup": "npm --prefix server install && npm --prefix mobile install",
+    "demo": "node scripts/dev.mjs --demo",
+    "dev": "node scripts/dev.mjs",
+    "test": "npm --prefix server test",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix mobile run typecheck",
+    "server": "npm --prefix server run dev",
+    "app": "npm --prefix mobile run web",
+    "phones": "node scripts/phones.mjs"
+  }
+}
