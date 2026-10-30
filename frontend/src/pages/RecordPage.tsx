@@ -46,6 +46,7 @@ import { RecordActionBar } from "../components/records/RecordActionBar";
 import { mayDo } from "../engine/departmentScope";
 import { periodKeyFor } from "../engine/recordGenerator";
 import { NOMINAL_FILL_NOTE, nominalFillOnOpen } from "../engine/nominalFill";
+import { DAILY_PEST_FILL_NOTE, dailyPestFillOnOpen } from "../engine/dailyPestFill";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -245,6 +246,15 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     if (!record || !doc || doc.kind !== "log-sheet" || !editable || superseded || dirty) return;
     const filled = nominalFillOnOpen(doc.id, record.data as LogSheetData | undefined, currentUser);
     if (filled) persistLocal(saveDraft(record, withComputedCells(doc.id, filled), currentUser, { note: NOMINAL_FILL_NOTE }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record?.id, editable, superseded]);
+  // F/HR/17 answered as the plant's usual day when a person opens it (REQUIREMENTS §149, engine/dailyPestFill.ts).
+  useEffect(() => {
+    if (!record || !doc || doc.kind !== "daily-pest-monitoring" || !editable || superseded || dirty) return;
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const filled = dailyPestFillOnOpen(record.data as DailyPestMonitoringData | undefined, currentUser, time);
+    if (filled) persistLocal(saveDraft(record, filled, currentUser, { note: DAILY_PEST_FILL_NOTE }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id, editable, superseded]);
 

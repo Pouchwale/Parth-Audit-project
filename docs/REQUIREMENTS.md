@@ -10232,6 +10232,18 @@ if user select change with revision number and date so system will ask him what 
    02-11-2026; every screen asks which revision), mitraTools.test.ts; tests/e2e_header_editing.py (Rev 01 offered in its
    box, No saves nothing, a change saved without a new revision keeps Rev 01), e2e_qc_calibration.py (every value of a new
    F/QC/11 a box).
+
+## §149 F/HR/17 answered as the plant's usual day when a person opens it; nothing found is the usual (30-Oct-2026)
+
+The owner, 30-Oct-2026: "the system should filled it on daily basis and user will verify and submit it", with the check
+points' usual answers. When a person who may fill the day's Daily Pest Control Monitoring Record opens it and nothing is
+answered yet (engine/dailyPestFill.ts, run by pages/RecordPage.tsx): 1 Yes, 2 No, 3 Yes, 4 100, 5 Yes, 6 Yes, 7 No, 8 No,
+9 No, 10 Yes; the time of checking the time it was opened; the checker that person; a line in its history. Every answer
+is theirs to change before submitting. A rodent or lizard really found is answered Yes with its box, place and count,
+and only that reaches the rodent trend. Asked the same day for random catches written by the system ("4 or 5 rodent ...
+in whole year and other are lizards"): declined, as on 28-Oct-2026 - a record shows what was found. A holiday and a day
+already answered are left as they are; the schedule and the morning prepare still write no answer (§98).
+Proved: frontend/tests/dailyPestFill.test.ts.
 ## Master data provenance summary
 
 | Master list | Source | Notes |
