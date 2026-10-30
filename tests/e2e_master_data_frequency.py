@@ -89,6 +89,10 @@ def sure(page, yes=True, timeout=4000):
     except Exception:
         return None
     said = page.locator("[data-section='sure-first']").inner_text()
+    # The revision offered in its box (REQUIREMENTS s148), said with the question's words.
+    offered = page.locator("[data-section='sure-first'] [data-field='revision-no']")
+    if offered.count():
+        said += " | Rev " + offered.input_value() + " offered"
     page.click(button)
     page.wait_for_timeout(500)
     return said
