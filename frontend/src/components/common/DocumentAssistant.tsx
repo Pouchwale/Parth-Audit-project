@@ -1091,7 +1091,14 @@ export function DocumentAssistant() {
         // Taken before the "Yes" is echoed: whatever is said next sets the question aside (see post).
         const waiting = pendingFormatRef.current;
         me(chip.label);
-        saveFormatChange(waiting, a.keep === true);
+        saveFormatChange(waiting);
+        return;
+      }
+      case "keepRevisionFormatChange": {
+        // The same yes, saved without a new revision (REQUIREMENTS §148).
+        const waiting = pendingFormatRef.current;
+        me(chip.label);
+        saveFormatChange(waiting, true);
         return;
       }
       case "cancelFormatChange":
@@ -1732,7 +1739,7 @@ export function DocumentAssistant() {
         [
           { label: `Yes, save as Rev ${rev}`, action: { type: "confirmFormatChange" }, tone: "primary" },
           // Or without a new revision (REQUIREMENTS §148): the format keeps its number and date.
-          { label: `Save without a new revision (stays Rev ${doc.revisionNo || "—"})`, action: { type: "confirmFormatChange", keep: true } },
+          { label: `Save without a new revision (stays Rev ${doc.revisionNo || "—"})`, action: { type: "keepRevisionFormatChange" } },
           { label: "No, leave it", action: { type: "cancelFormatChange" } },
         ]
       );

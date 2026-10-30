@@ -248,6 +248,7 @@ with sync_playwright() as p:
     )
     yes = chips(page, "confirmFormatChange")
     check("...with Yes naming that revision, and No", yes.count() == 1 and rev1 in (yes.first.text_content() or "") and chips(page, "cancelFormatChange").count() == 1)
+    check("...and a third answer: save it without a new revision (s148)", chips(page, "keepRevisionFormatChange").count() == 1)
     check("Nothing is saved while the question stands", format_edit(page, FREE_DOC) is None and "Batch No." not in headings(page))
     reply = tap(page, "cancelFormatChange")
     check("No leaves the format exactly as it was", format_edit(page, FREE_DOC) is None and headings(page) == before and current_rev(page, FREE_DOC) == rev0, reply)
