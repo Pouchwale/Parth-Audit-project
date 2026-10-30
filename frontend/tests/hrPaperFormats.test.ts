@@ -17,6 +17,7 @@ import path from "node:path";
 import { createElement as h, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server.edge";
 import type { DocumentDefinition, FlyCatcherData, RecordInstance } from "../src/types";
+import { recordRepository } from "../src/data/repositories/recordRepository";
 import { SEED_DOCUMENTS } from "../src/data/seed/documentDefinitions";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
@@ -193,6 +194,33 @@ test("F/HR/18: a visit's own page is the paper, every box the person fills a box
   assert.ok(!cells(page, "th").includes("Location"), "no Location column");
   assert.ok(!page.includes("master data"), "no note above the grid");
   assert.ok(!page.includes("Tube Light Installed"), "no heading in other words");
+});
+
+test("F/HR/18 (§147): every line of the paper is filled in on a visit's page - the month's other open visit's line bound to it, a blank line's date of service starting it", async () => {
+  const { render, FlyCatcherRecordView } = await loadPages();
+  const record = visit();
+  // No other visit in the month: each unit's second line offers its date of service, nothing else to type yet.
+  const alone = render(h(FlyCatcherRecordView, { doc: doc("fly-catcher"), record, editable: true, onChange: () => {} }));
+  assert.equal(count(alone, 'data-field="fhr18-add-date"'), 13, "a date of service on every unit's blank line");
+  assert.equal(count(alone, 'data-field="count"'), 13, "the count boxes are this visit's");
+  // The month's other visit, open for writing: its line on every unit is boxes bound to it.
+  const d = documentRepository.getById("fly-catcher")!;
+  const other: RecordInstance<FlyCatcherData> = { ...record, id: "unit-fhr18-other", periodKey: "fly-catcher:2026-08-17", dueDate: "2026-08-17", data: createDefaultData(d, "2026-08-17", masterRepository.get()) as FlyCatcherData };
+  recordRepository.upsert(other as RecordInstance);
+  try {
+    const both = render(h(FlyCatcherRecordView, { doc: doc("fly-catcher"), record, editable: true, onChange: () => {} }));
+    assert.equal(count(both, 'data-field="count"'), 26, "a count box on both lines of every unit");
+    assert.equal(count(both, 'data-bind-record="unit-fhr18-other"'), 13, "the other visit's lines bound to that visit");
+    assert.equal(count(both, 'data-field="fhr18-add-date"'), 0, "no blank line left");
+    assert.equal(cells(both, "td", "date-cell").filter((x) => x === "17/08/26").length, 13, "its date of service on its own line");
+    // Signed off, it is read as written: words, no box.
+    recordRepository.upsert({ ...other, status: "Verified" } as RecordInstance);
+    const signed = render(h(FlyCatcherRecordView, { doc: doc("fly-catcher"), record, editable: true, onChange: () => {} }));
+    assert.equal(count(signed, 'data-field="count"'), 13);
+    assert.equal(count(signed, 'data-bind-record="unit-fhr18-other"'), 0);
+  } finally {
+    recordRepository.remove(other.id);
+  }
 });
 
 test("F/HR/18: a signed-off visit shows the same sheet with every box closed", async () => {

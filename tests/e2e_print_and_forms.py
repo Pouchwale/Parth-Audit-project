@@ -411,6 +411,16 @@ with sync_playwright() as p:
 
     page.click(f"[data-visit-open='{first}']")
     page.wait_for_timeout(800)
+    # The paper's two lines a unit on a visit's own page, both to fill in (the owner, 30-Oct-2026, s147): the month's other
+    # visit's line is boxes, and what is typed there is saved into that visit.
+    pc01_counts = page.locator("tbody.fhr18-unit[data-pc='PC-01'] input[data-field='count']")
+    check("On a visit's own page each unit has its two lines to fill in: this visit's and the month's other (s147)", pc01_counts.count() == 2, pc01_counts.count())
+    if pc01_counts.count() == 2:
+        pc01_counts.nth(1).fill("4")
+        page.wait_for_timeout(1500)
+        v2_now = stored(page, visit2["id"]) if visit2 else None
+        pc01_v2 = next((e for e in (v2_now or {}).get("data", {}).get("entries", []) if e["pcId"] == "PC-01"), {})
+        check("...a count typed on the other visit's line is saved into that visit", pc01_v2.get("catchCountApprox") == 4, pc01_v2)
     page.click("button[data-action='submit']")
     page.wait_for_timeout(600)
     check("The first visit, filled in on the register, submits from its own page", stored(page, visit1["id"])["status"] == "Pending Verification", page.locator(".error-list").all_inner_texts())

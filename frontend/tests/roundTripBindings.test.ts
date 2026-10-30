@@ -489,7 +489,8 @@ test("every value on every record page carries a binding that leads to it — op
           // (a standard nobody types over, F/QC/12's weights, §146, is shown as words and needs no way back either)
           return col?.computed ? "a worked-out cell" : col?.locked ? "a fixed standard" : null;
         };
-        const found = markupProblems(where, html, (id) => (id === record.id ? recordRepository.getById(id)?.data : undefined), computedCell);
+        // (a page may show a line of another record of the same document, bound to it: F/HR/18's month's other visit, §147)
+        const found = markupProblems(where, html, (id) => recordRepository.getById(id)?.data, computedCell);
         if (found.bound === 0) problems.push(`${where}: nothing on the page is bound`);
         problems.push(...found.problems.slice(0, 8));
         bound += found.bound;

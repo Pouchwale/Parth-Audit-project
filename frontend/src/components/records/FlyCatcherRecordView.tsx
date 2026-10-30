@@ -10,7 +10,12 @@ import { masterRepository } from "../../data/repositories/masterRepository";
 import { formatDisplayDate } from "../../utils/date";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 import { FHR18_PAPER_CELLS, FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate } from "./FlyCatcherRegisterSheet";
-import { visitsInMonth } from "../../engine/flyRegister";
+import { addFlyCatcherVisit, newVisitProblem, visitsInMonth } from "../../engine/flyRegister";
+import { isEditableStatus, saveDraft } from "../../engine/recordLifecycle";
+import { recordRepository } from "../../data/repositories/recordRepository";
+import { useAppStore } from "../../store/AppStore";
+import { todayISO } from "../../utils/date";
+import { BIND_RECORD_ATTR } from "../../engine/roundTrip/bindPath";
 
 // A FLY CATCHER VISIT ON ITS OWN PAGE, LAID OUT AS F/HR/18 PRINTS — the
 // company's own Word original (source-documents/F-HR-18_Fly Catcher Inspection
@@ -72,14 +77,62 @@ export function FlyCatcherRecordView({
   const serviceDate = paperDate(record.dueDate);
   // The month's visits in date order, this one among them; at least the paper's two lines a unit (§147).
   const [year, month] = record.dueDate.split("-").map(Number);
+  const { currentUser, bump } = useAppStore();
+  const [visitsSeen, setVisitsSeen] = React.useState(0);
   const others = React.useMemo(
     () => visitsInMonth(year, month - 1, record.isDemo).filter((r) => r.id !== record.id),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [year, month, record.isDemo, record.id]
+    [year, month, record.isDemo, record.id, visitsSeen]
   );
   const lines: (RecordInstance<FlyCatcherData> | null)[] = [...others, record].sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0));
   while (lines.length < 2) lines.push(null);
   const otherDate = (iso: string | null | undefined) => (iso ? paperDate(iso) : "");
+  // THE MONTH'S OTHER VISIT, FILLED IN HERE TOO (the owner, 30-Oct-2026: "make sure user can add anything ... like you can
+  // see in format which i have provided", §147): what is typed on its line is saved into that visit through its own
+  // saveDraft - a line in its history - a moment after the last keystroke and on leaving, as the register does.
+  const pending = React.useRef(new Map<string, FlyCatcherData>());
+  const [typedOther, setTypedOther] = React.useState(0);
+  const who = React.useRef(currentUser);
+  who.current = currentUser;
+  const flushOthers = React.useCallback(() => {
+    if (pending.current.size === 0) return;
+    for (const [id, d] of pending.current) {
+      const rec = recordRepository.getById(id) as RecordInstance<FlyCatcherData> | undefined;
+      if (rec && isEditableStatus(rec.status)) saveDraft(rec, d, who.current);
+    }
+    pending.current.clear();
+  }, []);
+  React.useEffect(() => {
+    if (typedOther === 0) return;
+    const h = window.setTimeout(flushOthers, 700);
+    return () => window.clearTimeout(h);
+  }, [typedOther, flushOthers]);
+  React.useEffect(() => {
+    window.addEventListener("pagehide", flushOthers);
+    window.addEventListener("beforeunload", flushOthers);
+    return () => {
+      window.removeEventListener("pagehide", flushOthers);
+      window.removeEventListener("beforeunload", flushOthers);
+      flushOthers();
+    };
+  }, [flushOthers]);
+  const otherData = (r: RecordInstance<FlyCatcherData>): FlyCatcherData => pending.current.get(r.id) ?? r.data;
+  const updateOther = (r: RecordInstance<FlyCatcherData>, pcId: string, patch: EntryPatch) => {
+    const base = otherData(r);
+    pending.current.set(r.id, { ...base, entries: base.entries.map((x) => (x.pcId === pcId ? { ...x, ...patch } : x)) });
+    setTypedOther((n) => n + 1);
+  };
+  // A BLANK LINE'S DATE OF SERVICE STARTS THAT VISIT (engine/flyRegister.ts addFlyCatcherVisit, as the register's Add
+  // visit): a date in this month, not to come, not a day already on the sheet; then its line opens for the rest.
+  const [addProblem, setAddProblem] = React.useState<string | null>(null);
+  const startVisit = (dateISO: string) => {
+    const problem = newVisitProblem(dateISO, year, month - 1, record.isDemo, todayISO());
+    setAddProblem(problem);
+    if (problem) return;
+    addFlyCatcherVisit(dateISO, record.isDemo, currentUser);
+    setVisitsSeen((n) => n + 1);
+    bump();
+  };
   // EVERY PRINTED WORD OF THE VISIT'S SHEET, TYPED OVER ON IT (REQUIREMENTS §137): each catcher's number and area, the
   // visit's date on each line, the headings - this visit's own words once changed; Master Data keeps the plant's.
   const host = { words: data.printedWords, editable, onWords: (printedWords: PrintedWords) => onChange({ ...data, printedWords }) };
@@ -118,6 +171,11 @@ export function FlyCatcherRecordView({
 
         <Fhr18Legend pcLocations={pcLocations} host={host} />
 
+        {addProblem && (
+          <p className="text-sm no-print" data-section="fhr18-add-problem" role="alert" style={{ color: "var(--danger, #b91c1c)", margin: "6px 0" }}>
+            {addProblem}
+          </p>
+        )}
         <div className="doc-table register-grid-wrap">
           <table className="register-grid fhr18-grid">
             <Fhr18GridHead host={host} />
@@ -127,19 +185,109 @@ export function FlyCatcherRecordView({
               </tr>
             </tbody>
             {data.entries.map((e) => {
-              const label = `${e.pcId}, visit of ${formatDisplayDate(record.dueDate)}`;
               const pcCell = (
                 <td className="pc-cell notranslate" translate="no" rowSpan={lines.length}>
                   {at(`pc:${e.pcId}`, e.pcId, "Catcher")}
                 </td>
               );
+              // The five boxes the person fills on a line, for whichever visit the line is: this one (the page's own
+              // record) or the month's other (bound to it, saved into it).
+              const boxes = (visitDate: string, entry: FlyCatcherEntry, patch: (p: EntryPatch) => void, open: boolean, bind?: (field: FlyEntryField) => Record<string, string> | undefined) => {
+                const label = `${e.pcId}, visit of ${formatDisplayDate(visitDate)}`;
+                return (
+                  <>
+                    <td className="edit-cell">
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        className="input input-sm fhr18-input"
+                        data-field="count"
+                        {...bind?.("catchCountApprox")}
+                        aria-label={`${label} — flies catch count approx.`}
+                        disabled={!open}
+                        value={entry.catchCountApprox ?? ""}
+                        onChange={(ev) => {
+                          const n = Number(ev.target.value);
+                          patch({ catchCountApprox: ev.target.value === "" || !Number.isFinite(n) ? null : Math.max(0, n) });
+                        }}
+                      />
+                    </td>
+                    <td className="edit-cell">
+                      <input
+                        type="date"
+                        className="input input-sm fhr18-input"
+                        data-field="installed"
+                        {...bind?.("tubeLightInstallDate")}
+                        // An empty date prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111).
+                        data-empty={entry.tubeLightInstallDate ? undefined : ""}
+                        aria-label={`${label} — date of tube light installation`}
+                        disabled={!open}
+                        value={entry.tubeLightInstallDate ?? ""}
+                        onChange={(ev) => patch({ tubeLightInstallDate: ev.target.value || null })}
+                      />
+                    </td>
+                    <td className="edit-cell">
+                      <input
+                        type="date"
+                        className="input input-sm fhr18-input"
+                        data-field="due"
+                        {...bind?.("tubeLightDueDate")}
+                        data-empty={entry.tubeLightDueDate ? undefined : ""}
+                        aria-label={`${label} — due date for tube light replacement`}
+                        disabled={!open}
+                        value={entry.tubeLightDueDate ?? ""}
+                        onChange={(ev) => patch({ tubeLightDueDate: ev.target.value || null })}
+                      />
+                    </td>
+                    {/* The names signed read exactly as they were written, in either language (REQUIREMENTS §58). */}
+                    <td className="edit-cell">
+                      <input
+                        className="input input-sm fhr18-input notranslate"
+                        translate="no"
+                        list="fhr18-record-people"
+                        data-field="cleaning"
+                        {...bind?.("cleaningDoneBy")}
+                        aria-label={`${label} — cleaning done by`}
+                        disabled={!open}
+                        value={entry.cleaningDoneBy ?? ""}
+                        onChange={(ev) => patch({ cleaningDoneBy: ev.target.value })}
+                      />
+                    </td>
+                    <td className="edit-cell">
+                      <input
+                        className="input input-sm fhr18-input notranslate"
+                        translate="no"
+                        list="fhr18-record-people"
+                        data-field="verified"
+                        {...bind?.("verifiedBy")}
+                        aria-label={`${label} — verified by`}
+                        disabled={!open}
+                        value={entry.verifiedBy ?? ""}
+                        onChange={(ev) => patch({ verifiedBy: ev.target.value })}
+                      />
+                    </td>
+                  </>
+                );
+              };
               return (
                 <tbody key={e.pcId} className="fhr18-unit" data-pc={e.pcId}>
                   {lines.map((line, i) => {
                     if (line && line.id !== record.id) {
-                      // The month's other visit, as written on its own record: words, not boxes - it is changed there.
-                      const o = (line.data as FlyCatcherData | undefined)?.entries?.find((x) => x.pcId === e.pcId);
+                      const o = otherData(line).entries?.find((x) => x.pcId === e.pcId);
                       const written = !!o && (o.catchCountApprox !== null || !!o.cleaningDoneBy || !!o.verifiedBy);
+                      // Filled in here while both are open for writing; a visit handed in or verified is read as written.
+                      if (o && editable && isEditableStatus(line.status)) {
+                        return (
+                          <tr key={line.id} className="register-row fhr18-other-visit" data-visit={line.dueDate} data-empty-line={written ? undefined : ""} {...{ [BIND_RECORD_ATTR]: line.id }}>
+                            {i === 0 && pcCell}
+                            <td className="date-cell notranslate" translate="no">
+                              {paperDate(line.dueDate)}
+                            </td>
+                            {boxes(line.dueDate, o, (p) => updateOther(line, e.pcId, p), true, (field) => bindProps(flyCatcherBind.entry(e.pcId, field)))}
+                          </tr>
+                        );
+                      }
                       return (
                         <tr key={line.id} className="register-row fhr18-other-visit" data-visit={line.dueDate} data-empty-line={written ? undefined : ""}>
                           {i === 0 && pcCell}
@@ -163,11 +311,25 @@ export function FlyCatcherRecordView({
                       );
                     }
                     if (!line) {
-                      // A fortnight's visit still to come: the paper's blank line, on the screen only (§126).
+                      // A fortnight's visit still to come: its date of service starts it here (a printed blank line
+                      // otherwise, on the screen only, §126).
                       return (
                         <tr key={`blank-${i}`} className="register-row fhr18-other-visit" data-empty-line="">
                           {i === 0 && pcCell}
-                          <td className="date-cell" />
+                          <td className="date-cell">
+                            {editable && (
+                              <input
+                                type="date"
+                                className="input input-sm fhr18-input"
+                                data-field="fhr18-add-date"
+                                data-empty=""
+                                aria-label={`${e.pcId}, date of service of the month's other visit`}
+                                title="The date of service of the month's other visit: it starts that visit, and its line opens"
+                                value=""
+                                onChange={(ev) => ev.target.value && startVisit(ev.target.value)}
+                              />
+                            )}
+                          </td>
                           <td className="fhr18-other" />
                           <td className="fhr18-other" />
                           <td className="fhr18-other" />
@@ -177,84 +339,14 @@ export function FlyCatcherRecordView({
                       );
                     }
                     return (
-                  <tr key={record.id} className="register-row" data-visit={record.dueDate}>
-                    {i === 0 && pcCell}
-                    {/* The visit's date, as the paper writes it (3/08/26). */}
-                    <td className="date-cell notranslate" translate="no">
-                      {at(`date:${e.pcId}`, serviceDate, "Date of service")}
-                    </td>
-                    <td className="edit-cell">
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        className="input input-sm fhr18-input"
-                        data-field="count"
-                        {...bound(e.pcId, "catchCountApprox")}
-                        aria-label={`${label} — flies catch count approx.`}
-                        disabled={!editable}
-                        value={e.catchCountApprox ?? ""}
-                        onChange={(ev) => {
-                          const n = Number(ev.target.value);
-                          updateEntry(e.pcId, { catchCountApprox: ev.target.value === "" || !Number.isFinite(n) ? null : Math.max(0, n) });
-                        }}
-                      />
-                    </td>
-                    <td className="edit-cell">
-                      <input
-                        type="date"
-                        className="input input-sm fhr18-input"
-                        data-field="installed"
-                        {...bound(e.pcId, "tubeLightInstallDate")}
-                        // An empty date prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111).
-                        data-empty={e.tubeLightInstallDate ? undefined : ""}
-                        aria-label={`${label} — date of tube light installation`}
-                        disabled={!editable}
-                        value={e.tubeLightInstallDate ?? ""}
-                        onChange={(ev) => updateEntry(e.pcId, { tubeLightInstallDate: ev.target.value || null })}
-                      />
-                    </td>
-                    <td className="edit-cell">
-                      <input
-                        type="date"
-                        className="input input-sm fhr18-input"
-                        data-field="due"
-                        {...bound(e.pcId, "tubeLightDueDate")}
-                        data-empty={e.tubeLightDueDate ? undefined : ""}
-                        aria-label={`${label} — due date for tube light replacement`}
-                        disabled={!editable}
-                        value={e.tubeLightDueDate ?? ""}
-                        onChange={(ev) => updateEntry(e.pcId, { tubeLightDueDate: ev.target.value || null })}
-                      />
-                    </td>
-                    {/* The names signed read exactly as they were written, in either language (REQUIREMENTS §58). */}
-                    <td className="edit-cell">
-                      <input
-                        className="input input-sm fhr18-input notranslate"
-                        translate="no"
-                        list="fhr18-record-people"
-                        data-field="cleaning"
-                        {...bound(e.pcId, "cleaningDoneBy")}
-                        aria-label={`${label} — cleaning done by`}
-                        disabled={!editable}
-                        value={e.cleaningDoneBy}
-                        onChange={(ev) => updateEntry(e.pcId, { cleaningDoneBy: ev.target.value })}
-                      />
-                    </td>
-                    <td className="edit-cell">
-                      <input
-                        className="input input-sm fhr18-input notranslate"
-                        translate="no"
-                        list="fhr18-record-people"
-                        data-field="verified"
-                        {...bound(e.pcId, "verifiedBy")}
-                        aria-label={`${label} — verified by`}
-                        disabled={!editable}
-                        value={e.verifiedBy}
-                        onChange={(ev) => updateEntry(e.pcId, { verifiedBy: ev.target.value })}
-                      />
-                    </td>
-                  </tr>
+                      <tr key={record.id} className="register-row" data-visit={record.dueDate}>
+                        {i === 0 && pcCell}
+                        {/* The visit's date, as the paper writes it (3/08/26). */}
+                        <td className="date-cell notranslate" translate="no">
+                          {at(`date:${e.pcId}`, serviceDate, "Date of service")}
+                        </td>
+                        {boxes(record.dueDate, e, (p) => updateEntry(e.pcId, p), editable, (field) => bound(e.pcId, field))}
+                      </tr>
                     );
                   })}
                 </tbody>

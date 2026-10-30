@@ -10189,14 +10189,18 @@ showing second row so do fix it and when any document i download or even take pr
    certificate's 21-09-26 and 20-09-27, editable, the later kept (autoFill.newest, §129); a sheet that held a date there
    shows it again (the 2024 page's 31.12.2024), and an open sheet's blank Due Date takes the certificate's at start
    (data/certificateDatesMigration.ts). A demo sheet's Due Date is the next month's calibration, as before 28-Oct.
-2. **F/HR/18's visit page draws the paper's two lines a unit** (components/records/FlyCatcherRecordView.tsx): the month's
-   visits in date order - this visit's line to fill in; the month's other visit's line as written on its own record,
-   words not boxes (it is changed there, and a file read back never writes it); a blank line for a fortnight's visit
-   still to come. A line nobody wrote is on the screen only (§126); the monthly register (FlyCatcherRegisterSheet) is
-   as before.
+2. **F/HR/18's visit page draws the paper's two lines a unit, every one to fill in** (components/records/
+   FlyCatcherRecordView.tsx; the owner, later the same day: "make sure user can add anything so make sure give option
+   over there like you can see in format which i have provided"): the month's visits in date order - this visit's line;
+   the month's other visit's line as boxes bound to that visit (data-bind-record), what is typed there saved into it
+   through its own saveDraft a moment after the last keystroke and on leaving, as the register saves; a visit handed in
+   or verified read as written; a blank line for a fortnight's visit still to come with its Date of Service box, which
+   starts that visit (engine/flyRegister.ts addFlyCatcherVisit: a date in the month, not to come, not one already on
+   the sheet, the refusal said above the grid) and opens its line. A line nobody wrote is on the screen only (§126); the
+   monthly register (FlyCatcherRegisterSheet) is as before.
 3. **Proved:** frontend/tests/qcCertificateDates, qcCarryForward, qcPaperFindings, qcPaperFormats, scheduleChange28Oct
    (the row's boxes, words, dates, place and print), hrPaperFormats (two lines a unit, this visit's date on its own),
-   roundTripBindings (nothing unbound but the other visit's words); tests/e2e_qc_calibration.py (the page on file's
+   roundTripBindings (the other visit's boxes bound to it), hrPaperFormats (the blank line's date box, the other open visit's boxes, a signed-off one's words); tests/e2e_print_and_forms.py (a count typed on the other visit's line saved into it); tests/e2e_qc_calibration.py (the page on file's
    31.12.2024 shown again, a new sheet's 21-09-26 and 20-09-27, the box table four tracks high).
 ## Master data provenance summary
 
