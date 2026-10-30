@@ -156,7 +156,7 @@ test("the page on file is a previous sheet: a new F/QC/12 starts as the last wee
   assert.equal(gsmStart.header.calibrationDate, "2026-09-21", "the certificate's calibration date the owner gave, later than the page's 31.12.2024");
   assert.equal(gsmStart.header.dueDate, "2027-09-20");
   assert.equal(startingData(weight, "2026-10-14", false) && (startingData(weight, "2026-10-14", false) as LogSheetData).header.calibrationExpiry, "2027-09-20", "F/QC/12: the owner's 20-09-27, not the page's 27.08.2024");
-  assert.equal(gsmStart.rows.find((r) => r.parameter === "Sign.")?.p54, "Rashmi");
+  assert.equal(gsmStart.rows.find((r) => r.parameter === "Sign.")?.p54, "", "the page's signer is not this month's: the opener signs on opening (30-Oct-2026)");
 });
 
 test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what was written over the paper's words; without a previous record the sheet is the paper's blank", () => {
@@ -195,7 +195,7 @@ test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what wa
   assert.equal(carried.header.calibrationExpiry, "2027-10-31", "a later certificate's date written carries on");
   assert.equal(carried.header.calibrationDate, "2026-09-21", "the certificate's calibration date the owner gave (27-Oct-2026), the row back (§147)");
   assert.equal(carried.header.dueDate, "2027-09-20", "the later of the 31-10-26 written and the certificate's 20-09-27");
-  assert.equal(carried.rows.find((r) => r.parameter === "Sign.")?.p54, "Rashmi");
+  assert.equal(carried.rows.find((r) => r.parameter === "Sign.")?.p54, "", "last month's signer is not carried (30-Oct-2026)");
   assert.deepEqual(carried.rows.map((r) => r.parameter), ["Tasted-1", "2", "3", "4", "Pass/Fail", "Sign."], "the paper's own lines");
   recordRepository.query({ documentId: gsm.id }).forEach((r) => recordRepository.remove(r.id));
 });

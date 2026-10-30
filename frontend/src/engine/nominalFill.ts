@@ -96,7 +96,10 @@ export function nominalFillWaits(documentId: string, data: LogSheetData | undefi
     const now = lineNow(data.rows);
     return now >= 0 && blank(data.rows[now].testedBy) && blank(data.rows[now].sign);
   }
-  return data.rows.every((r) => !GSM_MEASURED.includes(String(r.parameter ?? "")) || GSM_PLATES.every((p) => blank(r[p.key])));
+  // F/QC/11: nobody's name on its Sign. line yet (the owner, 30-Oct-2026: a sheet carried from last month with its sizes
+  // on it opened with its Sign. line empty - the fill had waited for blank sizes). The fill writes only what is blank.
+  const sign = data.rows.find((r) => String(r.parameter ?? "") === "Sign.");
+  return !!sign && GSM_PLATES.every((p) => blank(sign[p.key]));
 }
 
 /**
@@ -149,8 +152,9 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
     const line = String(row.parameter ?? "");
     const next: LogSheetRow = { ...row };
     for (const plate of GSM_PLATES) {
-      if (GSM_MEASURED.includes(line)) next[plate.key] = plate.size;
-      else if (line === "Pass/Fail") next[plate.key] = "Pass";
+      // A size or a Pass a person wrote is kept: only a blank cell takes the plant's usual (§136).
+      if (GSM_MEASURED.includes(line) && !String(row[plate.key] ?? "").trim()) next[plate.key] = plate.size;
+      else if (line === "Pass/Fail" && !String(row[plate.key] ?? "").trim()) next[plate.key] = "Pass";
       else if (line === "Sign." && name && !String(row[plate.key] ?? "").trim()) next[plate.key] = name;
     }
     return next;

@@ -196,7 +196,13 @@ test("on opening: a sheet nothing is observed on is filled in the opener's name;
   const gsm = createDefaultData(doc(GSM), "2026-11-03", master) as LogSheetData;
   assert.equal(nominalFillWaits(GSM, gsm), true);
   const measured = { ...gsm, rows: gsm.rows.map((r, i) => (i === 0 ? { ...r, p55: "10.1 x 10cm" } : r)) };
-  assert.equal(nominalFillOnOpen(GSM, measured, "x"), null, "a plate measured: left as it is");
+  // F/QC/11 (the owner, 30-Oct-2026): a sheet carried from last month with its sizes on it, or a plate already measured,
+  // still takes its Pass and the opener's Sign. where blank - what was written is kept.
+  const measuredFilled = nominalFillOnOpen(GSM, measured, "Kapila Barad")!;
+  assert.equal(measuredFilled.rows[0].p55, "10.1 x 10cm", "the measurement a person wrote is kept");
+  assert.equal(measuredFilled.rows.find((r) => r.parameter === "Sign.")!.p54, "Kapila Barad", "the opener signs");
+  const signed = { ...gsm, rows: gsm.rows.map((r) => (r.parameter === "Sign." ? { ...r, p54: "Rashmi", p55: "Rashmi", p56: "Rashmi", p57: "Rashmi" } : r)) };
+  assert.equal(nominalFillOnOpen(GSM, signed, "x"), null, "a sheet signed: left as it is");
   assert.equal(nominalFillOnOpen("qc-calibration-master-list", blank, "x"), null);
   assert.equal(nominalFillOnOpen(RULER_600_ID, undefined, "x"), null);
 });

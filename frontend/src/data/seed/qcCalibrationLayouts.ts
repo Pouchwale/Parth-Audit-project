@@ -295,8 +295,11 @@ const gsmPlate: LogSheetLayout = {
   ],
   columns: gsmColumns,
   rowMode: { kind: "fixedRows", rows: GSM_ROWS.map((parameter) => ({ parameter })) },
-  // A new month's sheet is written as the last one was — every box and every line, editable (§117).
+  // A new month's sheet is written as the last one was — every box, editable (§117)...
   carryForwardAll: true,
+  // ...but not its lines (the owner, 30-Oct-2026): each month's sheet starts from the plates' sizes and Pass, and its
+  // Sign. line is the opener's on opening (engine/nominalFill.ts) - never last month's measurements or signer.
+  carryLines: false,
   // Pass/Fail and Sign.: one cell under each plate, across its size and Deviation, as printed.
   groupCellLines: [GSM_ROWS.indexOf("Pass/Fail"), GSM_ROWS.indexOf("Sign.")],
   notesBelow: [`PROCEDURE: ${CALIBRATION_PROCEDURE}`],

@@ -10244,6 +10244,17 @@ and only that reaches the rodent trend. Asked the same day for random catches wr
 in whole year and other are lizards"): declined, as on 28-Oct-2026 - a record shows what was found. A holiday and a day
 already answered are left as they are; the schedule and the morning prepare still write no answer (§98).
 Proved: frontend/tests/dailyPestFill.test.ts.
+
+## §150 F/QC/11 opens every month filled and signed, every value editable (30-Oct-2026)
+
+The owner, 30-Oct-2026, with a new F/QC/11 whose Sign. line was empty: "these should be fixed but editable values should
+be present everytime and whenever user open it for verify and submit it". A sheet carried from last month arrived with
+its sizes on it, so the opening fill (§136), which waited for blank sizes, never ran, and nobody's name went on Sign.
+Now: a new month's sheet carries its boxes alone (LogSheetLayout.carryLines false, as F/QC/12 since §142) and its lines
+start from the plant's standards - each plate's size on its four lines, Pass on Pass/Fail; when a person who may fill
+it opens it, the Sign. line takes their name where it is blank, and any blank size or Pass takes the usual (a size, a
+Pass or a name already written is kept). The fill waits only while the Sign. line is empty. Every value stays editable;
+the person verifies and submits. Proved: frontend/tests/nominalFill.test.ts, qcCarryForward.test.ts.
 ## Master data provenance summary
 
 | Master list | Source | Notes |
