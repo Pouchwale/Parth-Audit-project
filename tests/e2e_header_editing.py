@@ -351,6 +351,22 @@ with sync_playwright() as p:
     open_page(page, "#/pest/daily", settle=1500)
     check("The F/HR/17 register: its first page's header is typed over, the other two repeat it",
           page.evaluate(CLICKABLE, ".register-sheet [data-action='rename-format-no']") == 1 and page.evaluate(CLICKABLE, ".register-sheet .doc-header") == 3)
+    # The month after its title stays while the title's box is open (the owner, 31-Oct-2026, s155: "October 2026 is wipe
+    # out"), and its revision's date prints the whole year ("not 21 it should be like 2021").
+    reg_title = page.locator(".register-sheet .doc-header .doc-title").first
+    month_words = reg_title.locator("[data-title-after]").inner_text().strip() if reg_title.locator("[data-title-after]").count() else ""
+    rev_words = page.locator(".register-sheet .doc-header [data-meta='revision-date'] .v").first.inner_text().strip() if page.locator(".register-sheet .doc-header [data-meta='revision-date'] .v").count() else ""
+    title_btn = reg_title.locator("[data-action='rename-title']")
+    if title_btn.count():
+        title_btn.first.click()
+        page.wait_for_timeout(400)
+    still = reg_title.locator("[data-title-after]").inner_text().strip() if reg_title.locator("[data-title-after]").count() else ""
+    box_open = reg_title.locator("input, textarea").count() >= 1
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(300)
+    check("...its title clicked: the title's box opens and the month stays beside it; its Rev Date has the whole year",
+          title_btn.count() == 1 and box_open and month_words.startswith("\u2014 ") and still == month_words and re.fullmatch(r"\d{2}-\d{2}-\d{4}", rev_words) is not None,
+          (month_words, still, box_open, rev_words))
     daily = next((r for r in records(page) if r["documentId"] == "daily-pest-monitoring" and not r.get("isDemo") and r["status"] in ("Due", "In Progress", "Scheduled")), None)
     if daily:
         open_page(page, f"#/record/{daily['id']}", settle=1300)

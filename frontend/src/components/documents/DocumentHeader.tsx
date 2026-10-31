@@ -5,7 +5,7 @@ import { COMPANY } from "../../data/seed/masterData";
 import { documentTextIn } from "../../i18n/documentText";
 import type { Language } from "../../i18n/strings";
 import { useAppStore } from "../../store/AppStore";
-import { formatDisplayDate } from "../../utils/date";
+import { formatDisplayDate, fullYearDate } from "../../utils/date";
 import { isPlaceholder } from "../../engine/observations";
 
 // Reproduces the original paper header block: company name, document title,
@@ -387,13 +387,15 @@ export function DocumentHeader({
         <div className={`dhf-title ${frame.titleAlign}`} style={frame.title ? ({ "--title-pt": frame.title.size, color: frame.title.color } as React.CSSProperties) : undefined}>
           <Cell field="title" edit={edit}>
             {frame.titleBreak ? brokenAfterDash(documentTextIn(title ?? doc.name, lang).toUpperCase()) : documentTextIn(title ?? doc.name, lang).toUpperCase()}
-            {extraTitle ? ` — ${extraTitle}` : ""}
           </Cell>
+          {extraTitle ? <span data-title-after="">{` — ${extraTitle}`}</span> : null}
         </div>
       </div>
     );
   }
-  const dateWords = (iso: string) => (dotDates && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso.slice(8)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : formatDisplayDate(iso));
+  // The revision's date with its whole year, 01-12-2021 (the owner, 31-Oct-2026, REQUIREMENTS §155: "not 21 it should be
+  // like 2021"); a paper that writes it with dots, 15.12.2024.
+  const dateWords = (iso: string) => fullYearDate(iso, dotDates ? "." : "-");
   return (
     <div className="doc-header">
       {letterhead ?? (
@@ -415,8 +417,10 @@ export function DocumentHeader({
       <div className="doc-title">
         <Cell field="title" edit={edit}>
           {titleAsPrinted ? documentTextIn(title ?? doc.name, lang) : documentTextIn(title ?? doc.name, lang).toUpperCase()}
-          {extraTitle ? ` — ${extraTitle}` : ""}
         </Cell>
+        {/* The month after the title (F/HR/17's register, "— October 2026") stands outside the title's box: clicked to
+            change, the title's box opens and the month stays beside it (the owner, 31-Oct-2026, REQUIREMENTS §155). */}
+        {extraTitle ? <span data-title-after="">{` — ${extraTitle}`}</span> : null}
       </div>
       <div className="meta-row">
         <div className="meta-cell">

@@ -45,6 +45,12 @@ export interface FormatEdit {
   formatNo?: string;
   /** The whole layout as it now stands, when it was changed (log sheets only). */
   layout?: LogSheetLayout;
+  /**
+   * THE PRINTED WORDS OF A FORM DRAWN BY ITS OWN VIEW, CHANGED ON THE FORMAT (the service reports, REQUIREMENTS §154): by
+   * place ("title", "area:3", "material:9" ...), each change with the moment it took effect, oldest first. A report handed
+   * in before a change keeps the words it was handed in with; every other report prints the newest.
+   */
+  printedWords?: Record<string, { words: string; from: string }[]>;
   /** Newest first. */
   revisions: FormatRevision[];
 }
@@ -71,6 +77,14 @@ export function formatEdits(): FormatEditStore {
 }
 
 export const formatEditFor = (documentId: string): FormatEdit | undefined => formatEdits()[documentId];
+
+/** The words a form prints at `place` (REQUIREMENTS §154): the format's newest change, or the one in force when the report was handed in (`handedInAt`), else the form's own. */
+export function formatWordsAt(documentId: string, place: string, original: string, handedInAt?: string): string {
+  const changes = formatEditFor(documentId)?.printedWords?.[place];
+  if (!changes?.length) return original;
+  const held = handedInAt ? changes.filter((c) => c.from <= handedInAt) : changes;
+  return held.length ? held[held.length - 1].words : original;
+}
 
 export function saveFormatEdit(documentId: string, edit: FormatEdit): boolean {
   return writeJSON(FORMAT_EDITS_KEY, { ...formatEdits(), [documentId]: edit });

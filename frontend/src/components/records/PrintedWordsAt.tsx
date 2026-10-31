@@ -25,7 +25,7 @@ export function withWordsAt(words: PrintedWords | undefined, place: string, type
 }
 
 /** A record's own lines: each line of the typed words, the browser's breaks kept. */
-function ownLines(text: string): React.ReactNode {
+export function ownLines(text: string): React.ReactNode {
   return text.split("\n").map((line, i) => (
     <React.Fragment key={i}>
       {i > 0 && <br />}

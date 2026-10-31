@@ -10289,6 +10289,40 @@ machine box, Format no. / Rev. no. / Effective date) now reaches the Word file, 
 prints no company line, gets the company's name above it as the page shows (originalFill hint companyLine). Proved: all
 41 QC formats downloaded both ways with the screen's title, headings, boxes and format number in each file;
 tests/e2e_downloads_and_print.py (F/QC/12's two buttons, its Excel holding its header, boxes and weights).
+
+## §154 The Pest Control Service Report: its words the format's, Deltamethrin's 150 ml, the screen's width, the A4 print (31-Oct-2026)
+
+The owner, 31-Oct-2026: "make each and editable and make sure whatever user change in format then it should be change
+from that format to all upcoming formats"; "150 ml is fixed in quantity"; "when user take print then it should be
+completely perfect on A4 Size page and every fonts are visible"; and, with a screenshot, the empty half of the screen
+beside the sheet.
+1. Every printed word of the three service reports but the date (the title, the contractor, the plant, the service, the
+   headings, each area, material and method, the captions) is the FORMAT's: typed over, "Are you sure?" names the change
+   for every report from now on and asks which revision - a new one with its number and date, or none (§148) - and it is
+   saved on the format (data/formatEdits.ts FormatEdit.printedWords, each change with the moment it took effect;
+   engine/formatOps.ts FormatDraft.wordsAt), in its change history and the activity log. This report and every one after
+   it print it; a report handed in before keeps the words it was handed in with (formatWordsAt by its submittedAt). A
+   report's own words from §137 stand until that place is changed again. The date is the report's own.
+2. Deltamethrin 2.5% SC's quantity is 150 ml (engine/serviceMaterials.ts FIXED_SERVICE_QTY), written when a signed-in person
+   opens a report where it is blank, in their name with a line in its history (serviceQtyFillOnOpen, RecordPage), and
+   theirs to change. Asked in the same message: the glue boards' count "randomly ... between 3 to 5" and the bait
+   "sometime 40 gms to 50 grams" every time - declined, as §136 and §149 declined made-up varying values: the quantity
+   used is what the technician used on the visit. Offered: a fixed quantity for each, as the 150 ml, if the owner names one.
+3. On a laptop the sheet runs the card's width, its words a quarter larger (styles.css, screen only; measured for print it
+   is the paper's width again).
+4. Printed, the sheet is the contractor's March sheet enlarged evenly to the A4 page's width (utils/print.ts fillPage now
+   fills .svc-paper): about 516 pt across where it was 432 pt, its letters about 10 pt, one portrait page.
+Proved: frontend/tests/serviceReportFormatWords.test.ts; tests/e2e_editing.py (the question, the next report printing the
+area, 150 ml); tests/e2e_print_all_documents.py (the page's width, every rule and word of the March PDF at its scale).
+
+## §155 F/HR/17's heading keeps its month while its title is typed over; a header's Rev Date has the whole year (31-Oct-2026)
+
+The owner, 31-Oct-2026: "when i click on heading part it october 2026 is wipe out" and "year format print like whole not
+21 it should be like 2021". The register's "— October 2026" after the title stands outside the title's box
+(DocumentHeader data-title-after), so clicking the title opens its box with the month beside it. The header's Rev Date
+prints dd-mm-yyyy (utils/date.ts fullYearDate; a paper that writes it with dots, 15.12.2024), on every document's header
+and a certificate's number strip; the owner's Word and Excel originals take it as before (originalFill dotted reads both).
+Dates elsewhere keep dd-mm-yy. Proved: tests/e2e_header_editing.py, frontend/tests/qcPaperFindings.test.ts.
 ## Master data provenance summary
 
 | Master list | Source | Notes |

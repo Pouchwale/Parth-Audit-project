@@ -506,16 +506,44 @@ with sync_playwright() as p:
         words = ((stored(page, scale_id) or {}).get("data", {}).get("words") or {}).get("notesBelow") or []
         check("...kept as this record's own text below the grid, the format's untouched", words[:1] == ["PROCEDURE: as our lab does it this week."], words)
 
-    # THE HR MODULE'S OWN VIEWS (REQUIREMENTS s137): the contractor's service report's printed words typed over on the report.
+    # THE SERVICE REPORT'S PRINTED WORDS ARE THE FORMAT'S (the owner, 31-Oct-2026, s154): typed over, the page asks which
+    # revision (s148), the format keeps the words, and the next report prints them; a report handed in keeps its own.
     svc_id = new_record("service-report-general")
     area = page.locator("[data-print-doc] [data-cell='area'] [data-editable-words]")
     check("The service report: its areas, material and method are there to type over on a new report",
           area.count() >= 3 and page.locator("[data-print-doc] [data-cell='material'] [data-editable-words]").count() >= 1
           and page.locator("[data-print-doc] [data-cell='method'] [data-editable-words]").count() >= 1, area.count())
+    qty = page.locator("[data-print-doc] input[data-field='qty']")
+    check("...Deltamethrin's quantity is 150 ml when the report is opened, the person's to change (s154)",
+          qty.count() == 1 and qty.first.input_value() == "150 ml", qty.first.input_value() if qty.count() else None)
     if area.count():
-        type_over(area.first, "Ground floor - Main gate")
+        was = area.first.inner_text().strip()
+        area.first.click()
+        page.keyboard.press("Control+A")
+        page.keyboard.type("Ground floor - Main gate")
+        page.locator("h1, .page-title").first.click(force=True) if page.locator("h1, .page-title").count() else page.mouse.click(5, 5)
+        page.wait_for_selector("[data-action='sure-yes']", state="visible", timeout=3000)
+        asked = page.locator("[data-section='sure-first']").inner_text()
+        check("...an area typed over asks first: the format changes for every report from now on, a new revision or none (s154, s148)",
+              "every report from now on" in asked and page.locator("[data-section='sure-first'] [data-choice='revision-keep']").count() == 1, asked)
+        page.click("[data-section='sure-first'] [data-choice='revision-keep']")
+        page.click("[data-action='sure-yes']")
+        page.wait_for_timeout(800)
         words = ((stored(page, svc_id) or {}).get("data", {}).get("printedWords") or {})
-        check("...an area typed over is this report's own words, the Chemical Master's untouched", "Ground floor - Main gate" in words.values(), words)
+        check("...the format keeps it, not the report", "Ground floor - Main gate" not in words.values() and area.first.inner_text().strip() == "Ground floor - Main gate", words)
+        new_record("service-report-general")
+        next_area = page.locator("[data-print-doc] [data-cell='area'] [data-editable-words]").first
+        check("...and the next report prints it", next_area.inner_text().strip() == "Ground floor - Main gate", next_area.inner_text())
+        # Put back as the paper prints it (the run's other suites read the general report's first area), the revision kept.
+        next_area.click()
+        page.keyboard.press("Control+A")
+        page.keyboard.type(was)
+        page.locator("h1, .page-title").first.click(force=True) if page.locator("h1, .page-title").count() else page.mouse.click(5, 5)
+        page.wait_for_selector("[data-action='sure-yes']", state="visible", timeout=3000)
+        page.click("[data-section='sure-first'] [data-choice='revision-keep']")
+        page.click("[data-action='sure-yes']")
+        page.wait_for_timeout(800)
+        check("...typed back, the paper's words again", page.locator("[data-print-doc] [data-cell='area'] [data-editable-words]").first.inner_text().strip() == was)
 
     page.goto(f"{BASE}/index.html#/record/qc-gsm-plate-calibration-2024-12")
     page.wait_for_timeout(1500)

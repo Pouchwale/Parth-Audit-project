@@ -3353,6 +3353,13 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
    original and the print is the PDF's size). Cells are drawn in ink on white in every theme; the boxes you type in sit
    inline in the paper's cells with no box of their own on the sheet (a dotted rule under them on screen only). */
 .svc-paper-wrap { max-width: 100%; overflow-x: auto; }
+/* On a laptop the sheet runs the card's width (the owner, 31-Oct-2026, REQUIREMENTS §154: no empty half beside it), its
+   words a quarter larger to read; the columns keep the paper's proportions.
+   Measured for print it is the paper's width again (html.print-measure); printed, it is enlarged evenly to the A4
+   page's width (utils/print.ts fillPage). */
+@media screen and (min-width: 760px) {
+  html:not(.print-measure) table.svc-paper { zoom: 1.25; width: 100%; min-width: 576px; }
+}
 table.svc-paper {
   border-collapse: collapse; table-layout: fixed; width: 576px; background: #fff; color: #000;
   font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 11px; line-height: 13.5px;

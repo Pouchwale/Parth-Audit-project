@@ -49,6 +49,8 @@ export interface FormatDraft {
   revisionNo?: string;
   /** The date the header prints for that revision (ISO); today when absent. */
   revisionDate?: string;
+  /** One place's printed words reworded on a form drawn by its own view (the service reports, REQUIREMENTS §154). */
+  wordsAt?: { place: string; words: string; was: string };
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -509,6 +511,10 @@ export function describeFormatChange(before: FormatDraft, after: FormatDraft): s
   if (after.revisionDate !== undefined && after.revisionDate !== (before.revisionDate ?? "") && after.revisionDate !== todayISO()) {
     out.push(`dated the revision ${formatDisplayDate(after.revisionDate)}`);
   }
+  if (after.wordsAt && after.wordsAt.words.trim() !== after.wordsAt.was.trim()) {
+    const one = (s: string) => s.replace(/\s+/g, " ").trim();
+    out.push(after.wordsAt.words.trim() ? `reworded “${one(after.wordsAt.was)}” to “${one(after.wordsAt.words)}”` : `rubbed out “${one(after.wordsAt.was)}”`);
+  }
   const a = before.layout;
   const b = after.layout;
   if (!a || !b) return out;
@@ -636,6 +642,10 @@ export function commitFormatChange(
     companyName: company && company !== (issued?.companyName ?? COMPANY.name) ? company : undefined,
     formatNo: formatNo && formatNo !== (issued?.formatNo ?? doc.formatNo) ? formatNo : undefined,
     layout: draft.layout ?? existing?.layout,
+    // A place's printed words: the change added after the ones before it, from now (REQUIREMENTS §154).
+    printedWords: draft.wordsAt
+      ? { ...existing?.printedWords, [draft.wordsAt.place]: [...(existing?.printedWords?.[draft.wordsAt.place] ?? []), { words: draft.wordsAt.words, from: at }] }
+      : existing?.printedWords,
     // Every entry carries an id, so two people's saves MERGE into one history
     // (data/serverSync.ts merges a list by id) instead of one list replacing the other.
     revisions: [revision, ...(existing?.revisions ?? []).map((r) => (r.id ? r : { ...r, id: revisionId(r) }))],

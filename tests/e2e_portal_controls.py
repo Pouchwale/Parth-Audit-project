@@ -281,7 +281,7 @@ with sync_playwright() as p:
     cells = header_cells(page)
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("Saved: the sheet now carries the new column", "Batch No." in headings, headings)
-    check("...and the format is at Rev 02, dated today", cells.get("Rev No.") == "02" and cells.get("Rev Date") == date.today().strftime("%d-%m-%y"), cells)
+    check("...and the format is at Rev 02, dated today", cells.get("Rev No.") == "02" and cells.get("Rev Date") == date.today().strftime("%d-%m-%Y"), cells)
     edit = (stored(page, "formatEdits") or {}).get(FORMAT_DOC) or {}
     rev = (edit.get("revisions") or [{}])[0]
     check(

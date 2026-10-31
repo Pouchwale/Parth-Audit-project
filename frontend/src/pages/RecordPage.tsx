@@ -47,6 +47,7 @@ import { mayDo } from "../engine/departmentScope";
 import { periodKeyFor } from "../engine/recordGenerator";
 import { NOMINAL_FILL_NOTE, nominalFillOnOpen } from "../engine/nominalFill";
 import { DAILY_PEST_FILL_NOTE, dailyPestFillOnOpen } from "../engine/dailyPestFill";
+import { SERVICE_QTY_FILL_NOTE, serviceQtyFillOnOpen } from "../engine/serviceMaterials";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -257,6 +258,13 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     if (filled) persistLocal(saveDraft(record, filled, currentUser, { note: DAILY_PEST_FILL_NOTE }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id, editable, superseded]);
+  // A service report's fixed quantity (Deltamethrin's 150 ml) written when a person opens it (REQUIREMENTS §154).
+  useEffect(() => {
+    if (!record || !doc || doc.kind !== "service-report" || !editable || dirty) return;
+    const filled = serviceQtyFillOnOpen(doc.variantKey, record.data as ServiceReportData | undefined);
+    if (filled) persistLocal(saveDraft(record, filled, currentUser, { note: SERVICE_QTY_FILL_NOTE }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record?.id, editable]);
 
   useEffect(() => {
     flush(); // anything pending on the record we're leaving

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { t } from "../../i18n";
-import { useSureFirst } from "../common/SureFirst";
+import { useSureFirst, type RevisionChoice, type RevisionOffer } from "../common/SureFirst";
 
 // EVERY PRINTED WORD OF A SHEET IS THE PERSON'S TO TYPE OVER (REQUIREMENTS §135; the owner, 28-Oct-2026: "each and every
 // document of HR and QC in that each and every single part make sure it is always editable every single part of it").
@@ -31,13 +31,19 @@ export function EditableWords({
   className,
   style,
   label,
+  format,
   children,
 }: {
   /** The words drawn now, as the person reads them (the record's own, or the paper's in the chosen language). */
   shown: string;
   /** False on a record that cannot be written on: the words as plain text, as before. */
   editable: boolean;
-  onChange: (words: string) => void;
+  onChange: (words: string, choice?: RevisionChoice) => void;
+  /**
+   * The words are the FORMAT's (the service reports, REQUIREMENTS §154): the question says every report from now on
+   * prints them and asks which revision - a new one, its number and date, or none (§148).
+   */
+  format?: { number: string; offer: RevisionOffer };
   className?: string;
   style?: React.CSSProperties;
   /** What these words are, for a screen reader. */
@@ -76,12 +82,17 @@ export function EditableWords({
           if (next.trim() === shown.trim()) return again();
           // Asked first (REQUIREMENTS §138); what was typed stays on the screen while the question is open.
           sure.ask(
-            next.trim() ? t("sure.words", { from: quoted(shown), to: quoted(next) }) : t("sure.wordsRubbedOut", { from: quoted(shown) }),
-            () => {
-              onChange(next);
+            format
+              ? t("sure.formatWords", { number: format.number, from: quoted(shown), to: next.trim() ? quoted(next) : "—" })
+              : next.trim()
+                ? t("sure.words", { from: quoted(shown), to: quoted(next) })
+                : t("sure.wordsRubbedOut", { from: quoted(shown) }),
+            (choice) => {
+              onChange(next, choice);
               again();
             },
-            again
+            again,
+            format?.offer
           );
         }}
         onKeyDown={(e) => {

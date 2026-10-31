@@ -107,8 +107,8 @@ const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "
 
 /** "16-02-22" (the app's date, REQUIREMENTS §124) or the older "16-Feb-2022" -> "16.02.2022" (the papers' way); anything else as it is. */
 export function dotted(words: string): string {
-  const numeric = /^(\d{2})-(\d{2})-(\d{2})$/.exec((words ?? "").trim());
-  if (numeric) return `${numeric[1]}.${numeric[2]}.20${numeric[3]}`;
+  const numeric = /^(\d{2})-(\d{2})-(\d{2}|\d{4})$/.exec((words ?? "").trim());
+  if (numeric) return `${numeric[1]}.${numeric[2]}.${numeric[3].length === 2 ? `20${numeric[3]}` : numeric[3]}`;
   const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec((words ?? "").trim());
   if (!m) return words;
   const month = MONTHS.indexOf(m[2].toLowerCase()) + 1;

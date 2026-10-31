@@ -47,7 +47,7 @@ import { withComputedCells } from "../../engine/computedCells";
 import { documentLayoutIn, documentTextIn, keepFormAsIssued, sheetLanguage } from "../../i18n/documentText";
 import { imageFileToDataUrl } from "../../utils/image";
 import { useAppStore } from "../../store/AppStore";
-import { formatDisplayDate, todayISO } from "../../utils/date";
+import { formatDisplayDate, fullYearDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { logRowsRule, newRow } from "../../engine/recordLines";
 import { nominalFillAdded } from "../../engine/nominalFill";
@@ -739,7 +739,7 @@ export function LogSheetRecordView({
                     <span className="k">Rev Date</span>
                     <span className="v notranslate" translate="no">
                       <HeaderWord field="revisionDate" edit={headerEdit}>
-                        {formatDisplayDate(revisionDate)}
+                        {fullYearDate(revisionDate)}
                       </HeaderWord>
                     </span>
                   </div>

@@ -387,7 +387,7 @@ test("the header's Rev No. prints the Master List's revision for the certificate
   assert.deepEqual(meta(label, '<div class="meta-row pt-number-strip no-print"'), [
     ["Format No.", "F/QC/06"],
     ["Rev No.", "00"],
-    ["Rev Date", "01-12-21"],
+    ["Rev Date", "01-12-2021"],
     ["Page No.", "1 of 1"],
   ]);
   assert.ok(!/<span class="k">Date<\/span>/.test(label), "the DATE cell DCRS added is gone (the owner, 16-Oct-2026)");

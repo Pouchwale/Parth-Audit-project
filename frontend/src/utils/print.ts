@@ -377,7 +377,9 @@ function ownMake(doc: HTMLElement): boolean {
 
 /** FILLING THE PAGE (above): the zoom that brings a short one-page sheet of DCRS's own make toward FILL_TO. */
 function fillPage(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean): number {
-  if (!ownMake(doc)) return zoom;
+  // The contractor's service report prints across the A4 page too (the owner, 31-Oct-2026, REQUIREMENTS §154: "completely
+  // perfect on A4 Size page and every fonts are visible"): drawn at 576 px it filled three quarters of the width.
+  if (!ownMake(doc) && !doc.querySelector(".svc-paper")) return zoom;
   return withPrintRules(() => fillMeasured(doc, zoom, width, across, landscape));
 }
 

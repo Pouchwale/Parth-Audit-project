@@ -33,6 +33,12 @@ export function todayISO(): string {
  * "15-06-1985", so nothing reads it back as 20xx. Text that is not a date as the app stores one comes back as it was
  * written (a date column made Text, "12.09.2026").
  */
+/** A date with its whole year, 01-12-2021: how a header prints its revision's date (the owner, 31-Oct-2026, REQUIREMENTS §155). */
+export function fullYearDate(iso: string | null | undefined, sep = "-"): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  return m ? `${m[3]}${sep}${m[2]}${sep}${m[1]}` : formatDisplayDate(iso ?? null);
+}
+
 export function formatDisplayDate(iso: string | null): string {
   if (!iso) return "TO BE CONFIRMED";
   if (!/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso;

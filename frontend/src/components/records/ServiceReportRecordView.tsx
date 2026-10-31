@@ -13,6 +13,14 @@ import {
 } from "../../data/seed/serviceReportPaper";
 import { isQuantityLine, normalizeServiceLines, serviceGroups } from "../../engine/serviceMaterials";
 import { bindProps, serviceReportBind } from "../../engine/roundTrip/bindingsFor";
+import { formatWordsAt, nextRevisionNo } from "../../data/formatEdits";
+import { commitFormatChange, draftOf } from "../../engine/formatOps";
+import { documentRepository } from "../../data/repositories/documentRepository";
+import { isEditableStatus } from "../../engine/recordLifecycle";
+import { useAppStore } from "../../store/AppStore";
+import { todayISO } from "../../utils/date";
+import type { RevisionChoice } from "../common/SureFirst";
+import { EditableWords } from "./EditableWords";
 
 // THE SERVICE REPORT IS THE CONTRACTOR'S SHEET (the owner, 17-Oct-2026: "make sure it looks like it only"). One printed
 // grid, as the paper draws it: the title at the left, the band (the contractor, the service name, the date), the Unit
@@ -25,7 +33,7 @@ import { bindProps, serviceReportBind } from "../../engine/roundTrip/bindingsFor
 // The quantity is typed once, on the first line of its material, and holds for every line with it; the Remarks is one
 // remark for the visit and is the first line's — a remark an earlier version (or Mitra) wrote against another line is
 // shown under it, never dropped.
-import { PrintedWordsAt } from "./PrintedWordsAt";
+import { PrintedWordsAt, ownLines } from "./PrintedWordsAt";
 
 export function ServiceReportRecordView({
   doc,
@@ -60,13 +68,46 @@ export function ServiceReportRecordView({
   const lead = lines[0];
   const others = lines.slice(1).filter((l) => l.remarks.trim() && l.remarks.trim() !== (lead?.remarks ?? "").trim());
   const customerOpen = editable || countersignEditable;
-  // EVERY PRINTED WORD OF THE REPORT, TYPED OVER ON THIS REPORT (REQUIREMENTS §137): the title, the contractor, the plant,
-  // the service, the headings, each area, each material and method, the captions - the report's own words once changed.
-  const at = (place: string, original: string, children?: React.ReactNode, label?: string) => (
-    <PrintedWordsAt place={place} words={data.printedWords} original={original} editable={editable} onWords={(printedWords) => onChange({ ...data, printedWords })} label={label}>
-      {children}
-    </PrintedWordsAt>
-  );
+  const { currentUser, bump } = useAppStore();
+  const [problem, setProblem] = React.useState<string | null>(null);
+  // EVERY PRINTED WORD OF THE REPORT IS THE FORMAT'S (the owner, 31-Oct-2026, REQUIREMENTS §154: "whatever user change in
+  // format then it should be change from that format to all upcoming formats"): the title, the contractor, the plant, the
+  // service, the headings, each area, each material and method, the captions. Typed over, it is asked first - a new
+  // revision with its number and date, or none (§148) - then saved on the format, and this report and every one after it
+  // print it; a report handed in before keeps the words it was handed in with. A report's own words from before (§137)
+  // stand until that place is changed again. The date is the report's own.
+  const handedInAt = isEditableStatus(record.status) ? undefined : (record.submittedAt ?? record.verifiedAt ?? record.updatedAt);
+  const number = doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo;
+  const offer = { current: { no: doc.revisionNo ?? "", date: doc.revisionDate ?? "" }, next: { no: nextRevisionNo(doc.revisionNo), date: todayISO() } };
+  const saveFormatWords = (place: string, typed: string, was: string, choice?: RevisionChoice) => {
+    const latest = documentRepository.getById(doc.id) ?? doc;
+    const result = commitFormatChange(latest, { ...draftOf(latest), wordsAt: { place, words: typed, was } }, { actor: currentUser, reason: "Printed words reworded on the report", ...choice });
+    if (!result.ok) return setProblem(result.error);
+    setProblem(null);
+    const own = data.printedWords;
+    if (own && own[place] !== undefined) {
+      const rest = { ...own };
+      delete rest[place];
+      onChange({ ...data, printedWords: rest });
+    }
+    bump();
+  };
+  const at = (place: string, issued: string, children?: React.ReactNode, label?: string) => {
+    if (place === "date")
+      return (
+        <PrintedWordsAt place={place} words={data.printedWords} original={issued} editable={editable} onWords={(printedWords) => onChange({ ...data, printedWords })} label={label}>
+          {children}
+        </PrintedWordsAt>
+      );
+    const own = data.printedWords?.[place];
+    const formats = formatWordsAt(doc.id, place, issued, handedInAt);
+    const shown = own ?? formats;
+    return (
+      <EditableWords shown={shown} editable={editable} label={label} format={{ number, offer }} onChange={(typed, choice) => saveFormatWords(place, typed, shown, choice)}>
+        {own !== undefined || formats !== issued ? ownLines(shown) : (children ?? issued)}
+      </EditableWords>
+    );
+  };
 
   // Every value a person writes carries where it lives in the record, so an
   // edited Excel file can be read back (REQUIREMENTS §81). Material and method
@@ -247,8 +288,14 @@ export function ServiceReportRecordView({
       </table>
       {editable && (
         <div className="text-xs text-muted mt-2 no-print" data-section="service-note">
-          Every printed word can be typed over for this report (a click puts the caret in it). The quantity is entered once, on the first line of each
-          material, and is the same on every line with that material. The areas and their material are the Chemical Master's for every new report.
+          Every printed word can be typed over (a click puts the caret in it): the change is the format's, asked first - a new revision or not - and
+          this report and every one after it print it. The quantity is entered once, on the first line of each material, and is the same on every line
+          with that material.
+        </div>
+      )}
+      {problem && (
+        <div className="text-xs mt-1 no-print" role="alert" data-section="service-format-problem" style={{ color: "var(--danger, #b42318)" }}>
+          {problem}
         </div>
       )}
       {countersignEditable && !data.customerSign.trim() && (

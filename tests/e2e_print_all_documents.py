@@ -342,7 +342,8 @@ with sync_playwright() as p:
             else:
                 check(f"{doc_id}: the browser's PDF is {count} page(s), {orient}, as the paper (s117)", len(pages_) == count and all(p == orient for p in pages_), (pages_, pdf_path))
             if doc_id.startswith("service-report-") and pdfplumber:
-                # The contractor's sheet measured on the PDF (section 118): the table is the paper's 432 pt across (the March PDF's), whole inside the page.
+                # The contractor's sheet measured on the PDF (section 118): since 31-Oct-2026 (s154, "completely perfect on A4 Size page and
+                # every fonts are visible") the March sheet's 432 pt enlarged evenly to the A4 page's width, whole inside the page.
                 with pdfplumber.open(pdf_path) as pdf:
                     pg = pdf.pages[0]
                     # (the page's own white background is a rectangle too)
@@ -351,8 +352,8 @@ with sync_playwright() as p:
                     ys = [r["top"] for r in drawn] + [r["bottom"] for r in drawn]
                     wide = max(xs) - min(xs)
                     words_ = pg.extract_words()
-                    check(f"{doc_id}: on the PDF the table is the paper's 432 pt across (the March sheet) and nothing is cut at the page's edge",
-                          abs(wide - 432.1) <= 4 and min(xs) >= 20 and max(xs) <= pg.width - 20 and max(ys) <= pg.height - 20 and all(w["x1"] <= pg.width - 15 and w["bottom"] <= pg.height - 15 for w in words_),
+                    check(f"{doc_id}: on the PDF the table runs the A4 page's width (the March sheet's 432 pt enlarged, s154) and nothing is cut at the page's edge",
+                          500 <= wide <= pg.width - 40 and min(xs) >= 20 and max(xs) <= pg.width - 20 and max(ys) <= pg.height - 20 and all(w["x1"] <= pg.width - 15 and w["bottom"] <= pg.height - 15 for w in words_),
                           (round(wide, 1), round(min(xs)), round(max(xs)), round(max(ys)), pg.width))
         elif doc_id == "hr-training-needs":
             pages_, pdf_path = pdf_pages(page, doc_id)
@@ -444,13 +445,17 @@ with sync_playwright() as p:
                 h = [(r["top"] + r["bottom"]) / 2 for r in rs if r["bottom"] - r["top"] < 3 and r["x1"] - r["x0"] > 6]
                 v = [(r["x0"] + r["x1"]) / 2 for r in rs if r["x1"] - r["x0"] < 3 and r["bottom"] - r["top"] > 6]
                 x0, y0 = min(r["x0"] for r in rs), min(r["top"] for r in rs)
-                return sorted({round(y - y0, 1) for y in h}), sorted({round(x - x0, 1) for x in v})
+                # (in the March sheet's points: the print is that sheet enlarged evenly to the page's width, s154)
+                k = 432.1 / (max(r["x1"] for r in rs) - x0)
+                return sorted({round((y - y0) * k, 1) for y in h}), sorted({round((x - x0) * k, 1) for x in v})
 
             def out_of_place(want, got, tol=2.0):
                 return [round(w, 1) for w in want if not any(abs(w - g) <= tol for g in got)]
 
             (rh, rv), (mh, mv) = rules(ref.pages[0]), rules(mine.pages[0])
-            check("The printed March report has every horizontal rule of the contractor's PDF within 2 pt (its table's corner as the origin)", not out_of_place(rh, mh), (out_of_place(rh, mh), len(rh), len(mh)))
+            # (3 pt down the page: enlarged to the page's width, each of the sheet's rows is drawn to whole pixels, and the
+            # rounding adds up to under 1% of its height by the signatures - 2.9 pt at most, measured 31-Oct-2026)
+            check("The printed March report has every horizontal rule of the contractor's PDF within 3 pt (its table's corner as the origin, at the PDF's scale)", not out_of_place(rh, mh, 3.0), (out_of_place(rh, mh, 3.0), len(rh), len(mh)))
             check("...and every vertical rule", not out_of_place(rv, mv), (out_of_place(rv, mv), len(rv), len(mv)))
             pool = [w["text"] for w in mine.pages[0].extract_words()]
             lost = []
