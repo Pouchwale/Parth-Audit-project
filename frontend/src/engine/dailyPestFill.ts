@@ -1,4 +1,4 @@
-import type { DailyPestMonitoringData } from "../types";
+import type { DailyPestMonitoringData, RodentCatch, RodentStation } from "../types";
 
 // F/HR/17 ANSWERED ON OPENING (the owner, 30-Oct-2026, REQUIREMENTS §149: "the system should filled it on daily basis
 // and user will verify and submit it"). When a person who may fill the day's record opens it and nothing is answered
@@ -28,4 +28,37 @@ export function dailyPestFillOnOpen(data: DailyPestMonitoringData | undefined, s
     timeOfChecking: blank(data.timeOfChecking) ? time : data.timeOfChecking,
     checker: blank(data.checker) && signer.trim() ? signer.trim() : data.checker,
   };
+}
+
+// A CATCH A PERSON ENTERS, FOLLOWED UP (the owner, 31-Oct-2026, REQUIREMENTS §151): its trap box written as a rodent
+// station of Master Data takes that station's place; and every catch with a count gets its line in the summary of
+// actions - "Caught and disposed" as the action taken - the line's words following the catch until the person writes
+// their own. Nothing here makes a catch: only one a person entered is followed up.
+
+/** The summary line that follows a catch, by the catch's id. */
+export const catchActionId = (catchId: string) => `act-${catchId}`;
+const catchWords = (c: RodentCatch) => `${c.count} caught in trap box ${c.trapBoxNo || "—"}${c.location ? ` (${c.location})` : ""}`;
+
+export function withCatchFollowUps(
+  next: DailyPestMonitoringData,
+  before: DailyPestMonitoringData,
+  stations: readonly RodentStation[],
+  dateISO: string
+): DailyPestMonitoringData {
+  const was = new Map((before.rodentCatches ?? []).map((c) => [c.id, c] as const));
+  const catches = (next.rodentCatches ?? []).map((c) => {
+    const old = was.get(c.id);
+    const station = stations.find((s) => s.id.trim().toLowerCase() === c.trapBoxNo.trim().toLowerCase());
+    return station && station.location && (!old || old.trapBoxNo !== c.trapBoxNo) ? { ...c, location: station.location } : c;
+  });
+  let actions = [...next.summaryActions];
+  for (const c of catches) {
+    if (!(c.count > 0)) continue;
+    const id = catchActionId(c.id);
+    const line = actions.find((a) => a.id === id);
+    const old = was.get(c.id);
+    if (!line) actions.push({ id, dateOfObservation: dateISO, descriptionOfObservation: catchWords(c), actionTaken: "Caught and disposed", remarks: "" });
+    else if (old && line.descriptionOfObservation === catchWords(old)) actions = actions.map((a) => (a.id === id ? { ...a, descriptionOfObservation: catchWords(c) } : a));
+  }
+  return { ...next, rodentCatches: catches, summaryActions: actions };
 }

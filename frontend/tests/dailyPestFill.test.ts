@@ -7,7 +7,7 @@ import type { DailyPestMonitoringData } from "../src/types";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { createDefaultData } from "../src/engine/recordDefaults";
-import { DAILY_PEST_USUAL, dailyPestFillOnOpen } from "../src/engine/dailyPestFill";
+import { DAILY_PEST_USUAL, catchActionId, dailyPestFillOnOpen, withCatchFollowUps } from "../src/engine/dailyPestFill";
 import { submitRecord } from "../src/engine/recordLifecycle";
 import { recordRepository } from "../src/data/repositories/recordRepository";
 import type { RecordInstance } from "../src/types";
@@ -52,4 +52,23 @@ test("submitted, the day is signed by whoever submits it: the checker and the ti
   } finally {
     recordRepository.remove(rec.id);
   }
+});
+
+test("a catch a person enters: a Master Data station gives its place, a count gives its 'Caught and disposed' line (REQUIREMENTS §151)", () => {
+  const day = dailyPestFillOnOpen(blankDay(), "Kapila Barad", "09:15")!;
+  const stations = [{ id: "RBS-07", location: "First floor - Ink Kitchen", type: "Bait Tray" as const, status: "Active" as const }];
+  const opened = { ...day, rodentCatches: [{ id: "c1", trapBoxNo: "", location: "", count: 0 }] };
+  const boxed = withCatchFollowUps({ ...opened, rodentCatches: [{ id: "c1", trapBoxNo: "rbs-07", location: "", count: 0 }] }, opened, stations, "2026-11-02");
+  assert.equal(boxed.rodentCatches![0].location, "First floor - Ink Kitchen", "the station's place");
+  assert.equal(boxed.summaryActions.length, 0, "no count yet: no line");
+  const counted = withCatchFollowUps({ ...boxed, rodentCatches: [{ ...boxed.rodentCatches![0], count: 1 }] }, boxed, stations, "2026-11-02");
+  const line = counted.summaryActions.find((a) => a.id === catchActionId("c1"))!;
+  assert.deepEqual([line.actionTaken, line.dateOfObservation, line.descriptionOfObservation], ["Caught and disposed", "2026-11-02", "1 caught in trap box rbs-07 (First floor - Ink Kitchen)"]);
+  const two = withCatchFollowUps({ ...counted, rodentCatches: [{ ...counted.rodentCatches![0], count: 2 }] }, counted, stations, "2026-11-02");
+  assert.match(two.summaryActions[0].descriptionOfObservation, /^2 caught/, "the line follows the count");
+  const own = { ...two, summaryActions: [{ ...two.summaryActions[0], descriptionOfObservation: "Two rats near the ink drums" }] };
+  const three = withCatchFollowUps({ ...own, rodentCatches: [{ ...own.rodentCatches![0], count: 3 }] }, own, stations, "2026-11-02");
+  assert.equal(three.summaryActions[0].descriptionOfObservation, "Two rats near the ink drums", "words a person wrote are kept");
+  assert.equal(three.summaryActions.length, 1);
+  assert.equal(withCatchFollowUps(day, day, stations, "2026-11-02").summaryActions.length, 0, "no catch, no line: nothing is made up");
 });

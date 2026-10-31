@@ -4,6 +4,7 @@ import type { DailyPestMonitoringData, DocumentDefinition, RecordInstance, Roden
 import { DocumentHeader } from "../documents/DocumentHeader";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { masterRepository } from "../../data/repositories/masterRepository";
+import { withCatchFollowUps } from "../../engine/dailyPestFill";
 import { isCheckpointFinding } from "../../engine/checkpoints";
 import { dayInfo } from "../../engine/holidays";
 import { totalRodents } from "../../engine/rodentPattern";
@@ -78,8 +79,9 @@ export function DailyPestMonitoringRecordView({
     onChange(next);
   };
 
+  // A station of Master Data gives the catch its place; a catch with a count gets its "Caught and disposed" line (§151).
   const updateCatch = (id: string, patch: Partial<RodentCatch>) =>
-    setField("rodentCatches", catches.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    onChange(withCatchFollowUps({ ...data, rodentCatches: catches.map((c) => (c.id === id ? { ...c, ...patch } : c)) }, data, masterRepository.get().rodentStations ?? [], record.dueDate));
   const addCatch = () => setField("rodentCatches", [...catches, newRodentCatch()]);
   const removeCatch = (id: string) => setField("rodentCatches", catches.filter((c) => c.id !== id));
 

@@ -10257,6 +10257,16 @@ start from the plant's standards - each plate's size on its four lines, Pass on 
 it opens it, the Sign. line takes their name where it is blank, and any blank size or Pass takes the usual (a size, a
 Pass or a name already written is kept). The fill waits only while the Sign. line is empty. Every value stays editable;
 the person verifies and submits. Proved: frontend/tests/nominalFill.test.ts, qcCarryForward.test.ts.
+
+## §151 F/HR/17: a catch's place from its rodent station; a catch's summary line "Caught and disposed" (31-Oct-2026)
+
+The owner, 31-Oct-2026, having entered the rodent stations in Master Data: "take location from areas which are mention
+... in remark if any rodent or lizards are found then action is taken as catched and disposed". On the day's record
+(engine/dailyPestFill.ts withCatchFollowUps, run on every change of a catch row): a trap box written as a station of
+Master Data's Rodent Stations (any case) takes that station's location; a catch with a count gets one line in the
+Summary of Actions - the day's date, "N caught in trap box X (place)", action taken "Caught and disposed" - whose words
+follow the catch until the person writes their own. Every word stays editable. Nothing makes a catch: only one a person
+entered is followed up (random catches declined 28, 30 and 31-Oct-2026). Proved: frontend/tests/dailyPestFill.test.ts.
 ## Master data provenance summary
 
 | Master list | Source | Notes |
