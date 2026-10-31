@@ -10267,6 +10267,14 @@ Master Data's Rodent Stations (any case) takes that station's location; a catch 
 Summary of Actions - the day's date, "N caught in trap box X (place)", action taken "Caught and disposed" - whose words
 follow the catch until the person writes their own. Every word stays editable. Nothing makes a catch: only one a person
 entered is followed up (random catches declined 28, 30 and 31-Oct-2026). Proved: frontend/tests/dailyPestFill.test.ts.
+## §152 F/HR/17 check points 8 and 9 answered Yes: the note and the Summary of Actions line filled (31-Oct-2026)
+
+The owner, 31-Oct-2026: "if user manually click yes or system decided to answer yes then in mention location and summary
+of action taken will automatically filled". The system never answers 8 or 9 Yes (the usual day is No, §149); a person
+who does gets (engine/dailyPestFill.ts withCheckpointFollowUps): the note from the day's catch where one was entered -
+8 its location, 9 its trap box - and a Summary of Actions line: 8 "Dead rodent observed at ...", Caught and disposed;
+9 "Rodent cake biting in box ...", Bait cake replaced, box checked. The note and the line follow until the person writes
+their own; answered No again, the line the system made goes. Proved: frontend/tests/dailyPestFill.test.ts.
 ## Master data provenance summary
 
 | Master list | Source | Notes |

@@ -62,3 +62,40 @@ export function withCatchFollowUps(
   }
   return { ...next, rodentCatches: catches, summaryActions: actions };
 }
+
+// CHECK POINTS 8 AND 9 ANSWERED YES, FOLLOWED UP (the owner, 31-Oct-2026, REQUIREMENTS §152): a person answering Yes gets
+// the note filled from the day's catch where one was entered - 8 its location, 9 its trap box - and a line in the Summary
+// of Actions: 8 "Caught and disposed", 9 "Bait cake replaced, box checked". The note and the line's words follow until
+// the person writes their own; answered No again, the line the system made is taken off. Nothing is answered Yes for them.
+
+const CHECKPOINT_FOLLOW_UP: Record<8 | 9, { from: (c: RodentCatch) => string; words: (note: string) => string; action: string }> = {
+  8: { from: (c) => c.location, words: (n) => `Dead rodent observed${n ? ` at ${n}` : ""}`, action: "Caught and disposed" },
+  9: { from: (c) => c.trapBoxNo, words: (n) => `Rodent cake biting${n ? ` in box ${n}` : ""}`, action: "Bait cake replaced, box checked" },
+};
+export const checkpointActionId = (no: number) => `act-cp${no}`;
+
+export function withCheckpointFollowUps(next: DailyPestMonitoringData, before: DailyPestMonitoringData, dateISO: string): DailyPestMonitoringData {
+  const checkpoints = { ...next.checkpoints };
+  let actions = [...next.summaryActions];
+  const firstCatch = (next.rodentCatches ?? []).find((c) => c.trapBoxNo.trim() || c.location.trim());
+  for (const no of [8, 9] as const) {
+    const rule = CHECKPOINT_FOLLOW_UP[no];
+    const answer = checkpoints[no];
+    const old = before.checkpoints?.[no];
+    const id = checkpointActionId(no);
+    const line = actions.find((a) => a.id === id);
+    if (answer?.value !== "Yes") {
+      // No again: the line the system made, still in its words, goes; one the person wrote over stays.
+      if (line && old && line.descriptionOfObservation === rule.words(String(old.note ?? ""))) actions = actions.filter((a) => a.id !== id);
+      continue;
+    }
+    let note = String(answer.note ?? "");
+    if (!note.trim() && firstCatch && rule.from(firstCatch).trim()) {
+      note = rule.from(firstCatch).trim();
+      checkpoints[no] = { ...answer, note };
+    }
+    if (!line) actions.push({ id, dateOfObservation: dateISO, descriptionOfObservation: rule.words(note), actionTaken: rule.action, remarks: "" });
+    else if (line.descriptionOfObservation === rule.words(String(old?.note ?? ""))) actions = actions.map((a) => (a.id === id ? { ...a, descriptionOfObservation: rule.words(note) } : a));
+  }
+  return { ...next, checkpoints, summaryActions: actions };
+}

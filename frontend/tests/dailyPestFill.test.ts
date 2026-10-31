@@ -7,7 +7,7 @@ import type { DailyPestMonitoringData } from "../src/types";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { createDefaultData } from "../src/engine/recordDefaults";
-import { DAILY_PEST_USUAL, catchActionId, dailyPestFillOnOpen, withCatchFollowUps } from "../src/engine/dailyPestFill";
+import { DAILY_PEST_USUAL, catchActionId, checkpointActionId, dailyPestFillOnOpen, withCatchFollowUps, withCheckpointFollowUps } from "../src/engine/dailyPestFill";
 import { submitRecord } from "../src/engine/recordLifecycle";
 import { recordRepository } from "../src/data/repositories/recordRepository";
 import type { RecordInstance } from "../src/types";
@@ -71,4 +71,22 @@ test("a catch a person enters: a Master Data station gives its place, a count gi
   assert.equal(three.summaryActions[0].descriptionOfObservation, "Two rats near the ink drums", "words a person wrote are kept");
   assert.equal(three.summaryActions.length, 1);
   assert.equal(withCatchFollowUps(day, day, stations, "2026-11-02").summaryActions.length, 0, "no catch, no line: nothing is made up");
+});
+
+test("check point 8 or 9 answered Yes by a person: its note from the day's catch, its Summary of Actions line; No again takes the line off (REQUIREMENTS §152)", () => {
+  const day = { ...dailyPestFillOnOpen(blankDay(), "Kapila Barad", "09:15")!, rodentCatches: [{ id: "c1", trapBoxNo: "RBS-07", location: "Canteen", count: 1 }] };
+  const yes8 = withCheckpointFollowUps({ ...day, checkpoints: { ...day.checkpoints, 8: { value: "Yes" } } }, day, "2026-11-02");
+  assert.equal(yes8.checkpoints[8].note, "Canteen", "the location from the catch");
+  const l8 = yes8.summaryActions.find((a) => a.id === checkpointActionId(8))!;
+  assert.deepEqual([l8.descriptionOfObservation, l8.actionTaken], ["Dead rodent observed at Canteen", "Caught and disposed"]);
+  const yes9 = withCheckpointFollowUps({ ...yes8, checkpoints: { ...yes8.checkpoints, 9: { value: "Yes" } } }, yes8, "2026-11-02");
+  assert.equal(yes9.checkpoints[9].note, "RBS-07", "the box from the catch");
+  assert.equal(yes9.summaryActions.find((a) => a.id === checkpointActionId(9))!.actionTaken, "Bait cake replaced, box checked");
+  const noteTyped = withCheckpointFollowUps({ ...yes9, checkpoints: { ...yes9.checkpoints, 8: { value: "Yes", note: "Store room" } } }, yes9, "2026-11-02");
+  assert.equal(noteTyped.summaryActions.find((a) => a.id === checkpointActionId(8))!.descriptionOfObservation, "Dead rodent observed at Store room", "the line follows the note");
+  const no8 = withCheckpointFollowUps({ ...noteTyped, checkpoints: { ...noteTyped.checkpoints, 8: { value: "No", note: "Store room" } } }, noteTyped, "2026-11-02");
+  assert.ok(!no8.summaryActions.some((a) => a.id === checkpointActionId(8)), "No again: the line goes");
+  const plain = dailyPestFillOnOpen(blankDay(), "x", "09:00")!;
+  assert.equal(withCheckpointFollowUps(plain, plain, "2026-11-02").summaryActions.length, 0, "the usual day (8 and 9 No) gets no line");
+  void catchActionId;
 });

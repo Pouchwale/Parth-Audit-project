@@ -4,7 +4,7 @@ import type { DailyPestMonitoringData, DocumentDefinition, RecordInstance, Roden
 import { DocumentHeader } from "../documents/DocumentHeader";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { masterRepository } from "../../data/repositories/masterRepository";
-import { withCatchFollowUps } from "../../engine/dailyPestFill";
+import { withCatchFollowUps, withCheckpointFollowUps } from "../../engine/dailyPestFill";
 import { isCheckpointFinding } from "../../engine/checkpoints";
 import { dayInfo } from "../../engine/holidays";
 import { totalRodents } from "../../engine/rodentPattern";
@@ -76,7 +76,8 @@ export function DailyPestMonitoringRecordView({
     if (no === 7 && patch.value === "Yes" && (next.rodentCatches ?? []).length === 0) {
       next.rodentCatches = [newRodentCatch()];
     }
-    onChange(next);
+    // 8 or 9 answered Yes: its note from the day's catch and its Summary of Actions line (REQUIREMENTS §152).
+    onChange(withCheckpointFollowUps(next, data, record.dueDate));
   };
 
   // A station of Master Data gives the catch its place; a catch with a count gets its "Caught and disposed" line (§151).
