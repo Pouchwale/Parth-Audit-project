@@ -19,7 +19,7 @@ import type { Cell, ExportBlock } from "../documentExport";
 import { wordText } from "../../engine/roundTrip/readFile";
 import { ENVELOPE_PROPERTY, ExportMapBuilder, MAP_XML_NAMESPACE, envelopePropertyValue, mapJson, rowSignature, type ExportBinding, type ExportSegment, type ExportTableBinding, type RoundTripEnvelope } from "../../engine/roundTrip/exportMap";
 import { Pkg, setCustomProperty } from "./pkg";
-import { el, kid, kids, all, clone, insertAfter, parents, removeChild, type XmlElement, type XmlNode } from "./xml";
+import { el, kid, kids, all, clone, insertAfter, parents, removeChild, textOf as xmlText, type XmlElement, type XmlNode } from "./xml";
 import { modelOf, bandValue, labelsOf, numberedGroups, withPaperWords, type DcrsModel, type ModelField, type ModelGrid } from "./model";
 import { COMPANY_RE, FORMAT_NO_RE, afterLabel, bandWordOf, headingPrefix, isBlankish, isSerialHeading, norm, same, similarity } from "./text";
 import { bandEdit, choiceWords, labelInside, replaceFormat } from "./xlsxFill";
@@ -892,6 +892,12 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     const rels = pkg.relsOf(docPart).tree;
     rels.children.push(el("Relationship", { Id: Pkg.freeRelId(rels), Type: `${R_NS}/customXml`, Target: `../customXml/item${n}.xml` }));
     setCustomProperty(pkg, ENVELOPE_PROPERTY, envelopePropertyValue(opts.envelope));
+  }
+  // The company's line above a paper that prints none, as the page shows it (REQUIREMENTS §153).
+  if (hints.companyLine && ![doc, ...headerParts.map((n) => pkg.xml(n))].some((x) => x && COMPANY_RE.test(xmlText(x)))) {
+    body.children.unshift(
+      el("w:p", {}, [el("w:pPr", {}, [el("w:jc", { "w:val": "center" })]), el("w:r", {}, [el("w:rPr", {}, [el("w:b"), el("w:sz", { "w:val": "28" })]), el("w:t", {}, [opts.company])])])
+    );
   }
   void W_NS;
   return { bytes: pkg.build(), report };

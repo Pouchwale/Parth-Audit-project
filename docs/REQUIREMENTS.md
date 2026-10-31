@@ -10278,6 +10278,17 @@ who does gets (engine/dailyPestFill.ts withCheckpointFollowUps): the note from t
 8 its location, 9 its trap box - and a Summary of Actions line: 8 "Dead rodent observed at ...", Caught and disposed;
 9 "Rodent cake biting in box ...", Bait cake replaced, box checked. The note and the line follow until the person writes
 their own; answered No again, the line the system made goes. Proved: frontend/tests/dailyPestFill.test.ts.
+## §153 Every Quality Control format downloads as Word and as Excel, each what the screen shows (31-Oct-2026)
+
+The owner, 31-Oct-2026: "add the word and excel options in all format of QC module and make sure when user download the
+excel or word then it should be same which user see on frontend". Every QC format's page has Download Word and Download
+Excel (utils/documentExport.ts documentFileKinds; components/common/DownloadDocumentButton.tsx), its own kind first: the
+owner's original filled where he supplied one in that kind (§119), the other made from the sheet on screen. Any other
+module keeps its one kind. What the screen shows goes into both: F/QC/15-A to G's own header (the company, the title, the
+machine box, Format no. / Rev. no. / Effective date) now reaches the Word file, and F-QC-19's tolerance card, whose paper
+prints no company line, gets the company's name above it as the page shows (originalFill hint companyLine). Proved: all
+41 QC formats downloaded both ways with the screen's title, headings, boxes and format number in each file;
+tests/e2e_downloads_and_print.py (F/QC/12's two buttons, its Excel holding its header, boxes and weights).
 ## Master data provenance summary
 
 | Master list | Source | Notes |

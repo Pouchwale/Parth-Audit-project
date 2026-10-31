@@ -35,6 +35,11 @@ export interface FillHints {
    */
   exampleOf?: Record<string, string>;
   /**
+   * docx: the paper prints no company line and the page does (F-QC-19's tolerance card): the company's one name goes on a line
+   * of its own above the paper, as the page shows it (REQUIREMENTS §153).
+   */
+  companyLine?: true;
+  /**
    * xlsx: boxes the paper has one area for, written there as lines "Label: value" (F/SYS/13's "Information of the product"):
    * the area's heading -> DCRS's labels.
    */

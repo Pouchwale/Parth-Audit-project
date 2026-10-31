@@ -241,6 +241,19 @@ with sync_playwright() as p:
     rec_lines = [l for l in lines if any("200.000gm" in c for c in l)]
     check("...and its line the standard one: the weights and the fixed Tested Values 1 and 2, not the last week's tester (s142)",
           bool(rec_lines) and any(sum(1 for c in l if "0.050mg" in c) >= 2 for l in rec_lines) and not any("Anjali" in c for l in rec_lines for c in l), lines[-6:])
+    # EVERY QC FORMAT DOWNLOADS AS WORD AND AS EXCEL (the owner, 31-Oct-2026, s153), each holding what the screen shows.
+    kinds = page.locator("[data-action='download-document']").evaluate_all("els => els.map((e) => e.getAttribute('data-format'))")
+    check("F/QC/12 offers Download Word and Download Excel (s153)", kinds == ["docx", "xlsx"], kinds)
+    screen = " ".join(page.locator("[data-print-doc]").first.evaluate_all("els => els.flatMap((el) => [el.innerText, ...Array.from(el.querySelectorAll('input, textarea')).map((i) => i.value)])"))
+    with page.expect_download() as dl:
+        page.locator("[data-action='download-document'][data-format='xlsx']").first.click()
+    xpath = os.path.join(TMP, "fqc12-excel.xlsx")
+    dl.value.save_as(xpath)
+    xrows, _, _ = workbook(xpath)
+    xtext = " ".join(str(c[0]) for r in xrows.values() for c in r.values())
+    check("...its Excel file holds what the screen shows: the header, the boxes, the weights",
+          dl.value.suggested_filename.endswith(".xlsx") and all(w in xtext for w in ("QC-76", "Force Strain Sensors", "200.000gm", "400.000gm", "Weight 1")) and "QC-76" in screen,
+          xtext[:400])
     goto(page, "#/library")
     page.locator("[data-action='new-record'][data-document='qc-ruler-verification']").first.evaluate("el => el.click()")
     page.wait_for_timeout(1500)

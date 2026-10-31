@@ -123,6 +123,18 @@ const WORD_FORMS = new Set([
 const EXCEL_KINDS = new Set(["log-sheet", "daily-pest-monitoring", "fly-catcher", "service-report", "gap-inspection"]);
 const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-record", "compliance-statement", "chemical-master", "service-agreement", "pest-responsibilities"]);
 
+/**
+ * THE KINDS OF FILE A DOCUMENT DOWNLOADS AS (the owner, 31-Oct-2026, REQUIREMENTS §153: "add the word and excel options in
+ * all format of QC module"): every Quality Control format offers Word and Excel both - its own kind first (the owner's
+ * original filled, where there is one), the other made from the sheet on screen; any other document its one kind.
+ */
+export function documentFileKinds(doc: DocumentDefinition | null | undefined): DocumentFileKind[] {
+  if (!doc) return [];
+  const own = documentFileKind(doc);
+  if (doc.department === "Quality Control") return own === "xlsx" ? ["xlsx", "docx"] : ["docx", "xlsx"];
+  return own === "pdf" ? [] : [own];
+}
+
 export function documentFileKind(doc: DocumentDefinition | null | undefined): DocumentFileKind {
   if (!doc) return "pdf";
   // The owner's own file, where he supplied one as Word or Excel (REQUIREMENTS §119): the download is that kind of file.
@@ -541,6 +553,18 @@ function walk(el: Element, out: ExportBlock[]): void {
   if (el instanceof HTMLTableElement) {
     const block = el.hasAttribute("data-paper-sheet") ? sheetBlock(el) : tableBlock(el);
     if (block) out.push(block);
+    return;
+  }
+  if (el.classList.contains("doc-header-lc")) {
+    // F/QC/15-A to G's own header (REQUIREMENTS §153): the company, the title with the machine box beside it, and the
+    // Format no. / Rev. no. / Effective date line, as the page draws them.
+    for (const part of Array.from(el.querySelectorAll(".lc-company, .lc-title"))) {
+      const text = clean(textOf(part));
+      if (text) out.push({ kind: "text", text, strong: true, title: true });
+    }
+    for (const box of Array.from(el.querySelectorAll(".lc-machine .field"))) walk(box, out);
+    const meta = Array.from(el.querySelectorAll(".lc-meta > div")).map((c) => cellFrom([c]));
+    if (meta.length > 0) out.push({ kind: "table", rows: [meta], headerRows: 0, band: true });
     return;
   }
   if (el.classList.contains("doc-header")) {
@@ -1156,8 +1180,9 @@ async function everyLineDrawn(): Promise<void> {
  * Downloads the documents on screen as the document's own kind of file.
  * Resolves to the kind made ("pdf" means nothing was: print it). Never rejects.
  */
-export async function downloadDocumentFile(doc: DocumentDefinition, roots: Element[], dateISO?: string): Promise<DocumentFileKind> {
-  const kind = documentFileKind(doc);
+export async function downloadDocumentFile(doc: DocumentDefinition, roots: Element[], dateISO?: string, wanted?: DocumentFileKind): Promise<DocumentFileKind> {
+  // The kind asked for (a QC format offers Word and Excel both, REQUIREMENTS §153); the document's own kind otherwise.
+  const kind = wanted ?? documentFileKind(doc);
   if (kind === "pdf" || roots.length === 0) return "pdf";
   try {
     await everyLineDrawn();

@@ -18,6 +18,8 @@ export const FILL_HINTS: Record<string, FillHints> = {
   // F/DISP/01: the agreement's period is written inside its own sentence ("valid for the period of 01.04.2025 to 31.03.2026"),
   // the owner's dates being his example: DCRS's contract dates take their place.
   "disp-safe-transporter-agreement": { exampleOf: { "01.04.2025": "Contract valid from", "31.03.2026": "Contract valid to" } },
+  // F-QC-19's tolerance card: the paper prints no company line; the page heads it with the company's name (REQUIREMENTS §153).
+  "qc-tolerance-card-nivea": { companyLine: true },
   // F/QC/29's analysis report: the line under its title names the report ("PSL Analysis Report", his example); DCRS keeps it
   // as the record's Report box, which takes the line's place (it is no label of a box on his paper).
   "qc-analysis-report": { exampleOf: { "PSL Analysis Report": "Report" } },
