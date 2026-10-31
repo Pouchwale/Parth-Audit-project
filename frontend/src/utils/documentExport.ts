@@ -131,7 +131,8 @@ const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-re
 export function documentFileKinds(doc: DocumentDefinition | null | undefined): DocumentFileKind[] {
   if (!doc) return [];
   const own = documentFileKind(doc);
-  if (doc.department === "Quality Control") return own === "xlsx" ? ["xlsx", "docx"] : ["docx", "xlsx"];
+  // ...and the three pest control service reports (the owner, 31-Oct-2026, §154 item 8), their own Excel first.
+  if (doc.department === "Quality Control" || doc.kind === "service-report") return own === "xlsx" ? ["xlsx", "docx"] : ["docx", "xlsx"];
   return own === "pdf" ? [] : [own];
 }
 
@@ -1187,7 +1188,16 @@ export async function downloadDocumentFile(doc: DocumentDefinition, roots: Eleme
   try {
     await everyLineDrawn();
     const live = roots.filter((r) => r.isConnected);
-    const read = documentBlocks(live.length ? live : roots);
+    // The contractor's service report is read at its paper's layout (styles.css html.print-measure: the sheet 576 px
+    // wide, its tall rows), not the screen's enlarged one, so the file's rows are the paper's (REQUIREMENTS §154 item 8).
+    const atPaper = (live.length ? live : roots).some((r) => r.querySelector(".svc-paper") !== null);
+    if (atPaper) document.documentElement.classList.add("print-measure");
+    let read: ExportBlock[];
+    try {
+      read = documentBlocks(live.length ? live : roots);
+    } finally {
+      if (atPaper) document.documentElement.classList.remove("print-measure");
+    }
     // A document supplied as a workbook downloads on its original's own grid (utils/paperSheets.ts, REQUIREMENTS §118).
     const blocks = (kind === "xlsx" ? paperSheetBlocks(doc.id, read) : paperWordBlocks(doc.id, read)) ?? read;
     const name = documentFileName(doc, dateISO);

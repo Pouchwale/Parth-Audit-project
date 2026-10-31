@@ -131,9 +131,12 @@ test("a paper table is written in points: fixed widths, row heights, spanned and
   assert.ok(xml.includes('<w:top w:val="single" w:sz="12"'), "the frame is a point and a half");
 });
 
-test("F/HR/18 names its own page: A4 portrait with the paper's margins; other documents name none", () => {
+test("F/HR/18 and the service reports name their own page: A4 portrait with the paper's margins; other documents name none", () => {
   assert.equal(paperPageOf("fly-catcher"), "portrait");
   assert.deepEqual(paperMarginsOf("fly-catcher"), { top: 18, right: 27.4, bottom: 18, left: 28.7 });
+  // The contractor's 576 pt sheet on the A4 page (REQUIREMENTS s154 item 8).
+  assert.equal(paperPageOf("service-report-rodent"), "portrait");
+  assert.deepEqual(paperMarginsOf("service-report-fly"), { top: 20, right: 9.5, bottom: 20, left: 9.8 });
   assert.equal(paperPageOf("hr-daily-cleaning"), undefined);
-  assert.equal(paperMarginsOf("service-report-rodent"), undefined);
+  assert.equal(paperMarginsOf("hr-daily-cleaning"), undefined);
 });

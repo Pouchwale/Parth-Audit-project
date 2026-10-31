@@ -10340,6 +10340,20 @@ area, 150 ml); tests/e2e_print_all_documents.py (the page's width, every rule an
    written when known, the customer's while the report waits for verification as before. Asked a third time in the same
    message for glue boards "between 3 to 5" and bait "between 40gm to 50 gm" filled by the system "sometime 4 ... sometime
    40 gm or 50 gm": declined again, as item 2.
+8. Word and Excel both for the three service reports (the owner, 31-Oct-2026: "give two options of download which are
+   excel and word in those documents three pest control service report i need same as it is"): utils/documentExport.ts
+   documentFileKinds, Excel first. The file is read at the paper's layout (html.print-measure: 576 px, the contractor's
+   tall rows), not the screen's enlarged one of item 3, which had made the Excel rows one line tall and cut the two-line
+   names (the owner's picture). The Word file is the same sheet laid in points on an A4 portrait page, a cell for a cell
+   (utils/paperSheets.ts serviceReportWord: the merged cells, the row heights, the thin and medium rules, 576 pt across).
+   Proved: tests/e2e_downloads_and_print.py.
+9. The last visit's quantities (the owner, 31-Oct-2026, after item 7: "still the quantity is not filled automatically" on
+   the rodent report, where no quantity is fixed). A report opens with each material's quantity from the latest report of
+   the same service handed in before it - the technician's own 3 glue boards and 50 gramms of bait, say - written in the
+   opener's name with a history line naming them "the last visit's" (engine/serviceMaterials.ts serviceQtyFillOnOpen,
+   RecordPage), as F/QC/12's new sheets start with the last sheet's readings (§117); a fixed quantity (item 2) comes first;
+   a quantity already written stays; with no earlier visit on file nothing is written. Not random, not varying by itself:
+   it changes when the technician's reported number changes. Proved: frontend/tests/serviceReportFormatWords.test.ts.
 
 
 ## §155 F/HR/17's heading keeps its month while its title is typed over; a header's Rev Date has the whole year (31-Oct-2026)

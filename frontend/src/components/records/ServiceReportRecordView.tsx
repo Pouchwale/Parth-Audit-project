@@ -366,7 +366,8 @@ export function ServiceReportRecordView({
         <div className="text-xs text-muted mt-2 no-print" data-section="service-note">
           Every printed word can be typed over (a click puts the caret in it), and the + and × beside an area add a line below it or remove it: each
           change is the format's, asked first - a new revision or not - and this report and every one after it carry it. The quantity is entered once,
-          on the first line of each material, and is the same on every line with that material.
+          on the first line of each material, and is the same on every line with that material; a new report opens with each material's fixed quantity,
+          or the last visit's, yours to change.
         </div>
       )}
       {problem && (

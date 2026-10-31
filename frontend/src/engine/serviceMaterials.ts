@@ -67,19 +67,33 @@ export const FIXED_SERVICE_QTY: Record<string, string> = {
   "Beta-Cyfluthrin 2.45% SC": "100 ml",
 };
 
-export const SERVICE_QTY_FILL_NOTE = "The fixed quantity written on opening (Deltamethrin 2.5% SC: 150 ml; Beta-Cyfluthrin 2.45% SC: 100 ml), yours to change.";
-
-/** The report with each fixed-quantity material's blank quantity written (on the first line of its material, as a person writes it), or null when nothing is to fill. */
-export function serviceQtyFillOnOpen<T extends { lines: ServiceReportAreaLine[] }>(variantKey: string | undefined, data: T | null | undefined): T | null {
+/**
+ * THE QUANTITIES A REPORT OPENS WITH (REQUIREMENTS §154 items 2 and 9): a material's fixed quantity where the owner named
+ * one (FIXED_SERVICE_QTY); otherwise THE LAST VISIT'S - the quantity the technician reported on the latest report of the
+ * same service handed in before this one (`previous`), as F/QC/12's new sheets start with the last sheet's readings
+ * (§117). Written on the first line of its material when a person opens a report where it is blank, in their name with a
+ * line in the history saying which it was, and theirs to change. Never a made-up or varying number (§136).
+ */
+export function serviceQtyFillOnOpen<T extends { lines: ServiceReportAreaLine[] }>(
+  variantKey: string | undefined,
+  data: T | null | undefined,
+  previous?: readonly ServiceReportAreaLine[] | null
+): { data: T; note: string } | null {
   if (!data || !Array.isArray(data.lines) || data.lines.length === 0) return null;
-  let changed = false;
+  const last = new Map<string, string>();
+  for (const l of previous ?? []) if (qtyOf(l).trim() && !last.has(l.materialName)) last.set(l.materialName, qtyOf(l).trim());
+  const wrote: string[] = [];
   const lines = data.lines.map((l) => {
+    if (qtyOf(l).trim()) return l;
     const fixed = FIXED_SERVICE_QTY[l.materialName];
-    if (!fixed || qtyOf(l).trim()) return l;
-    changed = true;
-    return { ...l, qtyUsed: fixed };
+    const value = fixed ?? last.get(l.materialName);
+    if (!value) return l;
+    const said = `${l.materialName} ${value}${fixed ? " (fixed)" : " (the last visit's)"}`;
+    if (!wrote.includes(said)) wrote.push(said);
+    return { ...l, qtyUsed: value };
   });
-  return changed ? { ...data, lines: normalizeServiceLines(variantKey, lines) } : null;
+  if (wrote.length === 0) return null;
+  return { data: { ...data, lines: normalizeServiceLines(variantKey, lines) }, note: `Quantities written on opening, yours to change: ${wrote.join("; ")}.` };
 }
 
 // THE QUANTITY IS ENTERED ONCE. Both April-2026 specimens write material,

@@ -381,6 +381,19 @@ with sync_playwright() as p:
         close_assistant(page)
 
     # The three service reports: the contractor's sheet (Service Report-April 2026.xls holds the same grid as the March paper).
+    # THE THREE SERVICE REPORTS DOWNLOAD AS WORD AND AS EXCEL (the owner, 31-Oct-2026, s154 item 8), the Word file holding the sheet's words.
+    goto(page, "#/library")
+    page.locator("[data-action='new-record'][data-document='service-report-rodent']").first.evaluate("el => el.click()")
+    page.wait_for_timeout(1500)
+    svc_kinds = page.locator("[data-action='download-document']").evaluate_all("els => els.map((e) => e.getAttribute('data-format'))")
+    check("The rodent service report offers Download Excel and Download Word (s154 item 8)", svc_kinds == ["xlsx", "docx"], svc_kinds)
+    with page.expect_download() as dl:
+        page.locator("[data-action='download-document'][data-format='docx']").first.click()
+    wpath = os.path.join(TMP, "svc-rodent.docx")
+    dl.value.save_as(wpath)
+    wtext = re.sub(r"<[^>]+>", " ", zipfile.ZipFile(wpath).read("word/document.xml").decode("utf-8"))
+    check("...its Word file holds the sheet: the title, the contractor, the areas, the materials and the captions",
+          all(w in wtext for w in ("Pest control Service Report", "GURUDEV PEST CONTROL", "Printing machine - Ground Floor", "Canteen", "Glue Board", "Bromadiolone Cake", "GPC Technician Sign")), wtext[:300])
     for doc_id, sheet_no, label in (("service-report-rodent", 0, "Rodent Control"), ("service-report-general", 2, "General Pest Control"), ("service-report-fly", 4, "Fly Control")):
         new_record(doc_id)
         fmt, suggested, path = download(page, doc_id)

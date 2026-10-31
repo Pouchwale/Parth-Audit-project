@@ -11,7 +11,7 @@ import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/dat
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { formatEditFor, formatWordsAt } from "../src/data/formatEdits";
 import { commitFormatChange, draftOf, restoreIssuedFormat } from "../src/engine/formatOps";
-import { FIXED_SERVICE_QTY, serviceQtyFillOnOpen } from "../src/engine/serviceMaterials";
+import { FIXED_SERVICE_QTY, normalizeServiceLines, serviceQtyFillOnOpen } from "../src/engine/serviceMaterials";
 
 ensureDocumentsSeeded();
 ensureMasterSeeded();
@@ -63,18 +63,19 @@ describe("Deltamethrin's 150 ml is written when a person opens the report (§154
     assert.ok(data.lines.length > 0);
     const filled = serviceQtyFillOnOpen(doc.variantKey, data);
     assert.ok(filled);
-    for (const l of filled.lines.filter((x) => x.materialName === "Deltamethrin 2.5% SC")) assert.equal(l.qtyUsed, FIXED_SERVICE_QTY["Deltamethrin 2.5% SC"]);
+    for (const l of filled.data.lines.filter((x) => x.materialName === "Deltamethrin 2.5% SC")) assert.equal(l.qtyUsed, FIXED_SERVICE_QTY["Deltamethrin 2.5% SC"]);
     assert.equal(FIXED_SERVICE_QTY["Deltamethrin 2.5% SC"], "150 ml");
-    assert.equal(serviceQtyFillOnOpen(doc.variantKey, filled), null, "a report already written is left as it is");
+    assert.match(filled.note, /Deltamethrin 2.5% SC 150 ml \(fixed\)/);
+    assert.equal(serviceQtyFillOnOpen(doc.variantKey, filled.data), null, "a report already written is left as it is");
   });
 
   it("fills the fly report's Beta-Cyfluthrin quantity with its fixed 100 ml the same way (the owner, 31-Oct-2026)", () => {
     const doc = docOf("service-report-fly");
     const filled = serviceQtyFillOnOpen(doc.variantKey, blank(doc.id));
     assert.ok(filled);
-    assert.ok(filled.lines.length > 0 && filled.lines.every((l) => l.materialName === "Beta-Cyfluthrin 2.45% SC" && l.qtyUsed === "100 ml"), JSON.stringify(filled.lines.map((l) => l.qtyUsed)));
+    assert.ok(filled.data.lines.length > 0 && filled.data.lines.every((l) => l.materialName === "Beta-Cyfluthrin 2.45% SC" && l.qtyUsed === "100 ml"), JSON.stringify(filled.data.lines.map((l) => l.qtyUsed)));
     assert.equal(FIXED_SERVICE_QTY["Beta-Cyfluthrin 2.45% SC"], "100 ml");
-    assert.equal(serviceQtyFillOnOpen(doc.variantKey, filled), null);
+    assert.equal(serviceQtyFillOnOpen(doc.variantKey, filled.data), null);
   });
 
   it("leaves a quantity a person wrote, and writes nothing on the rodent report (glue boards and bait are the technician's count)", () => {
@@ -83,6 +84,18 @@ describe("Deltamethrin's 150 ml is written when a person opens the report (§154
     typed.lines = typed.lines.map((l) => ({ ...l, qtyUsed: "120 ml" }));
     assert.equal(serviceQtyFillOnOpen(general.variantKey, typed), null);
     const rodent = docOf("service-report-rodent");
-    assert.equal(serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id)), null);
+    assert.equal(serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id)), null, "no fixed quantity and no earlier visit: nothing is written");
+    // THE LAST VISIT'S QUANTITIES CARRY TO THE NEXT REPORT (§154 item 9): the technician's 3 and 50 gramms, said in the note.
+    const last = normalizeServiceLines(rodent.variantKey, blank(rodent.id).lines.map((l, i) => (i === 0 ? { ...l, qtyUsed: "3" } : i === 8 ? { ...l, qtyUsed: "50 gramms" } : l)));
+    const carried = serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id), last);
+    assert.ok(carried);
+    assert.deepEqual(carried.data.lines.map((l) => l.qtyUsed), [...Array(8).fill("3"), ...Array(8).fill("50 gramms")]);
+    assert.match(carried.note, /Glue Board 3 \(the last visit's\); Bromadiolone Cake 50 gramms \(the last visit's\)/);
+    assert.equal(serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id), last.map((l) => ({ ...l, qtyUsed: "" }))), null, "a last visit with no quantity carries nothing");
+    const half = blank(rodent.id);
+    half.lines = half.lines.map((l, i) => (i === 8 ? { ...l, qtyUsed: "45 gramms" } : l));
+    const kept = serviceQtyFillOnOpen(rodent.variantKey, { ...half, lines: normalizeServiceLines(rodent.variantKey, half.lines) }, last);
+    assert.ok(kept);
+    assert.deepEqual(kept.data.lines.map((l) => l.qtyUsed), [...Array(8).fill("3"), ...Array(8).fill("45 gramms")], "a quantity already written stays");
   });
 });

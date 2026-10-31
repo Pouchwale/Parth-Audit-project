@@ -205,12 +205,18 @@ export function paperSheetBlocks(documentId: string, blocks: ExportBlock[]): Exp
 
 /** The page a document's Word download is set up on, where the original names it (else the grid's width decides). */
 export function paperPageOf(documentId: string): "portrait" | "landscape" | undefined {
-  return documentId === "fly-catcher" ? "portrait" : undefined;
+  return documentId === "fly-catcher" || isServiceReport(documentId) ? "portrait" : undefined;
 }
+
+/** The three pest control service reports (REQUIREMENTS §154 item 8). */
+const isServiceReport = (documentId: string): boolean => documentId.startsWith("service-report-");
 
 /** The page's margins in points where the paper's are not the default (F/HR/18's page: 18 pt above, 28.7 pt at the left). */
 export function paperMarginsOf(documentId: string): { top: number; right: number; bottom: number; left: number } | undefined {
-  return documentId === "fly-catcher" ? { top: 18, right: 27.4, bottom: 18, left: 28.7 } : undefined;
+  if (documentId === "fly-catcher") return { top: 18, right: 27.4, bottom: 18, left: 28.7 };
+  // The contractor's sheet is 576 pt across: the A4 page's width less these margins.
+  if (isServiceReport(documentId)) return { top: 20, right: 9.5, bottom: 20, left: 9.8 };
+  return undefined;
 }
 
 const E = (l: number, r: number, t: number, b: number): PaperCellSpec["borders"] => [l, r, t, b];
@@ -323,8 +329,73 @@ function flyCatcherWord(blocks: ExportBlock[]): ExportBlock[] | null {
 export function paperWordBlocks(documentId: string, blocks: ExportBlock[]): ExportBlock[] | null {
   try {
     if (documentId === "fly-catcher") return flyCatcherWord(blocks);
+    if (isServiceReport(documentId)) return serviceReportWord(blocks);
   } catch {
     /* a page that does not read as the original's is downloaded as the generic document */
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// THE PEST CONTROL SERVICE REPORT AS A WORD PAGE (the owner, 31-Oct-2026, REQUIREMENTS §154 item 8: "excel and word ...
+// same as it is only no mistake"). The page draws the contractor's sheet (components/records/ServiceReportRecordView.tsx,
+// read as a "sheet" block: his six columns in Excel characters, the merged cells, each row's height, the rules); here it is
+// laid in points on an A4 portrait page, a cell for a cell - the same paper the Excel file is, in Word.
+
+/** One Excel character of the contractor's sheet, in points (data/seed/serviceReportPaper.ts: 1 px of the page is 1 pt). */
+const SERVICE_PT_PER_CHAR = 5.528;
+/** The sheet's edges (none, thin, medium) in eighths of a point. */
+const SERVICE_RULES = [0, HAIR, FRAME] as const;
+
+type SheetBlock = Extract<ExportBlock, { kind: "sheet" }>;
+type SheetCellSpec = SheetBlock["cells"][number];
+
+function serviceReportWord(blocks: ExportBlock[]): ExportBlock[] | null {
+  const sheet = blocks.find((b): b is SheetBlock => b.kind === "sheet");
+  if (!sheet || sheet.cells.length === 0) return null;
+  const widths = sheet.widths.map((w) => Math.round(w * SERVICE_PT_PER_CHAR * 10) / 10);
+  const at = new Map<string, SheetCellSpec>(sheet.cells.map((c) => [`${c.row}:${c.col}`, c]));
+  const rule = (edge: number): number => SERVICE_RULES[Math.min(2, Math.max(0, Math.round(edge)))] ?? 0;
+  const spec = (c: SheetCellSpec, borders: PaperCellSpec["borders"], vMerge?: PaperCellSpec["vMerge"]): PaperCellSpec => {
+    const { row: _r, col: _c, rowSpan: _rs, colSpan, style, ...cell } = c;
+    void _r;
+    void _c;
+    void _rs;
+    return {
+      ...(vMerge === "continue" ? { text: "" } : cell),
+      colSpan: colSpan > 1 ? colSpan : undefined,
+      vMerge,
+      size: Math.round((style.size || 11) * 2),
+      bold: !!style.bold,
+      align: style.align,
+      valign: style.valign === "top" ? "top" : "center",
+      borders,
+    };
+  };
+  const rows: { height?: number; cells: PaperCellSpec[] }[] = [];
+  for (let r = 0; r < sheet.rowCount; r++) {
+    const cells: PaperCellSpec[] = [];
+    for (let col = 0; col < widths.length; ) {
+      const own = at.get(`${r}:${col}`);
+      if (own) {
+        const [l, rt, tp, bt] = own.style.borders.map(rule);
+        cells.push(spec(own, E(l, rt, tp, own.rowSpan > 1 ? 0 : bt), own.rowSpan > 1 ? "restart" : undefined));
+        col += own.colSpan;
+        continue;
+      }
+      // Under a cell merged down from above: its continuation, as wide as it is, the merged cell's bottom rule on the last.
+      const above = sheet.cells.find((c) => c.col === col && c.row < r && c.row + c.rowSpan > r);
+      if (above) {
+        const [l, rt, , bt] = above.style.borders.map(rule);
+        const last = r === above.row + above.rowSpan - 1;
+        cells.push(spec(above, E(l, rt, 0, last ? bt : 0), "continue"));
+        col += above.colSpan;
+        continue;
+      }
+      cells.push({ text: "", size: 22, bold: false, align: "left", valign: "center", borders: E(0, 0, 0, 0) });
+      col += 1;
+    }
+    rows.push({ height: sheet.heights[r], cells });
+  }
+  return [{ kind: "paper", widths, rows, indent: 0, spaceAfter: 0 }];
 }

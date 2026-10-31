@@ -47,7 +47,7 @@ import { mayDo } from "../engine/departmentScope";
 import { periodKeyFor } from "../engine/recordGenerator";
 import { NOMINAL_FILL_NOTE, nominalFillOnOpen } from "../engine/nominalFill";
 import { DAILY_PEST_FILL_NOTE, dailyPestFillOnOpen } from "../engine/dailyPestFill";
-import { SERVICE_QTY_FILL_NOTE, serviceQtyFillOnOpen } from "../engine/serviceMaterials";
+import { serviceQtyFillOnOpen } from "../engine/serviceMaterials";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -258,11 +258,16 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     if (filled) persistLocal(saveDraft(record, filled, currentUser, { note: DAILY_PEST_FILL_NOTE }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id, editable, superseded]);
-  // A service report's fixed quantity (Deltamethrin's 150 ml) written when a person opens it (REQUIREMENTS §154).
+  // A service report opens with its quantities written (REQUIREMENTS §154 items 2 and 9): a material's fixed quantity, else
+  // the last visit's - the latest report of the same service handed in before this one - in the opener's name.
   useEffect(() => {
     if (!record || !doc || doc.kind !== "service-report" || !editable || dirty) return;
-    const filled = serviceQtyFillOnOpen(doc.variantKey, record.data as ServiceReportData | undefined);
-    if (filled) persistLocal(saveDraft(record, filled, currentUser, { note: SERVICE_QTY_FILL_NOTE }));
+    const previous = recordRepository
+      .query({ documentId: doc.id, isDemo: record.isDemo })
+      .filter((r) => r.id !== record.id && !isEditableStatus(r.status) && r.status !== "Rejected" && r.dueDate < record.dueDate)
+      .sort((a, b) => (a.dueDate < b.dueDate ? 1 : a.dueDate > b.dueDate ? -1 : 0))[0];
+    const filled = serviceQtyFillOnOpen(doc.variantKey, record.data as ServiceReportData | undefined, (previous?.data as ServiceReportData | undefined)?.lines);
+    if (filled) persistLocal(saveDraft(record, filled.data, currentUser, { note: filled.note }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id, editable]);
 
