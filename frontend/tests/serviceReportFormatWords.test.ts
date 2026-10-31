@@ -68,6 +68,15 @@ describe("Deltamethrin's 150 ml is written when a person opens the report (§154
     assert.equal(serviceQtyFillOnOpen(doc.variantKey, filled), null, "a report already written is left as it is");
   });
 
+  it("fills the fly report's Beta-Cyfluthrin quantity with its fixed 100 ml the same way (the owner, 31-Oct-2026)", () => {
+    const doc = docOf("service-report-fly");
+    const filled = serviceQtyFillOnOpen(doc.variantKey, blank(doc.id));
+    assert.ok(filled);
+    assert.ok(filled.lines.length > 0 && filled.lines.every((l) => l.materialName === "Beta-Cyfluthrin 2.45% SC" && l.qtyUsed === "100 ml"), JSON.stringify(filled.lines.map((l) => l.qtyUsed)));
+    assert.equal(FIXED_SERVICE_QTY["Beta-Cyfluthrin 2.45% SC"], "100 ml");
+    assert.equal(serviceQtyFillOnOpen(doc.variantKey, filled), null);
+  });
+
   it("leaves a quantity a person wrote, and writes nothing on the rodent report (glue boards and bait are the technician's count)", () => {
     const general = docOf("service-report-general");
     const typed = blank(general.id);

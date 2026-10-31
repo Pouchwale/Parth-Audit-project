@@ -58,14 +58,16 @@ export function fixedMaterialForServiceArea(variantKey: string | undefined, area
 }
 
 // A MATERIAL USED IN THE SAME QUANTITY EVERY VISIT (the owner, 31-Oct-2026, with the general pest control report:
-// "150 ml is fixed in quantity"; REQUIREMENTS §154): its quantity is written when a person opens a report where it is
-// blank (serviceQtyFillOnOpen, in their name), and stays theirs to change. The glue boards' and the bait's quantities are
-// what the technician used on the visit, written by a person.
+// "150 ml is fixed in quantity"; and later that day with the fly report: "quantity is fix which 100"; REQUIREMENTS §154):
+// its quantity is written when a person opens a report where it is blank (serviceQtyFillOnOpen, in their name), and
+// stays theirs to change. The glue boards' and the bait's quantities are what the technician used on the visit, written
+// by a person.
 export const FIXED_SERVICE_QTY: Record<string, string> = {
   "Deltamethrin 2.5% SC": "150 ml",
+  "Beta-Cyfluthrin 2.45% SC": "100 ml",
 };
 
-export const SERVICE_QTY_FILL_NOTE = "The fixed quantity written on opening (Deltamethrin 2.5% SC: 150 ml), yours to change.";
+export const SERVICE_QTY_FILL_NOTE = "The fixed quantity written on opening (Deltamethrin 2.5% SC: 150 ml; Beta-Cyfluthrin 2.45% SC: 100 ml), yours to change.";
 
 /** The report with each fixed-quantity material's blank quantity written (on the first line of its material, as a person writes it), or null when nothing is to fill. */
 export function serviceQtyFillOnOpen<T extends { lines: ServiceReportAreaLine[] }>(variantKey: string | undefined, data: T | null | undefined): T | null {

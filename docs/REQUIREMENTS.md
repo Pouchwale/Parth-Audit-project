@@ -10303,8 +10303,9 @@ beside the sheet.
    engine/formatOps.ts FormatDraft.wordsAt), in its change history and the activity log. This report and every one after
    it print it; a report handed in before keeps the words it was handed in with (formatWordsAt by its submittedAt). A
    report's own words from §137 stand until that place is changed again. The date is the report's own.
-2. Deltamethrin 2.5% SC's quantity is 150 ml (engine/serviceMaterials.ts FIXED_SERVICE_QTY), written when a signed-in person
-   opens a report where it is blank, in their name with a line in its history (serviceQtyFillOnOpen, RecordPage), and
+2. Deltamethrin 2.5% SC's quantity is 150 ml, and the fly report's Beta-Cyfluthrin 2.45% SC's is 100 ml (the owner, later
+   the same day: "quantity is fix which 100"; engine/serviceMaterials.ts FIXED_SERVICE_QTY), each written when a signed-in
+   person opens a report where it is blank, in their name with a line in its history (serviceQtyFillOnOpen, RecordPage), and
    theirs to change. Asked in the same message: the glue boards' count "randomly ... between 3 to 5" and the bait
    "sometime 40 gms to 50 grams" every time - declined, as §136 and §149 declined made-up varying values: the quantity
    used is what the technician used on the visit. Offered: a fixed quantity for each, as the 150 ml, if the owner names one.
