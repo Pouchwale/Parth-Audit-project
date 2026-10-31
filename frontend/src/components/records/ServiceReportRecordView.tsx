@@ -51,8 +51,8 @@ export function ServiceReportRecordView({
   record: RecordInstance<ServiceReportData>;
   editable: boolean;
   // While the report waits for verification, the customer's representative
-  // still countersigns it — and Verify requires that signature — so that one
-  // field stays writable then (everything else is locked).
+  // still countersigns it, so that one field stays writable then (everything
+  // else is locked). Neither signature is required (REQUIREMENTS §154 item 7).
   countersignEditable?: boolean;
   onChange: (data: ServiceReportData) => void;
 }) {
@@ -326,7 +326,7 @@ export function ServiceReportRecordView({
                 disabled={!customerOpen}
                 value={data.customerSign}
                 onChange={(e) => onChange({ ...data, customerSign: e.target.value })}
-                placeholder="Customer representative name (required to verify)"
+                placeholder="Customer representative name"
               />
             </td>
             <td className="svc-edge svc-edge-right" />
@@ -375,7 +375,7 @@ export function ServiceReportRecordView({
         </div>
       )}
       {countersignEditable && !data.customerSign.trim() && (
-        <div className="text-xs text-muted mt-1 no-print">The customer's representative countersigns here — it's needed before this report can be verified.</div>
+        <div className="text-xs text-muted mt-1 no-print">The customer's representative can countersign here while the report waits for verification.</div>
       )}
       {sure.dialog}
     </div>

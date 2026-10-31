@@ -14,7 +14,7 @@ import { createDefaultData } from "../src/engine/recordDefaults";
 import { prepareKnownParts } from "../src/engine/knownParts";
 import { fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines, serviceGroups } from "../src/engine/serviceMaterials";
 import { SERVICE_PAPER_COLUMNS, SERVICE_PAPER_LABELS, servicePaperDate } from "../src/data/seed/serviceReportPaper";
-import { validateForSubmit } from "../src/engine/validation";
+import { validateForSubmit, validateForVerify } from "../src/engine/validation";
 
 ensureDocumentsSeeded();
 ensureMasterSeeded();
@@ -126,9 +126,11 @@ describe("the rodent service report is the March-2026 plan", () => {
     assert.equal(lines[9].methodOfApplication, "Baiting");
   });
 
-  it("is signed off only with its technician (and verified with the customer's countersignature), as before", () => {
+  it("is filed without the technician's name and verified without the customer's (the owner, 31-Oct-2026, REQUIREMENTS s154 item 7)", () => {
     const record = { id: "r", documentId: doc.id, periodKey: "p", dueDate: "2026-03-07", status: "In Progress", isDemo: false, data, createdAt: "", updatedAt: "" } as never;
-    assert.ok(!validateForSubmit(docOf(doc.id), record).valid);
+    assert.deepEqual(validateForSubmit(docOf(doc.id), record), { valid: true, errors: [] });
+    const submitted = { ...(record as object), status: "Submitted" } as never;
+    assert.deepEqual(validateForVerify(docOf(doc.id), submitted), { valid: true, errors: [] });
   });
 });
 

@@ -143,11 +143,10 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       });
       break;
     }
-    case "service-report": {
-      const d = record.data as ServiceReportData;
-      if (!text(d.technicianSign)) errors.push("Technician signature (name) is required.");
+    case "service-report":
+      // Neither signature is required (the owner, 31-Oct-2026, REQUIREMENTS §154 item 7): a visit's report is filed
+      // without the technician's or the customer's name on it; each is written when it is known.
       break;
-    }
     case "gap-inspection": {
       const d = record.data as GapInspectionData;
       if (!d.inspectionDate) errors.push("Inspection date is required.");
@@ -273,11 +272,9 @@ export function validateForVerify(doc: DocumentDefinition, record: RecordInstanc
   }
 
   switch (doc.kind) {
-    case "service-report": {
-      const d = record.data as ServiceReportData;
-      if (!text(d.customerSign)) errors.push("Customer's representative signature is required to verify.");
+    case "service-report":
+      // The customer's countersignature is not required to verify (§154 item 7); it can still be written while the report waits.
       break;
-    }
     case "gap-inspection": {
       const d = record.data as GapInspectionData;
       const unverified = list<GapInspectionData["findings"][number]>(d.findings).filter((f) => f?.status !== "Closed" && f?.status !== "Verified");

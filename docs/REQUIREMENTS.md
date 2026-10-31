@@ -10334,6 +10334,12 @@ area, 150 ml); tests/e2e_print_all_documents.py (the page's width, every rule an
    name already on the report, the last line. Restoring the issued format does not restore the area list (Master Data's).
    Proved: frontend/tests/serviceLines.test.ts; tests/e2e_editing.py (a line added after line 9 of the general report,
    the next report with ten lines, removed again).
+7. Neither signature is required on the three service reports (the owner, 31-Oct-2026: "make sure the GPC Technician
+   sign and Customer's representative sign is not mandatory for all three pest control service report"): a report is
+   submitted without the technician's name and verified without the customer's (engine/validation.ts); both boxes stay,
+   written when known, the customer's while the report waits for verification as before. Asked a third time in the same
+   message for glue boards "between 3 to 5" and bait "between 40gm to 50 gm" filled by the system "sometime 4 ... sometime
+   40 gm or 50 gm": declined again, as item 2.
 
 
 ## §155 F/HR/17's heading keeps its month while its title is typed over; a header's Rev Date has the whole year (31-Oct-2026)

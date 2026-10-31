@@ -538,7 +538,8 @@ function servicePlan(doc: DocumentDefinition, d: ServiceReportData, master: Mast
     },
     ack: (v) => (String(v) === "__none__" ? `Every area marked "${nothing}".` : "Remarks written against the areas you named; the rest marked routine."),
   });
-  qs.push(textQ("technicianSign", "Technician", "Which technician did the service?", (x) => x.technicianSign, (x, v) => ({ ...x, technicianSign: v }), { suggestions: people(master, "technician") }));
+  // Neither signature is required (REQUIREMENTS §154 item 7): both may be skipped.
+  qs.push(textQ("technicianSign", "Technician", "Which technician did the service? (Skip if not known)", (x) => x.technicianSign, (x, v) => ({ ...x, technicianSign: v }), { optional: true, suggestions: people(master, "technician") }));
   qs.push(
     textQ("customerSign", "Customer's representative", "Who countersigned for the site? (Skip if not yet)", (x) => x.customerSign, (x, v) => ({ ...x, customerSign: v }), {
       optional: true,
