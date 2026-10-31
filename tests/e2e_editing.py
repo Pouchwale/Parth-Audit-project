@@ -510,8 +510,9 @@ with sync_playwright() as p:
     # revision (s148), the format keeps the words, and the next report prints them; a report handed in keeps its own.
     svc_id = new_record("service-report-general")
     area = page.locator("[data-print-doc] [data-cell='area'] [data-editable-words]")
-    check("The service report: its areas, material and method are there to type over on a new report",
-          area.count() >= 3 and page.locator("[data-print-doc] [data-cell='material'] [data-editable-words]").count() >= 1
+    check("The service report: its line numbers, areas, material and method are there to type over on a new report",
+          area.count() >= 3 and page.locator("[data-print-doc] td.svc-no [data-editable-words]").count() == area.count()
+          and page.locator("[data-print-doc] [data-cell='material'] [data-editable-words]").count() >= 1
           and page.locator("[data-print-doc] [data-cell='method'] [data-editable-words]").count() >= 1, area.count())
     qty = page.locator("[data-print-doc] input[data-field='qty']")
     check("...Deltamethrin's quantity is 150 ml when the report is opened, the person's to change (s154)",

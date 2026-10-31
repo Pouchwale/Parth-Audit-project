@@ -3359,6 +3359,10 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
    page's width (utils/print.ts fillPage). */
 @media screen and (min-width: 760px) {
   html:not(.print-measure) table.svc-paper { zoom: 1.25; width: 100%; min-width: 576px; }
+  /* Every line the same height on the screen (the owner, 31-Oct-2026, with the rodent report's rows 2, 3, 5, 9, 12 and 14
+     drawn twice as tall as the rest): the screen's width keeps each area on one line, so no line is drawn taller than its
+     words. The print keeps the contractor's taller rows, where those names run to two lines. */
+  html:not(.print-measure) .svc-paper tr.svc-tall > td.svc-area { height: auto; }
 }
 table.svc-paper {
   border-collapse: collapse; table-layout: fixed; width: 576px; background: #fff; color: #000;

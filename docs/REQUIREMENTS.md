@@ -10314,6 +10314,13 @@ beside the sheet.
    fills .svc-paper): about 516 pt across where it was 432 pt, its letters about 10 pt, one portrait page.
 Proved: frontend/tests/serviceReportFormatWords.test.ts; tests/e2e_editing.py (the question, the next report printing the
 area, 150 ml); tests/e2e_print_all_documents.py (the page's width, every rule and word of the March PDF at its scale).
+5. Later the same day, with the rodent report on the screen ("each and every part of this record should be editable"; a
+   picture of its lines 2, 3, 5, 9, 12 and 14 drawn twice as tall as the rest): the line numbers are typed over like the
+   rest (place slno:N), and on the screen every line is drawn to its words - the contractor's hand-set tall rows are the
+   print's only, where they match his PDF (styles.css, screen media). A name that runs to two lines (the general report's
+   "RM Inward & FG Outward area (outer periphery)") wraps on the screen as it does on his paper. Asked again, the glue
+   boards "between 3 to 5 always" and the bait "between 40 to 50" filled by the system: declined again, as item 2.
+
 
 ## §155 F/HR/17's heading keeps its month while its title is typed over; a header's Rev Date has the whole year (31-Oct-2026)
 

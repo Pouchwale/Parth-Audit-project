@@ -181,7 +181,8 @@ export function ServiceReportRecordView({
             const sharing = lines.filter((x) => x.materialName === l.materialName);
             return (
               <tr key={l.slNo} data-line={l.slNo} className={`${group ? "svc-group-start" : ""}${tall.has(l.areaName) ? " svc-tall" : ""}${narrow.has(l.areaName) ? " svc-narrow" : ""}`}>
-                <td className="svc-no">{l.slNo}</td>
+                {/* The line's number is printed words too, the format's like the rest (REQUIREMENTS §154). */}
+                <td className="svc-no">{at(`slno:${l.slNo}`, String(l.slNo), undefined, "Sl.No")}</td>
                 <td className="svc-area" data-cell="area">
                   <span {...bindProps(serviceReportBind.line(l, "areaName"))}>{at(`area:${l.slNo}`, l.areaName, undefined, "Area")}</span>
                 </td>
