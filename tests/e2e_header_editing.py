@@ -248,8 +248,11 @@ with sync_playwright() as p:
     initial = type_over(page, "rename-format-no", "header-formatNo", "F/QC/33-A")
     panel = page.locator("[data-section='header-change']")
     check("The format number is clicked and typed over, holding F/QC/33", initial == "F/QC/33", initial)
-    check("...and the page asks why before anything is saved, saying it becomes Rev 01",
-          panel.count() == 1 and "Rev 01" in panel.inner_text() and header(page).get("Format No.") == "F/QC/33" and format_edit(page, DOC) is None,
+    # The panel asks why, and which revision (the owner, 30/31-Oct-2026, s148): a new one - Rev 01 and today in boxes - or none.
+    panel_no = panel.locator("[data-field='revision-no']")
+    check("...and the page asks why and which revision before anything is saved: a new one, Rev 01 in its box, or none",
+          panel.count() == 1 and panel_no.count() == 1 and panel_no.input_value() == "01" and panel.locator("[data-choice='revision-keep']").count() == 1
+          and header(page).get("Format No.") == "F/QC/33" and format_edit(page, DOC) is None,
           panel.inner_text() if panel.count() else None)
     page.click("[data-action='header-change-save']")
     page.wait_for_timeout(400)
@@ -257,14 +260,9 @@ with sync_playwright() as p:
     check("Saved without a reason, it is refused and nothing is saved", err.count() == 1 and format_edit(page, DOC) is None, err.inner_text() if err.count() else None)
     page.fill("[data-field='header-change-reason']", "The master list numbers it F/QC/33-A")
     page.click("[data-action='header-change-save']")
-    # Which revision is asked with it (the owner, 30-Oct-2026, s148): a new one, Rev 01 and today offered in boxes, or none.
-    page.wait_for_selector("[data-action='sure-yes']", state="visible", timeout=2500)
-    offered = page.locator("[data-section='sure-first'] [data-field='revision-no']")
-    offered_no = offered.input_value() if offered.count() else None
-    keep_offered = page.locator("[data-section='sure-first'] [data-choice='revision-keep']").count() == 1
     asked = sure(page, yes=False)
-    check("With a reason, Save asks first: Are you sure? - a new revision (Rev 01 offered) or none - and No saves nothing, the panel still open (REQUIREMENTS s138, s148)",
-          bool(asked) and "Are you sure?" in asked and offered_no == "01" and keep_offered and format_edit(page, DOC) is None and panel.count() == 1, (asked, offered_no, keep_offered))
+    check("With a reason, Save asks first: Are you sure? - naming Rev 01 - and No saves nothing, the panel still open (REQUIREMENTS s138, s148)",
+          bool(asked) and "Are you sure?" in asked and "Rev 01" in asked and format_edit(page, DOC) is None and panel.count() == 1, asked)
     page.click("[data-action='header-change-save']")
     check("...asked again, Yes, I am sure", bool(sure(page)))
     page.wait_for_timeout(900)
@@ -287,10 +285,10 @@ with sync_playwright() as p:
     # SAVED WITHOUT A NEW REVISION (the owner, 30-Oct-2026, s148): the format keeps its number and its date.
     type_over(page, "rename-title", "header-title", "SOMETHING ELSE")
     page.fill("[data-field='header-change-reason']", "A word mended")
+    page.click("[data-section='header-change'] [data-choice='revision-keep']")
     page.click("[data-action='header-change-save']")
-    page.wait_for_selector("[data-section='sure-first'] [data-choice='revision-keep']", state="visible", timeout=2500)
-    page.click("[data-section='sure-first'] [data-choice='revision-keep']")
-    sure(page)
+    kept_asked = sure(page)
+    check("...the question names the revision kept", bool(kept_asked) and "keeps Rev 01" in kept_asked, kept_asked)
     page.wait_for_timeout(900)
     edit = format_edit(page, DOC) or {}
     latest = (edit.get("revisions") or [{}])[0]

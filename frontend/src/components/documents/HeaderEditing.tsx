@@ -1,4 +1,4 @@
-import React, { useCallback, useId, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { DocumentDefinition, RecordHeaderBlock } from "../../types";
 import type { AnyHeaderField, HeaderEdit, HeaderField } from "./DocumentHeader";
 import { RenameBox } from "./RenameBox";
@@ -141,6 +141,11 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
   const [editing, setEditing] = useState<AnyHeaderField | null>(null);
   const [pending, setPending] = useState<{ field: HeaderField; value: string } | null>(null);
   const [reason, setReason] = useState("");
+  // WHICH REVISION, ASKED IN THE PANEL ITSELF (the owner, 31-Oct-2026, REQUIREMENTS §148): a new one - its number and
+  // date in boxes, the next and today to start with - or none, the format keeping the one it has.
+  const [revKind, setRevKind] = useState<"new" | "keep">("new");
+  const [revNo, setRevNo] = useState("");
+  const [revDate, setRevDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const reasonId = useId();
   const sure = useSureFirst();
@@ -179,6 +184,14 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
     [doc, record, sure.ask]
   );
 
+  useEffect(() => {
+    if (!pending || !doc) return;
+    setRevKind("new");
+    setRevNo(nextRevisionNo(doc.revisionNo));
+    setRevDate(todayISO());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending?.field, pending?.value]);
+
   const save = () => {
     if (!pending || !doc) return;
     const opts = { actor: currentUser, reason, reissue: pending.field === "revisionNo" || pending.field === "revisionDate" };
@@ -191,13 +204,21 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
       setError(refused);
       return;
     }
+    // The revision number or date itself typed over is a re-issue (§86). Anything else is saved the way the panel was
+    // told (REQUIREMENTS §148): a new revision with the number and date in its boxes, or none.
+    let choice: RevisionChoice | undefined;
+    if (!opts.reissue) {
+      if (revKind === "keep") choice = { keepRevision: true };
+      else {
+        if (!revNo.trim()) return setError(t("sure.revisionNoNeeded"));
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(revDate)) return setError(t("sure.revisionDateNeeded"));
+        choice = { revisionNo: revNo.trim(), revisionDate: revDate };
+      }
+    }
     setError(null);
-    // The revision number or date itself typed over is a re-issue (§86): asked as it is. Anything else asks which
-    // revision it is saved as - a new one, its number and date, or the one it has (REQUIREMENTS §148).
-    const revision = opts.reissue ? undefined : { current: { no: now.revisionNo ?? "", date: now.revisionDate ?? "" }, next: { no: nextRev, date: todayISO() } };
     sure.ask(
-      opts.reissue ? t("sure.format", { number, rev: nextRev }) : t("sure.formatChange", { number }),
-      (choice?: RevisionChoice) => {
+      choice?.keepRevision ? t("sure.formatKeep", { number, rev: now.revisionNo ?? "—" }) : t("sure.format", { number, rev: choice && !choice.keepRevision ? choice.revisionNo : nextRev }),
+      () => {
         const latest = fresh();
         const result = commitFormatChange(latest, headerDraft(latest, pending.field, pending.value), { ...opts, ...choice });
         if (!result.ok) {
@@ -209,9 +230,7 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
         setError(null);
         // Every view of the format reads its header again.
         bump();
-      },
-      undefined,
-      revision
+      }
     );
   };
 
@@ -245,14 +264,47 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
   const nextRev = pending ? (pending.field === "revisionNo" ? pending.value : nextRevisionNo(doc.revisionNo)) : "";
   const shown = pending ? (pending.field === "revisionDate" ? formatDisplayDate(pending.value) : pending.value) : "";
   const number = doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo;
+  const reissue = !!pending && (pending.field === "revisionNo" || pending.field === "revisionDate");
   const panel = pending ? (
     <div className="card mt-3 no-print header-change" data-section="header-change" role="group" aria-label="Change the format's header">
       <div className="card-pad">
         <div className="text-sm">
           <strong>{LABELS[pending.field]}</strong> → <span className="notranslate" translate="no">“{shown}”</span>. This is the format's own header: every record of{" "}
-          <span className="notranslate" translate="no">{number}</span> prints it from now on, and the format becomes{" "}
-          <strong className="notranslate" translate="no">Rev {nextRev}</strong> — in its change history and the activity log, as Edit format would.
+          <span className="notranslate" translate="no">{number}</span> prints it from now on
+          {reissue ? (
+            <>
+              , and the format becomes{" "}
+              <strong className="notranslate" translate="no">
+                Rev {nextRev}
+              </strong>
+            </>
+          ) : null}{" "}
+          — in its change history and the activity log, as Edit format would.
         </div>
+        {!reissue && (
+          <div className="text-sm mt-2" data-section="header-change-revision">
+            <label className="flex items-center gap-2" style={{ cursor: "pointer" }}>
+              <input type="radio" name={`${reasonId}-rev`} data-choice="revision-new" checked={revKind === "new"} onChange={() => setRevKind("new")} />
+              <span>{t("sure.revisionNew")}</span>
+            </label>
+            {revKind === "new" && (
+              <div className="flex gap-3 mt-1" style={{ paddingLeft: 26, flexWrap: "wrap" }}>
+                <label className="text-xs text-muted">
+                  {t("sure.revisionNo")}
+                  <input className="input input-sm notranslate" translate="no" data-field="revision-no" value={revNo} onChange={(e) => setRevNo(e.target.value)} style={{ width: 90, display: "block" }} />
+                </label>
+                <label className="text-xs text-muted">
+                  {t("sure.revisionDate")}
+                  <input type="date" className="input input-sm" data-field="revision-date" value={revDate} onChange={(e) => setRevDate(e.target.value)} style={{ display: "block" }} />
+                </label>
+              </div>
+            )}
+            <label className="flex items-center gap-2 mt-2" style={{ cursor: "pointer" }}>
+              <input type="radio" name={`${reasonId}-rev`} data-choice="revision-keep" checked={revKind === "keep"} onChange={() => setRevKind("keep")} />
+              <span>{t("sure.revisionKeep", { rev: doc.revisionNo || "—", date: doc.revisionDate ? formatDisplayDate(doc.revisionDate) : "—" })}</span>
+            </label>
+          </div>
+        )}
         <label className="text-xs text-muted mt-2" style={{ display: "block" }} htmlFor={reasonId}>
           Why is the format changing? It goes in its change history.
         </label>
@@ -272,7 +324,7 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
         )}
         <div className="flex gap-2 mt-2 wrap">
           <button type="button" className="btn btn-primary btn-sm" data-action="header-change-save" onClick={save}>
-            Save as Rev {nextRev}
+            {reissue ? `Save as Rev ${nextRev}` : "Save"}
           </button>
           <button
             type="button"

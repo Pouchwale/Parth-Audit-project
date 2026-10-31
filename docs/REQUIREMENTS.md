@@ -10225,6 +10225,9 @@ if user select change with revision number and date so system will ask him what 
    Edit format or the designer - and today to start with, both the person's to change), or "Save it without changing
    the revision" (it stays Rev NN of its date; the change history says "saved without a new revision"). No saves
    nothing. The revision number or date itself typed over on the header is a re-issue and asked as before (§86).
+   A header cell typed over (the owner, 31-Oct-2026, with the panel that said "Save as Rev 02") asks the choice IN ITS
+   PANEL, with the reason - Revision No and date boxes, or keep - and its button is plain Save; "Are you sure?" then
+   names the way chosen ("... is saved as Rev 02" or "... keeps Rev 01").
 3. **Mitra too:** her change_format takes revision new (revisionNo, revisionDate) or keep, as the person answered, and
    her question names it ("Save it as Rev 03?" or "Save it without a new revision (it stays Rev 02)?"); without the AI
    her question has a third answer, "Save without a new revision".

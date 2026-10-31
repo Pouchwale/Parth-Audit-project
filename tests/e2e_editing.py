@@ -237,7 +237,7 @@ with sync_playwright() as p:
     reply = page.locator(".chat-msg.bot").last.inner_text()
     check(
         "On a verified record the assistant asks before reopening it, and changes nothing yet",
-        "reopen" in reply.lower() and page.locator(".chat-chip:has-text('Yes, correct it')").count() == 1 and stored(page, rid)["data"]["checker"] == "Roshni",
+        "reopen" in reply.lower() and page.locator(".chat-chip:has-text('Yes, correct it')").count() == 1 and stored(page, rid)["data"]["checker"] == "Editing QA",  # the submitter signs F/HR/17 (s149)
         reply,
     )
     page.locator(".chat-chip:has-text('Yes, correct it')").click()

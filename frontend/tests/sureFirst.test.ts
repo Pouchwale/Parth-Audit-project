@@ -104,7 +104,10 @@ test("a format change is saved as a new revision with the number and date asked,
   assert.deepEqual([after.revisionNo, after.revisionDate], ["07", "2026-11-02"], "the number and the date asked");
   restoreIssuedFormat(after);
   // Every screen that saves a format asks which revision (the dialog's revision offer), the re-issue of the header excepted.
-  for (const file of ["FormatEditor.tsx", "SheetDesigner.tsx", "HeaderEditing.tsx"]) {
+  for (const file of ["FormatEditor.tsx", "SheetDesigner.tsx"]) {
     assert.match(read("frontend", "src", "components", "documents", file), /t\("sure\.formatChange"/, `${file} asks which revision`);
   }
+  // A header cell typed over asks it in its own panel, before Save (the owner, 31-Oct-2026).
+  const header = read("frontend", "src", "components", "documents", "HeaderEditing.tsx");
+  assert.ok(header.includes('data-choice="revision-new"') && header.includes('data-choice="revision-keep"') && header.includes('data-field="revision-no"'), "the header panel asks which revision");
 });
