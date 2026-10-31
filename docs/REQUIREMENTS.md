@@ -10320,6 +10320,19 @@ area, 150 ml); tests/e2e_print_all_documents.py (the page's width, every rule an
    print's only, where they match his PDF (styles.css, screen media). A name that runs to two lines (the general report's
    "RM Inward & FG Outward area (outer periphery)") wraps on the screen as it does on his paper. Asked again, the glue
    boards "between 3 to 5 always" and the bait "between 40 to 50" filled by the system: declined again, as item 2.
+6. Lines added and removed (the owner, 31-Oct-2026: "can able to add 17, 18, 19 and more or can remove also ... applied
+   for other two pest control also"). Beside every area, on the screen only, a + adds a line below it and a × removes it.
+   The report's lines are the service's area list in Master Data (Areas, context service-report:<service>), which every
+   new report is made from, so the change is that list's (engine/serviceLines.ts): the new line's area is asked for under
+   the sheet, then "Are you sure?" with the revision - a new one or none (§148) - and the format's change history and the
+   activity log say "added the line X after Y" / "removed the line X". This report and every report not yet handed in
+   follow at once, each keeping the quantities and remarks it holds by area (a history line on each); a report handed in
+   keeps its lines. A line added below another carries that line's material and method (the Master Data area says them:
+   AreaLocation.material/method), so the paper's merged block stays whole; a line's number, area, material and method
+   places are now keyed by the area, so words typed over stay with their line when lines move. Refused: an empty name, a
+   name already on the report, the last line. Restoring the issued format does not restore the area list (Master Data's).
+   Proved: frontend/tests/serviceLines.test.ts; tests/e2e_editing.py (a line added after line 9 of the general report,
+   the next report with ten lines, removed again).
 
 
 ## §155 F/HR/17's heading keeps its month while its title is typed over; a header's Rev Date has the whole year (31-Oct-2026)

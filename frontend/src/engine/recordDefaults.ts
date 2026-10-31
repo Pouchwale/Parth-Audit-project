@@ -76,7 +76,7 @@ export function createDefaultData(
       const data: ServiceReportData = {
         serviceName: doc.variantKey ?? doc.name,
         lines: areas.map((a, i) => {
-          const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name);
+          const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name, a);
           return {
             slNo: i + 1,
             areaName: a.name,

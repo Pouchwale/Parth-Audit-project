@@ -3386,6 +3386,16 @@ table.svc-paper {
 .svc-paper tr.svc-group-start > td { border-top: 1px solid #000; }
 .svc-paper tr.svc-tall > td.svc-area { height: 29px; }
 .svc-paper tr.svc-narrow > td.svc-area { padding-right: 6px; }
+/* A LINE ADDED OR REMOVED (REQUIREMENTS §154 item 6): + and × at the right of an area while its line is under the pointer
+   (always on a touch screen), and the form for the new line's area under the sheet; none of it prints. */
+.svc-paper td.svc-area { position: relative; }
+.svc-line-tools { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); display: inline-flex; gap: 2px; opacity: 0; transition: opacity 0.12s; }
+.svc-paper tr[data-line]:hover .svc-line-tools, .svc-line-tools:focus-within { opacity: 1; }
+@media (hover: none) { .svc-line-tools { opacity: 1; } }
+.svc-line-tool { width: 16px; height: 16px; padding: 0; border: 1px solid #c9ced6; border-radius: 3px; background: #fff; color: #374151; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; }
+.svc-line-tool:hover { background: #fff7cc; color: #111; border-color: #6b7280; }
+.svc-new-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+@media print { .svc-line-tools, .svc-new-line { display: none; } }
 .svc-paper td.svc-merged { border: 1px solid #000; }
 .svc-paper td.svc-remarks { border-right: 2px solid #000; border-bottom: 2px solid #000; }
 .svc-paper tr:has(+ .svc-sign-space) > td { border-bottom: 2px solid #000; }

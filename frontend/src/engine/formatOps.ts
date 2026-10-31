@@ -51,6 +51,8 @@ export interface FormatDraft {
   revisionDate?: string;
   /** One place's printed words reworded on a form drawn by its own view (the service reports, REQUIREMENTS §154). */
   wordsAt?: { place: string; words: string; was: string };
+  /** The service report's lines added or removed on the report (REQUIREMENTS §154 item 6): the area list after, and before. */
+  serviceLines?: { areas: string[]; was: string[] };
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -514,6 +516,14 @@ export function describeFormatChange(before: FormatDraft, after: FormatDraft): s
   if (after.wordsAt && after.wordsAt.words.trim() !== after.wordsAt.was.trim()) {
     const one = (s: string) => s.replace(/\s+/g, " ").trim();
     out.push(after.wordsAt.words.trim() ? `reworded “${one(after.wordsAt.was)}” to “${one(after.wordsAt.words)}”` : `rubbed out “${one(after.wordsAt.was)}”`);
+  }
+  if (after.serviceLines) {
+    const { areas, was } = after.serviceLines;
+    for (const name of areas.filter((n) => !was.includes(n))) {
+      const i = areas.indexOf(name);
+      out.push(i > 0 ? `added the line “${name}” after “${areas[i - 1]}”` : `added the line “${name}” first`);
+    }
+    for (const name of was.filter((n) => !areas.includes(n))) out.push(`removed the line “${name}”`);
   }
   const a = before.layout;
   const b = after.layout;

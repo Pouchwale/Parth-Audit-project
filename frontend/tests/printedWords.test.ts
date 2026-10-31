@@ -33,7 +33,7 @@ test("drawn as before where nothing is typed and nothing can be; the record's li
 test("every printed place of the service report, F/HR/17's day and F/HR/18's visit goes through it", () => {
   // (a call written over two lines reads as one)
   const svc = read("frontend", "src", "components", "records", "ServiceReportRecordView.tsx").replace(/at\(\s+/g, "at(");
-  for (const place of ['"title"', '"provider"', '"serviceNameLabel"', '"dateLabel"', '"unit"', '"serviceName"', '"date"', "`heading:${i}`", "`area:${l.slNo}`", "`material:${l.slNo}`", "`method:${l.slNo}`", '"technicianCaption"', '"customerCaption"']) {
+  for (const place of ['"title"', '"provider"', '"serviceNameLabel"', '"dateLabel"', '"unit"', '"serviceName"', '"date"', "`heading:${i}`", "`slno:${l.areaName}`", "`area:${l.areaName}`", "`material:${l.areaName}`", "`method:${l.areaName}`", '"technicianCaption"', '"customerCaption"']) {
     assert.ok(svc.includes(`at(${place}`), `the service report: ${place}`);
   }
   const day = read("frontend", "src", "components", "records", "DailyPestMonitoringRecordView.tsx");

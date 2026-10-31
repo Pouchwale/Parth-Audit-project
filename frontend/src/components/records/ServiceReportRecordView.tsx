@@ -21,14 +21,19 @@ import { useAppStore } from "../../store/AppStore";
 import { todayISO } from "../../utils/date";
 import type { RevisionChoice } from "../common/SureFirst";
 import { EditableWords } from "./EditableWords";
+import { useSureFirst } from "../common/SureFirst";
+import { FiPlus, FiX } from "react-icons/fi";
+import { t } from "../../i18n";
+import { alignedServiceLines, commitServiceLineChange, type ServiceLineChange } from "../../engine/serviceLines";
 
 // THE SERVICE REPORT IS THE CONTRACTOR'S SHEET (the owner, 17-Oct-2026: "make sure it looks like it only"). One printed
 // grid, as the paper draws it: the title at the left, the band (the contractor, the service name, the date), the Unit
 // line, then Sl.No / Area / Material / Qty used / Method / Remarks — the material, the quantity and the method ONE
 // merged cell for each run of areas treated with the same material, the Remarks one merged cell for the whole report —
-// and the two signatures at the foot. What a person writes sits in the paper's own cells: no boxes, no Add Area, no
-// trash can (an area the plant adds or drops is a Master Data change). The three services share the sheet and differ
-// in their name, their areas and their material rules (engine/serviceMaterials.ts).
+// and the two signatures at the foot. What a person writes sits in the paper's own cells, no boxes; a line is added
+// below any line, or removed, as a change to the format's area list (engine/serviceLines.ts, REQUIREMENTS §154 item 6).
+// The three services share the sheet and differ in their name, their areas and their material rules
+// (engine/serviceMaterials.ts).
 //
 // The quantity is typed once, on the first line of its material, and holds for every line with it; the Remarks is one
 // remark for the visit and is the first line's — a remark an earlier version (or Mitra) wrote against another line is
@@ -70,6 +75,10 @@ export function ServiceReportRecordView({
   const customerOpen = editable || countersignEditable;
   const { currentUser, bump } = useAppStore();
   const [problem, setProblem] = React.useState<string | null>(null);
+  const sure = useSureFirst();
+  // A LINE ADDED OR REMOVED (REQUIREMENTS §154 item 6): the new line's area is asked for under the sheet, then the question
+  // with the revision (§148); the change is the format's area list, and this report's lines follow it at once.
+  const [adding, setAdding] = React.useState<{ after: ServiceReportAreaLine; name: string } | null>(null);
   // EVERY PRINTED WORD OF THE REPORT IS THE FORMAT'S (the owner, 31-Oct-2026, REQUIREMENTS §154: "whatever user change in
   // format then it should be change from that format to all upcoming formats"): the title, the contractor, the plant, the
   // service, the headings, each area, each material and method, the captions. Typed over, it is asked first - a new
@@ -79,34 +88,59 @@ export function ServiceReportRecordView({
   const handedInAt = isEditableStatus(record.status) ? undefined : (record.submittedAt ?? record.verifiedAt ?? record.updatedAt);
   const number = doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo;
   const offer = { current: { no: doc.revisionNo ?? "", date: doc.revisionDate ?? "" }, next: { no: nextRevisionNo(doc.revisionNo), date: todayISO() } };
-  const saveFormatWords = (place: string, typed: string, was: string, choice?: RevisionChoice) => {
+  const saveFormatWords = (place: string, typed: string, was: string, choice?: RevisionChoice, legacy?: string) => {
     const latest = documentRepository.getById(doc.id) ?? doc;
     const result = commitFormatChange(latest, { ...draftOf(latest), wordsAt: { place, words: typed, was } }, { actor: currentUser, reason: "Printed words reworded on the report", ...choice });
     if (!result.ok) return setProblem(result.error);
     setProblem(null);
     const own = data.printedWords;
-    if (own && own[place] !== undefined) {
+    if (own && (own[place] !== undefined || (legacy && own[legacy] !== undefined))) {
       const rest = { ...own };
       delete rest[place];
+      if (legacy) delete rest[legacy];
       onChange({ ...data, printedWords: rest });
     }
     bump();
   };
-  const at = (place: string, issued: string, children?: React.ReactNode, label?: string) => {
+  // A line's places are keyed by its area, which stays when lines are added or removed (§154 item 6); words kept under the
+  // line's number from before are read until that place is changed again.
+  const at = (place: string, issued: string, children?: React.ReactNode, label?: string, legacy?: string) => {
     if (place === "date")
       return (
         <PrintedWordsAt place={place} words={data.printedWords} original={issued} editable={editable} onWords={(printedWords) => onChange({ ...data, printedWords })} label={label}>
           {children}
         </PrintedWordsAt>
       );
-    const own = data.printedWords?.[place];
-    const formats = formatWordsAt(doc.id, place, issued, handedInAt);
+    const own = data.printedWords?.[place] ?? (legacy ? data.printedWords?.[legacy] : undefined);
+    let formats = formatWordsAt(doc.id, place, issued, handedInAt);
+    if (formats === issued && legacy) formats = formatWordsAt(doc.id, legacy, issued, handedInAt);
     const shown = own ?? formats;
     return (
-      <EditableWords shown={shown} editable={editable} label={label} format={{ number, offer }} onChange={(typed, choice) => saveFormatWords(place, typed, shown, choice)}>
+      <EditableWords shown={shown} editable={editable} label={label} format={{ number, offer }} onChange={(typed, choice) => saveFormatWords(place, typed, shown, choice, legacy)}>
         {own !== undefined || formats !== issued ? ownLines(shown) : (children ?? issued)}
       </EditableWords>
     );
+  };
+  const latestDoc = () => documentRepository.getById(doc.id) ?? doc;
+  const applied = (result: ReturnType<typeof commitServiceLineChange>) => {
+    if (!result.ok) return setProblem(result.error);
+    setProblem(null);
+    setAdding(null);
+    onChange({ ...data, lines: alignedServiceLines(doc.variantKey, result.areas, lines) });
+    bump();
+  };
+  const removeLine = (l: ServiceReportAreaLine) => {
+    if (lines.length <= 1) return setProblem("The report keeps at least one line.");
+    const change: ServiceLineChange = { kind: "remove", area: l.areaName };
+    sure.ask(t("sure.formatLineRemove", { number, area: l.areaName }), (choice) => applied(commitServiceLineChange(latestDoc(), change, { actor: currentUser, except: record.id, ...choice })), undefined, offer);
+  };
+  const askAddLine = () => {
+    if (!adding) return;
+    const name = adding.name.trim();
+    if (!name) return setProblem("Give the new line its area.");
+    if (lines.some((x) => x.areaName.trim().toLowerCase() === name.toLowerCase())) return setProblem(`“${name}” is on the report already.`);
+    const change: ServiceLineChange = { kind: "add", afterArea: adding.after.areaName, name, material: adding.after.materialName, method: adding.after.methodOfApplication };
+    sure.ask(t("sure.formatLineAdd", { number, area: name, after: adding.after.areaName }), (choice) => applied(commitServiceLineChange(latestDoc(), change, { actor: currentUser, except: record.id, ...choice })), undefined, offer);
   };
 
   // Every value a person writes carries where it lives in the record, so an
@@ -182,9 +216,29 @@ export function ServiceReportRecordView({
             return (
               <tr key={l.slNo} data-line={l.slNo} className={`${group ? "svc-group-start" : ""}${tall.has(l.areaName) ? " svc-tall" : ""}${narrow.has(l.areaName) ? " svc-narrow" : ""}`}>
                 {/* The line's number is printed words too, the format's like the rest (REQUIREMENTS §154). */}
-                <td className="svc-no">{at(`slno:${l.slNo}`, String(l.slNo), undefined, "Sl.No")}</td>
+                <td className="svc-no">{at(`slno:${l.areaName}`, String(l.slNo), undefined, "Sl.No", `slno:${l.slNo}`)}</td>
                 <td className="svc-area" data-cell="area">
-                  <span {...bindProps(serviceReportBind.line(l, "areaName"))}>{at(`area:${l.slNo}`, l.areaName, undefined, "Area")}</span>
+                  <span {...bindProps(serviceReportBind.line(l, "areaName"))}>{at(`area:${l.areaName}`, l.areaName, undefined, "Area", `area:${l.slNo}`)}</span>
+                  {editable && (
+                    <span className="svc-line-tools no-print" data-line-tools="">
+                      <button
+                        type="button"
+                        className="svc-line-tool"
+                        data-action="svc-add-line"
+                        title="Add a line below this one"
+                        aria-label={`Add a line below line ${l.slNo}`}
+                        onClick={() => {
+                          setProblem(null);
+                          setAdding({ after: l, name: "" });
+                        }}
+                      >
+                        <FiPlus size={11} />
+                      </button>
+                      <button type="button" className="svc-line-tool" data-action="svc-remove-line" title="Remove this line" aria-label={`Remove line ${l.slNo} (${l.areaName})`} onClick={() => removeLine(l)}>
+                        <FiX size={11} />
+                      </button>
+                    </span>
+                  )}
                 </td>
                 {group && (
                   <>
@@ -196,7 +250,7 @@ export function ServiceReportRecordView({
                       data-cell="material"
                       title="Fixed for this service — the SOP / Chemical Master material for these areas"
                     >
-                      {at(`material:${l.slNo}`, l.materialName, l.materialName || <span className="text-faint">—</span>, "Material Name")}
+                      {at(`material:${l.areaName}`, l.materialName, l.materialName || <span className="text-faint">—</span>, "Material Name", `material:${l.slNo}`)}
                     </td>
                     <td rowSpan={group.size} className="svc-merged" data-cell="qty">
                       {editable && entersQty ? (
@@ -216,7 +270,7 @@ export function ServiceReportRecordView({
                       )}
                     </td>
                     <td rowSpan={group.size} className="svc-merged notranslate" translate="no" data-cell="method" title="Fixed for this service — the SOP method for these areas">
-                      {at(`method:${l.slNo}`, l.methodOfApplication, l.methodOfApplication || <span className="text-faint">—</span>, "Method of Application")}
+                      {at(`method:${l.areaName}`, l.methodOfApplication, l.methodOfApplication || <span className="text-faint">—</span>, "Method of Application", `method:${l.slNo}`)}
                     </td>
                   </>
                 )}
@@ -287,11 +341,32 @@ export function ServiceReportRecordView({
           </tr>
         </tbody>
       </table>
+      {editable && adding && (
+        <form
+          className="svc-new-line no-print"
+          data-section="service-new-line"
+          onSubmit={(e) => {
+            e.preventDefault();
+            askAddLine();
+          }}
+        >
+          <label className="text-sm">
+            New line after {adding.after.slNo} ({adding.after.areaName}), {adding.after.materialName || "—"}:{" "}
+            <input className="input input-sm" data-field="svc-new-area" value={adding.name} onChange={(e) => setAdding({ ...adding, name: e.target.value })} placeholder="Area of pesticide applied" autoFocus style={{ width: 300 }} />
+          </label>
+          <button type="submit" className="btn btn-primary btn-sm" data-action="svc-new-line-add">
+            Add line
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" data-action="svc-new-line-cancel" onClick={() => setAdding(null)}>
+            Cancel
+          </button>
+        </form>
+      )}
       {editable && (
         <div className="text-xs text-muted mt-2 no-print" data-section="service-note">
-          Every printed word can be typed over (a click puts the caret in it): the change is the format's, asked first - a new revision or not - and
-          this report and every one after it print it. The quantity is entered once, on the first line of each material, and is the same on every line
-          with that material.
+          Every printed word can be typed over (a click puts the caret in it), and the + and × beside an area add a line below it or remove it: each
+          change is the format's, asked first - a new revision or not - and this report and every one after it carry it. The quantity is entered once,
+          on the first line of each material, and is the same on every line with that material.
         </div>
       )}
       {problem && (
@@ -302,6 +377,7 @@ export function ServiceReportRecordView({
       {countersignEditable && !data.customerSign.trim() && (
         <div className="text-xs text-muted mt-1 no-print">The customer's representative countersigns here — it's needed before this report can be verified.</div>
       )}
+      {sure.dialog}
     </div>
   );
 }

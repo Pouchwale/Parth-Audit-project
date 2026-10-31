@@ -545,6 +545,35 @@ with sync_playwright() as p:
         page.click("[data-action='sure-yes']")
         page.wait_for_timeout(800)
         check("...typed back, the paper's words again", page.locator("[data-print-doc] [data-cell='area'] [data-editable-words]").first.inner_text().strip() == was)
+        # A LINE ADDED AND REMOVED ON THE REPORT (the owner, 31-Oct-2026, s154 item 6): + below line 9 asks for the area, then
+        # the question with the revision; the next report has the line; x removes it the same way.
+        page.locator("[data-print-doc] tr[data-line='9'] [data-action='svc-add-line']").first.click()
+        page.fill("[data-field='svc-new-area']", "Ground floor - Main gate")
+        page.click("[data-action='svc-new-line-add']")
+        page.wait_for_selector("[data-action='sure-yes']", state="visible", timeout=3000)
+        asked = page.locator("[data-section='sure-first']").inner_text()
+        check("A + beside line 9 asks for the new line's area, then: the format changes, the line is added after Canteen on every report from now on - a new revision or none (s154 item 6)",
+              "is added after" in asked and "every report from now on" in asked and page.locator("[data-section='sure-first'] [data-choice='revision-keep']").count() == 1, asked)
+        page.click("[data-section='sure-first'] [data-choice='revision-keep']")
+        page.click("[data-action='sure-yes']")
+        page.wait_for_timeout(900)
+        rows = page.locator("[data-print-doc] tr[data-line]")
+        tenth = page.locator("[data-print-doc] tr[data-line='10'] [data-cell='area']")
+        check("...Yes: the report has ten lines, the tenth the new area, inside Deltamethrin's one block",
+              rows.count() == 10 and tenth.count() == 1 and "Ground floor - Main gate" in tenth.inner_text() and page.locator("[data-print-doc] [data-cell='material']").count() == 1,
+              (rows.count(), tenth.inner_text() if tenth.count() else None))
+        new_record("service-report-general")
+        check("...and the next report has the ten lines too",
+              page.locator("[data-print-doc] tr[data-line]").count() == 10 and "Ground floor - Main gate" in page.locator("[data-print-doc] tr[data-line='10']").inner_text())
+        page.locator("[data-print-doc] tr[data-line='10'] [data-action='svc-remove-line']").first.click()
+        page.wait_for_selector("[data-action='sure-yes']", state="visible", timeout=3000)
+        asked = page.locator("[data-section='sure-first']").inner_text()
+        page.click("[data-section='sure-first'] [data-choice='revision-keep']")
+        page.click("[data-action='sure-yes']")
+        page.wait_for_timeout(900)
+        check("x beside the line asks the same way and removes it from this report and from the format", "is removed from" in asked and page.locator("[data-print-doc] tr[data-line]").count() == 9, asked)
+        new_record("service-report-general")
+        check("...and the next report has its nine lines again", page.locator("[data-print-doc] tr[data-line]").count() == 9)
 
     page.goto(f"{BASE}/index.html#/record/qc-gsm-plate-calibration-2024-12")
     page.wait_for_timeout(1500)

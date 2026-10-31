@@ -160,7 +160,7 @@ export interface ServiceObservation {
   correctiveAction: string;
 }
 
-function serviceAreasFor(doc: DocumentDefinition): { name: string }[] {
+function serviceAreasFor(doc: DocumentDefinition): { name: string; material?: string; method?: string }[] {
   const areas = masterRepository.get().areas.filter((a) => a.context === `service-report:${doc.variantKey}`);
   return areas.length ? areas : [{ name: "General area (demo)" }];
 }
@@ -186,7 +186,7 @@ function buildServiceReportData(doc: DocumentDefinition, dueDate: string, observ
     lines: normalizeServiceLines(
       doc.variantKey,
       serviceAreasFor(doc).map((a, i) => {
-        const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name);
+        const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name, a);
         // What the technician actually noted at this area on this visit — and
         // where that is something the plant has to act on, it is collected so
         // a CAPA finding can be raised against it below.

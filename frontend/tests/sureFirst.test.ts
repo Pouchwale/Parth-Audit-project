@@ -63,7 +63,9 @@ test("every save of a format, every restore, and every printed word or page numb
   // The service report's printed words are the format's (REQUIREMENTS §154): saved only from those words' own Yes.
   const service = read("frontend", "src", "components", "records", "ServiceReportRecordView.tsx");
   assert.equal(service.split("saveFormatWords(").length - 1, 1, "called from one place only: the words' own Yes");
-  assert.match(service, /onChange=\{\(typed, choice\) => saveFormatWords\(place, typed, shown, choice\)\}/);
+  assert.match(service, /onChange=\{\(typed, choice\) => saveFormatWords\(place, typed, shown, choice, legacy\)\}/);
+  // A line added or removed on the service report (REQUIREMENTS §154 item 6) is saved only from its question's Yes.
+  everyCallAsksFirst(service, "commitServiceLineChange(", "ServiceReportRecordView");
   // Mitra's change to a format is asked in her chat, as it always was: "Yes, save as Rev NN" or "No, leave it".
   assert.match(read("frontend", "src", "components", "common", "DocumentAssistant.tsx"), /label: `Yes, save as Rev \$\{rev\}`, action: \{ type: "confirmFormatChange" \}/);
 
@@ -85,7 +87,7 @@ test("the question in English and in Gujarati: Are you sure? - Yes, I am sure / 
   assert.equal(STRINGS.en["sure.title"], "Are you sure?");
   assert.equal(STRINGS.en["sure.yes"], "Yes, I am sure");
   assert.equal(STRINGS.en["sure.no"], "No");
-  const keys = ["sure.title", "sure.yes", "sure.no", "sure.words", "sure.wordsRubbedOut", "sure.page", "sure.pageBack", "sure.format", "sure.restore", "sure.formatChange", "sure.revisionNew", "sure.revisionNo", "sure.revisionDate", "sure.revisionKeep", "sure.revisionNoNeeded", "sure.revisionDateNeeded", "sure.formatWords"] as const;
+  const keys = ["sure.title", "sure.yes", "sure.no", "sure.words", "sure.wordsRubbedOut", "sure.page", "sure.pageBack", "sure.format", "sure.restore", "sure.formatChange", "sure.revisionNew", "sure.revisionNo", "sure.revisionDate", "sure.revisionKeep", "sure.revisionNoNeeded", "sure.revisionDateNeeded", "sure.formatWords", "sure.formatLineAdd", "sure.formatLineRemove"] as const;
   for (const key of keys) {
     assert.ok(STRINGS.gu[key] && STRINGS.gu[key] !== STRINGS.en[key], `${key} in Gujarati`);
     for (const slot of STRINGS.en[key].match(/\{\w+\}/g) ?? []) assert.ok(STRINGS.gu[key].includes(slot), `${key} keeps ${slot} in Gujarati`);

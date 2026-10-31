@@ -692,7 +692,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
     .slice()
     .sort((a, b) => compareISO(b.dueDate, a.dueDate));
   const areas = master.areas.filter((a) => a.context === `service-report:${doc.variantKey}`);
-  const materials = Array.from(new Set(areas.map((a) => fixedMaterialForServiceArea(doc.variantKey, a.name).materialName).filter(Boolean)));
+  const materials = Array.from(new Set(areas.map((a) => fixedMaterialForServiceArea(doc.variantKey, a.name, a).materialName).filter(Boolean)));
   const next = nextDueDate(doc, today);
   const last = latestRecord<ServiceReportData>(doc.id, isDemo, today);
   const completed = records.filter((r) => DONE_STATUSES.has(r.status)).length;
