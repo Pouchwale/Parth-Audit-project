@@ -364,16 +364,21 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
   const row0 = part === "head" ? 0 : part === "body" ? form.head.length : form.head.length + form.body.length + (form.lines ? Math.max(form.lines.count, held) : 0);
   if (rows.length === 0) return null;
   const widths = edges.slice(1).map((e, i) => Math.round((e - edges[i]) * 100) / 100);
+  // For the Excel file (REQUIREMENTS §156): read cell for cell (data-xl-grid), each column in Excel's characters - a
+  // millimetre is 3.78 px, an Excel character 7 px - and its rows in points (0.75 of a pixel).
   return (
     <table
       className={`pt-table pt-${part} pt-font-${form.font}${form.frame ? " pt-frame" : ""}`}
       style={{ "--pt-w": String(edges[edges.length - 1]) } as React.CSSProperties}
       data-paper-part={part}
       data-pt-rules={form.rules}
+      data-xl-grid=""
+      data-xl-pt-per-px="0.75"
+      data-xl-px-per-char="7"
     >
       <colgroup>
         {widths.map((w, i) => (
-          <col key={i} style={{ "--pt-col": String(w) } as React.CSSProperties} />
+          <col key={i} style={{ "--pt-col": String(w) } as React.CSSProperties} data-xl-w={Math.max(0.3, Math.round(((w * 96) / 25.4 / 7) * 100) / 100)} />
         ))}
       </colgroup>
       <tbody>

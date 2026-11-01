@@ -199,7 +199,10 @@ with sync_playwright() as p:
     check("...his grid's headings", heading_row is not None and any(c[0] == "Date of Joining" for c in heading_row.values()), heading_row)
     names = [c[0] for r in rows.values() for c in r.values() if c[0] in ("Shail Patel", "Disha Chaudhary")]
     check("...and all 80 lines, first to last", "Shail Patel" in names and "Disha Chaudhary" in names and len(rows) >= 84, len(rows))
-    check("...on his own page set-up (A4 portrait, as his workbook prints)", 'orientation="portrait"' in sheet_xml and 'paperSize="9"' in sheet_xml)
+    # His workbook printed at 37% portrait (4 pt letters); since 1-Nov-2026 (s156) it prints fitted to the A4 page's width,
+    # landscape - its 273 characters across do not fit a portrait page any larger - at about 9 pt.
+    check("...on A4, fitted to the page's width, landscape (s156: his 37% portrait printed 4 pt letters)",
+          'paperSize="9"' in sheet_xml and 'fitToWidth="1"' in sheet_xml and 'orientation="landscape"' in sheet_xml and 'fitToPage="1"' in sheet_xml and 'scale="37"' not in sheet_xml)
 
     goto(page, "#/hr/training-calendar")
     fmt, suggested, path = download(page, "training-calendar")

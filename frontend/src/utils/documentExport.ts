@@ -1,10 +1,11 @@
+import { departmentOfDocument } from "../data/seed/documentDepartments";
 import { TBC, type DocumentDefinition } from "../types";
 import { buildDocx, type DocxBlock, type DocxCell, type DocxRun } from "./docx";
 import { columnName, isoToSerial, xmlText, zipStored, customPropertiesXml, CUSTOM_PROPERTIES_PART, CUSTOM_PROPERTIES_REL, CUSTOM_PROPERTIES_TYPE } from "./xlsx";
 import { downloadBlob } from "./csv";
 import { displayDateToISO, formatDisplayDate, todayISO } from "./date";
 import { PRINT_PREPARE_EVENT, paperOf } from "./print";
-import { paperMarginsOf, paperPageOf, paperSheetBlocks, paperWordBlocks } from "./paperSheets";
+import { paperMarginsOf, paperPageOf, paperSheetBlocks, paperWordBlocks, sheetAsPaper } from "./paperSheets";
 import { originalFileBytes, originalFileOf } from "./originalFill";
 import {
   BIND_APPEND_ATTR,
@@ -131,8 +132,12 @@ const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-re
 export function documentFileKinds(doc: DocumentDefinition | null | undefined): DocumentFileKind[] {
   if (!doc) return [];
   const own = documentFileKind(doc);
-  // ...and the three pest control service reports (the owner, 31-Oct-2026, §154 item 8), their own Excel first.
-  if (doc.department === "Quality Control" || doc.kind === "service-report") return own === "xlsx" ? ["xlsx", "docx"] : ["docx", "xlsx"];
+  // ...and every document of the QC and HR modules (the owner, 1-Nov-2026, REQUIREMENTS §156: "check all the documents of
+  // QC and HR on downloading the word and excel"), the three service reports among them - but a scanned paper with no form
+  // behind it (the contractor's licence), which is printed only.
+  if (own === "pdf" && doc.isReferenceOnly) return [];
+  const module = departmentOfDocument(doc.id, doc.formatNo);
+  if (doc.department === "Quality Control" || module === "QC" || module === "HR" || doc.kind === "service-report") return own === "xlsx" ? ["xlsx", "docx"] : ["docx", "xlsx"];
   return own === "pdf" ? [] : [own];
 }
 
@@ -161,6 +166,8 @@ export interface Cell {
   bind?: ExportBinding;
   /** The cell's text in pieces — fixed words and bound values — when it holds any bound value. */
   parts?: ExportSegment[];
+  /** How many of its table's columns the cell spans, where more than one (its row holds an empty cell for each other). */
+  span?: number;
 }
 
 /**
@@ -210,7 +217,7 @@ export type ExportBlock =
    * A sheet drawn as the company's own Excel paper: merged cells, the paper's column widths (Excel characters) and row
    * heights (points), fonts, borders. Read from a table marked data-paper-sheet (utils/documentExport.ts sheetBlock).
    */
-  | { kind: "sheet"; name: string; widths: number[]; heights: (number | undefined)[]; rowCount: number; cells: SheetCell[] }
+  | { kind: "sheet"; name: string; widths: number[]; heights: (number | undefined)[]; rowCount: number; cells: SheetCell[]; ptPerChar?: number }
   /** Boxes with their labels; `perLine`, how many the paper puts on one line (LogSheetLayout.headerColumns, REQUIREMENTS §117). */
   | { kind: "fields"; pairs: [string, Cell][]; perLine?: number }
   | { kind: "table"; rows: Cell[][]; headerRows: number; bindTable?: ExportTableBinding; band?: true };
@@ -446,7 +453,7 @@ function tableBlock(table: HTMLTableElement): ExportBlock | null {
       const at = cells.length;
       const across = Math.max(1, cell.colSpan);
       if (cell.hasAttribute(BIND_COL_ATTR)) columnsAt.set(cell, at);
-      cells.push(cellOf(cell));
+      cells.push(across > 1 ? { ...cellOf(cell), span: across } : cellOf(cell));
       own++;
       for (let i = 1; i < across; i++) cells.push({ text: "" });
       for (let down = 1; down < cell.rowSpan; down++) {
@@ -542,17 +549,21 @@ function sheetBlock(table: HTMLTableElement): ExportBlock | null {
   if (cells.length === 0) return null;
   const columns = Math.max(widths.length, ...cells.map((c) => c.col + c.colSpan));
   while (widths.length < columns) widths.push(8.43);
-  return { kind: "sheet", name: table.getAttribute("data-xl-sheet") ?? "", widths, heights, rowCount: rows.length, cells };
+  // One of its Excel characters in points, where the page says how many pixels one is (data-xl-px-per-char): for Word.
+  const pxPerChar = Number(table.getAttribute("data-xl-px-per-char")) || 0;
+  return { kind: "sheet", name: table.getAttribute("data-xl-sheet") ?? "", widths, heights, rowCount: rows.length, cells, ...(pxPerChar ? { ptPerChar: pxPerChar * pt } : {}) };
 }
 
 function structural(el: Element): boolean {
   return el.tagName === "TABLE" || el.classList.contains("field") || el.classList.contains("doc-header") || !!el.querySelector("table, .field, .doc-header") || blockish(el);
 }
 
-function walk(el: Element, out: ExportBlock[]): void {
+function walk(el: Element, out: ExportBlock[], gridsAsSheets = false): void {
   if (skipped(el)) return;
   if (el instanceof HTMLTableElement) {
-    const block = el.hasAttribute("data-paper-sheet") ? sheetBlock(el) : tableBlock(el);
+    // A QC paper drawn as its own Word table (data-xl-grid, components/records/PaperTableSheet.tsx) is read cell for cell
+    // - its merged cells, its columns, its rows' heights - for the Excel file built from the page (REQUIREMENTS §156).
+    const block = el.hasAttribute("data-paper-sheet") || (gridsAsSheets && el.hasAttribute("data-xl-grid")) ? sheetBlock(el) : tableBlock(el);
     if (block) out.push(block);
     return;
   }
@@ -563,7 +574,7 @@ function walk(el: Element, out: ExportBlock[]): void {
       const text = clean(textOf(part));
       if (text) out.push({ kind: "text", text, strong: true, title: true });
     }
-    for (const box of Array.from(el.querySelectorAll(".lc-machine .field"))) walk(box, out);
+    for (const box of Array.from(el.querySelectorAll(".lc-machine .field"))) walk(box, out, gridsAsSheets);
     const meta = Array.from(el.querySelectorAll(".lc-meta > div")).map((c) => cellFrom([c]));
     if (meta.length > 0) out.push({ kind: "table", rows: [meta], headerRows: 0, band: true });
     return;
@@ -643,7 +654,7 @@ function walk(el: Element, out: ExportBlock[]): void {
       if (skipped(child)) continue;
       if (structural(child)) {
         flush();
-        walk(child, out);
+        walk(child, out, gridsAsSheets);
       } else inline += textOf(child, marks);
     } else inline += textOf(node, marks);
   }
@@ -657,11 +668,30 @@ function walk(el: Element, out: ExportBlock[]): void {
 /** The blocks of boxes whose line is complete: a box after them starts a block of its own. */
 const closedFields = new WeakSet<ExportBlock>();
 
-/** The documents given, read as blocks, in order. */
-export function documentBlocks(roots: Element[]): ExportBlock[] {
+/** The documents given, read as blocks, in order (`gridsAsSheets`: a paper drawn as its own table read cell for cell, for Excel). */
+export function documentBlocks(roots: Element[], opts: { gridsAsSheets?: boolean } = {}): ExportBlock[] {
   const out: ExportBlock[] = [];
-  for (const root of roots) walk(root, out);
+  for (const root of roots) walk(root, out, !!opts.gridsAsSheets);
   return out;
+}
+
+/**
+ * Reads the documents at the paper's own size: the screen's enlargement off (utils/screenFit.ts --screen-zoom) and the
+ * print's measures on (html.print-measure), so a row's height and a letter's size are the paper's; then puts both back.
+ */
+function atPaperSize<T>(roots: Element[], read: () => T): T {
+  const docs = Array.from(document.querySelectorAll<HTMLElement>("[data-print-doc]"));
+  const zooms = docs.map((d) => d.style.getPropertyValue("--screen-zoom"));
+  for (const d of docs) d.style.removeProperty("--screen-zoom");
+  const had = document.documentElement.classList.contains("print-measure");
+  document.documentElement.classList.add("print-measure");
+  try {
+    return read();
+  } finally {
+    if (!had) document.documentElement.classList.remove("print-measure");
+    docs.forEach((d, i) => zooms[i] && d.style.setProperty("--screen-zoom", zooms[i]));
+    void roots;
+  }
 }
 
 /** The records whose documents are given (every [data-bind-record] around, on or in them), in order. */
@@ -711,7 +741,8 @@ const isBound = (cell: Cell) => !!cell.parts?.some((p) => p.bind);
 
 const NUMBER_RE = /^-?(?:0|[1-9]\d{0,14})(?:\.\d+)?$/;
 
-// Styles: 0 plain · 1 bold · 2 title · 3 grid cell · 4 grid heading · 5 grid date · 6 grid number · 7 wrapped text
+// Styles: 0 plain · 1 bold · 2 title · 3 grid cell · 4 grid heading · 5 grid date · 6 grid number · 7 text ·
+// 8 a box's label, wrapped · 9 the title across the page · 10 a paragraph across the page · 11 a bold paragraph across it
 /**
  * The blocks as a one-sheet workbook. Given an envelope, the workbook also
  * carries the map of its bound values (a very hidden "_dcrs" sheet, a hidden
@@ -720,7 +751,7 @@ const NUMBER_RE = /^-?(?:0|[1-9]\d{0,14})(?:\.\d+)?$/;
  */
 export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape"): Uint8Array<ArrayBuffer> {
   type Anchor = { col: number; text: string; grid: number };
-  type XCell = { text: string; style: number; date?: string; number?: boolean; pieces?: { bind: ExportBinding; pre: string; post: string }[]; anchor?: Anchor };
+  type XCell = { text: string; style: number; date?: string; number?: boolean; pieces?: { bind: ExportBinding; pre: string; post: string }[]; anchor?: Anchor; span?: number };
   const rows: XCell[][] = [];
   const widths: number[] = [];
   // A paper sheet's own measures: merged ranges, row heights (points), and the cell formats it needs beyond the eight below.
@@ -732,7 +763,17 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
   const paperXfs: string[] = [];
   const paperXfAt = new Map<string, number>();
   let sheetTitle = "";
-  const BASE_XFS = 8;
+  const BASE_XFS = 12;
+  const [LABEL, TITLE, PARAGRAPH, STRONG_PARAGRAPH] = [8, 9, 10, 11];
+  // THE SHEET ON THE A4 PAGE AT ITS OWN SIZE (the owner, 1-Nov-2026, REQUIREMENTS §156: "perfect print and download of both
+  // excel and word so they directly take print"). Each column's narrowest width that cuts nothing - its longest word, a
+  // date - and the paragraphs, laid across the page once the columns are known.
+  const floors: number[] = [];
+  const atLeast = (ci: number, w: number) => (floors[ci] = Math.max(floors[ci] ?? 4, Math.min(16, w)));
+  const longestWord = (text: string) => Math.max(0, ...text.split(/\s+/).map((w) => w.length));
+  const textRows: { row: number; title: boolean; strong: boolean; text: string }[] = [];
+  // The rows of a sheet drawn to its paper: each its own height (a merged cell's words are not counted in a narrow column).
+  const paperRows = new Set<number>();
   const BASE_FONTS = 3;
   const BASE_BORDERS = 2;
   const ink = '<color rgb="FF000000"/>';
@@ -773,14 +814,17 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
   for (const block of blocks) {
     if (block.kind === "text") {
       if (previous && previous !== "text") gap();
+      textRows.push({ row: rows.length, title: !!block.title, strong: block.strong, text: block.text });
       rows.push([{ text: block.text, style: block.title ? 2 : block.strong ? 1 : 7, pieces: piecesFor(block.parts) }]);
     } else if (block.kind === "paper") {
       continue;
     } else if (block.kind === "sheet") {
-      gap();
+      // (a paper's head, body and foot tables are the one table the paper is: no line between them)
+      if (previous !== "sheet") gap();
       const base = rows.length;
       if (block.name) sheetTitle = block.name;
       for (let r = 0; r < block.rowCount; r++) rows.push([]);
+      for (let r = 0; r < block.rowCount; r++) paperRows.add(base + r);
       block.widths.forEach((w, ci) => (fixedWidths[ci] = w));
       block.heights.forEach((h, ri) => h !== undefined && heightsAt.set(base + ri, h));
       for (const c of block.cells) {
@@ -809,7 +853,9 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         block.pairs.slice(at, at + perLine).forEach(([label, cell], i) => {
           measure(i * 2, label);
           measure(i * 2 + 1, cell.text);
-          line.push({ text: label, style: 1 }, { text: cell.text, style: cell.date ? 5 : 3, date: cell.date, pieces: piecesFor(cell.parts) });
+          atLeast(i * 2, Math.ceil(longestWord(label) * 1.1) + 1);
+          atLeast(i * 2 + 1, cell.date ? 9 : longestWord(cell.text) + 1);
+          line.push({ text: label, style: LABEL }, { text: cell.text, style: cell.date ? 5 : 3, date: cell.date, pieces: piecesFor(cell.parts) });
         });
         rows.push(line);
       }
@@ -833,6 +879,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         rows.push(
           row.map((cell, ci) => {
             measure(ci, header ? cell.text.split("\n")[0] : cell.text);
+            atLeast(ci, cell.date ? 9 : NUMBER_RE.test(cell.text) ? cell.text.length + 2 : Math.ceil(longestWord(cell.text) * (header ? 1.1 : 1)) + 1);
             if (header) return { text: cell.text, style: 4 };
             const pieces = piecesFor(cell.parts);
             const a = anchors[ri];
@@ -843,11 +890,103 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
           })
         );
       });
+      // (a cell spread over several of the table's columns says so: merged across them where the sheet is drawn to its paper's grid)
+      for (let r = 0; r < block.rows.length; r++) block.rows[r].forEach((cell, ci) => cell.span && cell.span > 1 && rows[first + r]?.[ci] && (rows[first + r][ci].span = cell.span));
       if (mapping && block.bindTable) grids.push({ bind: block.bindTable, first, header: block.headerRows > 0 ? first + block.headerRows - 1 : null, last: rows.length - 1, fixed });
     }
     previous = block.kind;
   }
+  // IN A SHEET DRAWN TO ITS PAPER (§156) the rows read from the page around the paper's own grid - the letterhead's lines,
+  // the Format No. band, a register's lines below its head - are laid across the paper's columns, each cell spread over
+  // its share of them and merged there, its height worked out (Excel does not grow a merged row), not crammed into the
+  // paper's first narrow columns one letter to a line.
+  const gridCols = fixedWidths.length;
+  const textAt = new Set(textRows.map((tr) => tr.row));
+  if (gridCols > 1) {
+    rows.forEach((row, ri) => {
+      if (paperRows.has(ri) || textAt.has(ri) || row.length === 0) return;
+      // A row cut from the paper's own grid (its letterhead: the company, the title) merges each cell over the columns it spans.
+      if (row.length === gridCols) {
+        if (!row.some((c) => (c.span ?? 1) > 1)) return;
+        let tallest = 1;
+        row.forEach((cell, ci) => {
+          const to = Math.min(gridCols - 1, ci + Math.max(1, cell.span ?? 1) - 1);
+          if (to > ci) {
+            merges.push(`${columnName(ci)}${ri + 1}:${columnName(to)}${ri + 1}`);
+            for (let k = ci + 1; k <= to; k++) row[k] = { text: "", style: cell.style };
+          }
+          if (!cell.text) return;
+          const per = Math.max(4, Math.floor(fixedWidths.slice(ci, to + 1).reduce((a, w) => a + w, 0) * 1.1));
+          tallest = Math.max(tallest, cell.text.split("\n").reduce((m, l) => m + Math.max(1, Math.ceil(l.length / per)), 0));
+        });
+        if (!heightsAt.has(ri)) heightsAt.set(ri, Math.max(15, Math.round((tallest * 13.2 + 3) * 4) / 4));
+        return;
+      }
+      if (row.length > gridCols) return;
+      const n = row.length;
+      const spread: XCell[] = Array.from({ length: gridCols }, () => ({ text: "", style: 0 }));
+      let lines = 1;
+      row.forEach((cell, i) => {
+        const from = Math.floor((i * gridCols) / n);
+        const to = Math.max(from, Math.floor(((i + 1) * gridCols) / n) - 1);
+        spread[from] = cell.anchor ? { ...cell, anchor: { ...cell.anchor, col: Math.floor((cell.anchor.col * gridCols) / n) } } : cell;
+        for (let k = from + 1; k <= to; k++) spread[k] = { text: "", style: cell.style };
+        if (to > from) merges.push(`${columnName(from)}${ri + 1}:${columnName(to)}${ri + 1}`);
+        const room = fixedWidths.slice(from, to + 1).reduce((a, w) => a + w, 0);
+        const per = Math.max(4, Math.floor(room * 1.1));
+        lines = Math.max(lines, cell.text.split("\n").reduce((m, l) => m + Math.max(1, Math.ceil(l.length / per)), 0));
+      });
+      rows[ri] = spread;
+      if (!heightsAt.has(ri)) heightsAt.set(ri, Math.max(15, Math.round((lines * 13.2 + 3) * 4) / 4));
+    });
+  }
   const columns = Math.max(1, ...rows.map((r) => r.length));
+  const orientation = paper ?? (columns > 6 ? "landscape" : "portrait");
+  // The columns to the page's width: each as the page measured it, and where together they run past the A4 page (about 94
+  // of Excel's characters across portrait, 140 landscape, at its 0.4" margins), each narrowed toward its floor - its words
+  // wrap in it and Excel grows the row - so it prints at its own size, not shrunk to fit. A sheet drawn to its own paper
+  // (the service reports, §118) keeps the paper's widths.
+  const colWidths = Array.from({ length: columns }, (_, i) => fixedWidths[i] ?? widths[i] ?? 10);
+  if (!blocks.some((b) => b.kind === "sheet")) {
+    const room = orientation === "landscape" ? 140 : 94;
+    const total = colWidths.reduce((a, b) => a + b, 0);
+    if (total > room) {
+      const flex = colWidths.map((w, i) => Math.max(0, w - (floors[i] ?? 4)));
+      const flexTotal = flex.reduce((a, b) => a + b, 0);
+      const cut = Math.min(1, (total - room) / Math.max(flexTotal, 1e-9));
+      for (let i = 0; i < columns; i++) colWidths[i] = Math.round((colWidths[i] - flex[i] * cut) * 10) / 10;
+    }
+  }
+  // A paragraph runs across the whole page, wrapped, its height worked out: Excel does not grow a merged row by itself.
+  const across = colWidths.reduce((a, b) => a + b, 0);
+  for (const tr of textRows) {
+    const cell = rows[tr.row]?.[0];
+    if (!cell) continue;
+    cell.style = tr.title ? TITLE : tr.strong ? STRONG_PARAGRAPH : PARAGRAPH;
+    if (columns < 2) continue;
+    merges.push(`A${tr.row + 1}:${columnName(columns - 1)}${tr.row + 1}`);
+    const perLine = Math.max(12, Math.floor(across * (tr.title ? 0.9 : tr.strong ? 1.05 : 1.15)));
+    const lines = tr.text.split("\n").reduce((n, l) => n + Math.max(1, Math.ceil(l.length / perLine)), 0);
+    heightsAt.set(tr.row, Math.round((lines * (tr.title ? 16.5 : 13.2) + 3) * 4) / 4);
+  }
+  // ONE PAGE WHERE THE PAPER IS ONE PAGE (§156): the sheet's height as Excel draws it - each row's own height, or its
+  // wrapped words' lines - against the A4 page (0.5" above and below); a sheet less than a fifth of a page over one page
+  // prints on one, a little smaller, and a longer one runs on at its own size.
+  const rowHeight = (ri: number): number => {
+    const set = heightsAt.get(ri);
+    if (set !== undefined) return set;
+    if (paperRows.has(ri)) return 15;
+    let lines = 1;
+    rows[ri].forEach((c, ci) => {
+      if (!c.text) return;
+      const per = Math.max(4, Math.floor((colWidths[ci] ?? 10) * 1.15));
+      lines = Math.max(lines, c.text.split("\n").reduce((n, l) => n + Math.max(1, Math.ceil(l.length / per)), 0));
+    });
+    return Math.max(15, lines * 13.2 + 2);
+  };
+  const printable = orientation === "landscape" ? { across: 149, down: 523 } : { across: 102, down: 770 };
+  const drawnHeight = rows.reduce((h, _r, ri) => h + rowHeight(ri), 0) * Math.min(1, printable.across / Math.max(1, across));
+  const onePage = drawnHeight <= printable.down * 1.2;
   const cellXml = (c: XCell, ref: string) => {
     if (c.date) {
       const serial = isoToSerial(c.date);
@@ -968,6 +1107,10 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>` +
         `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>` +
         `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top"/></xf>` +
+        `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
+        `<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>` +
+        `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
+        `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
         paperXfs.join("") +
         `</cellXfs>` +
         `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
@@ -980,13 +1123,13 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<dimension ref="A1:${lastRef}"/>` +
         `<sheetViews><sheetView workbookViewId="0"/></sheetViews>` +
         `<sheetFormatPr defaultRowHeight="14"/>` +
-        `<cols>${Array.from({ length: columns }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${fixedWidths[i] ?? widths[i] ?? 10}" customWidth="1"/>`).join("")}</cols>` +
+        `<cols>${colWidths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols>` +
         `<sheetData>${sheetData}</sheetData>` +
         (merges.length ? `<mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>` : "") +
         `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
         // Printed from Excel: one page wide, as many pages down as it takes.
         // ...on the paper's own page where the layout names it (REQUIREMENTS §117), else as its width needs.
-        `<pageSetup paperSize="9" orientation="${paper ?? (columns > 6 ? "landscape" : "portrait")}" fitToWidth="1" fitToHeight="0"/>` +
+        `<pageSetup paperSize="9" orientation="${orientation}" fitToWidth="1" fitToHeight="${onePage ? 1 : 0}"/>` +
         `</worksheet>`,
     ],
   ];
@@ -1041,13 +1184,26 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
       };
     }
     if (b.kind === "sheet") {
-      // A sheet in a Word file: its rows of cells in their columns, the words of each merged cell in its first cell.
-      const grid: DocxCell[][] = Array.from({ length: b.rowCount }, () => Array.from({ length: b.widths.length }, () => "" as DocxCell));
-      for (const c of b.cells) grid[c.row][c.col] = cellOfWord(c);
-      return { type: "table", rows: grid.filter((r) => r.some((x) => (typeof x === "string" ? x : "x") !== "")), headerRows: 0 };
+      // A sheet in a Word file (REQUIREMENTS §156): laid in points as the page draws it - its columns, its merged cells,
+      // its rows' heights and rules - a cell for a cell (utils/paperSheets.ts sheetAsPaper).
+      const p = sheetAsPaper(b, b.ptPerChar ?? 5.25);
+      return { type: "paper", widths: p.widths, rows: p.rows.map((r) => ({ height: r.height, cells: r.cells.map((c) => ({ ...c, text: cellOfWord(c) })) })), indent: 0, spaceAfter: 0 };
     }
     const rows = b.rows.map((r) => r.map((c) => cellOfWord(c)));
-    const block: DocxBlock = { type: "table", rows, headerRows: b.headerRows, ...(b.band ? { band: true as const } : {}) };
+    // (a cell spread over several columns - a paper's letterhead cut from its grid - merged across them in Word, §156)
+    const spans = b.rows.some((r) => r.some((c) => (c.span ?? 1) > 1))
+      ? b.rows.map((r) => {
+          const out = r.map(() => 1);
+          r.forEach((c, ci) => {
+            const span = c.span ?? 1;
+            if (span < 2 || out[ci] === 0) return;
+            out[ci] = span;
+            for (let k = ci + 1; k < Math.min(r.length, ci + span); k++) out[k] = 0;
+          });
+          return out;
+        })
+      : undefined;
+    const block: DocxBlock = { type: "table", rows, headerRows: b.headerRows, ...(b.band ? { band: true as const } : {}), ...(spans ? { spans } : {}) };
     if (builder && b.bindTable) {
       const fixed = b.rows.filter((r, ri) => ri < b.headerRows || !r.some(isBound)).map((r) => rowSignature(r.map((c) => c.text)));
       const table = builder.addTable(b.bindTable, { headerRows: b.headerRows, ...(fixed.length ? { fixedRows: fixed } : {}) });
@@ -1198,8 +1354,12 @@ export async function downloadDocumentFile(doc: DocumentDefinition, roots: Eleme
     } finally {
       if (atPaper) document.documentElement.classList.remove("print-measure");
     }
+    // A QC paper drawn as its own table downloads on that table's own grid, read at the paper's size (§156): Excel and Word.
+    const docs = live.length ? live : roots;
+    const gridded = docs.some((r) => r.querySelector("table[data-xl-grid]") !== null);
+    const sheetRead = gridded ? atPaperSize(docs, () => documentBlocks(docs, { gridsAsSheets: true })) : read;
     // A document supplied as a workbook downloads on its original's own grid (utils/paperSheets.ts, REQUIREMENTS §118).
-    const blocks = (kind === "xlsx" ? paperSheetBlocks(doc.id, read) : paperWordBlocks(doc.id, read)) ?? read;
+    const blocks = (kind === "xlsx" ? paperSheetBlocks(doc.id, sheetRead) : paperWordBlocks(doc.id, sheetRead)) ?? sheetRead;
     const name = documentFileName(doc, dateISO);
     // THE OWNER'S OWN FILE (REQUIREMENTS §119): where he supplied the document as Word or Excel, the download is his file
     // filled with what the page shows. Anything it cannot do falls back to the file made from the page below.

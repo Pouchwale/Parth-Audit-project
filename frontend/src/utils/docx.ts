@@ -58,7 +58,7 @@ export type DocxBlock =
    * and size to each cell, edges to each cell. `indent` is its distance from the margin, `pageBreakBefore` starts a page.
    */
   | { type: "paper"; widths: number[]; rows: { height?: number; cells: DocxPaperCell[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number }
-  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true };
+  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true; spans?: number[][] };
 
 /** What a document carries besides its body. */
 export interface DocxExtras {
@@ -117,8 +117,17 @@ function paragraph(controls: Controls, text: string, opts: { bold?: boolean; siz
   return `<w:p>${pPr}${body}</w:p>`;
 }
 
-function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>, fontSize: number): string {
+function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>, baseSize: number, spacer = true): string {
   const columns = Math.max(1, ...block.rows.map((r) => r.length));
+  // A cell spread over several columns (a paper's letterhead cut from its grid, §156): merged across them (gridSpan), the
+  // cells it covers left out; a row's own cells are what make the table dense.
+  const spanAt = (ri: number, ci: number): number => block.spans?.[ri]?.[ci] ?? 1;
+  const own = Math.max(1, ...block.rows.map((r, ri) => r.reduce((n, _c, ci) => n + (spanAt(ri, ci) === 0 ? 0 : 1), 0)));
+  // A register of more than twenty columns (F/HR/08's, F/HR/09's months) prints its words at 6 pt with a point of margin
+  // in each cell, so it stands inside the page's width (REQUIREMENTS §156); anything narrower is as before.
+  const dense = own > 20;
+  const fontSize = dense ? Math.min(baseSize, 12) : baseSize;
+  const side = dense ? 20 : 60;
   const headerRows = block.headerRows ?? 0;
   const border = (side: string) => `<w:${side} w:val="single" w:sz="4" w:space="0" w:color="808080"/>`;
   const rows = block.rows
@@ -126,11 +135,13 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
       const header = ri < headerRows;
       const cells = Array.from({ length: columns }, (_, ci): DocxCell => row[ci] ?? "")
         .map((cell, ci) => {
+          if (spanAt(ri, ci) === 0) return "";
+          const span = Math.min(spanAt(ri, ci), columns - ci);
           // A table of boxes laid several to a line (labelColumns) has a label in every other column.
           const bold = header || (!!block.boldFirstColumn && ci === 0) || (!!block.labelColumns && ci % 2 === 0);
           const shade = header ? '<w:shd w:val="clear" w:color="auto" w:fill="E7E9EE"/>' : "";
           const rPr = `${bold ? "<w:b/>" : ""}<w:sz w:val="${fontSize}"/><w:szCs w:val="${fontSize}"/>`;
-          return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${shade}</w:tcPr><w:p><w:pPr><w:spacing w:before="20" w:after="20"/></w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
+          return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ""}${shade}</w:tcPr><w:p><w:pPr><w:spacing w:before="20" w:after="20"/></w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
         })
         .join("");
       return `<w:tr>${header ? "<w:trPr><w:tblHeader/></w:trPr>" : "<w:trPr><w:cantSplit/></w:trPr>"}${cells}</w:tr>`;
@@ -139,10 +150,11 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
   return (
     `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>` +
     `<w:tblBorders>${["top", "left", "bottom", "right", "insideH", "insideV"].map(border).join("")}</w:tblBorders>` +
-    `<w:tblLayout w:type="autofit"/><w:tblCellMar><w:left w:w="60" w:type="dxa"/><w:right w:w="60" w:type="dxa"/></w:tblCellMar>` +
+    `<w:tblLayout w:type="autofit"/><w:tblCellMar><w:left w:w="${side}" w:type="dxa"/><w:right w:w="${side}" w:type="dxa"/></w:tblCellMar>` +
     `${block.caption ? `<w:tblCaption w:val="${escape(block.caption)}"/>` : ""}</w:tblPr>` +
     `<w:tblGrid>${Array.from({ length: columns }, () => "<w:gridCol/>").join("")}</w:tblGrid>${rows}</w:tbl>` +
-    paragraph(controls, "", { spacingAfter: 60 })
+    // (the space after a table; none after the document's last, which would carry a full page onto a blank one)
+    (spacer ? paragraph(controls, "", { spacingAfter: 60 }) : "")
   );
 }
 
@@ -197,7 +209,8 @@ function guid(): string {
 }
 
 /** A one-section Word document. */
-export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Array<ArrayBuffer> {
+export function buildDocx(given: DocxBlock[], extras: DocxExtras = {}): Uint8Array<ArrayBuffer> {
+  let blocks = given;
   // A grid (a table with a heading row) of more than six columns, or any table of
   // more than eight, turns the page; the form's Format No. / Rev No. row (a band,
   // whatever the paper prints in it since REQUIREMENTS §111) does not.
@@ -207,11 +220,46 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
   const landscape = extras.paper ? extras.paper === "landscape" : widest > 6;
   const fontSize = widest > 12 ? 14 : widest > 8 ? 16 : 18;
   const controls = new Controls();
-  const body = blocks.map((b) => (b.type === "paragraph" ? paragraph(controls, b.text, b) : b.type === "paper" ? paperTable(controls, b) : table(controls, b, fontSize))).join("");
+  // ONE PAGE WHERE THE PAPER IS ONE PAGE (REQUIREMENTS §156): a paper laid in points that runs less than a quarter of a page
+  // over its page is drawn that little smaller - its columns, its rows, its letters - so it prints on one, as the
+  // browser's print fits it; a longer one runs on at its own size.
+  const pageTall = (landscape ? 11906 : 16838) / 20 - 2 * (extras.margins ? (extras.margins.top + extras.margins.bottom) / 2 : 28.35) - 2;
+  // (with what stands above and below it on the page: a table's rows and the paragraphs, at the line height they print)
+  const paperTall = (b: Extract<DocxBlock, { type: "paper" }>) => b.rows.reduce((h, r) => h + (r.height ?? Math.max(...r.cells.map((c) => c.size), 20) * 0.6 + 2), 0);
+  // (a table's row as tall as its most lines - a letterhead's address runs to four - and Word's rows a hair taller than set)
+  const words = (c: DocxCell) => (typeof c === "string" ? c : c.map((r) => r.text).join(""));
+  const linesIn = (c: DocxCell) => words(c).split("\n").length;
+  const others = blocks.reduce((h, b) => h + (b.type === "paragraph" ? 15 * b.text.split("\n").length : b.type === "table" ? b.rows.reduce((s, r) => s + Math.max(1, ...r.map(linesIn)) * 12.5 + 5, 0) + 6 : 0), 0);
+  // (Gujarati stands taller in Word than in the browser that measured the paper)
+  const gujarati = blocks.some((b) => b.type === "paper" && b.rows.some((r) => r.cells.some((c) => /[઀-૿]/.test(words(c.text)))));
+  const papers = blocks.reduce((h, b) => h + (b.type === "paper" && !b.pageBreakBefore ? paperTall(b) : 0), 0) * (gujarati ? 1.15 : 1.03);
+  // (within 6% of a full page counts: Word's letters - Gujarati above all - can stand taller than the page measured them)
+  const onePaperPage = papers > 0 && !blocks.some((b) => b.type === "paper" && b.pageBreakBefore) && papers + others > pageTall * 0.94 && papers + others <= pageTall * 1.3 && pageTall - others > papers * 0.7;
+  // (the paper's head, body and foot tables are drawn smaller together, by the one measure that brings them onto the page,
+  // with that 6% to spare)
+  const together = onePaperPage ? Math.floor(((pageTall * 0.94 - others) / papers) * 1000) / 1000 : 1;
+  blocks = blocks.map((b) => {
+    if (b.type !== "paper") return b;
+    const tall = paperTall(b);
+    const k = onePaperPage ? together : tall > pageTall && tall <= pageTall * 1.43 ? Math.floor(((pageTall * 0.97) / tall) * 1000) / 1000 : 1;
+    if (k >= 1) return b;
+    return {
+      ...b,
+      widths: b.widths.map((w) => Math.round(w * k * 10) / 10),
+      rows: b.rows.map((r) => ({ ...r, height: r.height !== undefined ? Math.round(r.height * k * 10) / 10 : undefined, cells: r.cells.map((c) => ({ ...c, size: Math.max(8, Math.round(c.size * k)) })) })),
+    };
+  });
+  const body = blocks
+    .map((b, i) => (b.type === "paragraph" ? paragraph(controls, b.text, b) : b.type === "paper" ? paperTable(controls, b) : table(controls, b, fontSize, i < blocks.length - 1)))
+    .join("");
   // A4, 12.7 mm margins; landscape swaps the sides.
   const [w, h] = landscape ? [16838, 11906] : [11906, 16838];
   const mm = extras.margins;
-  const margin = mm ? { top: Math.round(mm.top * 20), right: Math.round(mm.right * 20), bottom: Math.round(mm.bottom * 20), left: Math.round(mm.left * 20) } : { top: 720, right: 720, bottom: 720, left: 720 };
+  // A paper laid in points (REQUIREMENTS §156) stands centred across the page, its sides at least 5 mm in, where its
+  // margins are not named; anything else keeps the 12.7 mm margins.
+  const paperWidth = Math.max(0, ...blocks.map((b) => (b.type === "paper" ? b.widths.reduce((a, x) => a + x, 0) + (b.indent ?? 0) : 0)));
+  const side = paperWidth > 0 ? Math.max(284, Math.min(720, Math.floor(((landscape ? 16838 : 11906) - paperWidth * 20) / 2))) : 720;
+  const margin = mm ? { top: Math.round(mm.top * 20), right: Math.round(mm.right * 20), bottom: Math.round(mm.bottom * 20), left: Math.round(mm.left * 20) } : { top: paperWidth > 0 ? 567 : 720, right: side, bottom: paperWidth > 0 ? 567 : 720, left: side };
   const section = `<w:sectPr><w:pgSz w:w="${w}" w:h="${h}"${landscape ? ' w:orient="landscape"' : ""}/><w:pgMar w:top="${margin.top}" w:right="${margin.right}" w:bottom="${margin.bottom}" w:left="${margin.left}" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr>`;
   const declaration = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   const props = extras.customProperties?.length ? extras.customProperties : null;
@@ -247,7 +295,8 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
         `<w:pPrDefault><w:pPr><w:spacing w:after="80" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>` +
         `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>`,
     ],
-    ["word/document.xml", `<w:document xmlns:w="${W}" xmlns:r="${R}"><w:body>${body}${paragraph(controls, "")}${section}</w:body></w:document>`],
+    // The paragraph Word needs after the last table, a hidden hairline: a table that fills its page leaves no blank page after it.
+    ["word/document.xml", `<w:document xmlns:w="${W}" xmlns:r="${R}"><w:body>${body}<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/><w:rPr><w:vanish/><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr></w:pPr></w:p>${section}</w:body></w:document>`],
   ];
   if (custom) {
     parts.push(

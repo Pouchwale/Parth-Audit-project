@@ -353,7 +353,16 @@ type SheetCellSpec = SheetBlock["cells"][number];
 function serviceReportWord(blocks: ExportBlock[]): ExportBlock[] | null {
   const sheet = blocks.find((b): b is SheetBlock => b.kind === "sheet");
   if (!sheet || sheet.cells.length === 0) return null;
-  const widths = sheet.widths.map((w) => Math.round(w * SERVICE_PT_PER_CHAR * 10) / 10);
+  return [{ kind: "paper", ...sheetAsPaper(sheet, SERVICE_PT_PER_CHAR), indent: 0, spaceAfter: 0 }];
+}
+
+/**
+ * A SHEET LAID IN POINTS FOR WORD (REQUIREMENTS §156): its columns (`ptPerChar` points to one of its Excel characters),
+ * each cell where it stands with its merges across (gridSpan) and down (vMerge), its row heights, its letters' size and
+ * weight, its rules thin or medium - the service report's page, and every QC paper drawn as its own table.
+ */
+export function sheetAsPaper(sheet: SheetBlock, ptPerChar: number): { widths: number[]; rows: { height?: number; cells: PaperCellSpec[] }[] } {
+  const widths = sheet.widths.map((w) => Math.round(w * ptPerChar * 10) / 10);
   const at = new Map<string, SheetCellSpec>(sheet.cells.map((c) => [`${c.row}:${c.col}`, c]));
   const rule = (edge: number): number => SERVICE_RULES[Math.min(2, Math.max(0, Math.round(edge)))] ?? 0;
   const spec = (c: SheetCellSpec, borders: PaperCellSpec["borders"], vMerge?: PaperCellSpec["vMerge"]): PaperCellSpec => {
@@ -397,5 +406,5 @@ function serviceReportWord(blocks: ExportBlock[]): ExportBlock[] | null {
     }
     rows.push({ height: sheet.heights[r], cells });
   }
-  return [{ kind: "paper", widths, rows, indent: 0, spaceAfter: 0 }];
+  return { widths, rows };
 }

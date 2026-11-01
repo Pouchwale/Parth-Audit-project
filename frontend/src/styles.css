@@ -1319,6 +1319,16 @@ html.print-scoped .paper-sheet .doc-table table th, html.print-scoped .paper-she
   /* F/HR/15's day boxes and F/HR/16's month boxes are as narrow as their columns, as the paper's narrow day columns are */
   .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td .input-sm { min-width: 0; }
   .paper-sheet .doc-table table.log-sheet td .input-sm { min-width: 48px; }
+  /* A register of twenty columns or more (F/HR/08's employees' topics, F/HR/09's months, F/HR/15's days) gives up its
+     cells' side padding in print, so the A4 page holds it larger (the owner, 1-Nov-2026, REQUIREMENTS §156). */
+  .paper-sheet:not([data-paper-form]) .doc-table table:has(> thead > tr > th:nth-child(20)) :is(th, td) { padding-left: 1.5px; padding-right: 1.5px; }
+  /* ...and its cells are as wide as their words, not the screen's 40 px box (F/HR/09's 24 month columns: 0.52 of the page's
+     size before) - a day's or a month's tick is a narrow column, as on the paper. */
+  .paper-sheet:not([data-paper-form]) .doc-table table:has(> thead > tr > th:nth-child(20)) td :is(.cell-text, .input-sm) { min-width: 0; }
+  /* ...and its headings, which set its columns' widths (F/HR/09's "APR-26 — PLAN", "ACTUAL"), a size smaller. */
+  .paper-sheet:not([data-paper-form]) .doc-table table:has(> thead > tr > th:nth-child(20)) > thead th { font-size: 11px; }
+  /* The header band's labels - FORMAT NO., REV NO., REV DATE, PAGE NO. - print the size of their values (§156). */
+  [data-print-doc] .doc-header .meta-cell .k { font-size: 11.5px; }
 }
 
 /* ---- CAPA: in the AREA 4 section (REQUIREMENTS §90) ---- */
@@ -4089,6 +4099,12 @@ html.print-measure [data-print-doc] .paper-sheet:not([data-paper]) :is(.input, s
 html.print-measure [data-print-doc] .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td .input-sm { min-width: 0; }
 /* F/HR/16's words at their print size and its cleaning cell as wide as it prints (the HR-DOCS print rules) */
 html.print-measure [data-print-doc] .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table :is(th, td) { padding: 2px 4px; font-size: 12.5px; line-height: 1.2; }
+/* ...and measured as they print (REQUIREMENTS §156): a register of twenty columns or more with narrow cell padding, its
+   cells as wide as their words, its headings a size smaller; the header band's labels the size of their values. */
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet:has(> thead > tr > th:nth-child(20)) :is(th, td) { padding-left: 1.5px; padding-right: 1.5px; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet:has(> thead > tr > th:nth-child(20)) td :is(.cell-text, .input-sm) { min-width: 0; }
+html.print-measure [data-print-doc] .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet:has(> thead > tr > th:nth-child(20)) > thead th { font-size: 11px; }
+html.print-measure [data-print-doc] .doc-header .meta-cell .k { font-size: 11.5px; }
 html.print-measure [data-print-doc] .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table :is(th, td):nth-child(3) { min-width: 15em; }
 html.print-measure [data-print-doc] .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td :is(.cell-text, span) { font-size: 12.5px; line-height: 1.2; }
 html.print-measure [data-print-doc] .paper-sheet[data-sheet="hr-monthly-cleaning"] :is(.input, select, textarea) { font-size: 12.5px; }

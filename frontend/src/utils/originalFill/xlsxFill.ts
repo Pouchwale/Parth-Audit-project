@@ -883,8 +883,46 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
 
   // ---- the map (REQUIREMENTS §81)
   if (opts.envelope) writeMap(pkg, workbook, wbRels, sheet, sheetName, written, tables, opts.envelope);
+  fitPrintToPageWidth(root);
   sheet.index();
   return { bytes: pkg.build(), report };
+}
+
+/**
+ * THE OWNER'S SHEET PRINTED READABLY ON A4 (the owner, 1-Nov-2026, REQUIREMENTS §156: "perfect print and download ... so
+ * they directly take print"). An original set to print at a fixed scale under 60% (F/HR/01 at 37%, F/HR/08 at 36%:
+ * letters of 4 pt) is set to fit the page's width instead, as many pages down as it takes - landscape where its columns
+ * run past a portrait page by half again. His words, cells, widths and margins are as he made them.
+ */
+export function fitPrintToPageWidth(root: XmlElement): boolean {
+  const setup = kid(root, "pageSetup");
+  if (!setup) return false;
+  const pr = kid(root, "sheetPr");
+  const already = pr ? kid(pr, "pageSetUpPr") : null;
+  if (already?.attrs.fitToPage === "1") return false;
+  const scale = Number(setup.attrs.scale ?? "100");
+  if (!(scale < 60)) return false;
+  // How wide the used columns are, in Excel's characters (hidden ones left out).
+  const ref = kid(root, "dimension")?.attrs.ref ?? "";
+  const lastCol = /:([A-Z]+)\d+$/.exec(ref)?.[1];
+  const last = lastCol ? columnIndex(lastCol) : 0;
+  let across = 0;
+  const cols = kid(root, "cols");
+  const widthAt = new Map<number, number>();
+  for (const c of cols ? kids(cols, "col") : []) {
+    const min = Number(c.attrs.min ?? 1);
+    const max = Math.min(Number(c.attrs.max ?? min), last + 1 || min);
+    for (let i = min; i <= max; i++) widthAt.set(i, c.attrs.hidden === "1" ? 0 : Number(c.attrs.width ?? 8.43));
+  }
+  for (let i = 1; i <= last + 1; i++) across += widthAt.get(i) ?? 8.43;
+  if (setup.attrs.orientation !== "landscape" && across > 153) setup.attrs.orientation = "landscape";
+  delete setup.attrs.scale;
+  setup.attrs.fitToWidth = "1";
+  setup.attrs.fitToHeight = "0";
+  if (already) already.attrs.fitToPage = "1";
+  else if (pr) pr.children.push(el("pageSetUpPr", { fitToPage: "1" }));
+  else root.children.unshift(el("sheetPr", {}, [el("pageSetUpPr", { fitToPage: "1" })]));
+  return true;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

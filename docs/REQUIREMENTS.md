@@ -10380,6 +10380,42 @@ The owner, 31-Oct-2026: "when i click on heading part it october 2026 is wipe ou
 prints dd-mm-yyyy (utils/date.ts fullYearDate; a paper that writes it with dots, 15.12.2024), on every document's header
 and a certificate's number strip; the owner's Word and Excel originals take it as before (originalFill dotted reads both).
 Dates elsewhere keep dd-mm-yy. Proved: tests/e2e_header_editing.py, frontend/tests/qcPaperFindings.test.ts.
+## §156 Every QC and HR document's Word, Excel and print come out right on A4, to be printed as they are (1-Nov-2026)
+
+The owner, 1-Nov-2026: "check all the documents of QC and HR on downloading the word and excel and while taking print
+the document is coming perfectly on A4 size paper or not ... i want that user will get perfect print and download of both
+excel and word so they directly take print of it." Checked by downloading and printing all 80 documents of the QC and HR
+modules, Word and Excel themselves turning each file into a PDF, every page measured (A4 or not, anything past the
+paper's edge, the smallest letters, blank pages) and looked at.
+1. Both downloads for all of them (utils/documentExport.ts documentFileKinds: the QC and HR modules by the module map,
+   departmentOfDocument; the scanned Gurudev licence keeps Print only).
+2. The Excel file built from the page (workbookFromBlocks) is laid out for the A4 page at its own size: each column its
+   measured width, narrowed toward its floor (its longest word, a date's nine characters) where together they run past
+   the page (about 94 of Excel's characters portrait, 140 landscape); a box's label, a heading and a paragraph wrapped;
+   a paragraph merged across the page with its height worked out; a sheet within a fifth of a page over one page printed
+   on one. Before, columns up to 48 characters and unwrapped paragraphs made "fit to one page wide" shrink the letters to
+   2-5 pt (the COA certificates, the compliance statements, F/HR/13, F/HR/14 ...); now 8-10 pt.
+3. The 17 QC papers drawn as their own Word table (components/records/PaperTableSheet.tsx, data-xl-grid) download on that
+   table's own grid, read at the paper's size (the screen's enlargement off): Excel cell for cell - the columns in Excel's
+   characters from the paper's millimetres, the merged cells, each row's height, the letters, the rules - and Word laid in
+   points the same way (utils/paperSheets.ts sheetAsPaper), centred on the page, drawn a little smaller where it runs less
+   than a quarter of a page over its one page. Before, their 40-column grid was flattened (the certificates' Excel at 2 pt,
+   their Word past the page's edge on two pages).
+4. The owner's own Excel originals set to print at a fixed scale under 60% (F/HR/01 at 37%, F/HR/03 at 40%, F/HR/08 at
+   36%, F/HR/09 at 53%, F/HR/22 at 46%) print fitted to the page's width instead, landscape where wider than a portrait
+   page by half again (originalFill/xlsxFill.ts fitPrintToPageWidth); his words, cells, fonts and margins unchanged.
+   F/HR/01 now prints at 9.4 pt (4.1 before). F/HR/03, F/HR/08 and F/HR/22 stay small because the sheets themselves are
+   that dense. The Word originals keep their own pages (F/HR/13 six, F/HR/06 five, F/HR/19 five, F-QC-19 four: as supplied).
+5. Word built from the page: the document ends in a hidden hairline paragraph and no spacer after its last table, so a
+   table that fills its page leaves no blank page (F/HR/22); a table of more than twenty columns prints at 6 pt with a
+   point of cell margin, inside the page's width (F/HR/09 ran past its edge).
+6. The browser's print: the header band's labels (FORMAT NO., REV NO., REV DATE, PAGE NO.) print the size of their values;
+   a register of twenty columns or more prints with narrow cell padding, its cells as wide as their words and its headings
+   a size smaller, so the page holds it larger.
+On this PC Excel's own PDF maker makes Letter pages whatever the file says; every workbook DCRS gives says A4
+(paperSize 9), Excel reads it as A4, and the owner's printer prints it on A4.
+Proved: the A4 check (80 documents, Word | Excel | Print), tests/e2e_downloads_and_print.py, the unit suite.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

@@ -13,7 +13,8 @@ browser's own PDF of the Print button's printout:
 - F/STR/02, a register whose long names wrap on paper: still one page;
 - F/DISP/04, a short form: drawn bigger, one page;
 - F/MKT/01, a form drawn bigger: all on its one page (measured with the 12 mm margin it prints with, 28-Oct-2026);
-- the fly-control service report, the contractor's March sheet to 1.5 pt (§118): left exactly as drawn;
+- the fly-control service report, the contractor's March sheet (§118): enlarged evenly to the A4 page's width, one page
+  (the owner, 31-Oct-2026, §154 item 4: "completely perfect on A4 Size page and every fonts are visible");
 - F/QC/01, a paper form drawn in millimetres: left exactly as drawn — no zoom, no blank lines;
 - F/QC/12, the owner's own case: the week's one calibration prints as one entry (one "Deviation %" line), where the
   paper's four entries are drawn on the screen;
@@ -142,7 +143,7 @@ with sync_playwright() as p:
         # Drawn bigger, it printed its comments, satisfaction and seal on a second page until 28-Oct-2026: the fill measured
         # it with the screen's margin, not the 12 mm it prints with.
         ("mkt-customer-feedback", "F/MKT/01 (a form drawn bigger, its comments and seal under its grid)", "bigger"),
-        ("service-report-fly", "The fly-control service report (the contractor's March sheet)", "paper"),
+        ("service-report-fly", "The fly-control service report (the contractor's March sheet)", "svc"),
         ("qc-bopp-film", "F/QC/01 (a paper form drawn in millimetres)", "paper"),
         ("qc-weight-scale-calibration", "F/QC/12 (a month's four weekly entries, as the paper draws them)", "entries"),
     ]
@@ -163,6 +164,9 @@ with sync_playwright() as p:
         elif kind == "entries":
             entries = got["words"].count("Deviation %")
             check(f"{what}: the printout holds the month's four entries, each with its Deviation % line (s145)", entries == 4, (entries, got["words"][:300]))
+        elif kind == "svc":
+            check(f"{what}: enlarged evenly to the A4 page's width (s154), on its one page, no blank lines, no line drawn taller",
+                  got["zoom"] is not None and got["zoom"] > 1.1 and got["pages"] == 1 and got["blank"] == 0 and got["stretched"] == 0, got)
         elif kind == "paper":
             check(f"{what}: left exactly as drawn: no zoom, no blank lines, no line drawn taller", got["zoom"] == 1 and got["blank"] == 0 and got["stretched"] == 0, got)
         if kind == "register":
