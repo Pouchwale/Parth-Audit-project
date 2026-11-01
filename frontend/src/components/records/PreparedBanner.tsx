@@ -14,25 +14,36 @@ export function PreparedBanner({
   status,
   onReprepare,
   mayWrite = true,
+  filledOnOpen,
 }: {
   prepared: PreparedInfo;
   status: RecordStatus;
   onReprepare?: () => void;
   /** May the viewer fill it (Write or more, REQUIREMENTS §96)? A person who only reads it is never told to enter or submit anything. */
   mayWrite?: boolean;
+  /**
+   * The record was filled when a person opened it (F/HR/17's usual day §149, F/QC/11, 12 and 17's readings §136, a service
+   * report's quantities §154): who, and when. The morning's "nothing was filled for you" no longer holds (REQUIREMENTS §157).
+   */
+  filledOnOpen?: { by?: string; at?: string };
 }) {
   const t = useT();
   const [confirming, setConfirming] = useState(false);
   const draft = ["Scheduled", "Due", "In Progress", "Rejected"].includes(status);
   const knownParts = prepared.knownPartsOnly === true;
   const when = new Date(prepared.at);
+  const opened = draft && !!filledOnOpen;
+  // (once filled on opening, the morning's count of what was left, and its "nothing was filled for you", are out of date)
+  const notes = opened ? prepared.notes.filter((n) => !/^Left for you|Nothing you observe was filled|Nothing observed is written yet/.test(n)) : prepared.notes;
   return (
     <div className="prepared-banner mb-4">
       <div className="flex items-start justify-between gap-3 wrap">
         <div style={{ flex: 1, minWidth: 240 }}>
           <div className="font-semibold text-sm flex items-center gap-2">
             <FiZap size={14} />{" "}
-            {knownParts
+            {opened
+              ? `Filled in when ${filledOnOpen?.by || "it was"} opened it: the plant's usual answers, yours to check`
+              : knownParts
               ? draft
                 ? mayWrite
                   ? "Your assistant has filled this in as far as it is known: the readings are yours to enter"
@@ -46,13 +57,13 @@ export function PreparedBanner({
             Prepared {formatDisplayDateTime(when)} · based on {prepared.basedOn}
           </div>
           <ul className="text-sm mt-2" style={{ margin: "8px 0 0 18px", padding: 0 }}>
-            {prepared.notes.map((n, i) => (
+            {notes.map((n, i) => (
               <li key={i}>{n}</li>
             ))}
           </ul>
           {draft && mayWrite && (
             <div className="text-xs mt-2 text-muted">
-              {knownParts ? "Enter what you saw, check the rest, then press " : "Have a look, change anything that was different today, then press "}
+              {opened ? "Check each answer, change anything that was different today, then press " : knownParts ? "Enter what you saw, check the rest, then press " : "Have a look, change anything that was different today, then press "}
               <strong>Submit</strong>. Nothing is recorded as yours until you do.
             </div>
           )}

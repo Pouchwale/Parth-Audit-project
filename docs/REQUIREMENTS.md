@@ -10416,6 +10416,17 @@ On this PC Excel's own PDF maker makes Letter pages whatever the file says; ever
 (paperSize 9), Excel reads it as A4, and the owner's printer prints it on A4.
 Proved: the A4 check (80 documents, Word | Excel | Print), tests/e2e_downloads_and_print.py, the unit suite.
 
+## §157 F/HR/17 filled each day when it is opened; the banner says so (1-Nov-2026)
+
+The owner, 1-Nov-2026: "my system ... will fill the daily pest control monitoring record itself. And today it was November 1,
+and till now it has not filled it." Checked on that day's date: the day's record is made each morning (the known parts) and
+is answered as the plant's usual day the moment a person who may fill it opens it - the ten check points, the time, the
+opener as checker (§149) - then checked and submitted, the checker and time becoming the submitter's. A day nobody opens
+stays blank on the register, so a missed check shows. The record's banner, written by the morning's preparation, still
+said "Nothing you observe was filled in for you" after the fill: it now says "Filled in when <person> opened it: the
+plant's usual answers, yours to check" and drops the morning's count of what was left (components/records/PreparedBanner
+.tsx filledOnOpen; the same for F/QC/11, 12 and 17 filled on opening, §136, and a service report's quantities, §154).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

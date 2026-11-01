@@ -594,7 +594,19 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
       {record.correction && <CorrectionBanner correction={record.correction} onCancel={canWrite ? handleCancelCorrection : undefined} />}
 
-      {record.prepared && <PreparedBanner prepared={record.prepared} status={record.status} onReprepare={editable && !superseded ? handleReprepare : undefined} mayWrite={mayFill} />}
+      {record.prepared && (
+        <PreparedBanner
+          prepared={record.prepared}
+          status={record.status}
+          onReprepare={editable && !superseded ? handleReprepare : undefined}
+          mayWrite={mayFill}
+          filledOnOpen={(() => {
+            // Filled when a person opened it (§149, §136, §154): the banner says so (REQUIREMENTS §157).
+            const h = (record.history ?? []).find((e) => e.note === DAILY_PEST_FILL_NOTE || e.note === NOMINAL_FILL_NOTE || (e.note ?? "").startsWith("Quantities written on opening"));
+            return h ? { by: h.by } : undefined;
+          })()}
+        />
+      )}
 
       {record.status === "Rejected" && record.rejectionReason && (
         <div className="card mb-4" style={{ borderColor: "var(--color-danger)", background: "var(--color-danger-bg)" }}>
