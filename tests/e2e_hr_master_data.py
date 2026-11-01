@@ -519,6 +519,13 @@ with sync_playwright() as p:
           header_input(page, "Department & Designation").input_value() == "Top management - CEO" and header_input(page, "Date of Birth").input_value() == "1975-05-01",
           (header_input(page, "Department & Designation").input_value(), header_input(page, "Date of Birth").input_value()))
 
+    # REQUIREMENTS s159: a column blank on the sheet is named, never made up.
+    new_record(page, "pre-employment-health")
+    result, text = fetch(page, "Swarup Rajgor")
+    check("A person with no Date of Birth on the sheet fetched onto F/HR/04 fills what the sheet has and says the Date of Birth is missing, instead of inventing one",
+          result == "filled" and header_input(page, "Department & Designation").input_value() == "Sales & Marketing - Director" and header_input(page, "Date of Birth").input_value() == ""
+          and "HR Master Data has no Date of Birth for Swarup Rajgor" in text, (result, text, header_input(page, "Date of Birth").input_value()))
+
     effectiveness_id = new_record(page, "training-effectiveness")
     result, text = fetch(page, "Swarup")
     check("Part of a name offers the people it could be (F/HR/11)", result == "several" and page.locator("[data-candidate='hrm-hrc-2']").count() == 1, (result, text))

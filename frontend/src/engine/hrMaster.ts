@@ -394,12 +394,42 @@ export interface PersonFill {
   fills: FieldFill[];
   /** Boxes that already hold something else — replaced only when the person says so. */
   conflicts: FieldFill[];
+  /** The sheet's columns this format asks for that are blank for the person — named to HR, never made up. */
+  missing: HrMasterColumnKey[];
+}
+
+/**
+ * The columns of the sheet this format needs that are blank on the person's
+ * line (a Date of Birth never entered). A combined box names whichever of
+ * department and designation is blank. Nothing is invented for them.
+ */
+export function missingColumns(link: HrMasterLink, person: HrMasterPerson): HrMasterColumnKey[] {
+  const out: HrMasterColumnKey[] = [];
+  const blank = (key: HrMasterColumnKey) => {
+    if (!String(person[key] ?? "").trim() && !out.includes(key)) out.push(key);
+  };
+  for (const f of link.fields) {
+    if (f.from === "departmentThenDesignation" || f.from === "designationThenDepartment") {
+      blank("department");
+      blank("designation");
+    } else blank(f.from);
+  }
+  return out;
+}
+
+/** " HR Master Data has no Date of Birth for Sandeep Parekh — add it on the sheet." — "" when nothing is missing. */
+export function missingText(person: HrMasterPerson, missing: HrMasterColumnKey[]): string {
+  if (missing.length === 0) return "";
+  const names = missing.map(hrMasterColumnLabel);
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+  return ` HR Master Data has no ${list} for ${person.fullName || "this person"} — add ${names.length === 1 ? "it" : "them"} on the sheet.`;
 }
 
 /** What fetching this person onto a header, or onto one line of a register, would write. */
 export function personFill(link: HrMasterLink, person: HrMasterPerson, current: Record<string, unknown>): PersonFill {
   const fills: FieldFill[] = [];
   const conflicts: FieldFill[] = [];
+  const missing = missingColumns(link, person);
   for (const f of link.fields) {
     const after = linkedValue(person, f);
     if (!after) continue;
@@ -427,7 +457,7 @@ export function personFill(link: HrMasterLink, person: HrMasterPerson, current: 
     } else if (nameKey(before) === nameKey(after)) continue;
     conflicts.push({ key: f.key, before, after });
   }
-  return { fills, conflicts };
+  return { fills, conflicts, missing };
 }
 
 export function applyFills<T extends Record<string, unknown>>(current: T, fills: FieldFill[]): T {

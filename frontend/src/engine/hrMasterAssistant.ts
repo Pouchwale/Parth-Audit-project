@@ -14,11 +14,12 @@ import {
   hrMasterLinkFor,
   lineForPerson,
   lineOfPerson,
+  missingColumns,
   personFill,
   searchPeople,
   type HrMasterLink,
 } from "./hrMaster";
-import type { HrMasterPerson, LogSheetLayout } from "../types";
+import type { HrMasterColumnKey, HrMasterPerson, LogSheetLayout } from "../types";
 
 // MITRA AND HR MASTER DATA (REQUIREMENTS §53).
 //
@@ -147,6 +148,8 @@ export interface MasterFillProposal {
   replaces: boolean;
   /** "added a line" / "filled line 3" / "filled the form" */
   where: string;
+  /** The sheet's columns this format needs that are blank for the person — said, never made up (REQUIREMENTS §159). */
+  missing: HrMasterColumnKey[];
 }
 
 export type MasterFillLookup =
@@ -165,6 +168,7 @@ export function proposeMasterFill(link: HrMasterLink, layout: LogSheetLayout, da
     if (!exact) return candidates.length > 0 ? { kind: "candidates", people: candidates } : { kind: "not-found" };
     person = exact;
   }
+  const missing = missingColumns(link, person);
   if (link.where === "header") {
     const header = data.header ?? {};
     const { fills, conflicts } = personFill(link, person, header);
@@ -177,6 +181,7 @@ export function proposeMasterFill(link: HrMasterLink, layout: LogSheetLayout, da
         blanksOnly: { ...data, header: applyFills(header, fills) },
         replaces: conflicts.length > 0,
         where: "the form",
+        missing,
       },
     };
   }
@@ -187,11 +192,11 @@ export function proposeMasterFill(link: HrMasterLink, layout: LogSheetLayout, da
     const blank = Object.fromEntries(layout.columns.map((c) => [c.key, c.type === "number" ? null : c.autoFill?.default !== undefined && c.type !== "text" ? String(c.autoFill.default) : ""]));
     const line = lineForPerson(link, person, { ...blank, id: newRowId() });
     const next = { ...data, rows: [...rows, line] };
-    return { kind: "proposal", proposal: { person, next, blanksOnly: next, replaces: false, where: `a new line ${rows.length + 1}` } };
+    return { kind: "proposal", proposal: { person, next, blanksOnly: next, replaces: false, where: `a new line ${rows.length + 1}`, missing } };
   }
   const index = match.index;
   const { fills, conflicts } = personFill(link, person, rows[index]);
   if (fills.length === 0 && conflicts.length === 0) return { kind: "nothing", person, where: `line ${index + 1}` };
   const withFills = (list: typeof fills) => ({ ...data, rows: rows.map((r, i) => (i === index ? applyFills(r, list) : r)) });
-  return { kind: "proposal", proposal: { person, next: withFills([...fills, ...conflicts]), blanksOnly: withFills(fills), replaces: conflicts.length > 0, where: `line ${index + 1}` } };
+  return { kind: "proposal", proposal: { person, next: withFills([...fills, ...conflicts]), blanksOnly: withFills(fills), replaces: conflicts.length > 0, where: `line ${index + 1}`, missing } };
 }

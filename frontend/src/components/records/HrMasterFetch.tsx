@@ -10,6 +10,8 @@ import {
   fillBlanksFromMaster,
   lineForPerson,
   lineOfPerson,
+  missingColumns,
+  missingText,
   namesPerson,
   personFill,
   sameGp3,
@@ -71,11 +73,14 @@ export function HrMasterFetch({
   const say = (result: Result, text: string) => setOutcome({ result, text });
   const lineNo = (rowId: string | null) => (rowId === null ? null : data.rows.findIndex((r) => r.id === rowId) + 1);
 
+  // A column blank on the sheet is named, so HR knows the box stays theirs to fill (REQUIREMENTS §159).
+  const gaps = (person: HrMasterPerson) => missingText(person, missingColumns(link, person));
+
   const write = (person: HrMasterPerson, rowId: string | null, fills: FieldFill[]) => {
     if (rowId === null) onChange({ ...data, header: applyFills(data.header ?? {}, fills) });
     else onChange({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(r, fills) : r)) });
     const n = lineNo(rowId);
-    say("filled", `Filled from HR Master Data — ${describePerson(person)}${n ? ` (line ${n})` : ""}: ${listed(fills)}.`);
+    say("filled", `Filled from HR Master Data — ${describePerson(person)}${n ? ` (line ${n})` : ""}: ${listed(fills)}.${gaps(person)}`);
   };
 
   const take = (person: HrMasterPerson) => {
@@ -92,7 +97,7 @@ export function HrMasterFetch({
       if (match.kind === "none") {
         const line = lineForPerson(link, person, { ...blankLogRow(layout), id: newRowId() });
         onChange({ ...data, rows: [...data.rows, line] });
-        say("added", `Line ${data.rows.length + 1} added for ${describePerson(person)}.`);
+        say("added", `Line ${data.rows.length + 1} added for ${describePerson(person)}.${gaps(person)}`);
         return;
       }
       rowId = data.rows[match.index].id;
@@ -104,8 +109,8 @@ export function HrMasterFetch({
       setPending({ person, rowId, conflicts });
       say("conflict", `${where} already has something else in ${listed(conflicts)}. Replace it with what HR Master Data has for ${person.fullName}?`);
     } else if (fills.length > 0) write(person, rowId, fills);
-    else if (rowId === null) say("nothing", `The form already has ${person.fullName}'s details — nothing to fetch.`);
-    else say("already", `${person.fullName} is already on line ${lineNo(rowId)}, with the same details.`);
+    else if (rowId === null) say("nothing", `The form already has ${person.fullName}'s details — nothing to fetch.${gaps(person)}`);
+    else say("already", `${person.fullName} is already on line ${lineNo(rowId)}, with the same details.${gaps(person)}`);
   };
 
   const find = () => {

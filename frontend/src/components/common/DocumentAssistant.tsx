@@ -61,7 +61,7 @@ import { ASSISTANT_NAME, guide, openingMessage, type WaitingDocument } from "../
 import { computeReminders } from "../../engine/reminders";
 import { formatNumberAnswer } from "../../engine/formatNumbers";
 import { hrMasterChatAnswer, hrMasterIntent, hrMasterVisible, proposeMasterFill } from "../../engine/hrMasterAssistant";
-import { describePerson, hrMasterLinkFor } from "../../engine/hrMaster";
+import { describePerson, hrMasterLinkFor, missingText } from "../../engine/hrMaster";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { parseAssistantCommand, type AssistantCommand } from "../../engine/assistantCommands";
 import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
@@ -951,8 +951,10 @@ export function DocumentAssistant() {
     if (proposal.replaces && blankChanges.length > 0) chips.push({ label: "Only the blank boxes", action: { type: "confirmMasterFill", blanksOnly: true } });
     chips.push({ label: "No, leave it", action: { type: "cancelMasterFill" } });
     const replacing = proposal.replaces ? "\n\nSome of these replace what the record already says." : "";
+    // A column blank on the sheet is said, not invented (REQUIREMENTS §159).
+    const gaps = proposal.missing.length > 0 ? `\n\n${missingText(proposal.person, proposal.missing).trim()}` : "";
     const lock = tt.editable ? "" : `\n\nThis record is ${tt.status}, so I'll reopen it for correction first — then it has to be submitted and verified again.`;
-    bot(`${lead}From HR Master Data — ${describePerson(proposal.person)}. On ${proposal.where}:\n${listChanges(changes)}${replacing}${lock}\n\nFill these in?`, chips);
+    bot(`${lead}From HR Master Data — ${describePerson(proposal.person)}. On ${proposal.where}:\n${listChanges(changes)}${replacing}${gaps}${lock}\n\nFill these in?`, chips);
   };
 
   // An outright instruction typed mid-walk-through / mid-interview.

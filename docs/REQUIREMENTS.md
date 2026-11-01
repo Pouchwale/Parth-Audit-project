@@ -10438,6 +10438,30 @@ and not built (as §136 and §149): the system filling days nobody opened, and m
 year by itself - a day nobody checked stays blank, and only a catch a person found is written.
 Proved: frontend/tests/dailyPestFill.test.ts.
 
+## §159 HR Master Data: a column blank on the sheet is named to HR, never made up (1-Nov-2026)
+
+The owner, 1-Nov-2026, asked that the HR documents' automatic fill be made to work end to end — select the employee,
+fetch the six details, fill every HR format that needs them, generate and download — and that "if any of the six
+fields is unavailable in the employee master: identify the missing field, do not insert fabricated information, show an
+appropriate message to the HR user". The fetch itself was built on 17-Sep-2026 (§53: ten formats, one map,
+`HR_MASTER_LINKS`; the Fetch bar on a record, a name left in a name box, Mitra's "fetch GP3 1024", the CV import's
+GP3 No.; Download Word / Excel and Print on every HR record, §156). Inspected on 1-Nov: all of it wired; what was
+silent was the gap. `personFill` skipped a column the sheet had nothing for without a word, so HR fetching a person
+with no Date of Birth onto F/HR/04 saw "Filled … Name, Department & Designation" and nothing about the birth date.
+
+Now `missingColumns(link, person)` names the sheet's columns the format asks for that are blank on the person's line
+(a combined "Department & Designation" box names whichever half is blank), `personFill` returns them as `missing`,
+and the message says it: *"Filled from HR Master Data — Swarup Rajgor · Sales & Marketing · Director: Name, Department
+& Designation. HR Master Data has no Date of Birth for Swarup Rajgor — add it on the sheet."* The same line follows
+*Add line*, "already on line N" and "nothing to fetch" on the bar, and Mitra's proposal before "Fill these in?". The box
+stays blank: nothing is invented for it (§136). The blank-fill of a whole register (*Fill blanks from the sheet*) is
+unchanged — it already names the people who are not on the sheet.
+
+Proved without a browser by frontend/tests/hrMasterLinks.test.ts: every box of the map is a box of its format's layout
+(a key that is not would make the fetch write nothing, silently), the ten formats get exactly the columns they print in
+their own date styles, no format writes the GP3 No., and the missing-column message; in the browser by
+tests/e2e_hr_master_data.py (a person with no Date of Birth fetched onto F/HR/04).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
