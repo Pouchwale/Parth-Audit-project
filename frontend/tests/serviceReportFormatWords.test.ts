@@ -89,8 +89,11 @@ describe("Deltamethrin's 150 ml is written when a person opens the report (§154
     const last = normalizeServiceLines(rodent.variantKey, blank(rodent.id).lines.map((l, i) => (i === 0 ? { ...l, qtyUsed: "3" } : i === 8 ? { ...l, qtyUsed: "50 gramms" } : l)));
     const carried = serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id), last);
     assert.ok(carried);
-    assert.deepEqual(carried.data.lines.map((l) => l.qtyUsed), [...Array(8).fill("3"), ...Array(8).fill("50 gramms")]);
-    assert.match(carried.note, /Glue Board 3 \(the last visit's\); Bromadiolone Cake 50 gramms \(the last visit's\)/);
+    assert.deepEqual(carried.data.lines.map((l) => l.qtyUsed), [...Array(8).fill("3"), ...Array(8).fill("50 grams")]);
+    assert.match(carried.note, /Glue Board 3 \(the last visit's\); Bromadiolone Cake 50 grams \(the last visit's\)/);
+    // ...but only one of the choices (§154 item 10): a last visit's "36 grams" is not carried, nor 2 glue boards.
+    const odd = normalizeServiceLines(rodent.variantKey, blank(rodent.id).lines.map((l, i) => (i === 0 ? { ...l, qtyUsed: "2" } : i === 8 ? { ...l, qtyUsed: "36 grams" } : l)));
+    assert.equal(serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id), odd), null);
     assert.equal(serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id), last.map((l) => ({ ...l, qtyUsed: "" }))), null, "a last visit with no quantity carries nothing");
     const half = blank(rodent.id);
     half.lines = half.lines.map((l, i) => (i === 8 ? { ...l, qtyUsed: "45 gramms" } : l));

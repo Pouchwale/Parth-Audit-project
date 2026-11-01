@@ -10354,6 +10354,22 @@ area, 150 ml); tests/e2e_print_all_documents.py (the page's width, every rule an
    RecordPage), as F/QC/12's new sheets start with the last sheet's readings (§117); a fixed quantity (item 2) comes first;
    a quantity already written stays; with no earlier visit on file nothing is written. Not random, not varying by itself:
    it changes when the technician's reported number changes. Proved: frontend/tests/serviceReportFormatWords.test.ts.
+10. The glue boards' and the bait's quantity is a choice, nothing else; the visit's remark is written once (the owner,
+   1-Nov-2026, with a rodent report reading "36 grams" and, under an empty remark, "2. No Rodent Trapped" ... "16. No
+   Rodent Trapped": "it should take the value like 30 or 40 or 50 nothing else ... also in remarks part this kind of error
+   is coming so fix it"). Both came from the simulation (Demo Mode, a test server's sample fill), which drew any number
+   from 30 to 40 grams and wrote a remark on every line. Now (engine/serviceMaterials.ts): Glue Board is 3, 4 or 5 and
+   Bromadiolone Cake 30, 40 or 50 grams (SERVICE_QTY_CHOICES) - the quantity box is a choice of these; a quantity written
+   as one of them in other words ("40 gm", "4 nos") is said as the choice says it; another (an old "36 grams") stands as
+   written, marked red on the screen with a line under the sheet, and Submit refuses it (engine/validation.ts). The last
+   visit's quantity is carried only when it is a choice; Demo Mode's and the sample fill's quantities are drawn from the
+   choices, and Demo Mode's reports already made take the nearest choice at start-up (a Live report's quantity is never
+   changed: its person chooses); Mitra's question offers the choices. The remarks: the paper's Remarks is one cell for the
+   visit, on the first line (foldServiceRemarks) - a remark written alike on two or more other lines becomes the visit's
+   when the first line has none, its copies go, and a line's different note stays, shown once with its lines' numbers
+   ("5, 7-9. Bait consumed - replaced"); drafts are brought into line at start-up with a history line, and a report
+   handed in reads the same way on the screen and in its files. Proved: frontend/tests/serviceQtyChoices.test.ts;
+   tests/e2e_print_all_documents.py, e2e_print_and_forms.py, e2e_assistant_fill.py.
 
 
 ## §155 F/HR/17's heading keeps its month while its title is typed over; a header's Rev Date has the whole year (31-Oct-2026)

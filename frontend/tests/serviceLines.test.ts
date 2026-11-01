@@ -99,7 +99,7 @@ describe("a line added below another, or removed, is the format's area list chan
     assert.equal(lines[15].slNo, 16);
     assert.equal(lines[15].materialName, "Bromadiolone Cake");
     assert.equal(lines[15].methodOfApplication, "Baiting");
-    assert.equal(lines[15].qtyUsed, "50 gramms", "the block's quantity");
+    assert.equal(lines[15].qtyUsed, "50 grams", "the block's quantity, said as its choice says it");
     assert.equal(lines[16].areaName, "Canteen");
     assert.equal(lines[0].qtyUsed, "3");
     assert.equal(lines[0].remarks, "No Rodent Trapped");

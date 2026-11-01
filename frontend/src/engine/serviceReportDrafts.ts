@@ -3,7 +3,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { historyOf, withEditHistory } from "./recordHistory";
 import { isEditableStatus } from "./recordLifecycle";
-import { normalizeServiceLines } from "./serviceMaterials";
+import { nearestServiceQty, normalizeServiceLines } from "./serviceMaterials";
 import { mayWriteRecordsOf } from "./departmentScope";
 
 // SERVICE-REPORT DRAFTS FOLLOW THE QUANTITY RULE. Drafts written before the
@@ -16,7 +16,7 @@ import { mayWriteRecordsOf } from "./departmentScope";
 // prepared draft nobody has opened still reads as untouched to the clean-ups.
 
 export const SERVICE_RULE_NOTE =
-  "Brought into line with the service's fixed rules: material and method are the fixed values for each area, and the quantity is entered once per material — the same on every line with that material.";
+  "Brought into line with the service's fixed rules: material and method are the fixed values for each area, the quantity is entered once per material — the same on every line with that material — and the visit's remark is written once, on the first line.";
 
 const OLD_INK_STORE = "Ink store - Ground floor";
 const INK_STORE = "First floor - Ink store";
@@ -30,11 +30,25 @@ export function alignServiceReportDrafts(): number {
       .map((d) => [d.id, d.variantKey] as const)
   );
   const updates: RecordInstance[] = [];
+  const demo: RecordInstance[] = [];
   for (const r of recordRepository.getAll()) {
-    if (!variants.has(r.documentId) || !isEditableStatus(r.status) || !mayWriteRecordsOf(r.documentId)) continue;
+    if (!variants.has(r.documentId)) continue;
     const data = r.data as ServiceReportData;
     if (!Array.isArray(data?.lines) || data.lines.length === 0) continue;
     const variant = variants.get(r.documentId);
+    // DEMO MODE'S SIMULATED REPORTS (§98) read as the plant's now do (§154 item 10): a glue-board or bait quantity the
+    // simulation drew between the choices (36 grams) is the nearest choice, and the visit's remark is written once. Demo
+    // data, every status, no history line. A Live report's quantity is never changed here: the page asks for a choice.
+    if (r.isDemo) {
+      const snapped = data.lines.map((l) => {
+        const near = String(l.qtyUsed ?? "").trim() ? nearestServiceQty(l.materialName, l.qtyUsed) : null;
+        return near && near !== l.qtyUsed ? { ...l, qtyUsed: near } : l;
+      });
+      const lines = normalizeServiceLines(variant, snapped);
+      if (!lines.every((l, i) => l === data.lines[i])) demo.push({ ...r, data: { ...data, lines } });
+      continue;
+    }
+    if (!isEditableStatus(r.status) || !mayWriteRecordsOf(r.documentId)) continue;
     // The rodent report's fourth area is "First floor - Ink store" on the contractor's sheet (the owner, 17-Oct-2026), where an
     // earlier seed wrote "Ink store - Ground floor": a draft still holding the old name takes the contractor's.
     const named = variant === "Rodent Control Service" ? data.lines.map((l) => (l.areaName === OLD_INK_STORE ? { ...l, areaName: INK_STORE } : l)) : data.lines;
@@ -45,6 +59,6 @@ export function alignServiceReportDrafts(): number {
     const base = r.history?.length ? r : { ...r, history: historyOf(r) };
     updates.push(withEditHistory(base, { ...data, lines }, "System", { note: SERVICE_RULE_NOTE }));
   }
-  if (updates.length) recordRepository.upsertMany(updates);
-  return updates.length;
+  if (updates.length || demo.length) recordRepository.upsertMany([...updates, ...demo]);
+  return updates.length + demo.length;
 }

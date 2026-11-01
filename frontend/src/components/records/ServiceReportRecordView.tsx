@@ -11,7 +11,7 @@ import {
   SERVICE_PAPER_TITLE,
   servicePaperDate,
 } from "../../data/seed/serviceReportPaper";
-import { isQuantityLine, normalizeServiceLines, serviceGroups } from "../../engine/serviceMaterials";
+import { foldServiceRemarks, isQuantityLine, normalizeServiceLines, otherServiceRemarks, serviceGroups, serviceQtyChoiceOf, serviceQtyChoices, serviceQtyProblems } from "../../engine/serviceMaterials";
 import { bindProps, serviceReportBind } from "../../engine/roundTrip/bindingsFor";
 import { formatWordsAt, nextRevisionNo } from "../../data/formatEdits";
 import { commitFormatChange, draftOf } from "../../engine/formatOps";
@@ -70,8 +70,12 @@ export function ServiceReportRecordView({
   const tall = new Set(SERVICE_PAPER_TALL_AREAS[doc.variantKey ?? ""] ?? []);
   const narrow = new Set(SERVICE_PAPER_NARROW_AREAS[doc.variantKey ?? ""] ?? []);
   const pests = SERVICE_PAPER_PESTS[doc.variantKey ?? ""] ?? SERVICE_PAPER_PESTS[data.serviceName] ?? "";
-  const lead = lines[0];
-  const others = lines.slice(1).filter((l) => l.remarks.trim() && l.remarks.trim() !== (lead?.remarks ?? "").trim());
+  // The visit's one remark, and each other line's own note once with its lines' numbers (§154 item 10) - as the remarks
+  // stand after folding, so a report written before reads the same way before it is next saved.
+  const remarksShown = foldServiceRemarks(lines);
+  const lead = remarksShown[0];
+  const others = otherServiceRemarks(remarksShown);
+  const qtyProblems = editable ? serviceQtyProblems(lines) : [];
   const customerOpen = editable || countersignEditable;
   const { currentUser, bump } = useAppStore();
   const [problem, setProblem] = React.useState<string | null>(null);
@@ -253,7 +257,28 @@ export function ServiceReportRecordView({
                       {at(`material:${l.areaName}`, l.materialName, l.materialName || <span className="text-faint">—</span>, "Material Name", `material:${l.slNo}`)}
                     </td>
                     <td rowSpan={group.size} className="svc-merged" data-cell="qty">
-                      {editable && entersQty ? (
+                      {editable && entersQty && serviceQtyChoices(l.materialName) ? (
+                        // A choice of the material's quantities and nothing else (§154 item 10); a quantity written
+                        // otherwise before stands as its own entry until one is chosen, and Submit refuses it.
+                        <select
+                          data-field="qty"
+                          aria-label={`Quantity used — ${l.materialName}`}
+                          {...qtyBind}
+                          value={l.qtyUsed}
+                          data-empty={l.qtyUsed ? undefined : ""}
+                          data-odd={l.qtyUsed && !serviceQtyChoiceOf(l.materialName, l.qtyUsed) ? "" : undefined}
+                          onChange={(e) => updateLine(l.slNo, { qtyUsed: e.target.value })}
+                          title={sharing.length > 1 ? `Chosen once — the same on all ${sharing.length} ${l.materialName} lines` : undefined}
+                        >
+                          <option value="">Qty used</option>
+                          {l.qtyUsed && !serviceQtyChoices(l.materialName)!.includes(l.qtyUsed) && <option value={l.qtyUsed}>{l.qtyUsed}</option>}
+                          {serviceQtyChoices(l.materialName)!.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      ) : editable && entersQty ? (
                         <input
                           data-field="qty"
                           aria-label={`Quantity used — ${l.materialName}`}
@@ -281,20 +306,18 @@ export function ServiceReportRecordView({
                         aria-label="Remarks"
                         rows={3}
                         {...bindProps(serviceReportBind.line(l, "remarks"))}
-                        value={l.remarks}
-                        onChange={(e) => updateLine(l.slNo, { remarks: e.target.value })}
+                        value={lead?.remarks ?? ""}
+                        onChange={(e) => setLines(remarksShown.map((x, xi) => (xi === 0 ? { ...x, remarks: e.target.value } : x)))}
                       />
                     ) : (
                       <span className="svc-words" {...bindProps(serviceReportBind.line(l, "remarks"))}>
-                        {l.remarks}
+                        {lead?.remarks ?? ""}
                       </span>
                     )}
                     {others.length > 0 && (
                       <div className="svc-more" data-field="other-remarks">
                         {others.map((x) => (
-                          <div key={x.slNo}>
-                            {x.slNo}. {x.remarks}
-                          </div>
+                          <div key={x}>{x}</div>
                         ))}
                       </div>
                     )}
@@ -366,13 +389,20 @@ export function ServiceReportRecordView({
         <div className="text-xs text-muted mt-2 no-print" data-section="service-note">
           Every printed word can be typed over (a click puts the caret in it), and the + and × beside an area add a line below it or remove it: each
           change is the format's, asked first - a new revision or not - and this report and every one after it carry it. The quantity is entered once,
-          on the first line of each material, and is the same on every line with that material; a new report opens with each material's fixed quantity,
-          or the last visit's, yours to change.
+          on the first line of each material, and is the same on every line with that material - the glue boards 3, 4 or 5 and the bait 30, 40 or 50
+          grams, chosen in the box; a new report opens with each material's fixed quantity, or the last visit's, yours to change.
         </div>
       )}
       {problem && (
         <div className="text-xs mt-1 no-print" role="alert" data-section="service-format-problem" style={{ color: "var(--danger, #b42318)" }}>
           {problem}
+        </div>
+      )}
+      {qtyProblems.length > 0 && (
+        <div className="text-xs mt-1 no-print" role="alert" data-section="service-qty-problem" style={{ color: "var(--danger, #b42318)" }}>
+          {qtyProblems.map((q) => (
+            <div key={q}>{q} Choose one in its box.</div>
+          ))}
         </div>
       )}
       {countersignEditable && !data.customerSign.trim() && (

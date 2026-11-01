@@ -1,3 +1,4 @@
+import { SERVICE_QTY_CHOICES, serviceQtyChoiceOf, serviceQtyChoiceWords } from "./serviceMaterials";
 import type {
   ComplaintAckData,
   DailyPestMonitoringData,
@@ -501,16 +502,17 @@ function servicePlan(doc: DocumentDefinition, d: ServiceReportData, master: Mast
   const qs: InterviewQuestion[] = [];
   const lines = (x: Obj) => ((x.lines as Obj[]) ?? []);
   const materials = Array.from(new Set((d.lines ?? []).map((l) => l.materialName).filter(Boolean)));
-  const typical = (m: string) => (m === "Glue Board" ? "4" : m === "Bromadiolone Cake" ? "35 grams" : /deltamethrin/i.test(m) ? "150 ml" : /cyfluthrin/i.test(m) ? "125 ml" : "");
+  const typical = (m: string) => (m === "Glue Board" ? "4" : m === "Bromadiolone Cake" ? "40 grams" : /deltamethrin/i.test(m) ? "150 ml" : /cyfluthrin/i.test(m) ? "100 ml" : "");
   for (const m of materials) {
     qs.push({
       id: `qty-${m}`,
       label: `${m} used`,
-      ask: `How much ${m} was used in all?${typical(m) ? ` (e.g. ${typical(m)})` : ""}`,
+      // A glue-board or bait quantity is one of its choices (REQUIREMENTS §154 item 10).
+      ask: SERVICE_QTY_CHOICES[m] ? `How much ${m} was used in all? (${serviceQtyChoiceWords(m)})` : `How much ${m} was used in all?${typical(m) ? ` (e.g. ${typical(m)})` : ""}`,
       type: "text",
-      suggestions: typical(m) ? chips(typical(m)) : undefined,
+      suggestions: SERVICE_QTY_CHOICES[m] ? chips(...SERVICE_QTY_CHOICES[m]) : typical(m) ? chips(typical(m)) : undefined,
       answered: (x) => !blank(lines(x).find((l) => l.materialName === m)?.qtyUsed),
-      apply: (x, v) => ({ ...x, lines: lines(x).map((l) => (l.materialName === m ? { ...l, qtyUsed: String(v) } : l)) }),
+      apply: (x, v) => ({ ...x, lines: lines(x).map((l) => (l.materialName === m ? { ...l, qtyUsed: serviceQtyChoiceOf(m, String(v)) ?? String(v) } : l)) }),
     });
   }
   const isRodent = /rodent/i.test(doc.variantKey ?? "");

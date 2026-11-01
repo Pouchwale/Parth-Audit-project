@@ -387,7 +387,9 @@ with sync_playwright() as p:
     d = rec["data"] if rec else {}
     check(
         "...the rodent service report is filled: a quantity per material, remarks, the technician",
-        bool(rec) and rec["documentId"] == "service-report-rodent" and d.get("technicianSign") and d.get("lines") and all(l["remarks"] for l in d["lines"]) and any(l["qtyUsed"] for l in d["lines"]),
+        # The visit's remark once, on the first line (s154 item 10); the quantities one of their choices.
+        bool(rec) and rec["documentId"] == "service-report-rodent" and d.get("technicianSign") and d.get("lines") and d["lines"][0]["remarks"]
+        and any(l["qtyUsed"] for l in d["lines"]) and all(l["qtyUsed"] in ("3", "4", "5", "30 grams", "40 grams", "50 grams") for l in d["lines"]),
         (rec["documentId"] if rec else None, d.get("technicianSign"), [(l["materialName"], l["qtyUsed"], l["remarks"]) for l in d.get("lines", [])][:3]),
     )
     page.goto(f"{BASE}/index.html#/assistant")

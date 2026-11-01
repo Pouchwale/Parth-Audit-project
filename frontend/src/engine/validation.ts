@@ -1,3 +1,4 @@
+import { serviceQtyProblems } from "./serviceMaterials";
 import type {
   ComplaintAckData,
   ComplaintChecklistData,
@@ -143,10 +144,13 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       });
       break;
     }
-    case "service-report":
+    case "service-report": {
       // Neither signature is required (the owner, 31-Oct-2026, REQUIREMENTS §154 item 7): a visit's report is filed
-      // without the technician's or the customer's name on it; each is written when it is known.
+      // without the technician's or the customer's name on it; each is written when it is known. A glue-board or bait
+      // quantity is one of its choices, nothing else (§154 item 10).
+      errors.push(...serviceQtyProblems((record.data as ServiceReportData)?.lines));
       break;
+    }
     case "gap-inspection": {
       const d = record.data as GapInspectionData;
       if (!d.inspectionDate) errors.push("Inspection date is required.");

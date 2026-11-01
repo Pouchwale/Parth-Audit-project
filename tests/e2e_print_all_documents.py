@@ -432,8 +432,9 @@ with sync_playwright() as p:
         page.locator("[data-action='new-record'][data-document='service-report-rodent']").first.evaluate("el => el.click()")
         page.wait_for_timeout(1500)
         close_assistant(page)
-        page.locator("input[data-field='qty']").nth(0).fill("3")
-        page.locator("input[data-field='qty']").nth(1).fill("50 gramms")
+        # The glue boards' and the bait's quantity is a choice (s154 item 10): 3, and 50 grams where the March sheet wrote "50 gramms".
+        page.locator("select[data-field='qty']").nth(0).select_option("3")
+        page.locator("select[data-field='qty']").nth(1).select_option("50 grams")
         page.locator("td[data-cell='remarks'] textarea").fill("No Rodent Trapped")
         page.wait_for_timeout(700)
         page.evaluate(STUB_PRINT)
@@ -466,7 +467,8 @@ with sync_playwright() as p:
                     lost.append(w)
             # The contractor's own spelling of the company and its address line ("PRINTPACK PUBLICATION PRIVATE LIMITED, ... GUAJRAT") is not the
             # company's name as the owner gave it (02-Oct-2026), and the sheet's date is the record's own: everything else is the sheet's words.
-            check("...and every word of it, the data entered (3, 50 gramms, No Rodent Trapped), but the company's name as the owner spells it and the record's date", set(lost) <= {"PRINTPACK", "PUBLICATION", "PRIVATE", "LIMITED,", "GUAJRAT,", "07.03.2026"}, lost)
+            # ...and "gramms": the bait's quantity is chosen as "50 grams" (s154 item 10).
+            check("...and every word of it, the data entered (3, 50 grams, No Rodent Trapped), but the company's name as the owner spells it, the record's date and the contractor's 'gramms'", set(lost) <= {"PRINTPACK", "PUBLICATION", "PRIVATE", "LIMITED,", "GUAJRAT,", "07.03.2026", "gramms"}, lost)
 
     # ---- an inspection findings report (CAPA Internal keeps its own page) ----
     gap_id = page.evaluate(

@@ -3403,14 +3403,20 @@ table.svc-paper {
 .svc-paper .svc-none { text-align: left; height: 28px; border-left: 2px solid #000; border-right: 2px solid #000; border-bottom: 2px solid #000; }
 .svc-paper .svc-words { white-space: pre-wrap; display: inline-block; }
 .svc-paper .svc-more { margin-top: 6px; font-size: 10px; text-align: left; white-space: pre-wrap; }
-.svc-paper input, .svc-paper textarea {
+.svc-paper input, .svc-paper textarea, .svc-paper select {
   font: inherit; color: #000; width: 100%; border: 0; border-radius: 0; background: transparent; padding: 0; margin: 0; text-align: center; outline: 0; min-height: 0;
 }
+/* The glue boards' and the bait's quantity as a choice (REQUIREMENTS §154 item 10): drawn as the paper's words, its arrow
+   and its empty choice never printed. */
+.svc-paper select { appearance: none; -webkit-appearance: none; text-align-last: center; cursor: pointer; height: auto; }
+.svc-paper select[data-empty] { color: #8a8f98; }
+@media screen { .svc-paper select[data-odd] { outline: 2px solid #d92d20; outline-offset: -2px; } }
+@media print { .svc-paper select { cursor: default; } .svc-paper select[data-empty] { color: transparent; } }
 .svc-paper textarea { resize: none; field-sizing: content; min-height: 40px; line-height: 13.5px; overflow: hidden; }
 .svc-paper input::placeholder, .svc-paper textarea::placeholder { color: #8a8f98; }
 @media screen {
-  .svc-paper input:not(:disabled), .svc-paper textarea:not(:disabled) { border-bottom: 1px dotted #6b7280; background: #fffdf0; }
-  .svc-paper input:not(:disabled):focus, .svc-paper textarea:not(:disabled):focus { background: #fff7cc; border-bottom: 1px solid #1f2937; }
+  .svc-paper input:not(:disabled), .svc-paper textarea:not(:disabled), .svc-paper select:not(:disabled) { border-bottom: 1px dotted #6b7280; background: #fffdf0; }
+  .svc-paper input:not(:disabled):focus, .svc-paper textarea:not(:disabled):focus, .svc-paper select:not(:disabled):focus { background: #fff7cc; border-bottom: 1px solid #1f2937; }
 }
 .svc-paper .svc-sign-space td, .svc-paper .svc-sign-captions td { border: 0; }
 .svc-paper .svc-sign-space { height: 37px; }

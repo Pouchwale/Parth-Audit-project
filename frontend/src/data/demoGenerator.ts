@@ -149,8 +149,9 @@ function buildFlyCatcherData(dueDate: string): FlyCatcherData {
 // one generic "ml" range for every material (glue boards are counted in
 // pieces, not millilitres).
 function randomQtyFor(materialName: string, rng: ReturnType<typeof makeRng>): string {
-  if (materialName === "Glue Board") return `${rng.int(2, 5)}`;
-  if (materialName === "Bromadiolone Cake") return `${rng.int(30, 40)} grams`;
+  // One of the material's choices (REQUIREMENTS §154 item 10): three to five glue boards, 30, 40 or 50 grams of bait.
+  if (materialName === "Glue Board") return rng.pick(["3", "4", "5"]);
+  if (materialName === "Bromadiolone Cake") return rng.pick(["30 grams", "40 grams", "50 grams"]);
   return `${rng.int(100, 150)} ml`;
 }
 

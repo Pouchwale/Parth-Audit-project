@@ -105,12 +105,12 @@ describe("the rodent service report is the March-2026 plan", () => {
     assert.equal(d.customerSign, "");
   });
 
-  it("the March data entered once per block is the paper: 3 on the eight glue-board lines, 50 gramms on the eight bait lines", () => {
+  it("the March data entered once per block is the paper: 3 on the eight glue-board lines, 50 grams (written 50 gramms) on the eight bait lines", () => {
     const typed = data.lines.map((l, i) => (i === 0 ? { ...l, qtyUsed: "3", remarks: "No Rodent Trapped" } : i === 8 ? { ...l, qtyUsed: "50 gramms" } : l));
     const lines = normalizeServiceLines(doc.variantKey, typed);
     assert.deepEqual(
       lines.map((l) => l.qtyUsed),
-      [...Array(8).fill("3"), ...Array(8).fill("50 gramms")]
+      [...Array(8).fill("3"), ...Array(8).fill("50 grams")]
     );
     assert.equal(lines[0].remarks, "No Rodent Trapped");
     assert.equal(lines[1].remarks, "", "the remark is the visit's, written once, on the first line");

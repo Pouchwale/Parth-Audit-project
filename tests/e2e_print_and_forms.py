@@ -238,16 +238,16 @@ with sync_playwright() as p:
         and page.locator(f"{table} td[data-cell='material']").evaluate_all("els => els.map(e => e.rowSpan)") == [8, 8],
     )
     check(
-        "The quantity is typed on the first line of each material only (line 1 for the glue boards, the bait line for the cake)",
-        page.locator(f"{table} td[data-cell='qty'] input:not([disabled])").count() == 2,
-        page.locator(f"{table} td[data-cell='qty'] input:not([disabled])").count(),
+        "The quantity is chosen on the first line of each material only (line 1 for the glue boards, the bait line for the cake)",
+        page.locator(f"{table} td[data-cell='qty'] :is(input, select):not([disabled])").count() == 2,
+        page.locator(f"{table} td[data-cell='qty'] :is(input, select):not([disabled])").count(),
     )
-    page.locator(f"{table} tr[data-line='1'] input[data-field='qty']").fill("5")
+    page.locator(f"{table} tr[data-line='1'] select[data-field='qty']").select_option("5")
     page.wait_for_timeout(1400)
     lines = stored(page, rid)["data"]["lines"]
     check("Typing it on line 1 gives every Glue Board line the same quantity", all(l["qtyUsed"] == "5" for l in lines if l["materialName"] == "Glue Board"), [l["qtyUsed"] for l in lines])
     check("...and leaves the bait line's quantity alone", next(l for l in lines if l["materialName"] == "Bromadiolone Cake")["qtyUsed"] == "35 grams")
-    shown = page.locator(f"{table} td[data-cell='qty']").first.locator("input").input_value()
+    shown = page.locator(f"{table} td[data-cell='qty']").first.locator("select").input_value()
     check(
         "The quantity stands once in the block's merged cell, spanning all eight glue-board lines (no quantity cell on line 8)",
         shown == "5" and page.locator(f"{table} tr[data-line='8'] td[data-cell='qty']").count() == 0 and page.locator(f"{table} td[data-cell='qty']").first.evaluate("e => e.rowSpan") == 8,

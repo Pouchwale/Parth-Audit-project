@@ -17,7 +17,7 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { createDefaultData } from "./recordDefaults";
 import { resolveResponsibleEmployees } from "./documentInfo";
-import { fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "./serviceMaterials";
+import { SERVICE_QTY_CHOICES, fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines, serviceQtyChoiceOf } from "./serviceMaterials";
 import { describeRodentEvent, rodentEventFor, totalRodents } from "./rodentPattern";
 import { flyCatchFor, flySeasonLabel, tubeLightCycle } from "./flyPattern";
 import {
@@ -320,8 +320,9 @@ function fillFlyCatcher(
 // 3. Pest Control Service Report (Rat / Mice, Ants & Cockroaches, Fly)
 
 function typicalQty(materialName: string, rng: Rng): string {
-  if (materialName === "Glue Board") return `${rng.int(3, 4)}`;
-  if (materialName === "Bromadiolone Cake") return `${rng.int(30, 40)} grams`;
+  // One of the material's choices (REQUIREMENTS §154 item 10).
+  if (materialName === "Glue Board") return rng.pick(["3", "4", "5"]);
+  if (materialName === "Bromadiolone Cake") return rng.pick(["30 grams", "40 grams", "50 grams"]);
   if (materialName.startsWith("Deltamethrin")) return "150 ml";
   if (materialName.startsWith("Beta-Cyfluthrin")) return `${rng.pick([100, 125, 150])} ml`;
   return "";
@@ -357,7 +358,8 @@ function fillServiceReport(
         ...l,
         materialName: fixed.materialName,
         methodOfApplication: fixed.methodOfApplication,
-        qtyUsed: prev?.qtyUsed?.trim() || typicalQty(fixed.materialName, rng),
+        // The last visit's where it is one of the choices (§154 item 10), else the usual amount.
+        qtyUsed: (SERVICE_QTY_CHOICES[fixed.materialName] ? serviceQtyChoiceOf(fixed.materialName, prev?.qtyUsed) : prev?.qtyUsed?.trim()) || typicalQty(fixed.materialName, rng),
         remarks: observation.remark,
       };
     })
@@ -371,7 +373,7 @@ function fillServiceReport(
       .map((l) => `${l.materialName}: ${l.qtyUsed || "—"}`)
       .join("; ");
     notes.push(
-      `Filled the remarks for all ${lines.length} areas, and the quantity once per material (${quantities}) — the same on every area treated with it, as on the April-2026 service reports.`
+      `Filled the visit's remark (and any area's own note), and the quantity once per material (${quantities}) — the same on every area treated with it, as on the April-2026 service reports.`
     );
   }
   if (observed.length > 0) {
