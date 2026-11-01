@@ -58,7 +58,7 @@ function cellFor(r: RecordInstance<DailyPestMonitoringData> | undefined, cp: Dai
       const n = Math.max(totalRodents(catches), catches.length ? 0 : 1);
       return {
         text: String(n),
-        title: catches.length ? catches.map((c) => `${c.count} at ${c.trapBoxNo || "?"} (${c.location})`).join("; ") : "Pest trapped — box / location not recorded",
+        title: catches.length ? catches.map((c) => `${c.count} ${c.pest === "Lizard" ? "lizard" : "rodent"} at ${c.trapBoxNo || "?"} (${c.location})`).join("; ") : "Pest trapped — box / location not recorded",
         flagged: true,
       };
     }

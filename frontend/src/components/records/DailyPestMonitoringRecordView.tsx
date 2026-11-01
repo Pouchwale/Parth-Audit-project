@@ -211,7 +211,7 @@ export function DailyPestMonitoringRecordView({
         <div className="card mt-4" style={{ borderLeft: "4px solid var(--color-danger)" }}>
           <div className="card-header">
             <h3 className="text-base font-semibold">
-              Rodent catch details — checkpoint 7 · {totalRodents(catches)} rodent{totalRodents(catches) === 1 ? "" : "s"} today
+              Catch details — checkpoint 7 · {totalRodents(catches)} caught today
             </h3>
             {editable && (
               <button className="btn btn-secondary btn-sm" onClick={addCatch}>
@@ -223,22 +223,37 @@ export function DailyPestMonitoringRecordView({
             <table className="compact">
               <thead>
                 <tr>
+                  <th style={{ width: 110 }}>{at("head:pest", "Rodent / Lizard")}</th>
                   <th style={{ width: 120 }}>{at("head:trapBox", "Trap box no.")}</th>
                   <th>{at("head:location", "Location")}</th>
-                  <th style={{ width: 130 }}>{at("head:rodents", "No. of rodents")}</th>
+                  <th style={{ width: 130 }}>{at("head:rodents", "No. caught")}</th>
                   {editable && <th style={{ width: 36 }}></th>}
                 </tr>
               </thead>
               <tbody>
                 {catches.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="text-danger text-sm" style={{ padding: 12 }}>
-                      <FiAlertTriangle size={12} style={{ verticalAlign: -2 }} /> Add the box, location and number of rodents.
+                    <td colSpan={5} className="text-danger text-sm" style={{ padding: 12 }}>
+                      <FiAlertTriangle size={12} style={{ verticalAlign: -2 }} /> Add what was caught, the box, the location and the number.
                     </td>
                   </tr>
                 )}
                 {catches.map((c, ci) => (
                   <tr key={c.id}>
+                    <td>
+                      {/* What was caught, as the person says (REQUIREMENTS §158): its summary line says it. */}
+                      <select
+                        className="input input-sm"
+                        data-field="catch-pest"
+                        aria-label={`Catch ${ci + 1}: rodent or lizard`}
+                        disabled={!editable}
+                        value={c.pest === "Lizard" ? "Lizard" : "Rodent"}
+                        onChange={(e) => updateCatch(c.id, { pest: e.target.value === "Lizard" ? "Lizard" : "Rodent" })}
+                      >
+                        <option value="Rodent">Rodent</option>
+                        <option value="Lizard">Lizard</option>
+                      </select>
+                    </td>
                     <td>
                       <input className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "trapBoxNo"))} placeholder="RB-27" disabled={!editable} value={c.trapBoxNo} onChange={(e) => updateCatch(c.id, { trapBoxNo: e.target.value })} />
                     </td>

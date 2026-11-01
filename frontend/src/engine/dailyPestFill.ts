@@ -37,7 +37,12 @@ export function dailyPestFillOnOpen(data: DailyPestMonitoringData | undefined, s
 
 /** The summary line that follows a catch, by the catch's id. */
 export const catchActionId = (catchId: string) => `act-${catchId}`;
-const catchWords = (c: RodentCatch) => `${c.count} caught in trap box ${c.trapBoxNo || "—"}${c.location ? ` (${c.location})` : ""}`;
+// (what was caught, in the owner's words of 1-Nov-2026, REQUIREMENTS §158: "Lizard caught" or "Rodent caught", the count
+// where more than one, the box and its place)
+const catchWords = (c: RodentCatch) =>
+  `${c.pest === "Lizard" ? "Lizard" : "Rodent"} caught${c.count > 1 ? ` (${c.count})` : ""} in trap box ${c.trapBoxNo || "—"}${c.location ? ` (${c.location})` : ""}`;
+/** The action a catch's summary line starts with: disposed (the owner, 1-Nov-2026, §158). */
+export const CATCH_ACTION = "Disposed";
 
 export function withCatchFollowUps(
   next: DailyPestMonitoringData,
@@ -57,7 +62,7 @@ export function withCatchFollowUps(
     const id = catchActionId(c.id);
     const line = actions.find((a) => a.id === id);
     const old = was.get(c.id);
-    if (!line) actions.push({ id, dateOfObservation: dateISO, descriptionOfObservation: catchWords(c), actionTaken: "Caught and disposed", remarks: "" });
+    if (!line) actions.push({ id, dateOfObservation: dateISO, descriptionOfObservation: catchWords(c), actionTaken: CATCH_ACTION, remarks: "" });
     else if (old && line.descriptionOfObservation === catchWords(old)) actions = actions.map((a) => (a.id === id ? { ...a, descriptionOfObservation: catchWords(c) } : a));
   }
   return { ...next, rodentCatches: catches, summaryActions: actions };

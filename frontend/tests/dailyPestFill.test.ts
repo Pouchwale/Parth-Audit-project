@@ -54,7 +54,7 @@ test("submitted, the day is signed by whoever submits it: the checker and the ti
   }
 });
 
-test("a catch a person enters: a Master Data station gives its place, a count gives its 'Caught and disposed' line (REQUIREMENTS §151)", () => {
+test("a catch a person enters: a Master Data station gives its place, a count gives its 'Rodent caught ... Disposed' line (REQUIREMENTS §151, §158)", () => {
   const day = dailyPestFillOnOpen(blankDay(), "Kapila Barad", "09:15")!;
   const stations = [{ id: "RBS-07", location: "First floor - Ink Kitchen", type: "Bait Tray" as const, status: "Active" as const }];
   const opened = { ...day, rodentCatches: [{ id: "c1", trapBoxNo: "", location: "", count: 0 }] };
@@ -63,9 +63,12 @@ test("a catch a person enters: a Master Data station gives its place, a count gi
   assert.equal(boxed.summaryActions.length, 0, "no count yet: no line");
   const counted = withCatchFollowUps({ ...boxed, rodentCatches: [{ ...boxed.rodentCatches![0], count: 1 }] }, boxed, stations, "2026-11-02");
   const line = counted.summaryActions.find((a) => a.id === catchActionId("c1"))!;
-  assert.deepEqual([line.actionTaken, line.dateOfObservation, line.descriptionOfObservation], ["Caught and disposed", "2026-11-02", "1 caught in trap box rbs-07 (First floor - Ink Kitchen)"]);
+  assert.deepEqual([line.actionTaken, line.dateOfObservation, line.descriptionOfObservation], ["Disposed", "2026-11-02", "Rodent caught in trap box rbs-07 (First floor - Ink Kitchen)"]);
   const two = withCatchFollowUps({ ...counted, rodentCatches: [{ ...counted.rodentCatches![0], count: 2 }] }, counted, stations, "2026-11-02");
-  assert.match(two.summaryActions[0].descriptionOfObservation, /^2 caught/, "the line follows the count");
+  assert.match(two.summaryActions[0].descriptionOfObservation, /^Rodent caught \(2\)/, "the line follows the count");
+  // A lizard the person says it was (§158): "Lizard caught ...", disposed.
+  const lizard = withCatchFollowUps({ ...opened, rodentCatches: [{ id: "c9", trapBoxNo: "RBS-07", location: "", count: 1, pest: "Lizard" }] }, opened, stations, "2026-11-02");
+  assert.deepEqual([lizard.summaryActions[0].descriptionOfObservation, lizard.summaryActions[0].actionTaken], ["Lizard caught in trap box RBS-07 (First floor - Ink Kitchen)", "Disposed"]);
   const own = { ...two, summaryActions: [{ ...two.summaryActions[0], descriptionOfObservation: "Two rats near the ink drums" }] };
   const three = withCatchFollowUps({ ...own, rodentCatches: [{ ...own.rodentCatches![0], count: 3 }] }, own, stations, "2026-11-02");
   assert.equal(three.summaryActions[0].descriptionOfObservation, "Two rats near the ink drums", "words a person wrote are kept");

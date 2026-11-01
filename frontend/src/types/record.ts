@@ -187,6 +187,8 @@ export interface RodentCatch {
   trapBoxNo: string; // e.g. "RB-27"
   location: string; // one of the Rodent Control Service areas (Master Data → Areas)
   count: number;
+  /** What was caught, as the person says (REQUIREMENTS §158): a rodent unless they say a lizard. */
+  pest?: "Rodent" | "Lizard";
 }
 
 /** A record's own wording of the words its form prints, by place (REQUIREMENTS §137): a place not listed keeps the form's. */

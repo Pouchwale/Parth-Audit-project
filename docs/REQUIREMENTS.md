@@ -10427,6 +10427,17 @@ said "Nothing you observe was filled in for you" after the fill: it now says "Fi
 plant's usual answers, yours to check" and drops the morning's count of what was left (components/records/PreparedBanner
 .tsx filledOnOpen; the same for F/QC/11, 12 and 17 filled on opening, §136, and a service report's quantities, §154).
 
+## §158 F/HR/17: a catch says rodent or lizard; its summary line "Rodent caught" / "Lizard caught", disposed (1-Nov-2026)
+
+The owner, 1-Nov-2026: "for lizard if lizard is caught, then the summary of action taken is ... caught lizard and action
+taken as disposed, and same applies for rodent". A catch a person enters on check point 7 now says what was caught
+(Rodent or Lizard, RodentCatch.pest; a rodent unless the person says a lizard); its trap box still takes its place from
+Master Data's rodent stations (§151); its Summary of Actions line reads "Lizard caught in trap box RBS-07 (place)" or
+"Rodent caught (2) in trap box ...", the action taken "Disposed" (engine/dailyPestFill.ts). Asked in the same message,
+and not built (as §136 and §149): the system filling days nobody opened, and making 3 to 5 rodent and lizard catches a
+year by itself - a day nobody checked stays blank, and only a catch a person found is written.
+Proved: frontend/tests/dailyPestFill.test.ts.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
