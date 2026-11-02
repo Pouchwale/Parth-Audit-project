@@ -10462,6 +10462,38 @@ Proved without a browser by frontend/tests/hrMasterLinks.test.ts: every box of t
 their own date styles, no format writes the GP3 No., and the missing-column message; in the browser by
 tests/e2e_hr_master_data.py (a person with no Date of Birth fetched onto F/HR/04).
 
+## §160 One employee filed onto the HR formats from their line on HR Master Data (2-Nov-2026)
+
+The owner's 1-Nov brief ended "Select Employee → fetch the six details → select the HR document → auto-fill → generate →
+download … if multiple documents are selected, reuse the same fetched employee data to populate all selected
+documents", and on 2-Nov he asked for the part not yet done. Until now a person reached a format one record at a time:
+the Fetch bar on an open record, a name left in a name box, Mitra, or the CV import's seven formats for a *new* joiner
+(§49). Now the sheet does it for anyone on it.
+
+- **On HR Master Data**, each line has a *Fill HR formats for this person* button (beside its notes and Remove). It
+  opens a dialog that shows the six details **read once from the sheet** — a blank one marked "not on the sheet", with
+  the line that those boxes stay blank on the forms, nothing made up (§159) — and the ten formats of `HR_MASTER_LINKS`
+  (§53) with what each takes, ticked where there is something to do. Beside each: "a record of their own", "a line on
+  the register", "is on the register — 2 blank boxes to fill", "already on it with these details" (unticked, cannot be
+  ticked), "on more than one line" (left alone), or "Submitted/Verified, reopened for correction, then submitted and
+  verified again". Another department's format is "not one of your formats".
+- **One press** (`fileFromMaster`, src/engine/hrMasterFile.ts) files the person onto every ticked format with exactly
+  the boxes it prints, in its own date style, through the same map every other fetch uses: a one-person form (F/HR/04,
+  05, 11, 20) gets a record of their own in their name — or, when they already have one, its blank boxes filled; a
+  register (F/HR/01, 03, 06, 08, 12, 13) gets their line — or their existing line's blanks filled, found as §53 finds it
+  (by GP3 No. in the name box, or by a name nobody else on the sheet has). Nothing already written is changed; nothing
+  is written twice; a submitted or verified record is reopened for correction with the reason in its history ("Filed
+  from HR Master Data: Sandeep Parekh · GP3 No. 1024 · HR & Admin · Manager — line added; submit and verify it again"),
+  as the CV import does. No format prints the GP3 No.: it is how the person is found.
+- The outcomes are listed per format — "Record of their own started — Name, Department / Process, Designation, Date of
+  Joining", "Line added", "Blank boxes filled", "Already on it, with these details — left as it is" — each with *Open*,
+  which lands on the record, where it prints and downloads as Word or Excel (§156). The Fetch bar and Mitra on a record
+  are unchanged.
+
+Proved: frontend/tests/hrMasterFile.test.ts (started, added, written twice = left alone, a rubbed-out box filled back
+and only it, a verified register reopened with the reason); tests/e2e_hr_master_data.py (Sandeep Parekh filed onto
+F/HR/05 and F/HR/13 from his line, Open landing on the filled record).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

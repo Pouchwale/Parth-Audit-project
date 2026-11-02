@@ -350,6 +350,7 @@ with sync_playwright() as p:
     set_cell(page, "hrm-hrc-4", "gp3No", "1025")
     set_cell(page, "hrm-hrc-2", "gp3No", "1040")
     check("...and cleared once corrected", stat(page, "problems") == "0")
+
     page.click("[data-action='hr-master-add']")
     page.wait_for_timeout(500)
     added = sheet(page)[-1]
@@ -357,6 +358,50 @@ with sync_playwright() as p:
         set_cell(page, added["id"], key, value)
     line = person(page, added["id"])
     check("Add employee puts a new line at the end of the sheet, written cell by cell", len(sheet(page)) == 116 and line and (line["gp3No"], line["fullName"], line["joiningDate"], line["department"], line["designation"], line["dateOfBirth"]) == ("7701", "Sheet Line Test", "2026-09-01", "QC", "Lab Executive", "2000-01-15"), line)
+
+    # REQUIREMENTS s160: a person already on a register whose line disagrees with the sheet is named there and left alone
+    page.click("tr[data-person='hrm-hrc-38'] [data-action='hr-master-file']")
+    page.wait_for_timeout(500)
+    mobile_box = page.locator("input[data-target='hr-mobile-authorization']")
+    mobile_note = page.locator("[data-list='hr-master-file-targets'] label:has(input[data-target='hr-mobile-authorization'])").inner_text()
+    check("Sandeep Parekh is already on F/HR/13 with 'Hr Manager' in its box: the dialog says a box says something else than the sheet, cannot tick the format, and points to Fetch on the record",
+          mobile_box.is_disabled() and not mobile_box.is_checked() and "says something else than the sheet" in mobile_note and "Fetch" in mobile_note, mobile_note)
+    page.locator("[data-section='hr-master-file']").locator("xpath=ancestor::*[contains(@class,'modal')]").locator("button:has-text('Cancel')").first.click()
+    page.wait_for_timeout(300)
+    check("...Cancel closes it with nothing written", page.locator("[data-section='hr-master-file']").count() == 0 and not any(row.get("name") == "Sandeep Parekh" and row.get("deptDesignation") != "Hr Manager" for r in records(page) if r["documentId"] == "hr-mobile-authorization" for row in ((r.get("data") or {}).get("rows") or [])))
+
+    # REQUIREMENTS s160: one employee filed onto the HR formats HR ticks, from their line on the sheet
+    filed = person(page, added["id"])
+    page.click(f"tr[data-person='{added['id']}'] [data-action='hr-master-file']")
+    page.wait_for_timeout(500)
+    details = page.locator("[data-table='hr-master-file-details'] td")
+    check("A line's Fill HR formats shows the person's six details read once from the sheet, GP3 No. and Date of Birth among them",
+          page.locator("[data-section='hr-master-file']").count() == 1 and details.nth(0).inner_text().strip() == "7701"
+          and page.locator("[data-table='hr-master-file-details'] td[data-missing]").count() == 0, [details.nth(i).inner_text() for i in range(details.count())])
+    for box in page.locator("[data-list='hr-master-file-targets'] input[data-target]").all():
+        want = box.get_attribute("data-target") in ("hr-induction-staff", "hr-mobile-authorization")
+        if box.is_enabled() and box.is_checked() != want:
+            box.click()
+    check("...every one of the ten formats offered; F/HR/05 and F/HR/13 left ticked",
+          page.locator("[data-list='hr-master-file-targets'] input[data-target]").count() == 10 and page.locator("input[data-target]:checked").count() == 2)
+    page.click("[data-action='hr-master-file-go']")
+    page.wait_for_timeout(900)
+    outcomes = {r.get_attribute("data-outcome"): r.get_attribute("data-result") for r in page.locator("[data-table='hr-master-file-outcomes'] tr[data-outcome]").all()}
+    staff_rec = next((r for r in records(page) if r["documentId"] == "hr-induction-staff" and ((r.get("data") or {}).get("header") or {}).get("name") == "Sheet Line Test"), None)
+    mobile_lines = [row for r in records(page) if r["documentId"] == "hr-mobile-authorization" for row in ((r.get("data") or {}).get("rows") or []) if row.get("name") == "Sheet Line Test"]
+    header = (staff_rec or {}).get("data", {}).get("header", {})
+    check("One press files a new person: F/HR/05 started in their name with department, designation and date of joining; F/HR/13 given their line as 'Designation - Department'",
+          outcomes == {"hr-induction-staff": "started", "hr-mobile-authorization": "added"} and staff_rec is not None
+          and (header.get("deptProcess"), header.get("designation"), header.get("dateOfJoining")) == (filed["department"], filed["designation"], filed["joiningDate"])
+          and len(mobile_lines) == 1 and mobile_lines[0].get("deptDesignation") == f"{filed['designation']} - {filed['department']}",
+          (outcomes, header, mobile_lines))
+    page.click("[data-table='hr-master-file-outcomes'] tr[data-outcome='hr-induction-staff'] [data-action='hr-master-file-open']")
+    page.wait_for_timeout(1200)
+    close_assistant(page)
+    check("...and Open lands on the filled record, where it prints and downloads", staff_rec is not None and staff_rec["id"] in page.url
+          and header_input(page, "Name").input_value() == "Sheet Line Test" and page.locator("[data-action='print'], [data-action='download-word'], [data-action='download-excel'], button:has-text('Download')").count() >= 1, page.url)
+    goto(page, "#/hr/master-data")
+    page.wait_for_timeout(600)
     page.fill("[data-field='hr-master-search']", "7701")
     page.wait_for_timeout(300)
     check("Search on the sheet finds a line by its GP3 No.", page.locator("[data-table='hr-master'] tr[data-person]").count() == 1 and "1 of 116" in page.locator("[data-state='hr-master-count']").inner_text())

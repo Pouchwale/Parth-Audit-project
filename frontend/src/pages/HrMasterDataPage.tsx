@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiDownload, FiInfo, FiPlus, FiPrinter, FiTrash2, FiUpload } from "react-icons/fi";
+import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiDownload, FiFileText, FiInfo, FiPlus, FiPrinter, FiTrash2, FiUpload } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
@@ -19,6 +19,7 @@ import {
 } from "../engine/hrMaster";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { Modal } from "../components/common/Modal";
+import { FileFromMasterDialog } from "../components/hr/FileFromMasterDialog";
 import { buildXlsx, readFirstSheet, sniffSpreadsheet, SpreadsheetReadError } from "../utils/xlsx";
 import { downloadBlob, parseCSV } from "../utils/csv";
 import { printDocument } from "../utils/print";
@@ -69,6 +70,8 @@ export function HrMasterDataPage() {
   const [message, setMessage] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
   const [notesOpen, setNotesOpen] = useState<string | null>(null);
   const [removing, setRemoving] = useState<HrMasterPerson | null>(null);
+  // One employee filed onto the HR formats HR ticks (REQUIREMENTS §160).
+  const [filing, setFiling] = useState<HrMasterPerson | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -303,7 +306,7 @@ export function HrMasterDataPage() {
                     <span className="print-only">{c.label}</span>
                   </th>
                 ))}
-                <th className="no-print" style={{ width: 70 }}></th>
+                <th className="no-print" style={{ width: 100 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -352,6 +355,15 @@ export function HrMasterDataPage() {
                             {person.notes?.length ? <FiAlertTriangle size={13} /> : <FiInfo size={13} />}
                           </button>
                         )}
+                        <button
+                          className="btn btn-ghost btn-sm btn-icon"
+                          data-action="hr-master-file"
+                          title="Fill HR formats for this person"
+                          disabled={!person.fullName.trim()}
+                          onClick={() => setFiling(person)}
+                        >
+                          <FiFileText size={13} />
+                        </button>
                         <button className="btn btn-ghost btn-sm btn-icon" data-action="hr-master-delete" title="Remove from the sheet" onClick={() => setRemoving(person)}>
                           <FiTrash2 size={13} />
                         </button>
@@ -395,7 +407,7 @@ export function HrMasterDataPage() {
         <div className="card-pad text-sm">
           <p className="text-muted mb-2">
             On a record of any of these, pick the person by GP3 No. or name and their details are filled in — blank boxes straight away, anything already written
-            only if you say so. A register line whose name is on the sheet can have its blanks filled in one go. What a record fetched stays on it if the sheet
+            only if you say so. Or, on the sheet above, press a line's <FiFileText size={11} style={{ verticalAlign: -1 }} /> to file that person onto every format you tick in one go. A register line whose name is on the sheet can have its blanks filled in one go. What a record fetched stays on it if the sheet
             changes later.
           </p>
           <div className="doc-table">
@@ -469,6 +481,7 @@ export function HrMasterDataPage() {
       )}
 
       {pending && <ImportPreview pending={pending} onCancel={() => setPending(null)} onApply={applyImport} />}
+      {filing && <FileFromMasterDialog key={filing.id} person={filing} onClose={() => setFiling(null)} />}
     </div>
   );
 }
