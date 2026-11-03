@@ -37,7 +37,7 @@ import {
 import { Pkg, setCustomProperty } from "./pkg";
 import { el, kid, kids, all, attrOf, clone, type XmlElement } from "./xml";
 import { modelOf, bandValue, labelsOf, withPaperWords, type DcrsModel, type ModelField, type ModelGrid } from "./model";
-import { COMPANY_RE, FORMAT_NO_RE, REVISION_AFTER_RE, afterLabel, bandWordOf, dotted, headingPrefix, isBlankish, isSerialHeading, isoOf, norm, same, similarity } from "./text";
+import { COMPANY_RE, FORMAT_NO_RE, REVISION_AFTER_RE, afterLabel, bandWordOf, appDate, headingPrefix, isBlankish, isSerialHeading, isoOf, norm, same, similarity } from "./text";
 import { emptyReport, type FillHints, type FillReport } from "./types";
 
 const MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -560,7 +560,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
   const places: GridPlace[] = [];
   model.grids.forEach((grid, gridNo) => {
     if (hints.skipGrids?.includes(gridNo)) return;
-    const place = placeGrid(sheet, grid, gridNo, all1, taken, labels, model, hints.headingRow?.[gridNo]) ?? placeTwoRowGrid(sheet, grid, gridNo, all1, taken);
+    const place = placeGrid(sheet, grid, gridNo, all1, taken, labels, model, hints.headingRow?.[gridNo]) ?? placeTwoRowGrid(sheet, grid, gridNo, all1, taken, model.fields);
     if (place) places.push(place);
     else if (grid.rows.length > grid.headerRows && grid.headerRows > 0) report.gridsMissed.push(grid.rows[0]?.map((c) => c.text).filter(Boolean).slice(0, 3).join(" | ") ?? "");
     // A table of the page with no heading row whose values found no place (a page drawn as its paper's table, F/QC/06's
@@ -935,7 +935,7 @@ export function replaceFormat(text: string, own: string, formatNo: string, revNo
   const after = out.slice(m.index + formatNo.length);
   const rev = REVISION_AFTER_RE.exec(after);
   if (rev && rev.index < 4 && (revNo || revDate)) {
-    const date = revDate ? (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(rev[2]) || /\./.test(rev[2]) ? dotted(revDate) : revDate) : rev[2];
+    const date = revDate ? (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(rev[2]) || /\./.test(rev[2]) ? appDate(revDate) : revDate) : rev[2];
     const sep = /\(\s*\d+(\s*[/-]\s*)/.exec(rev[0])?.[1] ?? "/";
     const replaced = rev[0].replace(/\(\s*\d{1,2}\s*[/-]\s*[\d./-]+\s*\)/, `(${revNo || rev[1]}${sep}${date})`);
     out = out.slice(0, m.index + formatNo.length) + after.slice(0, rev.index) + replaced + after.slice(rev.index + rev[0].length);
@@ -958,10 +958,10 @@ export function bandEdit(text: string, dcrs: { formatNo: string; revNo: string; 
   const head = text.slice(0, text.length - (m[2] ?? "").length);
   if (word === "date") {
     const iso = isoOf(rest);
-    if (iso && dcrs.revDate && iso === isoOf(dcrs.revDate)) return head + (/\./.test(rest) ? dotted(dcrs.revDate) : dcrs.revDate);
+    if (iso && dcrs.revDate && iso === isoOf(dcrs.revDate)) return head + (/\./.test(rest) ? appDate(dcrs.revDate) : dcrs.revDate);
     return null;
   }
-  const value = word === "formatNo" ? dcrs.formatNo : word === "revNo" ? dcrs.revNo : word === "revDate" ? (/\./.test(rest) ? dotted(dcrs.revDate) : dcrs.revDate) : dcrs.page;
+  const value = word === "formatNo" ? dcrs.formatNo : word === "revNo" ? dcrs.revNo : word === "revDate" ? (/\./.test(rest) ? appDate(dcrs.revDate) : dcrs.revDate) : dcrs.page;
   if (!value) return undefined;
   if (word === "page") return undefined;
   // A format number already there was brought to DCRS's with its revision (replaceFormat); anything else is not the band's.
@@ -1183,7 +1183,7 @@ function monthOf(t: string): { m: number; y?: number } | null {
  * Actual column under each month. Each of DCRS's columns goes to the row its word names, under its month; the line's own
  * columns (its number, machine, frequency) to its first row.
  */
-function placeTwoRowGrid(sheet: XSheet, grid: ModelGrid, gridNo: number, cells: { r: number; c: number; text: string }[], taken: Set<number>): GridPlace | null {
+function placeTwoRowGrid(sheet: XSheet, grid: ModelGrid, gridNo: number, cells: { r: number; c: number; text: string }[], taken: Set<number>, fields: readonly ModelField[] = []): GridPlace | null {
   if (grid.headerRows !== 1 && grid.headerRows !== 2) return null;
   // A heading of two rows, or of one written "Apr-26 — Plan" (headingParts): the month above, the word under it.
   const split = grid.headerRows === 1 ? (grid.rows[0] ?? []).map((c) => headingParts(c.text)) : null;
@@ -1224,6 +1224,22 @@ function placeTwoRowGrid(sheet: XSheet, grid: ModelGrid, gridNo: number, cells: 
   }
   if (!best) return null;
   const headingRow = best.r;
+  // THE MONTH HEADINGS RE-HEADED FOR THE SHEET'S OWN YEAR (F/HR/09, REQUIREMENTS §164): the owner's workbook heads its
+  // months "Apr-26" (date cells, one year's); a calendar of another year, whose period box reads "01.04.2027 ~
+  // 31.03.2028", has each month written for that year, so the file downloaded reads as the year it is.
+  const period = fields.map((f) => /^(\d{2})\.(\d{2})\.(\d{4}) ~ \d{2}\.\d{2}\.\d{4}$/.exec(f.cell.text.trim())).find((m) => m);
+  if (period) {
+    const startMonth = Number(period[2]) - 1;
+    const startYear = Number(period[3]);
+    for (const [g, c] of best.cols) {
+      const want = monthOf(g);
+      const have = monthOf(sheet.text(headingRow, c));
+      if (!want || !have || have.y === undefined) continue;
+      const year = want.m >= startMonth ? startYear : startYear + 1;
+      if (have.y === year % 100) continue;
+      sheet.write(headingRow, c, `${g.trim().slice(0, 3)}-${String(year % 100).padStart(2, "0")}`, { date: `${year}-${String(want.m + 1).padStart(2, "0")}-01` });
+    }
+  }
   // The line's own columns, by their headings in the rows about the heading row.
   const colOf = new Map<number, number>();
   const used = new Set<number>(best.cols.values());

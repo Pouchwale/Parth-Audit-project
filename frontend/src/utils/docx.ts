@@ -47,6 +47,10 @@ export interface DocxPaperCell {
   underline?: boolean;
   /** A face other than the document's (the page number of F/HR/18 is Times New Roman). */
   font?: string;
+  /** Words in bold before the cell's own (F/QC/11's "PROCEDURE:"). */
+  boldLead?: string;
+  /** The cell's shading, "#rrggbb" (F/QC/16's number box, F/HR/17's headings). */
+  fill?: string;
   /** left, right, top, bottom in eighths of a point (0 none; 4 is half a point, 12 a point and a half). */
   borders: [number, number, number, number];
 }
@@ -57,7 +61,7 @@ export type DocxBlock =
    * A table laid in points, as the company's Word original draws it: fixed column widths, row heights, merged cells, a face
    * and size to each cell, edges to each cell. `indent` is its distance from the margin, `pageBreakBefore` starts a page.
    */
-  | { type: "paper"; widths: number[]; rows: { height?: number; cells: DocxPaperCell[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number }
+  | { type: "paper"; widths: number[]; rows: { height?: number; keepNext?: boolean; cells: DocxPaperCell[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number }
   | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true };
 
 /** What a document carries besides its body. */
@@ -160,22 +164,27 @@ function paperTable(controls: Controls, block: Extract<DocxBlock, { type: "paper
           const width = block.widths.slice(at, at + span).reduce((a, b) => a + b, 0);
           at += span;
           const [l, r, t, b] = c.borders;
-          const rPr =
-            `${c.font ? `<w:rFonts w:ascii="${c.font}" w:hAnsi="${c.font}" w:cs="${c.font}"/>` : ""}${c.bold ? "<w:b/>" : ""}` +
+          const props = (bold: boolean) =>
+            `${c.font ? `<w:rFonts w:ascii="${c.font}" w:hAnsi="${c.font}" w:cs="${c.font}"/>` : ""}${bold ? "<w:b/>" : ""}` +
             `<w:sz w:val="${c.size}"/><w:szCs w:val="${c.size}"/>${c.underline ? '<w:u w:val="single"/>' : ""}`;
+          const rPr = props(c.bold);
           const tcPr =
             `<w:tcPr><w:tcW w:w="${tw(width)}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ""}` +
             `${c.vMerge === "restart" ? '<w:vMerge w:val="restart"/>' : c.vMerge === "continue" ? "<w:vMerge/>" : ""}` +
             `<w:tcBorders>${edge("top", t)}${edge("left", l)}${edge("bottom", b)}${edge("right", r)}</w:tcBorders>` +
+            (c.fill && /^#?[0-9a-f]{6}$/i.test(c.fill) ? `<w:shd w:val="clear" w:color="auto" w:fill="${c.fill.replace("#", "").toUpperCase()}"/>` : "") +
             `<w:vAlign w:val="${c.valign}"/></w:tcPr>`;
-          const para = `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="${c.align}"/></w:pPr>${controls.cell(c.text, rPr)}</w:p>`;
+          // (keepNext: the row stays on the page of the row after it - F/HR/18's two lines of a unit never part, 31-Oct-2026)
+          const para = `<w:p><w:pPr>${row.keepNext ? "<w:keepNext/>" : ""}<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="${c.align}"/></w:pPr>${c.boldLead ? runs(c.boldLead, props(true)) : ""}${controls.cell(c.text, rPr)}</w:p>`;
           return `<w:tc>${tcPr}${para}</w:tc>`;
         })
         .join("");
       return `<w:tr><w:trPr><w:cantSplit/>${row.height ? `<w:trHeight w:val="${tw(row.height)}" w:hRule="atLeast"/>` : ""}</w:trPr>${cells}</w:tr>`;
     })
     .join("");
-  const lead = block.pageBreakBefore ? `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>` : "";
+  // A new page as a paragraph that starts one (pageBreakBefore), not a break inside a line: a page already full to its foot
+  // then gets no page with only that line on it (the owner, 31-Oct-2026: "not even a single page should be blank").
+  const lead = block.pageBreakBefore ? `<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/></w:pPr></w:p>` : "";
   return (
     lead +
     `<w:tbl><w:tblPr><w:tblW w:w="${tw(total)}" w:type="dxa"/><w:tblInd w:w="${tw(block.indent ?? 0)}" w:type="dxa"/><w:tblLayout w:type="fixed"/>` +
@@ -208,6 +217,9 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
   const fontSize = widest > 12 ? 14 : widest > 8 ? 16 : 18;
   const controls = new Controls();
   const body = blocks.map((b) => (b.type === "paragraph" ? paragraph(controls, b.text, b) : b.type === "paper" ? paperTable(controls, b) : table(controls, b, fontSize))).join("");
+  // A page drawn as paper tables ends on its own small spacing line: no empty line of the body's size after it, which on a
+  // page filled to its foot would start a blank page (the owner, 31-Oct-2026: "not even a single page should be blank").
+  const endsOnPaper = blocks.length > 0 && blocks[blocks.length - 1].type === "paper";
   // A4, 12.7 mm margins; landscape swaps the sides.
   const [w, h] = landscape ? [16838, 11906] : [11906, 16838];
   const mm = extras.margins;
@@ -247,7 +259,7 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
         `<w:pPrDefault><w:pPr><w:spacing w:after="80" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>` +
         `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>`,
     ],
-    ["word/document.xml", `<w:document xmlns:w="${W}" xmlns:r="${R}"><w:body>${body}${paragraph(controls, "")}${section}</w:body></w:document>`],
+    ["word/document.xml", `<w:document xmlns:w="${W}" xmlns:r="${R}"><w:body>${body}${endsOnPaper ? "" : paragraph(controls, "")}${section}</w:body></w:document>`],
   ];
   if (custom) {
     parts.push(

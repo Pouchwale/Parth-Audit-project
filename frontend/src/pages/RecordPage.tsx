@@ -45,7 +45,10 @@ import { PreparedBanner } from "../components/records/PreparedBanner";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { mayDo } from "../engine/departmentScope";
 import { periodKeyFor } from "../engine/recordGenerator";
-import { NOMINAL_FILL_NOTE, nominalFillOnOpen } from "../engine/nominalFill";
+import { NOMINAL_FILL_NOTE, SCALE_DAY_NOTE, fillScaleLinesDue, nominalFillOnOpen } from "../engine/nominalFill";
+import { firstWeekDate } from "../engine/calibrationWeeks";
+import { DAILY_PEST_CHECKER, DAILY_PEST_FILL_NOTE, dailyPestFillOnOpen, dailyPestRoundTime } from "../engine/dailyPestFill";
+import { SERVICE_QTY_FILL_NOTE, serviceQtyFillOnOpen } from "../engine/serviceMaterials";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -59,6 +62,7 @@ import { recordLabel } from "../engine/recordHistory";
 import { documentLayoutIn, documentTextIn, isGujaratiDocument } from "../i18n/documentText";
 import { formatDisplayDate, formatDisplayDateTime, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
+import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 
@@ -243,10 +247,33 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   // history, every box still theirs to change. One already written on is left as it is.
   useEffect(() => {
     if (!record || !doc || doc.kind !== "log-sheet" || !editable || superseded || dirty) return;
-    const filled = nominalFillOnOpen(doc.id, record.data as LogSheetData | undefined, currentUser, record.headerBlock?.date ?? record.dueDate);
-    if (filled) persistLocal(saveDraft(record, withComputedCells(doc.id, filled), currentUser, { note: NOMINAL_FILL_NOTE }));
+    // F/QC/12's first date: the previous week's Next Due Date (the owner, 30-Oct-2026, engine/calibrationWeeks.ts).
+    const firstDate = doc.id === "qc-weight-scale-calibration" ? firstWeekDate(doc.id, record) : undefined;
+    const filled = nominalFillOnOpen(doc.id, record.data as LogSheetData | undefined, currentUser, firstDate);
+    // F/QC/12: a week whose date has come is filled, with nobody's name on it (the server's morning prepare does the same).
+    const base = (filled ?? record.data) as LogSheetData | undefined;
+    const onTheDay = doc.id === "qc-weight-scale-calibration" && base ? fillScaleLinesDue(withComputedCells(doc.id, base), todayISO()) : null;
+    const out = onTheDay ?? filled;
+    if (out) persistLocal(saveDraft(record, withComputedCells(doc.id, out), currentUser, { note: onTheDay ? SCALE_DAY_NOTE : NOMINAL_FILL_NOTE }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id, editable, superseded]);
+  // F/HR/17 answered as the plant's usual day when a person opens it (REQUIREMENTS §149, engine/dailyPestFill.ts): the
+  // round at a random time between 09:00 and 09:30, in Kapila Barad's name (§177); the history line is the opener's.
+  useEffect(() => {
+    if (!record || !doc || doc.kind !== "daily-pest-monitoring" || !editable || superseded || dirty) return;
+    // A day still to come is not answered yet: its round has not been walked (§177).
+    if (record.dueDate > todayISO()) return;
+    const filled = dailyPestFillOnOpen(record.data as DailyPestMonitoringData | undefined, DAILY_PEST_CHECKER, dailyPestRoundTime());
+    if (filled) persistLocal(saveDraft(record, filled, currentUser, { note: DAILY_PEST_FILL_NOTE }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record?.id, editable, superseded]);
+  // A service report's fixed quantity (Deltamethrin's 150 ml) written when a person opens it (REQUIREMENTS §154).
+  useEffect(() => {
+    if (!record || !doc || doc.kind !== "service-report" || !editable || dirty) return;
+    const filled = serviceQtyFillOnOpen(doc.variantKey, record.data as ServiceReportData | undefined);
+    if (filled) persistLocal(saveDraft(record, filled, currentUser, { note: SERVICE_QTY_FILL_NOTE }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record?.id, editable]);
 
   useEffect(() => {
     flush(); // anything pending on the record we're leaving
@@ -371,7 +398,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
               setNotice((said) => said ?? changedElsewhere(base, true));
               return;
             }
-            persistLocal(saveDraft(base, withComputedCells(doc?.id, next), currentUser, { action: action ?? "assistant-edit", note, labels: latest.current.labels }));
+            persistLocal(saveDraft(base, withComputedCells(doc?.id, next, base.data), currentUser, { action: action ?? "assistant-edit", note, labels: latest.current.labels }));
           },
           reopen: isCorrectableStatus(record.status) && !superseded && mayDo(record.documentId, "correct")
             ? (reason) => {
@@ -586,7 +613,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       {/* The form as issued, in the language chosen beside Today's Briefing (REQUIREMENTS §58). */}
       {/* ...and the part that prints (utils/print.ts): the form, nothing around it —
           and whose values a downloaded file binds to this record (REQUIREMENTS §81). */}
-      <div data-print-doc data-bind-record={record.id}>
+      <div data-print-doc data-bind-record={record.id} data-format-id={doc.id} data-format-asof={formulaTimeOf(record)}>
       {doc.kind === "daily-pest-monitoring" && (
         <DailyPestMonitoringRecordView
           doc={doc}

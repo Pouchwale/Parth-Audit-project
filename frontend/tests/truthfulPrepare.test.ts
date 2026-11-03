@@ -47,6 +47,8 @@ import { fixedMaterialForServiceArea } from "../src/engine/serviceMaterials";
 import { validateForSubmit } from "../src/engine/validation";
 import { addDays, todayISO } from "../src/utils/date";
 import { noProblems } from "./support/catalogue";
+import { numberOfYears, previousWrittenRecord } from "../src/engine/carryForward";
+import { nextYearPlan, TRAINING_CALENDAR_ID } from "../src/engine/trainingCalendar";
 
 ensureDocumentsSeeded();
 ensureMasterSeeded();
@@ -158,7 +160,14 @@ function logSheetObservations(doc: DocumentDefinition, d: LogSheetData, dueDate:
       // of the last sheet's and the date the format starts with.
       const latest = [String(p.header?.[f.key] ?? ""), String(f.autoFill?.default ?? "")].sort().pop();
       const allowed = f.autoFill?.dueDate ? dueDate : typeof f.printed === "string" ? f.printed : f.autoFill?.newest ? latest : p.header?.[f.key];
-      if (v !== allowed) say(`"${f.label}" holds "${v}", which the sheet of ${prior.dueDate} did not (§117 carries only what was written)`);
+      // The format's own starting value where the last sheet left the box empty or held a value the box started with
+      // before (autoFill.formerDefaults), and a number made of the sheet's certificate years (autoFill.yearsOf): the
+      // format's, not observed (F/QC/17, the owner, 30-10-2026).
+      const before = String(p.header?.[f.key] ?? "").trim();
+      const formatOwn = (blank(p.header?.[f.key]) || !!f.autoFill?.formerDefaults?.includes(before)) && v === f.autoFill?.default;
+      const y = f.autoFill?.yearsOf;
+      const fromYears = !!y && v === numberOfYears(y.prefix, d.header?.[y.date], d.header?.[y.due]);
+      if (v !== allowed && !formatOwn && !fromYears) say(`"${f.label}" holds "${v}", which the sheet of ${prior.dueDate} did not (§117 carries only what was written)`);
     }
     for (const [i, row] of d.rows.entries()) {
       for (const c of layout.columns) {
@@ -224,6 +233,16 @@ function logSheetObservations(doc: DocumentDefinition, d: LogSheetData, dueDate:
         continue;
       }
       if (listed && (c.type === "text" || c.type === "date") && !c.autoFill?.sign && !c.autoFill?.fresh && !LIST_ASSESSMENT.test(c.label) && prior?.data.rows?.[i]?.[c.key] === v) continue;
+      // F/HR/09's plan for the coming year is drawn from the last calendar with writing on it (REQUIREMENTS §164,
+      // engine/trainingCalendar.ts nextYearPlan): each Plan cell holds exactly the date that gives, and nothing else;
+      // the Actual cells (the dates the trainings are held) are the person's and stay empty.
+      if (doc.id === TRAINING_CALENDAR_ID && /^m\d+Plan$/.test(c.key)) {
+        const shell = createDefaultData(doc, dueDate, master) as LogSheetData;
+        const last = previousWrittenRecord(doc.id, dueDate, false, layout, shell) ?? prior;
+        const planned = last?.data.rows ? nextYearPlan(last.data.rows, dueDate, (day) => isCompanyHoliday(day, master))[i]?.[c.key] : undefined;
+        if (v !== planned) say(`line ${i + 1} "${c.label}" holds "${v}", not the plan drawn from the calendar of ${last?.dueDate} ("${planned}")`);
+        continue;
+      }
       say(`line ${i + 1} "${c.label}" holds "${v}"`);
     }
   }
@@ -313,25 +332,25 @@ test("what is known IS written: the date, the fixed rows, the standing values ca
   const prior = confirmedBefore(scale, workDay) as RecordInstance<LogSheetData>;
   const cal = prepareKnownParts(scale, workDay, master, prior)!.data as LogSheetData;
   for (const key of ["deviceIdNo", "manufacturer", "serialNo", "acceptableTolerance"]) assert.equal(cal.header[key], prior.data.header[key], key);
-  // The certificate's date (autoFill.newest, the owner, 27-Oct-2026): the later of the last sheet's and the owner's 20-09-27.
+  // The certificate's date (autoFill.newest, the owner, 27-Oct-2026): the later of the last sheet's and the owner's 20-09-2027.
   assert.equal(cal.header.calibrationExpiry, [String(prior.data.header.calibrationExpiry), "2027-09-20"].sort().pop(), "calibrationExpiry");
-  assert.ok(cal.rows.every((r) => r.date === workDay), "each line dated the record's day");
-  // Its line is not carried since §142 (F/QC/12): the standards - the weights, the fixed Tested Values 1 and 2 - never
-  // last week's readings or tester.
-  assert.equal(cal.rows.length, 1, "the week's one standard line");
-  assert.ok(cal.rows.every((r) => r.testedValue1 === "0.050mg" && !r.testedValue3 && !r.testedBy), "the fixed Tested Value 1; the readings and the tester left for the week");
+  assert.ok(cal.rows.every((r) => r.date === ""), "each line's date is the person's (§145)");
+  // Its lines are not carried since §142 (F/QC/12): the standards - the weights, the fixed Tested Values 1 and 2 - never
+  // last month's readings or tester.
+  assert.equal(cal.rows.length, 4, "a standard line a week (§145)");
+  assert.ok(cal.rows.every((r) => !r.testedValue1 && !r.testedValue3 && !r.testedBy), "the fixed Tested Value 1; the readings and the tester left for the week");
   // The chemicals in use and the machine; never the operator, the batch or the shift.
   const pp = byId("prd-process-parameter");
   const ppPrior = confirmedBefore(pp, workDay) as RecordInstance<LogSheetData>;
   const params = prepareKnownParts(pp, workDay, master, ppPrior)!.data as LogSheetData;
   for (const key of ["machineName", "mixingRatio", "adhesiveMake", "adhesiveCode", "hardenerMake", "hardenerCode"]) assert.equal(params.header[key], ppPrior.data.header[key], key);
   for (const key of ["operatorName", "shift", "adhesiveBatch", "hardenerBatch"]) assert.equal(params.header[key], "", key);
-  // The printed fixed rows, every answer empty.
+  // The printed fixed rows: each point at its printed compliant answer (REQUIREMENTS §162), the action box empty.
   const gmp = byId("hr-gmp-checklist");
   const checklist = prepareKnownParts(gmp, workDay, master, confirmedBefore(gmp, workDay))!.data as LogSheetData;
   const printed = getLogSheetLayout("hr-gmp-checklist")!.rowMode;
   assert.equal(checklist.rows.length, printed.kind === "fixedRows" ? printed.rows.length : -1);
-  assert.ok(checklist.rows.every((r) => r.compliance === "" && r.actionIfNc === ""));
+  assert.ok(checklist.rows.every((r, i) => r.compliance === (printed.kind === "fixedRows" ? printed.rows[i].compliance : "") && r.actionIfNc === ""));
   // The fly catcher units with their tube light dates from the last visit.
   const fly = byId("fly-catcher");
   const flyPrior = confirmedBefore(fly, workDay) as RecordInstance<FlyCatcherData>;
@@ -343,7 +362,8 @@ test("what is known IS written: the date, the fixed rows, the standing values ca
   const skillsPrior = confirmedBefore(skills, workDay) as RecordInstance<LogSheetData>;
   const matrix = prepareKnownParts(skills, workDay, master, skillsPrior)!.data as LogSheetData;
   assert.equal(matrix.rows.length, skillsPrior.data.rows.length);
-  assert.ok(matrix.rows.every((r, i) => r.name === skillsPrior.data.rows[i].name && r.printing === ""));
+  // Every operation starts at the standard 5 on a carried line too (REQUIREMENTS §167): the person grades it down where it is less.
+  assert.ok(matrix.rows.every((r, i) => r.name === skillsPrior.data.rows[i].name && r.printing === "5"));
 });
 
 test("H-9: a blank form never arrives answered: Line Clearance, ALC, the cleaning type, the compliance, the shift and the operator start empty", () => {

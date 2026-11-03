@@ -6,7 +6,7 @@
 //     admin's too; only the latest slot that has begun (a server started at 16:00 sends the 15:30 email alone); nothing
 //     open, no email;
 //   * what an email says: grouped Overdue, Sent back, To fill and submit, To verify, Coming up (the morning's only), one
-//     line each in the notification's own words with the date as 09-10-26, cut at 40 with "and N more", a long list by
+//     line each in the notification's own words with the date as 09-10-2026, cut at 40 with "and N more", a long list by
 //     module; the push's words as its subject; never a send-back's reason; one link to DCRS_APP_URL; HTML escaped; in
 //     English, Gujarati and Hindi;
 //   * the sender: each email claimed before it is sent, so a second run, or two at one moment, sends nothing more; a
@@ -168,8 +168,8 @@ describe("the planner: when each person is emailed", () => {
     const kapila = mailTo(mails, ADDR.kapila)!;
     assert.equal(kapila.subject, "2 records need you");
     assert.match(kapila.text, /^Hello Kapila Barad,\n\nHere is what is waiting for you in DCRS today\.\n\nTo fill and submit \(2\)\n/);
-    assert.ok(kapila.text.includes("  - F-QC-30 Lamination Adhesive Viscosity Record of 09-10-26 is due and not started yet."), kapila.text);
-    assert.ok(kapila.text.includes("  - F/HR/17 Daily Pest Control Monitoring Record of 09-10-26 is ready for you: 12 readings to enter, then submit."), kapila.text);
+    assert.ok(kapila.text.includes("  - F-QC-30 Lamination Adhesive Viscosity Record of 09-10-2026 is due and not started yet."), kapila.text);
+    assert.ok(kapila.text.includes("  - F/HR/17 Daily Pest Control Monitoring Record of 09-10-2026 is ready for you: 12 readings to enter, then submit."), kapila.text);
     assert.ok(kapila.text.includes("DCRS reminds you again at 15:30 and 17:45 on working days, until each one is done."));
     assert.ok(kapila.text.endsWith(`-- \n${SENDER}`));
     const vinay = mailTo(mails, ADDR.vinay)!;
@@ -261,9 +261,9 @@ describe("what an email says", () => {
     const order = ["Overdue (1)", "Sent back (1)", "To fill and submit (3)", "To verify (1)", "Coming up (1)"].map((h) => morning.text.indexOf(h));
     assert.ok(order.every((i) => i > 0), morning.text);
     assert.deepEqual(order, order.slice().sort((a, b) => a - b), "the most pressing first");
-    assert.ok(morning.text.includes("  - F-QC-30 Lamination Adhesive Viscosity Record of 07-10-26 is 2 days late. Fill it in and submit it today."));
-    assert.ok(morning.text.includes("  - Vinay Bhojak submitted F/HR/17 Daily Pest Control Monitoring Record of 09-10-26. It is waiting for your verification."));
-    assert.ok(morning.text.includes("  - F/HR/20 Monthly Cleaning Record is due on 12-10-26."));
+    assert.ok(morning.text.includes("  - F-QC-30 Lamination Adhesive Viscosity Record of 07-10-2026 is 2 days late. Fill it in and submit it today."));
+    assert.ok(morning.text.includes("  - Vinay Bhojak submitted F/HR/17 Daily Pest Control Monitoring Record of 09-10-2026. It is waiting for your verification."));
+    assert.ok(morning.text.includes("  - F/HR/20 Monthly Cleaning Record is due on 12-10-2026."));
     assert.doesNotMatch(morning.text, /access|summary|Escalat/i, "not the notifications no email carries");
     const afternoon = digestOf(p, "reminder");
     assert.equal(afternoon.items, 6);
@@ -284,7 +284,7 @@ describe("what an email says", () => {
       }
     }
     const en = digestOf(person("Kapila Barad", "en", back), "morning");
-    assert.ok(en.text.includes("  - Super Admin sent back F/HR/17 Daily Pest Control Monitoring Record of 09-10-26. Put it right and submit it again."), en.text);
+    assert.ok(en.text.includes("  - Super Admin sent back F/HR/17 Daily Pest Control Monitoring Record of 09-10-2026. Put it right and submit it again."), en.text);
     assert.equal(en.subject, "Sent back: Daily Pest Control Monitoring Record");
   });
 
@@ -340,7 +340,7 @@ describe("what an email says", () => {
     const hi = digestOf(person("Super Admin", "hi", items), "reminder");
     assert.match(hi.subject, /^अभी बाकी: 6 रिकॉर्ड आपकी प्रतीक्षा में हैं$/);
     assert.ok(hi.text.includes("नमस्ते Super Admin,"));
-    assert.ok(hi.text.includes("F-QC-30 Lamination Adhesive Viscosity Record (07-10-26) 2 दिन देर से है।"), hi.text);
+    assert.ok(hi.text.includes("F-QC-30 Lamination Adhesive Viscosity Record (07-10-2026) 2 दिन देर से है।"), hi.text);
     const gu = digestOf(person("Super Admin", "gu", items), "lastCall");
     assert.match(gu.subject, /^આજની છેલ્લી યાદ: 6 રેકોર્ડ તમારી રાહ જુએ છે$/);
   });
@@ -426,7 +426,7 @@ describe("the sender", () => {
     assert.equal(w.take().length, 0);
     const kapila = w.store.rows.find((r) => r.userId === "u-kapila")!;
     assert.equal(kapila.state, "captured");
-    assert.ok(kapila.body!.includes("F-QC-30 Lamination Adhesive Viscosity Record of 09-10-26 is due and not started yet."));
+    assert.ok(kapila.body!.includes("F-QC-30 Lamination Adhesive Viscosity Record of 09-10-2026 is due and not started yet."));
     assert.equal(kapila.subject, "Due today: Lamination Adhesive Viscosity Record");
     assert.ok(kapila.sentAt);
     assert.match(w.logged[0].detail!, /captured on this server \(EMAIL_TRANSPORT=capture\): nothing left the PC/);
@@ -468,7 +468,7 @@ describe("the sender", () => {
     assert.equal(line.userId, null);
     assert.equal(line.department, "");
     assert.equal(line.target, "2 people");
-    assert.equal(line.detail, "Kapila Barad (2 records), Vinay Bhojak (1 record): the morning email of 09-10-26");
+    assert.equal(line.detail, "Kapila Barad (2 records), Vinay Bhojak (1 record): the morning email of 09-10-2026");
     assert.ok(!JSON.stringify(line).includes("@"));
     await w.run(FRI, "09:05");
     assert.equal(w.logged.length, 1, "a quiet run writes nothing");

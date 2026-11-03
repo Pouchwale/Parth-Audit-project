@@ -6,6 +6,7 @@ import { createDefaultData } from "./recordDefaults";
 import { carriedFrom, hasWriting, previousWrittenRecord } from "./carryForward";
 import { withComputedCells } from "./computedCells";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
 import { periodKeyFor } from "./recordGenerator";
 import { historyOf, logRecordStarted } from "./recordHistory";
@@ -106,7 +107,12 @@ export function recordCoveringDate(doc: DocumentDefinition, dateISO: string, isD
     return records.find((r) => r.periodKey === periodKey || r.dueDate === dateISO);
   }
   const ownKey = periodKeyFor(doc, period.scheduled);
+  // F/QC/17 became yearly on 30-10-26 (scheduleSince): a sheet started while it was "as required" is no year's sheet, so
+  // New record starts the year's own sheet beside it, as the owner found it must (31-Oct-2026: New record opened the
+  // verified 17-10-26 sheet, never a new one). Every other document counts every sheet, as before.
+  const sinceOnly = isRulerVerification(doc.id) && doc.scheduleSince ? doc.scheduleSince : null;
   const inPeriod = records.filter((r) => {
+    if (sinceOnly && compareISO(String(r.createdAt ?? "").slice(0, 10), sinceOnly) < 0) return false;
     const filed = filedFor(r);
     return compareISO(filed, period.from) >= 0 && compareISO(filed, period.to) <= 0;
   });

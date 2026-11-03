@@ -21,6 +21,8 @@ interface RouterValue {
   back: (fallback?: string) => void;
   /** Back to `path` if that is where you came from (keeping the browser's history in step), otherwise open it. */
   backTo: (path: string) => void;
+  /** Whether there is a page of the app behind this one to go back to (the top bar's Back, REQUIREMENTS §175). */
+  canGoBack: boolean;
 }
 
 // WHERE YOU CAME FROM, for the app's own Back buttons (REQUIREMENTS §48).
@@ -195,8 +197,10 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
   };
 
   const segments = path.split("/").filter(Boolean);
+  // Read at every change of address (path is state), so the top bar's Back follows the trail.
+  const canGoBack = trail.length >= 2;
 
-  return <RouterContext.Provider value={{ path, segments, navigate, back, backTo }}>{children}</RouterContext.Provider>;
+  return <RouterContext.Provider value={{ path, segments, navigate, back, backTo, canGoBack }}>{children}</RouterContext.Provider>;
 }
 
 export function useRouter(): RouterValue {
@@ -230,6 +234,8 @@ const SIMPLE_ROUTES = new Set([
   "database-overview",
   // /access — User access: who may use which module, and their sign-ins and sign-outs, the super admin's own (REQUIREMENTS §84).
   "access",
+  // /indexing — the index of every format and document, its formulas and ranges, the super admin's own (indexing/).
+  "indexing",
   // /master-list — the master list of who does what, the super admin's own (REQUIREMENTS §110).
   "master-list",
   // /performance — the scorecard: who did their documents on time (REQUIREMENTS §64).

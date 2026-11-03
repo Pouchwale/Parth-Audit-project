@@ -110,7 +110,7 @@ def stored(page, key):
 
 
 def header_cells(page, within="[data-section='document-preview']"):
-    """The sheet's header block cell by cell, label to value: {"Format No.": "F/DISP/04", "Rev No.": "01", "Rev Date": "01-11-23", ...}."""
+    """The sheet's header block cell by cell, label to value: {"Format No.": "F/DISP/04", "Rev No.": "01", "Rev Date": "01-11-2023", ...}."""
     return page.locator(f"{within} .doc-header .meta-cell").evaluate_all(
         "els => Object.fromEntries(els.map((e) => [(e.querySelector('.k') || e).textContent.trim(), (e.querySelector('.v') || e).textContent.trim()]))"
     )

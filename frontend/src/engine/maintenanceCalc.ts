@@ -1,4 +1,6 @@
 import type { LogSheetData, LogSheetRow } from "../types";
+import { formulaOverride } from "../../../indexing/formulaRuntime";
+import { asNumber, runFormula } from "../../../indexing/formulaLanguage";
 
 // THE BREAKDOWN MINUTES ON F/MNT/06 ARE WORKED OUT, NOT TYPED (REQUIREMENTS
 // §74). The Equipments Breakdown Maintenance Record prints the moment a machine
@@ -67,7 +69,12 @@ export function breakdownSpanMinutes(failureDate: unknown, failureTime: unknown,
  */
 export function breakdownMinutes(failureDate: unknown, failureTime: unknown, repairedDate: unknown, repairedTime: unknown): string {
   const minutes = breakdownSpanMinutes(failureDate, failureTime, repairedDate, repairedTime);
-  return minutes === null || minutes < 0 ? "" : String(minutes);
+  if (minutes === null || minutes < 0) return "";
+  // INDEXING: the super admin's formula for the minutes, when the index changed it (indexing/formulaRuntime.ts).
+  const changed = formulaOverride("mnt.breakdownMinutes");
+  if (!changed) return String(minutes);
+  const worked = asNumber(runFormula(changed, { MINUTES: minutes }));
+  return worked === null ? "" : String(Math.round(worked));
 }
 
 /** F/MNT/06's one formula cell for one line, worked out from the four moments written on it. */

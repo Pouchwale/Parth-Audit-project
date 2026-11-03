@@ -33,6 +33,19 @@ export interface DocumentDefinition {
   // (engine/recordGenerator.ts), and the old schedule's untouched sheets from today on are taken away
   // (engine/calendarMigration.ts removeOffScheduleShells), so a change leaves no trail of overdue sheets behind it.
   scheduleSince?: string;
+  /**
+   * ONE SHEET A YEAR, WRITTEN ON THROUGH THE YEAR AND DUE AT ITS END (REQUIREMENTS §86, §164): F/HR/16's twelve months,
+   * F/HR/09's April-to-March training plan. The sheet is filed from the first day of the twelve months ending on its due
+   * date, so the year is written on as it goes and the sheet is never late before the year is over
+   * (engine/recordGenerator.ts fillsThroughYear).
+   */
+  yearLong?: true;
+  /**
+   * MADE THIS MANY DAYS AHEAD of its year (REQUIREMENTS §164): the training plan calendar is drawn up a month before
+   * April, so March sees the coming year planned (engine/reminders.ts ensureNearTermRecordsGenerated, and the morning
+   * prepare fills it at once).
+   */
+  madeAheadDays?: number;
   // Optional: for documents that come in several variants sharing one renderer
   // (e.g. Service Report has 3 service types), each variant is its own
   // DocumentDefinition with a distinguishing `variantKey`.
@@ -57,5 +70,6 @@ export type ScheduleConfig =
   | { type: "fortnightly"; weekday: number; anchorDayOfMonth?: undefined }
   | { type: "monthly"; dayOfMonth: number }
   | { type: "quarterly"; anchorMonth: number; dayOfMonth: number } // anchorMonth 0-11, first quarter month
+  | { type: "half-yearly"; anchorMonth: number; dayOfMonth: number } // anchorMonth 0-11, the first of its two months (REQUIREMENTS §163)
   | { type: "yearly"; month: number; dayOfMonth: number }
   | { type: "as-required" };

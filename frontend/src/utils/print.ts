@@ -369,6 +369,32 @@ function pagesAt(doc: HTMLElement, zoom: number, landscape: boolean, part: HTMLE
 // owner: "make sure it looks like it only"), F/HR/18 is its Word page with its own margins. Drawn as they are.
 const DRAWN_TO_PAPER = ".svc-paper, .fhr18-sheet, .fhr18-record";
 
+// F/HR/18 PRINTS EACH OF ITS PAGES WHOLE (the owner, 31-Oct-2026, with a printout whose PC-08 had its second line, and no PC
+// number, alone on the next page). Its pages are drawn to the Word page's points; with 15 PCs in the legend - or a paper,
+// a margin or a scale a little smaller than A4's - a page of 8 PCs ran past the paper and the browser cut it. Each of its
+// pages (PAGE_SECTIONS) that measures taller than FIT_DRAWN_TO of the page is drawn just small enough to fit it, so every
+// printed page keeps its header, its legend and its 8 PCs; and a PC's two lines never part (styles.css).
+const FIT_DRAWN = ".fhr18-sheet, .fhr18-record";
+// (only a page that would run past its paper: one that fits prints at its own size, as the paper's PDF does)
+const FIT_DRAWN_TO = 0.985;
+
+/** F/HR/18's pages, each drawn small enough to print whole on its page (above). */
+function fitDrawnSections(doc: HTMLElement, zoom: number, landscape: boolean): void {
+  if (!(doc.matches(FIT_DRAWN) || doc.querySelector(FIT_DRAWN))) return;
+  withPrintRules(() => {
+    const sections = pageSections(doc);
+    const parts = sections.length ? sections : [doc];
+    // Every page drawn at the one size the tallest needs, so the pages of one record match as the paper's do.
+    const tallest = Math.max(0, ...parts.map((sec) => pagesAt(doc, zoom, landscape, sec)));
+    if (tallest <= FIT_DRAWN_TO) return;
+    const z = String(Math.floor((FIT_DRAWN_TO / tallest) * 1000) / 1000);
+    for (const sec of parts) {
+      sec.style.zoom = z;
+      fitted.push(sec);
+    }
+  });
+}
+
 /** Whether `doc` is a sheet of DCRS's own make: not a paper form, not a sheet that names its paper, not one drawn in
  * points to its paper. */
 function ownMake(doc: HTMLElement): boolean {
@@ -377,7 +403,9 @@ function ownMake(doc: HTMLElement): boolean {
 
 /** FILLING THE PAGE (above): the zoom that brings a short one-page sheet of DCRS's own make toward FILL_TO. */
 function fillPage(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean): number {
-  if (!ownMake(doc)) return zoom;
+  // The contractor's service report prints across the A4 page too (the owner, 31-Oct-2026, REQUIREMENTS §154: "completely
+  // perfect on A4 Size page and every fonts are visible"): drawn at 576 px it filled three quarters of the width.
+  if (!ownMake(doc) && !doc.querySelector(".svc-paper")) return zoom;
   return withPrintRules(() => fillMeasured(doc, zoom, width, across, landscape));
 }
 
@@ -446,6 +474,8 @@ function measureAndFit(docs: Element[]): void {
       if (sections.length > 1) fillSections(doc, sections, zoom, room, landscape);
       else zoom = fillPage(doc, zoom, width, room, landscape);
     }
+    // F/HR/18: no page of it runs past its paper.
+    fitDrawnSections(doc, zoom, landscape);
     if (zoom === 1) continue;
     doc.style.zoom = String(zoom);
     // A framed page is as tall as the paper (styles.css): the zoom shrinks its millimetres, so it says by how much.

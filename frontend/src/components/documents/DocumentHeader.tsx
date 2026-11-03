@@ -144,10 +144,13 @@ export function HeaderWord({ field, edit, children }: { field: AnyHeaderField; e
   );
 }
 
-/** An ISO date as the framed papers print it: 16.02.2022. */
+/**
+ * An ISO date as the header block prints it: "16-02-2022" - day-month-year with the year in full, as every date the app
+ * writes (REQUIREMENTS §171; the papers' own dotted "16.02.2022" before it). "" when there is no date.
+ */
 export function dottedDate(iso: string | null | undefined): string {
   const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
-  return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
 }
 
 export function DocumentHeader({
@@ -170,6 +173,7 @@ export function DocumentHeader({
   labels,
   dotDates = false,
   numberFoot = false,
+  numberRow = true,
 }: {
   doc: DocumentDefinition;
   /**
@@ -177,6 +181,9 @@ export function DocumentHeader({
    * revision as the calibration papers print them, centred, "F/QC/11 (01/01.01.2022)", each value typed over where it stands.
    */
   numberFoot?: boolean;
+  /** False: no Format No. / Rev No. / Rev Date / Page No. row at the head - the calibration papers print their number at
+   *  the foot of the page instead, on the screen and in the downloads too (the owner, 30-Oct-2026, parth-project-main). */
+  numberRow?: boolean;
   /**
    * THE AREA LINE CLEARANCE REPORTS' FRAME (F/QC/15-A to G, §117): the company's name; the title with the machine's name
    * written in at its right (`machine`, the record's box); Format no. / Rev. no. / Effective date in three cells
@@ -418,7 +425,7 @@ export function DocumentHeader({
           {extraTitle ? ` — ${extraTitle}` : ""}
         </Cell>
       </div>
-      <div className="meta-row">
+      {numberRow && <div className="meta-row">
         <div className="meta-cell">
           <span className="k">{labels?.formatNo ?? "Format No."}</span>
           <Cell field="formatNo" edit={edit} className="v notranslate" translate>
@@ -485,7 +492,7 @@ export function DocumentHeader({
             </Cell>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

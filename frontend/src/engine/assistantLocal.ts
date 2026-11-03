@@ -610,6 +610,7 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "hr-job-responsibility", aliases: ["job responsibility", "job responsibilities", "responsibility and authority", "responsibility & authority", "job description", "f/hr/07"] },
   { id: "hr-training-needs", aliases: ["training need identification", "training needs", "training need", "tni", "f/hr/08"] },
   { id: "hr-training-calendar", aliases: ["training plan calender", "training calender", "training calendar", "training plan", "f/hr/09"] },
+  { id: "hr-training-imparted", aliases: ["training imparted record", "training imparted", "training attendance", "f/hr/10"] },
   { id: "hr-training-effectiveness", aliases: ["training effectiveness", "effectiveness evaluation", "trainer evaluation", "f/hr/11"] },
   { id: "hr-training-feedback", aliases: ["training feedback", "feedback & evaluation", "feedback and evaluation", "f/hr/12"] },
   { id: "hr-mobile-authorization", aliases: ["mobile authorization", "mobile authorisation", "mobile usage", "mobile handset", "mobile", "f/hr/13"] },

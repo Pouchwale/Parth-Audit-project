@@ -8,6 +8,7 @@ import { resolveResponsibleEmployees } from "./documentInfo";
 import { isCompanyHoliday } from "./holidays";
 import { addDays, compareISO, fromISODate, todayISO } from "../utils/date";
 import { isMine } from "./departmentScope";
+import { isRulerVerification, RULER_YEARLY_NOTE } from "../data/seed/qcRulerVerificationLayouts";
 
 // How far ahead an "upcoming" reminder starts firing. Anything due today is
 // "due"; anything with an unresolved due date in the past is "overdue" (and
@@ -31,6 +32,17 @@ export interface DocumentReminder {
   daysUntilDue: number; // negative once overdue
   route: string; // where "Open" should navigate
   assignedEmployees: Employee[]; // matched by role keyword; empty if unconfigured/no match
+  /** What is left to do on it, where the document says so (F/QC/17's two boxes, reminderNoteFor). */
+  note?: string;
+}
+
+/**
+ * WHAT A REMINDER SAYS IS LEFT TO DO, where a document's sheet comes ready but for a few boxes: F/QC/17, once a year,
+ * is written as last year's sheet and its Make and Serial number are the person's (the owner, 30-10-26: "the notification
+ * should be seen that fill the remaining 2 boxes manually that we left to be filled and submit that document").
+ */
+export function reminderNoteFor(documentId: string): string | undefined {
+  return isRulerVerification(documentId) ? RULER_YEARLY_NOTE : undefined;
 }
 
 // Each document kind renders through a different page — see App.tsx's route
@@ -67,6 +79,13 @@ export function ensureNearTermRecordsGenerated(isDemo: boolean): number {
   const horizon = fromISODate(addDays(todayISO(), ADVANCE_WARNING_DAYS));
   if (horizon.getFullYear() !== now.getFullYear() || horizon.getMonth() !== now.getMonth()) {
     made += ensureRecordsGeneratedForMonth(horizon.getFullYear(), horizon.getMonth(), { isDemo }).length;
+  }
+  // A sheet made ahead of its time (DocumentDefinition.madeAheadDays, REQUIREMENTS §164): the training plan calendar
+  // is drawn up a month before its April, so March already holds the coming year's plan.
+  for (const doc of documentRepository.getRecordableUnscoped()) {
+    if (!doc.madeAheadDays) continue;
+    const ahead = fromISODate(addDays(todayISO(), doc.madeAheadDays));
+    made += ensureRecordsGeneratedForMonth(ahead.getFullYear(), ahead.getMonth(), { isDemo, documentIds: [doc.id] }).length;
   }
   return made;
 }
@@ -115,6 +134,7 @@ export function computeReminders(isDemo: boolean): DocumentReminder[] {
         daysUntilDue,
         route: routeForRecord(doc, record.id),
         assignedEmployees,
+        ...(reminderNoteFor(doc.id) ? { note: reminderNoteFor(doc.id) } : {}),
       });
     }
   }

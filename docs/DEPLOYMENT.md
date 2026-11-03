@@ -379,6 +379,35 @@ The whole path was rehearsed on 10-Oct-2026 on two throwaway PostgreSQL 18 serve
 (steps 1 to 7, with real rows in both applications' databases): every table's rows the same after each move, the
 Database overview reading as `overview_viewer` after step 4, both backups written and both restore tests passed.
 
+## Checking a change locally before the plant sees it (2-Nov-2026)
+
+The owner's rule: every new feature is run and clicked through locally first, and only then built for the plant's
+server. `npm run dev` (`scripts/dev-local.ts`; `npm run dev:local` is the same) is that local run, in one command,
+touching nothing of the plant's. (`npm run dev:shared` is the older `scripts/dev-all.ts`: the API on 4000 against
+this computer's own database, which on the server PC is taken by another project.)
+
+```powershell
+cd "C:\Users\admin\Documents\Audit project(29-10-26)"
+npm run dev
+```
+
+If PowerShell refuses with "npm.ps1 cannot be loaded because running scripts is disabled", either run
+`npm.cmd run dev` (the .cmd needs no script policy), or allow local scripts for your own account once:
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` (no administrator needed).
+
+- A **PostgreSQL of its own**, made fresh in a temporary folder on a free port and removed when the run stops —
+  never `backend/data/postgres`, which holds the plant's records.
+- **DCRS's API behind the website, on this computer alone** (`LISTEN_HOST=127.0.0.1`, port 4101 or `LOCAL_API_PORT`, no secure address) - the website's port 5173 is the one address the run opens or names (the owner, 3-Nov-2026): the
+  plant's named accounts seeded on the local password **`Local@12345`**, sign-up open, Demo Mode on (a year of sample
+  records in a click), the working-hours gate and the device limit off, no scheduled jobs, no email or push leaving
+  the machine. `backend/.env`'s AI keys are kept, so Mitra can be tried.
+- **The website from its dev server on port 5173, the one address** (taken, the run stops and says so; it never moves to another port), proxying to that API, the bundler on a loopback port of its own: a
+  change to `frontend/src` shows on reload, with no build.
+
+Open http://localhost:5173, sign in as `admin@gpp.local` / `Local@12345` (or `kapila.barad@gpp.local`,
+`vinay.bhojak@gpp.local`, `sandeep.parekh@gpp.local`, same password), try the change, Ctrl+C to stop. When it is
+right, `npm run build` in the plant's copy: the server on 4100 serves the new website at once, with no restart.
+
 ## Backup instructions
 
 > **Once DCRS shares its database with the Audit Assistant** (REQUIREMENTS §83), back up and restore with

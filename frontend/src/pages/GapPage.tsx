@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import { FiPlus, FiTrash2, FiArrowLeft } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
@@ -440,7 +441,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
 
       {/* The document itself — the part that prints (utils/print.ts) — and whose
           values a downloaded file binds to this record (REQUIREMENTS §81). */}
-      <div data-print-doc data-bind-record={record.id}>
+      <div data-print-doc data-bind-record={record.id} data-format-id={GAP_DOC_ID} data-format-asof={formulaTimeOf(record)}>
       <div className="doc-header">
         <div className="company-name">CAPA — Internal: Pest Control Inspection Findings Report</div>
         <div className="meta-row">

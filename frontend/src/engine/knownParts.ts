@@ -13,7 +13,8 @@ import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logS
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { blankLogRow, createDefaultData } from "./recordDefaults";
 import { carriedFrom, previousWrittenRecord } from "./carryForward";
-import { dayInfo } from "./holidays";
+import { dayInfo, isCompanyHoliday } from "./holidays";
+import { calendarPeriod, nextYearPlan, plannedCount, TRAINING_CALENDAR_ID } from "./trainingCalendar";
 import { withComputedCells } from "./computedCells";
 import { supersededRevisionOf, validateForSubmit } from "./validation";
 import { boxKind, CARRIED_FIGURES, columnKind, isPlaceholder, LIST_COLUMNS } from "./observations";
@@ -268,8 +269,9 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
       const fromPrior = scheduled ? known(prior?.data.header?.[f.key]) : "";
       const fromFormat = f.autoFill?.default !== undefined ? String(f.autoFill.default) : "";
       const fromSpecimen = scheduled ? known(layout.specimenHeader?.[f.key]) : "";
-      header[f.key] = fromPrior || fromFormat || fromSpecimen;
-      if (header[f.key]) carried.push(shortLabel(f.label));
+      // The twelve months this sheet covers are its own, never the last sheet's (F/HR/09's "01.04.2027 ~ 31.03.2028").
+      header[f.key] = f.autoFill?.financialYear ? calendarPeriod(dueDate) : fromPrior || fromFormat || fromSpecimen;
+      if (header[f.key] && !f.autoFill?.financialYear) carried.push(shortLabel(f.label));
     } else {
       // An observation, or a box worked out from the sheet (written by the computed-cells pass below).
       header[f.key] = "";
@@ -308,6 +310,19 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
   }
   const dateColumns = layout.columns.filter((c) => columnKind(c) === "date");
   for (const row of rows) for (const c of dateColumns) row[c.key] = dueDate;
+
+  // THE TRAINING PLAN CALENDAR PLANS THE COMING YEAR FROM THIS YEAR'S (F/HR/09, REQUIREMENTS §164; the owner, 2-Nov-2026):
+  // every topic of the last calendar with writing on it, every planned month planned again on the same day of the month
+  // the training was held (or planned) this year, moved off a closed day; the actual dates left for the person to write.
+  let planned: { from: RecordInstance<LogSheetData>; lines: number } | null = null;
+  if (doc.id === TRAINING_CALENDAR_ID && scheduled) {
+    const last = previousWrittenRecord(doc.id, dueDate, false, layout, shell) ?? prior;
+    if (last?.data.rows?.length) {
+      const lines = nextYearPlan(last.data.rows, dueDate, (d) => isCompanyHoliday(d, master));
+      rows = lines.map((line) => ({ ...blankRow(), ...line }));
+      planned = { from: last, lines: plannedCount(lines) };
+    }
+  }
   // A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111): each line its place.
   const numberedBy = layout.columns.find((c) => c.autoFill?.lineNumber)?.key;
   if (numberedBy) {
@@ -332,7 +347,11 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
 
   const notes: string[] = [];
   const mode = layout.rowMode;
-  if (listed) {
+  if (planned) {
+    notes.push(
+      `Planned as the calendar of ${planned.from.data.header?.period ?? formatDisplayDate(planned.from.dueDate)} was: its ${rows.length} topics, ${planned.lines} of them with trainings planned again in the same months, each on the same day of the month as last year's (moved past a holiday). The planned date is in the Plan cell: change any that should move. The Actual cell is written when the training is held; until then DCRS reminds the people who answer for the calendar before each planned day, and every day after it.`,
+    );
+  } else if (listed) {
     notes.push(`The ${rows.length} lines of the list confirmed on ${formatDisplayDate(prior!.dueDate)} are carried forward with who or what each line is about. Every assessment on them is made afresh.`);
   } else if (mode.kind === "timeSlots") {
     notes.push(`The ${mode.slots.length} time slots are on the sheet; each reading and its signature are written when it is taken.`);
@@ -360,7 +379,7 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
   return {
     data,
     notes,
-    basedOn: prior && scheduled ? `the standing values of the ${doc.name} of ${formatDisplayDate(prior.dueDate)}` : "the format's printed lines and the plant's standing values",
+    basedOn: planned ? `the training plan calendar of ${planned.from.data.header?.period ?? formatDisplayDate(planned.from.dueDate)}` : prior && scheduled ? `the standing values of the ${doc.name} of ${formatDisplayDate(prior.dueDate)}` : "the format's printed lines and the plant's standing values",
   };
 }
 

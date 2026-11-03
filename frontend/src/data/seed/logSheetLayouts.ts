@@ -1,3 +1,5 @@
+import { withIndexRanges } from "../../../../indexing/rangeRuntime";
+import { formulaTimeOf } from "../../../../indexing/formulaRuntime";
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
 import { CALIBRATION_PROCEDURE, QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
@@ -543,9 +545,11 @@ Object.assign(LOG_SHEET_LAYOUTS, PRODUCTION_LAYOUTS);
 // The layout as it stands now: the plant's own change to the format where
 // there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout
 // otherwise. `getIssuedLogSheetLayout` is the paper's own transcription.
-export function getLogSheetLayout(documentId: string): LogSheetLayout | undefined {
+// INDEXING: with the ranges the super admin changed in the index laid over it (indexing/rangeRuntime.ts) — in force at
+// `asOf` (a signed record's submission), or now. The same object as before while no range is changed.
+export function getLogSheetLayout(documentId: string, asOf?: string): LogSheetLayout | undefined {
   const edited = formatEditFor(documentId)?.layout;
-  return edited ? printedLinesOnce(asThePaper(edited)) : LOG_SHEET_LAYOUTS[documentId];
+  return withIndexRanges(documentId, edited ? printedLinesOnce(asThePaper(edited)) : LOG_SHEET_LAYOUTS[documentId], asOf);
 }
 
 // THE PAPER'S OWN SHAPE IN A FORMAT EDITED BEFORE §111 TOO (REQUIREMENTS §111). A format the
@@ -568,7 +572,7 @@ const WITHDRAWN_EXPLANATIONS: Record<string, string[]> = {
     `PROCEDURE: ${CALIBRATION_PROCEDURE}`,
   ],
   "qc-gsm-plate-calibration": [
-    "MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE. The four plates — No. 54 (20 x 20cm), No. 55 (10 x 10cm), No. 56 (5 x 5cm), No. 57 (2.5 x 2.5cm) — measured four times each, with the deviation beside every measurement, then Pass / Fail and the tester's sign for each plate.",
+    "WEEKLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE. The four plates — No. 54 (20 x 20cm), No. 55 (10 x 10cm), No. 56 (5 x 5cm), No. 57 (2.5 x 2.5cm) — measured four times each, with the deviation beside every measurement, then Pass / Fail and the tester's sign for each plate.",
     "Each Deviation % is worked out from the size written beside it, by area, against the plate's own size printed at the head of its column.",
     `PROCEDURE: ${CALIBRATION_PROCEDURE}`,
   ],
@@ -759,8 +763,12 @@ export function getIssuedLogSheetLayout(documentId: string): LogSheetLayout | un
 // written on — F/MNT/11's 2024 Day/Night lux readings on Rev 00. Every other
 // record, which names no revision or names the current one, reads with the
 // layout as it stands now, exactly as getLogSheetLayout gives it.
-export function getLogSheetLayoutForRecord(documentId: string, record?: { formatRevision?: string } | null): LogSheetLayout | undefined {
-  const current = getLogSheetLayout(documentId);
+export function getLogSheetLayoutForRecord(
+  documentId: string,
+  record?: { formatRevision?: string; status?: string; submittedAt?: string; verifiedAt?: string; updatedAt?: string } | null
+): LogSheetLayout | undefined {
+  // INDEXING: a signed record is judged by the ranges in force when it was submitted (indexing/formulaRuntime.ts).
+  const current = getLogSheetLayout(documentId, formulaTimeOf(record));
   const revision = record?.formatRevision;
   if (!revision) return current;
   return current?.supersededRevisions?.[revision]?.layout ?? current;

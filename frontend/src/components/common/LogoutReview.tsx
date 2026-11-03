@@ -153,6 +153,7 @@ export function LogoutReview({ onCancel, onLogout }: { onCancel: () => void; onL
                     {n.module} · {n.frequency} ·{" "}
                     <span style={{ color: n.daysUntilDue < 0 ? "var(--color-danger)" : "var(--color-warning)", fontWeight: 600 }}>{n.when}</span>
                   </div>
+                  {n.note && <div className="text-xs" data-field="reminder-note">{n.note}</div>}
                 </li>
               ))}
             </ul>

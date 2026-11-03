@@ -51,6 +51,7 @@ import {
   FiArrowRightCircle,
   FiCheckCircle,
   FiServer,
+  FiClock,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
@@ -60,9 +61,9 @@ import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
 import { HR_RECORD_PAGES } from "../../data/seed/hrModule";
 import { QC_OVERVIEW_DOCUMENT_IDS } from "../../data/seed/qcModule";
-import { demoModeAvailable } from "../../engine/features";
+import { assistantAvailable, demoModeAvailable } from "../../engine/features";
 import { useAuth } from "../../store/AuthContext";
-import { mayOpenMasterData } from "../../engine/masterDataAccess";
+import { mayOpenMasterData, mayOpenSystemPages } from "../../engine/masterDataAccess";
 import { currentAddress } from "../../utils/moduleSlug";
 
 interface NavItem {
@@ -232,6 +233,7 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { headingKey: "nav.hrTraining" },
     { to: "/hr/training-needs", labelKey: "nav.hrTrainingNeeds", icon: FiList },
     { to: "/hr/training-calendar", labelKey: "nav.hrTrainingCalendar", icon: FiCalendar },
+    { to: "/hr/training-imparted", labelKey: "nav.hrTrainingImparted", icon: FiAward },
     { to: "/hr/training-effectiveness", labelKey: "nav.hrTrainingEffectiveness", icon: FiStar },
     { to: "/hr/training-feedback", labelKey: "nav.hrTrainingFeedback", icon: FiMessageCircle },
     { headingKey: "nav.hrInductionHealth" },
@@ -558,6 +560,8 @@ const NAV_SYSTEM_WITH_DEMO: NavItem[] = [...NAV_SYSTEM, { to: "/demo", labelKey:
 // USERS & ACCESS is the administrator's (REQUIREMENTS §66): everybody else is
 // not shown it, and the server refuses them the accounts whatever they reach for.
 const USERS_ITEM: NavItem = { to: "/users", labelKey: "nav.users", icon: FiUsers };
+// FREQUENCY is the super admin's too (REQUIREMENTS §163): how often every document of every module falls due.
+const FREQUENCY_ITEM: NavItem = { to: "/frequency", labelKey: "nav.frequency", icon: FiClock };
 // THE DATABASE OVERVIEW is the super admin's too (REQUIREMENTS §83): the shared
 // database's plain-English views, read-only; the server refuses everybody else.
 const DATABASE_OVERVIEW_ITEM: NavItem = { to: "/database-overview", labelKey: "nav.databaseOverview", icon: FiServer };
@@ -566,6 +570,8 @@ const ACCESS_ITEM: NavItem = { to: "/access", labelKey: "nav.accessDashboard", i
 // THE MASTER LIST OF WHO DOES WHAT is the super admin's too (REQUIREMENTS §110), beside Users & Access: every document in
 // F/SYS/02's order, who fills it, and each person's level.
 const MASTER_LIST_ITEM: NavItem = { to: "/master-list", labelKey: "nav.masterList", icon: FiList };
+// INDEXING is the super admin's too (indexing/IndexingPage.tsx): every format and document, its versions and formulas.
+const INDEXING_ITEM: NavItem = { to: "/indexing", labelKey: "nav.indexing", icon: FiList };
 
 const SIDEBAR_STATE_KEY = "sidebar-open-modules";
 
@@ -619,9 +625,11 @@ export function Sidebar() {
   // administrator, whose own it is (§66).
   const systemItems = useMemo(() => {
     const all = demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM;
-    // Master Data is the super admin's, and the testing accounts' (engine/masterDataAccess.ts, the owner, 28-Oct-2026).
-    const items = mayOpenMasterData(user) ? all : all.filter((item) => item.to !== "/master-data");
-    return user?.role === "admin" ? [...items, USERS_ITEM, MASTER_LIST_ITEM, ACCESS_ITEM, DATABASE_OVERVIEW_ITEM] : items;
+    // Master Data is the super admin's, Kapila Barad's and the testing accounts' (engine/masterDataAccess.ts, the owner, 28-Oct-2026 and 3-Nov-2026).
+    const withMaster = mayOpenMasterData(user) ? all : all.filter((item) => item.to !== "/master-data");
+    // Kapila Barad's System menu is Master Data alone (engine/masterDataAccess.ts mayOpenSystemPages, the owner, 3-Nov-2026, §173).
+    const items = mayOpenSystemPages(user) ? withMaster : withMaster.filter((item) => item.to === "/master-data");
+    return user?.role === "admin" ? [...items, INDEXING_ITEM, USERS_ITEM, FREQUENCY_ITEM, MASTER_LIST_ITEM, ACCESS_ITEM, DATABASE_OVERVIEW_ITEM] : items;
   }, [user]);
   const { visible, narrow, close } = useSidebar();
   const [openState, setOpenState] = useState<Record<string, boolean>>(loadOpenState);
@@ -711,7 +719,8 @@ export function Sidebar() {
 
         <nav className="app-nav">
           <div className="nav-section-label">{t("nav.workspace")}</div>
-          <NavGroup items={NAV_MAIN} path={path} />
+          {/* Ask Mitra only for a person who has Mitra: the super admin may switch it off for the staff (engine/features.ts, 2-Nov-2026). */}
+          <NavGroup items={assistantAvailable() ? NAV_MAIN : NAV_MAIN.filter((item) => item.to !== "/assistant")} path={path} />
 
           {/* The heading and its expand/collapse belong to the modules
               underneath, so a department with no module of its own is not

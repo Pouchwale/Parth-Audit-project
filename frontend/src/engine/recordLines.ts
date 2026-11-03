@@ -1,4 +1,4 @@
-import type { LogSheetLayout, LogSheetRow } from "../types";
+import type { LogColumn, LogSheetLayout, LogSheetRow } from "../types";
 import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { blankLogRow } from "./recordDefaults";
 import { generateId } from "../utils/id";
@@ -86,12 +86,18 @@ export const WHY_FIXED: Record<Exclude<LogSheetLayout["rowMode"]["kind"], "free"
 /** A log sheet's rows, by the layout the record was filled on (REQUIREMENTS §74). */
 export function logRowsRule(layout: LogSheetLayout): LineRule {
   const mode = layout.rowMode;
-  const writable = layout.columns.filter((c) => !c.fixed && !c.computed && !c.linkedFrom).map((c) => c.key);
+  const writable = layout.columns.filter((c) => !c.fixed && !c.computed && !c.linkedFrom && !c.locked).map((c) => c.key);
   const numberKey = layout.columns.find((c) => c.autoFill?.lineNumber)?.key;
   const blank = blankLogRow(layout, "");
   delete (blank as Obj).id;
   if (mode.kind === "free") {
     return open("line", { key: "rows", minLines: mode.minRows ?? 0, blank, writable, ...(numberKey ? { numberKey, numbering: "position" } : {}) });
+  }
+  // A form whose printed lines are open (REQUIREMENTS §158): the person adds a line and takes one off this record.
+  // The printed columns stay out of `writable` — "clear the line" never blanks a printed topic — but on a line of the
+  // person's own they are written like any cell (recordPatch.ts reads printedLineOf). The record keeps one line.
+  if (mode.kind === "fixedRows" && mode.openLines) {
+    return open("line", { key: "rows", minLines: 1, blank, writable, ...(numberKey ? { numberKey, numbering: "position" } : {}) });
   }
   return fixed("line", WHY_FIXED[mode.kind], { key: "rows", blank, writable, ...(mode.kind === "timeSlots" ? { nameKey: mode.slotKey } : {}), ...(numberKey ? { numberKey } : {}) });
 }
@@ -229,6 +235,24 @@ export function newLine(rule: LineRule, existing: unknown[], at: number = existi
   return line;
 }
 
+/**
+ * THE PRINTED LINE A RECORD'S LINE STANDS ON (REQUIREMENTS §158). On a form that prints its lines a record's line
+ * is its place's; on a form whose lines are open (rowMode.openLines) the places shift as lines are added and taken
+ * off, so a line is the printed line that holds ITS words — and a line that matches no printed line is the
+ * person's own, with nothing printed on it: its printed columns are written in like any cell. Undefined on a sheet
+ * that prints no lines.
+ */
+export function printedLineOf(layout: LogSheetLayout, row: Record<string, unknown> | undefined, index: number): Record<string, string | number | null> | undefined {
+  const mode = layout.rowMode;
+  if (mode.kind !== "fixedRows") return undefined;
+  if (!mode.openLines || !row) return mode.rows[index];
+  const printed = layout.columns.filter((c: LogColumn) => c.fixed).map((c) => c.key);
+  // A record made before the sheet numbered its lines holds "1. I can freely speak up…" (F/HR/20, §102): the
+  // number is the line's place, not its words, so it is left out of the match.
+  const words = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim().replace(/^\d{1,3}[.)]?\s+/, ""));
+  return mode.rows.find((p) => printed.every((k) => words(p[k]) === words(row[k]))) ?? {};
+}
+
 /** A log sheet's new row, exactly as the sheet's own Add Row builds one. */
 export function newRow(layout: LogSheetLayout, existing: LogSheetRow[], id: string = generateId("row")): LogSheetRow {
   const row = newLine(logRowsRule(layout), existing) as Obj;
@@ -303,7 +327,8 @@ export function lineWords(rule: LineRule | undefined, line: unknown, limit = 120
   else if (isObj(line)) {
     const keys = rule ? [...(rule.nameKey && !rule.writable.includes(rule.nameKey) ? [rule.nameKey] : []), ...Object.keys(line).filter((k) => k !== "id" && !Array.isArray(line[k]) && !isObj(line[k]))] : Object.keys(line);
     for (const k of Array.from(new Set(keys))) {
-      if (k === "id" || k === "insightKey" || k === "sourceRecordIds" || k === "dataUrl") continue;
+      // hrMasterGp3: HR Master Data's own mark on a line it wrote (engine/hrMaster.ts HR_MASTER_TAG), not a box.
+      if (k === "id" || k === "insightKey" || k === "sourceRecordIds" || k === "dataUrl" || k === "hrMasterGp3") continue;
       const v = line[k];
       if (v === null || v === undefined || v === false || v === "" || Array.isArray(v) || isObj(v)) continue;
       parts.push(v === true ? "Yes" : String(v));

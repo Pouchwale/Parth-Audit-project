@@ -178,7 +178,7 @@ with sync_playwright() as p:
     check(
         "...the two calibration records among them, each with its own name and format number",
         "Weekly Internal Calibration Records - Weight Scale" in text and "F/QC/12" in text
-        and "Monthly Internal Calibration Records – GSM Cutting Plate" in text and "F/QC/11" in text,
+        and "Weekly Internal Calibration Records – GSM Cutting Plate" in text and "F/QC/11" in text,
     )
     check("...both at revision 01 of 01.01.2022, as the forms print", text.count("(Rev 01)") >= 2, text.count("(Rev 01)"))
     check("...weekly and monthly as the forms are headed", "Weekly" in text and "Monthly" in text)
@@ -314,7 +314,7 @@ with sync_playwright() as p:
     # THE CERTIFICATE'S DUE DATE THE OWNER GAVE (27-Oct-2026: "calibration due date ... 20-9-27"): on the new sheet, before
     # any fill, in place of the page on file's 27.08.2024 - and editable (a date box of the person's).
     check(
-        "A new weight scale sheet starts with Calibration Expiry 20-09-27, the certificate's due date, not the page's 2024 one",
+        "A new weight scale sheet starts with Calibration Expiry 20-09-2027, the certificate's due date, not the page's 2024 one",
         fresh is not None and fresh["data"]["header"].get("calibrationExpiry") == "2027-09-20",
         fresh["data"]["header"] if fresh else None,
     )
@@ -339,9 +339,10 @@ with sync_playwright() as p:
         page.wait_for_timeout(1500)
         close_assistant(page)
         fresh = record(page, new_id)
+    # A sheet a month, a line a week (s145, the owner, 29-Oct-2026): four lines with the standards, their dates the person's.
     check(
-        "A new weight scale sheet holds the week's one calibration, dated the sheet's day, from the page on file",
-        fresh is not None and len(fresh["data"]["rows"]) == 1 and fresh["data"]["rows"][0].get("date") == fresh["dueDate"],
+        "A new weight scale sheet holds the month's four weekly lines, the standard weights on each, no date written for the person",
+        fresh is not None and len(fresh["data"]["rows"]) == 4 and all(r.get("weight4") == "200.000gm" and not r.get("date") for r in fresh["data"]["rows"]),
         [(r.get("date"), r.get("weight4")) for r in fresh["data"]["rows"]] if fresh else None,
     )
     if fresh:
@@ -360,8 +361,8 @@ with sync_playwright() as p:
     cell = lambda n: line.locator("td").nth(n)
     under = lambda n: below.locator("td").nth(n)
     check(
-        "The Deviation % cells are worked out, not typed: no box to type into, while the weights and tested values keep theirs",
-        under(3).locator("input").count() == 0 and under(9).locator("input").count() == 0 and cell(2).locator("input").count() == 1 and cell(3).locator("input").count() == 1,
+        "The Deviation % cells are worked out, not typed: no box to type into; the weights fixed words (s146), the tested values keep their boxes",
+        under(3).locator("input").count() == 0 and under(9).locator("input").count() == 0 and cell(2).locator("input").count() == 0 and cell(2).locator("[data-locked='weight1']").count() == 1 and cell(3).locator("input").count() == 1,
     )
     # Since s142 the line comes with Tested Values 1 and 2 (the weight, 0%); 3 to 5 are the person's: typed here, so the
     # line's verdict can be given (Pass / Fail waits for every reading).
@@ -426,7 +427,7 @@ with sync_playwright() as p:
     box_table = page.locator("[data-print-doc] [data-pf~='calib']")
     tracks = box_table.first.evaluate("e => getComputedStyle(e).gridTemplateRows.trim().split(/\\s+/).length") if box_table.count() else None
     check(
-        "...its Calibration Expiry the certificate's 20-09-27, no I. Calibration Date / Due Date row, its boxes two lines high (s132)",
+        "...its Calibration Expiry the certificate's 20-09-2027, no I. Calibration Date / Due Date row, its boxes two lines high (s132)",
         gsm_header.get("calibrationExpiry") == "2027-09-20" and "calibrationDate" not in gsm_header and "dueDate" not in gsm_header
         and "Calibration Expiry:" in gsm_labels and not any("Calibration Date" in l or "Due Date" in l for l in gsm_labels) and tracks == 2,
         (gsm_header, gsm_labels, tracks),
@@ -456,13 +457,15 @@ with sync_playwright() as p:
     page.wait_for_timeout(1400)
     dismiss(page)
     close_assistant(page)
-    due = page.locator("table.log-sheet tbody tr[data-line='first']").first.locator("td").nth(14).locator("input")
-    due.fill("")
+    # (a line's Next Due Date follows its date, s145: the first line, its date not written, has none; the second's typed)
+    firsts = page.locator("table.log-sheet tbody tr[data-line='first']")
+    due = firsts.first.locator("td").nth(14).locator("input")
+    written_date = firsts.nth(1).locator("td").nth(0).locator("input")
+    written_date.fill("2026-10-14")
     page.wait_for_timeout(800)
     shoot(page, "F-QC-12")
     page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
     page.emulate_media(media="print")
-    written_date = page.locator("table.log-sheet tbody tr[data-line='first']").first.locator("td").nth(0).locator("input")
     try:
         empty = due.evaluate("e => ({ marked: e.hasAttribute('data-empty'), fill: getComputedStyle(e).webkitTextFillColor })")
         # A written date prints its words, not the browser's drawing of the date (s111 part 6: '14·10·2026').
@@ -472,7 +475,7 @@ with sync_playwright() as p:
         page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
     check("F/QC/12: an empty Next Due Date prints empty, not dd-mm-yyyy", empty["marked"] and empty["fill"] in ("rgba(0, 0, 0, 0)", "transparent"), empty)
     want = f"{as_text['value'][8:10]}-{as_text['value'][5:7]}-{as_text['value'][2:4]}" if as_text.get("value") else None
-    check("F/QC/12: the entry's written Date prints as the sheet writes it (14-10-26), its box not printed (s111 part 6)", as_text["hidden"] and as_text["text"] == want, as_text)
+    check("F/QC/12: the entry's written Date prints as the sheet writes it (14-10-2026), its box not printed (s111 part 6)", as_text["hidden"] and as_text["text"] == want, as_text)
     left = written_date.evaluate("e => ({ marked: e.classList.contains('print-as-text'), beside: !!(e.nextElementSibling && e.nextElementSibling.classList.contains('print-box-text')) })")
     check("...and after printing the box is the box again, the words gone", not left["marked"] and not left["beside"], left)
 

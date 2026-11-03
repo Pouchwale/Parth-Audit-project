@@ -17,7 +17,7 @@ BASE = "http://localhost:8842"
 FAILURES = []
 PASSWORD = "PlaywrightQA123"
 ACCOUNT = (f"freq-{int(time.time() * 1000)}@example.com", "Frequency QA", "")
-DOC = "qc-weight-scale-calibration"  # F/QC/12, every Sunday as issued (s130)
+DOC = "qc-gsm-plate-calibration"  # F/QC/11, every Tuesday as issued (s130; F/QC/12 a sheet a month since s145)
 
 
 def check(label, cond, detail=None):
@@ -123,7 +123,7 @@ with sync_playwright() as p:
 
     open_documents_tab(page)
     cell = page.locator(f"[data-cell='frequency'][data-document='{DOC}']")
-    check("Master Data's Documents tab shows a Frequency picker beside F/QC/12", cell.count() == 1 and cell.locator("[data-field='frequency-kind']").count() == 1)
+    check("Master Data's Documents tab shows a Frequency picker beside F/QC/11", cell.count() == 1 and cell.locator("[data-field='frequency-kind']").count() == 1)
     check("...its choice as issued: every week", cell.locator("[data-field='frequency-kind']").input_value() == "weekly", cell.locator("[data-field='frequency-kind']").input_value() if cell.count() else None)
     ref_cells = page.locator("[data-cell='frequency']:not(:has([data-field='frequency-kind']))")
     check("...and none beside a reference document (a licence, a chart)", ref_cells.count() >= 1, ref_cells.count())
@@ -156,14 +156,14 @@ with sync_playwright() as p:
     cell = page.locator(f"[data-cell='frequency'][data-document='{DOC}']")
     check("...and read again, the row shows it (every reader of the catalogue follows the override)", cell.locator("[data-field='frequency-kind']").input_value() == "monthly" and cell.locator("[data-action='frequency-issued']").count() == 1)
 
-    # The schedule follows: the calendar's shells for the old Sundays are gone, a sheet for the 5th is made.
+    # The schedule follows: the calendar's shells for the old Tuesdays are gone, a sheet for the 5th is made.
     goto(page, "#/calendar")
     page.wait_for_timeout(800)
     after = [r for r in records(page) if r["documentId"] == DOC and not r.get("isDemo")]
     today = date.today()
     future_old = [d for d in weekly_shells if d > today.isoformat()]
     still_old = sorted(r["dueDate"] for r in after if r["status"] in ("Due", "Scheduled") and r["dueDate"] in future_old)
-    check("The schedule's blank shells for the coming Sundays are gone (s130 removeOffScheduleShells)", not still_old, (future_old, still_old))
+    check("The schedule's blank shells for the coming Tuesdays are gone (s130 removeOffScheduleShells)", not still_old, (future_old, still_old))
     # The sheets already made (written on, or past) stand: nothing before today was removed.
     before_ids = {r["id"] for r in before if r["dueDate"] <= today.isoformat()}
     after_ids = {r["id"] for r in after}
@@ -179,7 +179,7 @@ with sync_playwright() as p:
     cell = page.locator(f"[data-cell='frequency'][data-document='{DOC}']")
     cell.locator("[data-action='frequency-issued']").click()
     asked = sure(page)
-    check("As issued asks first too, naming the issued frequency", bool(asked) and "Every Sun" in asked, asked)
+    check("As issued asks first too, naming the issued frequency", bool(asked) and "Every Tue" in asked, asked)
     page.wait_for_timeout(600)
     check("...and the override is dropped", not (master(page).get("scheduleOverrides") or {}).get(DOC), master(page).get("scheduleOverrides"))
 

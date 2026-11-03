@@ -51,7 +51,7 @@ def next_working_day(d):
 
 
 def display_date(iso):
-    """Mirrors the app's formatDisplayDate (utils/date.ts): DD-MM-YY, in numbers (24-10-26)."""
+    """Mirrors the app's formatDisplayDate (utils/date.ts): DD-MM-YY, in numbers (24-10-2026)."""
     return date.fromisoformat(iso).strftime("%d-%m-%y")
 
 
@@ -714,7 +714,7 @@ def main():
         page.click("text=Document Library")
         page.wait_for_timeout(300)
         rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-        check("Document Library lists all 136 documents", rows.count() == 136, rows.count())
+        check("Document Library lists all 137 documents", rows.count() == 137, rows.count())
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)

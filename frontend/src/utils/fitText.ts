@@ -10,7 +10,8 @@ const OTHER_MIN = 0.85;
 // (a paper's copy: drawn on its paper's own measures; a sheet of DCRS's own make keeps its words readable, 22-Oct-2026)
 const PAPER = "[data-paper-form], [data-paper-left], .soc-sheet, .svc-paper";
 const floorOf = (el: HTMLElement): number => (el.closest(PAPER) ? MIN : OTHER_MIN);
-const BOXES = "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='file']), select, .print-box-text";
+// (a locked standard - F/QC/12's weights since 30-Oct-2026 - is words in a span, not a box: fitted all the same, or "100.000gm" is cut to "100.000gr")
+const BOXES = "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='file']), select, .print-box-text, .cell-text[data-locked]";
 
 const base = new WeakMap<HTMLElement, number>();
 const lastValue = new WeakMap<HTMLElement, string>();

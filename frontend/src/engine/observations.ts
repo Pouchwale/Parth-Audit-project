@@ -61,6 +61,8 @@ const STANDING_BOX_KEYS = new Set([
   "masterSerialNo",
   "masterRange",
   "masterLeastCount",
+  // and its certificate's report number, CAL/LPI/GP-23/23 on every new sheet (the owner, 30-10-26)
+  "masterCalibrationReportNo",
   "location",
   "locations",
   "locationFunction",

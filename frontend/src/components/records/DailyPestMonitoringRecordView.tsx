@@ -7,7 +7,7 @@ import { masterRepository } from "../../data/repositories/masterRepository";
 import { isCheckpointFinding } from "../../engine/checkpoints";
 import { dayInfo } from "../../engine/holidays";
 import { totalRodents } from "../../engine/rodentPattern";
-import { newRodentCatch, rodentAreaNames } from "../../engine/rodentCatches";
+import { newRodentCatch, rodentAreaNames, withCheckpointAnswer, withoutSuggested } from "../../engine/rodentCatches";
 import { Link } from "../../store/router";
 import { FHR17_INSTRUCTION_1, FHR17_INSTRUCTION_2 } from "./DailyRegisterSheet";
 import { MONTH_NAMES, fromISODate } from "../../utils/date";
@@ -62,24 +62,19 @@ export function DailyPestMonitoringRecordView({
     onChange({ ...data, [key]: value });
   };
 
+  // Answering "Yes" to checkpoint 7 fills the catch-details table with one row suggested from Master Data - a rodent
+  // station's number and place, or a trap box RB-NN and one of the rodent areas, and a count - and writes the Summary
+  // line (REQUIREMENTS §177; engine/rodentCatches.ts withCheckpointAnswer). Every box is the person's to change; back
+  // to "No", a row nobody changed goes again. The system itself never answers Yes (§98, §118, §149).
   const setCheckpoint = (no: number, patch: Partial<{ value: string | number | null; note: string }>) => {
-    const next: DailyPestMonitoringData = {
-      ...data,
-      checkpoints: {
-        ...data.checkpoints,
-        [no]: { ...(data.checkpoints[no] ?? { value: null }), ...patch },
-      },
-    };
-    // Answering "Yes" to checkpoint 7 opens the catch-details table with one EMPTY row: the person chooses the place
-    // and writes the number - nothing is chosen or counted for them (REQUIREMENTS §98, §118).
-    if (no === 7 && patch.value === "Yes" && (next.rodentCatches ?? []).length === 0) {
-      next.rodentCatches = [newRodentCatch()];
-    }
-    onChange(next);
+    onChange(withCheckpointAnswer(data, no, patch, { master, dueDate: record.dueDate }));
   };
 
+  // A person's change makes the row theirs: it is no longer the system's suggestion (and stays when 7 goes back to No).
   const updateCatch = (id: string, patch: Partial<RodentCatch>) =>
-    setField("rodentCatches", catches.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    setField("rodentCatches", catches.map((c) => (c.id === id ? { ...withoutSuggested(c), ...patch } : c)));
+  const editedActions = (id: string, patch: Partial<DailyPestMonitoringData["summaryActions"][number]>) =>
+    data.summaryActions.map((x) => (x.id === id ? { ...withoutSuggested(x), ...patch } : x));
   const addCatch = () => setField("rodentCatches", [...catches, newRodentCatch()]);
   const removeCatch = (id: string) => setField("rodentCatches", catches.filter((c) => c.id !== id));
 
@@ -231,6 +226,13 @@ export function DailyPestMonitoringRecordView({
                   <tr>
                     <td colSpan={4} className="text-danger text-sm" style={{ padding: 12 }}>
                       <FiAlertTriangle size={12} style={{ verticalAlign: -2 }} /> Add the box, location and number of rodents.
+                    </td>
+                  </tr>
+                )}
+                {editable && catches.some((c) => c.suggested) && (
+                  <tr className="no-print">
+                    <td colSpan={4} className="text-muted text-xs" style={{ padding: "6px 12px" }} data-hint="catch-suggested">
+                      Suggested from Master Data (rodent stations and areas) - change the box, the place or the number where the day differs.
                     </td>
                   </tr>
                 )}
@@ -400,7 +402,7 @@ export function DailyPestMonitoringRecordView({
                       onChange={(e) =>
                         setField(
                           "summaryActions",
-                          data.summaryActions.map((x) => (x.id === a.id ? { ...x, dateOfObservation: e.target.value } : x))
+                          editedActions(a.id, { dateOfObservation: e.target.value })
                         )
                       }
                     />
@@ -414,7 +416,7 @@ export function DailyPestMonitoringRecordView({
                       onChange={(e) =>
                         setField(
                           "summaryActions",
-                          data.summaryActions.map((x) => (x.id === a.id ? { ...x, descriptionOfObservation: e.target.value } : x))
+                          editedActions(a.id, { descriptionOfObservation: e.target.value })
                         )
                       }
                     />
@@ -426,7 +428,7 @@ export function DailyPestMonitoringRecordView({
                       disabled={!editable}
                       value={a.actionTaken}
                       onChange={(e) =>
-                        setField("summaryActions", data.summaryActions.map((x) => (x.id === a.id ? { ...x, actionTaken: e.target.value } : x)))
+                        setField("summaryActions", editedActions(a.id, { actionTaken: e.target.value }))
                       }
                     />
                   </td>
@@ -437,7 +439,7 @@ export function DailyPestMonitoringRecordView({
                       disabled={!editable}
                       value={a.remarks}
                       onChange={(e) =>
-                        setField("summaryActions", data.summaryActions.map((x) => (x.id === a.id ? { ...x, remarks: e.target.value } : x)))
+                        setField("summaryActions", editedActions(a.id, { remarks: e.target.value }))
                       }
                     />
                   </td>

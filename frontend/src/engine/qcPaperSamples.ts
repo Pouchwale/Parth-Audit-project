@@ -117,7 +117,8 @@ function productionOrderOn(dueDate: string, rng: Rng): string {
 }
 
 const fig = (rng: Rng, lo: number, hi: number, decimals = 0): string => (lo + rng.next() * (hi - lo)).toFixed(decimals);
-const dotted = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+/** 2026-10-14 -> "14-10-2026", as the app writes a date (REQUIREMENTS §171). */
+const appDate = (iso: string) => `${iso.slice(8, 10)}-${iso.slice(5, 7)}-${iso.slice(0, 4)}`;
 
 // ---------------------------------------------------------------------------
 // 1. The incoming material inspection records
@@ -368,7 +369,7 @@ function sbLaminationLot(dueDate: string, data: LogSheetData, signers: Signers, 
     ...data.header,
     fgCode: job.fgCode,
     poNumber: job.poNo,
-    dateShift: `${dotted(dueDate)} / ${rng.chance(0.7) ? "1st" : "2nd"}`,
+    dateShift: `${appDate(dueDate)} / ${rng.chance(0.7) ? "1st" : "2nd"}`,
     laminatedRoll: String(rng.int(1, 4)),
     substrate1: one.words,
     substrate2: two.words,

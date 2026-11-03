@@ -23,7 +23,8 @@ test("only a sheet of DCRS's own make is filled: never a paper form, a framed pa
   assert.match(print, /const DRAWN_TO_PAPER = "\.svc-paper, \.fhr18-sheet, \.fhr18-record";/, "the contractor's service report is the March sheet to 1.5 pt and F/HR/18 its Word page (§118): drawn as they are");
   assert.match(print, /if \(own === null && !isFramed\(doc\)\) \{\n {6}const sections = ownMake\(doc\) \? pageSections\(doc\) : \[\];/);
   assert.match(print, /else zoom = fillPage\(doc, zoom, width, room, landscape\);/);
-  assert.match(print, /function fillPage\([^)]*\): number \{\n {2}if \(!ownMake\(doc\)\) return zoom;/);
+  // ...and the contractor's service report, enlarged evenly to the A4 page's width (the owner, 31-Oct-2026, REQUIREMENTS §154).
+  assert.match(print, /function fillPage\([^)]*\): number \{\n(?: {2}\/\/[^\n]*\n)* {2}if \(!ownMake\(doc\) && !doc\.querySelector\("\.svc-paper"\)\) return zoom;/);
 });
 
 test("the height is measured as it prints: the print's own rules laid on for the moment, against the whole A4 page", () => {

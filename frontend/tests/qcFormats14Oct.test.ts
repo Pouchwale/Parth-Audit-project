@@ -218,7 +218,7 @@ test("F-QC-40.A: a sample day is the printing area's at one of its presses, insi
 test("F/QC/17: the Measuring Scale (Ruler) Internal Verification Record as its paper — the two tables of details, the printed tolerance, the six points", async () => {
   const id = "qc-ruler-verification";
   const doc = docOf(id);
-  assert.deepEqual([doc.formatNo, doc.revisionNo, doc.revisionDate, doc.schedule.type], ["F/QC/17", "00", "2021-12-01", "as-required"]);
+  assert.deepEqual([doc.formatNo, doc.revisionNo, doc.revisionDate, doc.schedule.type], ["F/QC/17", "00", "2021-12-01", "yearly"]);
   assert.equal(qcGroupOf(id), "Calibration");
   assert.deepEqual(defaultResponsible({ id, formatNo: doc.formatNo, department: "QC" }), ["kapila.barad@gpp.local"]);
   const layout = layoutOf(id);
@@ -275,8 +275,8 @@ test("F/QC/17: a sample verification is today's, never the page of 2024; a Live 
   const id = "qc-ruler-verification";
   const filled = sample(id);
   const hd = filled.header;
-  assert.deepEqual([hd.masterMake, hd.masterSerialNo, hd.masterRange, hd.masterLeastCount], ["Kristeen", "QC-44", "0 - 600 mm", "1 mm"]);
-  assert.deepEqual([hd.masterCalibrationDate, hd.masterCalibrationDueDate, hd.masterCalibrationReportNo], ["2026-09-23", "2027-09-22", "CAL/LPI/GP-23/25"]);
+  assert.deepEqual([hd.masterMake, hd.masterSerialNo, hd.masterRange, hd.masterLeastCount], ["Kristeel", "QC-44", "0 - 600 mm", "1 mm"]);
+  assert.deepEqual([hd.masterCalibrationDate, hd.masterCalibrationDueDate, hd.masterCalibrationReportNo], ["2026-09-23", "2027-09-22", "CAL/LPI/GP-26/27"]);
   assert.deepEqual([hd.make, hd.serialNo, hd.calibrationDate, hd.calibrationDueDate, hd.acceptableTolerance], ["Ajanta", "GP-3/MS/36", DAY, "2027-10-13", "+ / - 1 mm"]);
   assert.ok(!JSON.stringify(filled).includes("2024") && !JSON.stringify(filled).includes("2025-09"), "no date of the supplied page");
   assert.equal(filled.rows.length, 6);
@@ -292,9 +292,9 @@ test("F/QC/17: a sample verification is today's, never the page of 2024; a Live 
   const known = live(id);
   assert.deepEqual(
     Object.fromEntries(Object.entries(known.header).filter(([, v]) => String(v ?? "") !== "")),
-    // The certificates' dates the owner gave, the instruments', not observed: the master's 21-09-26 and 20-09-27
-    // (28-Oct-2026), the ruler's 23-09-26 and 22-09-27 (27-Oct-2026).
-    { masterMake: "Kristeen", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", masterCalibrationDate: "2026-09-21", masterCalibrationDueDate: "2027-09-20", calibrationDate: "2026-09-23", calibrationDueDate: "2027-09-22", acceptableTolerance: "+ / - 1 mm", serialNo: "GP-3/MS/36", range: "0-600mm", make: "Ajanta", leastCount: "1 mm" }
+    // The certificates' dates the owner gave, the instruments', not observed: the master's 21-09-2026 and 20-09-2027
+    // (28-Oct-2026), the ruler's 23-09-2026 and 22-09-2027 (27-Oct-2026).
+    { masterMake: "Kristeel", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", masterCalibrationDate: "2026-09-21", masterCalibrationDueDate: "2027-09-20", calibrationDate: "2026-09-23", calibrationDueDate: "2027-09-22", acceptableTolerance: "+ / - 1 mm", masterCalibrationReportNo: "CAL/LPI/GP-26/27", range: "0-600 mm", leastCount: "1 mm" }
   );
   assert.ok(known.rows.every((r) => (r.observed === null || r.observed === "") && r.status === "" && r.performedBy === "" && r.difference === ""));
 });

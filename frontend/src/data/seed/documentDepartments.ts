@@ -56,6 +56,7 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "hr-job-responsibility": "HR", // F/HR/07
   "hr-training-needs": "HR", // F/HR/08
   "hr-training-calendar": "HR", // F/HR/09
+  "hr-training-imparted": "HR", // F/HR/10
   "hr-training-effectiveness": "HR", // F/HR/11
   "hr-training-feedback": "HR", // F/HR/12
   "hr-mobile-authorization": "HR", // F/HR/13

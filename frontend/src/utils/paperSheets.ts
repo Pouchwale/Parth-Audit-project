@@ -1,4 +1,9 @@
 import type { Cell, ExportBlock, PaperCellSpec, SheetCell, SheetStyle } from "./documentExport";
+import { GSM_MARGINS, GSM_PLATE, gsmPlateWord } from "./calibrationWord";
+import { gsmPlateExcelPage, weightScaleExcelPage } from "./calibrationExcel";
+import { DAILY_PEST, REGISTER_MARGINS, dailyPestRegister } from "./dailyPestRegister";
+// The printed "Rev Date" is written as the app writes every date, "15-12-2024" (REQUIREMENTS §171; the paper's own 15.12.2024 before it).
+import { appDate } from "./originalFill/text";
 
 // A DOCUMENT'S DOWNLOAD DRAWN AS ITS OWN EXCEL ORIGINAL (REQUIREMENTS §118; the owner, 17-Oct-2026: "whenever user download
 // the Excel file or Word file, it should be real, which I have supplied to you").
@@ -38,16 +43,6 @@ function bandValue(blocks: ExportBlock[], label: RegExp): string {
   return "";
 }
 
-/** F/HR/15's printed "Rev Date" is 15.12.2024, where the page reads 15-12-24 (15-Dec-2024 before §124). */
-const dotted = (words: string): string => {
-  const numeric = /^(\d{2})-(\d{2})-(\d{2})$/.exec(words);
-  if (numeric) return `${numeric[1]}.${numeric[2]}.20${numeric[3]}`;
-  const m = /^(\d{2})-([A-Za-z]{3})-(\d{4})$/.exec(words);
-  if (!m) return words;
-  const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(m[2].toLowerCase()) + 1;
-  return month ? `${m[1]}.${String(month).padStart(2, "0")}.${m[3]}` : words;
-};
-
 /**
  * F/HR/15 — the Daily Cleaning Record on the supplied workbook's grid: 34 columns (the number, the area, what is cleaned,
  * the 31 days), the title row merged across, "Month & Year", the title and the format's number in three merged cells, the
@@ -65,7 +60,7 @@ function dailyCleaningSheet(blocks: ExportBlock[]): ExportBlock[] | null {
   const monthCell: Cell = monthBox?.pairs.find(([label]) => /^Month/i.test(label))?.[1] ?? { text: "" };
   const formatNo = bandValue(blocks, /^Format No/i);
   const revNo = bandValue(blocks, /^Rev No/i);
-  const revDate = dotted(bandValue(blocks, /^Rev Date/i));
+  const revDate = appDate(bandValue(blocks, /^Rev Date/i));
 
   const days = 31;
   const columns = 3 + days;
@@ -135,7 +130,7 @@ function monthlyCleaningSheet(blocks: ExportBlock[]): ExportBlock[] | null {
   const yearCell: Cell = yearBox?.pairs.find(([label]) => /^YEAR/i.test(label))?.[1] ?? { text: "" };
   const formatNo = bandValue(blocks, /^Format No/i);
   const revNo = bandValue(blocks, /^Rev No/i);
-  const revDate = dotted(bandValue(blocks, /^Rev Date/i));
+  const revDate = appDate(bandValue(blocks, /^Rev Date/i));
   const months = 12;
   const columns = 4 + months;
   const last = columns - 1;
@@ -191,6 +186,25 @@ export function paperSheetBlocks(documentId: string, blocks: ExportBlock[]): Exp
   try {
     if (documentId === "hr-daily-cleaning") return dailyCleaningSheet(blocks);
     if (documentId === "hr-monthly-cleaning") return monthlyCleaningSheet(blocks);
+    // F/HR/18 as Excel: the same page its Word download draws (flyCatcherWord), laid on a sheet.
+    if (documentId === "fly-catcher") {
+      const page = flyCatcherWord(blocks);
+      return page ? [paperAsSheet(page, "F-HR-18")] : null;
+    }
+    // F/QC/11 and F/QC/12 as Excel: the page as the preview draws it (utils/calibrationExcel.ts).
+    if (documentId === GSM_PLATE) {
+      const page = gsmPlateExcelPage(blocks);
+      return page ? [paperAsSheet(page, "F-QC-11")] : null;
+    }
+    if (documentId === "qc-weight-scale-calibration") {
+      const page = weightScaleExcelPage(blocks);
+      return page ? [paperAsSheet(page, "F-QC-12")] : null;
+    }
+    // F/HR/17's monthly register as Excel: its three portrait pages as the page draws them (utils/dailyPestRegister.ts).
+    if (documentId === DAILY_PEST) {
+      const page = dailyPestRegister(blocks);
+      return page ? [paperAsSheet(page, "F-HR-17", "portrait")] : null;
+    }
   } catch {
     /* a page that does not read as the original's is downloaded as the generic grid */
   }
@@ -205,11 +219,13 @@ export function paperSheetBlocks(documentId: string, blocks: ExportBlock[]): Exp
 
 /** The page a document's Word download is set up on, where the original names it (else the grid's width decides). */
 export function paperPageOf(documentId: string): "portrait" | "landscape" | undefined {
-  return documentId === "fly-catcher" ? "portrait" : undefined;
+  return documentId === "fly-catcher" ? "portrait" : documentId === GSM_PLATE ? "landscape" : undefined;
 }
 
 /** The page's margins in points where the paper's are not the default (F/HR/18's page: 18 pt above, 28.7 pt at the left). */
 export function paperMarginsOf(documentId: string): { top: number; right: number; bottom: number; left: number } | undefined {
+  if (documentId === GSM_PLATE) return GSM_MARGINS;
+  if (documentId === DAILY_PEST) return REGISTER_MARGINS;
   return documentId === "fly-catcher" ? { top: 18, right: 27.4, bottom: 18, left: 28.7 } : undefined;
 }
 
@@ -254,6 +270,19 @@ function flyCatcherWord(blocks: ExportBlock[]): ExportBlock[] | null {
     }
   }
   if (pages.length === 0 || pages.some((p) => !p.grid || !p.legend)) return null;
+  // EVERY PAGE WHOLE ON ITS A4 (the owner, 31-Oct-2026: a unit's second line ran onto a page of its own before page 2):
+  // what a page holds above its units, from the heights below; Word's cell edges add a little to every row (SAFETY). The
+  // units' lines are drawn at the paper's 28.9 pt where they fit, else a little lower, every page alike.
+  const PAGE_BODY = 841.9 - 18 - 18;
+  const SAFETY = 30;
+  const unitHeight = Math.min(
+    28.9,
+    ...pages.map((page, pi) => {
+      const units = Math.max(1, (page.grid?.length ?? 1) - 1);
+      const above = 34.2 + 34.3 + 20.8 + 12.5 + 17.2 + 1 + (page.legend?.length ?? 0) * 16.7 + 14.3 + 41.1 + (pi === 0 && (page.grid?.length ?? 0) > 13 ? 26.6 : 12.8) + 1 + (pi > 0 ? 1 : 0);
+      return Math.max(22, Math.floor(((PAGE_BODY - SAFETY - above) / units) * 10) / 10);
+    }),
+  );
   const out: ExportBlock[] = [];
   pages.forEach((page, pi) => {
     // The band: the company's name, the title, then the four cells (label and value to a cell, as the paper writes them).
@@ -306,8 +335,10 @@ function flyCatcherWord(blocks: ExportBlock[]): ExportBlock[] | null {
       widths,
       indent: 7.9,
       spaceAfter: 1,
-      rows: units.map((r) => ({
-        height: 28.9,
+      rows: units.map((r, ri) => ({
+        height: unitHeight,
+        // A unit's lines stay together: a line whose next line is the same unit's (its PC ID merged down) keeps with it.
+        ...(units[ri + 1] && text(units[ri + 1][0]) === "" ? { keepNext: true } : {}),
         cells: r.slice(0, 7).map((c, i) => {
           const starts = i === 0 && text(c) !== "";
           const continues = i === 0 && text(c) === "";
@@ -323,8 +354,95 @@ function flyCatcherWord(blocks: ExportBlock[]): ExportBlock[] | null {
 export function paperWordBlocks(documentId: string, blocks: ExportBlock[]): ExportBlock[] | null {
   try {
     if (documentId === "fly-catcher") return flyCatcherWord(blocks);
+    if (documentId === GSM_PLATE) return gsmPlateWord(blocks);
+    if (documentId === DAILY_PEST) return dailyPestRegister(blocks);
   } catch {
     /* a page that does not read as the original's is downloaded as the generic document */
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// A PAGE DRAWN AS WORD TABLES (the "paper" blocks above), LAID ON ONE EXCEL SHEET (the owner, 30-10-26, F/HR/18: "give me
+// the option to download in excel also"): every table's columns, at its indent, gathered into the sheet's columns; each
+// row its height, each cell over the columns it spans and down the rows it is merged with; its face, size, weight,
+// alignment and edges as the page has them; the space after a table a row of that height; a new page a page break.
+
+type Paper = Extract<ExportBlock, { kind: "paper" }>;
+
+export function paperAsSheet(blocks: ExportBlock[], name: string, page?: "portrait" | "landscape"): Extract<ExportBlock, { kind: "sheet" }> {
+  const papers = blocks.filter((b): b is Paper => b.kind === "paper");
+  // The sheet's column edges (pt from the margin): every table's, merged where under a point apart.
+  const xs = new Set<number>([0]);
+  for (const p of papers) {
+    let x = p.indent ?? 0;
+    xs.add(Math.round(x * 10) / 10);
+    for (const w of p.widths) xs.add(Math.round((x += w) * 10) / 10);
+  }
+  const edges: number[] = [];
+  for (const x of Array.from(xs).sort((a, b) => a - b)) if (edges.length === 0 || x - edges[edges.length - 1] > 1) edges.push(x);
+  const col = (x: number) => {
+    let best = 0;
+    for (let i = 1; i < edges.length; i++) if (Math.abs(edges[i] - x) < Math.abs(edges[best] - x)) best = i;
+    return best;
+  };
+  const level = (eighths: number) => (eighths <= 0 ? 0 : eighths <= 6 ? 1 : 2);
+  const cells: SheetCell[] = [];
+  const heights: (number | undefined)[] = [];
+  const breaks: number[] = [];
+  let row = 0;
+  for (const p of papers) {
+    if (p.pageBreakBefore && row > 0) breaks.push(row);
+    const starts: number[] = [];
+    let x = p.indent ?? 0;
+    for (const w of p.widths) {
+      starts.push(x);
+      x += w;
+    }
+    starts.push(x);
+    p.rows.forEach((r, ri) => {
+      heights[row + ri] = r.height ? Math.round(r.height * 4) / 4 : undefined;
+      let at = 0;
+      for (const c of r.cells) {
+        const span = c.colSpan ?? 1;
+        const from = col(starts[at]);
+        const to = col(starts[Math.min(at + span, starts.length - 1)]);
+        at += span;
+        if (c.vMerge === "continue") continue;
+        // A cell merged down: as many rows below as hold its "continue" at the same place.
+        let down = 1;
+        if (c.vMerge === "restart") {
+          for (let k = ri + 1; k < p.rows.length; k++) {
+            let a = 0;
+            const below = p.rows[k].cells.find((b) => {
+              const here = a;
+              a += b.colSpan ?? 1;
+              return here === at - span;
+            });
+            if (below?.vMerge !== "continue") break;
+            down++;
+          }
+        }
+        const [l, rr, t, b] = c.borders;
+        cells.push({
+          text: c.boldLead ? `${c.boldLead}${c.text}` : c.text,
+          ...(c.date ? { date: c.date } : {}),
+          ...(c.bind ? { bind: c.bind } : {}),
+          ...(c.parts ? { parts: c.boldLead ? [{ text: c.boldLead }, ...c.parts] : c.parts } : {}),
+          ...(c.boldLead ? { boldLead: c.boldLead } : {}),
+          row: row + ri,
+          col: from,
+          rowSpan: down,
+          colSpan: Math.max(1, to - from),
+          style: { size: c.size / 2, bold: c.bold, align: c.align, valign: c.valign, wrap: true, borders: [level(l), level(rr), level(t), level(b)], ...(c.underline ? { underline: true } : {}), ...(c.font ? { font: c.font } : {}), ...(c.fill ? { fill: c.fill } : {}) },
+        });
+      }
+    });
+    row += p.rows.length;
+    // The space the page leaves under the table.
+    if ((p.spaceAfter ?? 0) >= 3) heights[row++] = Math.round((p.spaceAfter ?? 0) * 4) / 4;
+  }
+  // Excel's width of a column in characters: its pixels (96 to the inch) less 5 px of padding, 7 px a character.
+  const widths = edges.slice(1).map((e, i) => Math.max(0.2, Math.round(((((e - edges[i]) * 96) / 72 - 5) / 7) * 100) / 100));
+  return { kind: "sheet", name, widths, heights, rowCount: row, cells, breaks, ...(page ? { page } : {}) };
 }

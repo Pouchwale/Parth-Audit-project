@@ -223,13 +223,13 @@ test("F/QC/11's four boxes are editable since §117: the paper's words start eve
 test("F-QC-30's Sr. No. numbers its lines; the date is the header's, never the column's", async () => {
   const layout = layoutOf(VISCOSITY);
   assert.equal(layout.srNoShowsDate, undefined);
-  assert.equal(srNoText(layout, 0, "14-10-26"), "1");
-  assert.equal(srNoText(layout, 1, "14-10-26"), "2");
+  assert.equal(srNoText(layout, 0, "14-10-2026"), "1");
+  assert.equal(srNoText(layout, 1, "14-10-2026"), "2");
   // The ability itself still reads as designed, for a designer who chooses it.
-  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 0, "14-10-26"), "14-10-26");
-  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 1, "14-10-26"), "");
-  assert.equal(srNoText(layout, 22, "14-10-26"), "23");
-  assert.equal(srNoText(layoutOf(MIXING), 2, "14-10-26"), "3", "every other sheet numbers its lines");
+  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 0, "14-10-2026"), "14-10-2026");
+  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 1, "14-10-2026"), "");
+  assert.equal(srNoText(layout, 22, "14-10-2026"), "23");
+  assert.equal(srNoText(layoutOf(MIXING), 2, "14-10-2026"), "3", "every other sheet numbers its lines");
   const data = createDefaultData(docOf(VISCOSITY), DAY, master) as LogSheetData;
   const rows = bodyRows(await sheet(VISCOSITY, data));
   // 9:00 to 07:00, as the page is written: no 08:00 line (§111 part 6).
@@ -317,12 +317,16 @@ test("the PROCEDURE is printed below the grid, word for word, and DCRS's explana
 
 test("an empty date, time or choice box is marked, and the print rules print it empty (no dd-mm-yyyy)", async () => {
   const data = autoFillRecord(docOf(SCALE), DAY, master, undefined)!.data as LogSheetData;
-  data.rows[0].nextDueDate = "";
+  // (each line's Next Due Date follows its date on F/QC/12, §145: the empty date box here is the Calibration Expiry)
+  data.header.calibrationExpiry = "";
   // With no Acceptable Tolerance written, Pass / Fail is left as the tester set it: here, not yet.
   data.header.acceptableTolerance = "";
   data.rows[0].passFail = "";
   const html = await sheet(SCALE, data, true);
-  assert.match(html, /<input type="date"[^>]*data-bind="rows\/@[^"]+\/nextDueDate"[^>]*data-empty=""|<input type="date"[^>]*data-empty=""[^>]*data-bind="rows\/@[^"]+\/nextDueDate"/, "the empty Next Due Date is marked");
+  assert.match(html, /<input[^>]*data-bind="header\/calibrationExpiry"[^>]*type="date"[^>]*data-empty=""/, "the empty Calibration Expiry is marked");
+  // F/QC/12's weights are fixed (§146): written as words on the sheet open for writing, never a box.
+  assert.match(html, /<span class="cell-text notranslate" translate="no" data-locked="weight3">100\.000gm<\/span>/, "Weight 3 fixed, as words");
+  assert.ok(!/data-bind="rows\/@[^"]+\/weight\d"/.test(html), "no weight is a box");
   assert.match(html, /<select[^>]*data-empty=""/, "the empty Pass / Fail is marked");
   assert.ok(!/<input type="date"[^>]*data-bind="rows\/@[^"]+\/date"[^>]*data-empty/.test(html), "a written date is not");
   const css = readFileSync(path.join(process.cwd(), "frontend", "src", "styles.css"), "utf8");
@@ -360,7 +364,7 @@ function twoLineBlocks(): ExportBlock[] {
       bindTable: GRID,
       rows: [
         [plainCell("Date"), plainCell("Weight 1"), plainCell("Tested Value 1")],
-        [bound(bind("rows/@r-1/date", "date", "14-10-26")), bound(bind("rows/@r-1/weight1", "text", "50.000gm")), bound(bind("rows/@r-1/testedValue1", "text", "50.000gm"))],
+        [bound(bind("rows/@r-1/date", "date", "14-10-2026")), bound(bind("rows/@r-1/weight1", "text", "50.000gm")), bound(bind("rows/@r-1/testedValue1", "text", "50.000gm"))],
         [plainCell("Deviation %"), plainCell(""), plainCell("0%")],
       ],
     },
@@ -396,7 +400,7 @@ test("a downloaded F/QC/12 keeps its second lines: one added in Excel or Word wi
   const xml = parts.get(SHEET)!;
   const last = Math.max(...Array.from(xml.matchAll(/<row r="(\d+)"/g), (m) => Number(m[1])));
   // An entry and its Deviation % line written below the grid, the way the paper has them.
-  const added = `<row r="${last + 1}">${cellXml(`A${last + 1}`, "21-10-26")}${cellXml(`B${last + 1}`, "50.000gm")}${cellXml(`C${last + 1}`, "50.01gm")}</row><row r="${last + 2}">${cellXml(`A${last + 2}`, "Deviation %")}${cellXml(`C${last + 2}`, "0.02%")}</row>`;
+  const added = `<row r="${last + 1}">${cellXml(`A${last + 1}`, "21-10-2026")}${cellXml(`B${last + 1}`, "50.000gm")}${cellXml(`C${last + 1}`, "50.01gm")}</row><row r="${last + 2}">${cellXml(`A${last + 2}`, "Deviation %")}${cellXml(`C${last + 2}`, "0.02%")}</row>`;
   parts.set(SHEET, xml.replace("</sheetData>", `${added}</sheetData>`));
   // The edited second line of the entry already there is still that entry's, not a new one.
   const r = await read(zipOf(parts), "upload.xlsx");
@@ -407,7 +411,7 @@ test("a downloaded F/QC/12 keeps its second lines: one added in Excel or Word wi
   const wordParts = await partsOf(docx);
   const body = wordParts.get("word/document.xml")!;
   const tc = (t: string) => `<w:tc><w:p><w:r><w:t xml:space="preserve">${t}</w:t></w:r></w:p></w:tc>`;
-  const extra = `<w:tr>${tc("21-10-26")}${tc("50.000gm")}${tc("50.01gm")}</w:tr><w:tr>${tc("Deviation %")}${tc("")}${tc("0.02%")}</w:tr>`;
+  const extra = `<w:tr>${tc("21-10-2026")}${tc("50.000gm")}${tc("50.01gm")}</w:tr><w:tr>${tc("Deviation %")}${tc("")}${tc("0.02%")}</w:tr>`;
   const at = body.lastIndexOf("</w:tbl>");
   wordParts.set("word/document.xml", body.slice(0, at) + extra + body.slice(at));
   const w = await read(zipOf(wordParts), "upload.docx");
@@ -502,7 +506,7 @@ test("F-QC-32 Adhesive Mixing Ratio Record: the paper's ten columns with the Dat
   assert.ok(demo.rows.length >= 1 && demo.rows.every((r) => r.date === DAY), JSON.stringify(demo.rows.map((r) => r.date)));
 });
 
-test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them, its Calibration Date / Due Date row taken away, No. 54 to 57 over size and Deviation, PROCEDURE below", async () => {
+test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them, I. Calibration Date and Due Date, No. 54 to 57 over size and Deviation, PROCEDURE below", async () => {
   const layout = layoutOf(GSM);
   assert.equal(layout.instructions, undefined);
   assert.equal(layout.headerColumns, 3);
@@ -516,9 +520,11 @@ test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them
       ["Department:", "LAB"],
       ["Manufacturer:", "Global Eng. Co. (GEC)"],
       ["Serial No:", null],
-      // The calibration certificate's due date the owner gave (27-Oct-2026), 20-09-27, editable. The paper's row of
-      // "I. Calibration Date:-" and "Due Date:-" under these is taken away (the owner, 28-Oct-2026).
+      // The calibration certificate's dates the owner gave (27-Oct-2026): 21-09-2026, due 20-09-2027, editable; the paper's
+      // "I. Calibration Date:-" / "Due Date:-" row taken away on 28-Oct-2026 and back on 30-Oct-2026 (§147).
       ["Calibration Expiry:", "2027-09-20"],
+      ["I. Calibration Date:-", "2026-09-21"],
+      ["Due Date:-", "2027-09-20"],
     ]
   );
   assert.deepEqual(
@@ -530,7 +536,7 @@ test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them
   assert.deepEqual(layout.notesBelow, [`PROCEDURE: ${CALIBRATION_PROCEDURE}`]);
   const html = await sheet(GSM, createDefaultData(docOf(GSM), DAY, master) as LogSheetData);
   assert.deepEqual(headings(html), ["Index", "No. 54", "No. 55", "No. 56", "No. 57", "20 x 20cm", "Deviation", "10 x 10cm", "Deviation", "5 x 5cm", "Deviation", "2.5 x 2.5cm", "Deviation"]);
-  assert.ok(!text(html).includes("I. Calibration Date") && !text(html).includes("Due Date:-"), "the row taken away");
+  assert.ok(text(html).includes("I. Calibration Date:-") && text(html).includes("Due Date:-"), "the row back (§147)");
   assert.match(html, /class="grid sheet-boxes-paper"/, "three boxes to a line, as the paper");
 });
 
@@ -547,18 +553,18 @@ test("F/QC/12 weighing balance: nine boxes three to a line, no Sr. No., each ent
   assert.deepEqual(layout.secondLine, { label: "Deviation %" });
   assert.deepEqual(layout.notesBelow, ["PROCEDURE:", CALIBRATION_PROCEDURE]);
   assert.deepEqual(layout.columns.filter((c) => c.beneath).map((c) => [c.key, c.beneath, !!c.computed]), [1, 2, 3, 4, 5].map((i) => [`deviation${i}`, `testedValue${i}`, true]));
-  // One sheet a week holds that week's calibration: one line, dated the record's day — never four on one day.
+  // A sheet a month, a line a week (§145): a demo sheet's weeks follow its first, a week apart - never four on one day;
+  // a Live sheet's dates are the person's.
   const demo = autoFillRecord(docOf(SCALE), DAY, master, undefined)!.data as LogSheetData;
-  assert.equal(demo.rows.length, 1);
-  assert.equal(demo.rows[0].date, DAY);
+  assert.deepEqual(demo.rows.map((r) => r.date), [DAY, "2026-10-21", "2026-10-28", "2026-11-04"]);
   const known = prepareKnownParts(docOf(SCALE), DAY, master, undefined)!.data as LogSheetData;
-  assert.equal(known.rows.length, 1);
-  assert.equal(known.rows[0].date, DAY);
+  assert.equal(known.rows.length, 4);
+  assert.ok(known.rows.every((r) => r.date === ""), "the dates are the person's");
   const html = await sheet(SCALE, demo);
   assert.ok(!headings(html).includes("Sr. No."));
   assert.ok(!headings(html).includes("Deviation %"));
   const entry = bodyRows(html).filter((r) => !/pf-pad/.test(r.attrs));
-  assert.deepEqual(entry.map((r) => r.cells[0].text), ["14-10-26", "Deviation %"], "the entry's Date, and its second line headed Deviation %");
-  // ...and the paper's three other entries as its blank ruled lines in the markup (§117 round 2; not printed since 25-Oct-2026), never in the record.
-  assert.deepEqual(bodyRows(html).filter((r) => /pf-pad/.test(r.attrs)).map((r) => r.cells[0].text), ["", "Deviation %", "", "Deviation %", "", "Deviation %"]);
+  assert.deepEqual(entry.map((r) => r.cells[0].text), ["14-10-2026", "Deviation %", "21-10-2026", "Deviation %", "28-10-2026", "Deviation %", "04-11-2026", "Deviation %"], "each week's Date, and its second line headed Deviation %");
+  // The paper's four entries are the record's own four lines (§145): no blank ruled line is added under them.
+  assert.deepEqual(bodyRows(html).filter((r) => /pf-pad/.test(r.attrs)).map((r) => r.cells[0].text), []);
 });

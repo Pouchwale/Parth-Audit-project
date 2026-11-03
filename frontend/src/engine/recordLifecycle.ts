@@ -1,6 +1,7 @@
-import type { DocumentDefinition, FieldChange, RecordHeaderBlock, RecordInstance, RecordStatus } from "../types";
+import type { DocumentDefinition, FieldChange, RecordHeaderBlock, RecordInstance, RecordStatus, DailyPestMonitoringData } from "../types";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { validateForSubmit, validateForVerify, ValidationResult } from "./validation";
+import { withSuggestionsConfirmed } from "./rodentCatches";
 import { appendHistory, diffRecordData, makeEntry, recordLabel, withEditHistory } from "./recordHistory";
 import { REACTION_EVENT, type ReactionEvent } from "./reactions";
 import { computeReminders } from "./reminders";
@@ -141,6 +142,17 @@ export function recordHeaderDefaults(record: Pick<RecordInstance, "documentId" |
   return { date: record.dueDate, page: "1 of 1" };
 }
 
+// F/HR/17'S CHECKER AND TIME ARE SUBMITTED AS WRITTEN (the owner, 3-Nov-2026, REQUIREMENTS §177): the day comes answered
+// on opening (engine/dailyPestFill.ts) with Kapila Barad as the checker and a time of the morning round, both the person's
+// to change, and Submit leaves them as they stand - a blank one is refused by validateForSubmit, as for every record.
+// Until 3-Nov-2026 the submitter's name and the moment of submitting replaced both (§149, amended). A catch row or a
+// Summary line still marked as the system's suggestion is confirmed by the Submit: the mark comes off (§177). Every
+// other document's data is submitted as written.
+function submittedData(doc: DocumentDefinition, data: unknown): unknown {
+  if (doc.kind !== "daily-pest-monitoring" || !data || typeof data !== "object") return data;
+  return withSuggestionsConfirmed(data as DailyPestMonitoringData);
+}
+
 export function submitRecord(
   doc: DocumentDefinition,
   record: RecordInstance,
@@ -153,6 +165,7 @@ export function submitRecord(
   const updated: RecordInstance = appendHistory(
     {
       ...record,
+      data: submittedData(doc, record.data),
       status: "Pending Verification",
       submittedBy: actorName,
       submittedAt: now,

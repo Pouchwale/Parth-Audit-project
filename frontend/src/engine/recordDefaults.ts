@@ -21,6 +21,7 @@ import { newServiceAgreementData } from "../data/seed/serviceAgreement";
 import { newComplaintChecklistData, COMPLAINT_DOC_ID } from "../data/seed/complaintChecklist";
 import { nextComplaintNo } from "./documentFormats";
 import { recordRepository } from "../data/repositories/recordRepository";
+import { calendarPeriod } from "./trainingCalendar";
 import { COMPANY } from "../data/seed/masterData";
 import { termEnd } from "./serviceAgreement";
 import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "./flyPattern";
@@ -76,7 +77,7 @@ export function createDefaultData(
       const data: ServiceReportData = {
         serviceName: doc.variantKey ?? doc.name,
         lines: areas.map((a, i) => {
-          const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name);
+          const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name, a);
           return {
             slNo: i + 1,
             areaName: a.name,
@@ -146,6 +147,7 @@ export function createDefaultData(
         for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
           // A box whose value the paper prints is written with it (REQUIREMENTS §111).
           if (typeof f.printed === "string") header[f.key] = f.printed;
+          else if (f.autoFill?.financialYear) header[f.key] = calendarPeriod(dueDateISO);
           else header[f.key] = isDecisionField(f.key) || boxKind(f, layout) !== "standing" ? "" : (f.autoFill?.default ?? "");
         }
         rows = emptyLogRows(doc.id);

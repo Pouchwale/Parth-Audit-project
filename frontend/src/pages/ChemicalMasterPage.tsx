@@ -73,7 +73,7 @@ export function ChemicalMasterPage() {
   // (REQUIREMENTS §81). The chemicals are bound one by one where they are listed
   // one by one; the box that holds them all while Edit is on is not.
   return (
-    <div data-print-doc data-bind-record={CHEMICAL_DOC_ID}>
+    <div data-print-doc data-bind-record={CHEMICAL_DOC_ID} data-format-id={CHEMICAL_DOC_ID}>
       <div className="mb-3 no-print">
         <ReferenceEditBar
           documentId={doc?.id}

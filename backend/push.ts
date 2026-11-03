@@ -186,7 +186,7 @@ export interface PushDecision {
 const TASK_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due"];
 const SUMMARY_KINDS: readonly NotificationKind[] = ["boss_summary", "upcoming"];
 /** The order the names are listed in a push of several: what is most pressing first. */
-const KIND_ORDER: Record<NotificationKind, number> = { sent_back: 0, overdue: 1, escalation: 2, verify: 3, needs_input: 4, ready: 5, due: 6, access_changed: 7, boss_summary: 8, upcoming: 9 };
+const KIND_ORDER: Record<NotificationKind, number> = { sent_back: 0, overdue: 1, escalation: 2, verify: 3, needs_input: 4, ready: 5, due: 6, training: 7, access_changed: 8, boss_summary: 9, upcoming: 10 };
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 const cut = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
@@ -219,6 +219,9 @@ function pushable(p: PushPerson, clock: PushClock): StoredNotification[] {
         return clock.time >= clock.times.overdue && !pushedToday(n);
       case "upcoming":
         return slot !== null && n.pushedAt === null && typeof n.data.dueDate === "string" && clock.nextWorkingDay !== null && n.data.dueDate <= clock.nextWorkingDay;
+      // A planned training (F/HR/09, §164): once when it comes into view, and, past its day, once a day like an overdue record.
+      case "training":
+        return typeof n.data.daysLate === "number" && n.data.daysLate > 0 ? clock.time >= clock.times.overdue && !pushedToday(n) : n.pushedAt === null;
       default:
         return n.pushedAt === null;
     }

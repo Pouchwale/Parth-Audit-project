@@ -148,7 +148,7 @@ namespace REFERENCE {
     if (from.oldestMissed && (!into.oldestMissed || from.oldestMissed.dueDate < into.oldestMissed.dueDate)) into.oldestMissed = from.oldestMissed;
     if (from.worstLate && (!into.worstLate || from.worstLate.days > into.worstLate.days)) into.worstLate = from.worstLate;
   }
-  // Since REQUIREMENTS §124 the whole date, 09-09-26, as performance.ts now writes it: cut to six characters a
+  // Since REQUIREMENTS §124 the whole date, 09-09-2026, as performance.ts now writes it: cut to six characters a
   // numeric date left "09-09-" (it was "09-Sep" from "09-Sep-2026").
   function shortDate(iso: string, _today: string): string {
     return formatDisplayDate(iso);

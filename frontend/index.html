@@ -21,7 +21,7 @@
          sends no Content-Security-Policy, so an inline script runs; should one ever be
          added, give this a nonce or move it to a blocking script file. The tab colour
          (theme-color above) is the company's burgundy in every theme. -->
-    <script>(function(){try{var t=localStorage.getItem("dcrs:theme");if(t==="light"||t==="dark"||t==="system"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();</script>
+    <script>(function(){try{var t=localStorage.getItem("dcrs:theme");if(t==="light"||t==="dark"||t==="system"||t==="daylight"){document.documentElement.setAttribute("data-theme",t);if(t==="daylight"&&localStorage.getItem("dcrs:sky")==="night"){document.documentElement.setAttribute("data-sky","night");}}}catch(e){}})();</script>
     <link rel="stylesheet" href="assets/styles.css" />
     <!-- REQUIREMENTS §81: each feature's own rules (fonts and the intro, uploading an
          edited file, sound and voice, celebrations), after the main stylesheet. -->

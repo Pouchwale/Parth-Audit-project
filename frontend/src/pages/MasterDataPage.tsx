@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FiMonitor, FiMoon, FiPlus, FiSun, FiTrash2 } from "react-icons/fi";
+import { FiMonitor, FiMoon, FiPlus, FiSun, FiTrash2, FiSunrise } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { masterRepository } from "../data/repositories/masterRepository";
+import type { AreaLocation } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { generateId } from "../utils/id";
@@ -17,13 +18,13 @@ import { DepartmentsAccess } from "../components/master/DepartmentsAccess";
 import { useT } from "../i18n";
 import { documentTextIn } from "../i18n/documentText";
 import { useAuth } from "../store/AuthContext";
-import { mayOpenMasterData } from "../engine/masterDataAccess";
+import { mayOpenDepartmentsAccess, mayOpenEmployeesTab, mayOpenMasterData } from "../engine/masterDataAccess";
 import { CUE_NAMES, type CueName } from "../engine/engageBus";
 import { playCue } from "../utils/sounds";
 import { onVoiceChange, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceInUse } from "../utils/voice";
 import { VoiceLanguages } from "../components/master/VoiceLanguages";
 import { logActivity } from "../utils/activityLog";
-import { setThemeChoice, THEME_CHOICES, useTheme, type ThemeChoice } from "../store/theme";
+import { setThemeChoice, themeChoicesOffered, useTheme, type ThemeChoice } from "../store/theme";
 import {
   addDaysISO,
   clockText,
@@ -43,7 +44,7 @@ import {
   type PlantDay,
 } from "../engine/workingHoursCore";
 
-type Tab = "employees" | "departments" | "chemicals" | "pcLocations" | "rodentStations" | "areas" | "checkpoints" | "documents" | "holidays" | "settings";
+type Tab = "employees" | "departments" | "chemicals" | "pcLocations" | "rodentStations" | "areas" | "documents" | "holidays" | "settings";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "employees", label: "Employees" },
@@ -51,8 +52,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "chemicals", label: "Chemicals" },
   { key: "pcLocations", label: "PC IDs (Fly Catchers)" },
   { key: "rodentStations", label: "Rodent Stations" },
+  // The Areas are the plant's to edit, and the Checkpoints (F/HR/17's own list, still read by the record) are not shown here
+  // (the owner, 3-Nov-2026, REQUIREMENTS §174).
   { key: "areas", label: "Areas" },
-  { key: "checkpoints", label: "Checkpoints" },
   { key: "documents", label: "Documents / Formats" },
   { key: "holidays", label: "Holidays" },
   { key: "settings", label: "Working Hours & Briefing" },
@@ -61,9 +63,10 @@ const TABS: { key: Tab; label: string }[] = [
 export function MasterDataPage() {
   const t = useT();
   const { bump, version, lang } = useAppStore();
-  const [tab, setTab] = useState<Tab>("employees");
   const master = masterRepository.get();
   const { user } = useAuth();
+  // The first tab is the first the person can see: Vinay Bhojak lands on Chemicals (§179).
+  const [tab, setTab] = useState<Tab>(mayOpenEmployeesTab(user) ? "employees" : "chemicals");
 
   // THE SUPER ADMIN'S, AND THE TESTING ACCOUNTS' (engine/masterDataAccess.ts, the owner, 28-Oct-2026): nobody else opens
   // it, by its link or its address; the forms still read its lists for them.
@@ -85,7 +88,8 @@ export function MasterDataPage() {
       </p>
 
       <div className="pill-tabs mb-4 wrap" style={{ flexWrap: "wrap" }}>
-        {TABS.map((t) => (
+        {/* Departments & access is the administrator's (and the testing accounts'): Kapila Barad's and Vinay Bhojak's Master Data goes without it (§178). */}
+        {TABS.filter((t) => (t.key !== "departments" || mayOpenDepartmentsAccess(user)) && (t.key !== "employees" || mayOpenEmployeesTab(user))).map((t) => (
           <div key={t.key} className={`pill-tab ${tab === t.key ? "active" : ""}`} {...pressable(() => setTab(t.key), tab === t.key)}>
             {t.label}
           </div>
@@ -145,9 +149,10 @@ export function MasterDataPage() {
         <SimpleTable
           columns={["PC ID", "Location", "Floor"]}
           rows={master.pcLocations.map((p) => [p.id, p.location, p.floor])}
-          // The PC ID is what every fly catcher record refers to, so it stays
-          // fixed; its location and floor can be corrected.
-          editableCols={[1, 2]}
+          // The PC ID too is the plant's to write (the owner, 3-Nov-2026: "make sure everything in it is editable",
+          // REQUIREMENTS §176), as the rodent station's is (§134): typed over in place; a fly catcher record already
+          // written keeps the ID it was written with.
+          editableCols={[0, 1, 2]}
           onEdit={(i, col, value) => {
             const field = (["id", "location", "floor"] as const)[col];
             masterRepository.update({ pcLocations: master.pcLocations.map((p, idx) => (idx === i ? { ...p, [field]: value } : p)) });
@@ -211,48 +216,41 @@ export function MasterDataPage() {
       )}
 
       {tab === "areas" && (
-        <div className="doc-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Area Name</th>
-                <th>Belongs To</th>
-              </tr>
-            </thead>
-            <tbody className="notranslate" translate="no">
-              {master.areas.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.name}</td>
-                  <td className="text-sm text-muted">{a.context}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {tab === "checkpoints" && (
-        <div className="doc-table">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: 40 }}>No.</th>
-                <th>Checkpoint Text (Daily Pest Control Monitoring Record)</th>
-                <th>Response Type</th>
-              </tr>
-            </thead>
-            <tbody className="notranslate" translate="no">
-              {master.checkpoints.map((c) => (
-                <tr key={c.no}>
-                  <td>{c.no}</td>
-                  <td className="text-sm">{c.text}</td>
-                  <td>
-                    <span className="badge badge-Due">{c.responseType}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        // THE AREAS ARE THE PLANT'S TO EDIT (the owner, 3-Nov-2026, REQUIREMENTS §174): one table a service report, in the
+        // order the lists are kept; an area's name typed over in place, a line added under its service, a line taken away.
+        // The service a list belongs to is the list's own (engine/serviceLines.ts reads it by that context), so it is the
+        // heading, not a box. A report already made keeps its lines; the next one is made from the list as it stands.
+        <div data-section="areas">
+          {areaGroups(master.areas).map((group) => (
+            <div key={group.context} className="mb-4" data-area-context={group.context}>
+              <h2 className="text-lg mb-2">
+                {group.service} <span className="text-sm text-muted">— {group.areas.length} area{group.areas.length === 1 ? "" : "s"}</span>
+              </h2>
+              <SimpleTable
+                columns={["Area Name"]}
+                rows={group.areas.map((a) => [a.name])}
+                editableCols={[0]}
+                onEdit={(i, _col, value) => {
+                  const id = group.areas[i].id;
+                  masterRepository.update({ areas: master.areas.map((a) => (a.id === id ? { ...a, name: value } : a)) });
+                  bump();
+                }}
+                onAdd={() => {
+                  // Under its own service, after that service's last line, so the report's order is kept.
+                  const last = group.areas[group.areas.length - 1];
+                  const at = last ? master.areas.findIndex((a) => a.id === last.id) + 1 : master.areas.length;
+                  const added = { id: generateId("area"), name: "TO BE CONFIRMED", context: group.context };
+                  masterRepository.update({ areas: [...master.areas.slice(0, at), added, ...master.areas.slice(at)] });
+                  bump();
+                }}
+                onRemove={(i) => {
+                  const id = group.areas[i].id;
+                  masterRepository.update({ areas: master.areas.filter((a) => a.id !== id) });
+                  bump();
+                }}
+              />
+            </div>
+          ))}
         </div>
       )}
 
@@ -932,6 +930,20 @@ function DeleteButton({ confirming, onAsk, onCancel, onConfirm }: { confirming: 
   );
 }
 
+/** The areas by the service report they belong to ("service-report:Rodent Control Service" -> "Rodent Control Service"), in the order the lists are kept. */
+function areaGroups(areas: readonly AreaLocation[]): { context: string; service: string; areas: AreaLocation[] }[] {
+  const groups: { context: string; service: string; areas: AreaLocation[] }[] = [];
+  for (const a of areas) {
+    let g = groups.find((x) => x.context === a.context);
+    if (!g) {
+      g = { context: a.context, service: a.context.replace(/^service-report:/, ""), areas: [] };
+      groups.push(g);
+    }
+    g.areas.push(a);
+  }
+  return groups;
+}
+
 function SimpleTable({
   columns,
   rows,
@@ -1005,11 +1017,12 @@ function SimpleTable({
 // Space chooses; the arrow keys move along the row, choosing as they go; Tab reaches
 // the one chosen. Under the row, what this computer is set to now (what "Same as my
 // computer" shows), and that a printout is always the paper form.
-const THEME_ICONS: Record<ThemeChoice, typeof FiSun> = { light: FiSun, dark: FiMoon, system: FiMonitor };
+const THEME_ICONS: Record<ThemeChoice, typeof FiSun> = { light: FiSun, dark: FiMoon, system: FiMonitor, daylight: FiSunrise };
 
 function ThemeSettingsCard() {
   const t = useT();
   const { choice, computer } = useTheme();
+  const THEME_CHOICES = themeChoicesOffered();
   const radios = useRef<Array<HTMLButtonElement | null>>([]);
   const onKey = (e: React.KeyboardEvent<HTMLButtonElement>, at: number) => {
     const last = THEME_CHOICES.length - 1;

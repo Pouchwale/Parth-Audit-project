@@ -105,14 +105,19 @@ export const REVISION_AFTER_RE = /\(\s*(\d{1,2})\s*[/-]\s*(\d{1,2}[./-]\d{1,2}[.
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
-/** "16-02-22" (the app's date, REQUIREMENTS §124) or the older "16-Feb-2022" -> "16.02.2022" (the papers' way); anything else as it is. */
-export function dotted(words: string): string {
-  const numeric = /^(\d{2})-(\d{2})-(\d{2})$/.exec((words ?? "").trim());
-  if (numeric) return `${numeric[1]}.${numeric[2]}.20${numeric[3]}`;
-  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec((words ?? "").trim());
+/**
+ * A date written any of the ways the app or the papers have written one - "16-02-2022", the earlier two-figure
+ * "16-02-22" (§124), the papers' dotted "16.02.2022", the older "16-Feb-2022" - as the app writes every date now,
+ * "16-02-2022" (REQUIREMENTS §171); anything else as it is.
+ */
+export function appDate(words: string): string {
+  const w = (words ?? "").trim();
+  const numeric = /^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2}|\d{4})$/.exec(w);
+  if (numeric) return `${numeric[1].padStart(2, "0")}-${numeric[2].padStart(2, "0")}-${numeric[3].length === 2 ? `20${numeric[3]}` : numeric[3]}`;
+  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(w);
   if (!m) return words;
   const month = MONTHS.indexOf(m[2].toLowerCase()) + 1;
-  return month ? `${m[1].padStart(2, "0")}.${String(month).padStart(2, "0")}.${m[3]}` : words;
+  return month ? `${m[1].padStart(2, "0")}-${String(month).padStart(2, "0")}-${m[3]}` : words;
 }
 
 /** A date written any of the papers' ways, as YYYY-MM-DD, or null. */

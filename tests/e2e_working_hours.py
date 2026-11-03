@@ -74,6 +74,7 @@ BASE = os.environ.get("DCRS_BASE", "http://localhost:8843").rstrip("/")
 SEED_PASSWORD = os.environ.get("DCRS_SEED_PASSWORD", "SeedQA@2026")
 ADMIN = os.environ.get("DCRS_ADMIN_EMAIL", "admin@gpp.local")
 STAFF = os.environ.get("DCRS_QC_EMAIL", "kapila.barad@gpp.local")  # kept to Quality Control
+OTHER_STAFF = os.environ.get("DCRS_PUR_EMAIL", "chirag.parmar@gpp.local")  # a member of staff without Master Data (s172, s178: Vinay has it too)
 IST = timezone(timedelta(hours=5, minutes=30))
 # Staff refused on Thursday 1 October 2026: their hours, then when they start again (the owner's words of 6-Oct-2026).
 OWNER_SENTENCE = "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am."
@@ -869,30 +870,60 @@ def throttle_checks(browser):
 
 
 def staff_master_view(browser, admin_ctx):
-    """A member of staff is not shown Master Data, and cannot change it - not on the page, not through the API (s134)."""
+    """Kapila Barad has Master Data and nothing else of the System menu's admin pages (s172); another member of staff is not
+    shown it, and cannot change it - not on the page, not through the API (s134)."""
     ctx = new_context(browser)
     page = new_page(ctx)
     try:
         if sign_in(page, STAFF):
-            # MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS s134, the owner, 28-Oct-2026: "from kapila barad id and other
-            # except superadmin id's no one can see in there id"): no link in her menu, and its address refuses her.
-            check("A member of staff (Kapila Barad) has no Master Data in her menu", page.locator("#app-sidebar a[href='#/master-data']").count() == 0)
+            # MASTER DATA IS KAPILA BARAD'S TOO (REQUIREMENTS s172, the owner, 3-Nov-2026: "for kapila barad ID just give this
+            # access only for master data in system, nothing more or less than that"): the link in her menu, the page with
+            # its tabs, but no plant hours (the super admin's, s84) and none of the administrator's pages (s66).
+            check("Kapila Barad has Master Data in her menu", page.locator("#app-sidebar a[href='#/master-data']").count() == 1)
+            check("...and nothing else of the administrator's: no Users & Access, no master list", page.locator("#app-sidebar a[href='#/users']").count() == 0 and page.locator("#app-sidebar a[href='#/master-list']").count() == 0)
+            # ...AND NOTHING ELSE OF THE SYSTEM MENU (s173, the owner, 3-Nov-2026: "remove all the thing from this system for
+            # kapila barad id except Master data"): no Reports, Activity Log, Performance Scorecard or Insights, and their addresses say so.
+            others = sum(page.locator(f"#app-sidebar a[href='#/{r}']").count() for r in ("reports", "activity", "performance", "insights", "demo"))
+            check("...and nothing else of the System menu: no Reports, Activity Log, Performance Scorecard, Insights or Demo Mode", others == 0, others)
+            page.goto(f"{BASE}/index.html#/performance")
+            page.wait_for_timeout(1200)
+            dismiss(page)
+            check("...and the Performance Scorecard's address tells her only Master Data is hers in System", page.locator("[data-state='system-not-allowed']").count() == 1, page.locator(".app-content").inner_text()[:200])
+            page.goto(f"{BASE}/index.html#/activity")
+            page.wait_for_timeout(1200)
+            dismiss(page)
+            check("...and the Activity Log's too", page.locator("[data-state='system-not-allowed']").count() == 1, page.locator(".app-content").inner_text()[:200])
             page.goto(f"{BASE}/index.html#/master-data")
             page.wait_for_timeout(1200)
             dismiss(page)
             check(
-                "...and its address tells her it is the super admin's: no list, no tab, no hours",
+                "...and its address opens the page for her: the lists' tabs, no plant hours",
+                page.locator("[data-state='master-not-allowed']").count() == 0 and page.locator(".pill-tab").count() > 0 and page.locator("[data-section='plant-hours']").count() == 0,
+                page.locator(".app-content").inner_text()[:200],
+            )
+            sign_out(page)
+        else:
+            check("Kapila Barad signs in to the app", False)
+        if sign_in(page, OTHER_STAFF):
+            # MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS s134, the owner, 28-Oct-2026: "from kapila barad id and other
+            # except superadmin id's no one can see in there id"): no link in another member of staff's menu, and its address refuses him.
+            check("Another member of staff (Chirag Parmar) has no Master Data in his menu", page.locator("#app-sidebar a[href='#/master-data']").count() == 0)
+            page.goto(f"{BASE}/index.html#/master-data")
+            page.wait_for_timeout(1200)
+            dismiss(page)
+            check(
+                "...and its address tells him it is the super admin's: no list, no tab, no hours",
                 page.locator("[data-state='master-not-allowed']").count() == 1 and page.locator(".pill-tab").count() == 0 and page.locator("[data-section='plant-hours']").count() == 0,
                 page.locator(".app-content").inner_text()[:200],
             )
             sign_out(page)
         else:
-            check("A member of staff signs in to the app", False)
+            check("Another member of staff signs in to the app", False)
     finally:
         ctx.close()
     staff_ctx = new_context(browser)
     try:
-        if api_login(staff_ctx, STAFF)[0] != 200:
+        if api_login(staff_ctx, OTHER_STAFF)[0] != 200:
             check("A member of staff signs in, to write the master data", False)
             return
         value, version = stored_master(staff_ctx)

@@ -108,10 +108,10 @@ function recordsOf(item: StoredItem | null): unknown[] {
   }
 }
 
-// 2026-09-30 -> 30-09-26, the way the app writes a date (utils/date.ts formatDisplayDate).
+// 2026-09-30 -> 30-09-2026, the way the app writes a date (utils/date.ts formatDisplayDate, REQUIREMENTS §171).
 const dateWords = (iso: string): string => {
   const [y, m, d] = iso.split("-");
-  return y && m && d && Number(m) >= 1 && Number(m) <= 12 ? `${d}-${m}-${y.slice(2)}` : iso;
+  return y && m && d && Number(m) >= 1 && Number(m) <= 12 ? `${d}-${m}-${y}` : iso;
 };
 
 export interface ArchiveOutcome {

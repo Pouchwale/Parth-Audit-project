@@ -49,6 +49,10 @@ export interface FormatDraft {
   revisionNo?: string;
   /** The date the header prints for that revision (ISO); today when absent. */
   revisionDate?: string;
+  /** One place's printed words reworded on a form drawn by its own view (the service reports, REQUIREMENTS §154). */
+  wordsAt?: { place: string; words: string; was: string };
+  /** The service report's lines added or removed on the report (REQUIREMENTS §154 item 6): the area list after, and before. */
+  serviceLines?: { areas: string[]; was: string[] };
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -509,6 +513,18 @@ export function describeFormatChange(before: FormatDraft, after: FormatDraft): s
   if (after.revisionDate !== undefined && after.revisionDate !== (before.revisionDate ?? "") && after.revisionDate !== todayISO()) {
     out.push(`dated the revision ${formatDisplayDate(after.revisionDate)}`);
   }
+  if (after.wordsAt && after.wordsAt.words.trim() !== after.wordsAt.was.trim()) {
+    const one = (s: string) => s.replace(/\s+/g, " ").trim();
+    out.push(after.wordsAt.words.trim() ? `reworded “${one(after.wordsAt.was)}” to “${one(after.wordsAt.words)}”` : `rubbed out “${one(after.wordsAt.was)}”`);
+  }
+  if (after.serviceLines) {
+    const { areas, was } = after.serviceLines;
+    for (const name of areas.filter((n) => !was.includes(n))) {
+      const i = areas.indexOf(name);
+      out.push(i > 0 ? `added the line “${name}” after “${areas[i - 1]}”` : `added the line “${name}” first`);
+    }
+    for (const name of was.filter((n) => !areas.includes(n))) out.push(`removed the line “${name}”`);
+  }
   const a = before.layout;
   const b = after.layout;
   if (!a || !b) return out;
@@ -550,7 +566,8 @@ export function validateDraft(draft: FormatDraft, now?: FormatDraft): string | n
   return null;
 }
 
-type FormatChangeOptions = { reason: string; revisionNo?: string; reissue?: boolean };
+// keepRevision: saved without a new revision (REQUIREMENTS §148) - the format keeps its number and date.
+type FormatChangeOptions = { reason: string; revisionNo?: string; reissue?: boolean; keepRevision?: boolean; revisionDate?: string };
 
 /** What saving `draft` would number and describe, or why it would be refused. */
 function planFormatChange(doc: DocumentDefinition, draft: FormatDraft, opts: FormatChangeOptions): { error: string } | { revisionNo: string; summary: string[] } {
@@ -560,12 +577,12 @@ function planFormatChange(doc: DocumentDefinition, draft: FormatDraft, opts: For
   if (!opts.reason.trim()) return { error: "Say why the format is changing — it goes in its change history." };
   // The number typed over on the header, when it was; the next number otherwise.
   const typed = draft.revisionNo?.trim();
-  const revisionNo = (opts.revisionNo ?? (typed && typed !== doc.revisionNo ? typed : nextRevisionNo(doc.revisionNo))).trim();
+  const revisionNo = (opts.keepRevision ? (doc.revisionNo ?? "") : (opts.revisionNo ?? (typed && typed !== doc.revisionNo ? typed : nextRevisionNo(doc.revisionNo)))).trim();
   const described = describeFormatChange(before, draft);
   const summary = described.length === 0 && opts.reissue && revisionNo && revisionNo !== doc.revisionNo ? [`re-issued as Rev ${revisionNo}`] : described;
   if (summary.length === 0) return { error: "Nothing about the format has been changed yet." };
   if (!revisionNo) return { error: "Give the new revision number." };
-  return { revisionNo, summary };
+  return { revisionNo, summary: opts.keepRevision ? [...summary, `saved without a new revision (Rev ${revisionNo})`] : summary };
 }
 
 /**
@@ -598,6 +615,10 @@ export function commitFormatChange(
      * dated today, would be refused as "nothing changed".
      */
     reissue?: boolean;
+    /** Saved without a new revision: the format keeps its number and date (REQUIREMENTS §148). */
+    keepRevision?: boolean;
+    /** A new revision's date, as asked (REQUIREMENTS §148); today otherwise. */
+    revisionDate?: string;
   }
 ): CommitResult {
   const plan = planFormatChange(doc, draft, opts);
@@ -609,7 +630,14 @@ export function commitFormatChange(
   // Dated today, unless the header's date was itself typed over (REQUIREMENTS
   // §77): the draft carries the format's own date until then.
   const dated = draft.revisionDate?.trim();
-  const revisionDate = dated && ISO_DATE.test(dated) && dated !== (doc.revisionDate ?? "") ? dated : todayISO();
+  const asked = opts.revisionDate?.trim();
+  const revisionDate = opts.keepRevision
+    ? doc.revisionDate || todayISO()
+    : asked && ISO_DATE.test(asked)
+      ? asked
+      : dated && ISO_DATE.test(dated) && dated !== (doc.revisionDate ?? "")
+        ? dated
+        : todayISO();
   const at = new Date().toISOString();
   const revision: FormatRevision = { id: revisionId({ at, by: opts.actor, revisionNo }), revisionNo, revisionDate, by: opts.actor, at, reason: opts.reason.trim(), summary: summary.join("; ") };
   // The header's company name and format number are kept only where they
@@ -624,6 +652,10 @@ export function commitFormatChange(
     companyName: company && company !== (issued?.companyName ?? COMPANY.name) ? company : undefined,
     formatNo: formatNo && formatNo !== (issued?.formatNo ?? doc.formatNo) ? formatNo : undefined,
     layout: draft.layout ?? existing?.layout,
+    // A place's printed words: the change added after the ones before it, from now (REQUIREMENTS §154).
+    printedWords: draft.wordsAt
+      ? { ...existing?.printedWords, [draft.wordsAt.place]: [...(existing?.printedWords?.[draft.wordsAt.place] ?? []), { words: draft.wordsAt.words, from: at }] }
+      : existing?.printedWords,
     // Every entry carries an id, so two people's saves MERGE into one history
     // (data/serverSync.ts merges a list by id) instead of one list replacing the other.
     revisions: [revision, ...(existing?.revisions ?? []).map((r) => (r.id ? r : { ...r, id: revisionId(r) }))],

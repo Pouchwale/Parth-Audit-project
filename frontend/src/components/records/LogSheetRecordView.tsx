@@ -1,11 +1,12 @@
 import React from "react";
+import { unitized } from "../../engine/calibration";
 import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance, SheetPhoto, SheetWords } from "../../types";
 import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHeader";
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
-import { paperTableFits, paperTableFor, type PaperCell } from "../../data/seed/qcPaperTables";
+import { paperTableFits, paperTableFor, paperTablePrint, type PaperCell } from "../../data/seed/qcPaperTables";
 import { calibrationGeometryFor } from "../../data/seed/qcCalibrationGeometry";
 import { reportGeometryFor } from "../../data/seed/qcReportGeometry";
 import { PaperTablePart, withUnderlinedLines, type PaperTableParts } from "./PaperTableSheet";
@@ -18,7 +19,9 @@ import { departmentOfDocument } from "../../data/seed/departments";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
 import { applyFills, hrMasterLinkFor, personFill, personNamed } from "../../engine/hrMaster";
+import { sexFromName } from "../../engine/sexFromName";
 import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
+import { trainingBoxOf, trainingFill, trainingLabel, trainingsFor, TRAININGS_LIST } from "../../engine/trainingLinks";
 import { equipmentLinkFor, equipmentMasterVisible, machineBlankFills, machineByNumber, machineValue } from "../../engine/equipmentMaster";
 import {
   currentPmIndex,
@@ -44,13 +47,16 @@ import { withoutLineNumber } from "../../engine/lineNumbers";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
 import { drawnColumnOf, paperGridWidths } from "../../engine/paperGridWidths";
 import { withComputedCells } from "../../engine/computedCells";
+import { formulaTimeOf } from "../../../../indexing/formulaRuntime";
 import { documentLayoutIn, documentTextIn, keepFormAsIssued, sheetLanguage } from "../../i18n/documentText";
 import { imageFileToDataUrl } from "../../utils/image";
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
-import { logRowsRule, newRow } from "../../engine/recordLines";
-import { nominalFillAdded } from "../../engine/nominalFill";
+import { logRowsRule, newRow, printedLineOf } from "../../engine/recordLines";
+import { followHeader } from "../../engine/headerFollowers";
+import { registerFills } from "../../engine/hrMasterRegisters";
+import { READINGS_TO_CONFIRM, nominalFillAdded, settleScaleLines } from "../../engine/nominalFill";
 import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
 import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
@@ -140,7 +146,9 @@ export function LogSheetRecordView({
   // of the record rather than on every render, so a long register is not
   // walked again for a render that changed nothing in it.
   const stored = record.data;
-  const data = React.useMemo(() => withComputedCells(doc.id, stored ?? { header: {}, rows: [] }), [doc.id, stored]);
+  // INDEXING: a signed record is worked out with the formulas in force when it was submitted (indexing/formulaRuntime.ts).
+  const formulaTime = formulaTimeOf(record);
+  const data = React.useMemo(() => withComputedCells(doc.id, stored ?? { header: {}, rows: [] }, undefined, formulaTime), [doc.id, stored, formulaTime, version]);
   // Read when the store moves on, not on every render: a keystroke is a render,
   // and typing into F/SYS/01's 173 lines read the master data from storage on
   // every key (REQUIREMENTS §76). The store's version moves with every change
@@ -149,6 +157,9 @@ export function LogSheetRecordView({
   // lets each line skip a render it does not need.
   const employees = React.useMemo(() => masterRepository.get().employees, [doc.id, version]);
   const employeeNames = React.useMemo(() => employees.map((e) => e.name), [employees]);
+  // F/HR/11 and F/HR/12 name a training of the calendar (REQUIREMENTS §165, engine/trainingLinks.ts).
+  const trainingBox = trainingBoxOf(doc.id);
+  const trainings = React.useMemo(() => (trainingBox ? trainingsFor(doc.id, record.isDemo) : []), [trainingBox, doc.id, record.isDemo, version]);
   // THE SAME HANDLERS ON EVERY RENDER (REQUIREMENTS §76). A line or a box is
   // drawn again only when what it shows changes (SheetRow, SheetBox below): a
   // keystroke in one cell of a 173-line register redraws that line, not 1,557
@@ -159,12 +170,14 @@ export function LogSheetRecordView({
     setHeader: (key: string, value: string) => void;
     fillFromName: (rowId: string | null, value: string) => void;
     fillFromMachine: (rowId: string | null, value: string) => void;
+    fillFromTraining: (value: string) => void;
     removeRow: (rowId: string) => void;
   } | null>(null);
   const onCell = React.useCallback((rowId: string, key: string, value: string | number | null) => handlers.current?.setCell(rowId, key, value), []);
   const onBox = React.useCallback((key: string, value: string) => handlers.current?.setHeader(key, value), []);
   const onPersonBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromName(rowId, value), []);
   const onMachineBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromMachine(rowId, value), []);
+  const onTrainingBlur = React.useCallback((_rowId: string | null, value: string) => handlers.current?.fillFromTraining(value), []);
   const onRemoveRow = React.useCallback((rowId: string) => handlers.current?.removeRow(rowId), []);
   // Before the early return below: a hook called only on some renders breaks
   // React ("rendered fewer hooks than expected") the moment this component is
@@ -264,15 +277,64 @@ export function LogSheetRecordView({
     return <div className="empty-state">No layout is configured for this document (id: {doc.id}).</div>;
   }
 
-  const save = (next: LogSheetData) => onChange(withComputedCells(doc.id, next));
+  // A column that follows a header box (engine/headerFollowers.ts, REQUIREMENTS §159) is brought in line on every
+  // save: a typed box, one fetched from HR Master Data, and a line added later all go through here.
+  const save = (next: LogSheetData) => {
+    onChange(withComputedCells(doc.id, followHeader(layout, data, next), data));
+    // THE REGISTER FEEDS THE SHEET (engine/hrMasterRegisters.ts, REQUIREMENTS §161): a line of F/HR/01 — or the header
+    // of F/HR/05 — just written fills the blanks of its person on HR Master Data at once, so every other format
+    // fetches the date of joining from then on. The sheet's own words are never changed from here.
+    if (link && !record.isDemo) {
+      const fills = registerFills(link, next, hrMasterRepository.all());
+      if (fills.length > 0) hrMasterRepository.takeFromRegisters({ fills, newcomers: [] }, currentUser || "the record");
+    }
+  };
+  /** F/QC/12: the readings the assistant filled on the day have no name on them; the person who confirms them is the tester. */
+  const signConfirmed = (line: LogSheetRow) => {
+    if (!currentUser) return;
+    if (!String(line.testedBy ?? "").trim()) line.testedBy = currentUser;
+    if (!String(line.sign ?? "").trim()) line.sign = currentUser;
+  };
   const setHeader = (key: string, value: string) => save({ ...data, header: { ...data.header, [key]: value } });
+  /** F/QC/12: a date changed settles every week against its date - a week still to come loses its readings, one that has come is filled. */
+  const saveDates = (next: LogSheetData) => {
+    const dated = withComputedCells(doc.id, next, data);
+    const settled = doc.id === "qc-weight-scale-calibration" ? settleScaleLines(dated, todayISO()) : dated;
+    onChange(settled === dated ? dated : withComputedCells(doc.id, settled, dated));
+  };
   const setCell = (rowId: string, key: string, value: string | number | null) =>
-    save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)) });
+    (key === "date" || key === "nextDueDate" ? saveDates : save)({
+      ...data,
+      rows: data.rows.map((r) => {
+        if (r.id !== rowId) return r;
+        const next: LogSheetRow = { ...r, [key]: value };
+        // A reading typed over a filled one is the person's own: nothing left to confirm on the line (F/QC/12).
+        if (r[READINGS_TO_CONFIRM] && /^testedValue/.test(key)) {
+          delete next[READINGS_TO_CONFIRM];
+          signConfirmed(next);
+        }
+        return next;
+      }),
+    });
+  /** F/QC/12: the person confirms the scale showed the filled readings of a line. */
+  const confirmReadings = (rowId: string) =>
+    save({
+      ...data,
+      rows: data.rows.map((r) => {
+        if (r.id !== rowId) return r;
+        const next: LogSheetRow = { ...r };
+        delete next[READINGS_TO_CONFIRM];
+        signConfirmed(next);
+        return next;
+      }),
+    });
+  const toConfirm = editable ? data.rows.filter((r) => r[READINGS_TO_CONFIRM]) : [];
   // Add Row starts a line blank in every box (REQUIREMENTS §98): no "ALC DONE: Yes" or "Cleaning: Dry" decided for the
   // person. A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111) gets the next number.
   // The line is the one registry's (engine/recordLines.ts, §113): the same line Mitra's "add a row" and its patch build.
-  // F/QC/12's line is the exception (§140): filled as the sheet is on opening, in the name of the person who adds it.
-  const addRow = () => save({ ...data, rows: [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser, record.headerBlock?.date ?? headerDefaults.date)] });
+  // F/QC/12's line is the exception (§140): filled as the sheet is on opening, in the name of the person who adds it;
+  // its date is the line above's Next Due Date (§145, the chain in the computed cells).
+  const addRow = () => save({ ...data, rows: [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser)] });
   const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
 
   // HR formats that name a person fetch them from HR Master Data (REQUIREMENTS
@@ -284,7 +346,14 @@ export function LogSheetRecordView({
   const fillFromName = (rowId: string | null, value: string) => {
     if (!link || !editable) return;
     const person = personNamed(value, hrMasterRepository.all());
-    if (!person) return;
+    if (!person) {
+      // A name not on the sheet, on a form with a Sex box (F/HR/04): the name alone says Male or Female when it is
+      // sure (engine/sexFromName.ts), and a blank Sex box takes it. Nothing else is known about the person.
+      const sexBox = rowId === null && link.fields.some((f) => f.key === "sex" && f.from === "sexFromName");
+      const sex = sexBox ? sexFromName(value) : "";
+      if (sex && !String(data.header.sex ?? "").trim()) save({ ...data, header: { ...data.header, [link.nameField]: value, sex } });
+      return;
+    }
     if (rowId === null) {
       const header = { ...data.header, [link.nameField]: value };
       const { fills } = personFill(link, person, header);
@@ -296,6 +365,14 @@ export function LogSheetRecordView({
     const current = { ...row, [link.nameField]: value };
     const { fills } = personFill(link, person, current);
     if (fills.length > 0) save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(current, fills) : r)) });
+  };
+
+  // THE TRAINING NAMED ON F/HR/11 OR F/HR/12 FILLS ITS DATE, TRAINER AND DURATION FROM THE CALENDAR, and F/HR/12 lists
+  // the employees evaluated for it (REQUIREMENTS §165, engine/trainingLinks.ts), when the topic box is left.
+  const fillFromTraining = (value: string) => {
+    if (!trainingBox || !editable) return;
+    const fill = trainingFill(doc.id, { ...data, header: { ...data.header, [trainingBox]: value } }, trainings, record.isDemo, todayISO(), () => generateId("row"));
+    if (fill) save(fill.data);
   };
 
   // THE MAINTENANCE FORMATS FETCH A MACHINE FROM THE EQUIPMENT MASTER, F/MNT/01
@@ -327,7 +404,7 @@ export function LogSheetRecordView({
     return eqFetching && eqLink.idField === key ? "equipment-machines" : "";
   };
   // What the stable handlers above forward to: this render's, which hold this render's data.
-  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, removeRow };
+  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, fillFromTraining, removeRow };
 
   // One box above the grid: a person's or a machine's box offers the people or the machines it can be filled from.
   // `inTable`: a cell of the paper's table of boxes (boxTable, REQUIREMENTS §111), headed by the table's words.
@@ -345,7 +422,7 @@ export function LogSheetRecordView({
         onBox={onBox}
         employees={employeeNames}
         list={personBox ? "hr-master-people" : machineList !== undefined ? machineList : (lists?.[f.key] ?? f.list)}
-        onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : undefined}
+        onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : trainingBox === f.key ? onTrainingBlur : undefined}
         inTable={inTable}
         outOfBand={boxOutOfBand(f, data.header)}
         ordinals={!!pf}
@@ -638,7 +715,7 @@ export function LogSheetRecordView({
       const ci = layout.columns.findIndex((c) => c.key === key);
       if (!row || ci < 0) return null;
       const c = layout.columns[ci];
-      const fixedRow = mode.kind === "fixedRows" ? mode.rows[line] : undefined;
+      const fixedRow = printedLineOf(layout, row, line);
       const col = effectiveColumn(c, fixedRow);
       // (a printed cell's lines the paper underlines, F-QC-14's specification under each check's name)
       // ...typed over on the record while it can be written on (REQUIREMENTS §135), drawn as the paper draws them.
@@ -698,16 +775,19 @@ export function LogSheetRecordView({
       gridCell: paperGridCell,
       value: (key: string) => String(data.header?.[key] ?? ""),
     };
+    // Where the paper stands on its printed page, and how much bigger it is drawn there (PaperTable.fillA4: F/QC/17).
+    const ptPrint = paperTablePrint(pt);
     return (
       <div
         className={`${rootClass} paper-table-sheet`}
         translate={asIssued ? "no" : undefined}
         data-bind-record={record.id}
         data-paper={pt.page}
-        data-paper-left={pt.left}
+        data-paper-left={ptPrint.left}
         data-sheet={doc.id}
         data-paper-form="table"
-        style={{ "--pt-left": String(pt.left), "--pt-top": String(pt.top) } as React.CSSProperties}
+        data-fill-a4={pt.fillA4 ? "" : undefined}
+        style={{ "--pt-left": String(ptPrint.left), "--pt-top": String(ptPrint.top), ...(pt.fillA4 ? { "--pt-print-scale": String(ptPrint.scale) } : {}) } as React.CSSProperties}
       >
         <div className="paper-head">
           <div className="doc-header doc-header-paper">
@@ -771,8 +851,10 @@ export function LogSheetRecordView({
           {outOfBand > 0 && (
             <div className="card mt-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
               <div className="card-pad text-sm">
-                <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> {outOfBand} reading{outOfBand === 1 ? " is" : "s are"} outside the printed acceptance band (highlighted). Add a remark
-                explaining the deviation and inform the shift in-charge.
+                <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> {outOfBand} reading{outOfBand === 1 ? " is" : "s are"} outside the printed acceptance band (highlighted).{" "}
+                {layout.columns.some((c) => c.toleranceFrom)
+                  ? "The line Fails: report it to the QA manager, as the calibration procedure says, and keep the device out of use until it is put right."
+                  : "Add a remark explaining the deviation and inform the shift in-charge."}
               </div>
             </div>
           )}
@@ -791,6 +873,13 @@ export function LogSheetRecordView({
             <option key={e.id} value={e.name} />
           ))}
         </datalist>
+        {trainingBox && (
+          <datalist id={TRAININGS_LIST}>
+            {trainings.map((t) => (
+              <option key={`${t.topic}|${t.date}`} value={trainingLabel(t)} />
+            ))}
+          </datalist>
+        )}
         <div className="text-xs text-faint mt-3 no-print">Specimen source: {layout.specimenSource}</div>
       </div>
     );
@@ -816,10 +905,34 @@ export function LogSheetRecordView({
       }
     >
       <div className="paper-head">
-      <DocumentHeader {...headerProps} frame={frame} />
+      {/* The calibration papers print no number row at their head: their number stands at the foot (the owner, 30-Oct-2026). */}
+      <DocumentHeader {...headerProps} frame={frame} numberRow={!cal} />
       </div>
       <div className="paper-body">
       {headerPanel}
+      {/* F/QC/12: the week's readings filled with the standard weights, each line to be confirmed by the person who saw the
+          scale show them — or the reading it did show typed over (engine/nominalFill.ts READINGS_TO_CONFIRM). Not printed. */}
+      {toConfirm.length > 0 && (
+        <div className="card mt-4 no-print" data-section="readings-to-confirm" style={{ borderColor: "var(--color-info)", background: "var(--color-info-bg)" }}>
+          <div className="card-pad text-sm">
+            <div className="mb-2">
+              <strong>Readings filled automatically on the week's date</strong> (within the Acceptable Tolerance, Pass). Place each weight on the scale:
+              if it shows the same, press <em>Confirm</em>; if it shows something else, type that figure in the Tested Value box. The
+              sheet can be submitted once every line is confirmed.
+            </div>
+            {toConfirm.map((r) => (
+              <div key={r.id} className="flex items-center gap-2 wrap mb-1">
+                <span>
+                  Line {r.date ? formatDisplayDate(String(r.date)) : data.rows.indexOf(r) + 1}: {String(r.testedValue3 ?? "")}, {String(r.testedValue4 ?? "")}, {String(r.testedValue5 ?? "")}
+                </span>
+                <button type="button" className="btn btn-primary btn-sm" data-action="confirm-readings" onClick={() => confirmReadings(r.id)}>
+                  The scale showed these values — confirm
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* A page kept on the revision it was written on says so (REQUIREMENTS §74). */}
       {superseded && (
         <div className="card mt-4 no-print" data-superseded-revision={superseded.revisionNo}>
@@ -894,8 +1007,11 @@ export function LogSheetRecordView({
       {outOfBand > 0 && (
         <div className="card mt-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
           <div className="card-pad text-sm">
-            <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> {outOfBand} reading{outOfBand === 1 ? " is" : "s are"} outside the printed acceptance band (highlighted). Add a remark
-            explaining the deviation and inform the shift in-charge.
+            <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> {outOfBand} reading{outOfBand === 1 ? " is" : "s are"} outside the printed acceptance band (highlighted).{" "}
+            {layout.columns.some((c) => c.toleranceFrom)
+              ? // A calibration outside its Acceptable Tolerance: the paper's PROCEDURE says it is reported to the QA manager.
+                "The line Fails: report it to the QA manager, as the calibration procedure says, and keep the device out of use until it is put right."
+              : "Add a remark explaining the deviation and inform the shift in-charge."}
           </div>
         </div>
       )}
@@ -1026,7 +1142,7 @@ export function LogSheetRecordView({
                 columns={lines.first}
                 issuedColumns={issuedFirst}
                 second={lines.second}
-                fixedRow={mode.kind === "fixedRows" ? mode.rows[i] : undefined}
+                fixedRow={printedLineOf(layout, row, i)}
                 judge={judge}
                 groupCells={groupCells?.includes(i)}
                 numbered={numbered}
@@ -1145,6 +1261,13 @@ export function LogSheetRecordView({
           <option key={e.id} value={e.name} />
         ))}
       </datalist>
+      {trainingBox && (
+        <datalist id={TRAININGS_LIST}>
+          {trainings.map((t) => (
+            <option key={`${t.topic}|${t.date}`} value={trainingLabel(t)} />
+          ))}
+        </datalist>
+      )}
       <div className="text-xs text-faint mt-3 no-print">Specimen source: {layout.specimenSource}</div>
     </div>
   );
@@ -2042,7 +2165,19 @@ const SheetRow = React.memo(function SheetRow({
               onChange={(v) => onCell(row.id, c.key, v)}
               employees={employees}
               list={personKey === c.key ? "hr-master-people" : machineKey === c.key ? "equipment-machines" : (lists?.[c.key] ?? c.list)}
-              onBlur={personKey === c.key ? (v) => onPersonBlur(row.id, v) : machineKey === c.key ? (v) => onMachineBlur(row.id, v) : undefined}
+              onBlur={
+                personKey === c.key
+                  ? (v) => onPersonBlur(row.id, v)
+                  : machineKey === c.key
+                    ? (v) => onMachineBlur(row.id, v)
+                    : col.unitFrom
+                      ? (v) => {
+                          // The unit of the cell it is read against (F/QC/12: "100.002" → "100.002gm").
+                          const withUnit = unitized(v, row[col.unitFrom!]);
+                          if (withUnit && withUnit !== v) onCell(row.id, c.key, withUnit);
+                        }
+                      : undefined
+              }
             />
           </td>
         );
@@ -2442,6 +2577,15 @@ function CellInput({
       >
         {value ?? ""}
       </EditableWords>
+    );
+  }
+  // A STANDARD NOBODY TYPES OVER (F/QC/12's weights, the owner, 30-Oct-2026, REQUIREMENTS §146): the format's own figure
+  // on every line, shown as words, never a box.
+  if (col.locked) {
+    return (
+      <span className="cell-text notranslate" translate="no" data-locked={col.key}>
+        {value ?? ""}
+      </span>
     );
   }
   // A sheet that cannot be written on (a preview, a submitted or verified record)

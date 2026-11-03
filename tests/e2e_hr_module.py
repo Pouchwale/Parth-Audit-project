@@ -38,6 +38,7 @@ everything in HR Module". So this suite checks that:
 
 Network-independent, against the production build on :8842.
 """
+import re
 import sys
 from datetime import date, timedelta
 from playwright.sync_api import sync_playwright
@@ -76,6 +77,7 @@ HR_FORMATS = {
     "F/HR/13": ("Authorization for Mobile Usage in Plant Area", "Personnel & Competence"),
     "F/HR/08": ("Employee Wise Training Need Identification Record", "Training"),
     "F/HR/09": ("Training Plan Calender", "Training"),
+    "F/HR/10": ("Training Imparted Record", "Training"),
     "F/HR/11": ("Training Effectiveness Evaluation Record", "Training"),
     "F/HR/12": ("Training Feedback & Evaluation Record", "Training"),
     "F/HR/04": ("Pre-Employment Medical Health Declaration", "Induction & Health"),
@@ -248,12 +250,12 @@ with sync_playwright() as p:
     # 1. The Document Library: one hundred and thirty-six documents, twenty-eight of them HR's
     # ==================================================================
     open_library(page)
-    check("The Document Library lists one hundred and thirty-six documents", library_rows(page).count() == 136, library_rows(page).count())
+    check("The Document Library lists one hundred and thirty-seven documents (F/HR/10 since s168)", library_rows(page).count() == 137, library_rows(page).count())
     group = hr_group(page)
     check("The Human Resources module is one group of the library", group.count() == 1)
     check("...and there is no Pest Control module any more", page.locator(".app-content h3:has-text('Pest Control')").count() == 0)
     hr_rows = group.locator("tbody tr:not(.doc-section-row)")
-    check("The Human Resources group holds twenty-eight documents - the eighteen HR formats and the pest control file's ten", hr_rows.count() == 28, hr_rows.count())
+    check("The Human Resources group holds twenty-nine documents - the nineteen HR formats (F/HR/10 since s168) and the pest control file's ten", hr_rows.count() == 29, hr_rows.count())
     # textContent, not innerText: the section rows are set in small capitals by CSS.
     sections = group.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved by section: HR's five groups, then the pest control file's four", sections == SECTIONS, sections)
@@ -289,8 +291,8 @@ with sync_playwright() as p:
     # Read the LIBRARY, not the whole screen: the day's notification (REQUIREMENTS
     # §69) names the modules a person's waiting work falls in, and that is not the
     # library saying it.
-    check("...showing the twenty-eight documents and nothing of the other modules",
-          library_rows(page).count() == 28 and "Lamination — Quality Control" not in page.locator(".doc-table").first.inner_text(),
+    check("...showing the twenty-nine documents and nothing of the other modules",
+          library_rows(page).count() == 29 and "Lamination — Quality Control" not in page.locator(".doc-table").first.inner_text(),
           library_rows(page).count())
 
     # ==================================================================
@@ -357,7 +359,7 @@ with sync_playwright() as p:
     ind = one(page, "hr-induction-operators")
     if ind:
         rows = ind["data"]["rows"]
-        check("F/HR/06: 28 inductions, Verified", len(rows) == 28 and ind["status"] == "Verified", len(rows))
+        check("F/HR/06: 28 inductions, Verified", len(rows) == 29 and ind["status"] == "Verified", len(rows))
         check("F/HR/06: the first is Azaz Bharach, POUCH-Manager, 01/06/2025", (rows[0]["name"], rows[0]["joining"], rows[0]["dateOfJoiningInduction"]) == ("Azaz Bharach", "POUCH-Manager", "01/06/2025"), rows[0])
         check("F/HR/06: the last is Muskan Chauhan, PPC-Executive, 17/01/2026", (rows[-1]["name"], rows[-1]["joining"], rows[-1]["dateOfJoiningInduction"]) == ("Muskan Chauhan", "PPC-Executive", "17/01/2026"), rows[-1])
 
@@ -459,14 +461,14 @@ with sync_playwright() as p:
     check("The training calendar opens as nineteen topics across twelve Plan / Actual month pairs",
           sheet_rows(page).count() == 19 and page.locator("table.log-sheet thead th").count() == 1 + 5 + 24, (sheet_rows(page).count(), page.locator("table.log-sheet thead th").count()))
     sheet_text = page.locator("table.log-sheet").evaluate("el => el.textContent")
-    check("...with the topics and the month headings printed on the sheet", "BRCGS - Packaging (Issue 07)Awareness" in sheet_text and "Apr-26 — Plan" in sheet_text and "Mar-27 — Actual" in sheet_text)
+    check("...with the topics and the month headings printed on the sheet", "BRCGS - Packaging (Issue 07)Awareness" in sheet_text and "Apr — Plan" in sheet_text and "Mar — Actual" in sheet_text)
 
     # ==================================================================
     # 4b. Every document opens on a page of its own - never the calendar
     # ==================================================================
     open_library(page)
     all_ids = page.eval_on_selector_all("[data-action='open-document']", "els => els.map((e) => e.getAttribute('data-document'))")
-    check("Every document in the library has Open Document", len(all_ids) == 136, len(all_ids))
+    check("Every document in the library has Open Document", len(all_ids) == 137, len(all_ids))
     landed = {}
     for doc_id in all_ids:
         open_library(page)
@@ -637,7 +639,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(1300)
     check("The competence register opens for Human Resources", sheet_rows(page).count() == 80, sheet_rows(page).count())
 
-    # ---- F/HR/17's rodent catch row (REQUIREMENTS section 118; the owner's ask for a record the system fills daily is NOT built) ----
+    # ---- F/HR/17's rodent catch row (REQUIREMENTS section 118 and 177: suggested from Master Data when a person answers 7 Yes; the system itself never answers Yes) ----
     open_library(page)
     page.locator("[data-action='new-record'][data-document='daily-pest-monitoring']").first.evaluate("el => el.click()")
     page.wait_for_timeout(1500)
@@ -646,36 +648,76 @@ with sync_playwright() as p:
     holiday = page.locator("input[type='checkbox']").first
     if holiday.count() and holiday.is_checked():
         holiday.evaluate("el => el.click()")  # the day's calendar may have marked it a holiday: the round is being written as worked
-        page.wait_for_timeout(300)
+        page.wait_for_timeout(1200)
+        page.reload()  # the fill of s149/s177 runs when the day is opened as a worked day
+        page.wait_for_timeout(1500)
+        dismiss(page)
+        close_assistant(page)
     page.locator("tr:has-text('Any pest trapped in rodent trap box') select").first.select_option("Yes")
-    page.wait_for_timeout(500)
+    page.wait_for_timeout(1200)
     where = page.locator("[data-field='catch-location']")
     how_many = page.locator("[data-field='catch-count']")
-    check("Answering Yes to check point 7 opens ONE catch row, with no place chosen and no count written", where.count() == 1 and where.first.input_value() == "" and how_many.count() == 1 and how_many.first.input_value() == "", (where.count(), where.first.input_value() if where.count() else None))
     options = where.first.locator("option").all_inner_texts()
     areas = [o for o in options if o not in ("Choose the place…", "Another place…")]
-    check("...the place a choice of the factory's sixteen real areas (the Rodent Control Service report's own list), and another place may be written", len(areas) == 16 and "First floor - Ink store" in areas and "Canteen" in areas and "Another place…" in options, options)
+    check("...the place a choice of the factory's sixteen real areas (the Rodent Control Service report's own list), and another place may be written", len(areas) == 16 and "First floor - Ink store" in areas and "Canteen" in areas and "Another place…" in options, (len(areas), options[:3]))
+    rid = page.url.split("/record/")[-1].split("?")[0].split("#")[0]
+
+    def stored():
+        return page.evaluate("(id) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find((r) => r.id === id) || null", rid) or {}
+
+    rec = stored()
+    saved = ((rec or {}).get("data") or {}).get("rodentCatches") or []
+    summary = ((rec or {}).get("data") or {}).get("summaryActions") or []
+    # THE SUGGESTED ROW AND LINE (REQUIREMENTS s177, the owner, 3-Nov-2026): the test database keeps no rodent stations, so the
+    # box is RB-NN up to the day's 100 traps, the place one of the rodent areas, the count 1 to 3 - every box the person's.
+    check("Answering Yes to check point 7 opens ONE catch row suggested from Master Data: a trap box RB-NN, one of the rodent areas, 1 to 3 rodents, marked suggested",
+          len(saved) == 1 and bool(re.match(r"^RB-\d{2,3}$", str(saved[0].get("trapBoxNo", "")))) and saved[0].get("location") in areas and 1 <= int(saved[0].get("count") or 0) <= 3 and saved[0].get("suggested") is True, saved)
+    check("...shown in the row: the place chosen in the list, the count written, and a note that it came from Master Data",
+          where.count() == 1 and where.first.input_value() == saved[0].get("location") and how_many.first.input_value() == str(saved[0].get("count")) and page.locator("[data-hint='catch-suggested']").count() == 1,
+          (where.first.input_value(), how_many.first.input_value()))
+    box, place, count = saved[0].get("trapBoxNo"), saved[0].get("location"), int(saved[0].get("count") or 0)
+    said = f"{'Rodent' if count == 1 else str(count) + ' rodents'} caught in trap box {box} at {place}"
+    check("...and the Summary of Actions says what was found and done, dated the day", len(summary) == 1 and summary[0].get("descriptionOfObservation") == said and summary[0].get("actionTaken") == "Rodent removed and disposed" and summary[0].get("dateOfObservation") == rec.get("dueDate") and summary[0].get("suggested") is True, summary)
+    page.locator("tr:has-text('Any pest trapped in rodent trap box') select").first.select_option("No")
+    page.wait_for_timeout(1200)
+    rec = stored()
+    check("Back to No, the suggested row and line go again", not (((rec.get("data") or {}).get("rodentCatches")) or []) and not (((rec.get("data") or {}).get("summaryActions")) or []), (rec.get("data") or {}).get("summaryActions"))
+    page.locator("tr:has-text('Any pest trapped in rodent trap box') select").first.select_option("Yes")
+    page.wait_for_timeout(1200)
+    rec = stored()
+    check("Yes again brings a fresh suggestion", len(((rec.get("data") or {}).get("rodentCatches")) or []) == 1 and len(((rec.get("data") or {}).get("summaryActions")) or []) == 1, (rec.get("data") or {}).get("rodentCatches"))
+    # Emptied by the person, the row is refused by Submit, naming the place and the number (s118).
+    how_many.first.fill("")
+    where.first.select_option("")
+    page.wait_for_timeout(400)
     page.locator("button[data-action='submit']").first.click()
     page.wait_for_timeout(700)
     problems = page.locator(".app-content").inner_text()
-    check("Submit refuses the empty row, naming the place and the number", "Rodent catch #1: location is required" in problems and "Rodent catch #1: number of rodents must be at least 1" in problems, problems[:400])
-    where.first.select_option(label="Canteen")
+    check("Submit refuses the row once emptied, naming the place and the number", "Rodent catch #1: location is required" in problems and "Rodent catch #1: number of rodents must be at least 1" in problems, problems[:400])
     how_many.first.fill("2")
-    page.wait_for_timeout(500)
-    page.locator("button[data-action='submit']").first.click()
-    page.wait_for_timeout(700)
-    problems = page.locator(".app-content").inner_text()
-    check("...and a row with a place and a count is no longer refused", "Rodent catch #1" not in problems, problems[:300])
     where.first.select_option(label="Another place…")
     page.wait_for_timeout(300)
     other = page.locator("[data-field='catch-location-other']")
     check("'Another place...' opens a box to write the place in", other.count() == 1, other.count())
     other.first.fill("Scrap yard")
     page.wait_for_timeout(1200)
-    rid = page.url.split("/record/")[-1].split("?")[0].split("#")[0]
-    rec = page.evaluate("(id) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find((r) => r.id === id) || null", rid)
+    rec = stored()
     saved = ((rec or {}).get("data") or {}).get("rodentCatches") or []
-    check("...and the place written is the record's, the count too - nothing was filled in for the person", len(saved) == 1 and saved[0]["location"] == "Scrap yard" and saved[0]["count"] == 2, saved)
+    check("...and the place written is the record's, the count too - the row is the person's now, no longer the suggestion", len(saved) == 1 and saved[0]["location"] == "Scrap yard" and saved[0]["count"] == 2 and not saved[0].get("suggested"), saved)
+    # The day came answered as the plant's usual day on opening (s149): the round between 09:00 and 09:30 in Kapila Barad's name (s177).
+    answers = ((rec or {}).get("data") or {}).get("checkpoints") or {}
+    data_now = (rec or {}).get("data") or {}
+    check("The day opened answered as usual - 1 Yes, 4 100, 8 No - the checker Kapila Barad, the round between 09:00 and 09:30 (s177)",
+          (answers.get("1") or {}).get("value") == "Yes" and (answers.get("4") or {}).get("value") == 100 and (answers.get("8") or {}).get("value") == "No" and data_now.get("checker") == "Kapila Barad" and bool(re.match(r"^09:(?:[0-2]\d|30)$", str(data_now.get("timeOfChecking") or ""))),
+          (answers.get("1"), data_now.get("checker"), data_now.get("timeOfChecking")))
+    time_before = data_now.get("timeOfChecking")
+    page.locator("button[data-action='submit']").first.click()
+    page.wait_for_timeout(900)
+    problems = page.locator(".app-content").inner_text()
+    check("...and a row with a place and a count is no longer refused", "Rodent catch #1" not in problems, problems[:300])
+    rec = stored()
+    data_now = (rec or {}).get("data") or {}
+    check("Submitted, the checker and the time stay as they stood (s177)", rec.get("status") == "Pending Verification" and data_now.get("checker") == "Kapila Barad" and data_now.get("timeOfChecking") == time_before, (rec.get("status"), data_now.get("checker"), data_now.get("timeOfChecking")))
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

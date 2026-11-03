@@ -37,6 +37,7 @@ export interface WordsData {
   level?: string;
   by?: string;
   part?: string;
+  confirm?: boolean;
 }
 
 export interface NotificationWords {
@@ -74,11 +75,11 @@ export function moduleName(code: string | undefined, lang: NotificationLanguage)
   return MODULE_NAMES[code.toUpperCase()]?.[lang] ?? code;
 }
 
-/** "2026-10-09" as the app writes a date, "09-10-26", in every language (utils/date.ts formatDisplayDate). */
+/** "2026-10-09" as the app writes a date, "09-10-2026", in every language (utils/date.ts formatDisplayDate, REQUIREMENTS §171). */
 export function displayDate(iso: string | undefined): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
   if (!m) return iso ?? "";
-  return `${m[3]}-${m[2]}-${m[1].slice(2)}`;
+  return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0);
@@ -116,6 +117,7 @@ const EN: Record<string, Words> = {
   ready: (d) => ({ title: `Ready for you: ${nameOf(d)}`, body: `${called(d)} of ${displayDate(d.dueDate)} is ready. Review it, then submit.` }),
   needs_input: (d) => {
     const n = num(d.count);
+    if (d.confirm) return { title: `Confirm the readings: ${nameOf(d)}`, body: `${called(d)}: the readings of ${displayDate(d.dueDate)} were filled in. Check them against the scale and confirm them, or type the readings it showed. This reminder comes every day until you do.` };
     return n > 0
       ? { title: `${n} ${n === 1 ? "reading" : "readings"} to enter: ${nameOf(d)}`, body: `${called(d)} of ${displayDate(d.dueDate)} is ready for you: ${n} ${n === 1 ? "reading" : "readings"} to enter, then submit.` }
       : { title: `To fill in: ${nameOf(d)}`, body: `${called(d)} of ${displayDate(d.dueDate)} needs your entries before it can be submitted.` };
@@ -135,6 +137,13 @@ const EN: Record<string, Words> = {
     const what = `${called(d)} of ${displayDate(d.dueDate)}`;
     const head = d.by ? `${clean(d.by)} sent back ${what}` : `${what} was sent back`;
     return { title: `Sent back: ${nameOf(d)}`, body: `${head}${why ? `: "${why}"` : ""}. Put it right and submit it again.` };
+  },
+  training: (d) => {
+    const topic = clean(d.subject) || "Training";
+    const by = clean(d.by);
+    const n = num(d.daysLate);
+    if (n > 0) return { title: `Training not held yet: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} was planned for ${displayDate(d.dueDate)}, ${n} ${n === 1 ? "day" : "days"} ago. Hold it, then write the actual date in ${called(d)}.` };
+    return { title: `Training coming up: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} is planned for ${displayDate(d.dueDate)} in ${called(d)}. Hold it on that day, then write the actual date in the calendar.` };
   },
   boss_summary: (d) => {
     const t = summaryTotals(d);
@@ -161,6 +170,7 @@ const HI: Record<string, Words> = {
   ready: (d) => ({ title: `आपके लिए तैयार: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) तैयार है। रिकॉर्ड जाँचें, फिर जमा करें।` }),
   needs_input: (d) => {
     const n = num(d.count);
+    if (d.confirm) return { title: `रीडिंग की पुष्टि करें: ${nameOf(d)}`, body: `${called(d)}: ${displayDate(d.dueDate)} की रीडिंग भरी जा चुकी हैं। उन्हें तराज़ू से मिलाकर पुष्टि करें, या तराज़ू ने जो दिखाया वह भरें। पुष्टि होने तक यह याद दिलाना रोज़ आएगा।` };
     return n > 0
       ? { title: `${n} रीडिंग भरनी ${n === 1 ? "है" : "हैं"}: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) आपके लिए तैयार है: ${n} रीडिंग भरें, फिर जमा करें।` }
       : { title: `भरना बाकी: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) में आपकी जानकारी भरनी बाकी है, उसके बाद ही जमा होगा।` };
@@ -177,6 +187,13 @@ const HI: Record<string, Words> = {
     const what = `${called(d)} (${displayDate(d.dueDate)})`;
     const head = d.by ? `${clean(d.by)} ने ${what} वापस भेजा` : `${what} वापस भेजा गया`;
     return { title: `वापस भेजा गया: ${nameOf(d)}`, body: `${head}${why ? `: "${why}"` : ""}। इसे ठीक करके फिर से जमा करें।` };
+  },
+  training: (d) => {
+    const topic = clean(d.subject) || "ट्रेनिंग";
+    const by = clean(d.by);
+    const n = num(d.daysLate);
+    if (n > 0) return { title: `ट्रेनिंग अभी नहीं हुई: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${displayDate(d.dueDate)} को तय थी, ${n} दिन बीत गए। ट्रेनिंग कराएँ, फिर ${called(d)} में वास्तविक तारीख़ लिखें।` };
+    return { title: `ट्रेनिंग आने वाली है: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${called(d)} में ${displayDate(d.dueDate)} को तय है। उस दिन ट्रेनिंग कराएँ, फिर कैलेंडर में वास्तविक तारीख़ लिखें।` };
   },
   boss_summary: (d) => {
     const t = summaryTotals(d);
@@ -203,6 +220,7 @@ const GU: Record<string, Words> = {
   ready: (d) => ({ title: `તમારા માટે તૈયાર: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) તૈયાર છે. રેકોર્ડ તપાસો, પછી સબમિટ કરો.` }),
   needs_input: (d) => {
     const n = num(d.count);
+    if (d.confirm) return { title: `રીડિંગની પુષ્ટિ કરો: ${nameOf(d)}`, body: `${called(d)}: ${displayDate(d.dueDate)} ની રીડિંગ ભરાઈ ગઈ છે. તેને ત્રાજવા સાથે મેળવીને પુષ્ટિ કરો, અથવા ત્રાજવાએ જે બતાવ્યું તે ભરો. પુષ્ટિ થાય ત્યાં સુધી આ યાદ દરરોજ આવશે.` };
     return n > 0
       ? { title: `${n} રીડિંગ ભરવાના બાકી: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) તમારા માટે તૈયાર છે: ${n} રીડિંગ ભરો, પછી સબમિટ કરો.` }
       : { title: `ભરવાનું બાકી: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) માં તમારે માહિતી ભરવાની બાકી છે, પછી જ સબમિટ થશે.` };
@@ -219,6 +237,13 @@ const GU: Record<string, Words> = {
     const what = `${called(d)} (${displayDate(d.dueDate)})`;
     const head = d.by ? `${clean(d.by)} એ ${what} પાછું મોકલ્યું` : `${what} પાછું મોકલવામાં આવ્યું`;
     return { title: `પાછું મોકલ્યું: ${nameOf(d)}`, body: `${head}${why ? `: "${why}"` : ""}. સુધારીને ફરી સબમિટ કરો.` };
+  },
+  training: (d) => {
+    const topic = clean(d.subject) || "તાલીમ";
+    const by = clean(d.by);
+    const n = num(d.daysLate);
+    if (n > 0) return { title: `તાલીમ હજી થઈ નથી: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${displayDate(d.dueDate)} ના રોજ નક્કી હતી, ${n} દિવસ વીતી ગયા. તાલીમ કરાવો, પછી ${called(d)} માં ખરી તારીખ લખો.` };
+    return { title: `તાલીમ આવી રહી છે: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${called(d)} માં ${displayDate(d.dueDate)} ના રોજ નક્કી છે. તે દિવસે તાલીમ કરાવો, પછી કેલેન્ડરમાં ખરી તારીખ લખો.` };
   },
   boss_summary: (d) => {
     const t = summaryTotals(d);
@@ -321,9 +346,9 @@ export function testWords(lang: NotificationLanguage | string = "en"): Notificat
 export type EmailSlot = "morning" | ReminderSlot;
 
 /** The groups an email lists a person's open work under, in this order. */
-export type EmailGroup = "overdue" | "sent_back" | "to_fill" | "verify" | "upcoming";
+export type EmailGroup = "overdue" | "sent_back" | "to_fill" | "verify" | "training" | "upcoming";
 
-export const EMAIL_GROUPS: readonly EmailGroup[] = ["overdue", "sent_back", "to_fill", "verify", "upcoming"];
+export const EMAIL_GROUPS: readonly EmailGroup[] = ["overdue", "sent_back", "to_fill", "verify", "training", "upcoming"];
 
 /** The group a kind is listed under, or null for one no email carries (the summaries, the escalations, an access change). */
 export function emailGroupOf(kind: string): EmailGroup | null {
@@ -338,6 +363,8 @@ export function emailGroupOf(kind: string): EmailGroup | null {
       return "to_fill";
     case "verify":
       return "verify";
+    case "training":
+      return "training";
     case "upcoming":
       return "upcoming";
     default:
@@ -379,7 +406,7 @@ const EMAIL_EN: EmailWords = {
     reminder: "These are still open for you in DCRS.",
     lastCall: "Last call for today: these are still open for you in DCRS.",
   },
-  groups: { overdue: "Overdue", sent_back: "Sent back", to_fill: "To fill and submit", verify: "To verify", upcoming: "Coming up" },
+  groups: { overdue: "Overdue", sent_back: "Sent back", to_fill: "To fill and submit", verify: "To verify", training: "Trainings to hold", upcoming: "Coming up" },
   otherModule: "Other documents",
   more: (n) => `and ${n} more`,
   openLink: "Open DCRS to see them all:",
@@ -403,7 +430,7 @@ const EMAIL_HI: EmailWords = {
     reminder: "DCRS में आपके लिए यह अभी बाकी है।",
     lastCall: "आज की आख़िरी याद: DCRS में आपके लिए यह अभी बाकी है।",
   },
-  groups: { overdue: "देर से", sent_back: "वापस भेजे गए", to_fill: "भरकर जमा करने हैं", verify: "सत्यापन के लिए", upcoming: "जल्द देय" },
+  groups: { overdue: "देर से", sent_back: "वापस भेजे गए", to_fill: "भरकर जमा करने हैं", verify: "सत्यापन के लिए", training: "ट्रेनिंग करानी हैं", upcoming: "जल्द देय" },
   otherModule: "अन्य दस्तावेज़",
   more: (n) => `और ${n} अन्य`,
   openLink: "सब देखने के लिए DCRS खोलें:",
@@ -427,7 +454,7 @@ const EMAIL_GU: EmailWords = {
     reminder: "DCRS માં તમારા માટે આ હજી બાકી છે.",
     lastCall: "આજની છેલ્લી યાદ: DCRS માં તમારા માટે આ હજી બાકી છે.",
   },
-  groups: { overdue: "મોડું", sent_back: "પાછું મોકલ્યું", to_fill: "ભરીને સબમિટ કરવાનું", verify: "ચકાસણી માટે", upcoming: "આવનારું" },
+  groups: { overdue: "મોડું", sent_back: "પાછું મોકલ્યું", to_fill: "ભરીને સબમિટ કરવાનું", verify: "ચકાસણી માટે", training: "તાલીમ કરાવવાની", upcoming: "આવનારું" },
   otherModule: "બીજા દસ્તાવેજ",
   more: (n) => `અને બીજા ${n}`,
   openLink: "બધું જોવા DCRS ખોલો:",

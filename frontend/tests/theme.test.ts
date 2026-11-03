@@ -145,6 +145,10 @@ test("dark and the computer's dark are screen only, and re-declare every colour 
     for (const k of block.decls.keys()) assert.ok(k === "color-scheme" || TOKENS.includes(k), `${k}: the dark blocks hold tokens only (the app's names follow them)`);
   }
   assert.deepEqual([...dark[0].decls], [...system[0].decls], "the computer's dark is the chosen dark");
+  // Daylight by night (REQUIREMENTS §166): the dark tokens again under the daylight theme's night, screen only, for the first paint.
+  const night = ruleFor(':root[data-theme="daylight"][data-sky="night"]', ["@media screen"]);
+  assert.equal(night.length, 1, "one block for daylight's night, inside @media screen");
+  assert.deepEqual([...night[0].decls], [...dark[0].decls], "daylight's night is the chosen dark");
   assert.equal(dark[0].decls.get("--canvas"), "#262624");
   assert.equal(dark[0].decls.get("--paper"), "#FFFFFF", "the paper is white in dark too");
 });
@@ -205,7 +209,9 @@ test("the shared components are on the tokens: a primary is a fill with its labe
 });
 
 test("the hard rules: no !important added, no backdrop-filter, no colour that moves, the lifts transform-only", () => {
-  assert.ok((appCss.match(/!important/g) ?? []).length <= 46, "no !important beyond the 46 the stylesheet had (print and Google Translate)");
+  // 47: F/HR/18's Month & Year underline in print (parth-project-main-updated, 30-Oct-2026) - the print rule for inputs takes
+  // every border off with !important, and an inset shadow in its place boxed the month in a printed PDF.
+  assert.ok((appCss.match(/!important/g) ?? []).length <= 47, "no !important beyond the 47 the stylesheet had (print and Google Translate)");
   assert.doesNotMatch(css, /backdrop-filter/);
   for (const r of RULES) {
     const t = r.decls.get("transition");
@@ -252,7 +258,7 @@ test("index.html paints the choice before the stylesheet is read; one theme colo
   const script = indexHtml.indexOf('localStorage.getItem("dcrs:theme")');
   const sheet = indexHtml.indexOf('<link rel="stylesheet" href="assets/styles.css" />');
   assert.ok(script > 0 && sheet > script, "the theme is on <html> before the first stylesheet");
-  assert.match(indexHtml, /if\(t==="light"\|\|t==="dark"\|\|t==="system"\)\{document\.documentElement\.setAttribute\("data-theme",t\);\}/, "only the three choices are painted");
+  assert.match(indexHtml, /if\(t==="light"\|\|t==="dark"\|\|t==="system"\|\|t==="daylight"\)\{document\.documentElement\.setAttribute\("data-theme",t\);if\(t==="daylight"&&localStorage\.getItem\("dcrs:sky"\)==="night"\)\{document\.documentElement\.setAttribute\("data-sky","night"\);\}\}/, "only the four choices are painted, and daylight's night base with it (§166)");
   assert.match(indexHtml, /try\{[\s\S]*\}catch\(e\)\{\}/, "storage blocked: the page still opens, light");
   assert.equal((indexHtml.match(/name="theme-color"/g) ?? []).length, 1);
   assert.match(indexHtml, /<meta name="theme-color" content="#7e3c40" \/>/, "the company's burgundy in every theme");
@@ -273,7 +279,7 @@ test("light until somebody chooses; a choice is kept with the person's settings 
   const theme = await import("../src/store/theme");
   assert.equal(theme.DEFAULT_THEME, "light");
   assert.equal(settingsRepository.get().theme, "light", "the default");
-  assert.deepEqual([...theme.THEME_CHOICES], ["light", "dark", "system"]);
+  assert.deepEqual([...theme.THEME_CHOICES], ["light", "dark", "system", "daylight"]);
   assert.ok(!theme.THEME_MIRROR_KEY.startsWith("dcrs:v1:"), "this browser's copy is never synced");
   localStorage.setItem("dcrs:v1:settings", JSON.stringify({ theme: "purple" }));
   assert.equal(settingsRepository.get().theme, "light", "a theme that is not one of the three reads as light");
@@ -287,6 +293,7 @@ test("light until somebody chooses; a choice is kept with the person's settings 
   assert.ok(heard >= 1, "the switches hear of it");
   assert.equal(theme.paintedTheme(), "dark");
   assert.equal(theme.effectiveTheme("system"), "light", "no computer preference known: light");
+  assert.ok(["light", "dark"].includes(theme.effectiveTheme("daylight")), "daylight is light by day and dark by night (§166)");
 });
 
 test("the sign-in screen's choice is this browser's alone, and the next person to sign in here takes it on", async () => {

@@ -58,6 +58,8 @@ export function periodDays(schedule: ScheduleConfig): number | null {
       return 30;
     case "quarterly":
       return 91;
+    case "half-yearly":
+      return 182;
     case "yearly":
       return 365;
     case "as-required":
@@ -107,6 +109,8 @@ export interface Notification {
   route: string;
   /** Plain words for the line: "3 days late" / "due today" / "due on 26-Sep-2026". */
   when: string;
+  /** What is left to do on it, where the document says so (engine/reminders.ts reminderNoteFor: F/QC/17's two boxes). */
+  note?: string;
 }
 
 const whenWords = (daysUntilDue: number, dueDate: string): string => {
@@ -171,6 +175,7 @@ export function daysWork(reminders: readonly DocumentReminder[], person: Pick<Au
       priority: priorityOf(doc.schedule, r.daysUntilDue),
       route: r.route,
       when: whenWords(r.daysUntilDue, r.dueDate),
+      ...(r.note ? { note: r.note } : {}),
     });
   }
   // Worst first: by priority, then by how long it has waited, then by name so

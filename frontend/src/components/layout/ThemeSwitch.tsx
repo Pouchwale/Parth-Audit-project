@@ -1,27 +1,50 @@
 import React, { useEffect, useId, useRef, useState } from "react";
-import { FiCheck, FiMonitor, FiMoon, FiSun } from "react-icons/fi";
+import { FiCheck, FiMonitor, FiMoon, FiSun, FiSunrise } from "react-icons/fi";
 import { t } from "../../i18n";
-import { setThemeChoice, THEME_CHOICES, useTheme, type ThemeChoice } from "../../store/theme";
+import { previewSky, setThemeChoice, themeChoicesOffered, useTheme, type ThemeChoice } from "../../store/theme";
 
-const ICONS: Record<ThemeChoice, typeof FiSun> = { light: FiSun, dark: FiMoon, system: FiMonitor };
+const ICONS: Record<ThemeChoice, typeof FiSun> = { light: FiSun, dark: FiMoon, system: FiMonitor, daylight: FiSunrise };
+
+/** "See the day" (REQUIREMENTS §166): a minute of the plant's day to paint, from the day's own sun times. */
+export const SKY_PREVIEWS = ["dawn", "noon", "evening", "night", "now"] as const;
+export type SkyPreview = (typeof SKY_PREVIEWS)[number];
+
+export function previewMinuteFor(which: SkyPreview, times: { sunrise: number; noon: number; sunset: number; dusk: number }): number | null {
+  switch (which) {
+    case "dawn":
+      return times.sunrise + 6;
+    case "noon":
+      return times.noon;
+    case "evening":
+      return times.sunset - 12;
+    case "night":
+      return times.dusk + 150;
+    default:
+      return null;
+  }
+}
 
 // THE THEME SWITCH (REQUIREMENTS §90): an icon in the top bar, after the language
 // control (the bar still begins with the connection, the clock and the language,
 // e2e_topbar_status), and the same at the foot of the sign-in card. It opens a small
-// menu of three: Light, Dark and Same as my computer, one of them ticked.
+// menu of four: Light, Dark, Same as my computer and Daylight (with the sun, §166), one
+// of them ticked. With Daylight ticked the menu also says the day's sunrise and sunset
+// and the sky now, and offers "See the day": dawn, noon, evening, night, now - a look
+// for this page alone, never kept.
 //
 // The button has no word of its own (its name is "Theme", its tooltip says which is
-// on), so no suite that finds a button by its words can land on it; the three words
-// are on the page only while the menu is open. By keyboard: Enter, Space or the down
-// arrow opens it on the ticked one, the arrows move, Enter or Space chooses, Escape
-// closes; focus comes back to the button. A click anywhere else closes it.
+// on), so no suite that finds a button by its words can land on it; the words are on
+// the page only while the menu is open. By keyboard: Enter, Space or the down arrow
+// opens it on the ticked one, the arrows move, Enter or Space chooses, Escape closes;
+// focus comes back to the button. A click anywhere else closes it.
 //
 // Signed in, the choice is kept with the person's settings (store/theme.tsx). On the
 // sign-in screen (`mirrorOnly`) this browser alone keeps it, for the sign-in screen
 // and for whoever signs in next here. The words come from the plain `t`, so the switch
 // works before the app's store exists; the top bar redraws it when the language changes.
 export function ThemeSwitch({ mirrorOnly = false }: { mirrorOnly?: boolean }) {
-  const { choice, computer } = useTheme();
+  const { choice, computer, sky } = useTheme();
+  const THEME_CHOICES = themeChoicesOffered();
   const [open, setOpen] = useState(false);
   const [focusAt, setFocusAt] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -66,23 +89,26 @@ export function ThemeSwitch({ mirrorOnly = false }: { mirrorOnly?: boolean }) {
     }
   };
   const onMenuKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // The arrows walk the four choices; inside "See the day" the keys are the buttons' own.
+    const inPreview = !!(e.target as HTMLElement | null)?.closest?.("[data-sky-preview]");
     const move: Record<string, number> = { ArrowDown: (focusAt + 1) % THEME_CHOICES.length, ArrowUp: (focusAt + last) % THEME_CHOICES.length, Home: 0, End: last };
-    if (e.key in move) {
+    if (e.key in move && !inPreview) {
       e.preventDefault();
       setFocusAt(move[e.key]);
     } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
       close(true);
-    } else if (e.key === "Tab") {
-      // Leaving by Tab: the menu closes and focus goes on where Tab takes it.
+    } else if (e.key === "Tab" && (inPreview || choice !== "daylight" || e.shiftKey)) {
+      // Leaving by Tab: the menu closes and focus goes on where Tab takes it (with Daylight ticked, Tab first reaches "See the day").
       setOpen(false);
     }
   };
 
   const name = (c: ThemeChoice) => t(`theme.${c}`);
   const Icon = ICONS[choice];
-  const showing = choice === "system" ? `${name("system")} (${t(`theme.now.${computer}`)})` : name(choice);
+  const phaseWord = sky ? t(`theme.phase.${sky.phase}`) : "";
+  const showing = choice === "system" ? `${name("system")} (${t(`theme.now.${computer}`)})` : choice === "daylight" && sky ? `${name("daylight")} (${phaseWord})` : name(choice);
 
   return (
     <div className="theme-switch" data-theme-switch ref={wrapRef}>
@@ -126,7 +152,31 @@ export function ThemeSwitch({ mirrorOnly = false }: { mirrorOnly?: boolean }) {
               </button>
             );
           })}
-          <div className="theme-menu-note">{t("theme.computerNow", { theme: t(`theme.now.${computer}`) })}</div>
+          {choice === "daylight" && sky ? (
+            <>
+              <div className="theme-menu-note" data-field="sky-note">
+                {t("theme.skyNote", { sunrise: sky.sunrise, sunset: sky.sunset, phase: phaseWord })}
+              </div>
+              <div className="theme-menu-preview" data-field="sky-preview">
+                <span className="theme-menu-preview-label">{t("theme.preview")}</span>
+                {SKY_PREVIEWS.map((which) => (
+                  <button
+                    key={which}
+                    type="button"
+                    className={`btn btn-ghost btn-sm${which === "now" && !sky.preview ? " is-on" : ""}`}
+                    data-action="preview-sky"
+                    data-sky-preview={which}
+                    onClick={() => previewSky(previewMinuteFor(which, sky.times))}
+                  >
+                    {t(`theme.preview.${which}`)}
+                  </button>
+                ))}
+              </div>
+              {sky.preview && <div className="theme-menu-note">{t("theme.previewNote")}</div>}
+            </>
+          ) : (
+            <div className="theme-menu-note">{t("theme.computerNow", { theme: t(`theme.now.${computer}`) })}</div>
+          )}
         </div>
       )}
     </div>

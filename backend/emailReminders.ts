@@ -68,7 +68,7 @@ import { isReminderLanguage } from "../frontend/src/engine/reminderEmail.ts";
 type Env = Record<string, string | undefined>;
 
 /** The kinds an email carries: a person's own work. Not the summaries, the escalations or an access change. */
-export const EMAIL_KINDS: readonly string[] = ["overdue", "sent_back", "due", "needs_input", "ready", "verify", "upcoming"];
+export const EMAIL_KINDS: readonly string[] = ["overdue", "sent_back", "due", "needs_input", "ready", "verify", "training", "upcoming"];
 /** The day's three slots, in order. */
 export const DIGEST_SLOTS: readonly EmailSlot[] = ["morning", "reminder", "lastCall"];
 /** A slot's email is tried this many times at most: the first try and two more, on later runs. */

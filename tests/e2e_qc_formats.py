@@ -1213,7 +1213,7 @@ with sync_playwright() as p:
     started = record(page, rid) or {}
     started_header = started.get("data", {}).get("header", {})
     check(
-        "A new F/QC/17 (600 mm) holds the master scale's identity and its calibration 21-09-26 due 20-09-27 (28-Oct-2026), its updated page's serial and range, the ruler's calibration 23-09-26 due 22-09-27 (27-Oct-2026), the printed tolerance, and nothing of the 2024 page",
+        "A new F/QC/17 (600 mm) holds the master scale's identity and its calibration 21-09-2026 due 20-09-2027 (28-Oct-2026), its updated page's serial and range, the ruler's calibration 23-09-2026 due 22-09-2027 (27-Oct-2026), the printed tolerance, and nothing of the 2024 page",
         started_header.get("masterSerialNo") == "QC-44" and started_header.get("acceptableTolerance") == "+ / - 1 mm"
         and started_header.get("masterCalibrationDate") == "2026-09-21" and started_header.get("masterCalibrationDueDate") == "2027-09-20"
         and started_header.get("serialNo") == "GP-3/MS/36" and started_header.get("range") == "0-600mm"

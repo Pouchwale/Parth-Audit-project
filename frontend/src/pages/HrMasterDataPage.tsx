@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiDownload, FiInfo, FiPlus, FiPrinter, FiTrash2, FiUpload } from "react-icons/fi";
+import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiDownload, FiInfo, FiPlus, FiPrinter, FiTrash2, FiUpload, FiUserCheck, FiUsers } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
@@ -19,9 +19,14 @@ import {
 } from "../engine/hrMaster";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { Modal } from "../components/common/Modal";
+import { HrMasterFileEveryoneDialog, HrMasterFilingDialog } from "../components/hr/HrMasterFilingDialog";
+import { ROLE_WORDS, roleOf } from "../engine/hrMasterFiling";
+import { takeFromRegisters, takeWords } from "../engine/hrMasterRegisters";
+import { recordRepository } from "../data/repositories/recordRepository";
 import { buildXlsx, readFirstSheet, sniffSpreadsheet, SpreadsheetReadError } from "../utils/xlsx";
 import { downloadBlob, parseCSV } from "../utils/csv";
 import { printDocument } from "../utils/print";
+import { logActivity } from "../utils/activityLog";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import type { HrMasterColumnKey, HrMasterPerson } from "../types";
 import { useT } from "../i18n";
@@ -69,12 +74,35 @@ export function HrMasterDataPage() {
   const [message, setMessage] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
   const [notesOpen, setNotesOpen] = useState<string | null>(null);
   const [removing, setRemoving] = useState<HrMasterPerson | null>(null);
+  // Filing on the HR formats for their role (engine/hrMasterFiling.ts): one person, or everyone on the sheet.
+  const [filing, setFiling] = useState<HrMasterPerson | null>(null);
+  const [filingEveryone, setFilingEveryone] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const people = useMemo(() => hrMasterRepository.all(), [version]);
   const visible = HR_RECORD_PAGES.some((p) => isDocumentIdVisible(p.docId));
+  // THE REGISTERS FEED THE SHEET (engine/hrMasterRegisters.ts, REQUIREMENTS §161): what the records on file of the
+  // linked formats give — blanks filled on their own whenever the sheet is opened, newcomers offered.
+  const registers = useMemo(() => {
+    const records = HR_MASTER_LINKS.flatMap((l) => recordRepository.query({ documentId: l.docId, isDemo: mode === "demo" }));
+    return takeFromRegisters(people, records);
+  }, [people, mode]);
+  useEffect(() => {
+    if (registers.fills.length === 0) return;
+    const { filled } = hrMasterRepository.takeFromRegisters({ fills: registers.fills, newcomers: [] }, currentUser || "HR Master Data");
+    if (filled > 0) {
+      logActivity("HR Master Data filled from the registers", "HR Master Data", takeWords(filled, 0));
+      bump();
+    }
+  }, [registers, currentUser, bump]);
+  const addNewcomers = () => {
+    const { added } = hrMasterRepository.takeFromRegisters({ fills: [], newcomers: registers.newcomers }, currentUser || "HR Master Data");
+    logActivity("HR Master Data: people added from the registers", "HR Master Data", takeWords(0, added));
+    setMessage({ tone: "ok", text: takeWords(0, added) });
+    bump();
+  };
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -207,6 +235,14 @@ export function HrMasterDataPage() {
             style={{ display: "none" }}
             onChange={(e) => void chooseFile(e.target.files?.[0])}
           />
+          {registers.newcomers.length > 0 && (
+            <button className="btn btn-secondary btn-sm" data-action="hr-master-take-registers" title={registers.newcomers.map((n) => `${n.fullName} (${n.sources[0]})`).join(", ")} onClick={addNewcomers}>
+              <FiUserCheck size={12} /> Add {registers.newcomers.length} from the registers
+            </button>
+          )}
+          <button className="btn btn-secondary btn-sm" data-action="hr-master-file-everyone" disabled={people.length === 0} onClick={() => setFilingEveryone(true)}>
+            <FiUsers size={12} /> File everyone on their formats
+          </button>
           <button className="btn btn-secondary btn-sm" data-action="hr-master-print" onClick={() => printDocument(sheetRef.current)}>
             <FiPrinter size={12} /> Print
           </button>
@@ -218,7 +254,9 @@ export function HrMasterDataPage() {
       <p className="text-muted mb-4">
         Human Resources' employee master sheet — one line per employee: GP3 No., Joining Date, Full Name, Department, Designation/Position and Date of Birth.
         The HR formats that name a person fetch that person's details from here, so they are written once. Type in any cell (it is saved when you leave it),
-        or download the sheet to Excel and upload it back.
+        or download the sheet to Excel and upload it back. The Designation/Position decides a person's role — staff, or operator / worker — and the role decides
+        which formats they go on: <FiUserCheck size={12} style={{ verticalAlign: -2 }} /> on a line files that person, and <em>File everyone on their formats</em> files
+        the whole sheet, each on the formats for their role, never twice.
         {/* The two modes are spoken of only where there are two (engine/features.ts, REQUIREMENTS §65). */}
         {demoModeAvailable() ? " It is the same sheet in Live and Demo mode." : ""}
       </p>
@@ -303,7 +341,7 @@ export function HrMasterDataPage() {
                     <span className="print-only">{c.label}</span>
                   </th>
                 ))}
-                <th className="no-print" style={{ width: 70 }}></th>
+                <th className="no-print" style={{ width: 100 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -352,6 +390,15 @@ export function HrMasterDataPage() {
                             {person.notes?.length ? <FiAlertTriangle size={13} /> : <FiInfo size={13} />}
                           </button>
                         )}
+                        <button
+                          className="btn btn-ghost btn-sm btn-icon"
+                          data-action="hr-master-file"
+                          title={`File on the HR formats for ${person.designation.trim() ? `a ${person.designation.trim()} (${ROLE_WORDS[roleOf(person)]})` : ROLE_WORDS[roleOf(person)]}`}
+                          disabled={!person.fullName.trim()}
+                          onClick={() => setFiling(person)}
+                        >
+                          <FiUserCheck size={13} />
+                        </button>
                         <button className="btn btn-ghost btn-sm btn-icon" data-action="hr-master-delete" title="Remove from the sheet" onClick={() => setRemoving(person)}>
                           <FiTrash2 size={13} />
                         </button>
@@ -396,7 +443,8 @@ export function HrMasterDataPage() {
           <p className="text-muted mb-2">
             On a record of any of these, pick the person by GP3 No. or name and their details are filled in — blank boxes straight away, anything already written
             only if you say so. A register line whose name is on the sheet can have its blanks filled in one go. What a record fetched stays on it if the sheet
-            changes later.
+            changes later. By role: staff go on F/HR/01, F/HR/05 and F/HR/04, operators / workers on F/HR/03 and F/HR/06, everyone on F/HR/08; a record of a
+            format kept for the other role asks before it takes them.
           </p>
           <div className="doc-table">
             <table className="compact">
@@ -469,6 +517,8 @@ export function HrMasterDataPage() {
       )}
 
       {pending && <ImportPreview pending={pending} onCancel={() => setPending(null)} onApply={applyImport} />}
+      {filing && <HrMasterFilingDialog key={filing.id} person={filing} onClose={() => setFiling(null)} onDone={bump} />}
+      {filingEveryone && <HrMasterFileEveryoneDialog onClose={() => setFilingEveryone(false)} onDone={bump} />}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { FiAlignLeft, FiArrowDown, FiArrowLeft, FiArrowRight, FiArrowUp, FiCheckCircle, FiChevronDown, FiCopy, FiCornerUpLeft, FiCornerUpRight, FiEdit3, FiPlus, FiSave, FiSliders, FiTrash2, FiX } from "react-icons/fi";
+import { FiAlignLeft, FiArrowDown, FiArrowLeft, FiArrowRight, FiArrowUp, FiCheckCircle, FiChevronDown, FiCopy, FiCornerUpLeft, FiCornerUpRight, FiEdit3, FiPlus, FiSave, FiSliders, FiTrash2, FiType, FiX } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogFieldType, LogHeaderField, LogSheetLayout } from "../../types";
 import { Modal } from "../common/Modal";
 import { useSureFirst } from "../common/SureFirst";
@@ -16,7 +16,9 @@ import { NotesBelow } from "../records/NotesBelow";
 import { PrintedTable } from "../records/PrintedTable";
 import { nextRevisionNo, type FormatRevision } from "../../data/formatEdits";
 import { closeDesignSession, openDesignSession } from "../../engine/designSession";
-import { setLeaveGuard } from "../../store/router";
+import { setLeaveGuard, useRouter } from "../../store/router";
+import { useAuth } from "../../store/AuthContext";
+import { startTextDesign } from "../../../../indexing/TextDesigner";
 import {
   BOX_TYPES,
   COLUMN_TYPES,
@@ -532,6 +534,17 @@ export function SheetDesigner({
   };
 
   const leave = () => (dirty ? setDialog({ kind: "discard" }) : onExit());
+  // Every other printed word (the header's labels, a certificate's tables…), changed and moved on the sheet itself (indexing/TextDesigner.tsx).
+  const { navigate } = useRouter();
+  const superAdmin = useAuth().user?.role === "admin";
+  const toTextLayout = () => {
+    const go = () => startTextDesign(doc, navigate);
+    if (dirty) setDialog({ kind: "discard", then: go });
+    else {
+      onExit();
+      go();
+    }
+  };
 
   // ---- the menu that is open, if any --------------------------------------
 
@@ -925,6 +938,9 @@ export function SheetDesigner({
         >
           <FiSliders size={13} /> More options…
         </button>
+        {superAdmin && <button className="btn btn-ghost btn-sm" data-action="designer-text-layout" onClick={toTextLayout} title="Change or move any other printed word of the format — its header labels, its tables — on the sheet itself (Indexing, super admin)">
+          <FiType size={13} /> Text &amp; layout
+        </button>}
         <button className="btn btn-ghost btn-sm" data-action="designer-discard" onClick={leave}>
           <FiX size={13} /> {dirty ? "Discard" : "Leave design mode"}
         </button>

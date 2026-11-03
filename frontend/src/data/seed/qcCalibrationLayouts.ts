@@ -30,7 +30,7 @@ import type { LogColumn, LogSheetLayout } from "../../types";
 //
 // AND FROM THE FINDINGS ON §111 (13-Oct-2026, REQUIREMENTS §111 part 6): every box
 // carries the paper's own words, colons and ":-" included ("Device ID No:",
-// "Calibration Expiry:"), F/QC/11's Due Date stood at the right of its line (the line is taken away, 28-Oct-2026);
+// "I. Calibration Date:-"), F/QC/11's Due Date stands at the right of its line (taken away 28-Oct-2026, back 30-Oct-2026);
 // the headings print in the paper's letters ("No. 54", "20 x 20cm", "Deviation %"),
 // not the sheet's capitals; F/QC/11's Pass/Fail and Sign. lines are one cell a
 // plate (groupCellLines); a Deviation % outside F/QC/12's Acceptable Tolerance is
@@ -49,9 +49,9 @@ import type { LogColumn, LogSheetLayout } from "../../types";
  * "you need to add calibration expiry date is 20-9-27 in qc-11 and 12"). Every new sheet starts with the due date in
  * its Calibration Expiry - F/QC/12's and F/QC/11's - and it stays editable; a sheet keeps the later of the last sheet's
  * date and this (autoFill.newest), so the 2024 dates of the pages on file never come back, and the next certificate's
- * date, once written, carries on. Neither paper has a box for the certificate's own date (F/QC/11's "I. Calibration
- * Date / Due Date" row is taken away, the owner, 28-Oct-2026: "remove whole that row because in upper side ... there
- * is already calibration expiry date").
+ * date, once written, carries on. F/QC/11's "I. Calibration Date:- / Due Date:-" row holds the certificate's 21-09-26 and
+ * 20-09-27 the same way (taken away on 28-Oct-2026, back on the owner's word of 30-Oct-2026: "you have missed the
+ * calibration date and due date in format so add that", REQUIREMENTS §147); F/QC/12's paper has no Calibration Date box.
  */
 export const CALIBRATION_CERTIFICATE = { date: "2026-09-21", due: "2027-09-20" } as const;
 
@@ -66,12 +66,10 @@ const text = (key: string, label: string, width?: number): LogColumn => ({ key, 
 
 /** The five test weights of the weight scale sheet, as the form prints them. */
 export const WEIGHT_SCALE_COLUMNS: LogColumn[] = [
-  // A calibration line prepared for a week is that week's calibration, so its
-  // Date is the day the record is for, and the Next Due Date on the line keeps
-  // its own interval after it (engine/autoFill.ts). Copied as written, every
-  // weekly sheet of a demo year read the supplied page's 2024 dates
-  // (REQUIREMENTS §75).
-  { key: "date", label: "Date", type: "date", width: 130, autoFill: { dueDate: true } },
+  // THE DATE IS THE PERSON'S (the owner, 29-Oct-2026, REQUIREMENTS §145: "date will decide by user not system"): the
+  // first line's is typed; each line below starts on the Next Due Date above it (LogSheetLayout.nextDueChain). A demo
+  // sheet's are its month's weeks (engine/autoFill.ts calibrationSample), never the supplied page's 2024 dates (§75).
+  { key: "date", label: "Date", type: "date", width: 130 },
   { key: "testedBy", label: "Tested By", type: "text", width: 130, autoFill: { sign: true } },
 ];
 /**
@@ -92,9 +90,14 @@ export const STANDARD_WEIGHTS = ["0.050mg", "50.000gm", "100.000gm", "200.000gm"
 export const FIXED_TESTED_VALUES = 2;
 
 for (let i = 1; i <= 5; i++) {
-  WEIGHT_SCALE_COLUMNS.push({ ...text(`weight${i}`, `Weight ${i}`, 110), standard: STANDARD_WEIGHTS[i - 1] });
+  // Fixed on every line, never typed over (the owner, 30-Oct-2026, REQUIREMENTS §146).
+  WEIGHT_SCALE_COLUMNS.push({ ...text(`weight${i}`, `Weight ${i}`, 110), standard: STANDARD_WEIGHTS[i - 1], locked: true });
   WEIGHT_SCALE_COLUMNS.push(
-    i <= FIXED_TESTED_VALUES ? { ...text(`testedValue${i}`, `Tested Value ${i}`, 120), standard: STANDARD_WEIGHTS[i - 1] } : text(`testedValue${i}`, `Tested Value ${i}`, 120)
+    i <= FIXED_TESTED_VALUES
+      ? // Written when the line's date comes (engine/nominalFill.ts fillScaleLine), not on a line still to come.
+        text(`testedValue${i}`, `Tested Value ${i}`, 120)
+      : // What the scale shows: the figure alone is typed, the weight's unit and places follow (the owner, 30-Oct-2026).
+        { ...text(`testedValue${i}`, `Tested Value ${i}`, 120), unitFrom: `weight${i}` }
   );
   // On the entry's second line, under its Tested Value (REQUIREMENTS §111). Its
   // name says which weight it is: the paper heads the line "Deviation %" once.
@@ -146,6 +149,21 @@ export const WEIGHT_SCALE_HEADER: Record<string, string> = {
   acceptableTolerance: "0.05 %",
 };
 
+/** THE BOXES EVERY NEW F/QC/12 SHEET STARTS WITH (the owner, 29-Oct-2026, with his sheet's header block: "i want this
+ * values fix in but editable in format of qc-12", REQUIREMENTS §142 note 6): the balance's standing facts as the format's
+ * own fixed values (autoFill.default), there with or without an earlier page, each editable on the sheet; what a person
+ * writes over one carries to the next sheet as before (§117), and a box left blank starts fixed again. The Serial No is
+ * the person's, as the owner's page leaves it; the Calibration Expiry is the certificate's (CALIBRATION_CERTIFICATE). */
+export const WEIGHT_SCALE_FIXED_BOXES: Record<string, string> = {
+  deviceIdNo: "QC-76",
+  location: "Laboratory",
+  department: "LAB",
+  manufacturer: "Force Strain Sensors",
+  minReadingCapacity: "0.1 gm",
+  maxReadingCapacity: "600 gm",
+  acceptableTolerance: "0.05 %",
+};
+
 const weightScale: LogSheetLayout = {
   documentId: "qc-weight-scale-calibration",
   // The paper has no Sr. No. column: its entries are known by their Date (REQUIREMENTS §111).
@@ -161,29 +179,29 @@ const weightScale: LogSheetLayout = {
   headingsAsPrinted: true,
   // Each box's words as the paper prints them, its colon included; the names stay those the history and Mitra go by.
   headerFields: [
-    { key: "deviceIdNo", label: "Device ID No", printedLabel: "Device ID No:", type: "text", width: 140, autoFill: { carryForward: true } },
-    { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 140, autoFill: { carryForward: true } },
-    { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { carryForward: true } },
-    { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { carryForward: true } },
+    // The balance's standing facts as the format's own fixed values, editable on the sheet (WEIGHT_SCALE_FIXED_BOXES).
+    { key: "deviceIdNo", label: "Device ID No", printedLabel: "Device ID No:", type: "text", width: 140, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.deviceIdNo } },
+    { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 140, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.location } },
+    { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.department } },
+    { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.manufacturer } },
     { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 110, autoFill: { carryForward: true } },
     // The certificate's due date, 20-09-27, on every new sheet (CALIBRATION_CERTIFICATE, the owner, 27-Oct-2026).
     { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true, default: CALIBRATION_CERTIFICATE.due, newest: true } },
-    { key: "minReadingCapacity", label: "Minimum Reading Capacity", printedLabel: "Minimum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true } },
-    { key: "maxReadingCapacity", label: "Maximum Reading Capacity", printedLabel: "Maximum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true } },
-    { key: "acceptableTolerance", label: "Acceptable Tolerance", printedLabel: "Acceptable Tolerance:", type: "text", width: 140, autoFill: { carryForward: true } },
+    { key: "minReadingCapacity", label: "Minimum Reading Capacity", printedLabel: "Minimum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.minReadingCapacity } },
+    { key: "maxReadingCapacity", label: "Maximum Reading Capacity", printedLabel: "Maximum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.maxReadingCapacity } },
+    { key: "acceptableTolerance", label: "Acceptable Tolerance", printedLabel: "Acceptable Tolerance:", type: "text", width: 140, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.acceptableTolerance } },
   ],
   columns: WEIGHT_SCALE_COLUMNS,
-  // ONE SHEET A WEEK, ONE CALIBRATION ON IT (REQUIREMENTS §111 rule 3, §117): the owner, 16-Oct-2026, on a sheet
-  // DCRS had printed with five weeks on it — "Weekly → for new record → New Record!". Every week is a new record
-  // of its own; the sheet is the week's one line (and its Deviation % line), with no line added to it. The supplied
-  // page of February–March 2024 keeps its four weeks, as written (data/seed/qcCalibrationRecords.ts).
-  // ADD ROW WHEN IT IS NEEDED (the owner, 22-Oct-2026): the week's sheet still starts with its one calibration, and a
-  // second one the same week (a re-test after a Fail) is a line added to it, never a line written for the person.
-  rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
-  // A new week's sheet is written as the last one was — every box and the line, editable (§117)...
+  // A SHEET A MONTH, A LINE A WEEK (the owner, 29-Oct-2026, REQUIREMENTS §145: "month wise from January to December ...
+  // 4 rows in document each row denotes one week"), as the laboratory's own page has four weeks on it - until then one
+  // sheet a week (§111 rule 3, §117). A fifth week, or a re-test after a Fail, is a line added (22-Oct-2026).
+  rowMode: { kind: "free", minRows: 4, typicalRows: 4 },
+  // The weeks follow one another: a line's Next Due Date a week on from its date, the next line starting on it (§145).
+  nextDueChain: { dateKey: "date", nextKey: "nextDueDate", days: 7 },
+  // A new month's sheet is written as the last one was — every box, editable (§117)...
   carryForwardAll: true,
-  // ...but not its line (the owner, 29-Oct-2026, REQUIREMENTS §142): the week's line starts from its standards - the five
-  // weights and the fixed Tested Values 1 and 2 - and its readings are that week's own, never last week's.
+  // ...but not its lines (the owner, 29-Oct-2026, REQUIREMENTS §142): each week's line starts from its standards - the
+  // five weights and the fixed Tested Values 1 and 2 - and its readings and date are that week's own.
   carryLines: false,
   // A landscape page, as the original is (§117): the print, the PDF, the Word and Excel files follow it.
   paper: "landscape",
@@ -270,16 +288,22 @@ const gsmPlate: LogSheetLayout = {
     { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { default: GSM_PRINTED.department, carryForward: true } },
     { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { default: GSM_PRINTED.manufacturer, carryForward: true } },
     { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 120, autoFill: { carryForward: true } },
-    // THE CERTIFICATE'S DUE DATE ON EVERY NEW SHEET (CALIBRATION_CERTIFICATE, the owner, 27/28-Oct-2026): 20-09-27,
-    // editable, kept when a later one is written (autoFill.newest). The paper's "I. Calibration Date:- / Due Date:-" row
-    // over the grid is taken away (the owner, 28-Oct-2026: "remove whole that row because in upper side as you can see
-    // there is already calibration expiry date"); what a sheet stored in it before stays in its data, not shown.
+    // THE CERTIFICATE'S DATES ON EVERY NEW SHEET (CALIBRATION_CERTIFICATE, the owner, 27-Oct-2026): Calibration Expiry and
+    // Due Date 20-09-27, I. Calibration Date 21-09-26, each editable and kept when a later one is written (autoFill.newest).
+    // The paper prints "I. Calibration Date:-" over the grid; its name stays "Calibration Date". The row was taken away on
+    // 28-Oct-2026 and is back on the owner's word of 30-Oct-2026 (REQUIREMENTS §147): what a sheet held in it shows again.
     { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true, default: CALIBRATION_CERTIFICATE.due, newest: true } },
+    { key: "calibrationDate", label: "Calibration Date", printedLabel: "I. Calibration Date:-", type: "date", width: 150, autoFill: { default: CALIBRATION_CERTIFICATE.date, newest: true } },
+    // "Due Date:-" at the right of the line, where the paper prints it (paperColumn).
+    { key: "dueDate", label: "Due Date", printedLabel: "Due Date:-", type: "date", width: 150, paperColumn: 3, autoFill: { default: CALIBRATION_CERTIFICATE.due, newest: true } },
   ],
   columns: gsmColumns,
   rowMode: { kind: "fixedRows", rows: GSM_ROWS.map((parameter) => ({ parameter })) },
-  // A new month's sheet is written as the last one was — every box and every line, editable (§117).
+  // A new month's sheet is written as the last one was — every box, editable (§117)...
   carryForwardAll: true,
+  // ...but not its lines (the owner, 30-Oct-2026): each month's sheet starts from the plates' sizes and Pass, and its
+  // Sign. line is the opener's on opening (engine/nominalFill.ts) - never last month's measurements or signer.
+  carryLines: false,
   // Pass/Fail and Sign.: one cell under each plate, across its size and Deviation, as printed.
   groupCellLines: [GSM_ROWS.indexOf("Pass/Fail"), GSM_ROWS.indexOf("Sign.")],
   notesBelow: [`PROCEDURE: ${CALIBRATION_PROCEDURE}`],

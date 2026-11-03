@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FiCheck, FiEdit2, FiKey, FiList, FiMail, FiPlus, FiRefreshCw, FiRotateCcw, FiShield, FiSlash, FiStar, FiTrash2, FiUser, FiUserPlus, FiUsers } from "react-icons/fi";
 import { accessApi, ApiError, emailApi, usersApi, type EmailSettingsAnswer, type ReminderContact } from "../api/client";
 import { AccessSection, useAccessDocs, useAccessRules } from "../components/access/AccessSection";
+import { MitraSwitch } from "../components/access/MitraSwitch";
+import { BackupCard } from "../components/access/BackupCard";
 import { ACCESS_MODULES, buildAccess } from "../engine/accessRules";
 import { accountOf, lastSuperAdmin } from "../engine/accessEditing";
 import { shortSignIn, signInAddress } from "../engine/accountNames";
@@ -725,6 +727,20 @@ export function UsersPage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Mitra for the staff: the super admin's one switch for the plant (components/access/MitraSwitch.tsx, 2-Nov-2026). */}
+      {isAdmin && (
+        <div className="mt-4">
+          <MitraSwitch />
+        </div>
+      )}
+
+      {/* Backups: the database, or the code and the database, from the super admin's page (components/access/BackupCard.tsx, 2-Nov-2026). */}
+      {isAdmin && (
+        <div className="mt-4">
+          <BackupCard />
         </div>
       )}
 

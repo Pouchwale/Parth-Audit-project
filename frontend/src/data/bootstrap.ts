@@ -14,6 +14,9 @@ import { alignSeededLineNumbers } from "./lineNumbersMigration";
 import { alignPapersOnFile } from "./paperOnFileMigration";
 import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
 import { alignCertificateDates } from "./certificateDatesMigration";
+import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
+import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
+import { gmpYesOnOpenSheets } from "./gmpYesMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -86,6 +89,14 @@ export function bootstrap(): void {
   removeOffScheduleShells();
   // The calibration certificate's dates (§129) in the sheets still open, each with a line in its history.
   alignCertificateDates();
+  // F/QC/17's new starting boxes (30-10-26) in the sheets created before, still open, each with a line in its history.
+  alignRulerBoxes();
+  // ...and round 2 (30-10-26): Range, Least count, Kristeel and the report number from the certificate's years.
+  alignRulerBoxesRound2();
+  // F/QC/12's fixed weights on every line of the sheets still open (§146), each with a line in its history.
+  standardWeightsOnOpenSheets();
+  // F/HR/19's every point at Yes on the untouched sheets already made (§170), each with a line in its history.
+  gmpYesOnOpenSheets();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

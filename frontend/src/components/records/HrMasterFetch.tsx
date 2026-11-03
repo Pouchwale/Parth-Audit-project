@@ -17,6 +17,7 @@ import {
   type FieldFill,
   type HrMasterLink,
 } from "../../engine/hrMaster";
+import { roleMismatchWords } from "../../engine/hrMasterFiling";
 
 // FETCH FROM HR MASTER DATA ON A RECORD (REQUIREMENTS §53) — the bar above an
 // HR format that names a person, shown while the record can be written in.
@@ -32,7 +33,7 @@ import {
 // never overwritten by an old list. It is rendered keyed by the record, so a
 // question about one record never carries over to another.
 
-type Result = "filled" | "added" | "conflict" | "not-found" | "several" | "nothing" | "already" | "several-lines";
+type Result = "filled" | "added" | "conflict" | "not-found" | "several" | "nothing" | "already" | "several-lines" | "role";
 
 interface Pending {
   person: HrMasterPerson;
@@ -63,6 +64,8 @@ export function HrMasterFetch({
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<HrMasterPerson[]>([]);
   const [pending, setPending] = useState<Pending | null>(null);
+  // A person whose role is not this format's (a Manager on the operators' matrix): fetched only when HR says so.
+  const [roleAsk, setRoleAsk] = useState<HrMasterPerson | null>(null);
   const [outcome, setOutcome] = useState<{ result: Result; text: string } | null>(null);
   const perHeader = link.where === "header";
 
@@ -78,9 +81,20 @@ export function HrMasterFetch({
     say("filled", `Filled from HR Master Data — ${describePerson(person)}${n ? ` (line ${n})` : ""}: ${listed(fills)}.`);
   };
 
-  const take = (person: HrMasterPerson) => {
+  const take = (person: HrMasterPerson, roleChecked = false) => {
     setCandidates([]);
     setPending(null);
+    setRoleAsk(null);
+    // THE FORMAT'S OWN ROLE (engine/hrMasterFiling.ts): F/HR/01 and 05 are the staff's, F/HR/03 and 06 the
+    // operators'. Somebody of the other role is not written on it without asking — "without any mistake or confusion".
+    if (!roleChecked) {
+      const warning = roleMismatchWords(link.docId, link.formatNo, person);
+      if (warning) {
+        setRoleAsk(person);
+        say("role", `${warning} ${perHeader ? "Fetch" : "Add"} anyway?`);
+        return;
+      }
+    }
     const people = hrMasterRepository.all();
     let rowId: string | null = null;
     if (!perHeader) {
@@ -110,6 +124,7 @@ export function HrMasterFetch({
 
   const find = () => {
     setPending(null);
+    setRoleAsk(null);
     const { exact, candidates: found } = searchPeople(query, hrMasterRepository.all());
     if (exact) {
       take(exact);
@@ -125,6 +140,7 @@ export function HrMasterFetch({
 
   const fillBlanks = () => {
     setPending(null);
+    setRoleAsk(null);
     setCandidates([]);
     const { data: next, filled, notOnSheet, onSeveralLines } = fillBlanksFromMaster(link, data, hrMasterRepository.all());
     const missing = notOnSheet.length > 0 ? ` ${notOnSheet.length} name${notOnSheet.length === 1 ? " is" : "s are"} not on HR Master Data: ${notOnSheet.slice(0, 5).join(", ")}${notOnSheet.length > 5 ? "…" : ""}.` : "";
@@ -210,6 +226,24 @@ export function HrMasterFetch({
           <div className="text-sm mt-2" data-state="hr-master-result" data-result={outcome.result}>
             {outcome.result === "filled" || outcome.result === "added" ? <FiCheckCircle size={13} style={{ verticalAlign: -2, color: "var(--color-success)" }} /> : <FiInfo size={13} style={{ verticalAlign: -2 }} />}{" "}
             {outcome.text}
+          </div>
+        )}
+
+        {roleAsk && (
+          <div className="flex gap-2 wrap mt-2" data-section="hr-master-role-ask">
+            <button className="btn btn-primary btn-sm" data-action="hr-master-role-anyway" onClick={() => take(roleAsk, true)}>
+              {perHeader ? "Fetch anyway" : "Add anyway"}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              data-action="hr-master-role-leave"
+              onClick={() => {
+                setRoleAsk(null);
+                say("nothing", "Left as it was — nothing fetched.");
+              }}
+            >
+              Leave it
+            </button>
           </div>
         )}
 

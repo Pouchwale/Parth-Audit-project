@@ -1,5 +1,5 @@
 import React from "react";
-import { FiUser, FiPlayCircle, FiCheckCircle, FiLogOut, FiZap, FiMenu, FiSidebar } from "react-icons/fi";
+import { FiUser, FiPlayCircle, FiCheckCircle, FiLogOut, FiZap, FiMenu, FiSidebar, FiArrowLeft } from "react-icons/fi";
 import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
 import { confirmLeave, useRouter } from "../../store/router";
@@ -15,6 +15,7 @@ import { ChangePasswordDialog } from "../common/ChangePasswordDialog";
 import { Clock, ConnectionStatus } from "./TopbarStatus";
 import { SoundToggle } from "./SoundToggle";
 import { ThemeSwitch } from "./ThemeSwitch";
+import { SkyArc } from "./SkyArc";
 import { StreakCounter } from "./StreakCounter";
 
 export function Topbar() {
@@ -22,9 +23,15 @@ export function Topbar() {
   const { user, logout } = useAuth();
   const [changingPassword, setChangingPassword] = React.useState(false);
   const [loggingOut, setLoggingOut] = React.useState(false);
-  const { navigate } = useRouter();
+  const { navigate, back, canGoBack, path } = useRouter();
   const { visible: sidebarVisible, toggle: toggleSidebar } = useSidebar();
   const t = useT();
+  // BACK FROM WHEREVER YOU ARE (the owner, 3-Nov-2026: "add back option in whole project so user can go back from wherever
+  // he is at the time", REQUIREMENTS §175): the page you came from (the router's own trail, §48), or the Dashboard when
+  // this screen was opened straight from an address. On the Dashboard with nothing behind it there is nowhere to go, so
+  // the button is not shown there.
+  const onHome = path === "/" || path === "/dashboard";
+  const showBack = canGoBack || !onHome;
 
   return (
     <>
@@ -33,6 +40,8 @@ export function Topbar() {
           name and lets the controls wrap rather than widen the page. The two
           groups are named for that; nothing else reads the names. */}
       <div className="app-topbar no-print">
+        {/* The sky, while the theme follows the sun (REQUIREMENTS §166): the band is the bar's own background, this is what moves in it. */}
+        <SkyArc />
         <div className="app-topbar-start flex items-center gap-3">
           {/* The only way back once the panel is closed, so it lives here
               rather than inside the panel it hides. */}
@@ -48,6 +57,11 @@ export function Topbar() {
           >
             {sidebarVisible ? <FiSidebar size={16} /> : <FiMenu size={16} />}
           </button>
+          {showBack && (
+            <button type="button" className="btn btn-ghost btn-sm topbar-back" data-action="back" onClick={() => back()} title={t("common.back")} aria-label={t("common.back")}>
+              <FiArrowLeft size={14} /> <span className="topbar-label">{t("common.back")}</span>
+            </button>
+          )}
           {/* The Live / Demo switch exists only on a server started with Demo Mode
               (engine/features.ts, REQUIREMENTS §65). The product has one mode, and
               a lone "Live" pill would be a switch to nowhere. */}

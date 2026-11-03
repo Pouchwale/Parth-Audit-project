@@ -43,9 +43,9 @@ export const CALIBRATION_GEOMETRY: Record<string, CalibrationGeometry> = {
     width: 262.38,
     gridWidth: 262.38,
     head: { company: 9.52, companyY: 0.51, linesGap: 0.53, title: 9.54, titleY: 0.52 },
-    // Two lines of three boxes. The paper's space and its Calibration Date / Due Date line under them are taken away
-    // (the owner, 28-Oct-2026): no empty band is left between the boxes and the grid.
-    boxes: { cols: [89.13, 89.12, 84.13], rows: [9.52, 9.53], x: [0, 0, 0], labelY: [0.42, 0.4], valueY: [0.6, 0.6], centred: true },
+    // Two lines of three boxes, a space, then the Calibration Date (two columns wide) and the Due Date (the line taken away
+    // on 28-Oct-2026 and back on 30-Oct-2026, REQUIREMENTS §147).
+    boxes: { cols: [89.13, 89.12, 84.13], rows: [9.52, 9.53, 9.95, 9.01], x: [0, 0, 0], labelY: [0.42, 0.4, 0, 0.4], valueY: [0.6, 0.6, 0, 0.6], centred: true },
     grid: { cols: [24.14, 35.26, 29.73, 29.72, 29.68, 29.72, 29.77, 29.72, 24.64], head: [9.24, 9.82], lines: [9.23, 9.82, 9.24, 9.82, 9.23, 9.52], gapAbove: 0 },
     notes: { gapAbove: 5.0, pitch: 4.45, x: 1.88 },
     foot: { y: 198.98 },

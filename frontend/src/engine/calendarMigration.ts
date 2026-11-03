@@ -35,7 +35,8 @@ function within(a: string, b: string): boolean {
   return Number.isFinite(gap) && gap <= UNTOUCHED_WINDOW_MS;
 }
 
-function untouchedByPeople(r: RecordInstance): boolean {
+/** A sheet nobody has written on: made, or prepared by the assistant, and nothing since (data/gmpYesMigration.ts reads it too). */
+export function untouchedByPeople(r: RecordInstance): boolean {
   if (r.submittedAt || r.verifiedAt || r.rejectedAt) return false;
   if (r.prepared) return r.status === "In Progress" && within(r.updatedAt, r.prepared.at);
   return (r.status === "Scheduled" || r.status === "Due") && within(r.updatedAt, r.createdAt);

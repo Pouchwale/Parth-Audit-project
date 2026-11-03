@@ -1,4 +1,7 @@
 import type { LogSheetData, LogSheetRow } from "../types";
+// INDEXING: a formula the super admin changed in the index is worked out in place of the code below (indexing/formulaRuntime.ts).
+import { formulaOverride } from "../../../indexing/formulaRuntime";
+import { asNumber, runFormula } from "../../../indexing/formulaLanguage";
 
 // THE WEIGHTED RATINGS ON THE TWO PURCHASE MONITORING REGISTERS ARE WORKED
 // OUT, NOT TYPED (REQUIREMENTS §68). Both formats print the arithmetic on the
@@ -85,21 +88,40 @@ export function actionForGrade(grade: string): string {
 }
 
 /** F/PUR/05's five formula cells for one line, worked out from the ratings written on it. */
+/** One rating at its weight: the printed weight, or the index's formula when the super admin changed it. */
+function weightedNow(slotId: string, rating: unknown, weight: number): string {
+  const changed = formulaOverride(slotId);
+  if (!changed) return weightedRating(rating, weight);
+  return twoPlaces(asNumber(runFormula(changed, { R: figure(rating) ?? 0 })) ?? 0);
+}
+
 export function supplierRatingCells(row: RatingCells): RatingCells {
-  const overall = overallWeightedRating(row.productSafetyRating, row.qualityRating, row.deliveryRating);
+  const productSafety = weightedNow("pur05.safetyWeighted", row.productSafetyRating, PRODUCT_SAFETY_WEIGHT);
+  const quality = weightedNow("pur05.qualityWeighted", row.qualityRating, QUALITY_WEIGHT);
+  const delivery = weightedNow("pur05.deliveryWeighted", row.deliveryRating, DELIVERY_WEIGHT);
+  // Added as the form prints them (overallWeightedRating), unless the index changed the Overall Rating's formula.
+  const overallFormula = formulaOverride("pur05.overall");
+  const overall = overallFormula
+    ? twoPlaces(asNumber(runFormula(overallFormula, { PS: Number(productSafety), Q: Number(quality), D: Number(delivery) })) ?? 0)
+    : twoPlaces([productSafety, quality, delivery].reduce((sum, part) => sum + Number(part), 0));
   const rated = [row.productSafetyRating, row.qualityRating, row.deliveryRating].some((v) => figure(v) !== null);
+  const gradeFormula = formulaOverride("pur05.grade");
+  const grade = !rated ? "" : gradeFormula ? String(runFormula(gradeFormula, { OVERALL: Number(overall) }) ?? "") : gradeForOverall(Number(overall));
   return {
-    productSafetyWeightage: weightedRating(row.productSafetyRating, PRODUCT_SAFETY_WEIGHT),
-    qualityWeightage: weightedRating(row.qualityRating, QUALITY_WEIGHT),
-    deliveryWeightage: weightedRating(row.deliveryRating, DELIVERY_WEIGHT),
+    productSafetyWeightage: productSafety,
+    qualityWeightage: quality,
+    deliveryWeightage: delivery,
     overallRating: overall,
-    grade: rated ? gradeForOverall(Number(overall)) : "",
+    grade,
   };
 }
 
 /** F/PUR/06's one formula cell: the two parameter ratings added, each out of 50. */
 export function serviceRatingCells(row: RatingCells): RatingCells {
-  const total = (figure(row.deliveryRating) ?? 0) + (figure(row.qualityRating) ?? 0);
+  const changed = formulaOverride("pur06.overall");
+  const total = changed
+    ? (asNumber(runFormula(changed, { D: figure(row.deliveryRating) ?? 0, Q: figure(row.qualityRating) ?? 0 })) ?? 0)
+    : (figure(row.deliveryRating) ?? 0) + (figure(row.qualityRating) ?? 0);
   return { overallRating: String(Math.round(total * 100) / 100) };
 }
 

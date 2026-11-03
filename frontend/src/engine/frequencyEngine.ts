@@ -50,6 +50,13 @@ export function dueDatesInMonth(doc: DocumentDefinition, year: number, month: nu
       const day = Math.min(s.dayOfMonth, dim);
       return [iso(day)];
     }
+    case "half-yearly": {
+      // Twice a year, six months apart, from the anchor month (REQUIREMENTS §163).
+      const offset = (month - s.anchorMonth + 12) % 12;
+      if (offset % 6 !== 0) return [];
+      const day = Math.min(s.dayOfMonth, dim);
+      return [iso(day)];
+    }
     case "yearly": {
       if (month !== s.month) return [];
       const day = Math.min(s.dayOfMonth, dim);
@@ -74,6 +81,7 @@ export function dueDatesInMonth(doc: DocumentDefinition, year: number, month: nu
 //   monthly      the calendar month
 //   quarterly    the three months from a quarter's first month (counted from
 //                the schedule's anchor month)
+//   half-yearly  the six months from a half's first month, the same way
 //   yearly       the calendar year
 // Each holds exactly one of the dates the schedule names (`scheduled`): the
 // date the generator keys that period's sheet on (engine/recordGenerator.ts),
@@ -112,12 +120,14 @@ export function schedulePeriodOf(doc: DocumentDefinition, dateISO: string): Sche
       const dim = daysInMonth(year, month);
       return { from: iso(year, month, 1), to: iso(year, month, dim), scheduled: iso(year, month, Math.min(s.dayOfMonth, dim)) };
     }
-    case "quarterly": {
-      const back = (((month - s.anchorMonth) % 3) + 3) % 3;
+    case "quarterly":
+    case "half-yearly": {
+      const span = s.type === "quarterly" ? 3 : 6;
+      const back = (((month - s.anchorMonth) % span) + span) % span;
       const startYear = month - back < 0 ? year - 1 : year;
       const startMonth = (month - back + 12) % 12;
-      const endYear = startMonth + 2 > 11 ? startYear + 1 : startYear;
-      const endMonth = (startMonth + 2) % 12;
+      const endYear = startMonth + span - 1 > 11 ? startYear + 1 : startYear;
+      const endMonth = (startMonth + span - 1) % 12;
       return {
         from: iso(startYear, startMonth, 1),
         to: iso(endYear, endMonth, daysInMonth(endYear, endMonth)),
@@ -144,6 +154,8 @@ export function scheduleLabel(doc: DocumentDefinition): string {
       return `Day ${s.dayOfMonth} of each month`;
     case "quarterly":
       return `Quarterly (day ${s.dayOfMonth}, from ${MONTH_NAMES[s.anchorMonth].slice(0, 3)})`;
+    case "half-yearly":
+      return `Half-yearly (day ${s.dayOfMonth}, from ${MONTH_NAMES[s.anchorMonth].slice(0, 3)})`;
     case "yearly":
       return `Yearly (${s.dayOfMonth} ${MONTH_NAMES[s.month].slice(0, 3)})`;
     case "as-required":

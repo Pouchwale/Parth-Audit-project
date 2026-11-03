@@ -28,7 +28,23 @@ export interface LogHeaderField {
   // 20-09-27; F/QC/17's ruler 23-09-26, due 22-09-27): a standing box that starts as `default`, editable, and a new
   // sheet keeps the LATER of the last sheet's date and that one - a certificate's dates only move forward, so an
   // older date carried from 2024 never comes back, and a newer one somebody writes is kept (engine/carryForward.ts).
-  autoFill?: { carryForward?: boolean; default?: string; sign?: boolean; dueDate?: boolean; newest?: boolean };
+  // `carryForward: false`: on a sheet written as the last one was (LogSheetLayout.carryForwardAll) this box is NOT
+  // carried - it starts empty for the person to write each time.
+  // `formerDefaults`: values the box STARTED with before its default changed (F/QC/17's "Kristeen", the owner, 30-10-26): a
+  // last sheet holding one of them gives the new sheet the default instead; anything else a person wrote is carried.
+  // `yearsOf`: a number made of two dates' years (F/QC/17's master report number, CAL/LPI/GP-<yy>/<yy> from its calibration
+  // date and due date): a new sheet takes the number its own dates give, unless the last sheet held one a person wrote.
+  autoFill?: {
+    carryForward?: boolean;
+    default?: string;
+    sign?: boolean;
+    dueDate?: boolean;
+    newest?: boolean;
+    /** The twelve months the sheet covers, from its due date: "01.04.2027 ~ 31.03.2028" (F/HR/09, engine/trainingCalendar.ts). */
+    financialYear?: boolean;
+    formerDefaults?: string[];
+    yearsOf?: { prefix: string; date: string; due: string };
+  };
   width?: number;
   /**
    * A box WORKED OUT from what is written on the sheet, never typed — F/MKT/02's
@@ -238,6 +254,12 @@ export interface LogColumn {
    */
   toleranceFrom?: string;
   /**
+   * A FIGURE TYPED BARE TAKES THE UNIT OF ANOTHER CELL ON ITS LINE (the owner, 30-Oct-2026, F/QC/12): the key of that cell.
+   * "100.002" typed under the 100.000gm weight is written "100.002gm" when the box is left — to the weight's places
+   * ("100" → "100.000gm"). A figure typed with its own unit is kept as typed (engine/calibration.ts unitized).
+   */
+  unitFrom?: string;
+  /**
    * THE STANDARD THE PLANT'S PRACTICE WRITES IN THIS CELL OF EVERY NEW LINE (REQUIREMENTS §117, the owner,
    * 16-Oct-2026: "Weights should be fixed (default)"): F/QC/12's five test weights, 50 gm to 600 gm. Written into
    * every new line — a new record's, Add line's, Mitra's (engine/recordDefaults.ts blankLogRow) — and the person
@@ -245,6 +267,12 @@ export interface LogColumn {
    * part of the line, as a fixed column is (engine/observations.ts), but it stays editable.
    */
   standard?: string;
+  /**
+   * A STANDARD NOBODY TYPES OVER (the owner, 30-Oct-2026, REQUIREMENTS §146: F/QC/12's weights "fix ... in all four
+   * rows"): the `standard` on every line, shown as words like a worked-out cell, never a box; not bound for a file read
+   * back, refused to Mitra, and put back on every open sheet at start (data/standardWeightsMigration.ts).
+   */
+  locked?: true;
   // Auto-fill behaviour for this column. Precedence in engine/autoFill.ts:
   //   dueDate → sign → nominal (random reading inside the band) → carryForward
   //   (copy the template value exactly) → jitter (template value ± jitter%) →
@@ -272,6 +300,10 @@ export interface LogColumn {
     jitter?: number;
     // Fixed default value.
     default?: string | number;
+    // THE COLUMN FOLLOWS A HEADER BOX (REQUIREMENTS §159): the key of the box whose value every line's cell takes
+    // when it is blank, and moves with when the box is changed — F/HR/05's Planned Date on every topic is the new
+    // employee's Date of Joining (engine/headerFollowers.ts). A cell the person wrote differently is left alone.
+    fromHeader?: string;
     // A "clock time" column filled with the current/typical time.
     nowTime?: boolean;
     // A date column that answers with the date the record is for, on every
@@ -299,7 +331,10 @@ export type LogRowMode =
   // A fixed list of rows printed on the form (e.g. an inspection record's
   // test parameters), each carrying constant values for the `fixed`
   // columns (parameter name, specification) — the user only fills the rest.
-  | { kind: "fixedRows"; rows: Record<string, string | number | null>[] };
+  // `openLines` (REQUIREMENTS §158, the owner 2-Nov-2026): the printed lines are a starting list, not the paper's
+  // law — the HR forms' training topics, questions and areas. A person adds a line of their own and takes any line
+  // off THIS record; the format keeps its printed list for the next record.
+  | { kind: "fixedRows"; rows: Record<string, string | number | null>[]; openLines?: boolean };
 
 export interface ReferenceTable {
   title: string;
@@ -525,6 +560,10 @@ export interface LogSheetLayout {
   /** With carryForwardAll: the boxes are carried but not the lines - each new sheet's lines start from the columns'
    *  standards (F/QC/12, REQUIREMENTS §142: its readings are the week's own). */
   carryLines?: false;
+  /** THE WEEKS OF A PAGE FOLLOW ONE ANOTHER (F/QC/12, REQUIREMENTS §145): a line's `nextKey` is its `dateKey` + `days`
+   *  where none is written, and the line below starts on it; the first line's date is the person's
+   *  (engine/nextDueChain.ts). */
+  nextDueChain?: { dateKey: string; nextKey: string; days: number };
   /**
    * THE LINES A FORMER PAGE OF THE PAPER PRINTED, each as its fixed rows' starts: a previous sheet whose lines are
    * exactly one of these (as numbers) belongs to the old page, so a new sheet carries its boxes and not its lines

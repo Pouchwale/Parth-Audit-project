@@ -118,10 +118,15 @@ export interface SessionEnd {
   id?: string;
 }
 
-/** What the server has switched on. Both optional: a server from before them says nothing, which reads as off. */
+/** What the server has switched on. All optional: a server from before them says nothing, which reads as off — except `mitra`, which reads as on. */
 export interface ServerFeatures {
   demoMode?: boolean;
   signup?: boolean;
+  assistant?: boolean;
+  voice?: boolean;
+  sampleFill?: boolean;
+  /** Whether THIS PERSON has Mitra: the super admin always; the staff unless the super admin switched it off (backend/assistantSwitch.ts). */
+  mitra?: boolean;
 }
 
 export const api = {
@@ -630,6 +635,50 @@ export const accessApi = {
   createMissing: (password: string) => api.post<{ created: { name: string; email: string }[]; existing: string[] }>("/access/accounts/create-missing", { password }),
   /** Make an account the super admin, or staff again; refused when it would leave no super admin. */
   setRole: (userId: string, role: "admin" | "staff") => api.post<{ user: ManagedUser }>(`/users/${encodeURIComponent(userId)}/role`, { role }),
+};
+
+// MITRA FOR THE STAFF (the owner, 2-Nov-2026): one switch for the plant, the super admin's to set (backend/assistantSwitch.ts).
+export interface AssistantAccessAnswer {
+  /** Whether everybody but the super admin has Mitra. */
+  staff: boolean;
+  /** Whether the asker has it (the super admin always). */
+  mine: boolean;
+  by: string;
+  at: string;
+}
+
+export const assistantAccessApi = {
+  get: () => api.get<AssistantAccessAnswer>("/assistant/access"),
+  set: (staff: boolean) => api.put<AssistantAccessAnswer>("/assistant/access", { staff }),
+};
+
+// BACKUPS (backend/backupRoutes.ts; the owner, 2-Nov-2026): the super admin's two backups and the files they wrote.
+export type BackupKind = "database" | "code-and-database";
+export interface BackupFile {
+  name: string;
+  kind: "database" | "roles" | "mitra" | "code-and-database" | "other";
+  size: number;
+  at: string;
+}
+export interface BackupRun {
+  kind: BackupKind;
+  by: string;
+  startedAt: string;
+  finishedAt?: string;
+  ok?: boolean;
+  message?: string;
+  files?: string[];
+}
+export interface BackupStatus {
+  running: BackupRun | null;
+  last: BackupRun | null;
+  files: BackupFile[];
+  dir: string;
+}
+export const backupApi = {
+  status: () => api.get<BackupStatus>("/backup"),
+  start: (kind: BackupKind) => api.post<BackupStatus>("/backup", { kind }),
+  download: async (name: string): Promise<Blob> => (await fetchFile(`/backup/files/${encodeURIComponent(name)}`)).blob,
 };
 
 // EACH PERSON'S NOTIFICATIONS (REQUIREMENTS §97): the ledger the server keeps, worded in the language asked. Every

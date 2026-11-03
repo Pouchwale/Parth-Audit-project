@@ -6,7 +6,8 @@
 // later (engine/notificationText.ts) and kept by the server in PostgreSQL (backend/notifications.ts):
 //
 //   ready         an open record that passes DCRS's checks (the assistant prepared it, or a person filled it): review, submit
-//   needs_input   an open record a person must still add to (`count`: what still stops a submit, the readings to enter)
+//   needs_input   an open record a person must still add to (`count`: what still stops a submit, the readings to enter);
+//                 or (`confirm`) F/QC/12's filled readings of a week, to be confirmed: one a day per line until confirmed
 //   due           due today and not started (a sheet the assistant could not prepare)
 //   upcoming      a heads-up the working day before any scheduled document is due (the owner, 29-Oct-2026, REQUIREMENTS
 //                 §143) - and from ADVANCE_WARNING_DAYS before for monthly, quarterly and yearly ones, whose day is easy
@@ -14,6 +15,9 @@
 //   overdue       still open after its day (an as-required record: after its AS_REQUIRED_DAYS allowance), one per record
 //   verify        submitted and waiting: for everybody with Write on the document but the person who submitted it
 //   sent_back     sent back: for the person who submitted it, with the reason
+//   training      a training the training plan calendar (F/HR/09) plans: ahead of its planned day as `upcoming` is, and
+//                 every day after it until its actual date is written in the calendar (the owner, 2-Nov-2026, §164);
+//                 beside the calendar's own task, whatever the calendar's status
 //   boss_summary  the super admin's counts by module, in the morning and in the evening
 //
 // ONE RECORD, ONE TASK. A record past its day is `overdue`, not also `ready`; a record sent back is `sent_back`, not also
@@ -29,12 +33,12 @@
 // periodDays and priorityOf (engine/notifications.ts), ADVANCE_WARNING_DAYS (engine/reminders.ts) and AS_REQUIRED_DAYS
 // (engine/latenessCore.ts) — are written in here; frontend/tests/notificationPlan.test.ts holds them equal.
 
-export type NotificationKind = "ready" | "needs_input" | "due" | "upcoming" | "overdue" | "verify" | "sent_back" | "boss_summary" | "escalation" | "access_changed";
+export type NotificationKind = "ready" | "needs_input" | "due" | "upcoming" | "overdue" | "verify" | "sent_back" | "training" | "boss_summary" | "escalation" | "access_changed";
 
-export const NOTIFICATION_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due", "upcoming", "overdue", "verify", "sent_back", "boss_summary", "escalation", "access_changed"];
+export const NOTIFICATION_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due", "upcoming", "overdue", "verify", "sent_back", "training", "boss_summary", "escalation", "access_changed"];
 
 /** The kinds this plan decides: an open one of these the plan no longer has is resolved (the record moved on). */
-export const PLANNED_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due", "upcoming", "overdue", "verify", "sent_back", "boss_summary"];
+export const PLANNED_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due", "upcoming", "overdue", "verify", "sent_back", "training", "boss_summary"];
 
 export type NotificationPriority = "high" | "medium" | "low";
 
@@ -74,6 +78,21 @@ export interface NotificationData {
   level?: "none" | "read" | "write" | "edit";
   by?: string;
   part?: "morning" | "evening";
+  /** needs_input: the readings on this line (`dueDate`) are filled and wait for the person to confirm them (F/QC/12). */
+  confirm?: boolean;
+}
+
+/** A training the training plan calendar plans (engine/trainingCalendar.ts PlannedTraining, as the plan reads it). */
+export interface PlanTraining {
+  /** The line and month, one per training: the notification's key with the record's id. */
+  key: string;
+  topic: string;
+  /** The source of training, as the calendar names it. */
+  by?: string;
+  /** The planned day, YYYY-MM-DD. */
+  date: string;
+  /** Its actual date is written: nothing more to tell. */
+  held: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,6 +111,8 @@ export function periodDays(schedule: { type: string }): number | null {
       return 30;
     case "quarterly":
       return 91;
+    case "half-yearly":
+      return 182;
     case "yearly":
       return 365;
     default:
@@ -155,6 +176,7 @@ export function headsUpFrom(schedule: { type: string }, dueDate: string, isClose
       return workingDayBefore(dueDate, isClosedDay);
     case "monthly":
     case "quarterly":
+    case "half-yearly":
     case "yearly": {
       const ahead = addDays(dueDate, -ADVANCE_WARNING_DAYS);
       const before = workingDayBefore(dueDate, isClosedDay);
@@ -195,6 +217,10 @@ export interface PlanRecord {
   rejectionReason?: string | null;
   /** How many times it has been sent back so far: each time is a notification of its own. */
   rejections?: number;
+  /** The dates of the lines whose filled readings still wait for the person to confirm them (F/QC/12), each dated today or before. */
+  toConfirm?: readonly string[];
+  /** The trainings this calendar plans (F/HR/09, engine/trainingCalendar.ts plannedTrainings). */
+  trainings?: readonly PlanTraining[];
 }
 
 export interface PlanPerson {
@@ -307,6 +333,23 @@ export function planNotifications(input: PlanInput): PlannedItem[] {
     const ref = r.stored ? r.id : `${doc.id}|${r.dueDate}`;
     const module = countFor(doc.module);
 
+    // THE TRAININGS THE CALENDAR PLANS (F/HR/09, the owner, 2-Nov-2026, §164): each one not yet held is told of to the
+    // people who answer for the calendar from three days ahead (or the working day before, whichever is earlier, as a
+    // yearly document's heads-up is), and every day after its day, the days late counted, until its actual date is
+    // written - whatever the calendar's own status (the year's calendar is on file, verified, from its first day).
+    if (r.stored && r.trainings) {
+      const trainings = [...r.trainings].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+      for (const t of trainings) {
+        if (t.held || !DAY_RE.test(t.date)) continue;
+        if (input.countedFrom && t.date < input.countedFrom) continue;
+        const from = headsUpFrom({ type: "yearly" }, t.date, isClosedDay);
+        if (from === null || today < from) continue;
+        const late = today > t.date ? daysBetween(t.date, today) : 0;
+        const data: NotificationData = { ...base, dueDate: t.date, subject: t.topic, ...(t.by ? { by: t.by } : {}), daysLate: late };
+        for (const p of responsible(doc.id)) add(p.id, "training", `training|${r.id}|${t.key}`, late > 0 ? "high" : t.date === today ? "medium" : "low", data);
+      }
+    }
+
     if (WAITING.includes(r.status)) {
       if (!r.stored) continue;
       if (module) module.awaitingVerification += 1;
@@ -331,6 +374,17 @@ export function planNotifications(input: PlanInput): PlannedItem[] {
     }
 
     if (!OPEN.includes(r.status)) continue;
+    // F/QC/12: THE FILLED READINGS OF A WEEK WAIT FOR THE PERSON TO CONFIRM THEM (the owner, 30-Oct-2026): one reminder per
+    // line, EVERY DAY until it is confirmed - the day is in the key, so each day's is a new notification and a line left
+    // over from an earlier week keeps its own beside the new one. It stands in for the record's general task.
+    if (r.stored && r.toConfirm && r.toConfirm.length > 0 && !(input.countedFrom && r.dueDate < input.countedFrom)) {
+      for (const lineDate of [...r.toConfirm].sort()) {
+        if (lineDate > today) continue;
+        for (const p of responsible(doc.id)) add(p.id, "needs_input", `confirm|${r.id}|${lineDate}|${today}`, "high", { ...base, dueDate: lineDate, confirm: true, count: 1 });
+        if (module) module.needsInput += 1;
+      }
+      continue;
+    }
     // Nobody files paperwork on the weekly off or a festival holiday; an as-required record was started that day.
     if (!asRequired && isClosedDay(r.dueDate)) continue;
     // A sheet left from before the system went live is the generator's leftover, not work (engine/backlogCleanup.ts).

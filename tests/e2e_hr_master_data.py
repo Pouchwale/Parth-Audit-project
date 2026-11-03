@@ -468,7 +468,7 @@ with sync_playwright() as p:
     preview = page.locator("[data-section='hr-master-import-preview']")
     added_dates = preview.locator("[data-table='import-additions'] tbody tr").all_inner_texts() if preview.count() else []
     check("A file whose slashed dates are month first is read month first throughout, and says so",
-          any("13-05-24" in r for r in added_dates) and any("01-04-25" in r for r in added_dates) and "month first" in preview.inner_text(), added_dates)
+          any("13-05-2024" in r for r in added_dates) and any("01-04-2025" in r for r in added_dates) and "month first" in preview.inner_text(), added_dates)
     page.locator(".modal-box button:has-text('Cancel')").click()
     page.wait_for_timeout(300)
     old_xls = os.path.join(TMP, "old.xls")
@@ -535,10 +535,10 @@ with sync_playwright() as p:
     first.fill("Azad Popatlal Patel")
     first.blur()
     page.wait_for_timeout(500)
-    check("On F/HR/06 a name on the sheet typed into a line fills its joining department & designation and date, day first",
-          row_values(page, 0, induction_keys) == {"name": "Azad Popatlal Patel", "joining": "OPERATOR - POUCH", "dateOfJoiningInduction": "01/07/2025"}, row_values(page, 0, induction_keys))
+    check("On F/HR/06 a name on the sheet typed into a line fills its joining department & designation and date, as the app writes one (REQUIREMENTS §171)",
+          row_values(page, 0, induction_keys) == {"name": "Azad Popatlal Patel", "joining": "OPERATOR - POUCH", "dateOfJoiningInduction": "01-07-2025"}, row_values(page, 0, induction_keys))
     result, text = fetch(page, "Sunny Mahesh Singh", action="hr-master-add-line")
-    check("Add line puts another person on the register", result == "added" and page.locator("table.log-sheet tbody tr").count() == 2 and row_values(page, 1, induction_keys) == {"name": "Sunny Mahesh Singh", "joining": "OPERATOR - POUCH", "dateOfJoiningInduction": "20/07/2025"}, (result, text))
+    check("Add line puts another person on the register", result == "added" and page.locator("table.log-sheet tbody tr").count() == 2 and row_values(page, 1, induction_keys) == {"name": "Sunny Mahesh Singh", "joining": "OPERATOR - POUCH", "dateOfJoiningInduction": "20-07-2025"}, (result, text))
     result, text = fetch(page, "sunny mahesh singh", action="hr-master-add-line")
     check("...but not twice", result == "already" and page.locator("table.log-sheet tbody tr").count() == 2, text)
     result, text = fetch(page, "Sunny Singh", action="hr-master-add-line")
@@ -557,8 +557,8 @@ with sync_playwright() as p:
     result, text = fetch(page, "1031", action="hr-master-add-line")
     count = page.locator("table.log-sheet tbody tr").count()
     new_line = row_values(page, count - 1, competence_keys)
-    check("Reopened, Add line by GP3 No. adds the person to F/HR/01 in its own dotted date style",
-          result == "added" and count == 81 and (new_line["name"], new_line["department"], new_line["designation"], new_line["dateOfJoining"]) == ("Import Newcomer", "Stores", "Assistant", "15.08.2026"), (result, count, new_line))
+    check("Reopened, Add line by GP3 No. adds the person to F/HR/01, the date as the app writes one (REQUIREMENTS §171)",
+          result == "added" and count == 81 and (new_line["name"], new_line["department"], new_line["designation"], new_line["dateOfJoining"]) == ("Import Newcomer", "Stores", "Assistant", "15-08-2026"), (result, count, new_line))
     dept = page.locator("table.log-sheet tbody tr").nth(0).locator("td").nth(2).locator("input")
     dept.fill("")
     page.wait_for_timeout(300)

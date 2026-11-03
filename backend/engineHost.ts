@@ -79,7 +79,7 @@ export interface EngineStore {
  */
 export const ENGINE_API_VERSION = 5;
 /** The company items a browser holds (backend/index.ts COMPANY_KEYS), and the super admin's access rules — entry.ts ITEM_KEYS. */
-export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "access"] as const;
+export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "access", "indexing"] as const;
 type ItemKey = (typeof ITEM_KEYS)[number];
 
 /** One activity-log line the engine wrote, its detail already beginning "Through <client>". */

@@ -5,6 +5,7 @@ import { downloadBlob } from "./csv";
 import { displayDateToISO, formatDisplayDate, todayISO } from "./date";
 import { PRINT_PREPARE_EVENT, paperOf } from "./print";
 import { paperMarginsOf, paperPageOf, paperSheetBlocks, paperWordBlocks } from "./paperSheets";
+import { paperTableSheet, paperTableWord, paperTableWordMargins } from "./paperTableExport";
 import { originalFileBytes, originalFileOf } from "./originalFill";
 import {
   BIND_APPEND_ATTR,
@@ -123,6 +124,20 @@ const WORD_FORMS = new Set([
 const EXCEL_KINDS = new Set(["log-sheet", "daily-pest-monitoring", "fly-catcher", "service-report", "gap-inspection"]);
 const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-record", "compliance-statement", "chemical-master", "service-agreement", "pest-responsibilities"]);
 
+/**
+ * Every kind of file a document downloads as: its own kind, and - for a paper downloaded as it is drawn (the owner,
+ * 30-10-26, F/QC/17: "give me the option to download word also besides download excel") - Excel and Word both.
+ */
+
+export function documentFileKinds(doc: DocumentDefinition | null | undefined): DocumentFileKind[] {
+  const own = documentFileKind(doc);
+  // EVERY FORMAT IN WORD AND EXCEL BOTH (the owner, 31-Oct-2026: "in all formats there should be option of download with
+  // excel and word both"): its own kind first - its original's, filled as before - and the other made from the sheet as
+  // drawn. A document only ever printed (a licence held as issued) has neither.
+  if (!doc || own === "pdf") return [own];
+  return [own, own === "xlsx" ? "docx" : "xlsx"];
+}
+
 export function documentFileKind(doc: DocumentDefinition | null | undefined): DocumentFileKind {
   if (!doc) return "pdf";
   // The owner's own file, where he supplied one as Word or Excel (REQUIREMENTS §119): the download is that kind of file.
@@ -163,6 +178,12 @@ export interface SheetStyle {
   borders: [number, number, number, number];
   /** The words underlined (the company's name and the title on F/HR/15's workbook). */
   underline?: boolean;
+  /** The face, where it is not the workbook's Calibri (F/QC/17's Century Gothic, utils/paperTableExport.ts). */
+  font?: string;
+  /** Kept as the words written, where a number would lose how it is written (F/QC/17's Difference "0.0"). */
+  keepText?: boolean;
+  /** The cell's shading, "#rrggbb" (F/QC/16's number box, F/HR/17's headings). */
+  fill?: string;
 }
 
 /** A cell of a paper sheet: its place on the sheet's grid (0-based), the cells it merges over, and how it is drawn. */
@@ -172,6 +193,8 @@ export interface SheetCell extends Cell {
   rowSpan: number;
   colSpan: number;
   style: SheetStyle;
+  /** The words the cell's text starts with, in bold (F/QC/11's "PROCEDURE:"). */
+  boldLead?: string;
 }
 
 /** A cell of a table drawn as the company's own Word page (utils/paperSheets.ts, utils/docx.ts "paper"): its words, set in the paper's face and edged as the paper edges it. */
@@ -185,6 +208,10 @@ export interface PaperCellSpec extends Cell {
   valign: "top" | "center";
   underline?: boolean;
   font?: string;
+  /** Words in bold before the cell's own (F/QC/11's "PROCEDURE:"). */
+  boldLead?: string;
+  /** The cell's shading, "#rrggbb" (F/QC/16's number box, F/HR/17's headings). */
+  fill?: string;
   /** left, right, top, bottom, in eighths of a point. */
   borders: [number, number, number, number];
 }
@@ -192,12 +219,12 @@ export interface PaperCellSpec extends Cell {
 export type ExportBlock =
   | { kind: "text"; text: string; strong: boolean; title?: boolean; parts?: ExportSegment[] }
   /** A table laid in points as the company's Word original draws it: widths (pt), rows with heights (pt) and merged cells. For a Word file only. */
-  | { kind: "paper"; widths: number[]; rows: { height?: number; cells: PaperCellSpec[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number }
+  | { kind: "paper"; widths: number[]; rows: { height?: number; keepNext?: boolean; cells: PaperCellSpec[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number }
   /**
    * A sheet drawn as the company's own Excel paper: merged cells, the paper's column widths (Excel characters) and row
    * heights (points), fonts, borders. Read from a table marked data-paper-sheet (utils/documentExport.ts sheetBlock).
    */
-  | { kind: "sheet"; name: string; widths: number[]; heights: (number | undefined)[]; rowCount: number; cells: SheetCell[] }
+  | { kind: "sheet"; name: string; widths: number[]; heights: (number | undefined)[]; rowCount: number; cells: SheetCell[]; /** Rows (0-based) a new printed page starts at. */ breaks?: number[]; /** The page's way, where the sheet names it (F/HR/17's register: portrait). */ page?: "portrait" | "landscape" }
   /** Boxes with their labels; `perLine`, how many the paper puts on one line (LogSheetLayout.headerColumns, REQUIREMENTS §117). */
   | { kind: "fields"; pairs: [string, Cell][]; perLine?: number }
   | { kind: "table"; rows: Cell[][]; headerRows: number; bindTable?: ExportTableBinding; band?: true };
@@ -261,7 +288,7 @@ function textOf(node: Node, marks?: Marks, breaks = false): string {
   if (marks && el.hasAttribute(BIND_ATTR)) {
     const binding = readBinding(el);
     if (binding?.recordId) {
-      // The bound element's text taken whole: a tick box ☑/☐, a select's label, a date as dd-mm-yy —
+      // The bound element's text taken whole: a tick box ☑/☐, a select's label, a date as dd-mm-yyyy —
       // and a value shown as words with its line breaks, where the page shows them.
       const own = ownText(el, style, undefined, keepsBreaks(style ?? getComputedStyle(el)));
       const k = marks.found.length;
@@ -684,9 +711,10 @@ const isBound = (cell: Cell) => !!cell.parts?.some((p) => p.bind);
 // ---------------------------------------------------------------------------
 // the blocks as a workbook
 
-const NUMBER_RE = /^-?(?:0|[1-9]\d{0,14})(?:\.\d+)?$/;
+// A figure ending in a nought after the point ("2.10" the audit point, "20.0" the reading) stays as written: Excel would show it 2.1, 20.
+const NUMBER_RE = /^-?(?:0|[1-9]\d{0,14})(?:\.\d*[1-9])?$/;
 
-// Styles: 0 plain · 1 bold · 2 title · 3 grid cell · 4 grid heading · 5 grid date · 6 grid number · 7 wrapped text
+// Styles: 0 plain · 1 bold · 2 title · 3 grid cell · 4 grid heading · 5 grid date · 6 grid number · 7 text · 8 label (bold, wrapped) · 9 long text (wrapped) · 10 long title (wrapped)
 /**
  * The blocks as a one-sheet workbook. Given an envelope, the workbook also
  * carries the map of its bound values (a very hidden "_dcrs" sheet, a hidden
@@ -695,35 +723,50 @@ const NUMBER_RE = /^-?(?:0|[1-9]\d{0,14})(?:\.\d+)?$/;
  */
 export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape"): Uint8Array<ArrayBuffer> {
   type Anchor = { col: number; text: string; grid: number };
-  type XCell = { text: string; style: number; date?: string; number?: boolean; pieces?: { bind: ExportBinding; pre: string; post: string }[]; anchor?: Anchor };
+  type XCell = { text: string; style: number; date?: string; number?: boolean; pieces?: { bind: ExportBinding; pre: string; post: string }[]; anchor?: Anchor; lead?: { text: string; size: number; font: string } };
   const rows: XCell[][] = [];
   const widths: number[] = [];
   // A paper sheet's own measures: merged ranges, row heights (points), and the cell formats it needs beyond the eight below.
   const merges: string[] = [];
   const heightsAt = new Map<number, number>();
+  const pageBreaks: number[] = [];
   const fixedWidths: number[] = [];
-  const paperFonts: { size: number; bold: boolean; underline: boolean }[] = [];
+  const paperFonts: { size: number; bold: boolean; underline: boolean; name: string }[] = [];
   const paperBorders: string[] = [];
   const paperXfs: string[] = [];
   const paperXfAt = new Map<string, number>();
+  // A paper cell's shading: its own fill after the three the workbook always has.
+  const paperFills: string[] = [];
+  const fillOf = (hex: string | undefined): number => {
+    const rgb = /^#?([0-9a-f]{6})$/i.exec(hex ?? "")?.[1]?.toUpperCase();
+    if (!rgb) return 0;
+    let at = paperFills.indexOf(rgb);
+    if (at < 0) at = paperFills.push(rgb) - 1;
+    return 3 + at;
+  };
   let sheetTitle = "";
-  const BASE_XFS = 8;
+  let sheetPage: "portrait" | "landscape" | undefined;
+  // Rows holding one line of words (a heading, a note): the ones too long for the sheet's width wrap across it (below).
+  const textRows = new Set<number>();
+  // 8 bold wrapped (a label) · 9 plain wrapped · 10 title wrapped — after the eight above, so their numbers stay.
+  const BASE_XFS = 11;
   const BASE_FONTS = 3;
   const BASE_BORDERS = 2;
   const ink = '<color rgb="FF000000"/>';
   const edgeXml = (tag: string, level: number) => (level === 0 ? `<${tag}/>` : `<${tag} style="${level === 1 ? "thin" : "medium"}">${ink}</${tag}>`);
   const paperXf = (st: SheetStyle, edges: [number, number, number, number], numberCell: boolean): number => {
-    const key = JSON.stringify([st.size, st.bold, !!st.underline, st.align, st.valign, st.wrap, edges, numberCell]);
+    const face = st.font ?? "Calibri";
+    const key = JSON.stringify([st.size, st.bold, !!st.underline, face, st.align, st.valign, st.wrap, edges, numberCell, st.fill ?? ""]);
     const known = paperXfAt.get(key);
     if (known !== undefined) return known;
-    let font = paperFonts.findIndex((f) => f.size === st.size && f.bold === st.bold && f.underline === !!st.underline);
-    if (font < 0) font = paperFonts.push({ size: st.size, bold: st.bold, underline: !!st.underline }) - 1;
+    let font = paperFonts.findIndex((f) => f.size === st.size && f.bold === st.bold && f.underline === !!st.underline && f.name === face);
+    if (font < 0) font = paperFonts.push({ size: st.size, bold: st.bold, underline: !!st.underline, name: face }) - 1;
     const borderXml = `<border>${edgeXml("left", edges[0])}${edgeXml("right", edges[1])}${edgeXml("top", edges[2])}${edgeXml("bottom", edges[3])}<diagonal/></border>`;
     let border = paperBorders.indexOf(borderXml);
     if (border < 0) border = paperBorders.push(borderXml) - 1;
     const alignment = `<alignment horizontal="${st.align}" vertical="${st.valign === "center" ? "center" : st.valign}"${st.wrap ? ' wrapText="1"' : ""}/>`;
     // A number a person wrote stays a number (the Sl.No, "3 glue boards"); everything else is text, so a code like 0101 keeps its zero.
-    const xf = `<xf numFmtId="${numberCell ? 0 : 49}" fontId="${BASE_FONTS + font}" fillId="0" borderId="${BASE_BORDERS + border}" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1">${alignment}</xf>`;
+    const xf = `<xf numFmtId="${numberCell ? 0 : 49}" fontId="${BASE_FONTS + font}" fillId="${fillOf(st.fill)}" borderId="${BASE_BORDERS + border}" xfId="0" applyNumberFormat="1" applyFont="1"${st.fill ? ' applyFill="1"' : ""} applyBorder="1" applyAlignment="1">${alignment}</xf>`;
     paperXfs.push(xf);
     paperXfAt.set(key, BASE_XFS + paperXfs.length - 1);
     return BASE_XFS + paperXfs.length - 1;
@@ -748,6 +791,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
   for (const block of blocks) {
     if (block.kind === "text") {
       if (previous && previous !== "text") gap();
+      textRows.add(rows.length);
       rows.push([{ text: block.text, style: block.title ? 2 : block.strong ? 1 : 7, pieces: piecesFor(block.parts) }]);
     } else if (block.kind === "paper") {
       continue;
@@ -755,9 +799,11 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       gap();
       const base = rows.length;
       if (block.name) sheetTitle = block.name;
+      if (block.page) sheetPage = block.page;
       for (let r = 0; r < block.rowCount; r++) rows.push([]);
       block.widths.forEach((w, ci) => (fixedWidths[ci] = w));
       block.heights.forEach((h, ri) => h !== undefined && heightsAt.set(base + ri, h));
+      for (const b of block.breaks ?? []) if (b > 0) pageBreaks.push(base + b);
       for (const c of block.cells) {
         const lastRow = c.row + c.rowSpan - 1;
         const lastCol = c.col + c.colSpan - 1;
@@ -767,9 +813,10 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
           for (let k = c.col; k <= lastCol; k++) {
             const edges: [number, number, number, number] = [k === c.col ? c.style.borders[0] : 0, k === lastCol ? c.style.borders[1] : 0, r === c.row ? c.style.borders[2] : 0, r === lastRow ? c.style.borders[3] : 0];
             const origin = r === c.row && k === c.col;
-            const isNumber = origin && !c.date && NUMBER_RE.test(c.text);
+            const lead = c.boldLead && c.text.startsWith(c.boldLead) ? { text: c.boldLead, size: c.style.size, font: c.style.font ?? "Calibri" } : undefined;
+            const isNumber = origin && !lead && !c.date && !c.style.keepText && NUMBER_RE.test(c.text);
             rows[base + r][k] = origin
-              ? { text: c.text, style: paperXf(c.style, edges, isNumber), date: undefined, number: isNumber, pieces: piecesFor(c.parts) }
+              ? { text: c.text, style: paperXf(c.style, edges, isNumber), date: undefined, number: isNumber, pieces: piecesFor(c.parts), ...(lead ? { lead } : {}) }
               : { text: "", style: paperXf(c.style, edges, false) };
           }
         }
@@ -782,9 +829,10 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       for (let at = 0; at < block.pairs.length; at += perLine) {
         const line: XCell[] = [];
         block.pairs.slice(at, at + perLine).forEach(([label, cell], i) => {
-          measure(i * 2, label);
+          // A long label wraps in its own column rather than widening it for the grid below or being cut off by its box.
+          widths[i * 2] = Math.max(widths[i * 2] ?? 8, Math.min(28, Math.max(0, ...label.split("\n").map((l) => l.length)) + 2));
           measure(i * 2 + 1, cell.text);
-          line.push({ text: label, style: 1 }, { text: cell.text, style: cell.date ? 5 : 3, date: cell.date, pieces: piecesFor(cell.parts) });
+          line.push({ text: label, style: 8 },{ text: cell.text, style: cell.date ? 5 : 3, date: cell.date, pieces: piecesFor(cell.parts) });
         });
         rows.push(line);
       }
@@ -823,6 +871,24 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     previous = block.kind;
   }
   const columns = Math.max(1, ...rows.map((r) => r.length));
+  const widthOf = (i: number) => fixedWidths[i] ?? widths[i] ?? 10;
+  // A line of words longer than the whole sheet is wide would print past its edge and shrink the page to fit:
+  // it spans every column instead, wrapped, its row as tall as its lines (Excel does not size a merged row itself).
+  if (columns > 1) {
+    const across = Array.from({ length: columns }, (_, i) => widthOf(i)).reduce((a, b) => a + b, 0);
+    for (const ri of textRows) {
+      const c = rows[ri]?.[0];
+      if (!c || !c.text) continue;
+      const title = c.style === 2;
+      const perChar = title ? 1.35 : c.style === 1 ? 1.15 : 1.05;
+      const own = c.text.split("\n");
+      const lines = own.reduce((n, l) => n + Math.max(1, Math.ceil((l.length * perChar) / across)), 0);
+      if (lines === own.length) continue;
+      c.style = title ? 10 : c.style === 1 ? 8 : 9;
+      merges.push(`A${ri + 1}:${columnName(columns - 1)}${ri + 1}`);
+      heightsAt.set(ri, Math.ceil(lines * (title ? 16 : 13.5) + 2));
+    }
+  }
   const cellXml = (c: XCell, ref: string) => {
     if (c.date) {
       const serial = isoToSerial(c.date);
@@ -830,6 +896,12 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     }
     if (c.number) return `<c r="${ref}" s="${c.style}"><v>${c.text}</v></c>`;
     if (!c.text) return `<c r="${ref}" s="${c.style}"/>`;
+    if (c.lead) {
+      // Two runs: the lead words in bold, then the rest, both in the cell's own face and size.
+      const face = `<sz val="${c.lead.size}"/><rFont val="${xmlText(c.lead.font)}"/>`;
+      const run = (bold: boolean, t: string) => (t ? `<r><rPr>${bold ? "<b/>" : ""}${face}</rPr><t xml:space="preserve">${xmlText(t)}</t></r>` : "");
+      return `<c r="${ref}" s="${c.style}" t="inlineStr"><is>${run(true, c.lead.text)}${run(false, c.text.slice(c.lead.text.length))}</is></c>`;
+    }
     return `<c r="${ref}" s="${c.style}" t="inlineStr"><is><t xml:space="preserve">${xmlText(c.text)}</t></is></c>`;
   };
   const sheetData = rows
@@ -927,11 +999,13 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     [
       "xl/styles.xml",
       `<styleSheet xmlns="${MAIN}">` +
-        `<numFmts count="1"><numFmt numFmtId="164" formatCode="[$-409]dd\\-mm\\-yy"/></numFmts>` +
+        `<numFmts count="1"><numFmt numFmtId="164" formatCode="[$-409]dd\\-mm\\-yyyy"/></numFmts>` +
         `<fonts count="${BASE_FONTS + paperFonts.length}"><font><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="12"/><name val="Calibri"/><family val="2"/></font>` +
-        paperFonts.map((f) => `<font>${f.bold ? "<b/>" : ""}${f.underline ? "<u/>" : ""}<sz val="${f.size}"/><name val="Calibri"/><family val="2"/></font>`).join("") +
+        paperFonts.map((f) => `<font>${f.bold ? "<b/>" : ""}${f.underline ? "<u/>" : ""}<sz val="${f.size}"/><name val="${xmlText(f.name)}"/><family val="2"/></font>`).join("") +
         `</fonts>` +
-        `<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7E9EE"/><bgColor indexed="64"/></patternFill></fill></fills>` +
+        `<fills count="${3 + paperFills.length}"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7E9EE"/><bgColor indexed="64"/></patternFill></fill>` +
+        paperFills.map((rgb) => `<fill><patternFill patternType="solid"><fgColor rgb="FF${rgb}"/><bgColor indexed="64"/></patternFill></fill>`).join("") +
+        `</fills>` +
         `<borders count="${BASE_BORDERS + paperBorders.length}"><border><left/><right/><top/><bottom/><diagonal/></border><border>${thin}</border>${paperBorders.join("")}</borders>` +
         `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
         `<cellXfs count="${BASE_XFS + paperXfs.length}">` +
@@ -943,6 +1017,9 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>` +
         `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>` +
         `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top"/></xf>` +
+        `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
+        `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
+        `<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
         paperXfs.join("") +
         `</cellXfs>` +
         `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
@@ -961,7 +1038,9 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
         // Printed from Excel: one page wide, as many pages down as it takes.
         // ...on the paper's own page where the layout names it (REQUIREMENTS §117), else as its width needs.
-        `<pageSetup paperSize="9" orientation="${paper ?? (columns > 6 ? "landscape" : "portrait")}" fitToWidth="1" fitToHeight="0"/>` +
+        `<pageSetup paperSize="9" orientation="${sheetPage ?? paper ?? (columns > 6 ? "landscape" : "portrait")}" fitToWidth="1" fitToHeight="0"/>` +
+        // A new page where the paper starts one (F/HR/18's second page): Excel breaks above the row.
+        (pageBreaks.length ? `<rowBreaks count="${pageBreaks.length}" manualBreakCount="${pageBreaks.length}">${pageBreaks.map((r) => `<brk id="${r}" max="16383" man="1"/>`).join("")}</rowBreaks>` : "") +
         `</worksheet>`,
     ],
   ];
@@ -1009,7 +1088,7 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
       return {
         type: "paper",
         widths: b.widths,
-        rows: b.rows.map((r) => ({ height: r.height, cells: r.cells.map((c) => ({ ...c, text: cellOfWord(c) })) })),
+        rows: b.rows.map((r) => ({ height: r.height, ...(r.keepNext ? { keepNext: true } : {}), cells: r.cells.map((c) => ({ ...c, text: cellOfWord(c) })) })),
         indent: b.indent,
         pageBreakBefore: b.pageBreakBefore,
         spaceAfter: b.spaceAfter,
@@ -1125,7 +1204,7 @@ export function documentFileBytes(
   const envelope = unique.length ? makeEnvelope(kind, { documentId: doc.id, formatNo: doc.formatNo, revisionNo: doc.revisionNo }, unique, exportedAt) : undefined;
   if (kind === "xlsx") return workbookFromBlocks(knownFormatNo(doc as DocumentDefinition) || doc.name, blocks, envelope, paper);
   // A page drawn as the company's Word original names its own margins (the "paper" blocks, utils/paperSheets.ts).
-  return wordDocumentFromBlocks(blocks, envelope, paper, blocks.some((b) => b.kind === "paper") ? paperMarginsOf(doc.id) : undefined);
+  return wordDocumentFromBlocks(blocks, envelope, paper, blocks.some((b) => b.kind === "paper") ? (paperTableWordMargins(doc.id) ?? paperMarginsOf(doc.id)) : undefined);
 }
 
 /** Puts every line of a long list on screen (utils/useProgressive.ts) and lets the page draw once. */
@@ -1156,15 +1235,17 @@ async function everyLineDrawn(): Promise<void> {
  * Downloads the documents on screen as the document's own kind of file.
  * Resolves to the kind made ("pdf" means nothing was: print it). Never rejects.
  */
-export async function downloadDocumentFile(doc: DocumentDefinition, roots: Element[], dateISO?: string): Promise<DocumentFileKind> {
-  const kind = documentFileKind(doc);
+export async function downloadDocumentFile(doc: DocumentDefinition, roots: Element[], dateISO?: string, as?: "xlsx" | "docx"): Promise<DocumentFileKind> {
+  // A paper downloaded as it is drawn (utils/paperTableExport.ts) may be asked for as either kind: Excel or Word.
+  const kind = as && documentFileKinds(doc).includes(as) ? as : documentFileKind(doc);
   if (kind === "pdf" || roots.length === 0) return "pdf";
   try {
     await everyLineDrawn();
     const live = roots.filter((r) => r.isConnected);
     const read = documentBlocks(live.length ? live : roots);
     // A document supplied as a workbook downloads on its original's own grid (utils/paperSheets.ts, REQUIREMENTS §118).
-    const blocks = (kind === "xlsx" ? paperSheetBlocks(doc.id, read) : paperWordBlocks(doc.id, read)) ?? read;
+    const blocks =
+      (kind === "xlsx" ? (paperTableSheet(doc.id, read, knownFormatNo(doc).replace(/\//g, "-")) ?? paperSheetBlocks(doc.id, read)) : (paperTableWord(doc.id, read) ?? paperWordBlocks(doc.id, read))) ?? read;
     const name = documentFileName(doc, dateISO);
     // THE OWNER'S OWN FILE (REQUIREMENTS §119): where he supplied the document as Word or Excel, the download is his file
     // filled with what the page shows. Anything it cannot do falls back to the file made from the page below.

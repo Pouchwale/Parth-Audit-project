@@ -188,7 +188,7 @@ describe("the phone's registration and the choices", () => {
   it("every kind is pushed until switched off; a change keeps the rest; a kind not known is refused", async () => {
     const first = await call("GET", "/api/v1/notification-preferences", "kapila");
     assert.equal(first.status, 200);
-    assert.equal(Object.keys(first.body.kinds).length, 10);
+    assert.equal(Object.keys(first.body.kinds).length, 11, "ten kinds and the planned training (§164)");
     assert.ok(Object.values(first.body.kinds).every((v) => v === true));
     assert.equal(first.body.reminders, undefined);
     const set = await call("PUT", "/api/v1/notification-preferences", "kapila", { kinds: { upcoming: false }, reminders: false });

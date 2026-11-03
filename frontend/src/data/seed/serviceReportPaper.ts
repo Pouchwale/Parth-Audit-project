@@ -53,8 +53,9 @@ export const SERVICE_PAPER_NARROW_AREAS: Record<string, string[]> = {
   "Rodent Control Service": ["Store - Label stock & PVC / PET Films - Ground floor"],
 };
 
-/** The paper's date as it writes it: 07.03.2026. */
+/** A date on the service report as the app writes it: 07-03-2026 (REQUIREMENTS §171). */
 export function servicePaperDate(iso: string | null | undefined): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
-  return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
+  // Day-month-year with the year in full, as every date the app writes (REQUIREMENTS §171; the paper's own "07.03.2026" before it).
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
 }

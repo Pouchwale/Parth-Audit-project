@@ -6,10 +6,10 @@ export type AppMode = "live" | "demo";
 
 export type BriefingSlot = "first" | "morning" | "evening";
 
-/** How DCRS looks for a person (REQUIREMENTS §90): light, dark, or the same as the computer. */
-export type ThemeChoice = "light" | "dark" | "system";
+/** How DCRS looks for a person (REQUIREMENTS §90): light, dark, the same as the computer, or with the sun (daylight, §166). */
+export type ThemeChoice = "light" | "dark" | "system" | "daylight";
 
-const isThemeChoice = (value: unknown): value is ThemeChoice => value === "light" || value === "dark" || value === "system";
+const isThemeChoice = (value: unknown): value is ThemeChoice => value === "light" || value === "dark" || value === "system" || value === "daylight";
 
 export interface AppSettings {
   mode: AppMode;
@@ -137,7 +137,7 @@ export const settingsRepository = {
     // A "demo" stored from before Demo Mode was taken out of the product reads
     // as "live" — here, so whatever reads the settings agrees (REQUIREMENTS §65).
     const mode: AppMode = stored.mode === "demo" && demoModeAvailable() ? "demo" : "live";
-    // A theme that is not one of the three reads as the default, light.
+    // A theme that is not one of the four reads as the default, light.
     const theme: ThemeChoice = isThemeChoice(stored.theme) ? stored.theme : DEFAULTS.theme;
     return { ...DEFAULTS, ...stored, mode, theme, liveStartDate: companyLiveStart() ?? stored.liveStartDate ?? null };
   },

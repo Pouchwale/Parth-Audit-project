@@ -437,7 +437,7 @@ function rowWhere(row: Record<string, unknown>, index: number, layout: LogSheetL
 
 function walkLogSheet(b: TextBuilder, data: LogSheetData, layout: LogSheetLayout | undefined): void {
   const reading = layout ? readingOf(layout) : undefined;
-  for (const [k, v] of Object.entries(data.header ?? {})) b.cell("", reading?.headerLabels.get(k) ?? words(k), v);
+  for (const [k, v] of Object.entries(data.header ?? {})) if (k !== "hrMasterGp3") b.cell("", reading?.headerLabels.get(k) ?? words(k), v);
   const printed = layout?.rowMode.kind === "fixedRows" ? layout.rowMode.rows : null;
   const rows = Array.isArray(data.rows) ? data.rows : [];
   rows.forEach((row, i) => {
@@ -450,7 +450,8 @@ function walkLogSheet(b: TextBuilder, data: LogSheetData, layout: LogSheetLayout
       b.cell(where, label, row[col.key], col.unit);
     }
     for (const [k, v] of Object.entries(row)) {
-      if (reading?.known.has(k) || k === "id") continue;
+      // hrMasterGp3: HR Master Data's own mark on a line it wrote (engine/hrMaster.ts HR_MASTER_TAG), not a box.
+      if (reading?.known.has(k) || k === "id" || k === "hrMasterGp3") continue;
       b.cell(where, words(k), v);
     }
   });

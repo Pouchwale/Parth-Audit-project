@@ -16,6 +16,7 @@ import { FIXED_TESTED_VALUES, GSM_PLATES, STANDARD_WEIGHTS } from "../data/seed/
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { createDefaultData } from "./recordDefaults";
+import { followHeader } from "./headerFollowers";
 import { resolveResponsibleEmployees } from "./documentInfo";
 import { fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "./serviceMaterials";
 import { describeRodentEvent, rodentEventFor, totalRodents } from "./rodentPattern";
@@ -48,6 +49,7 @@ import { RELIABILITY_DOCUMENTS, testReliabilitySample } from "./testReliabilityS
 import { rulerVerificationSample } from "./rulerVerificationSample";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { OBSOLETE_ARTWORK_LINES } from "../data/seed/qcRegisterLayouts";
+import { calendarPeriod } from "./trainingCalendar";
 
 // DEMO MODE AND SAMPLE DATA ONLY (REQUIREMENTS §98, 8-Oct-2026). This is a
 // SIMULATION: it writes readings, counts, answers, findings and signatures that
@@ -859,6 +861,8 @@ function fillLogSheet(
     // "Date of Inspection", "Date :" — the day the record is for, not the day the last one was.
     else if (f.autoFill?.dueDate) header[f.key] = dueDate;
     else if (f.autoFill?.carryForward && prev) header[f.key] = prev;
+    // The twelve months the sheet covers, from its due date (F/HR/09, engine/trainingCalendar.ts).
+    else if (f.autoFill?.financialYear) header[f.key] = calendarPeriod(dueDate);
     else if (f.autoFill?.default !== undefined) header[f.key] = f.autoFill.default;
     else header[f.key] = f.autoFill?.carryForward ? specimen : "";
   }
@@ -1003,7 +1007,8 @@ function fillLogSheet(
   // The reports and registers of group B the same way (engine/qcReportSamples.ts, the review of 13-Oct-2026): their
   // two signatures two people of HR Master Data, the utility test's samples and the printing aids destroyed that day's.
   const report = qcReportSample(doc.id, dueDate, paper ?? { header, rows }, master, responsibleName(doc, master, ""));
-  const filled = report ?? paper ?? { header, rows };
+  // A column that follows a header box (F/HR/05's Planned Date from the Date of Joining, REQUIREMENTS §159).
+  const filled = followHeader(layout, undefined, report ?? paper ?? { header, rows });
 
   // Every worked-out cell worked out on what was filled (engine/computedCells.ts,
   // REQUIREMENTS §74): a prepared, sample, guided or demo record stores the
@@ -1047,6 +1052,15 @@ function anniversaryFrom(iso: string, onOrAfter: string): string {
   return at(year);
 }
 
+/** The same day a month on ("2026-10-14" → "2026-11-14"; the 31st into a shorter month is that month's last day). */
+function monthOn(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const year = m === 12 ? y + 1 : y;
+  const month = m === 12 ? 1 : m + 1;
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
+
 /**
  * THE INTERNAL CALIBRATION RECORDS AS A REAL SHEET (REQUIREMENTS §111 part 6, rule 3 of the brief). Demo Mode's and a
  * test server's sample data only, as everything in this file is; a Live sheet is prepared by engine/knownParts.ts,
@@ -1054,6 +1068,7 @@ function anniversaryFrom(iso: string, onOrAfter: string): string {
  *   - The Calibration Expiry the supplied 2024 pages wrote (22.09.2025 on F/QC/11, 27.08.2024 on F/QC/12) is past on
  *     a sheet of 2026, and every line on it read Pass: an instrument out of calibration passed. A sample sheet's
  *     instrument was calibrated on its yearly date since, so its expiry is that date's next anniversary.
+ *   - F/QC/11's Due Date is the next month's calibration, a month after this one (the row back, §147).
  *   - F/QC/11's Sign. line is signed, plate by plate, by the QC lab executive of HR Master Data who calibrated (the
  *     supplied page's "Rashmi" is not on HR Master Data).
  */
@@ -1064,16 +1079,22 @@ function calibrationSample(documentId: string, dueDate: string, header: Record<s
   if (documentId === "qc-weight-scale-calibration") {
     // The laboratory's page since §142 (29-Oct-2026): the five standard weights, Tested Values 1 and 2 the weight itself,
     // 3 to 5 the person's - so a sample sheet is shaped as a real one, never the 2024 page's lines copied.
-    for (const row of rows) {
+    // A sheet a month, a line a week (§145): the first line dated the sheet's day, the others left for the chain (each a
+    // week after the Next Due Date above it, engine/nextDueChain.ts).
+    rows.forEach((row, n) => {
       STANDARD_WEIGHTS.forEach((w, i) => {
         row[`weight${i + 1}`] = w;
         row[`testedValue${i + 1}`] = i < FIXED_TESTED_VALUES ? w : "";
         row[`deviation${i + 1}`] = "";
       });
       row.passFail = "";
-    }
+      row.date = n === 0 ? dueDate : "";
+      row.nextDueDate = "";
+    });
     return;
   }
+  const calibrated = ISO_DATE.test(header.calibrationDate ?? "") ? header.calibrationDate : dueDate;
+  header.dueDate = monthOn(calibrated);
   const signer = qcShiftSigner(dueDate, "09:00", "");
   const sign = rows.find((r) => r.parameter === "Sign.");
   if (sign && signer) for (const plate of GSM_PLATES) sign[plate.key] = signer;

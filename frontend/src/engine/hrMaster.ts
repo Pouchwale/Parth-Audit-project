@@ -2,11 +2,12 @@ import type { HrMasterColumnKey, HrMasterPerson, LogSheetData, LogSheetRow } fro
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { serialToIso } from "../utils/xlsx";
 import { todayISO } from "../utils/date";
+import { sexFromName } from "./sexFromName";
 
 // HR MASTER DATA — THE EMPLOYEE MASTER SHEET THE HR FORMATS FETCH FROM
 // (REQUIREMENTS §53).
 //
-// Human Resources keeps one sheet of its people in six columns — GP3 No.,
+// Human Resources keeps one sheet of its people in eight columns (six, and the staff sheet's Sub Department and Machine / Process Name since §169) — GP3 No.,
 // Joining Date, Full Name, Department, Designation/Position, Date of Birth
 // (data/repositories/hrMasterRepository.ts). Ten of the sixteen F/HR formats
 // write those same facts about a person, each in its own place and its own
@@ -30,6 +31,8 @@ export const HR_MASTER_COLUMNS: { key: HrMasterColumnKey; label: string; kind: "
   { key: "joiningDate", label: "Joining Date", kind: "date", width: 14 },
   { key: "fullName", label: "Full Name", kind: "text", width: 32 },
   { key: "department", label: "Department", kind: "text", width: 22 },
+  { key: "subDepartment", label: "Sub Department", kind: "text", width: 20 },
+  { key: "machine", label: "Machine / Process Name", kind: "text", width: 22 },
   { key: "designation", label: "Designation/Position", kind: "text", width: 26 },
   { key: "dateOfBirth", label: "Date of Birth", kind: "date", width: 14 },
 ];
@@ -146,9 +149,9 @@ export type DateStyle = "iso" | "dotted" | "monthFirst" | "dayFirst";
 export function writeDate(iso: string, style: DateStyle): string {
   if (!isIsoDate(iso)) return "";
   const [y, m, d] = iso.split("-");
-  if (style === "dotted") return `${d}.${m}.${y}`;
-  if (style === "monthFirst") return `${Number(m)}/${Number(d)}/${y}`;
-  if (style === "dayFirst") return `${d}/${m}/${y}`;
+  // Every date the app writes on a register is day-month-year with the year in full, "13-05-2008" (REQUIREMENTS §171) -
+  // the registers' own earlier styles (dotted, slashed month first, slashed day first) are still READ (slashOrderOf).
+  if (style === "dotted" || style === "monthFirst" || style === "dayFirst") return `${d}-${m}-${y}`;
   return iso;
 }
 
@@ -173,7 +176,11 @@ export function splitDepartmentDesignation(text: string): { department: string; 
 // ---------------------------------------------------------------------------
 // which box of which format takes which column
 
-export type MasterSource = HrMasterColumnKey | "departmentThenDesignation" | "designationThenDepartment";
+/**
+ * A box's source on the sheet — one of its six columns, the two combined boxes, or `sexFromName`: the person's sex
+ * as their name says it (engine/sexFromName.ts; "" when the name does not say for sure, and the box is left alone).
+ */
+export type MasterSource = HrMasterColumnKey | "departmentThenDesignation" | "designationThenDepartment" | "subDepartmentThenDesignation" | "sexFromName";
 
 export interface LinkedField {
   /** The header field's or column's key on the format. */
@@ -220,7 +227,8 @@ export const HR_MASTER_LINKS: HrMasterLink[] = [
     nameField: "name",
     fields: [
       { key: "name", from: "fullName" },
-      { key: "designation", from: "designation" },
+      // The matrix writes the operator's process where a designation would go: the staff sheet's Sub Department (§169), else the designation.
+      { key: "designation", from: "subDepartmentThenDesignation" },
       { key: "dateOfJoining", from: "joiningDate", style: "monthFirst" },
     ],
   },
@@ -232,7 +240,11 @@ export const HR_MASTER_LINKS: HrMasterLink[] = [
     fields: [
       { key: "name", from: "fullName" },
       { key: "deptDesignation", from: "departmentThenDesignation" },
+      // Sex from the name (the owner, 2-Nov-2026): Male or Female when the name says so, else left for HR.
+      { key: "sex", from: "sexFromName" },
       { key: "dateOfBirth", from: "dateOfBirth", style: "iso" },
+      // The Date beside the signature is the day they joined (the owner, 2-Nov-2026): the declaration is made on joining.
+      { key: "signDate", from: "joiningDate", style: "iso" },
     ],
   },
   {
@@ -265,6 +277,17 @@ export const HR_MASTER_LINKS: HrMasterLink[] = [
     nameField: "name",
     fields: [
       { key: "name", from: "fullName" },
+      { key: "designation", from: "designation" },
+    ],
+  },
+  {
+    docId: "hr-training-imparted",
+    formatNo: "F/HR/10",
+    where: "rows",
+    nameField: "name",
+    fields: [
+      { key: "name", from: "fullName" },
+      { key: "department", from: "department" },
       { key: "designation", from: "designation" },
     ],
   },
@@ -316,7 +339,15 @@ export function linkedFieldLabel(docId: string, field: LinkedField): string {
   const layout = getLogSheetLayout(docId);
   const label = [...(layout?.headerFields ?? []), ...(layout?.footerFields ?? []), ...(layout?.columns ?? [])].find((f) => f.key === field.key)?.label ?? field.key;
   const from =
-    field.from === "departmentThenDesignation" ? "Department - Designation" : field.from === "designationThenDepartment" ? "Designation - Department" : hrMasterColumnLabel(field.from);
+    field.from === "departmentThenDesignation"
+      ? "Department - Designation"
+      : field.from === "designationThenDepartment"
+        ? "Designation - Department"
+        : field.from === "subDepartmentThenDesignation"
+          ? "Sub Department (else Designation/Position)"
+        : field.from === "sexFromName"
+          ? "from the Full Name"
+          : hrMasterColumnLabel(field.from);
   return label.toLowerCase() === from.toLowerCase() ? label : `${label} ← ${from}`;
 }
 
@@ -331,6 +362,8 @@ export function linkedValue(person: HrMasterPerson, field: LinkedField): string 
       .join(" - ");
   if (field.from === "departmentThenDesignation") return joined(person.department, person.designation);
   if (field.from === "designationThenDepartment") return joined(person.designation, person.department);
+  if (field.from === "subDepartmentThenDesignation") return String(person.subDepartment || person.designation || "").trim();
+  if (field.from === "sexFromName") return sexFromName(person.fullName);
   if (isDateSource(field)) return writeDate(person[field.from], field.style ?? "iso");
   return String(person[field.from] ?? "").trim();
 }
@@ -424,6 +457,8 @@ export function personFill(link: HrMasterLink, person: HrMasterPerson, current: 
       const written = before.split(/\s*-\s*/).map(nameKey).filter(Boolean).sort();
       const sheet = [person.department, person.designation].map(nameKey).filter(Boolean).sort();
       if (written.length === sheet.length && written.every((w, i) => w === sheet[i])) continue;
+    } else if (f.from === "subDepartmentThenDesignation") {
+      if ([person.subDepartment, person.designation].some((v) => v && nameKey(v) === nameKey(before))) continue;
     } else if (nameKey(before) === nameKey(after)) continue;
     conflicts.push({ key: f.key, before, after });
   }
@@ -438,18 +473,39 @@ export function applyFills<T extends Record<string, unknown>>(current: T, fills:
 export type LineMatch = { kind: "none" } | { kind: "line"; index: number } | { kind: "several"; indexes: number[] };
 
 /**
- * The line of a register that is this person's. A line is theirs by a GP3 No.
- * typed in its name box, or by name — but by name only when no one else on
- * the sheet has that name. Of several such lines, one with a Date of Leaving is
- * someone who has left (F/HR/01 has two Anil Ravals), and one that already
- * agrees with the sheet is preferred; if that still leaves more than one, the
- * answer is "several" and nothing is guessed.
+ * THE SHEET'S MARK ON WHAT IT WROTE (2-Nov-2026). A line or a header fetched or
+ * filed from the sheet carries the person's GP3 No. under this key — not a box
+ * of any format, never printed, exported or read out (recordLines.ts lineWords,
+ * recordText.ts) — so that the line is known to be theirs even when somebody
+ * else on the sheet has the same name. A line written by hand has no mark, and
+ * is matched as before.
+ */
+export const HR_MASTER_TAG = "hrMasterGp3";
+
+/** The line (or header) carries this person's own mark. */
+export const taggedFor = (row: Record<string, unknown>, person: HrMasterPerson): boolean => !!person.gp3No.trim() && sameGp3(row[HR_MASTER_TAG], person.gp3No);
+/** The line (or header) carries somebody else's mark. */
+export const taggedForAnother = (row: Record<string, unknown>, person: HrMasterPerson): boolean =>
+  !!String(row[HR_MASTER_TAG] ?? "").trim() && !(person.gp3No.trim() && sameGp3(row[HR_MASTER_TAG], person.gp3No));
+
+/**
+ * The line of a register that is this person's. A line is theirs by the sheet's
+ * own mark on it, by a GP3 No. typed in its name box, or by name — but by name
+ * only when no one else on the sheet has that name, and never a line marked as
+ * somebody else's. Of several such lines, one with a Date of Leaving is someone
+ * who has left (F/HR/01 has two Anil Ravals), and one that already agrees with
+ * the sheet is preferred; if that still leaves more than one, the answer is
+ * "several" and nothing is guessed.
  */
 export function lineOfPerson(link: HrMasterLink, rows: LogSheetRow[], person: HrMasterPerson, people: HrMasterPerson[]): LineMatch {
   const namesake = people.some((p) => p.id !== person.id && (namesPerson(person.fullName, p) || (person.aliases ?? []).some((a) => namesPerson(a, p))));
+  const marked = rows.map((_, i) => i).filter((i) => taggedFor(rows[i], person));
+  if (marked.length === 1) return { kind: "line", index: marked[0] };
+  if (marked.length > 1) return { kind: "several", indexes: marked };
   const candidates = rows
     .map((_, i) => i)
     .filter((i) => {
+      if (taggedForAnother(rows[i], person)) return false;
       const box = rows[i][link.nameField];
       return (!namesake && namesPerson(box, person)) || (!!person.gp3No && sameGp3(box, person.gp3No));
     });
@@ -463,13 +519,14 @@ export function lineOfPerson(link: HrMasterLink, rows: LogSheetRow[], person: Hr
   return { kind: "several", indexes: pool };
 }
 
-/** A new line for this person on a register, starting from the register's blank line. */
+/** A new line for this person on a register, starting from the register's blank line, with the sheet's mark on it. */
 export function lineForPerson(link: HrMasterLink, person: HrMasterPerson, blank: LogSheetRow): LogSheetRow {
   const line: LogSheetRow = { ...blank };
   for (const f of link.fields) {
     const value = linkedValue(person, f);
     if (value) line[f.key] = value;
   }
+  if (person.gp3No.trim()) line[HR_MASTER_TAG] = person.gp3No.trim();
   return line;
 }
 
@@ -576,6 +633,8 @@ const HEADER_ALIASES: Record<HrMasterColumnKey, RegExp> = {
   joiningDate: /^(?:joining\s*date|date\s*of\s*joining|doj|joined(?:\s*on)?|join\s*date)$/,
   fullName: /^(?:full\s*name|name|employee\s*name|name\s*of\s*(?:the\s*)?employee)$/,
   department: /^(?:department|dept|department\s*name)$/,
+  subDepartment: /^(?:sub\s*-?\s*department|sub\s*-?\s*dept|section)$/,
+  machine: /^(?:machine(?:\s*\/\s*process)?(?:\s*name)?|process(?:\s*name)?|machine\s*(?:\/|or|&)\s*process(?:\s*name)?)$/,
   designation: /^(?:designation|position|designation\s*(?:\/|&|and|or)\s*position|post)$/,
   dateOfBirth: /^(?:date\s*of\s*birth|dob|d\s*o\s*b|birth\s*date)$/,
 };
@@ -587,7 +646,7 @@ const headerText = (cell: unknown) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** Which column of a header row holds which of the six. */
+/** Which column of a header row holds which of the eight. */
 export function headerColumns(cells: string[]): Partial<Record<HrMasterColumnKey, number>> {
   const out: Partial<Record<HrMasterColumnKey, number>> = {};
   cells.forEach((cell, i) => {
@@ -605,7 +664,7 @@ export function headerColumns(cells: string[]): Partial<Record<HrMasterColumnKey
 
 export type HrMasterValues = Record<HrMasterColumnKey, string>;
 
-export const blankHrMasterValues = (): HrMasterValues => ({ gp3No: "", joiningDate: "", fullName: "", department: "", designation: "", dateOfBirth: "" });
+export const blankHrMasterValues = (): HrMasterValues => ({ gp3No: "", joiningDate: "", fullName: "", department: "", subDepartment: "", machine: "", designation: "", dateOfBirth: "" });
 
 export interface ImportChange {
   key: HrMasterColumnKey;

@@ -12,7 +12,9 @@
     "node": ">=23.6"
   },
   "scripts": {
-    "dev": "node --no-warnings=ExperimentalWarning scripts/dev-all.ts",
+    "dev": "node --no-warnings=ExperimentalWarning scripts/dev-local.ts",
+    "dev:local": "node --no-warnings=ExperimentalWarning scripts/dev-local.ts",
+    "dev:shared": "node --no-warnings=ExperimentalWarning scripts/dev-all.ts",
     "dev:frontend": "npm run dev --workspace=frontend",
     "server": "npm run start --workspace=backend",
     "build": "npm run build --workspace=frontend",

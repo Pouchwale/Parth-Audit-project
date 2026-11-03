@@ -36,14 +36,40 @@ let sampleFill = false;
 // Whether the server has a natural voice for Mitra (`features.voice`, 23-Oct-2026): an AI key, or Google's free Gemini
 // voice (GEMINI_API_KEY) with no AI key at all. A server that does not say yet is taken at its AI key's word.
 let voice = false;
+// Whether THIS PERSON has Mitra at all (`features.mitra`, the owner, 2-Nov-2026): the super admin always; the staff
+// until the super admin switches Mitra off for them (backend/assistantSwitch.ts). Off, the app draws no Ask Mitra
+// page, no floating Mitra and no Mitra buttons — and the server refuses Mitra's routes for them whatever the app
+// draws. A server that does not say yet (an older one) is taken to allow it.
+let mitra = true;
+// Whether the Daylight theme is offered (`features.daylightTheme`, REQUIREMENTS §166): the server started with
+// DAYLIGHT_THEME=1 says so (the local run does; the plant's server once the owner has seen it and said yes). Off, the
+// switch offers the three themes of §90, and a settings record that still says daylight paints light.
+let daylightTheme = false;
 
-export function setFeatures(f: { demoMode?: boolean; signup?: boolean; assistant?: boolean; sampleFill?: boolean; voice?: boolean } | undefined): void {
+export function setFeatures(f: { demoMode?: boolean; signup?: boolean; assistant?: boolean; sampleFill?: boolean; voice?: boolean; mitra?: boolean; daylightTheme?: boolean } | undefined): void {
+  daylightTheme = f?.daylightTheme === true;
   demoMode = f?.demoMode === true;
   signup = f?.signup === true;
   assistant = f?.assistant === true;
   voice = typeof f?.voice === "boolean" ? f.voice : assistant;
   sampleFill = typeof f?.sampleFill === "boolean" ? f.sampleFill : demoMode;
+  mitra = typeof f?.mitra === "boolean" ? f.mitra : true;
   told = typeof f?.demoMode === "boolean";
+}
+
+/** Whether the signed-in person has Mitra: the super admin always; the staff unless the super admin switched it off for them. */
+export function assistantAvailable(): boolean {
+  return mitra;
+}
+
+/** Whether this server offers the Daylight theme (REQUIREMENTS §166). */
+export function daylightThemeAvailable(): boolean {
+  return daylightTheme;
+}
+
+/** Unit tests and the local run: switches the Daylight theme on without a server. */
+export function setDaylightThemeAvailable(on: boolean): void {
+  daylightTheme = on;
 }
 
 /**

@@ -193,7 +193,7 @@ def next_working_day(iso, master):
 
 
 def shown_date(iso):
-    """utils/date.ts formatDisplayDate: 24-10-26."""
+    """utils/date.ts formatDisplayDate: 24-10-2026."""
     d = date.fromisoformat(iso)
     return f"{d.day:02d}-{d.month:02d}-{d.year % 100:02d}"
 

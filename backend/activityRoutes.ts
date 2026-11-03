@@ -28,6 +28,7 @@
 // can be driven on a stand-in with no PostgreSQL (tests/activityRoutes.test.ts).
 import type { Express, NextFunction, Request, Response } from "express";
 import type { PublicUser } from "./auth.ts";
+import { mayOpenSystemPages } from "../frontend/src/engine/masterDataAccess.ts";
 import type { ActivityFilter, ActivityLine, ActivityTally } from "./db.ts";
 
 type Middleware = (req: Request, res: Response, next: NextFunction) => Promise<void> | void;
@@ -110,7 +111,17 @@ export function readActivityPage(query: Record<string, unknown>): { limit: numbe
 export function registerActivityRoutes(app: Express, deps: ActivityRouteDeps): void {
   const { requireAuth, lines, summary, sendJson } = deps;
 
+  // THE ACTIVITY LOG IS NOT KAPILA BARAD'S (frontend/src/engine/masterDataAccess.ts mayOpenSystemPages, the owner,
+  // 3-Nov-2026, REQUIREMENTS §173): her menu and the page's address say so, and so does the server - the screen is never
+  // the lock (§66). Everybody else reads as before, each kept to their own scope.
+  const notHers = (req: Request, res: Response): boolean => {
+    if (mayOpenSystemPages((req as Request & { user: PublicUser }).user)) return false;
+    sendJson(req, res, 403, { error: "The Activity Log is not open to this account" });
+    return true;
+  };
+
   app.get("/api/activity", requireAuth, async (req: Request, res: Response): Promise<void> => {
+    if (notHers(req, res)) return;
     sendJson(req, res, 200, { lines: await lines({ ...activityFilterOf(req), ...readActivityPage(req.query as Record<string, unknown>) }) });
   });
 
@@ -120,6 +131,7 @@ export function registerActivityRoutes(app: Express, deps: ActivityRouteDeps): v
   // departments'. The counts are worked out in PostgreSQL, not here, over
   // exactly the lines GET /api/activity would list for the same request.
   app.get("/api/activity/summary", requireAuth, async (req: Request, res: Response): Promise<void> => {
+    if (notHers(req, res)) return;
     sendJson(req, res, 200, { people: await summary(activityFilterOf(req)) });
   });
 }

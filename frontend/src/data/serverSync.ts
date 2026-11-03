@@ -58,7 +58,7 @@ const STORAGE_HELD = "dcrs:storage-held";
 const STORAGE_HELD_SAVED = "dcrs:storage-held-saved";
 
 /** The company's items. Mirrors backend/index.ts COMPANY_KEYS. */
-const COMPANY_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start"];
+const COMPANY_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "indexing"];
 /** A person's own. Mirrors backend/index.ts USER_SCOPED_KEYS. */
 const USER_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
 /** Everything kept in the database. Anything else (the assistant bubble's position) stays in this browser. */

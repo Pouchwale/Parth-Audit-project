@@ -1,9 +1,10 @@
 // HR MASTER DATA (REQUIREMENTS §53) — the Human Resources employee master sheet:
-// one line per employee, in exactly the six columns HR keeps it in. The HR
-// formats that name a person fetch that person's details from here
-// (engine/hrMaster.ts).
+// one line per employee, in the eight columns HR keeps it in (REQUIREMENTS §53; the
+// two of the staff sheet of 3-Nov-2026, Sub Department and Machine / Process Name,
+// since §169). The HR formats that name a person fetch that person's details
+// from here (engine/hrMaster.ts).
 
-export type HrMasterColumnKey = "gp3No" | "joiningDate" | "fullName" | "department" | "designation" | "dateOfBirth";
+export type HrMasterColumnKey = "gp3No" | "joiningDate" | "fullName" | "department" | "subDepartment" | "machine" | "designation" | "dateOfBirth";
 
 export interface HrMasterPerson {
   id: string;
@@ -13,6 +14,10 @@ export interface HrMasterPerson {
   joiningDate: string;
   fullName: string;
   department: string;
+  /** The section within the department, as the staff sheet keeps it ("Printing", "Supervision"); "" when not known. */
+  subDepartment: string;
+  /** The machine or process the person works ("Gallus", "QC / Sorting"); "" when not known. */
+  machine: string;
   designation: string;
   /** YYYY-MM-DD, or "" when not known. */
   dateOfBirth: string;

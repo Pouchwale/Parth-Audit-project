@@ -228,7 +228,7 @@ export function parseUploadedValue(v: UploadedValue, type: BindType, options: Bi
     }
     case "date": {
       const iso = readDate(v, today);
-      if (iso === null) return bad(`${quoteOf(raw.trim())} is not a date — write it like 01-10-26.`);
+      if (iso === null) return bad(`${quoteOf(raw.trim())} is not a date — write it like 01-10-2026.`);
       return ok(iso, iso ? formatDisplayDate(iso) : "");
     }
     case "time": {

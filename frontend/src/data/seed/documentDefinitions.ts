@@ -439,12 +439,41 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     department: "HR & Admin",
     module: "Human Resources",
     section: "Training",
+    // One sheet a year, April to March, written on as each training is held: due at the year's end (31 March), filed
+    // from 1 April, and made a month ahead - in March the coming year is already planned from this year's calendar
+    // (engine/trainingCalendar.ts, REQUIREMENTS §164; the owner, 2-Nov-2026).
     frequency: "Yearly",
     status: "Configured",
     description:
-      "Nineteen topics, each with its source, method, duration and method of evaluation, planned month by month from April to March with the actual date each training was held. The 01.04.2026 ~ 31.03.2027 calendar is on file, both pages.",
+      "Nineteen topics, each with its source, method, duration and method of evaluation, planned month by month from April to March with the actual date each training was held. The 01.04.2026 ~ 31.03.2027 calendar is on file, both pages. Each March the next year's calendar is drawn from this year's: every training planned again on the same day of the month, and the people who answer for it are told ahead of each training's day, and every day after it, until its actual date is written.",
     sourceFile: "F-HR-09_Training Calender(2026-27).pdf",
-    schedule: { type: "yearly", month: 3, dayOfMonth: 1 },
+    schedule: { type: "yearly", month: 2, dayOfMonth: 31 },
+    scheduleSince: "2026-11-02",
+    yearLong: true,
+    madeAheadDays: 31,
+  },
+  {
+    // F/HR/10 (REQUIREMENTS §168; the owner, 3-Nov-2026: "HR 10 is connected with HR 11 and HR 12 is connected with HR 11
+    // ... in HR 12 the data should also come from HR 10"). The plant's master list of formats (F/SYS/02) names it, a hard
+    // copy; the paper itself was never supplied, so this is DCRS's own layout of what a training imparted record holds -
+    // the training (its date, topic, who imparted it, how long, how, where) and the people who attended, one a line -
+    // to be aligned with the paper when it comes (Edit format changes any of it). It is the one record of a training
+    // held: F/HR/11 and F/HR/12 take their training and their people from it.
+    id: "hr-training-imparted",
+    kind: "log-sheet",
+    name: "Training Imparted Record",
+    formatNo: "F/HR/10",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Training",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "One record per training held: the date, the topic (offered from the training plan calendar, which fills the trainer, the duration and the method), who imparted it, how long, how and where, and one line per employee who attended, with a signature. The Training Effectiveness Evaluation (F/HR/11) and the Training Feedback & Evaluation Record (F/HR/12) take their training and their people from it.",
+    sourceFile: "Named on the Master List of Formats (F/SYS/02) as F-HR-10, Training Imparted Record, a hard copy; the paper was not supplied - DCRS's own layout, to be aligned with the paper when it comes.",
+    schedule: { type: "as-required" },
   },
   {
     id: "hr-training-effectiveness",
@@ -590,6 +619,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
       "One sheet a year: the walls, ceilings and glass doors of eighteen areas, canteen to the drinking water and toilet area, cleaned once a month — for each month, January to December, the date it was done, who cleaned each area, and who verified the month's cleaning. The method, the chemicals and the equipment are in the cleaning schedule. On file from the year's first day; due at its end.",
     sourceFile: "F-HR-16_Monthly Cleaning record_01_15.12.2024.pdf (as supplied 02-Oct-2026); the company's own original is F-HR-16_Monthly Cleaning record_01_15.12.2024.xls",
     schedule: { type: "yearly", month: 11, dayOfMonth: 31 },
+    yearLong: true,
   },
   {
     id: "hr-gmp-checklist",
@@ -995,20 +1025,23 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionDate: "2022-01-01",
     department: "Quality Control",
     module: "Quality Control — Inspection Records",
-    frequency: "Weekly",
+    frequency: "Monthly",
     status: "Configured",
     description:
-      "Internal calibration of the laboratory weight scale (QC-76, 0.1 gm to 600 gm, acceptable tolerance 0.05%): each week the five standard test weights (50, 100, 200, 500 and 600 gm, written on every new sheet) are placed and the value the scale shows is written beside each; the deviation is worked out, with Pass / Fail, the tester's sign and the next due date. One sheet a week, written as the last week's was; the four calibrations of Feb–Mar 2024 are on file as supplied.",
+      "Internal calibration of the laboratory weight scale (QC-76, 0.1 gm to 600 gm, acceptable tolerance 0.05%): each week the five standard test weights (0.050mg, 50.000gm, 100.000gm, 200.000gm and 400.000gm, with Tested Values 1 and 2 fixed) are placed and the value the scale shows is written beside each; the deviation is worked out, with Pass / Fail, the tester's sign and the next due date. One sheet a month with a line for each week: the first date is the tester's, each Next Due Date a week on, and the next line starts on it. The four calibrations of Feb–Mar 2024 are on file as supplied.",
     sourceFile: "weekly and monthly internal calibration records.pdf (page 1, scanned)",
-    // Every Sunday (the owner, 28-Oct-2026: "25-10-26 and 1-11-26 every sunday"); every Wednesday until then.
-    schedule: { type: "weekly", weekday: 0 },
-    scheduleSince: "2026-10-28",
+    // A sheet a month from November 2026, its weeks lines on it (the owner, 29-Oct-2026, REQUIREMENTS §145: "month wise
+    // from January to December"); every Sunday from 28-Oct-2026 (the owner: "25-10-26 and 1-11-26 every sunday") and
+    // every Wednesday until then. The 1st's sheet is the month's: its period is the same, so a sheet already started
+    // for Sunday 1-11-26 is November's.
+    schedule: { type: "monthly", dayOfMonth: 1 },
+    scheduleSince: "2026-11-01",
   },
   {
     id: "qc-gsm-plate-calibration",
     kind: "log-sheet",
     section: "Calibration",
-    name: "Monthly Internal Calibration Records – GSM Cutting Plate",
+    name: "Weekly Internal Calibration Records – GSM Cutting Plate", // "Monthly" until the owner, 30-10-26: "change it to weekly"
     formatNo: "F/QC/11",
     revisionNo: "01",
     revisionDate: "2022-01-01",
@@ -1017,7 +1050,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Weekly",
     status: "Configured",
     description:
-      "Internal calibration of the four GSM cutting plates (No. 54 20 x 20cm, No. 55 10 x 10cm, No. 56 5 x 5cm, No. 57 2.5 x 2.5cm, Global Eng. Co.): each plate measured four times with the deviation beside every measurement, then Pass / Fail and the tester's sign per plate; the Calibration Expiry starts every new sheet at the certificate's due date, 20-09-27 (the paper's I. Calibration Date / Due Date row taken away, the owner, 28-Oct-2026). The 31.12.2024 calibration is on file as supplied. Each Deviation is worked out from the size written beside it.",
+      "Internal calibration of the four GSM cutting plates (No. 54 20 x 20cm, No. 55 10 x 10cm, No. 56 5 x 5cm, No. 57 2.5 x 2.5cm, Global Eng. Co.): each plate measured four times with the deviation beside every measurement, then Pass / Fail and the tester's sign per plate; the Calibration Expiry and the Due Date start every new sheet at the certificate's due date, 20-09-27, and the I. Calibration Date at its 21-09-26, each editable (the row taken away on 28-Oct-2026 and back on 30-Oct-2026). The 31.12.2024 calibration is on file as supplied. Each Deviation is worked out from the size written beside it.",
     sourceFile: "weekly and monthly internal calibration records.pdf (page 2, scanned)",
     // Every Tuesday (the owner, 28-Oct-2026: "20-10-26 and 27-10-26 every tuesday due date"); the 1st of each month
     // until then. The paper's own title still says MONTHLY, as printed.
@@ -1661,13 +1694,18 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionDate: "2021-12-01",
     department: "Quality Control",
     module: "Quality Control — Inspection Records",
-    frequency: "As Required",
+    frequency: "Yearly",
     status: "Configured",
     description:
-      "The 600 mm measuring scale (Ajanta, GP-3/MS/36, 0-600mm) verified against the master scale (Kristeen, QC-44, 0 - 600 mm): the master's and the scale's details and calibration dates (the master's 21-09-26, due 20-09-27, and the scale's 23-09-26, due 22-09-27, on every new sheet), then the scale read at 100, 200, 300, 400, 500 and 490 mm (as printed), each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
+      "The 600 mm measuring scale (Ajanta, GP-3/MS/36, 0-600mm) verified against the master scale (Kristeel, QC-44, 0 - 600 mm): the master's and the scale's details and calibration dates (the master's 21-09-26, due 20-09-27, and the scale's 23-09-26, due 22-09-27, on every new sheet), then the scale read at 100, 200, 300, 400, 500 and 490 mm (as printed), each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
     sourceFile:
       "Copy of F-QC-17-Updated Scale (Ruler) internal verification record 600 mm- Copy.pdf (the 600 mm scale's page as updated, supplied 27-Oct-2026; the page of 24.09.2024 supplied on 14-Oct-2026 before it); the company's own original is Copy of F-QC-17-Updated Scale (Ruler) internal verification record - Copy.xlsx",
-    schedule: { type: "as-required" },
+    // ONCE A YEAR, ON 24 SEPTEMBER (the owner, 30-10-26: "the frequence of it is 1 year ... make sure that date remains the
+    // same every year and only when there is a holiday ... the date might shift"): the plant's own page is dated 24.09.2024,
+    // the day after the scale's calibration (23-09). A closed day moves it to the next working day (engine/holidays.ts).
+    // From 30-10-26, so 24-09-2026, already past, leaves no overdue sheet behind: the first is 24-09-2027.
+    schedule: { type: "yearly", month: 8, dayOfMonth: 24 },
+    scheduleSince: "2026-10-30",
   },
   // F/QC/17's second page, the 300 mm scale's (REQUIREMENTS §117, the owner, 17-Oct-2026): the same format and the same
   // layout (qcRulerVerificationLayouts.ts builds both), its own records.
@@ -1681,13 +1719,18 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionDate: "2021-12-01",
     department: "Quality Control",
     module: "Quality Control — Inspection Records",
-    frequency: "As Required",
+    frequency: "Yearly",
     status: "Configured",
     description:
-      "The 300 mm measuring scale (Ajanta, GP-3/MS/42, 0-300 mm) verified against the master scale (Kristeen, QC-44, 0 - 600 mm): the master's and the scale's details and calibration dates, then the scale read at 50, 100, 150, 200, 250 and 290 mm, each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
+      "The 300 mm measuring scale (Ajanta, GP-3/MS/42, 0-300 mm) verified against the master scale (Kristeel, QC-44, 0 - 600 mm): the master's and the scale's details and calibration dates, then the scale read at 50, 100, 150, 200, 250 and 290 mm, each difference from the master worked out and judged by the printed ± 1 mm, one Pass / Fail and who did it.",
     sourceFile:
       "Copy of F-QC-17-Updated Scale (Ruler) internal verification record-300.pdf (the page of 24.09.2024 for the 300 mm scale, as supplied 17-Oct-2026)",
-    schedule: { type: "as-required" },
+    // ONCE A YEAR, ON 24 SEPTEMBER (the owner, 30-10-26: "the frequence of it is 1 year ... make sure that date remains the
+    // same every year and only when there is a holiday ... the date might shift"): the plant's own page is dated 24.09.2024,
+    // the day after the scale's calibration (23-09). A closed day moves it to the next working day (engine/holidays.ts).
+    // From 30-10-26, so 24-09-2026, already past, leaves no overdue sheet behind: the first is 24-09-2027.
+    schedule: { type: "yearly", month: 8, dayOfMonth: 24 },
+    scheduleSince: "2026-10-30",
   },
   {
     id: "qc-analysis-report",

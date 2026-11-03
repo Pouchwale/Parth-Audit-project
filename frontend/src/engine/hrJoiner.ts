@@ -63,7 +63,7 @@ export const JOINER_TARGETS: JoinerTarget[] = [
   { docId: "hr-induction-operators", formatNo: "F/HR/06", title: "Induction Training Record — Operators / Workers", kind: "register", what: "a line: name, joining department & designation, date of joining & induction" },
   { docId: "hr-mobile-authorization", formatNo: "F/HR/13", title: "Authorization for Mobile Usage", kind: "register", what: "a line: name, department & designation, date of allowance (signed by the PSTL)" },
   { docId: "hr-induction-staff", formatNo: "F/HR/05", title: "Induction Training Record — Staff", kind: "record", what: "a record of their own: name, department / process, designation, date of joining" },
-  { docId: "hr-pre-employment-health", formatNo: "F/HR/04", title: "Pre-Employment Medical Health Declaration", kind: "record", what: "a record of their own: name, department & designation, sex, date of birth (the questions are theirs to answer)" },
+  { docId: "hr-pre-employment-health", formatNo: "F/HR/04", title: "Pre-Employment Medical Health Declaration", kind: "record", what: "a record of their own: name, department & designation, sex, date of birth, the date of joining beside the signature (the questions are theirs to answer; staff only)" },
 ];
 
 export function blankJoiner(): NewJoiner {
@@ -95,10 +95,12 @@ const sameName = (a: unknown, b: unknown): boolean => !!squash(a) && squash(a) =
 // ---------------------------------------------------------------------------
 // the registers on file
 
-function hasEntries(row: LogSheetRow, docId: string): boolean {
+/** A line somebody has written in — not one of a free register's blank starting lines. Shared with hrMasterFiling.ts. */
+export function hasEntries(row: LogSheetRow, docId: string): boolean {
   const layout = getLogSheetLayout(docId);
   if (!layout) return true;
-  return layout.columns.some((c) => !c.fixed && String(row[c.key] ?? "").trim() !== "");
+  // A cell still at its column's standard (F/HR/03's 5 under every operation, REQUIREMENTS §167) is nothing anybody wrote.
+  return layout.columns.some((c) => !c.fixed && String(row[c.key] ?? "").trim() !== "" && String(row[c.key]).trim() !== String(c.standard ?? "").trim());
 }
 
 /**
@@ -228,7 +230,8 @@ export function gapFor(j: Pick<NewJoiner, "qualification" | "experience" | "eduR
 
 /** Operators and workers go on the skill matrix and the operators' induction; everyone else is staff. */
 export function categoryFor(designation: string): JoinerCategory {
-  return /operator|helper|worker|swipper|sweeper|loading|packing|machine/i.test(designation) ? "operator" : "staff";
+  // The staff sheet's positions (REQUIREMENTS §169): Helper, Operator, Guard, Driver, Sweeper, Peon, Electrician are the plant's workers.
+  return /operator|helper|worker|swipper|sweeper|loading|packing|machine|guard|driver|peon|cleaner|fitter|labou?r|loader|electrician|watchman/i.test(designation) ? "operator" : "staff";
 }
 
 /** Whether the designation is one of those on F/HR/13's department-wise matrix of who may be allowed a mobile. */
@@ -238,11 +241,14 @@ export function mobileAllowedByMatrix(designation: string): boolean {
 
 /**
  * Where a new joiner is filed by default. The mobile authorisation is never
- * ticked for them: allowing a phone in the plant is the PSTL's decision.
+ * ticked for them: allowing a phone in the plant is the PSTL's decision. The
+ * pre-employment health declaration (F/HR/04) is the staff's — supervisors,
+ * HODs, executives, assistants, managers — and not a worker's or a helper's
+ * (the owner, 2-Nov-2026).
  */
 export function defaultTargets(category: JoinerCategory): string[] {
   return category === "operator"
-    ? ["hr-skill-matrix", "hr-induction-operators", "hr-training-needs", "hr-pre-employment-health"]
+    ? ["hr-skill-matrix", "hr-induction-operators", "hr-training-needs"]
     : ["hr-competence", "hr-induction-staff", "hr-training-needs", "hr-pre-employment-health"];
 }
 
@@ -275,18 +281,13 @@ export function targetStates(name: string, isDemo: boolean): TargetState[] {
 }
 
 // ---------------------------------------------------------------------------
-// the line, or the record, each format gets — in its own register's date style
+// the line, or the record, each format gets — every date as the app writes one, "05-07-2024" (REQUIREMENTS §171;
+// before it each register's own style: F/HR/01 dotted, F/HR/03 month first, F/HR/06 and F/HR/13 day first with slashes)
 
-const parts = (iso: string) => {
-  const [y, m, d] = iso.split("-");
-  return { y, m, d };
+const appDate = (iso: string): string => {
+  const [y, m, d] = (iso ?? "").split("-");
+  return y && m && d ? `${d}-${m}-${y}` : "";
 };
-/** 05.07.2024 — F/HR/01's style. */
-const dotted = (iso: string) => (iso ? `${parts(iso).d}.${parts(iso).m}.${parts(iso).y}` : "");
-/** 7/5/2024 — F/HR/03's style (month first, no leading zeros). */
-const monthFirst = (iso: string) => (iso ? `${Number(parts(iso).m)}/${Number(parts(iso).d)}/${parts(iso).y}` : "");
-/** 05/07/2024 — F/HR/06's and F/HR/13's style. */
-const dayFirst = (iso: string) => (iso ? `${parts(iso).d}/${parts(iso).m}/${parts(iso).y}` : "");
 
 function lineFor(docId: string, j: NewJoiner): Record<string, string> {
   const position = [j.designation, j.department].filter(Boolean).join(" - ");
@@ -301,17 +302,17 @@ function lineFor(docId: string, j: NewJoiner): Record<string, string> {
         expRequired: j.expRequired,
         expAvailable: j.experience,
         gapJustification: j.gapJustification,
-        dateOfJoining: dotted(j.dateOfJoining),
+        dateOfJoining: appDate(j.dateOfJoining),
         dateOfLeaving: "",
       };
     case "hr-skill-matrix":
-      return { name: j.name, designation: j.designation, dateOfJoining: monthFirst(j.dateOfJoining), ...Object.fromEntries(SKILL_OPERATIONS.map((o) => [o.key, ""])), remarks: "" };
+      return { name: j.name, designation: j.designation, dateOfJoining: appDate(j.dateOfJoining), ...Object.fromEntries(SKILL_OPERATIONS.map((o) => [o.key, ""])), remarks: "" };
     case "hr-training-needs":
       return { name: j.name, designation: j.designation, ...Object.fromEntries(TRAINING_TOPICS.map((t) => [t.key, ""])) };
     case "hr-induction-operators":
-      return { name: j.name, joining: position, dateOfJoiningInduction: dayFirst(j.dateOfJoining), signHod: "", signHeadHr: "", signOperator: "" };
+      return { name: j.name, joining: position, dateOfJoiningInduction: appDate(j.dateOfJoining), signHod: "", signHeadHr: "", signOperator: "" };
     case "hr-mobile-authorization":
-      return { name: j.name, deptDesignation: position, signature: "", dateOfAllowance: dayFirst(todayISO()), authorizedBy: "" };
+      return { name: j.name, deptDesignation: position, signature: "", dateOfAllowance: appDate(todayISO()), authorizedBy: "" };
     default:
       return { name: j.name };
   }

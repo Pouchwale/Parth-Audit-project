@@ -71,6 +71,12 @@ export function ReminderList({ reminders, onNavigate }: { reminders: DocumentRem
           <div className="text-xs text-muted mt-1">
             {formatDisplayDate(r.dueDate)} — {urgencyDetail(r, t)}
           </div>
+          {/* What is left to do on it, where the document says (F/QC/17: the two boxes by hand, then submit). */}
+          {r.note && (
+            <div className="text-xs mt-1" data-field="reminder-note" style={{ color: "var(--color-warning)", fontWeight: 600 }}>
+              {r.note}
+            </div>
+          )}
           <div className="text-xs mt-1" data-field="answered-by">
             {answeredBy(r).length > 0 ? (
               <span>{t("notif.bell.answers", { names: answeredBy(r).join(", ") })}</span>

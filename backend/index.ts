@@ -41,6 +41,8 @@ import type { OutsideHoursRefusal } from "../frontend/src/engine/workingHoursCor
 import { distDir } from "./paths.ts";
 import { ensureWebsiteBuilt } from "./websiteBuild.ts";
 import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
+import { assistantAllowedFor, registerAssistantSwitchRoutes } from "./assistantSwitch.ts";
+import { registerBackupRoutes } from "./backupRoutes.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
 import { runAgentStep, validateAgentRequest, TRANSCRIBE_PROMPT } from "./mitraAgent.ts";
 import { readAttachment, picturesReadByModel, MAX_ATTACHMENT_BYTES } from "./attachments.ts";
@@ -75,7 +77,7 @@ import { managedAccount, registerAccountRoutes } from "./accountRoutes.ts";
 import { signInAddress } from "../frontend/src/engine/accountNames.ts";
 import { accountLanguageOf, accountWord } from "../frontend/src/engine/accountWords.ts";
 
-const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
+const PORT = Number(process.env.API_PORT || process.env.PORT || 4000);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // RFC 5321's limit on a whole address; anything longer is not a real email.
 const MAX_EMAIL_LENGTH = 254;
@@ -463,7 +465,7 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   }
   // With the account, what this server has switched on (features.ts, REQUIREMENTS §65) — here, at sign-in and in
   // /api/auth/me — and when this session ends, with its id (§84).
-  res.status(201).json({ user, features: FEATURES, session: await hours.sessionAnswer(user, endsAt, issued.sessionId), hours: await hours.personAnswer(user) });
+  res.status(201).json({ user, features: await featuresFor(user), session: await hours.sessionAnswer(user, endsAt, issued.sessionId), hours: await hours.personAnswer(user) });
 });
 
 // WHO SEES WHICH DEPARTMENT'S DOCUMENTS — set by the admin, not by the person
@@ -484,6 +486,16 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction): Pr
   (req as AuthedRequest).sessionKey = read.key;
   next();
 }
+
+// MITRA FOR THE STAFF, THE SUPER ADMIN'S SWITCH (backend/assistantSwitch.ts; the owner, 2-Nov-2026). Read and set
+// at /api/assistant/access; told with who is signed in (featuresFor, `features.mitra`); and every route of Mitra's
+// below stands behind requireAssistant — the super admin always through, the staff while the switch is on.
+const { requireAssistant } = registerAssistantSwitchRoutes(app, { requireAuth, requireAdmin, logActivity });
+// BACKUPS FROM USERS & ACCESS (backend/backupRoutes.ts; the owner, 2-Nov-2026): the database alone, or the code and
+// the database, by the super admin; the files listed and downloaded from the same page.
+registerBackupRoutes(app, { requireAuth, requireAdmin, logActivity });
+/** What this server has switched on, for THIS person: the plant's features, and whether they have Mitra. */
+const featuresFor = async (user: PublicUser) => ({ ...FEATURES, mitra: await assistantAllowedFor(user) });
 
 // EVERY ACCOUNT, THE REMOVED ONES TOO (REQUIREMENTS §110): each with when it was removed and by whom (null while it is
 // on the list), the sign-in it gave up to another account and the ones it had before a rename. Users & Access shows the
@@ -729,7 +741,7 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
   void markSignedIn(row.id, new Date().toISOString()).catch(() => undefined);
   // The line names the device (§106): "Windows computer - Chrome (Website) from 10.0.0.5".
   logActivity(req, user, "Signed in", user.email, deviceLine(issued.device));
-  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password, session: await hours.sessionAnswer(user, endsAt, issued.sessionId), hours: await hours.personAnswer(user) });
+  res.json({ user, features: await featuresFor(user), mustChangePassword: row.must_change_password, session: await hours.sessionAnswer(user, endsAt, issued.sessionId), hours: await hours.personAnswer(user) });
 });
 
 // A session the browser ends a moment after its close — its clock, a laptop
@@ -908,7 +920,7 @@ app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
     res.status(403).json({ ...refused, features: FEATURES });
     return;
   }
-  res.json({ user, features: FEATURES, mustChangePassword: await mustChangePassword(user.id), session: await hours.sessionAnswer(user, session.endsAt, session.sessionId), hours: await hours.personAnswer(user) });
+  res.json({ user, features: await featuresFor(user), mustChangePassword: await mustChangePassword(user.id), session: await hours.sessionAnswer(user, session.endsAt, session.sessionId), hours: await hours.personAnswer(user) });
 });
 
 // Same in-memory-per-key throttle shape as the sign-in throttle above, just keyed
@@ -969,7 +981,7 @@ setInterval(() => {
 
 const ROUTE_RE = /^\/[a-z0-9/_-]*$/i;
 
-app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response): Promise<void> => {
+app.post("/api/assistant/chat", requireAuth, requireAssistant, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
   const { message, today, currentRoute, documentKind, currentData, context, language, recordStatus, evidence, history } = req.body ?? {};
 
@@ -1097,7 +1109,7 @@ app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response)
 // one round of that loop. The same gate as /chat: the shapes and limits
 // (mitraAgent.ts says why each), the plant's daily allowance, then the
 // per-user throttle; and the same generic words for a failure.
-app.post("/api/assistant/agent", requireAuth, express.json({ limit: "200kb" }), async (req: Request, res: Response): Promise<void> => {
+app.post("/api/assistant/agent", requireAuth, requireAssistant, express.json({ limit: "200kb" }), async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
   const checked = validateAgentRequest(req.body);
   if (!checked.ok) {
@@ -1137,7 +1149,7 @@ app.post("/api/assistant/agent", requireAuth, express.json({ limit: "200kb" }), 
 // over it has the picture read by OCR) and the day's allowance; an unreadable
 // file is a 200 with an empty text and a note in plain words, which the
 // browser shows on the attachment.
-app.post("/api/assistant/extract", requireAuth, express.raw({ type: () => true, limit: MAX_ATTACHMENT_BYTES }), async (req: Request, res: Response): Promise<void> => {
+app.post("/api/assistant/extract", requireAuth, requireAssistant, express.raw({ type: () => true, limit: MAX_ATTACHMENT_BYTES }), async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
   const body = req.body;
   if (!Buffer.isBuffer(body) || body.length === 0) {
@@ -1171,7 +1183,7 @@ app.post("/api/assistant/extract", requireAuth, express.raw({ type: () => true, 
 const MAX_RECORDING_BYTES = 10 * 1024 * 1024;
 const AUDIO_MIME_RE = /^(?:audio|video)\/[a-z0-9.+-]+(?:;[\w\s=.,-]*)?$/i;
 
-app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => true, limit: MAX_RECORDING_BYTES }), async (req: Request, res: Response): Promise<void> => {
+app.post("/api/assistant/transcribe", requireAuth, requireAssistant, express.raw({ type: () => true, limit: MAX_RECORDING_BYTES }), async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
   if (!aiConfigured()) {
     res.status(503).json({ error: "Voice transcription isn't configured on this server.", code: "not-configured" });
@@ -1263,12 +1275,12 @@ function probeVoice(): Promise<void> {
   return voiceProbe;
 }
 
-app.get("/api/assistant/speak", requireAuth, async (_req: Request, res: Response): Promise<void> => {
+app.get("/api/assistant/speak", requireAuth, requireAssistant, async (_req: Request, res: Response): Promise<void> => {
   if (speechEngine() && !voiceAvailability.current()) await probeVoice();
   res.json(voiceStatus(voiceAvailability.current()));
 });
 
-app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response): Promise<void> => {
+app.post("/api/assistant/speak", requireAuth, requireAssistant, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
   const engine = speechEngine();
   if (!engine) {
@@ -1353,7 +1365,10 @@ app.post(
     } catch {
       /* a malformed name only loses the extension hint */
     }
-    const useAssistant = process.env.CV_READ_WITH_ASSISTANT !== "0" && aiConfigured() && !isAssistantThrottled(userId);
+    // With Mitra switched off for the staff (backend/assistantSwitch.ts), HR's CV is still read — by the text rules
+    // alone, never by the model: the import is HR's tool, the model is Mitra's.
+    const mitra = await assistantAllowedFor((req as AuthedRequest).user);
+    const useAssistant = mitra && process.env.CV_READ_WITH_ASSISTANT !== "0" && aiConfigured() && !isAssistantThrottled(userId);
     if (useAssistant) recordAssistantCall(userId);
     try {
       res.json(await readCv(body, fileName, { useAssistant }));
@@ -1371,7 +1386,7 @@ app.post(
 // The guided checklist walk-through's free-text path (see
 // frontend/src/engine/guidedChecklist.ts). Same per-user throttle as chat —
 // it's one model call per answer (the short-jobs model, backend/ai.ts).
-app.post("/api/assistant/checklist-answer", requireAuth, async (req: Request, res: Response): Promise<void> => {
+app.post("/api/assistant/checklist-answer", requireAuth, requireAssistant, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
   const { activity, answer, today } = req.body ?? {};
   if (typeof activity !== "string" || !activity.trim() || activity.length > 300) {
@@ -1648,12 +1663,24 @@ if (!ALLOW_SIGNUP) {
   }
 }
 
-app.listen(PORT, () => {
-  console.log(`API server listening on http://localhost:${PORT}`);
-  // "On the company network: http://<this PC's address>:<port>", the address laptops and desktops open.
-  printCompanyNetwork(PORT);
-  // ...and the same DCRS at https://<address>:<port + 443>, where a browser on another computer lends Mitra its microphone.
+// THE ADDRESS TO LISTEN ON. Unset, every address, as the plant's server must be. LISTEN_HOST=127.0.0.1 (the local run,
+// scripts/dev-local.ts; the owner, 3-Nov-2026: "only run localhost on port 5173, not another port"): this computer alone,
+// where the API is reached only through the website's own port, and nothing of it is said to the network.
+const LISTEN_HOST = process.env.LISTEN_HOST?.trim() || undefined;
+const LISTEN_HERE_ONLY = LISTEN_HOST === "127.0.0.1" || LISTEN_HOST === "localhost" || LISTEN_HOST === "::1";
+const onListening = () => {
+  if (LISTEN_HERE_ONLY) {
+    console.log(`API answering on this computer alone, behind the website's port.`);
+  } else {
+    console.log(`API server listening on http://localhost:${PORT}`);
+    // "On the company network: http://<this PC's address>:<port>", the address laptops and desktops open.
+    printCompanyNetwork(PORT);
+  }
+  // ...and the same DCRS at https://<address>:<port + 443>, where a browser on another computer lends Mitra its microphone
+  // (DCRS_HTTPS=off: none - the local run).
   void startSecureAddress(app, PORT);
   // The daily escalation and the weekly digest, on the plant's clock (backend/jobs.ts); JOBS=0 leaves them off.
   startJobs();
-});
+};
+if (LISTEN_HOST) app.listen(PORT, LISTEN_HOST, onListening);
+else app.listen(PORT, onListening);

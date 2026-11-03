@@ -1,4 +1,5 @@
 import type { HrMasterPerson, LogSheetData, LogSheetRow, RecordInstance } from "../../types";
+import { HR_MASTER_STAFF, HR_MASTER_STAFF_AS_ON, type StaffLine } from "./hrMasterStaff";
 import { SEED_HR_COMPETENCE, SEED_HR_INDUCTION_OPERATORS, SEED_HR_SKILL_MATRIX } from "./hrRecords";
 import { nameKey, parseWrittenDate, splitDepartmentDesignation } from "../../engine/hrMaster";
 
@@ -54,6 +55,8 @@ interface RegisterLine {
 
 const SEEDED_AT = "2026-09-17T00:00:00.000Z";
 export const HR_MASTER_SEEDED_BY = "HR Master Data — set up from F/HR/01, F/HR/03 and F/HR/06 as on file";
+/** The staff sheet's lines (REQUIREMENTS §169): HR's own master data, supplied 3-Nov-2026. */
+export const HR_MASTER_STAFF_BY = "HR Master Data — the staff sheet supplied 3-Nov-2026 (Master Data Staff.xlsx)";
 
 const text = (row: LogSheetRow, key: string) => String(row[key] ?? "").trim();
 const rowsOf = (record: RecordInstance<LogSheetData>) => record.data.rows;
@@ -163,6 +166,8 @@ function toPerson(group: RegisterLine[]): HrMasterPerson {
     joiningDate: l01?.joined ?? l03?.joined ?? l06?.joined ?? "",
     fullName,
     department: l01?.department || l06?.department || "",
+    subDepartment: "",
+    machine: "",
     designation: l01?.designation || l06?.designation || l03?.designation || "",
     dateOfBirth: "",
     aliases: Array.from(new Set(group.map((l) => l.name).filter((n) => n !== fullName))),
@@ -173,7 +178,8 @@ function toPerson(group: RegisterLine[]): HrMasterPerson {
   };
 }
 
-function buildSeed(): HrMasterPerson[] {
+/** The registers' people, as the sheet was first set up from them (§53). */
+function registersSeed(): HrMasterPerson[] {
   const groups: RegisterLine[][] = [];
   for (const line of [...competenceLines(), ...skillLines(), ...inductionLines()]) {
     if (!line.name) continue;
@@ -182,6 +188,49 @@ function buildSeed(): HrMasterPerson[] {
     else groups.push([line]);
   }
   return groups.filter((g) => !g.some((l) => l.left)).map(toPerson);
+}
+
+/** A staff line as a register line would read, so the registers' own matching of names serves (samePerson). */
+const staffAsLine = (s: StaffLine, i: number): RegisterLine => ({ register: "F/HR/01", line: i + 1, rowId: s[0], name: s[2], department: s[3], designation: s[6], joinedAsWritten: s[1], joined: s[1] || null, left: false });
+
+/** A stable id from the GP3 No. ("GP3.001" -> "hrm-staff-gp3-001"). */
+export const staffId = (gp3No: string): string => `hrm-staff-${gp3No.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+
+/**
+ * THE SHEET AS FIRST SET UP (REQUIREMENTS §169): HR's own staff sheet first - every one of its people, in its eight
+ * columns, under a stable id from the GP3 No. - and after them the registers' people who are not among them (another
+ * spelling, or somebody the sheet does not hold), as before. A staff line that the registers also hold keeps the
+ * REGISTER line's id, so a sheet already kept on a plant computer recognises the person and takes the staff sheet's
+ * word into the line's blank boxes (data/repositories/hrMasterRepository.ts ensureSeeded) instead of doubling them;
+ * the register's other spellings stay as aliases, and where the registers and the staff sheet came from is noted.
+ */
+function buildSeed(): HrMasterPerson[] {
+  const fromRegisters = registersSeed();
+  const matched = new Set<string>();
+  const staff: HrMasterPerson[] = HR_MASTER_STAFF.map((s, i) => {
+    const asLine = staffAsLine(s, i);
+    const twin = fromRegisters.find((r) => !matched.has(r.id) && [r.fullName, ...(r.aliases ?? [])].some((n) => samePerson({ ...asLine, name: n, rowId: "" }, asLine) || samePerson(asLine, { ...asLine, name: n, rowId: "" })));
+    if (twin) matched.add(twin.id);
+    const aliases = Array.from(new Set([...(twin ? [twin.fullName, ...(twin.aliases ?? [])] : [])].filter((n) => nameKey(n) !== nameKey(s[2]))));
+    const notes = [...(s[8] ? [s[8]] : []), ...(twin?.notes ?? [])];
+    return {
+      id: twin ? twin.id : staffId(s[0]),
+      gp3No: s[0],
+      joiningDate: s[1],
+      fullName: s[2],
+      department: s[3],
+      subDepartment: s[4],
+      machine: s[5],
+      designation: s[6],
+      dateOfBirth: s[7],
+      ...(aliases.length ? { aliases } : {}),
+      sources: [`Master Data Staff.xlsx line ${i + 2}`, ...(twin?.sources ?? [])],
+      ...(notes.length ? { notes } : {}),
+      updatedAt: `${HR_MASTER_STAFF_AS_ON}T00:00:00.000Z`,
+      updatedBy: HR_MASTER_STAFF_BY,
+    };
+  });
+  return [...staff, ...fromRegisters.filter((r) => !matched.has(r.id))];
 }
 
 // Built the first time it is asked for — not while the app loads, before anybody has signed in.

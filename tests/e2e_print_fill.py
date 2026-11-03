@@ -144,7 +144,7 @@ with sync_playwright() as p:
         ("mkt-customer-feedback", "F/MKT/01 (a form drawn bigger, its comments and seal under its grid)", "bigger"),
         ("service-report-fly", "The fly-control service report (the contractor's March sheet)", "paper"),
         ("qc-bopp-film", "F/QC/01 (a paper form drawn in millimetres)", "paper"),
-        ("qc-weight-scale-calibration", "F/QC/12 (one calibration written, the paper draws four)", "entries"),
+        ("qc-weight-scale-calibration", "F/QC/12 (a month's four weekly entries, as the paper draws them)", "entries"),
     ]
     for doc, what, kind in cases:
         how = open_filled(page, doc)
@@ -162,7 +162,7 @@ with sync_playwright() as p:
             check(f"{what}: drawn bigger, and all on its one page", got["zoom"] is not None and got["zoom"] > 1 and got["pages"] == 1, got)
         elif kind == "entries":
             entries = got["words"].count("Deviation %")
-            check(f"{what}: the printout holds the one entry written, not the paper's four", entries == 1, (entries, got["words"][:300]))
+            check(f"{what}: the printout holds the month's four entries, each with its Deviation % line (s145)", entries == 4, (entries, got["words"][:300]))
         elif kind == "paper":
             check(f"{what}: left exactly as drawn: no zoom, no blank lines, no line drawn taller", got["zoom"] == 1 and got["blank"] == 0 and got["stretched"] == 0, got)
         if kind == "register":

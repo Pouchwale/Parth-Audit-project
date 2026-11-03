@@ -98,6 +98,7 @@ import { dayInfo, isCompanyHoliday, nextWeeklyOff, upcomingHolidays, weeklyOffDa
 import { buildAccess, levelNeeded, type Access, type AccessAccount, type DocumentAction } from "../engine/accessRules";
 import { refusalSentence, type AccessLanguage } from "../engine/accessWords";
 import { planNotifications, type PlanPerson, type PlanRecord } from "../engine/notificationPlan";
+import { plannedTrainings, TRAINING_CALENDAR_ID } from "../engine/trainingCalendar";
 import { ensureRecordIndex, readSearchQuery, searchRecords } from "../engine/recordSearch";
 import { recordSearchText, snippetFor } from "../engine/recordText";
 import { analyticIntent, buildEvidence, topicOfDocument, type AnalyticIntent } from "../engine/historyDigest";
@@ -130,6 +131,7 @@ import { canSampleFill, SAMPLE_FILL_NOTE } from "../engine/sampleFill";
 import { ALL_TOOLS, PATCH_SCHEMA, previewPatch } from "../engine/mitraTools";
 import { currentPmIndex, isLinkedLine, pmActuals, pmCellText, PM_MONTH_KEYS, scheduleYear, schedulesLinked } from "../engine/pmSchedule";
 import { addDays, compareISO, formatDisplayDate, todayISO } from "../utils/date";
+import { READINGS_TO_CONFIRM } from "../engine/nominalFill";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
@@ -184,7 +186,7 @@ function useClock(now: unknown): void {
 
 /** The company items DCRS's browser holds (backend/index.ts COMPANY_KEYS). */
 // "access": the super admin's access rules (engine/accessRules.ts AccessRules, REQUIREMENTS §96), read by today and the notification plan.
-export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "access"] as const;
+export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "access", "indexing"] as const;
 export type ItemKey = (typeof ITEM_KEYS)[number];
 
 /** One stored item: its seq and version, and its value when it changed since the last load (absent: as before). */
@@ -1141,6 +1143,13 @@ function prepareOp(): Outcome {
 // THE NOTIFICATION PLAN (backend/notificationJobs.ts "notify"): for every active account the server hands in, in one
 // load, what it should be told now (engine/notificationPlan.ts), from the plant's records, the documents, the calendar
 // and the access rules as stored. Read only: the server keeps the ledger.
+/** The dates of a F/QC/12 sheet's lines whose filled readings wait for the person to confirm them, today or earlier. */
+function scaleLinesToConfirm(r: RecordInstance, today: string): string[] {
+  const rows = (r.data as { rows?: Obj[] } | undefined)?.rows;
+  if (!Array.isArray(rows)) return [];
+  return rows.filter((row) => row[READINGS_TO_CONFIRM] && str(row.date) && compareISO(str(row.date), today) <= 0).map((row) => str(row.date));
+}
+
 function notificationsOp(args: Obj): Outcome {
   if (!asTheSystem()) return systemOnly();
   const access = accessNow();
@@ -1176,6 +1185,10 @@ function notificationsOp(args: Obj): Outcome {
       rejectedBy: r.rejectedBy ?? null,
       rejectionReason: r.rejectionReason ?? null,
       rejections: (r.history ?? []).filter((h) => h.action === "rejected").length,
+      // F/QC/12: the weeks whose filled readings wait to be confirmed (engine/nominalFill.ts), dated today or before.
+      ...(r.documentId === "qc-weight-scale-calibration" ? { toConfirm: scaleLinesToConfirm(r, today) } : {}),
+      // F/HR/09: the trainings the calendar plans, each with its day and whether its actual date is written (§164).
+      ...(r.documentId === TRAINING_CALENDAR_ID ? { trainings: plannedTrainings((r.data as { rows?: Obj[] } | undefined)?.rows, r.dueDate, today, (d) => isCompanyHoliday(d, master)) } : {}),
     });
   }
   const times = isObj(args.summaryTimes) && str(args.summaryTimes.morning) && str(args.summaryTimes.evening) ? { morning: str(args.summaryTimes.morning), evening: str(args.summaryTimes.evening) } : undefined;

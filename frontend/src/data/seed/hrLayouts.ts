@@ -1,4 +1,5 @@
 import type { LogColumn, LogSheetLayout } from "../../types";
+import { CALENDAR_MONTH_NAMES } from "../../engine/trainingCalendar";
 
 // THE HUMAN RESOURCES FORMATS — sixteen of the company's F/HR/… formats,
 // supplied as PDFs on 14-Sep-2026, and the two cleaning records supplied on
@@ -39,7 +40,7 @@ const competence: LogSheetLayout = {
   documentId: "hr-competence",
   instructions: [
     "PERSONAL COMPETENCE RECORDS (STAFF MEMBERS ONLY) — one line per staff member: the education and experience the position requires against what the person holds, with the justification for any gap.",
-    "Dates are written as on the register (dd.mm.yyyy or m/d/yyyy as entered); a Date of Leaving is filled in only when the person has left.",
+    "Dates are written dd-mm-yyyy (a line carried over from the paper register keeps the register's own spelling); a Date of Leaving is filled in only when the person has left.",
   ],
   headerFields: [{ key: "reviewedOn", label: "Reviewed as on", type: "text", width: 160, autoFill: { carryForward: true } }],
   columns: [
@@ -93,7 +94,10 @@ const skillMatrix: LogSheetLayout = {
     text("name", "Name", 200, true),
     text("designation", "Designation (Operator)", 190),
     text("dateOfJoining", "Date of Joining", 110),
-    ...SKILL_OPERATIONS.map(({ key, label }): LogColumn => ({ key, label, type: "select", options: ["5", "3", "1"], width: 78 })),
+    // Every operation starts at 5, S - can operate individually (the owner, 3-Nov-2026: "in HR 03 every operator has by
+    // default score 5, but make sure it is editable"): a standard on every new line (LogColumn.standard), the box a
+    // 5 / 3 / 1 choice the person changes. The matrix on file (status as on 01.09.2026) keeps its own points.
+    ...SKILL_OPERATIONS.map(({ key, label }): LogColumn => ({ key, label, type: "select", options: ["5", "3", "1"], width: 78, standard: "5" })),
     text("remarks", "Remarks / Status of Skill up-gradation or change", 170),
   ],
   rowMode: { kind: "free", minRows: 1, typicalRows: ROSTER },
@@ -165,7 +169,11 @@ const preEmployment: LogSheetLayout = {
     { key: "dateOfBirth", label: "Date of Birth", type: "date" },
   ],
   columns: [fixedText("parameter", "Question", 420), yesNo("answer", "YES / NO", 90), text("details", "Details (if yes)", 220)],
-  rowMode: { kind: "fixedRows", rows: items(PRE_EMPLOYMENT_QUESTIONS) },
+  // EVERY ANSWER STARTS AT "No" (the owner, 2-Nov-2026): the declaration's usual answer to all of it, so the applicant
+  // changes only the question that applies to them and writes its details. The one format that starts an answer
+  // decided (REQUIREMENTS §98 keeps the others blank): it is the person's own declaration about themselves, not an
+  // observation of the plant.
+  rowMode: { kind: "fixedRows", openLines: true, rows: items(PRE_EMPLOYMENT_QUESTIONS).map((row) => ({ ...row, answer: "No" })) },
   footerFields: [
     { key: "signature", label: "Signature", type: "text" },
     { key: "signDate", label: "Date", type: "date" },
@@ -190,11 +198,16 @@ const inductionStaff: LogSheetLayout = {
   columns: [
     fixedText("parameter", "Training Topics", 300),
     fixedText("responsibility", "Responsibility", 150),
-    { key: "plannedDate", label: "Planned Date", type: "date", width: 130 },
+    // Every topic is planned for the day the new employee joins (the owner, 2-Nov-2026, REQUIREMENTS §159): the
+    // Planned Date follows the Date of Joining box, however that box is filled.
+    { key: "plannedDate", label: "Planned Date", type: "date", width: 130, autoFill: { fromHeader: "dateOfJoining" } },
     text("actualDate", "Actual date & Initial sign", 170),
   ],
+  // THE TOPICS ARE OPEN (REQUIREMENTS §158, the owner 2-Nov-2026): a topic is added or taken off this record on the
+  // sheet itself, as on every HR form that prints its lines; the format keeps its printed five for the next one.
   rowMode: {
     kind: "fixedRows",
+    openLines: true,
     rows: [
       // The Sr. No. column numbers the topics, as on the form; topic 2's
       // points are the form's own lines. The last two lines are blank on the
@@ -311,7 +324,7 @@ const trainingNeeds: LogSheetLayout = {
   instructions: [
     "EMPLOYEE WISE TRAINING NEED IDENTIFICATION RECORD — one line per employee; Yes under a topic is the X on the paper.",
   ],
-  headerFields: [{ key: "period", label: "Period", type: "text", autoFill: { default: "01.04.2026 ~ 31.03.2027" }, width: 220 }],
+  headerFields: [{ key: "period", label: "Period", type: "text", autoFill: { default: "01-04-2026 ~ 31-03-2027" }, width: 220 }],
   columns: [text("name", "Employee Name", 200, true), text("designation", "Designation", 190), ...TRAINING_TOPICS.map(({ key, label }) => yesNo(key, label, 90))],
   rowMode: { kind: "free", minRows: 1, typicalRows: ROSTER },
   specimenHeader: { period: "01.04.2026 ~ 31.03.2027" },
@@ -325,7 +338,9 @@ const trainingNeeds: LogSheetLayout = {
 // ---------------------------------------------------------------------------
 // F/HR/09 — Training Plan Calender
 
-export const CALENDAR_MONTHS = ["Apr-26", "May-26", "Jun-26", "Jul-26", "Aug-26", "Sep-26", "Oct-26", "Nov-26", "Dec-26", "Jan-27", "Feb-27", "Mar-27"];
+// The calendar's twelve months, April to March, named without a year: the sheet's own period box names the years
+// (the 2026-27 calendar on file, the 2027-28 one drawn from it each March, REQUIREMENTS §164).
+export const CALENDAR_MONTHS: readonly string[] = CALENDAR_MONTH_NAMES;
 
 const calendarColumns: LogColumn[] = [
   fixedText("parameter", "Topics", 230),
@@ -335,7 +350,8 @@ const calendarColumns: LogColumn[] = [
   fixedText("evaluation", "Method of Evaluation", 140),
 ];
 for (let i = 0; i < CALENDAR_MONTHS.length; i++) {
-  calendarColumns.push(yesNo(`m${i}Plan`, `${CALENDAR_MONTHS[i]} — Plan`, 80));
+  // Plan: "Yes" where the paper prints X, or the date DCRS planned the training for ("22-07-27", §164): either plans the month.
+  calendarColumns.push(text(`m${i}Plan`, `${CALENDAR_MONTHS[i]} — Plan`, 80));
   calendarColumns.push(text(`m${i}Actual`, `${CALENDAR_MONTHS[i]} — Actual`, 95));
 }
 
@@ -387,18 +403,52 @@ export function calendarRow(t: CalendarTopic): Record<string, string | number | 
 const trainingCalendar: LogSheetLayout = {
   documentId: "hr-training-calendar",
   instructions: [
-    "Training Plan Calender (01.04.2026 ~ 31.03.2027) (Rev. 00 / 07.03.2022). For every topic and month: Plan — Yes where the paper prints X; Actual — the date the training was held, as written.",
+    "Training Plan Calender (Rev. 00 / 07.03.2022), one sheet a year from April to March. For every topic and month: Plan — Yes where the paper prints X, or the date DCRS planned the training for; Actual — the date the training was held, written when it is. Each March the coming year is planned from this year's calendar, and the people who answer for it are reminded before each planned day until the actual date is written.",
     "The training duration of topic 10 is not legible on the supplied copy and is marked TO BE CONFIRMED.",
   ],
-  headerFields: [{ key: "period", label: "Training Plan Calender", type: "text", autoFill: { default: "01.04.2026 ~ 31.03.2027" }, width: 260 }],
+  headerFields: [{ key: "period", label: "Training Plan Calender", type: "text", autoFill: { financialYear: true }, width: 260 }],
   columns: calendarColumns,
   rowMode: {
     kind: "fixedRows",
+    openLines: true,
     rows: CALENDAR_TOPICS.map((t) => ({ parameter: t.topic, source: t.source, method: t.method, duration: t.duration, evaluation: t.evaluation })),
   },
   specimenHeader: { period: "01.04.2026 ~ 31.03.2027" },
   specimenRows: CALENDAR_TOPICS.map(calendarRow),
   specimenSource: "F-HR-09_Training Calender(2026-27).pdf — F/HR/09 (00/01.12.2021), two pages, nineteen topics",
+};
+
+// ---------------------------------------------------------------------------
+// F/HR/10 — TRAINING IMPARTED RECORD (REQUIREMENTS §168): the one record of a training held, which F/HR/11 and
+// F/HR/12 take their training and their people from (engine/trainingLinks.ts). The paper was not supplied: DCRS's own
+// layout, to be aligned with the paper when it comes.
+
+const trainingImparted: LogSheetLayout = {
+  documentId: "hr-training-imparted",
+  instructions: [
+    "TRAINING IMPARTED RECORD — one record per training held. The topic box offers the training plan calendar's trainings: the one chosen fills the trainer, the duration and the method. One line per employee who attended, with a signature; F/HR/11 and F/HR/12 then take the training and its people from here.",
+  ],
+  headerFields: [
+    { key: "trainingDate", label: "Date of Training", type: "date", required: true, autoFill: { dueDate: true } },
+    // carryForward, as on F/HR/12: the specimen fills the sample, and an As Required record carries nothing from the last one.
+    { key: "topic", label: "Topic of the Training", type: "text", required: true, list: "hr-trainings", autoFill: { carryForward: true } },
+    { key: "impartedBy", label: "Training Imparted by (Faculty)", type: "text", autoFill: { carryForward: true } },
+    { key: "duration", label: "Duration", type: "text", autoFill: { carryForward: true } },
+    { key: "method", label: "Method of Training", type: "select", options: ["Class room", "On the Job", "On the Job + Class room"], autoFill: { carryForward: true } },
+    { key: "venue", label: "Venue", type: "text", autoFill: { carryForward: true } },
+  ],
+  columns: [text("name", "Name of the Employee", 200, true), text("department", "Department", 150), text("designation", "Designation", 160), text("signature", "Signature", 140)],
+  rowMode: { kind: "free", minRows: 1, typicalRows: 8 },
+  footerFields: [
+    { key: "trainerSign", label: "Trainer's Signature", type: "text" },
+    { key: "hrSign", label: "HR Manager", type: "text", autoFill: { sign: true } },
+  ],
+  specimenHeader: { trainingDate: "2026-09-19", topic: "GMP Principles", impartedBy: "Kapila Barad(PSTL)", duration: "1 hour", method: "Class room", venue: "Training room" },
+  specimenRows: [
+    { name: "Roshni Senma", department: "Lab", designation: "Lab Executive", signature: "" },
+    { name: "Ajay Vaghela", department: "Production", designation: "Flexo Manager", signature: "" },
+  ],
+  specimenSource: "F-HR-10 Training Imparted Record — named on the Master List of Formats (F/SYS/02), the paper not supplied; DCRS's own layout",
 };
 
 // ---------------------------------------------------------------------------
@@ -420,7 +470,8 @@ const trainingEffectiveness: LogSheetLayout = {
     { key: "department", label: "Department", type: "text", autoFill: { carryForward: true } },
     { key: "designation", label: "Designation", type: "text", autoFill: { carryForward: true } },
     { key: "trainingDate", label: "Date of Training", type: "date", autoFill: { carryForward: true } },
-    { key: "trainingTopic", label: "Training Topic", type: "text", autoFill: { carryForward: true } },
+    // The calendar's trainings are offered here (REQUIREMENTS §165, engine/trainingLinks.ts): the one chosen fills the date and the trainer.
+    { key: "trainingTopic", label: "Training Topic", type: "text", autoFill: { carryForward: true }, list: "hr-trainings" },
     { key: "trainerName", label: "Trainer's name", type: "text", autoFill: { carryForward: true } },
   ],
   columns: [
@@ -430,6 +481,7 @@ const trainingEffectiveness: LogSheetLayout = {
   ],
   rowMode: {
     kind: "fixedRows",
+    openLines: true,
     rows: items(["a  Structure", "b  Methodology used", "c  Content", "d  Delivery", "e  Interaction among participants", "Knew the subject", "Maintained your interest", "Encouraged you to talk and ask questions"]),
   },
   footerFields: [
@@ -464,13 +516,16 @@ const trainingFeedback: LogSheetLayout = {
   instructions: ["TRAINING FEEDBACK & EVALUATION RECORD — one line per employee who attended: has the employee grasped & adopted knowledge/skill of the topic? (rated 0 to 3), and does the employee need additional training on the subject?"],
   headerFields: [
     { key: "trainingDate", label: "Date of the Training", type: "date", autoFill: { carryForward: true } },
-    { key: "topic", label: "Topic of the Training", type: "text", autoFill: { carryForward: true } },
+    // The calendar's trainings are offered here (REQUIREMENTS §165, engine/trainingLinks.ts): the one chosen fills the date,
+    // who imparted it and its duration, and lists the employees evaluated on F/HR/11 for it.
+    { key: "topic", label: "Topic of the Training", type: "text", autoFill: { carryForward: true }, list: "hr-trainings" },
     { key: "impartedBy", label: "Training Imparted by", type: "text", autoFill: { carryForward: true } },
     { key: "duration", label: "Duration of The training", type: "text", autoFill: { carryForward: true } },
   ],
   columns: [
     text("name", "Name of the Employee", 200, true),
-    { key: "rating", label: "Has the employee grasped & adopted knowledge/skill of the topic? (Please rate from 0 to 3)", type: "select", options: ["0", "1", "2", "3"], width: 110 },
+    // Every line starts at 3, the paper's best (the owner, 2-Nov-2026: "the score is 3 by default but editable", §165).
+    { key: "rating", label: "Has the employee grasped & adopted knowledge/skill of the topic? (Please rate from 0 to 3)", type: "select", options: ["0", "1", "2", "3"], width: 110, standard: "3" },
     yesNo("additionalTraining", "Does the employee need additional training on the subject?", 110),
     text("remarks", "Remarks", 200),
   ],
@@ -577,7 +632,7 @@ const visitorHealth: LogSheetLayout = {
     { key: "purpose", label: "PURPOSE OF VISIT", type: "text", autoFill: { carryForward: true } },
   ],
   columns: [fixedText("parameter", "ARE YOU SUFFERING FROM ANY OF THE FOLLOWING CONDITIONS?", 420), yesNo("answer", "YES / NO", 90), text("value", "Reading / detail", 150)],
-  rowMode: { kind: "fixedRows", rows: items(VISITOR_QUESTIONS) },
+  rowMode: { kind: "fixedRows", openLines: true, rows: items(VISITOR_QUESTIONS) },
   footerFields: [
     { key: "signed", label: "Signed", type: "text" },
     { key: "signDate", label: "Date", type: "date" },
@@ -596,24 +651,23 @@ export const GMP_LOCATIONS = [
   "QC Laboratory", "Utility", "FG Storage Area", "Plant – First Floor", "Change Rooms", "Lunch Rooms",
 ];
 
-// [item text, the answer that means compliant]. Most questions ask whether a
-// good thing is so (Yes is compliant); a handful ask whether a bad thing exists
-// (No is compliant) — the assistant's pre-fill uses this, a person answers what
-// they found.
+// [item text, the answer every new record starts with]. Yes on every point (the owner, 2-Nov-2026, twice: "in HR 19
+// by default the answer is Yes" - REQUIREMENTS §162, then §165 for the handful asked the other way round, which §162
+// had started at No); the team changes the point that failed and writes its action.
 export const GMP_ITEMS: [string, "Yes" | "No"][] = [
   ["Whether outside land is free of debris and refuse?", "Yes"],
-  ["Whether any source of pollution exists in nearby vicinity affecting the premises and the manufacturing area? (e.g. no objectionable odors, smoke, dust or other contaminants)", "No"],
+  ["Whether any source of pollution exists in nearby vicinity affecting the premises and the manufacturing area? (e.g. no objectionable odors, smoke, dust or other contaminants)", "Yes"],
   ["Whether premises roadways are properly graded, compacted and dust proof and drained?", "Yes"],
   ["Whether premises dispatch and receiving areas provide or permit good drainage? (e.g. no seepage, foot-borne filth and no breeding place for pests)", "Yes"],
   ["Whether premise has proper litter storage facilities?", "Yes"],
   ["Whether waste and liter has been removed to ensure prevention of harborage of pests and rodents?", "Yes"],
   ["Whether weeds and grass have been cut within the vicinity of the plant building or structures to ensure prevention of harborage of pests and rodents?", "Yes"],
-  ["Whether there is any water logging in the plant as a breeding place for pests and rodents?", "No"],
-  ["Whether there are some unattended cracks and crevices in any part of the plant building or structures which may harbor pests and rodents?", "No"],
+  ["Whether there is any water logging in the plant as a breeding place for pests and rodents?", "Yes"],
+  ["Whether there are some unattended cracks and crevices in any part of the plant building or structures which may harbor pests and rodents?", "Yes"],
   ["Whether the plant building & structures are clean from outside as well as inside? (e.g. absence of dust, debris, refuse or cobwebs, etc.)", "Yes"],
   ["Whether all windows and doors are close fitting in the plant building not allowing any pests and rodents? (e.g. any damages in the doors & windows)", "Yes"],
-  ["Whether there is any plaster chipping or paint surface peeling off inside the plant premises?", "No"],
-  ["Whether any floor or wall tiles or flooring broken allowing harborage of pest, rodents or accumulation of dust or any contaminants?", "No"],
+  ["Whether there is any plaster chipping or paint surface peeling off inside the plant premises?", "Yes"],
+  ["Whether any floor or wall tiles or flooring broken allowing harborage of pest, rodents or accumulation of dust or any contaminants?", "Yes"],
   ["Whether joints between walls, floors and ceilings are proper in all areas?", "Yes"],
   ["Whether the plant production and packing areas are well lit and all the lighting fixtures are in working condition? (e.g. no broken lighting fixtures)", "Yes"],
   ["Whether all the lighting fixtures over exposed food or packing materials at all stages of production are covered with shatter proof material (e.g. acrylic glass covers)", "Yes"],
@@ -649,13 +703,13 @@ export const GMP_ITEMS: [string, "Yes" | "No"][] = [
   ["Whether work wear is laundered to standards and at intervals suitable for the intended use of the garments?", "Yes"],
   ["Whether hair, beard, and moustaches are protected (e.g. completely enclosed) by restraints unless hazard analysis indicates otherwise", "Yes"],
   ["Whether footwear for use in processing area is separate from personal footwear?", "Yes"],
-  ["Whether any person found with illness or injury?", "No"],
+  ["Whether any person found with illness or injury?", "Yes"],
   ["Whether rework is clearly identified, segregated and/or labeled for traceability?", "Yes"],
   ["Whether waste materials and chemicals (cleaning product, lubricants, and pesticides) are stored separately?", "Yes"],
   ["Whether vehicles, conveyances, and containers are maintained in good state of repair, cleanliness, and condition consistent with requirements given in relevant specification/", "Yes"],
   ["Whether potential sensitive areas within the establishments are identified, mapped and subjected to access control?", "Yes"],
   ["Whether FIFO is followed", "Yes"],
-  ["Whether any materials (Ink, Varnish) found with expired shelf life?", "No"],
+  ["Whether any materials (Ink, Varnish) found with expired shelf life?", "Yes"],
 ];
 
 const gmpChecklist: LogSheetLayout = {
@@ -673,7 +727,11 @@ const gmpChecklist: LogSheetLayout = {
   ],
   columns: [fixedText("parameter", "Checklist", 520), yesNo("compliance", "Compliance", 90), text("actionIfNc", "Action taken if NC", 220)],
   // The sheet's Sr. No. numbers the fifty-five points; their words do not repeat it (REQUIREMENTS §102).
-  rowMode: { kind: "fixedRows", rows: GMP_ITEMS.map(([parameter]) => ({ parameter })) },
+  // EVERY POINT STARTS AT ITS COMPLIANT ANSWER (the owner, 2-Nov-2026: "in HR 19 by default the answer is Yes, and make
+  // sure it is editable"): Yes on every point, except the few asked the other way round ("Whether any person found with
+  // illness or injury?"), whose compliant answer is No. The team changes only the point that failed and writes its
+  // action. The second format that starts an answer decided (REQUIREMENTS §98, §162; F/HR/04 is the first).
+  rowMode: { kind: "fixedRows", openLines: true, rows: GMP_ITEMS.map(([parameter, compliant]) => ({ parameter, compliance: compliant })) },
   footerFields: [{ key: "team", label: "Inspection team — Name / Department / Process / Designation (one per line)", type: "text" }],
   specimenHeader: { responsibility: "HARA TEAM", inspectionDate: "", locations: GMP_LOCATIONS.join(", ") },
   specimenRows: GMP_ITEMS.map(([, compliant]) => ({ compliance: compliant, actionIfNc: "" })),
@@ -715,7 +773,7 @@ const pscSurvey: LogSheetLayout = {
   ],
   columns: [fixedText("parameter", "Attribute", 520), { key: "response", label: "Response", type: "select", options: PSC_SCALE, width: 200 }],
   // The sheet's Sr. No. numbers the attributes; their words do not repeat it (REQUIREMENTS §102).
-  rowMode: { kind: "fixedRows", rows: PSC_ATTRIBUTES.map((parameter) => ({ parameter })) },
+  rowMode: { kind: "fixedRows", openLines: true, rows: PSC_ATTRIBUTES.map((parameter) => ({ parameter })) },
   specimenHeader: { surveyDate: "", employeeName: "", department: "QC", designation: "Manager - QA" },
   // The way the January-2026 round answered (F/HR/21): agreement throughout,
   // and Strongly Disagree to attribute 8, the one about taking shortcuts.
@@ -746,7 +804,7 @@ const pscAnalysis: LogSheetLayout = {
     text("achieved", "Achieved", 90),
   ],
   // The sheet's Sr. No. numbers the attributes; their words do not repeat it (REQUIREMENTS §102).
-  rowMode: { kind: "fixedRows", rows: PSC_ATTRIBUTES.map((parameter) => ({ parameter })) },
+  rowMode: { kind: "fixedRows", openLines: true, rows: PSC_ATTRIBUTES.map((parameter) => ({ parameter })) },
   footerFields: [{ key: "overallAchieved", label: "Overall achieved", type: "text" }],
   specimenHeader: { surveyPeriod: "JANUARY 2026", overallAchieved: "93.99%" },
   specimenSource: "F-HR-21_Product Safety Culture Survey analysis record.pdf — F/HR/21 (00/01.12.2021), January 2026",
@@ -877,6 +935,7 @@ const dailyCleaning: LogSheetLayout = {
   ],
   rowMode: {
     kind: "fixedRows",
+    openLines: true,
     rows: [
       ...DAILY_CLEANING_AREAS.map(([area, cleaning], i) => ({ no: String(i + 1), parameter: area, cleaning })),
       // The paper's two signature lines run across the days, under the areas.
@@ -906,6 +965,7 @@ const monthlyCleaning: LogSheetLayout = {
   ],
   rowMode: {
     kind: "fixedRows",
+    openLines: true,
     rows: [
       // The paper's first line: the date each month's cleaning was done ("Date" and its arrow).
       { no: "", parameter: "Date", cleaning: "" },
@@ -927,6 +987,7 @@ export const HR_LAYOUTS: Record<string, LogSheetLayout> = {
   "hr-job-responsibility": jobResponsibility,
   "hr-training-needs": trainingNeeds,
   "hr-training-calendar": trainingCalendar,
+  "hr-training-imparted": trainingImparted,
   "hr-training-effectiveness": trainingEffectiveness,
   "hr-training-feedback": trainingFeedback,
   "hr-mobile-authorization": mobileAuthorization,

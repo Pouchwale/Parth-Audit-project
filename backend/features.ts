@@ -12,6 +12,8 @@ import "./env.ts";
 import { aiConfigured, voiceConfigured } from "./ai.ts";
 
 export const DEMO_MODE = process.env.DEMO_MODE === "1";
+/** The Daylight theme (REQUIREMENTS §166): offered only by a server started with DAYLIGHT_THEME=1 - the local run, and the plant's once the owner has said yes. */
+export const DAYLIGHT_THEME = process.env.DAYLIGHT_THEME === "1";
 
 // WHETHER ANYBODY MAY CREATE THEIR OWN ACCOUNT (REQUIREMENTS §66). In the plant
 // they may not: the super admin makes each person's account and says which
@@ -46,4 +48,4 @@ export const ASSISTANT_CONFIGURED = aiConfigured();
 export const VOICE_CONFIGURED = voiceConfigured();
 
 /** What the browser is told, beside the account — and, before anybody signs in, by GET /api/auth/config. */
-export const FEATURES = { demoMode: DEMO_MODE, signup: ALLOW_SIGNUP, assistant: ASSISTANT_CONFIGURED, voice: VOICE_CONFIGURED };
+export const FEATURES = { demoMode: DEMO_MODE, signup: ALLOW_SIGNUP, assistant: ASSISTANT_CONFIGURED, voice: VOICE_CONFIGURED, daylightTheme: DAYLIGHT_THEME };

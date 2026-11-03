@@ -850,7 +850,7 @@ const demoOf = (id: string, day = DAY): LogSheetData => {
   assert.ok(filled, id);
   return filled!.data as LogSheetData;
 };
-const hrNames = () => new Set(hrMasterRepository.all().map((p) => p.fullName));
+const hrNames = () => new Set(hrMasterRepository.all().flatMap((p) => [p.fullName, ...(p.aliases ?? [])])) /* the sheet's other spellings count: "Kapila Barad" is the staff sheet's "Kapila B Barad" (REQUIREMENTS §169) */;
 const between2 = (v: unknown, lo: number, hi: number) => {
   const n = parseFloat(String(v));
   return Number.isFinite(n) && n >= lo && n <= hi;
@@ -958,7 +958,7 @@ test("Demo Mode's F/QC/36 is the day's first laminated job, with its own films a
     const job = jobsFor(day)[0];
     assert.equal(data.header.fgCode, job.fgCode);
     assert.equal(data.header.poNumber, job.poNo, "the same job and PO as the day's lamination sheets");
-    assert.match(data.header.dateShift, new RegExp(`^${day.slice(8, 10)}\\.${day.slice(5, 7)}\\.${day.slice(0, 4)} / (1st|2nd)$`));
+    assert.match(data.header.dateShift, new RegExp(`^${day.slice(8, 10)}-${day.slice(5, 7)}-${day.slice(0, 4)} / (1st|2nd)$`));
     assert.ok(data.header.substrate1 && data.header.substrate2 && data.header.inspectedBy && data.header.approvedBy);
     assert.notEqual(data.header.inspectedBy, data.header.approvedBy);
     assert.ok(between2(data.rows[0].observation, 30, 110), `composite GSM ${data.rows[0].observation}`);

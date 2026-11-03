@@ -84,7 +84,7 @@ const headings = (html: string) => Array.from(between(html, "<thead", "</thead>"
 const blank = (id: string) => createDefaultData(docOf(id), DAY, master) as LogSheetData;
 const sample = (id: string) => autoFillRecord(docOf(id), DAY, master, undefined)!.data as LogSheetData;
 const seeded = (id: string) => SEED_HISTORICAL_RECORDS.find((r) => r.id === id)! as RecordInstance<LogSheetData>;
-const hrNames = () => new Set(hrMasterRepository.all().map((p) => p.fullName));
+const hrNames = () => new Set(hrMasterRepository.all().flatMap((p) => [p.fullName, ...(p.aliases ?? [])])) /* the sheet's other spellings count: "Kapila Barad" is the staff sheet's "Kapila B Barad" (REQUIREMENTS §169) */;
 
 // ---------------------------------------------------------------------------
 // F01, F33: F-QC-40.C — each reading with its sign in the same cell, "SR NO"
@@ -169,7 +169,7 @@ test("F08: F/QC/30 is revision 00 of 01.01.2022, as the owner's original prints 
   assert.deepEqual([doc.revisionNo, doc.revisionDate, doc.sourceFile], ["00", "2022-01-01", "F-QC-30 MOM.pdf"]);
   const html = await sheet("qc-minutes-of-meetings", seeded("qc-minutes-of-meetings-2022-06").data);
   // The framed paper prints its number and revision in the foot line of the page: "Format number: - F/QC/30 (00 / 01.01.2022)".
-  assert.match(text(between(html, 'data-section="page-foot"', 'data-section="notes-at-foot"')), /Format number: - F\/QC\/30 \(\s*00 \/ 01\.01\.2022\s*\)/);
+  assert.match(text(between(html, 'data-section="page-foot"', 'data-section="notes-at-foot"')), /Format number: - F\/QC\/30 \(\s*00 \/ 01-01-2022\s*\)/);
 });
 
 // ---------------------------------------------------------------------------

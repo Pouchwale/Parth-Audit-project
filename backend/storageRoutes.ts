@@ -33,7 +33,8 @@ import { mayOpenMasterData } from "../frontend/src/engine/masterDataAccess.ts";
 // These routes were in backend/index.ts until 9-Oct-2026; they moved here unchanged so that a unit test can drive them
 // over a stand-in for the database (backend/tests/storageRoutes.test.ts).
 
-export const COMPANY_KEYS = new Set(["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", ACCESS_KEY]);
+// "indexing": the index of every format and document (indexing/), read by everybody, written by the super admin alone (below).
+export const COMPANY_KEYS = new Set(["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", ACCESS_KEY, "indexing"]);
 export const USER_SCOPED_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
 const STORAGE_MAX_BYTES = "25mb";
 const MAX_VERSION = 2147483647;
@@ -229,6 +230,11 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
         const result = await deps.accessRules.save(req, user, parsed, baseVersion);
         if (result.ok) res.json({ version: result.version, seq: result.seq });
         else sendCompressedJson(req, res, 409, { current: result.current, scope: "*" });
+        return;
+      }
+      // THE INDEX IS THE SUPER ADMIN'S (indexing/): its versions and formulas are written by nobody else.
+      if (key === "indexing" && user.role !== "admin") {
+        res.status(403).json({ error: "Only the super admin changes the index.", code: "super-admin-only" });
         return;
       }
       const view = await viewOf(user);

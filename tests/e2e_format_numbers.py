@@ -263,7 +263,7 @@ with sync_playwright() as p:
     reply = say(page, "F/HR/10")
     check("A number the system doesn't hold is said to be not here yet", "no F/HR/10 in this system yet" in reply, reply)
     reply = say(page, "F/HR/05 and F/QC/11")
-    check("Several numbers at once are each named, with an Open for each", "F/HR/05 — Induction Training Record" in reply and "F/QC/11 — Monthly Internal Calibration Records" in reply and "Open it: F/QC/11" in last_chips(page), reply)
+    check("Several numbers at once are each named, with an Open for each", "F/HR/05 — Induction Training Record" in reply and "F/QC/11 — Weekly Internal Calibration Records" in reply and "Open it: F/QC/11" in last_chips(page), reply)
 
     goto(page, "#/record/hr-competence-2026-10-01")
     open_mitra(page)

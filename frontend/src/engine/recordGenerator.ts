@@ -10,14 +10,28 @@ import { compareISO, todayISO } from "../utils/date";
 import { mayWriteRecordsOf } from "./departmentScope";
 
 /**
- * A SHEET FILLED THROUGH THE YEAR AND DUE AT ITS END (REQUIREMENTS §86): F/HR/16,
+ * A SHEET FILLED THROUGH THE YEAR AND DUE AT ITS END (REQUIREMENTS §86, §164): F/HR/16,
  * the monthly cleaning record — twelve months on one page, due on 31 December as a
- * month sheet is due on its last day. Its record is filed from the year's first day,
- * so the months are written on as they come: generating any month of the year files
- * it. A yearly format due on any other day is generated in its own month, as before.
+ * month sheet is due on its last day — and F/HR/09, the training plan calendar, April
+ * to March, due on 31 March. Its record is filed from the first day of the twelve
+ * months ending on its due date, so the months are written on as they come:
+ * generating any month of that year files it (DocumentDefinition.yearLong). A yearly
+ * format due on any other day is generated in its own month, as before.
  */
-export const fillsThroughYear = (doc: DocumentDefinition): boolean =>
-  doc.schedule.type === "yearly" && doc.schedule.month === 11 && doc.schedule.dayOfMonth === 31;
+export const fillsThroughYear = (doc: DocumentDefinition): boolean => doc.schedule.type === "yearly" && doc.yearLong === true;
+
+/** The year and month (0-11) a year-long sheet written on in `month` of `year` falls due: the twelve months end on the schedule's month. */
+export function filingYear(doc: DocumentDefinition, year: number, month: number): { year: number; month: number } {
+  const end = doc.schedule.type === "yearly" ? doc.schedule.month : 11;
+  return { year: month <= end ? year : year + 1, month: end };
+}
+
+/** The first day of the twelve months a year-long sheet due on `dueDate` covers. */
+export function filingStart(dueDate: string): string {
+  const y = Number(dueDate.slice(0, 4));
+  const m = Number(dueDate.slice(5, 7));
+  return `${m === 12 ? y : y - 1}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01`;
+}
 
 // AUTOMATIC RECORD GENERATION (section 28). Idempotent: safe to call every
 // time the Calendar/Day View/Dashboard mounts for a given month — existing
@@ -52,7 +66,8 @@ export function ensureRecordsGeneratedForMonth(
     // days. `scheduled` is the date the schedule names and is what the
     // periodKey is built from, so a record is created once whether or not
     // its due date moved; `due` is the day it is actually expected.
-    const dates = fillsThroughYear(doc) && month !== 11 ? effectiveDueDatesInMonth(doc, year, 11, master) : effectiveDueDatesInMonth(doc, year, month, master);
+    const filing = fillsThroughYear(doc) ? filingYear(doc, year, month) : { year, month };
+    const dates = effectiveDueDatesInMonth(doc, filing.year, filing.month, master);
     for (const { scheduled, due, holiday } of dates) {
       // Never manufacture a Live obligation for a date before this system
       // went live on this browser — otherwise simply browsing the Calendar
@@ -74,6 +89,9 @@ export function ensureRecordsGeneratedForMonth(
       // already been moved to the next working day for them.)
       if (holiday && doc.kind !== "daily-pest-monitoring") continue;
       if (existing.has(`${doc.id}|${periodKeyFor(doc, scheduled)}`)) continue;
+      // A year-long sheet already on file for these twelve months - the 2026-27 training calendar, filed on 1 April
+      // before the format fell due at the year's end (§164) - is the year's sheet: never a second one beside it.
+      if (fillsThroughYear(doc) && recordRepository.queryUnscoped({ documentId: doc.id, isDemo: !!opts.isDemo }).some((r) => compareISO(r.dueDate, filingStart(scheduled)) >= 0 && compareISO(r.dueDate, due) <= 0)) continue;
       const rec: RecordInstance = {
         id: generateId("rec"),
         documentId: doc.id,

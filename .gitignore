@@ -23,3 +23,9 @@ __pycache__/
 # whole application is in one place, but it is its own repository
 # (Pouchwale/Parth-Audit-chatbot), committed and pushed there, never inside DCRS.
 /Audit project chatbot-mobile/
+
+# The plant PC keeps old copies and stray downloads beside the code (3-Nov-2026)
+/IMPROVEMENTS/
+/Audit document/
+desktop.ini
+/*.docx

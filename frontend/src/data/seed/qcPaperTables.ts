@@ -112,6 +112,13 @@ export interface PaperTable {
   foot: PaperRow[];
   /** The paper prints no format number, revision or page: they are shown on the screen to be typed over, never printed. */
   numberOffPaper?: true;
+  /**
+   * PRINTED TO FILL THE A4 PAGE (the owner, 30-10-26, F/QC/17: "this print preview ... should come in A4 size paper that we
+   * normally consider"): its paper is a smaller print area (the owner's Excel sheet), so printed it stands at A4_MARGIN_MM
+   * from the page's left and top edges and every millimetre and point of it is drawn bigger, its width the page's less
+   * that margin each side (paperTablePrint). On the screen it is drawn as it is.
+   */
+  fillA4?: true;
   /** Each cell rules its own edges (PaperCell.edges), where the paper has lines and words outside its tables (F/QC/25). */
   rules?: "cells";
   /**
@@ -641,6 +648,8 @@ const RULER: PaperTable = {
   font: "gothic",
   pt: 8.88,
   frame: "heavy",
+  // Printed across the A4 page with the usual 12 mm margin, every size in proportion (the owner, 30-10-26).
+  fillA4: true,
   head: [
     {
       h: 12.24,
@@ -1514,3 +1523,20 @@ export function paperTableFits(
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
 export const paperTableFor = (documentId: string): PaperTable | undefined => QC_PAPER_TABLES[documentId];
+
+/** The margin a paper printed to fill the A4 page keeps at its left and top (PaperTable.fillA4): every document's 12 mm. */
+export const A4_MARGIN_MM = 12;
+
+/**
+ * Where a paper stands on its printed page and how much bigger it is drawn there: its own place at its own size, or - a
+ * paper printed to fill the A4 page (PaperTable.fillA4) - A4_MARGIN_MM from the page's left and top edges, drawn so its
+ * width is the page's less that margin each side, unless that would take it past the page's foot (4 mm kept clear).
+ */
+export function paperTablePrint(form: PaperTable): { left: number; top: number; scale: number } {
+  if (!form.fillA4) return { left: form.left, top: form.top, scale: 1 };
+  const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
+  const width = form.head[0]?.cells.reduce((a, c) => a + c.w, 0) ?? pageW;
+  const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
+  const scale = Math.floor(Math.min((pageW - 2 * A4_MARGIN_MM) / width, (pageH - A4_MARGIN_MM - 4) / height) * 1000) / 1000;
+  return { left: A4_MARGIN_MM, top: A4_MARGIN_MM, scale };
+}

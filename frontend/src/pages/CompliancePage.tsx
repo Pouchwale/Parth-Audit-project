@@ -203,7 +203,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
   const bound = (key: Parameters<typeof complianceBind.field>[0]) => bindProps(complianceBind.field(key));
 
   return (
-    <div data-print-doc data-bind-record={documentId} className="soc-sheet" data-soc={documentId} data-paper-left="12.78">
+    <div data-print-doc data-bind-record={documentId} data-format-id={documentId} className="soc-sheet" data-soc={documentId} data-paper-left="12.78">
       <div className="flex items-center justify-between mb-3 no-print wrap gap-2">
         <button className="btn btn-ghost btn-sm" onClick={() => navigate("/soc")}>
           <FiArrowLeft size={13} /> Back to Statements

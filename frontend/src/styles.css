@@ -364,6 +364,97 @@
     }
   }
 
+  /* DAYLIGHT BY NIGHT (REQUIREMENTS §166): the dark theme's tokens as the base from civil dusk to civil dawn, here so the
+     first paint of a page opened at night is dark before store/theme.tsx tints it toward the night sky (index.html sets
+     data-sky from this browser's copy). By day the base is :root, light. The tinted surfaces are set inline on <html>. */
+  :root[data-theme="daylight"][data-sky="night"] {
+    /* the canvas and its surfaces */
+    --canvas: #262624;
+    --surface: #30302E;
+    --surface-sunken: #3A3936;
+    --surface-raised: #363533;
+    --shell: #1F1F1D;
+    --hairline: #44433F;
+    --hairline-strong: #56544F;
+    --nav-hover: rgba(244, 243, 238, 0.06);
+    --row-hover: rgba(244, 243, 238, 0.04);
+    --overlay: rgba(0, 0, 0, 0.62);
+    --scrollbar: #56544F;
+    /* ink: three levels of text */
+    --ink: #F4F3EE;
+    --ink-2: #A8A59C;
+    --ink-3: #A5A299;
+    /* the one accent: the company's burgundy */
+    --accent: #9F4E53;
+    --accent-hover: #A8575C;
+    --accent-pressed: #8E4247;
+    --accent-text: #E0A4A7;
+    --accent-strong-text: #E7B4B7;
+    --accent-soft: #3C2F38;
+    --accent-soft-hover: #48383F;
+    --accent-wash: rgba(224, 164, 167, 0.07);
+    --accent-wave: rgba(224, 164, 167, 0.22);
+    --on-accent: #FFF6F4;
+    --focus-ring: #E0A4A7;
+    --brand: #7E3C40;
+    --on-brand: #FFF8F6;
+    --field-bg: #262624;
+    /* status: a text colour on its soft background, and a fill for buttons and counts */
+    --success: #7FD19A;
+    --success-soft: #223A2C;
+    --success-fill: #2E7A4E;
+    --success-fill-hover: #2A7149;
+    --success-ring: rgba(127, 209, 154, 0.20);
+    --warning: #E6B85C;
+    --warning-soft: #3B3321;
+    --warning-fill: #8A5A00;
+    --poor: #F0B27A;
+    --poor-soft: #44301F;
+    --danger: #F49A82;
+    --danger-soft: #48291F;
+    --danger-fill: #BE3B2A;
+    --danger-fill-hover: #C5452F;
+    --info: #8FB4E8;
+    --info-soft: #26344A;
+    --submitted: #B9B4EE;
+    --submitted-soft: #302F4D;
+    --neutral: #C9C6BD;
+    --neutral-soft: #3A3936;
+    --neutral-fill: #66645C;
+    --demo: #C9B3EE;
+    --demo-soft: #3A2F4E;
+    --demo-band: #6B3FA0;
+    --demo-band-2: #7B4FB0;
+    /* the paper's own frame (its inside is the paper scope below) */
+    --paper: #FFFFFF;
+    --paper-ink: #1C2733;
+    --paper-rule: #2C3E50;
+    --paper-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 18px 44px rgba(0, 0, 0, 0.40);
+    /* charts on screen */
+    --chart-1: #E0A4A7;
+    --chart-2: #E2B07E;
+    --chart-3: #93A7B5;
+    --chart-4: #8E8B83;
+    --chart-5: #7CBFA9;
+    --chart-grid: #44433F;
+    /* elevation */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.35), 0 10px 28px rgba(0, 0, 0, 0.40);
+    --shadow-lg: 0 14px 40px rgba(0, 0, 0, 0.55);
+    --dock-shadow: -10px 0 28px rgba(0, 0, 0, 0.50);
+    /* Mitra's face and the sign-in title */
+    --mitra-face: linear-gradient(135deg, #7E3C40 0%, #9B4A4F 55%, #A8575C 100%);
+    --auth-wash: rgba(158, 78, 83, 0.30);
+    --auth-title-1: #EFC6C8;
+    --auth-title-2: #E0A4A7;
+    --auth-title-3: #C9797D;
+    --auth-depth-1: #9F4E53;
+    --auth-depth-2: #8E4247;
+    --auth-depth-3: #7E3C40;
+    --auth-depth-shadow: rgba(0, 0, 0, 0.50);
+    color-scheme: dark;
+  }
+
   /* THE PAPER: a scope of its own. Inside a document (any [data-print-doc] holder but the
      four printable UI panes, marked data-print-doc="ui"), a header block, a register or
      complaint page, the trend report and the sheet designer, every variable is TODAY's
@@ -837,9 +928,23 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 
 .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .app-topbar {
-  height: 58px; flex-shrink: 0; background: var(--canvas); border-bottom: 1px solid var(--hairline);
+  height: 58px; flex-shrink: 0; background: var(--sky-band, var(--canvas)); border-bottom: 1px solid var(--hairline);
   display: flex; align-items: center; justify-content: space-between; padding: 0 24px; gap: 16px; position: sticky; top: 0; z-index: 20;
 }
+/* THE SKY IN THE TOP BAR (REQUIREMENTS §166, components/layout/SkyArc.tsx): while the theme follows the sun the bar's
+   background is the sky band (--sky-band, set inline by store/theme.tsx; unset in the other themes, so the bar is the
+   canvas as before), and the sun - the moon and the stars by night - stands in it where the minute puts it. The
+   bar's controls sit over it. Nothing here moves on its own: the place changes with the minute. */
+.sky-arc { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.app-topbar > .app-topbar-start, .app-topbar > .app-topbar-end { position: relative; z-index: 1; }
+.sky-sun, .sky-moon { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; }
+.sky-sun { background: var(--sun-color, #FFD66B); box-shadow: 0 0 12px 5px var(--sun-glow, rgba(255, 214, 107, 0.4)); }
+.sky-moon { background: var(--sun-color, #F2EBD2); box-shadow: inset -5px -3px 0 0 var(--sky-top, #0B1430), 0 0 10px 3px var(--sun-glow, rgba(242, 235, 210, 0.25)); }
+.sky-star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #E8EEFF; opacity: 0.8; }
+.sky-star.is-bright { width: 3px; height: 3px; opacity: 1; }
+.theme-menu-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 6px 8px 4px; border-top: 1px solid var(--hairline); }
+.theme-menu-preview-label { font-size: 12px; color: var(--ink-2); margin-right: 4px; }
+.theme-menu-preview .btn.is-on { background: var(--accent-soft); color: var(--accent-text); }
 /* THE CONNECTION BADGE AND THE CLOCK (REQUIREMENTS §78, components/layout/
    TopbarStatus.tsx): a colour anyone reads at a glance — green good, amber
    slow, orange very slow, grey no internet, red the site is down — with the
@@ -3353,6 +3458,17 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
    original and the print is the PDF's size). Cells are drawn in ink on white in every theme; the boxes you type in sit
    inline in the paper's cells with no box of their own on the sheet (a dotted rule under them on screen only). */
 .svc-paper-wrap { max-width: 100%; overflow-x: auto; }
+/* On a laptop the sheet runs the card's width (the owner, 31-Oct-2026, REQUIREMENTS §154: no empty half beside it), its
+   words a quarter larger to read; the columns keep the paper's proportions.
+   Measured for print it is the paper's width again (html.print-measure); printed, it is enlarged evenly to the A4
+   page's width (utils/print.ts fillPage). */
+@media screen and (min-width: 760px) {
+  html:not(.print-measure) table.svc-paper { zoom: 1.25; width: 100%; min-width: 576px; }
+  /* Every line the same height on the screen (the owner, 31-Oct-2026, with the rodent report's rows 2, 3, 5, 9, 12 and 14
+     drawn twice as tall as the rest): the screen's width keeps each area on one line, so no line is drawn taller than its
+     words. The print keeps the contractor's taller rows, where those names run to two lines. */
+  html:not(.print-measure) .svc-paper tr.svc-tall > td.svc-area { height: auto; }
+}
 table.svc-paper {
   border-collapse: collapse; table-layout: fixed; width: 576px; background: #fff; color: #000;
   font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 11px; line-height: 13.5px;
@@ -3375,6 +3491,16 @@ table.svc-paper {
 .svc-paper tr.svc-group-start > td { border-top: 1px solid #000; }
 .svc-paper tr.svc-tall > td.svc-area { height: 29px; }
 .svc-paper tr.svc-narrow > td.svc-area { padding-right: 6px; }
+/* A LINE ADDED OR REMOVED (REQUIREMENTS §154 item 6): + and × at the right of an area while its line is under the pointer
+   (always on a touch screen), and the form for the new line's area under the sheet; none of it prints. */
+.svc-paper td.svc-area { position: relative; }
+.svc-line-tools { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); display: inline-flex; gap: 2px; opacity: 0; transition: opacity 0.12s; }
+.svc-paper tr[data-line]:hover .svc-line-tools, .svc-line-tools:focus-within { opacity: 1; }
+@media (hover: none) { .svc-line-tools { opacity: 1; } }
+.svc-line-tool { width: 16px; height: 16px; padding: 0; border: 1px solid #c9ced6; border-radius: 3px; background: #fff; color: #374151; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; }
+.svc-line-tool:hover { background: #fff7cc; color: #111; border-color: #6b7280; }
+.svc-new-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+@media print { .svc-line-tools, .svc-new-line { display: none; } }
 .svc-paper td.svc-merged { border: 1px solid #000; }
 .svc-paper td.svc-remarks { border-right: 2px solid #000; border-bottom: 2px solid #000; }
 .svc-paper tr:has(+ .svc-sign-space) > td { border-bottom: 2px solid #000; }
@@ -3432,6 +3558,13 @@ table.svc-paper {
   .fhr18-sheet .fhr18-month, .fhr18-record .fhr18-month { width: 532.1pt; height: 17.2pt; margin: 12.5pt 0 0 4.3pt; padding: 0 0 4pt 5.4pt; box-sizing: border-box; border: 1px solid #000; align-items: flex-end; gap: 0; font-size: 11pt; line-height: 12pt; }
   .fhr18-sheet .fhr18-month .k, .fhr18-record .fhr18-month .k { font-weight: 700; font-size: 11pt; white-space: nowrap; margin-right: 6.5pt; }
   .fhr18-sheet .fhr18-month .v, .fhr18-record .fhr18-month .v { width: 98.5pt; min-width: 98.5pt; font-size: 11pt; font-weight: 400; letter-spacing: 0; border: 0; border-bottom: 1px solid #000; padding: 0; line-height: 11pt; }
+  /* Page 1's Month & Year is an input, and the print rule for inputs strips every border; keep the paper's underline on all pages. */
+  /* (parth-project-main-updated's own rule: the print rule for inputs takes every border off, so this one keeps its
+     override - drawn as a shadow instead, a printed PDF boxed the month in; the value on the label's line, 31-Oct-2026) */
+  .fhr18-sheet .fhr18-month input.v, .fhr18-record .fhr18-month input.v { border-bottom: 1px solid #000 !important; height: 12pt; line-height: 12pt; padding: 0; }
+  /* THE PAPER'S LINES DRAWN ONCE (the owner, 31-Oct-2026: "the lines are not proper"): the Month & Year frame shares its
+     bottom line with the legend's top, and ends where the legend ends (its outer half-border). */
+  .fhr18-sheet .fhr18-month, .fhr18-record .fhr18-month { border-bottom: 0; width: calc(532.1pt + 1px); }
   .fhr18-sheet .fhr18-legend, .fhr18-record .fhr18-legend { margin: 0 0 0 4.3pt; width: 532.1pt; table-layout: fixed; border-collapse: collapse; }
   .fhr18-sheet .fhr18-legend td, .fhr18-record .fhr18-legend td { border: 1px solid #000; height: 16.7pt; padding: 0 0 0 5.4pt; font-size: 10pt; line-height: 12pt; text-align: left; font-weight: 400; background: #fff; white-space: nowrap; overflow: hidden; }
   .fhr18-sheet .fhr18-legend td:nth-child(1), .fhr18-record .fhr18-legend td:nth-child(1) { width: 78pt; }
@@ -3453,9 +3586,12 @@ table.svc-paper {
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-gap tr td, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-gap tr td { height: 12.8pt; padding: 0; border: 0; background: none; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-gap[data-gap="first"] tr td, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-gap[data-gap="first"] tr td { height: 26.6pt; }
   .fhr18-grid tbody.fhr18-unit { border-top: 0; }
+  /* A PC's two lines never part across pages: its number is on the first (the owner, 31-Oct-2026). */
+  .fhr18-grid tbody.fhr18-unit { break-inside: avoid; page-break-inside: avoid; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td { background: #fff; color: #000; border: 1px solid #000; border-width: 0 0 1px 1px; height: 28.9pt; padding: 4.3pt 0 0 5.4pt; font-size: 10pt; line-height: 12pt; text-align: left; vertical-align: top; font-weight: 400; text-transform: none; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td:last-child, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td:last-child { border-right: 1px solid #000; }
-  .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr:first-child td, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr:first-child td { border-top: 1px solid #000; }
+  /* (one line between two PCs: the PC above draws it; the first PC of a page draws its own top) */
+  .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-gap + tbody.fhr18-unit tr:first-child td, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-gap + tbody.fhr18-unit tr:first-child td { border-top: 1px solid #000; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.pc-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.pc-cell { font-weight: 700; width: 63.7pt; border-right: 0; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr.register-row td.date-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr.register-row td.date-cell { text-align: left; font-weight: 400; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.count-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.count-cell { text-align: left; }
@@ -3554,6 +3690,14 @@ table.svc-paper {
 .pt-table td.pt-c.pt-ac.pt-ww > .pt-words { margin-left: auto; margin-right: auto; }
 /* Words in the middle of their cell's height, as a spreadsheet's heading row sets them. */
 .pt-table td.pt-c.pt-vm { vertical-align: middle; padding-top: 0; }
+/* A merged cell the paper writes in its middle (pt-vm: F/QC/17's Status and Calibration performed by, down the six lines)
+   reads there on a signed sheet too, as it does while open (the owner, 31-Oct-2026: "Pass" and the name stood at the top). */
+.pt-table td.pt-c.pt-vm > .pt-box:has(> .cell-text), .pt-table td.pt-c.pt-vm > .field-in-table:has(> .cell-text) { display: flex; flex-direction: column; justify-content: center; }
+.pt-table td.pt-c.pt-vm > .pt-box > .cell-text, .pt-table td.pt-c.pt-vm > .field-in-table > .cell-text { display: block; width: 100%; }
+/* F/QC/17's Status and Calibration performed by run down the six lines: the line before them drawn by the merged cell too,
+   so the browser draws it once and whole - on line 1 it vanished, on lines 2 to 6 it doubled (the owner, 31-Oct-2026). */
+.paper-sheet[data-sheet^="qc-ruler-verification"] .pt-table td.pt-c[rowspan]:not([rowspan="1"]) { border-left: var(--pt-bd); }
+.paper-sheet[data-sheet^="qc-ruler-verification"] .pt-table td.pt-c[data-pt-col="difference"] { border-right: 0; }
 /* A cell the paper shades (a register's number box), its grey printed. */
 .pt-table td.pt-c.pt-bg { background: var(--pt-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 /* A register's ruled lines beyond the record's (PaperTable.lines): printed blank as the paper rules them, never stored,
@@ -3610,6 +3754,12 @@ table.svc-paper {
   [data-print-doc]:has(.paper-sheet[data-paper-form="table"]) { padding: 0; }
   /* (padding, not a margin: a margin at the top of the page sent the sheet's last pixel onto a blank second page) */
   .paper-sheet[data-paper-form="table"] { display: table; width: auto; overflow: visible; margin: 0; border-collapse: separate; border-spacing: 0; padding: calc(var(--pt-top) * var(--u)) 0 0 calc(var(--pt-left) * var(--u)); }
+  /* A paper printed to fill the A4 page (PaperTable.fillA4, F/QC/17, the owner, 30-10-26): every millimetre and point of
+     it drawn --pt-print-scale bigger, standing at the page's usual 12 mm margin (its padding in true millimetres). */
+  .paper-sheet[data-paper-form="table"][data-fill-a4] {
+    --u: calc(1mm * var(--pt-print-scale, 1) / var(--print-zoom, 1)); --pt: calc(1pt * var(--pt-print-scale, 1) / var(--print-zoom, 1));
+    padding: calc(var(--pt-top) * 1mm / var(--print-zoom, 1)) 0 0 calc(var(--pt-left) * 1mm / var(--print-zoom, 1));
+  }
   .paper-sheet[data-paper-form="table"] .doc-header.doc-header-paper { border: 0; }
   .pt-table td.pt-c > .field-in-table > .input, .pt-table td.pt-c > .pt-box > .input { padding: 0; }
   /* A written date prints as its words in its place (utils/print.ts), the box itself not. */
@@ -3686,13 +3836,18 @@ table.svc-paper {
     flex: none; display: block; box-sizing: border-box; width: 100%; min-width: 0; height: calc(12 * var(--pt)); min-height: 0; margin: var(--cal-box-value-y) 0 0; padding: 0;
     border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000; font-family: var(--cal-arial); font-size: calc(11 * var(--pt)); line-height: calc(12 * var(--pt)); text-align: left;
   }
-  /* F/QC/11: each box's words and its value centred in their cell, in the paper's faces (its Calibration Date / Due Date
-     line is taken away, the owner, 28-Oct-2026: a box added on Edit format stands in the three columns as the rest). */
+  /* F/QC/11: each box's words and its value centred in their cell, in the paper's faces; its Calibration Date two columns
+     wide and its Due Date beside it, after the paper's space, words at the left (back 30-Oct-2026, REQUIREMENTS §147). */
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field { padding: 0; align-items: stretch; }
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > label { font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 400; text-align: center; font-family: var(--cal-arial); }
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(-n+3) > label { font-family: var(--cal-times); padding-top: calc(0.44 * var(--u)); }
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > .input,
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field > .print-box-text { font-family: var(--cal-times); font-size: calc(9.96 * var(--pt)); height: calc(9.96 * var(--pt) * 1.25); line-height: calc(9.96 * var(--pt) * 1.25); text-align: center; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(7) { grid-row: 4; grid-column: 1 / span 2; border-top: var(--pf-bd); flex-direction: row; align-items: flex-start; gap: calc(2 * var(--u)); padding-left: calc(1.88 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(8) { grid-row: 4; grid-column: 3; border-top: var(--pf-bd); flex-direction: row; align-items: flex-start; gap: calc(2 * var(--u)); padding-left: calc(3.7 * var(--u)); }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > label { text-align: left; flex: none; }
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > .input,
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] [data-pf~="calib"] > .field:nth-child(n+7) > .print-box-text { width: calc(40 * var(--u)); margin-top: calc(0.4 * var(--u)); text-align: left; font-family: var(--cal-arial); }
   /* the grid */
   .paper-sheet[data-paper-form="calib"] .paper-body > .doc-table { width: auto; margin: var(--cal-grid-gap) 0 0 0; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
   .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet th,
@@ -3734,6 +3889,17 @@ table.svc-paper {
     font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(11.04 * var(--pt)); line-height: calc(11.04 * var(--pt));
   }
   .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .page-foot-number { font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); }
+}
+/* F/QC/11 AND F/QC/12 ON THE SCREEN AS ON THE PAPER (the owner, 30-Oct-2026, parth-project-main): no Format No. / Rev No. /
+   Rev Date / Page No. row at the head - and so none in the Word / Excel download, made from the sheet as drawn - and the
+   number alone, centred, at the foot of the sheet: "F/QC/11 (01/01.01.2022)". */
+.paper-sheet[data-paper-form="calib"] .doc-header .meta-row { display: none; }
+@media screen {
+  .paper-sheet[data-paper-form="calib"] .page-foot-number {
+    display: block; margin: calc(6 * var(--u, 1mm)) 0 0; text-align: center; color: #000;
+    font-family: Arial, "Liberation Sans", Helvetica, sans-serif; font-size: calc(11.04 * var(--pt, 1pt)); line-height: 1.2;
+  }
+  .paper-sheet[data-paper-form="calib"][data-paper-left] .page-foot-number { width: var(--cal-w, auto); }
 }
 /* QC-CALIBRATION end */
 

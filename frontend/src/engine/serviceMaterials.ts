@@ -37,10 +37,49 @@ const AREA_OVERRIDES: Record<string, Record<string, FixedMaterial>> = {
   "Rodent Control Service": Object.fromEntries(RODENT_BAIT_AREAS.map((a) => [a, BAIT])),
 };
 
-export function fixedMaterialForServiceArea(variantKey: string | undefined, areaName: string): FixedMaterial {
+/** The materials a service uses - its default and each area override's - each once. */
+export function serviceMaterialsOf(variantKey: string | undefined): FixedMaterial[] {
+  const out: FixedMaterial[] = [];
+  for (const m of [VARIANT_DEFAULTS[variantKey ?? ""], ...Object.values(AREA_OVERRIDES[variantKey ?? ""] ?? {})]) {
+    if (m && !out.some((o) => o.materialName === m.materialName)) out.push(m);
+  }
+  return out;
+}
+
+export function fixedMaterialForServiceArea(variantKey: string | undefined, areaName: string, area?: { material?: string; method?: string }): FixedMaterial {
+  // A line added on the report carries its block's material and method (REQUIREMENTS §154 item 6): its Master Data area says them.
+  if (area?.material) {
+    const known = serviceMaterialsOf(variantKey).find((m) => m.materialName === area.material);
+    return { materialName: area.material, methodOfApplication: area.method || known?.methodOfApplication || "" };
+  }
   const override = variantKey ? AREA_OVERRIDES[variantKey]?.[areaName] : undefined;
   if (override) return override;
   return variantKey && VARIANT_DEFAULTS[variantKey] ? VARIANT_DEFAULTS[variantKey] : { materialName: "", methodOfApplication: "" };
+}
+
+// A MATERIAL USED IN THE SAME QUANTITY EVERY VISIT (the owner, 31-Oct-2026, with the general pest control report:
+// "150 ml is fixed in quantity"; and later that day with the fly report: "quantity is fix which 100"; REQUIREMENTS §154):
+// its quantity is written when a person opens a report where it is blank (serviceQtyFillOnOpen, in their name), and
+// stays theirs to change. The glue boards' and the bait's quantities are what the technician used on the visit, written
+// by a person.
+export const FIXED_SERVICE_QTY: Record<string, string> = {
+  "Deltamethrin 2.5% SC": "150 ml",
+  "Beta-Cyfluthrin 2.45% SC": "100 ml",
+};
+
+export const SERVICE_QTY_FILL_NOTE = "The fixed quantity written on opening (Deltamethrin 2.5% SC: 150 ml; Beta-Cyfluthrin 2.45% SC: 100 ml), yours to change.";
+
+/** The report with each fixed-quantity material's blank quantity written (on the first line of its material, as a person writes it), or null when nothing is to fill. */
+export function serviceQtyFillOnOpen<T extends { lines: ServiceReportAreaLine[] }>(variantKey: string | undefined, data: T | null | undefined): T | null {
+  if (!data || !Array.isArray(data.lines) || data.lines.length === 0) return null;
+  let changed = false;
+  const lines = data.lines.map((l) => {
+    const fixed = FIXED_SERVICE_QTY[l.materialName];
+    if (!fixed || qtyOf(l).trim()) return l;
+    changed = true;
+    return { ...l, qtyUsed: fixed };
+  });
+  return changed ? { ...data, lines: normalizeServiceLines(variantKey, lines) } : null;
 }
 
 // THE QUANTITY IS ENTERED ONCE. Both April-2026 specimens write material,
@@ -67,7 +106,10 @@ export function normalizeServiceLines(
   opts: { fillBlankLead?: boolean } = {}
 ): ServiceReportAreaLine[] {
   const fixedLines = lines.map((l) => {
-    const fixed = fixedMaterialForServiceArea(variantKey, l.areaName);
+    // The area's own where the paper fixes it; else the line's own, where it is one of the service's materials (a line
+    // added on the report inside a block, REQUIREMENTS §154 item 6); else the service's default.
+    const override = variantKey ? AREA_OVERRIDES[variantKey]?.[l.areaName] : undefined;
+    const fixed = override ?? serviceMaterialsOf(variantKey).find((m) => m.materialName === l.materialName) ?? fixedMaterialForServiceArea(variantKey, l.areaName);
     return {
       ...l,
       materialName: fixed.materialName || l.materialName,

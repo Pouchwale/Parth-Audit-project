@@ -94,7 +94,7 @@ const bodyRows = (html: string) => {
   const b = html.indexOf("</tbody>", a);
   return Array.from(html.slice(a, b).matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g), (m) => Array.from(m[2].matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/g), (c) => ({ attrs: c[1], html: c[2] })));
 };
-const hrNames = () => new Set(hrMasterRepository.all().map((p) => p.fullName));
+const hrNames = () => new Set(hrMasterRepository.all().flatMap((p) => [p.fullName, ...(p.aliases ?? [])])) /* the sheet's other spellings count: "Kapila Barad" is the staff sheet's "Kapila B Barad" (REQUIREMENTS §169) */;
 
 // ---------------------------------------------------------------------------
 // 1. F/QC/11's Serial No: the paper's blank box, never DCRS's "TO BE CONFIRMED"
@@ -146,12 +146,13 @@ test("a sample F/QC/11 or F/QC/12 sheet of 2026 carries an instrument still in c
   }
   const gsm = autoFillRecord(docOf(GSM), DAY, master, undefined)!.data as LogSheetData;
   assert.equal(gsm.header.calibrationExpiry, "2027-09-22", "the plates' yearly date, its next anniversary");
-  assert.ok(!("calibrationDate" in gsm.header) && !("dueDate" in gsm.header), "F/QC/11's Calibration Date / Due Date row is taken away (28-Oct-2026)");
+  assert.equal(gsm.header.calibrationDate, DAY);
+  assert.equal(gsm.header.dueDate, "2026-11-14", "the next month's calibration (the row back, §147)");
   const sign = gsm.rows.find((r) => r.parameter === "Sign.")!;
   const names = hrNames();
   for (const plate of ["p54", "p55", "p56", "p57"]) assert.ok(names.has(String(sign[plate])), `Sign. under ${plate}: ${sign[plate]}`);
   assert.equal((autoFillRecord(docOf(SCALE), DAY, master, undefined)!.data as LogSheetData).header.calibrationExpiry, "2027-08-27");
-  // The Live prepare starts the expiry with the certificate's 20-09-27 the owner gave (27-Oct-2026), later than the page's
+  // The Live prepare starts the expiry with the certificate's 20-09-2027 the owner gave (27-Oct-2026), later than the page's
   // 27.08.2024 (autoFill.newest): nothing has run out, so nothing is said of it first.
   const known = prepareKnownParts(docOf(SCALE), DAY, master, undefined)!;
   assert.equal((known.data as LogSheetData).header.calibrationExpiry, "2027-09-20");
@@ -161,7 +162,7 @@ test("a sample F/QC/11 or F/QC/12 sheet of 2026 carries an instrument still in c
 // ---------------------------------------------------------------------------
 // 3. The boxes and the grid as the papers draw them
 
-test("both calibration records carry the paper's own box words, F/QC/11 without its Calibration Date / Due Date row, and its Pass/Fail and Sign. one cell a plate", async () => {
+test("both calibration records carry the paper's own box words, F/QC/11's Due Date:- at the right, and its Pass/Fail and Sign. one cell a plate", async () => {
   assert.deepEqual(
     layoutOf(SCALE).headerFields.map((f) => f.printedLabel),
     ["Device ID No:", "Location:", "Department:", "Manufacturer:", "Serial No:", "Calibration Expiry:", "Minimum Reading Capacity:", "Maximum Reading Capacity:", "Acceptable Tolerance:"]
@@ -169,10 +170,13 @@ test("both calibration records carry the paper's own box words, F/QC/11 without 
   // The owner, 28-Oct-2026: "remove whole that row because in upper side ... there is already calibration expiry date".
   assert.deepEqual(
     layoutOf(GSM).headerFields.map((f) => f.printedLabel),
-    ["Device ID No:", "Location:", "Department:", "Manufacturer:", "Serial No:", "Calibration Expiry:"]
+    ["Device ID No:", "Location:", "Department:", "Manufacturer:", "Serial No:", "Calibration Expiry:", "I. Calibration Date:-", "Due Date:-"]
   );
   const html = await sheet(GSM, withComputedCells(GSM, autoFillRecord(docOf(GSM), DAY, master, undefined)!.data as LogSheetData));
-  assert.ok(!text(html).includes("I. Calibration Date") && !text(html).includes("Due Date:-") && !html.includes("data-paper-column"), "nothing of the row printed");
+  // The row back (the owner, 30-Oct-2026, §147): the Due Date at the right of its line, where the paper prints it.
+  assert.equal(layoutOf(GSM).headerFields.find((f) => f.key === "dueDate")!.paperColumn, 3);
+  assert.match(html, /<div class="field" data-paper-column="3"><label>Due Date:-<\/label>/);
+  assert.ok(text(html).includes("I. Calibration Date:-"));
   const rows = bodyRows(html);
   assert.equal(rows.length, 6);
   // Tasted-1 to 4: Index and the eight cells; Pass/Fail and Sign.: Index and one cell under each plate.
@@ -354,7 +358,7 @@ test("the header block prints the paper's lines under the company's name and its
   assert.ok(!text(label).includes("CERTIFICATE OF ANALYSIS"));
   const gsm = await sheet(GSM, createDefaultData(docOf(GSM), DAY, master) as LogSheetData);
   assert.match(gsm, /data-section="under-company"><div>Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes<\/div><\/div>/);
-  assert.match(gsm, /<div class="doc-title"><span>MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE<\/span>/, "a title printed in capitals stays so");
+  assert.match(gsm, /<div class="doc-title"><span>WEEKLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE<\/span>/, "a title printed in capitals stays so");
   const scale = await sheet(SCALE, createDefaultData(docOf(SCALE), DAY, master) as LogSheetData);
   assert.match(scale, /data-section="under-company"><div>Manufacturers of Printed Cartons/);
   // F/QC/25 (its own table since §117 round 2 of 22-Oct-2026): its letterhead's three cells head the page, the company's
@@ -383,7 +387,7 @@ test("the header's Rev No. prints the Master List's revision for the certificate
   assert.deepEqual(meta(label, '<div class="meta-row pt-number-strip no-print"'), [
     ["Format No.", "F/QC/06"],
     ["Rev No.", "00"],
-    ["Rev Date", "01-12-21"],
+    ["Rev Date", "01-12-2021"],
     ["Page No.", "1 of 1"],
   ]);
   assert.ok(!/<span class="k">Date<\/span>/.test(label), "the DATE cell DCRS added is gone (the owner, 16-Oct-2026)");
@@ -415,7 +419,7 @@ test("the incoming records and F/QC/36 print the address at their foot, word for
 
 test("a written date or time box prints its words: the date as the sheet writes dates, the time as written, the box itself not printed", async () => {
   const { printedBoxText, PRINTED_AS_TEXT, PRINT_BOX_TEXT } = await import("../src/utils/print");
-  assert.equal(printedBoxText("date", "2026-10-14"), "14-10-26");
+  assert.equal(printedBoxText("date", "2026-10-14"), "14-10-2026");
   assert.equal(printedBoxText("time", "10:17"), "10:17");
   assert.equal(printedBoxText("date", ""), "");
   assert.equal(PRINTED_AS_TEXT, "print-as-text");

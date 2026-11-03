@@ -27,19 +27,18 @@ export function todayISO(): string {
 }
 
 /**
- * A date as the app writes it everywhere, in numbers, day-month-year: "24-10-26" (the owner, 24-Oct-2026: "all are
- * number like this example:- 24-10-26 and not 24-oct-2026 and this applies to all document for all modules",
- * REQUIREMENTS §124). Two figures for the years 2000-2099; a date outside them (a date of birth in 1985) keeps its four,
- * "15-06-1985", so nothing reads it back as 20xx. Text that is not a date as the app stores one comes back as it was
- * written (a date column made Text, "12.09.2026").
+ * A date as the app writes it everywhere, in numbers, day-month-year with the year in full: "03-11-2026" (the owner,
+ * 3-Nov-2026: "date format in all the records should be like dd-mm-yyyy, for example 03-11-2026, and this applies to all
+ * documents for all modules", REQUIREMENTS §171 - over §124's two-figure year of 24-Oct-2026). Text that is not a date as
+ * the app stores one comes back as it was written (a date column made Text, "12.09.2026"). What a person types with two
+ * figures ("24-10-26") is still read (displayDateToISO, twoFigureYear).
  */
 export function formatDisplayDate(iso: string | null): string {
   if (!iso) return "TO BE CONFIRMED";
   if (!/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso;
   const d = fromISODate(iso.slice(0, 10));
   if (Number.isNaN(d.getTime())) return iso;
-  const y = d.getFullYear();
-  return `${pad2(d.getDate())}-${pad2(d.getMonth() + 1)}-${y >= 2000 && y <= 2099 ? pad2(y % 100) : String(y)}`;
+  return `${pad2(d.getDate())}-${pad2(d.getMonth() + 1)}-${String(d.getFullYear()).padStart(4, "0")}`;
 }
 
 /**
@@ -52,7 +51,7 @@ export function twoFigureYear(n: number, today: string = todayISO()): number {
   return y <= Number(today.slice(0, 4)) + 20 ? y : 1900 + n;
 }
 
-/** A moment as the app writes one: its date as formatDisplayDate writes it, and the time on the 24-hour clock, "24-10-26 15:30". "" when there is none. */
+/** A moment as the app writes one: its date as formatDisplayDate writes it, and the time on the 24-hour clock, "24-10-2026 15:30". "" when there is none. */
 export function formatDisplayDateTime(at: string | number | Date | null | undefined): string {
   if (at === null || at === undefined || at === "") return "";
   const d = at instanceof Date ? at : new Date(at);
@@ -60,7 +59,7 @@ export function formatDisplayDateTime(at: string | number | Date | null | undefi
   return `${formatDisplayDate(toISODate(d))} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-/** What formatDisplayDate writes, read back: "24-10-26" -> "2026-10-24", "15-06-1985" -> "1985-06-15"; null when it is not a real day. */
+/** What formatDisplayDate writes, read back ("24-10-2026" -> "2026-10-24"), and the two-figure year a person types ("24-10-26"); null when it is not a real day. */
 export function displayDateToISO(text: string): string | null {
   const m = /^(\d{2})-(\d{2})-(\d{2}|\d{4})$/.exec(text);
   if (!m) return null;

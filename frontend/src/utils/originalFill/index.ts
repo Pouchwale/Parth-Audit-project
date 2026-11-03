@@ -25,7 +25,23 @@ export { originalFileOf } from "../../data/seed/originalFiles";
  * The four documents whose download was drawn by hand on their original's grid before the templates (REQUIREMENTS §118):
  * kept as they are until the template's file is verified at least as good (tests/originals_check).
  */
-export const HAND_DRAWN = new Set(["service-report-rodent", "service-report-general", "service-report-fly", "hr-daily-cleaning", "hr-monthly-cleaning", "fly-catcher"]);
+export const HAND_DRAWN = new Set([
+  "service-report-rodent",
+  "service-report-general",
+  "service-report-fly",
+  "hr-daily-cleaning",
+  "hr-monthly-cleaning",
+  "fly-catcher",
+  // F/QC/17, both scales: downloaded as the page draws its paper, Excel or Word (utils/paperTableExport.ts, the owner,
+  // 30-10-26: the filled workbook fell back to a grid with no rule, merge or face).
+  "qc-ruler-verification",
+  "qc-ruler-verification-300",
+  // F/QC/11: downloaded as Word as its page is drawn (utils/calibrationWord.ts, the owner, 30-10-26: his filled Word file
+  // printed each box's words twice and its PROCEDURE in a frame at the side).
+  "qc-gsm-plate-calibration",
+  // F/QC/16: its Excel download drawn as its page (utils/paperTableExport.ts PAPER_TABLE_EXCEL, the owner, 31-10-26).
+  "qc-obsolete-artwork",
+]);
 
 /**
  * Documents whose own file the filler cannot yet fill as his paper, or whose Word or Excel original is not the document DCRS

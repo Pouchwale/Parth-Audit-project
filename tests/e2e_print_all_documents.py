@@ -57,7 +57,7 @@ def settle_briefing(page):
 
 BASE = "http://localhost:8842"
 # A date the way the app wrote one until 24-Oct-2026 (24-Oct-2026, 24-Oct-26): since then every date it writes is numbers,
-# 24-10-26 (REQUIREMENTS section 124), so none may be on a printout. A paper's own prose is the paper's ("Commission
+# 24-10-2026 (REQUIREMENTS section 124), so none may be on a printout. A paper's own prose is the paper's ("Commission
 # Regulation (EU) 2024/3190 of 19 December 2024" on F/SYS/20) and is not matched.
 MONTH_NAMED_DATE = re.compile(r"\b\d{1,2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{2,4}\b")
 FAILURES = []
@@ -328,7 +328,7 @@ with sync_playwright() as p:
         check_paper(doc_id, seen)
         words = (seen["shownText"] or "") + " " + " ".join(v for v in seen["boxValues"] if isinstance(v, str))
         named = sorted({m.group(0) for m in MONTH_NAMED_DATE.finditer(words)})
-        check(f"{doc_id}: no date on the printout is written with a month's name (REQUIREMENTS section 124: 24-10-26)", not named, named[:6])
+        check(f"{doc_id}: no date on the printout is written with a month's name (REQUIREMENTS section 124: 24-10-2026)", not named, named[:6])
         # A log sheet (components/records/LogSheetRecordView.tsx) is drawn in three parts; the registers and letters have their own pages.
         if seen["parts"]:
             # ...a sheet of boxes alone (a memo, an agreement) has no grid in its body.

@@ -12,10 +12,10 @@ import { bindProps, formFieldType, type Bound } from "../../engine/roundTrip/bin
 // engine/documentFormats.ts: what was typed is tidied when the field is left,
 // and anything that doesn't fit the format says so underneath, on screen only.
 
-/** 2026-07-11 -> "11.07.2026", as these forms write a date. */
+/** 2026-07-11 -> "11-07-2026", as every date the app writes (REQUIREMENTS §171; these forms' own dotted "11.07.2026" before it). */
 export function formDate(iso: string): string {
   const [y, m, d] = (iso || "").split("-");
-  return y && m && d ? `${d}.${m}.${y}` : "";
+  return y && m && d ? `${d}-${m}-${y}` : "";
 }
 
 export type FieldKind = "text" | "date" | "long";

@@ -172,10 +172,10 @@ export function isoWeek(iso: string): string {
   return `${year}-W${pad2(week)}`;
 }
 
-/** "24-09-26", as the app writes a date (utils/date.ts formatDisplayDate). */
+/** "24-09-2026", as the app writes a date (utils/date.ts formatDisplayDate, REQUIREMENTS §171). */
 export function displayDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  return `${pad2(d)}-${pad2(m ?? 1)}-${pad2((y ?? 0) % 100)}`;
+  return `${pad2(d)}-${pad2(m ?? 1)}-${String(y ?? 0).padStart(4, "0")}`;
 }
 
 // ---------------------------------------------------------------------------

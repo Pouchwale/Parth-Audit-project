@@ -127,7 +127,9 @@ test("a paper table is written in points: fixed widths, row heights, spanned and
   assert.ok(xml.includes('<w:sz w:val="40"/>'), "the name at 20 pt");
   assert.ok(xml.includes('<w:vMerge w:val="restart"/>') && xml.includes("<w:vMerge/>"), "the unit's number merged down its two lines");
   assert.ok(xml.includes('<w:tblInd w:w="158" w:type="dxa"/>'), "the grid 7.9 pt in from the margin");
-  assert.ok(xml.includes('<w:br w:type="page"/>'), "the second page starts a page");
+  // (a paragraph that starts a page, not a break inside a line: no page with only that line on it, 31-Oct-2026)
+  assert.ok(xml.includes("<w:pageBreakBefore/>"), "the second page starts a page");
+  assert.ok(!xml.includes('<w:br w:type="page"/>'), "no break inside a line that could leave a page blank");
   assert.ok(xml.includes('<w:top w:val="single" w:sz="12"'), "the frame is a point and a half");
 });
 

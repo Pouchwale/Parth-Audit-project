@@ -178,10 +178,10 @@ export function defaultArchiveYears(): number {
   return archiveYears(process.env.ACTIVITY_ARCHIVE_AFTER_YEARS) ?? 3;
 }
 
-/** 2023-09-24 -> 24-09-23, the way the app writes a date (utils/date.ts formatDisplayDate). */
+/** 2023-09-24 -> 24-09-2023, the way the app writes a date (utils/date.ts formatDisplayDate, REQUIREMENTS §171). */
 function displayDay(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${String(y % 100).padStart(2, "0")}`;
+  return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${String(y).padStart(4, "0")}`;
 }
 
 /** The plant's day a moment falls on, YYYY-MM-DD. */

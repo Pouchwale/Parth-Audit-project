@@ -300,8 +300,10 @@ describe("the definitions, the format edits, HR Master Data and the access rules
   });
 });
 
-// MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS §134, the owner, 28-Oct-2026): and the testing accounts' (example.com).
-describe("Master Data, the super admin's and the testing accounts'", () => {
+// MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS §134, the owner, 28-Oct-2026), KAPILA BARAD'S (§172, 3-Nov-2026: "for
+// kapila barad ID just give this access only for master data in system, nothing more or less than that") and the testing
+// accounts' (example.com).
+describe("Master Data, the super admin's, Kapila Barad's and the testing accounts'", () => {
   let s: Server;
   before(async () => (s = await start()));
   after(() => s.close());
@@ -319,15 +321,35 @@ describe("Master Data, the super admin's and the testing accounts'", () => {
     serviceTypeChemicals: [{ id: "c-1", chemical: `Chemical Master by ${by}` }],
   });
 
-  it("Kapila Barad: every list kept as stored, only the Chemical Master's (a pest-control document of its own) hers to change", async () => {
+  it("Kapila Barad (§172): her write of the lists taken, the plant's hours kept the super admin's", async () => {
     s.store.put("master", MASTER);
     const res = await put(s, "kapila", "master", changed("kapila"));
+    assert.equal(res.status, 200);
+    const stored = s.store.value("master") as typeof MASTER;
+    assert.deepEqual(stored.rodentStations, [{ id: "RBS-kapila", location: "Store", type: "Bait Tray", status: "Active" }], "a rodent station: hers to change");
+    assert.deepEqual(stored.employees, [{ id: "e-1", name: "changed by kapila" }]);
+    assert.deepEqual(stored.serviceTypeChemicals, [{ id: "c-1", chemical: "Chemical Master by kapila" }]);
+    assert.deepEqual(stored.workingHours, MASTER.workingHours, "the hours: the super admin's (§84), as stored");
+  });
+
+  it("Vinay Bhojak the same (§178): his write of the lists taken, the plant's hours kept the super admin's", async () => {
+    s.store.put("master", MASTER);
+    const res = await put(s, "vinay", "master", changed("vinay"));
+    assert.equal(res.status, 200);
+    const stored = s.store.value("master") as typeof MASTER;
+    assert.deepEqual(stored.rodentStations, [{ id: "RBS-vinay", location: "Store", type: "Bait Tray", status: "Active" }], "a rodent station: his to change");
+    assert.deepEqual(stored.workingHours, MASTER.workingHours, "the hours: the super admin's (§84), as stored");
+  });
+
+  it("another member of staff (Ankur Raval): every list kept as stored, only the Chemical Master's (a pest-control document of its own) his to change", async () => {
+    s.store.put("master", MASTER);
+    const res = await put(s, "ankur", "master", changed("ankur"));
     assert.equal(res.status, 200);
     const stored = s.store.value("master") as typeof MASTER;
     assert.deepEqual(stored.rodentStations, MASTER.rodentStations, "a rodent station: as stored");
     assert.deepEqual(stored.employees, MASTER.employees);
     assert.deepEqual(stored.workingHours, MASTER.workingHours, "the hours: as stored");
-    assert.deepEqual(stored.serviceTypeChemicals, [{ id: "c-1", chemical: "Chemical Master by kapila" }], "the Chemical Master: hers, as before");
+    assert.deepEqual(stored.serviceTypeChemicals, [{ id: "c-1", chemical: "Chemical Master by ankur" }], "the Chemical Master: his, as before");
   });
 
   it("a testing account (its address at example.com): its write taken as before, the hours kept", async () => {
@@ -348,7 +370,7 @@ describe("Master Data, the super admin's and the testing accounts'", () => {
 
   it("with nothing stored yet (a new plant's first sync): what is posted is taken, the hours left to the super admin", async () => {
     s.store.items.delete("company|master");
-    const res = await put(s, "kapila", "master", MASTER, { base: 0 });
+    const res = await put(s, "ankur", "master", MASTER, { base: 0 });
     assert.equal(res.status, 200);
     const stored = s.store.value("master") as Record<string, unknown>;
     assert.deepEqual(stored.rodentStations, MASTER.rodentStations);

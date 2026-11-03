@@ -193,7 +193,7 @@ def working_day(master, start):
 
 
 def shown(iso):
-    """A date as the app writes it: 24-10-26."""
+    """A date as the app writes it: 24-10-2026."""
     return f"{iso[8:10]}-{iso[5:7]}-{iso[2:4]}"
 
 

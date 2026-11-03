@@ -3,6 +3,7 @@ import { FiArrowLeft, FiArrowRight, FiDatabase, FiEdit3, FiExternalLink, FiImage
 import { FormatEditor } from "../components/documents/FormatEditor";
 import { SheetDesigner } from "../components/documents/SheetDesigner";
 import { canDesignGrid } from "../engine/formatOps";
+import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import { takeDesignRequest } from "../engine/designSession";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
@@ -448,7 +449,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
                 </div>
               </div>
               {/* The form as issued, in the chosen language (REQUIREMENTS §58), and the part that prints (utils/print.ts). */}
-              <div data-print-doc>
+              <div data-print-doc data-format-id={doc.id} data-format-asof={formulaTimeOf(preview)}>
                 <LogSheetRecordView key={preview.id} doc={doc} record={preview as RecordInstance<LogSheetData>} editable={false} onChange={() => undefined} />
               </div>
             </div>

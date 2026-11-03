@@ -86,6 +86,7 @@ const EXPECTED: Record<string, string> = {
   "hr-job-responsibility":            "Vinay+Sandeep",  // F/HR/07
   "hr-training-needs":                "Vinay+Sandeep",  // F/HR/08
   "hr-training-calendar":             "Vinay+Sandeep",  // F/HR/09
+  "hr-training-imparted":             "Vinay+Sandeep",  // F/HR/10 (DCRS's own since §168; the owner's table had it already)
   "chemical-master":                  "",  // TO BE CONFIRMED (reference: filled by nobody)
   "gurudev-insecticide-licence":      "",  // FORM III — MEH/FP1230000675/2023-2024 (reference: filled by nobody)
   "pest-responsibilities":            "Kapila",  // TO BE CONFIRMED

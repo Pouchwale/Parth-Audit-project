@@ -32,6 +32,7 @@ export const HR_RECORD_PAGES: HrRecordPage[] = [
   { docId: "hr-mobile-authorization", slug: "mobile-authorization", section: "Personnel & Competence", navKey: "nav.hrMobile" },
   { docId: "hr-training-needs", slug: "training-needs", section: "Training", navKey: "nav.hrTrainingNeeds", labelKey: "period", labelTitle: "Period" },
   { docId: "hr-training-calendar", slug: "training-calendar", section: "Training", navKey: "nav.hrTrainingCalendar", labelKey: "period", labelTitle: "Period" },
+  { docId: "hr-training-imparted", slug: "training-imparted", section: "Training", navKey: "nav.hrTrainingImparted", labelKey: "topic", labelTitle: "Topic" },
   { docId: "hr-training-effectiveness", slug: "training-effectiveness", section: "Training", navKey: "nav.hrTrainingEffectiveness", labelKey: "traineeName", labelTitle: "Trainee" },
   { docId: "hr-training-feedback", slug: "training-feedback", section: "Training", navKey: "nav.hrTrainingFeedback", labelKey: "topic", labelTitle: "Topic" },
   { docId: "hr-pre-employment-health", slug: "pre-employment-health", section: "Induction & Health", navKey: "nav.hrPreEmployment", labelKey: "name", labelTitle: "Applicant" },

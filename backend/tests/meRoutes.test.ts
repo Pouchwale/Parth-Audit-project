@@ -118,7 +118,7 @@ describe("GET /api/me/sign-in-days", () => {
   });
 
   it("refuses a from that is not a real date written YYYY-MM-DD, in words", async () => {
-    for (const from of ["yesterday", "2026-1-5", "26-10-26", "2026-02-30", "2026-13-01", ""]) {
+    for (const from of ["yesterday", "2026-1-5", "26-10-2026", "2026-02-30", "2026-13-01", ""]) {
       const r = await get(`/api/me/sign-in-days?from=${encodeURIComponent(from)}`, "kapila");
       assert.equal(r.status, 400, from);
       assert.equal(r.body.code, "bad-request");

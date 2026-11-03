@@ -201,11 +201,11 @@ with sync_playwright() as p:
     hr_by_department = search(page, "human resources")["yours"]
     check("...and a department's, 'human resources', finds Human Resources' documents", "hr-induction-staff" in hr_by_department and "daily-pest-monitoring" in hr_by_department, hr_by_department)
 
-    # A master-list format DCRS does not hold yet.
-    got = search(page, "F/HR/10")
-    check("F/HR/10 - on the master list, not in DCRS - is found as a master-list line", got["master"] == ["F-HR-10"] and not got["yours"] and not got["kept"], got)
-    row = page.locator("[data-search-master-format='F-HR-10']")
-    check("...named as the list names it, and said to be not in DCRS yet", row.count() == 1 and "Training Imparted Record" in row.inner_text() and NOT_IN_DCRS_YET in row.inner_text(), row.inner_text() if row.count() else None)
+    # A master-list format DCRS does not hold yet (F/HR/10 is DCRS's own since s168: the purchase order stands in).
+    got = search(page, "F/PUR/04")
+    check("F/PUR/04 - on the master list, not in DCRS - is found as a master-list line", got["master"] == ["F-PUR-04"] and not got["yours"] and not got["kept"], got)
+    row = page.locator("[data-search-master-format='F-PUR-04']")
+    check("...named as the list names it, and said to be not in DCRS yet", row.count() == 1 and "Purchase Order" in row.inner_text() and NOT_IN_DCRS_YET in row.inner_text(), row.inner_text() if row.count() else None)
     check("...with nothing to open or start", row.locator("button").count() == 0)
     check("...and its register says there are no records, as before", "No matches." in records_text(page), records_text(page)[:200])
     got = search(page, "purchase order")
@@ -315,8 +315,8 @@ with sync_playwright() as p:
     check("None of those documents' records was asked of the server", not asked, asked[:5])
     got = search(page, "F/QC/12")
     check("Its own F/QC/12 is its own to open", got["yours"] == ["qc-weight-scale-calibration"] and not got["kept"], got)
-    got = search(page, "F/HR/10")
-    check("A master-list format DCRS does not have is found by a staff account too", got["master"] == ["F-HR-10"], got)
+    got = search(page, "F/PUR/04")
+    check("A master-list format DCRS does not have is found by a staff account too", got["master"] == ["F-PUR-04"], got)
 
     goto(page, "#/library")
     lib = library(page)

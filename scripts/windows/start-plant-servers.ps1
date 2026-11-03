@@ -104,6 +104,15 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $DcrsFolder = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+if (-not $PSBoundParameters.ContainsKey('DcrsPort')) {
+  $envFile = Join-Path $DcrsFolder 'backend\.env'
+  if (Test-Path -LiteralPath $envFile) {
+    $line = Get-Content -LiteralPath $envFile | Where-Object { $_ -match '^\s*API_PORT\s*=\s*(\d+)' } | Select-Object -First 1
+    if ($line -and $line -match '^\s*API_PORT\s*=\s*(\d+)') {
+      $DcrsPort = [int]$Matches[1]
+    }
+  }
+}
 if (-not $AppFolder) { $AppFolder = Join-Path $DcrsFolder 'Audit project chatbot-mobile' }
 if (-not $LogFolder) { $LogFolder = Join-Path $DcrsFolder 'logs' }
 $StateFile = Join-Path $LogFolder 'plant-servers.json'
@@ -321,7 +330,7 @@ $parts = @(
   [pscustomobject]@{
     Key = 'dcrs'; Title = 'DCRS'; Port = $DcrsPort; HealthPath = '/api/health'; WaitSeconds = 180
     Folder = $DcrsFolder; Command = $(if ($DcrsCommand) { $DcrsCommand } else { 'npm run server' }); Stub = [bool]$DcrsCommand
-    Environment = @{}; Log = (Join-Path $LogFolder 'dcrs.log')
+    Environment = @{ API_PORT = "$DcrsPort" }; Log = (Join-Path $LogFolder 'dcrs.log')
     Process = $null; StartedAt = $null; Delay = $RestartAfterSeconds; RestartAt = $null; Announced = $false; Watched = $false; Problem = $null
   },
   [pscustomobject]@{

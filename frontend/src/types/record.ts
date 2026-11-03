@@ -176,6 +176,8 @@ export interface SummaryAction {
   descriptionOfObservation: string;
   actionTaken: string;
   remarks: string;
+  /** Written by the system when check point 7 was answered Yes and not changed by a person since (REQUIREMENTS §177); gone once a person edits the line. */
+  suggested?: boolean;
 }
 
 // Filled in whenever checkpoint 7 ("Any pest trapped in rodent trap box") is
@@ -187,6 +189,8 @@ export interface RodentCatch {
   trapBoxNo: string; // e.g. "RB-27"
   location: string; // one of the Rodent Control Service areas (Master Data → Areas)
   count: number;
+  /** Suggested from Master Data when check point 7 was answered Yes and not changed by a person since (REQUIREMENTS §177); gone once a person edits the line. */
+  suggested?: boolean;
 }
 
 /** A record's own wording of the words its form prints, by place (REQUIREMENTS §137): a place not listed keeps the form's. */

@@ -83,12 +83,12 @@ export function locationLabel(pc: PCLocation): string {
   return `${pc.location}${floor}`;
 }
 
-/** 2026-08-03 -> "3/08/26", the way the specimen writes a date. */
+/** 2026-08-03 -> "03-08-2026", as every date the app writes (REQUIREMENTS §171; the specimen's own "3/08/26" before it). */
 export function paperDate(iso: string | null | undefined): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return "";
-  return `${Number(d)}/${m}/${y.slice(2)}`;
+  return `${d}-${m}-${y}`;
 }
 
 /** The seven column headings, in the paper's order and words. */
@@ -269,7 +269,10 @@ export function FlyCatcherRegisterSheet({
 
   const monthYear = `${MONTH_NAMES[month].toUpperCase()}-${String(year).slice(2)}`;
   const monthName = `${MONTH_NAMES[month]} ${year}`;
-  const rowsPerUnit = Math.max(MIN_ROWS_PER_UNIT, visits.length);
+  // TWO LINES A UNIT, AS THE PAPER (the owner, 31-Oct-2026: "we want exactly 2 rows per pc"): the month's first two
+  // visits in date order. A third visit of the month stays in the list of visits below, to be opened on its own page.
+  const gridVisits = visits.slice(0, MIN_ROWS_PER_UNIT);
+  const rowsPerUnit = MIN_ROWS_PER_UNIT;
 
   const dataOf = (r: RecordInstance<FlyCatcherData>): FlyCatcherData => pending.current.get(r.id) ?? r.data;
 
@@ -333,7 +336,7 @@ export function FlyCatcherRegisterSheet({
   };
 
   const unitRows = (pcId: string): VisitRow[] => {
-    const rows: VisitRow[] = visits.map((record) => {
+    const rows: VisitRow[] = gridVisits.map((record) => {
       const data = dataOf(record);
       const entry = data.entries.find((e) => e.pcId === pcId);
       // On paper a visit not yet carried out is a blank line; while editing,

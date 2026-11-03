@@ -502,8 +502,8 @@ Seven scripts live in `tests/`:
   `source-documents/` - every one of its 23 horizontal and 7 vertical rules within 2 pt and every word but the company's spelling and the date -, F/HR/18's register two portrait pages with
   PC-01..08 then PC-09..13, its eight vertical rules and 28.9 pt lines at the paper's places, F/HR/17 three pages), `tests/e2e_downloads_and_print.py` (section 4: the three
   service reports, F/HR/15 and F/HR/16 read back and compared with `Service Report-April 2026.xls` and the two cleaning records' .xls - merged ranges,
-  widths, rows, fonts, orientation - and F/HR/18's Word page, bands, unit tables and page break), `tests/e2e_hr_module.py` (F/HR/17's catch row starts empty,
-  offers the sixteen real areas and "Another place...", is refused by Submit without a place and a count and keeps what is written).
+  widths, rows, fonts, orientation - and F/HR/18's Word page, bands, unit tables and page break), `tests/e2e_hr_module.py` (F/HR/17's catch row, when a person answers 7 Yes, is suggested from Master Data with the Summary line
+  (§177), offers the sixteen real areas and "Another place...", goes again on No, is refused by Submit once emptied without a place and a count, and keeps what is written).
   `source-documents/Service Report- March 2026.pdf` is the contractor's report the print is held against.
   *Run of 20-Oct-2026 (this branch).* `npm run typecheck` clean; `npm run test:unit`: frontend 1209 of 1209, backend 632 of 636 (4 skipped).
   Browser suites: `e2e_print_and_forms`, `e2e_print_all_documents` (with the March report held against the contractor's PDF, F/HR/18's two pages, F/HR/16 and the

@@ -1,4 +1,7 @@
 import type { LogSheetData, LogSheetRow } from "../types";
+// INDEXING: a formula the super admin changed in the index is worked out in place of the code below (indexing/formulaRuntime.ts).
+import { formulaOverride } from "../../../indexing/formulaRuntime";
+import { asNumber, runFormula } from "../../../indexing/formulaLanguage";
 
 // F/SYS/07'S SUM AND AUDIT FREQUENCY ARE WORKED OUT, NOT TYPED (REQUIREMENTS
 // §76). The Internal Audit Risk Assessment prints, for each section of the
@@ -54,8 +57,11 @@ export function auditRiskCells(row: Record<string, string | number | null>): Rec
   const iqa = count(row.iqaNc);
   const external = count(row.externalNc);
   if (iqa === null && external === null) return { sum: "", frequency: "" };
-  const sum = (iqa ?? 0) + (external ?? 0);
-  return { sum: String(sum), frequency: auditFrequency(sum) };
+  const sumFormula = formulaOverride("sys07.sum");
+  const sum = sumFormula ? (asNumber(runFormula(sumFormula, { IQA: iqa ?? 0, EXT: external ?? 0 })) ?? 0) : (iqa ?? 0) + (external ?? 0);
+  const frequencyFormula = formulaOverride("sys07.frequency");
+  const frequency = frequencyFormula ? String(runFormula(frequencyFormula, { SUM: sum }) ?? "") : auditFrequency(sum);
+  return { sum: String(sum), frequency };
 }
 
 /** The record's data with every formula cell worked out; any other document's data is returned as it is. */

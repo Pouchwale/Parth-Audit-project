@@ -592,7 +592,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
       // prints with the register's own header block — company name, title,
       // Format No. / Rev No. and the month it covers (REQUIREMENTS §38). A
       // bare grid with no heading is what made a printout look unfinished.
-      <div className="register-sheet" data-print-doc>
+      <div className="register-sheet" data-print-doc data-format-id={doc?.id}>
         <section className="register-page">
         {doc && <DocumentHeader doc={doc} extraTitle={`STATUS LIST — ${MONTH_NAMES[month].toUpperCase()} ${year}`} edit={dailyHeader.edit} />}
         {dailyHeader.panel}
@@ -692,7 +692,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
     .slice()
     .sort((a, b) => compareISO(b.dueDate, a.dueDate));
   const areas = master.areas.filter((a) => a.context === `service-report:${doc.variantKey}`);
-  const materials = Array.from(new Set(areas.map((a) => fixedMaterialForServiceArea(doc.variantKey, a.name).materialName).filter(Boolean)));
+  const materials = Array.from(new Set(areas.map((a) => fixedMaterialForServiceArea(doc.variantKey, a.name, a).materialName).filter(Boolean)));
   const next = nextDueDate(doc, today);
   const last = latestRecord<ServiceReportData>(doc.id, isDemo, today);
   const completed = records.filter((r) => DONE_STATUSES.has(r.status)).length;
@@ -771,7 +771,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
 
       {/* On paper this is the service report's own visit register for the year,
           so it carries the document's header block (REQUIREMENTS §38). */}
-      <div className="register-sheet" data-print-doc>
+      <div className="register-sheet" data-print-doc data-format-id={doc?.id}>
         <section className="register-page">
         <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${year}`} edit={visitHeader.edit} />
         {visitHeader.panel}
@@ -1042,7 +1042,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
       {view === "list" && (
       // The year's inspections as a document: the F/HR/18 header block, then
       // the list (REQUIREMENTS §38).
-      <div className="register-sheet" data-print-doc>
+      <div className="register-sheet" data-print-doc data-format-id={doc?.id}>
         <section className="register-page">
           {doc && <DocumentHeader doc={doc} extraTitle={`INSPECTION & CLEANING RECORDS ${year}`} edit={flyHeader.edit} />}
           {flyHeader.panel}

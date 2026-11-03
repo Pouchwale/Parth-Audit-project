@@ -6,6 +6,8 @@ export type Frequency =
   | "Fortnightly"
   | "Monthly"
   | "Quarterly"
+  // Twice a year, six months apart (the owner, 2-Nov-2026, REQUIREMENTS §163).
+  | "Half-yearly"
   | "Yearly"
   | "As Required";
 

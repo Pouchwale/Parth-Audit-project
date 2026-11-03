@@ -1,4 +1,8 @@
 import type { LogSheetData, LogSheetRow } from "../types";
+// INDEXING: a formula the super admin changed in the index is worked out in place of the code below (indexing/formulaRuntime.ts).
+import { formulaOverride } from "../../../indexing/formulaRuntime";
+import { asNumber, asYes, runFormula } from "../../../indexing/formulaLanguage";
+import { rangeOverride } from "../../../indexing/rangeRuntime";
 
 // MARKETING'S WORKED-OUT CELLS AND BOXES (REQUIREMENTS §77). Two of the
 // Marketing formats print figures that are arithmetic on what is written
@@ -98,15 +102,36 @@ export function percent(ratio: number, decimals: number): string {
  * average (Average / Ideal, two decimals) — all "" while no count is written
  * on the line. A count left blank beside a written one is none.
  */
+/** The counts of the five ratings as the index's formulas name them: C5, C4, C3, C2, CP. */
+const countFigures = (counts: (number | null)[]): Record<string, number> => ({ C5: counts[0] ?? 0, C4: counts[1] ?? 0, C3: counts[2] ?? 0, C2: counts[3] ?? 0, CP: counts[4] ?? 0 });
+
+/** Average and Ideal Rating of these counts: the code's arithmetic, or the index's formulas when the super admin changed them. */
+function averageAndIdeal(counts: (number | null)[]): { average: number; ideal: number } {
+  const averageFormula = formulaOverride("mkt02.average");
+  const idealFormula = formulaOverride("mkt02.ideal");
+  const average = averageFormula
+    ? (asNumber(runFormula(averageFormula, countFigures(counts))) ?? 0)
+    : FEEDBACK_RATINGS.reduce((sum, r, i) => sum + (counts[i] ?? 0) * r.weight, 0);
+  const ideal = idealFormula ? (asNumber(runFormula(idealFormula, countFigures(counts))) ?? 0) : counts.reduce<number>((sum, c) => sum + (c ?? 0), 0) * 5;
+  return { average, ideal };
+}
+
+/** Average / Ideal as a per cent: the code's, or the index's formula ("mkt02.satisfied" / "mkt02.index"). */
+function ratioPercent(slotId: string, average: number, ideal: number, decimals: number): string {
+  const changed = formulaOverride(slotId);
+  if (!changed) return ideal === 0 ? "" : percent(average / ideal, decimals);
+  const worked = asNumber(runFormula(changed, { AVG: average, IDEAL: ideal }));
+  return worked === null ? "" : `${fixed(worked, decimals)}%`;
+}
+
 export function feedbackRowCells(row: Cells): Record<string, string> {
   const counts = FEEDBACK_RATINGS.map((r) => count(row[r.key]));
   if (counts.every((c) => c === null)) return { averageRating: "", idealRating: "", satisfiedPct: "" };
-  const average = FEEDBACK_RATINGS.reduce((sum, r, i) => sum + (counts[i] ?? 0) * r.weight, 0);
-  const ideal = counts.reduce<number>((sum, c) => sum + (c ?? 0), 0) * 5;
+  const { average, ideal } = averageAndIdeal(counts);
   return {
     averageRating: String(average),
     idealRating: String(ideal),
-    satisfiedPct: ideal === 0 ? "" : percent(average / ideal, 2),
+    satisfiedPct: ratioPercent("mkt02.satisfied", average, ideal, 2),
   };
 }
 
@@ -137,9 +162,16 @@ export function feedbackTotals(rows: Cells[]): Record<string, string> {
     averageTotal += tally * r.weight;
     idealTotal += tally * 5;
   }
+  // INDEXING: with the Average / Ideal formula changed in the index, the totals are those formulas on the tallies.
+  if (written && (formulaOverride("mkt02.average") || formulaOverride("mkt02.ideal"))) {
+    const tallies = FEEDBACK_RATINGS.map((r) => rows.map((row) => count(row[r.key])).reduce<number>((a, c) => a + (c ?? 0), 0));
+    const worked = averageAndIdeal(tallies);
+    averageTotal = worked.average;
+    idealTotal = worked.ideal;
+  }
   boxes.averageRatingTotal = written ? String(averageTotal) : "";
   boxes.idealRatingTotal = written ? String(idealTotal) : "";
-  boxes.satisfactionIndex = written && idealTotal !== 0 ? percent(averageTotal / idealTotal, 0) : "";
+  boxes.satisfactionIndex = written ? ratioPercent("mkt02.index", averageTotal, idealTotal, 0) : "";
   return boxes;
 }
 
@@ -154,7 +186,8 @@ export interface ParetoCells {
 /** The cutoff a box holds, a whole number of per cent ("80", or "80%" as the template prints it); 80 when blank or unreadable. */
 export function paretoCutoff(value: unknown): number {
   const n = count(value === null || value === undefined ? "" : String(value).replace(/%\s*$/, ""));
-  return n === null ? 80 : n;
+  // INDEXING: the cutoff used when the box is blank, as the super admin set it in the index (80 by default).
+  return n === null ? (rangeOverride("value:mkt04.cutoff")?.value ?? 80) : n;
 }
 
 /**
@@ -174,7 +207,8 @@ export function paretoCells(rows: Cells[], cutoffPct: number): ParetoCells {
     if (d === null) return { cumulativePct: "", classification: "" };
     running += d;
     // running / total ≤ cutoff / 100, multiplied out so that no division turns 80% into 80.00000000000001.
-    const vital = running * 100 <= cutoffPct * total;
+    const vitalFormula = formulaOverride("mkt04.vital");
+    const vital = vitalFormula ? asYes(runFormula(vitalFormula, { RUNNING: running, TOTAL: total, CUTOFF: cutoffPct })) === true : running * 100 <= cutoffPct * total;
     if (vital) {
       vitalFew += 1;
       vitalDefects += d;

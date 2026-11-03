@@ -825,6 +825,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     report.grids.push({ rows: grid.rows.length - grid.headerRows, paperRows: lines.length, added, where: "by the lines' own words" });
   }
 
+  if (hints.onePage) fitGridWords(body);
   endWithoutBlankPage(body);
 
   // ---- the map (REQUIREMENTS §81)
@@ -1003,6 +1004,61 @@ const AFTER_SZ = ["highlight", "u", "effect", "bdr", "shd", "fitText", "vertAlig
 function onePoint(rPr: XmlElement): void {
   putInOrder(rPr, el("w:sz", { "w:val": "2" }), ["szCs", ...AFTER_SZ]);
   putInOrder(rPr, el("w:szCs", { "w:val": "2" }), AFTER_SZ);
+}
+
+/** The size, in half-points, the words of a wide grid are written at most (8 pt), and the smallest they go (5 pt). */
+const GRID_WORDS_MAX = 16;
+const GRID_WORDS_MIN = 10;
+
+/**
+ * A WIDE GRID ON ONE PAGE (hints.ts onePage; F/QC/12, the owner, 30-Oct-2026: "do font less ... in single page"): every
+ * cell's words, its column's printed headings and the entries alike, are written at 8 pt, smaller where the longest word
+ * of the cell would not fit its column on one line ("100.000gm" in a 51 pt column), never below 5 pt. A word never wraps
+ * and a line never grows, so the paper stays one page however many lines are written (the paper's own heights are minimums).
+ */
+function fitGridWords(body: XmlElement): void {
+  for (const tbl of all(body, "tbl")) {
+    const grid = kid(tbl, "tblGrid");
+    const cols = grid ? kids(grid, "gridCol").map((c) => Number(c.attrs["w:w"] ?? 0) / 20) : [];
+    if (cols.length < 10) continue;
+    for (const tr of kids(tbl, "tr")) {
+      let at = 0;
+      for (const tc of kids(tr, "tc")) {
+        const tcPr = kid(tc, "tcPr");
+        const span = Number(kid(tcPr ?? tc, "gridSpan")?.attrs["w:val"] ?? 1) || 1;
+        const room = cols.slice(at, at + span).reduce((a, b) => a + b, 0) - 11; // (Word's cell margins, 5.4 pt each side)
+        at += span;
+        const longest = Math.max(0, ...wordText(tc).split(/\s+/).map((w) => w.length));
+        let size = GRID_WORDS_MAX;
+        if (longest > 0 && room > 0) size = Math.max(GRID_WORDS_MIN, Math.min(GRID_WORDS_MAX, Math.floor((room / (longest * 0.56)) * 2)));
+        const sized = (rPr: XmlElement) => {
+          putInOrder(rPr, el("w:sz", { "w:val": String(size) }), ["szCs", ...AFTER_SZ]);
+          putInOrder(rPr, el("w:szCs", { "w:val": String(size) }), AFTER_SZ);
+        };
+        for (const p of all(tc, "p")) {
+          let pPr = kid(p, "pPr");
+          if (!pPr) {
+            pPr = el("w:pPr");
+            p.children.unshift(pPr);
+          }
+          let mark = kid(pPr, "rPr");
+          if (!mark) {
+            mark = el("w:rPr");
+            putInOrder(pPr, mark, ["sectPr", "pPrChange"]);
+          }
+          sized(mark);
+          for (const r of all(p, "r")) {
+            let rPr = kid(r, "rPr");
+            if (!rPr) {
+              rPr = el("w:rPr");
+              r.children.unshift(rPr);
+            }
+            sized(rPr);
+          }
+        }
+      }
+    }
+  }
 }
 
 /**

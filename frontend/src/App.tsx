@@ -39,11 +39,16 @@ import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
 import { HrMasterDataPage } from "./pages/HrMasterDataPage";
 import { QcOverviewPage } from "./pages/QcPages";
 import { UsersPage } from "./pages/UsersPage";
+import { FrequencyPage } from "./pages/FrequencyPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { ActivityLogPage } from "./pages/ActivityLogPage";
 import { DatabaseOverviewPage } from "./pages/DatabaseOverviewPage";
 import { AccessDashboardPage } from "./pages/AccessDashboardPage";
 import { MasterListPage } from "./pages/MasterListPage";
+// INDEXING: the index of every format and document, the super admin's (indexing/IndexingPage.tsx).
+import { IndexingPage } from "../../indexing/IndexingPage";
+// Every format's printed words as the index changed them, and the super admin's Text & layout panel (indexing/TextDesigner.tsx).
+import { TextLayerHost } from "../../indexing/TextDesigner";
 import { PerformancePage } from "./pages/PerformancePage";
 import { InsightsPage } from "./pages/InsightsPage";
 import { MitraReaction } from "./components/common/MitraReaction";
@@ -54,7 +59,10 @@ import { SoundVoiceHost } from "./components/common/SoundVoiceHost";
 // REQUIREMENTS §81: the preview of an edited Word/Excel file uploaded back, drawn once for the whole app.
 import { UploadChangesHost } from "./components/common/UploadChanges";
 import { DocumentRecordsPage } from "./pages/DocumentRecordsPage";
-import { demoModeAvailable } from "./engine/features";
+import { assistantAvailable, demoModeAvailable } from "./engine/features";
+import { mayOpenSystemPages } from "./engine/masterDataAccess";
+import { useAuth } from "./store/AuthContext";
+import { useT } from "./i18n";
 import { currentModuleSlug } from "./utils/moduleSlug";
 
 function NotFoundPage() {
@@ -62,6 +70,18 @@ function NotFoundPage() {
     <div className="empty-state">
       <h2 className="text-xl mb-2">Page not found</h2>
       <p>The screen you're looking for doesn't exist yet.</p>
+    </div>
+  );
+}
+
+// THE SYSTEM MENU'S OTHER PAGES ARE NOT KAPILA BARAD'S (engine/masterDataAccess.ts mayOpenSystemPages, the owner,
+// 3-Nov-2026, REQUIREMENTS §173): their addresses say so, as Master Data's does for everybody else (§134).
+function SystemPageNotAllowed() {
+  const t = useT();
+  return (
+    <div className="empty-state" data-state="system-not-allowed">
+      <h2 className="text-xl mb-2">{t("system.onlyMasterData")}</h2>
+      <p className="text-muted">{t("system.onlyMasterDataWhy")}</p>
     </div>
   );
 }
@@ -85,7 +105,10 @@ function isRealISODate(s: string): boolean {
 
 function RouteSwitch() {
   const { segments } = useRouter();
+  const { user } = useAuth();
   const [root, ...rest] = segments;
+  // Reports, the Activity Log, the Performance Scorecard, Insights and Demo Mode: not Kapila Barad's (§173).
+  const systemPages = mayOpenSystemPages(user);
 
   switch (root) {
     case undefined:
@@ -150,16 +173,19 @@ function RouteSwitch() {
       return rest[0] ? <HrDocumentPage key={rest[0]} slug={rest[0]} /> : <HrOverviewPage />;
     case "performance":
       // The scorecard: who did their documents on time, by person, department and module (REQUIREMENTS §64).
-      return <PerformancePage />;
+      return systemPages ? <PerformancePage /> : <SystemPageNotAllowed />;
     case "notifications":
       // Each person's notifications by day, from the server's ledger, under the bell's "See all" (REQUIREMENTS §97).
       return <NotificationsPage />;
     case "insights":
       // What the plant's records show when read together, worked out by fixed rules from them (REQUIREMENTS §75).
-      return <InsightsPage />;
+      return systemPages ? <InsightsPage /> : <SystemPageNotAllowed />;
     // Users & Access — the administrator makes the accounts (REQUIREMENTS §66).
     case "users":
       return <UsersPage />;
+    // How often every document of every module falls due — the super admin's panel (REQUIREMENTS §163).
+    case "frequency":
+      return <FrequencyPage />;
     // The shared database's plain-English views, read-only — the super admin's (REQUIREMENTS §83).
     case "database-overview":
       return <DatabaseOverviewPage />;
@@ -169,9 +195,12 @@ function RouteSwitch() {
     // The master list of who does what: every document in F/SYS/02's order, who fills it and each person's level — the super admin's (REQUIREMENTS §110).
     case "master-list":
       return <MasterListPage />;
+    // The index of every format and document, its versions and formulas — the super admin's (indexing/).
+    case "indexing":
+      return <IndexingPage />;
     case "activity":
       // Everything anybody has done on the portal (REQUIREMENTS §62).
-      return <ActivityLogPage />;
+      return systemPages ? <ActivityLogPage /> : <SystemPageNotAllowed />;
     case "qc":
       // QC Records — Quality Control's overview of its formats (thirty-eight with §57, more since) in
       // their seven sections, and of its three log sheets kept with the
@@ -192,6 +221,7 @@ function RouteSwitch() {
       // genuine route change instead of relying solely on ReportsPage's own
       // props-resync effect, which otherwise paints the previous month for
       // one frame before catching up (effects run after paint).
+      if (!systemPages) return <SystemPageNotAllowed />;
       return <ReportsPage key={rest.join("/")} initialYear={yearParam(rest[0])} initialMonth={month0Param(rest[1])} initialTab={rest[2]} />;
     case "master-data":
       return <MasterDataPage />;
@@ -199,11 +229,14 @@ function RouteSwitch() {
       // Not a page of the product: the address shows the same "Page not found"
       // as any other that does not exist, unless the server was started with
       // Demo Mode (engine/features.ts, REQUIREMENTS §65).
-      return demoModeAvailable() ? <DemoModePage /> : <NotFoundPage />;
+      if (!demoModeAvailable()) return <NotFoundPage />;
+      return systemPages ? <DemoModePage /> : <SystemPageNotAllowed />;
     case "search":
       return <SearchPage />;
     case "assistant":
-      return <AssistantPage />;
+      // Not a page for a person the super admin switched Mitra off for (engine/features.ts, 2-Nov-2026): the same
+      // "Page not found" as any address that does not exist; the server refuses Mitra's routes for them anyway.
+      return assistantAvailable() ? <AssistantPage /> : <NotFoundPage />;
     default:
       return <NotFoundPage />;
   }
@@ -263,13 +296,15 @@ export function App() {
           </div>
         </div>
       </SidebarProvider>
-      <DocumentAssistant />
+      {/* The floating Mitra, for a person who has Mitra: the super admin may switch it off for the staff (2-Nov-2026). */}
+      {assistantAvailable() && <DocumentAssistant />}
       {/* Mitra's reaction to work done on time or late — one toast, bottom left (REQUIREMENTS §64). */}
       <MitraReaction />
       <Celebration />
       <SoundVoiceHost />
       <UploadChangesHost />
       <AssistantBriefingPopup />
+      <TextLayerHost />
     </AssistantProvider>
   );
 }

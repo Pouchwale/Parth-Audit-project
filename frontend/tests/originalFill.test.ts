@@ -109,7 +109,7 @@ test("a workbook: the company's one name, the format's revision, the DATE cell b
   const { bytes, report } = await fillXlsx(tinyWorkbook(), registerBlocks(2), { envelope: envelope("xlsx"), company: COMPANY.name });
   const xml = await sheetXml(bytes);
   assert.match(xml, new RegExp(`<c r="A1"[^>]*><is><t xml:space="preserve">${COMPANY.name}</t>`), "the company's name is DCRS's one spelling");
-  assert.match(xml, /<c r="D2"[^>]*><is><t xml:space="preserve">F\/QC\/99 \(01\/05\.01\.2026\)<\/t>/, "the revision and its date are DCRS's, written the paper's way");
+  assert.match(xml, /<c r="D2"[^>]*><is><t xml:space="preserve">F\/QC\/99 \(01\/05-01-2026\)<\/t>/, "the revision and its date are DCRS's, the date as the app writes one (REQUIREMENTS §171)");
   assert.match(xml, /<c r="A3"[^>]*\/>/, "the header's DATE label is blanked (REQUIREMENTS §117)");
   assert.match(xml, /<c r="B3"[^>]*\/>/, "and its value");
   assert.equal(report.dateCellsBlanked, 1);
@@ -196,7 +196,7 @@ test("a Word file: boxes, a paragraph's blank, a choice marked, the example line
   const { bytes, report } = await fillDocx(tinyDocx(), formBlocks(3, "ACCEPTED"), { envelope: envelope("docx"), company: COMPANY.name });
   const xml = await partText(bytes, "word/document.xml");
   assert.ok(xml.includes(COMPANY.name), "the company's one name");
-  assert.ok(xml.includes("F/QC/99 (02 / 05.01.2026)"), "the revision is DCRS's");
+  assert.ok(xml.includes("F/QC/99 (02 / 05-01-2026)"), "the revision is DCRS's, its date as the app writes one");
   assert.ok(!/ACME Specimen|Glue|Bait/.test(xml), "the owner's example entries are gone");
   assert.ok(xml.includes("Test Supplier QA") && xml.includes("20-Oct-2026"), "the boxes' values are in");
   assert.ok(!xml.includes("________"), "the value takes the blank's place after its label");
@@ -250,7 +250,7 @@ for (const [id, kind] of [
     if (id === "qc-bopp-film") {
       const footer = (await partText(bytes, "word/footer2.xml")).replace(/<[^>]+>/g, "");
       assert.ok(footer.includes("F/QC/01"), "the paper's foot keeps its format number");
-      assert.ok(footer.includes("16.02.2022"), "and its revision's date, as the paper writes it");
+      assert.ok(footer.includes("16-02-2022"), "and its revision's date, as the app writes one (REQUIREMENTS §171)");
     }
   });
 }

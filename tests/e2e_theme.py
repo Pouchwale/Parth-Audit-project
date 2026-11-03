@@ -203,11 +203,11 @@ with sync_playwright() as p:
     button = page.locator(".app-topbar [data-action='theme-menu']").first
     attrs = button.evaluate("(b) => ({ label: b.getAttribute('aria-label'), popup: b.getAttribute('aria-haspopup'), expanded: b.getAttribute('aria-expanded'), words: b.innerText.trim(), cls: b.className })")
     check("It is an icon button named Theme, a menu button, with no word of its own", attrs == {"label": "Theme", "popup": "menu", "expanded": "false", "words": "", "cls": "btn btn-ghost btn-sm"}, attrs)
-    check("The three choices are not on the page until it is opened", page.locator("[data-action='set-theme']").count() == 0)
+    check("The four choices are not on the page until it is opened", page.locator("[data-action='set-theme']").count() == 0)
     button.click()
     page.wait_for_timeout(250)
     items = page.evaluate("() => Array.from(document.querySelectorAll('.theme-menu [role=menuitemradio]')).map((b) => [b.dataset.themeChoice, b.dataset.action, b.getAttribute('aria-checked'), b.innerText.trim()])")
-    check("Opened: a menu of three radios - Light (ticked), Dark, Same as my computer", items == [["light", "set-theme", "true", "Light"], ["dark", "set-theme", "false", "Dark"], ["system", "set-theme", "false", "Same as my computer"]], items)
+    check("Opened: a menu of four radios - Light (ticked), Dark, Same as my computer, Daylight (s166)", items == [["light", "set-theme", "true", "Light"], ["dark", "set-theme", "false", "Dark"], ["system", "set-theme", "false", "Same as my computer"], ["daylight", "set-theme", "false", "Daylight (with the sun)"]], items)
     check("...the menu is named, and the button says it is open", page.locator(".theme-menu[role='menu'][aria-label='Theme']").count() == 1 and button.get_attribute("aria-expanded") == "true")
     page.evaluate("() => document.querySelector('.app-content').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))")
     page.wait_for_timeout(200)

@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { mayOpenRoute } from "../../engine/masterDataAccess";
 import { FiInfo, FiX, FiZap } from "react-icons/fi";
 import { MitraComposer } from "../mitra/MitraComposer";
 import { MitraThread } from "../mitra/MitraThread";
@@ -1063,6 +1064,11 @@ export function DocumentAssistant() {
         return;
       case "navigate":
         me(chip.label);
+        // The System menu's other pages are not Kapila Barad's (engine/masterDataAccess.ts mayOpenRoute, §173): said, not opened.
+        if (!mayOpenRoute(user, a.route)) {
+          bot(phrase("system.onlyMasterData"), [{ label: phrase("ai.guide.whereTo"), action: { type: "guide", step: "home" } }]);
+          return;
+        }
         bot(phrase("ai.onIt", { what: chip.label }), [{ label: phrase("ai.guide.whereTo"), action: { type: "guide", step: "home" } }]);
         navigate(a.route);
         return;

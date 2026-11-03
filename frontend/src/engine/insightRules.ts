@@ -29,6 +29,7 @@ import { documentTextIn } from "../i18n/documentText";
 //       of its pass/fail tests reads its failing word, an F grade marked Pass
 //   C2  a lot's reason stating a figure its own observation does not read
 //   C3  an instrument's calibration expired
+//   C4  a weighing balance that failed its weekly check (F/QC/12): report to the QA manager
 //   SUP a supplier graded C on F/PUR/05
 //   M1–M8 Maintenance (REQUIREMENTS §74, §82): lux, the equipment list,
 //       breakdowns, glass breakage, daily health gaps, PM slippage (a Rev 01
@@ -716,7 +717,7 @@ const DAILY_PEST_ID = "daily-pest-monitoring";
 
 // A rodent caught is the register working, not a failure to correct — the
 // monthly CAPA leaves it out for the same reason (data/demoGenerator.ts).
-const isRoutineCatch = (actionTaken: string): boolean => /rodent (trapped|removed)/i.test(actionTaken);
+const isRoutineCatch = (actionTaken: string): boolean => /rodent (trapped|removed|disposed|caught)/i.test(actionTaken);
 
 interface Observation {
   record: RecordInstance;
@@ -1286,6 +1287,43 @@ const calibrationRule: InsightRule = (ctx) => {
         );
       }
     }
+  }
+  return out;
+};
+
+// ===========================================================================
+// C4 — A WEIGHING BALANCE THAT FAILED ITS WEEKLY CHECK (F/QC/12)
+// ===========================================================================
+
+// The owner, 30-Oct-2026: a Deviation % outside ± the Acceptable Tolerance is red and the line Fails — and it is to be
+// reported to the QA manager, as the paper's PROCEDURE says ("If any deviation is found during internal calibration, it
+// must be reported to the QA manager"). Each line marked Fail, on a sheet a person has written, is one finding; the latest
+// first. HIGH: every weighing done on the balance since is open to question.
+const scaleFailRule: InsightRule = (ctx) => {
+  const out: Insight[] = [];
+  const documentId = "qc-weight-scale-calibration";
+  const fno = ctx.formatNo(documentId);
+  for (const r of ctx.records(documentId)) {
+    const rows = (r.data as { rows?: Record<string, unknown>[] } | undefined)?.rows ?? [];
+    rows.forEach((row, i) => {
+      if (text(row.passFail).toLowerCase() !== "fail") return;
+      const device = text(headerOf(r).deviceIdNo) || "the weighing balance";
+      const when = isISO(text(row.date)) ? text(row.date) : r.dueDate;
+      out.push(
+        insight(ctx, documentId, {
+          id: `c4|${r.id}|${i}`,
+          rule: "C4",
+          severity: "high",
+          title: `Weighing balance ${device} (${fno}) failed its check on ${fmt(when)}`,
+          detail:
+            `A Deviation % on the ${fmt(when)} line is outside the Acceptable Tolerance (${text(headerOf(r).acceptableTolerance) || "as written"}), so the line Fails.` +
+            ` Report it to the QA manager, as the calibration procedure says, keep the balance out of use until it is put right, and check what was weighed on it since the last good check.`,
+          evidence: [ev(r, "passFail", "Fail")],
+          route: ctx.recordRoute(r),
+          metric: { label: "Result", value: "Fail" },
+        })
+      );
+    });
   }
   return out;
 };
@@ -2734,6 +2772,7 @@ export const INSIGHT_RULES: InsightRule[] = [
   printingStopRule,
   consistencyRule,
   calibrationRule,
+  scaleFailRule,
   supplierRule,
   luxRule,
   equipmentListRule,

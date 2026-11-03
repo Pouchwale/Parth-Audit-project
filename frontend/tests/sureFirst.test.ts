@@ -59,7 +59,13 @@ test("every save of a format, every restore, and every printed word or page numb
   const header = read("frontend", "src", "components", "documents", "HeaderEditing.tsx");
   everyCallAsksFirst(header, "commitFormatChange(latest,", "HeaderEditing");
   everyCallAsksFirst(header, "record.save(", "HeaderEditing");
-  everyCallAsksFirst(read("frontend", "src", "components", "records", "EditableWords.tsx"), "onChange(next)", "EditableWords");
+  everyCallAsksFirst(read("frontend", "src", "components", "records", "EditableWords.tsx"), "onChange(next, choice)", "EditableWords");
+  // The service report's printed words are the format's (REQUIREMENTS §154): saved only from those words' own Yes.
+  const service = read("frontend", "src", "components", "records", "ServiceReportRecordView.tsx");
+  assert.equal(service.split("saveFormatWords(").length - 1, 1, "called from one place only: the words' own Yes");
+  assert.match(service, /onChange=\{\(typed, choice\) => saveFormatWords\(place, typed, shown, choice, legacy\)\}/);
+  // A line added or removed on the service report (REQUIREMENTS §154 item 6) is saved only from its question's Yes.
+  everyCallAsksFirst(service, "commitServiceLineChange(", "ServiceReportRecordView");
   // Mitra's change to a format is asked in her chat, as it always was: "Yes, save as Rev NN" or "No, leave it".
   assert.match(read("frontend", "src", "components", "common", "DocumentAssistant.tsx"), /label: `Yes, save as Rev \$\{rev\}`, action: \{ type: "confirmFormatChange" \}/);
 
@@ -74,7 +80,7 @@ test("every save of a format, every restore, and every printed word or page numb
   };
   walk(path.join(root, "frontend", "src", "components"));
   walk(path.join(root, "frontend", "src", "pages"));
-  assert.deepEqual(callers.sort(), ["DocumentAssistant.tsx", "FormatEditor.tsx", "HeaderEditing.tsx", "SheetDesigner.tsx"]);
+  assert.deepEqual(callers.sort(), ["DocumentAssistant.tsx", "FormatEditor.tsx", "HeaderEditing.tsx", "ServiceReportRecordView.tsx", "SheetDesigner.tsx"]);
 });
 
 test("the question in English and in Gujarati: Are you sure? - Yes, I am sure / No", () => {

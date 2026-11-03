@@ -20,6 +20,9 @@ export interface AreaLocation {
   name: string;
   context: string; // which document's area-list this belongs to
   floor?: string;
+  /** A service report line added on the report (REQUIREMENTS §154 item 6): the material and method of the block it was added in. */
+  material?: string;
+  method?: string;
 }
 
 export interface PCLocation {

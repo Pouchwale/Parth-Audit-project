@@ -16,7 +16,7 @@ import type { DocumentDefinition, LogSheetData, LogSheetLayout, MasterData, Reco
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
-import { QC_PAPER_TABLES, lineRow, paperTableFits, paperTableFor, type PaperCell } from "../src/data/seed/qcPaperTables";
+import { QC_PAPER_TABLES, lineRow, paperTableFits, paperTableFor, paperTablePrint, type PaperCell } from "../src/data/seed/qcPaperTables";
 import { createDefaultData } from "../src/engine/recordDefaults";
 
 // store/router.tsx reads window.location the moment it loads; the harness stands up none.
@@ -187,7 +187,7 @@ test("the sheet is drawn in its three parts, its boxes bound as every sheet's, t
     const html = await sheet(id);
     const form = QC_PAPER_TABLES[id];
     assert.ok(
-      new RegExp(`<div class="paper-sheet[^"]* paper-table-sheet"( translate="no")? data-bind-record="pt-${id}" data-paper="${form.page}" data-paper-left="${form.left}" data-sheet="${id}" data-paper-form="table"`).test(html),
+      new RegExp(`<div class="paper-sheet[^"]* paper-table-sheet"( translate="no")? data-bind-record="pt-${id}" data-paper="${form.page}" data-paper-left="${paperTablePrint(form).left}" data-sheet="${id}" data-paper-form="table"`).test(html),
       id
     );
     for (const part of ["head", "body"]) assert.match(html, new RegExp(`<table class="pt-table pt-${part} pt-font-[a-z]+( pt-frame)?"[^>]*data-paper-part="${part}"`), `${id} ${part}`);
@@ -281,4 +281,16 @@ test("the stylesheet: the paper table's rules before the reduced-motion block, n
   assert.ok(end < css.lastIndexOf("@media (prefers-reduced-motion: reduce)"), "the reduced-motion block stays the stylesheet's last word");
   assert.match(block, /\[data-print-doc\]:has\(\.paper-sheet\[data-paper-form="table"\]\) \{ padding: 0; \}/);
   assert.match(block, /padding: calc\(var\(--pt-top\) \* var\(--u\)\) 0 0 calc\(var\(--pt-left\) \* var\(--u\)\)/, "the paper's own place on the page, as padding (a margin pushed a blank second page)");
+});
+
+test("F/QC/17 prints filling the A4 page: 12 mm from its left and top, its width the page's less 12 mm each side, inside its foot; every other paper at its own place and size", () => {
+  for (const id of ["qc-ruler-verification", "qc-ruler-verification-300"]) {
+    const form = QC_PAPER_TABLES[id];
+    const p = paperTablePrint(form);
+    const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0);
+    assert.deepEqual([p.left, p.top], [12, 12], id);
+    assert.ok(p.scale > 1.15 && 12 + PAPERS[id].width * p.scale <= 198.05, `${id}: ${PAPERS[id].width * p.scale} mm wide`);
+    assert.ok(12 + height * p.scale <= 297 - 4, `${id}: ${12 + height * p.scale} mm of 297`);
+  }
+  for (const [id, form] of Object.entries(QC_PAPER_TABLES)) if (!id.startsWith("qc-ruler-verification")) assert.deepEqual(paperTablePrint(form), { left: form.left, top: form.top, scale: 1 }, id);
 });

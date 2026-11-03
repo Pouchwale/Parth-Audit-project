@@ -53,7 +53,7 @@ const LINES: StoredLine[] = [
   line("u-kapila", "Kapila Barad", "Signed in", "u-kapila@gpp.local", "", "2026-10-14"),
   line("u-kapila", "Kapila Barad", "Record started", "F/QC/01 Daily Pest Control Monitoring — 2026-10-14", "QC", "2026-10-14"),
   line("u-kapila", "Kapila Barad", "Submitted", "F/QC/01 Daily Pest Control Monitoring — 2026-10-14", "QC", "2026-10-14"),
-  line("u-kapila", "Kapila Barad", "Record started", "F/HR/17 Fly Catcher — 2026-10-14", "HR", "2026-10-14"),
+  line("u-ankur", "Ankur Raval", "Record started", "F/HR/17 Fly Catcher — 2026-10-14", "HR", "2026-10-14"),
   line("u-vinay", "Vinay Bhojak", "Record started", "F/HR/17 Fly Catcher — 2026-10-14", "HR", "2026-10-14"),
   line("u-vinay", "Vinay Bhojak", "Verified", "F/HR/17 Fly Catcher — 2026-10-13", "HR", "2026-10-13"),
   line("u-vinay", "Vinay Bhojak", "Record started", "F_QC_01 (a name with underscores)", "HR", "2026-10-12"),
@@ -102,12 +102,14 @@ const tallyOver = (archive: boolean) => async (opts: ActivityFilter): Promise<Ac
 // the server
 
 const ADMIN: PublicUser = { id: "u-admin", name: "Super Admin", email: "admin@gpp.local", role: "admin", departments: [] };
-const STAFF: PublicUser = { id: "u-kapila", name: "Kapila Barad", email: "kapila.barad@gpp.local", role: "staff", departments: ["QC"] };
+// The staff example is Ankur Raval since §173 (3-Nov-2026) left the Activity Log out of Kapila Barad's ID; she is held to a refusal below.
+const STAFF: PublicUser = { id: "u-ankur", name: "Ankur Raval", email: "ankur.raval@gpp.local", role: "staff", departments: ["QC"] };
+const KAPILA: PublicUser = { id: "u-kapila", name: "Kapila Barad", email: "kapila.barad@gpp.local", role: "staff", departments: ["QC"] };
 const EVERY_STAFF: PublicUser = { id: "u-qa", name: "QA Manager", email: "qa@gpp.local", role: "staff", departments: [] };
 
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const who = req.get("x-test-user");
-  const user = who === "admin" ? ADMIN : who === "staff" ? STAFF : who === "every" ? EVERY_STAFF : null;
+  const user = who === "admin" ? ADMIN : who === "staff" ? STAFF : who === "kapila" ? KAPILA : who === "every" ? EVERY_STAFF : null;
   if (!user) {
     res.status(401).json({ error: "Not authenticated." });
     return;
@@ -167,7 +169,7 @@ describe("each chip is one parameter, read into the one filter the lines and the
     const res = await get("/api/activity?department=hr");
     assert.deepEqual(
       targets(res.json),
-      ["Vinay Bhojak · Record started · F_QC_01 (a name with underscores)", "Vinay Bhojak · Verified · F/HR/17 Fly Catcher — 2026-10-13", "Vinay Bhojak · Record started · F/HR/17 Fly Catcher — 2026-10-14", "Kapila Barad · Record started · F/HR/17 Fly Catcher — 2026-10-14"]
+      ["Vinay Bhojak · Record started · F_QC_01 (a name with underscores)", "Vinay Bhojak · Verified · F/HR/17 Fly Catcher — 2026-10-13", "Vinay Bhojak · Record started · F/HR/17 Fly Catcher — 2026-10-14", "Ankur Raval · Record started · F/HR/17 Fly Catcher — 2026-10-14"]
     );
     assert.equal(asked[0].filter.department, "HR");
   });
@@ -218,12 +220,22 @@ describe("each chip is one parameter, read into the one filter the lines and the
   });
 });
 
+describe("the Activity Log is not Kapila Barad's (REQUIREMENTS §173)", () => {
+  it("her reading of the lines and of the tally is refused; another member of QC reads as before", async () => {
+    assert.equal((await get("/api/activity", "kapila")).status, 403);
+    assert.equal((await get("/api/activity/summary", "kapila")).status, 403);
+    assert.equal((await get("/api/activity?department=QC", "kapila")).status, 403, "whatever is asked for");
+    assert.equal((await get("/api/activity", "staff")).status, 200);
+    assert.equal((await get("/api/activity/summary", "staff")).status, 200);
+  });
+});
+
 describe("staff cannot filter beyond their own lines", () => {
   it("a member of QC asking for HR's lines gets their own lines in HR, nobody else's", async () => {
     const res = await get("/api/activity?department=HR", "staff");
-    assert.deepEqual(targets(res.json), ["Kapila Barad · Record started · F/HR/17 Fly Catcher — 2026-10-14"]);
-    assert.deepEqual([asked[0].filter.departments, asked[0].filter.userId, asked[0].filter.superAdmin], [["QC"], "u-kapila", false], "the scope is still there under the chip");
-    // Nor by naming the person: Vinay's HR lines are not Kapila's to read.
+    assert.deepEqual(targets(res.json), ["Ankur Raval · Record started · F/HR/17 Fly Catcher — 2026-10-14"]);
+    assert.deepEqual([asked[0].filter.departments, asked[0].filter.userId, asked[0].filter.superAdmin], [["QC"], "u-ankur", false], "the scope is still there under the chip");
+    // Nor by naming the person: Vinay's HR lines are not Ankur's to read.
     assert.deepEqual((await get("/api/activity?person=u-vinay&department=HR", "staff")).json.lines, []);
     // Nor by action or document: an escalation is the super admin's alone, whatever is asked for.
     assert.deepEqual((await get(`/api/activity?action=${encodeURIComponent(ESCALATION)}`, "staff")).json.lines, []);

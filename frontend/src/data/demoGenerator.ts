@@ -20,7 +20,7 @@ import { NEARLY_FULL_CHARS, measureWorkingCopy } from "./storageAdapter";
 import { getLogSheetLayout } from "./seed/logSheetLayouts";
 import { COMPANY } from "./seed/masterData";
 import { effectiveDueDatesInMonth } from "../engine/holidays";
-import { fillsThroughYear, periodKeyFor } from "../engine/recordGenerator";
+import { fillsThroughYear, filingYear, periodKeyFor } from "../engine/recordGenerator";
 import { fixedMaterialForServiceArea, normalizeServiceLines } from "../engine/serviceMaterials";
 import { autoFillRecord } from "../engine/autoFill";
 import { qcShiftSigner } from "../engine/qcPaperSamples";
@@ -160,7 +160,7 @@ export interface ServiceObservation {
   correctiveAction: string;
 }
 
-function serviceAreasFor(doc: DocumentDefinition): { name: string }[] {
+function serviceAreasFor(doc: DocumentDefinition): { name: string; material?: string; method?: string }[] {
   const areas = masterRepository.get().areas.filter((a) => a.context === `service-report:${doc.variantKey}`);
   return areas.length ? areas : [{ name: "General area (demo)" }];
 }
@@ -186,7 +186,7 @@ function buildServiceReportData(doc: DocumentDefinition, dueDate: string, observ
     lines: normalizeServiceLines(
       doc.variantKey,
       serviceAreasFor(doc).map((a, i) => {
-        const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name);
+        const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name, a);
         // What the technician actually noted at this area on this visit — and
         // where that is something the plant has to act on, it is collected so
         // a CAPA finding can be raised against it below.
@@ -386,7 +386,7 @@ export function generateDemoRecordsForMonth(year: number, month: number, only?: 
     // Thursday weekly off, festival holidays, adjustment days; fortnightly
     // visits that land on a closed day move to the next working day. A year's sheet filled month by
     // month (F/HR/16) is on file from the year's first month, as Live has it (fillsThroughYear).
-    for (const { scheduled, due: dueDate, holiday } of effectiveDueDatesInMonth(doc, year, fillsThroughYear(doc) ? 11 : month, master)) {
+    for (const { scheduled, due: dueDate, holiday } of effectiveDueDatesInMonth(doc, fillsThroughYear(doc) ? filingYear(doc, year, month).year : year, fillsThroughYear(doc) ? filingYear(doc, year, month).month : month, master)) {
       const periodKey = periodKeyFor(doc, scheduled);
       // A period already on file is left alone — except a blank shell made
       // for a day that was still ahead when it was generated, untouched
@@ -566,7 +566,7 @@ export function ensureDemoRecordsGeneratedForYear(year: number): number {
   for (const r of recordRepository.queryUnscoped({ isDemo: true })) stored.set(`${r.documentId}|${r.periodKey}`, r);
   const lacking = (month: number, only: (doc: DocumentDefinition) => boolean) =>
     docs.filter(only).some((doc) =>
-      effectiveDueDatesInMonth(doc, year, fillsThroughYear(doc) ? 11 : month, master).some(({ scheduled, holiday }) => {
+      effectiveDueDatesInMonth(doc, fillsThroughYear(doc) ? filingYear(doc, year, month).year : year, fillsThroughYear(doc) ? filingYear(doc, year, month).month : month, master).some(({ scheduled, holiday }) => {
         if (holiday && doc.kind !== "daily-pest-monitoring") return false;
         const prior = stored.get(`${doc.id}|${periodKeyFor(doc, scheduled)}`);
         return !prior || isUnfilledPastShell(prior, today);

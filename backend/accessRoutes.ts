@@ -163,10 +163,10 @@ export function plantDayOf(ms: number, zone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
 }
 
-/** 2026-09-30 -> 30-09-26, the way the app writes a date (utils/date.ts formatDisplayDate). */
+/** 2026-09-30 -> 30-09-2026, the way the app writes a date (utils/date.ts formatDisplayDate, REQUIREMENTS §171). */
 export function displayDay(day: string): string {
   const [y, m, d] = day.split("-").map(Number);
-  return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${String(y % 100).padStart(2, "0")}`;
+  return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${String(y).padStart(4, "0")}`;
 }
 
 /**

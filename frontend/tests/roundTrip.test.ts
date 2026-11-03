@@ -67,7 +67,7 @@ const row = (id: string, sr: string, time: string, visc: string, ok: string, shi
 ];
 
 function sampleBlocks(): ExportBlock[] {
-  const date = bind("header/date", "date", "01-10-26", { label: "Date" });
+  const date = bind("header/date", "date", "01-10-2026", { label: "Date" });
   const temp: ExportBinding = { ...bind("header/temperature", "number", "12", { label: "Temperature" }), pre: "Temp: ", post: " °C" };
   const shiftA = bind("header/shiftA", "text", "Mehul", { label: "In-charge A" });
   const shiftB = bind("header/shiftB", "text", "Kiran", { label: "In-charge B" });
@@ -253,7 +253,7 @@ function toSharedStrings(parts: Map<string, string>): void {
 function renumberStyles(parts: Map<string, string>): void {
   const styles = parts.get("xl/styles.xml")!;
   // The exporter's date format (dd-mm-yy since 24-Oct-2026): the replace below must find it, or it would silently do nothing.
-  assert.ok(styles.includes('<numFmt numFmtId="164" formatCode="[$-409]dd\\-mm\\-yy"/>'), "the exporter writes its date format as dd-mm-yy");
+  assert.ok(styles.includes('<numFmt numFmtId="164" formatCode="[$-409]dd\\-mm\\-yyyy"/>'), "the exporter writes its date format as dd-mm-yyyy (REQUIREMENTS §171)");
   const m = /<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/.exec(styles)!;
   const xfs = m[2].match(/<xf [^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)!;
   const order = xfs.map((_, i) => i).reverse();
@@ -417,8 +417,8 @@ test("values changed in Excel are exactly the changes; a value that is not a num
     "header/approved": true,
   });
   const byPath = new Map(plan.changes.map((c) => [c.path, c]));
-  assert.equal(byPath.get("header/date")!.before, "01-10-26");
-  assert.equal(byPath.get("header/date")!.after, "06-10-26");
+  assert.equal(byPath.get("header/date")!.before, "01-10-2026");
+  assert.equal(byPath.get("header/date")!.after, "06-10-2026");
   assert.equal(byPath.get("rows/@r-1/shift")!.before, "Shift A");
   assert.equal(byPath.get("rows/@r-1/shift")!.after, "Shift B");
   assert.equal(byPath.get("header/approved")!.after, "☑");

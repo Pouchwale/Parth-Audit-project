@@ -1,3 +1,4 @@
+import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import React, { useMemo, useState } from "react";
 import { FiArrowLeft, FiArrowRight, FiPlus, FiZap, FiUsers, FiSearch } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
@@ -23,6 +24,7 @@ import {
   resumeAfterRejection,
 } from "../engine/recordLifecycle";
 import { currentActivity, isItemOpen, summarise } from "../engine/guidedChecklist";
+import { assistantAvailable } from "../engine/features";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { mayDo } from "../engine/departmentScope";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
@@ -579,7 +581,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
 
       {/* The document itself — the part that prints (utils/print.ts) — and whose
           values a downloaded file binds to this record (REQUIREMENTS §81). */}
-      <div data-print-doc data-bind-record={record.id}>
+      <div data-print-doc data-bind-record={record.id} data-format-id={doc.id} data-format-asof={formulaTimeOf(record)}>
       <DocumentHeader doc={doc} pageLabel={record.headerBlock?.page ?? "1 of 1"} edit={headerEdit} />
       {headerPanel}
 
@@ -611,12 +613,13 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
               </div>
             )}
           </div>
-          {editable && (
+          {/* Mitra's guided walk-through, for a person who has Mitra (engine/features.ts, 2-Nov-2026). */}
+          {editable && assistantAvailable() && (
             <button className="btn btn-primary" onClick={() => startGuidedChecklist()}>
               <FiZap size={14} /> Walk me through it (A → E)
             </button>
           )}
-          {canApprove && (
+          {canApprove && assistantAvailable() && (
             <button className="btn btn-success" onClick={() => startGuidedChecklist()}>
               <FiZap size={14} /> Review &amp; approve with the assistant
             </button>

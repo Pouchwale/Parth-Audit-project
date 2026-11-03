@@ -661,7 +661,7 @@ describe("what the browser is told", () => {
 
     const none = await fresh("no-key");
     assert.deepEqual({ voice: none.voice, assistant: none.assistant }, { voice: false, assistant: false });
-    assert.deepEqual(Object.keys(none).sort(), ["assistant", "demoMode", "signup", "voice"]);
+    assert.deepEqual(Object.keys(none).sort(), ["assistant", "daylightTheme", "demoMode", "signup", "voice"], "and whether the Daylight theme is offered (§166)");
   });
 });
 

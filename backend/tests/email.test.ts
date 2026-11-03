@@ -90,13 +90,13 @@ describe("every message", () => {
     const r = recorder();
     setMailTransport(r.transport);
     try {
-      const result = await sendMail({ to: "dharmik.reminders@example.com", subject: "Still open: 3 records need you", html: "<p>Hello Dharmik Mistry,</p><ul><li>F/PRD/10 of 26-10-26 &amp; more</li></ul>" }, { env: { GMAIL_USER: PLANT } });
+      const result = await sendMail({ to: "dharmik.reminders@example.com", subject: "Still open: 3 records need you", html: "<p>Hello Dharmik Mistry,</p><ul><li>F/PRD/10 of 26-10-2026 &amp; more</li></ul>" }, { env: { GMAIL_USER: PLANT } });
       assert.equal(result.captured, false);
       assert.equal(r.sent.length, 1);
       const m = r.sent[0];
       assert.deepEqual(m.from, { name: "Gujarat Print Pack Publications Pvt Ltd - DCRS", address: PLANT });
       assert.equal(m.to, "dharmik.reminders@example.com");
-      assert.equal(m.text, "Hello Dharmik Mistry,\n- F/PRD/10 of 26-10-26 & more", "the text part made from the HTML");
+      assert.equal(m.text, "Hello Dharmik Mistry,\n- F/PRD/10 of 26-10-2026 & more", "the text part made from the HTML");
       assert.match(m.html, /<li>/);
       assert.equal(m.headers["Auto-Submitted"], "auto-generated");
       assert.ok(!("attachments" in nodemailerMessage(m)), "never an attachment");

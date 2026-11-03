@@ -43,9 +43,37 @@ export const RULER_CERTIFICATE = { date: "2026-09-23", due: "2027-09-22" } as co
 /**
  * THE MASTER SCALE'S CERTIFICATE, ON EVERY NEW SHEET (the owner, 28-Oct-2026, the upper table "Master Measuring Scale
  * (Ruler) Details": "Calibration 21-9-26, due date 20-9-27"): editable, the later date kept (autoFill.newest), on both
- * scales' pages. Its report number stays the person's to write.
+ * scales' pages.
  */
 export const MASTER_CERTIFICATE = { date: "2026-09-21", due: "2027-09-20" } as const;
+
+/**
+ * THE MASTER SCALE'S CALIBRATION REPORT NUMBER, ON EVERY NEW SHEET (the owner, 30-10-26: "the calibration report number
+ * should by default autofill CAL/LPI/GP-23/23 ... and keep it editable"), on both scales' pages. Until then it was the
+ * person's to write. Later the same day: "the calibration report number should be 26/27 instead of 23/23 this should be
+ * taken according to the calibration date year and calibration due date year" - the prefix, then the two-figure years of
+ * the master's calibration date and due date (21-09-26, 20-09-27: CAL/LPI/GP-26/27); a sheet with other dates gets its
+ * own (autoFill.yearsOf, engine/carryForward.ts).
+ */
+export const MASTER_REPORT_PREFIX = "CAL/LPI/GP-";
+export const MASTER_REPORT_NO = `${MASTER_REPORT_PREFIX}${MASTER_CERTIFICATE.date.slice(2, 4)}/${MASTER_CERTIFICATE.due.slice(2, 4)}`;
+/** The number every new sheet started with until it followed the dates. */
+export const FORMER_MASTER_REPORT_NO = "CAL/LPI/GP-23/23";
+
+/**
+ * WHAT THE YEARLY REMINDER SAYS (the owner, 30-10-26): on its day the sheet is written as last year's (carryForwardAll),
+ * the two boxes left for the person are the scale's Make and Serial number; then it is submitted.
+ */
+export const RULER_YEARLY_NOTE =
+  "This year's verification is filled in from last year's sheet. Fill the remaining 2 boxes by hand - Make and Serial number of the scale under calibration - then submit the document.";
+
+/** The master scale's make (the owner, 30-10-26: "the name should be kristeel instead of kristeen"), and the old spelling. */
+export const MASTER_MAKE = "Kristeel";
+export const FORMER_MASTER_MAKE = "Kristeen";
+
+/** The scale's Range as each page starts it (the owner, 30-10-26: "0-300mm" and "0-600 mm"), and its Least count. */
+export const rulerRangeOf = (scale: { lengthMm: number }): string => `0-${scale.lengthMm} mm`;
+export const RULER_LEAST_COUNT = "1 mm";
 
 /** The paper's acceptable tolerance, printed in its box. */
 export const RULER_TOLERANCE = "+ / - 1 mm";
@@ -139,17 +167,27 @@ const masterBoxes = (): LogHeaderField[] => [
     label: "Master Make",
     type: "text",
     required: true,
-    autoFill: { default: "Kristeen" },
+    // Kristeel (the owner, 30-10-26); a last sheet still holding the old spelling gives a new one the new.
+    autoFill: { default: MASTER_MAKE, formerDefaults: [FORMER_MASTER_MAKE] },
     // The paper's table, headed across its two columns (BoxTable: no columns of its own, the heading in its corner).
     boxTable: { corner: "Master Measuring Scale (Ruler) Details", columns: [], rows: MASTER_ROWS },
   },
-  { key: "masterSerialNo", label: "Master Serial number", type: "text", required: true, autoFill: { default: "QC-44" } },
-  { key: "masterRange", label: "Master Range", type: "text", autoFill: { default: "0 - 600 mm" } },
-  { key: "masterLeastCount", label: "Master Least count", type: "text", autoFill: { default: "1 mm" } },
+  // The master scale's own make-up, QC-44, 0 - 600 mm, 1 mm, on every new sheet as the paper has it, editable - never a last
+  // sheet's (the owner, 31-Oct-2026: a trial sheet's "0 - 300 mm" came back on the next 600 mm sheet).
+  { key: "masterSerialNo", label: "Master Serial number", type: "text", required: true, autoFill: { carryForward: false, default: "QC-44" } },
+  { key: "masterRange", label: "Master Range", type: "text", autoFill: { carryForward: false, default: "0 - 600 mm" } },
+  { key: "masterLeastCount", label: "Master Least count", type: "text", autoFill: { carryForward: false, default: "1 mm" } },
   // 21-09-26 and 20-09-27 on every new sheet, editable (MASTER_CERTIFICATE, the owner, 28-Oct-2026).
   { key: "masterCalibrationDate", label: "Master Calibration date", type: "date", required: true, autoFill: { default: MASTER_CERTIFICATE.date, newest: true } },
   { key: "masterCalibrationDueDate", label: "Master Calibration due date", type: "date", required: true, autoFill: { default: MASTER_CERTIFICATE.due, newest: true } },
-  { key: "masterCalibrationReportNo", label: "Master Calibration report number", type: "text", required: true },
+  // CAL/LPI/GP-<calibration year>/<due year> on every new sheet of both scales, editable (MASTER_REPORT_NO, the owner, 30-10-26).
+  {
+    key: "masterCalibrationReportNo",
+    label: "Master Calibration report number",
+    type: "text",
+    required: true,
+    autoFill: { default: MASTER_REPORT_NO, formerDefaults: [FORMER_MASTER_REPORT_NO], yearsOf: { prefix: MASTER_REPORT_PREFIX, date: "masterCalibrationDate", due: "masterCalibrationDueDate" } },
+  },
 ];
 
 /** The scale-under-calibration table's boxes: the same on every page but the paper's own Serial number and Range, where its page starts them. */
@@ -160,14 +198,17 @@ function rulerBoxes(scale: RulerScale): LogHeaderField[] {
       label: "Make",
       type: "text",
       required: true,
-      // The scale's Make and Least count as the plant's own pages print them (Ajanta, 1 mm), on every new sheet of either
-      // scale and editable, as its serial and range are (the owner, 28-Oct-2026: "make this also fix ... but should be editable").
-      autoFill: { default: "Ajanta" },
+      // MAKE AND SERIAL NUMBER ARE WRITTEN BY HAND on every new sheet of either scale (the owner, 30-10-26: "only the first 2
+      // details should be manual"): they start empty and are not carried from the last sheet (autoFill.carryForward
+      // false). Range and Least count start with the page's own, editable. (From earlier that day until then all four
+      // started empty; before it they started as Ajanta, the page's serial and range, and 1 mm.)
+      autoFill: { carryForward: false },
       boxTable: { corner: "Measuring Scale (Ruler) under calibration details", columns: [], rows: RULER_ROWS },
     },
-    { key: "serialNo", label: "Serial number", type: "text", required: true, ...(scale.startsWithThem ? { autoFill: { default: scale.serialNo } } : {}) },
-    { key: "range", label: "Range", type: "text", ...(scale.startsWithThem ? { autoFill: { default: scale.range } } : {}) },
-    { key: "leastCount", label: "Least count", type: "text", autoFill: { default: "1 mm" } },
+    { key: "serialNo", label: "Serial number", type: "text", required: true, autoFill: { carryForward: false } },
+    // 0-600 mm or 0-300 mm, and 1 mm, editable (the owner, 30-10-26); the 600 mm page's former "0-600mm" gives way to it.
+    { key: "range", label: "Range", type: "text", autoFill: { default: rulerRangeOf(scale), ...(scale.range !== rulerRangeOf(scale) ? { formerDefaults: [scale.range] } : {}) } },
+    { key: "leastCount", label: "Least count", type: "text", autoFill: { default: RULER_LEAST_COUNT } },
     // 23-09-26 and 22-09-27 on every new sheet, editable (RULER_CERTIFICATE, the owner, 27-Oct-2026).
     { key: "calibrationDate", label: "Calibration date", type: "date", required: true, autoFill: { default: RULER_CERTIFICATE.date, newest: true } },
     { key: "calibrationDueDate", label: "Calibration due date", type: "date", required: true, autoFill: { default: RULER_CERTIFICATE.due, newest: true } },
@@ -199,7 +240,9 @@ export function rulerVerificationLayout(scale: RulerScale): LogSheetLayout {
       { key: "difference", label: "Difference", type: "text", computed: true, toleranceFrom: "acceptableTolerance", width: 100 },
       // One Status and one name down the six lines, as the paper draws them.
       { key: "status", label: "Status (Pass/Fail)", type: "select", options: ["Pass", "Fail"], required: true, merged: {}, width: 110 },
-      { key: "performedBy", label: "Calibration performed by", type: "text", required: true, merged: {}, autoFill: { sign: true }, width: 170 },
+      // This year's tester, never last year's (the owner, 31-Oct-2026: a new 300 mm sheet named the 2026 one's): left blank
+      // on the new sheet, it takes the name of the person who opens it (engine/nominalFill.ts).
+      { key: "performedBy", label: "Calibration performed by", type: "text", required: true, merged: {}, autoFill: { sign: true, carryForward: false }, width: 170 },
     ],
     rowMode: { kind: "fixedRows", rows: scale.points.map((mm) => ({ masterReading: `${mm} mm` })) },
     ...(scale.formerPoints ? { formerRows: scale.formerPoints.map((points) => points.map((mm) => ({ masterReading: `${mm} mm` }))) } : {}),

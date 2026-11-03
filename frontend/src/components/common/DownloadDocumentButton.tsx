@@ -1,7 +1,7 @@
 import React from "react";
 import { FiDownload } from "react-icons/fi";
 import type { DocumentDefinition } from "../../types";
-import { documentFileKind, downloadDocumentFile } from "../../utils/documentExport";
+import { documentFileKind, documentFileKinds, downloadDocumentFile } from "../../utils/documentExport";
 import { documentsOnScreen } from "../../utils/print";
 import { documentTextIn } from "../../i18n/documentText";
 import { useAppStore } from "../../store/AppStore";
@@ -43,17 +43,28 @@ export function DownloadDocumentButton({
     const holder = target?.();
     return !holder ? documentsOnScreen() : holder.matches("[data-print-doc]") ? [holder] : documentsOnScreen(holder).length > 0 ? documentsOnScreen(holder) : [holder];
   };
-  const download = () => {
+  const download = (as: "xlsx" | "docx") => {
     // Asynchronous now: every line of a long sheet is drawn before the file is
     // made (utils/documentExport.ts). It never rejects.
-    void downloadDocumentFile({ ...doc, name: documentTextIn(doc.name, lang) }, roots(), dateISO);
-    logActivity(kind === "xlsx" ? "Document downloaded as Excel" : "Document downloaded as Word", `${doc.formatNo.startsWith("TO BE") ? "" : `${doc.formatNo} `}${doc.name}`, dateISO ?? "", doc.id);
+    void downloadDocumentFile({ ...doc, name: documentTextIn(doc.name, lang) }, roots(), dateISO, as);
+    logActivity(as === "xlsx" ? "Document downloaded as Excel" : "Document downloaded as Word", `${doc.formatNo.startsWith("TO BE") ? "" : `${doc.formatNo} `}${doc.name}`, dateISO ?? "", doc.id);
   };
+  // Its own kind first; a paper downloaded as it is drawn offers Word beside Excel (the owner, 30-10-26, F/QC/17).
+  const kinds = documentFileKinds(doc).filter((k): k is "xlsx" | "docx" => k !== "pdf");
   return (
     <>
-      <button className={`btn btn-secondary${small ? " btn-sm" : ""}`} data-action="download-document" data-format={kind} onClick={download} title={kind === "xlsx" ? "Download as an Excel workbook" : "Download as a Word document"}>
-        <FiDownload size={13} /> {t(kind === "xlsx" ? "common.downloadExcel" : "common.downloadWord")}
-      </button>
+      {kinds.map((k) => (
+        <button
+          key={k}
+          className={`btn btn-secondary${small ? " btn-sm" : ""}`}
+          data-action={k === kind ? "download-document" : k === "docx" ? "download-document-word" : "download-document-excel"}
+          data-format={k}
+          onClick={() => download(k)}
+          title={k === "xlsx" ? "Download as an Excel workbook" : "Download as a Word document"}
+        >
+          <FiDownload size={13} /> {t(k === "xlsx" ? "common.downloadExcel" : "common.downloadWord")}
+        </button>
+      ))}
       {/* Writing a file back into the records needs Write on the document (REQUIREMENTS §96): never offered to a person who reads it. */}
       {isDocumentVisible(doc) && mayDo(doc.id, "fill") && <UploadChangesButton doc={doc} roots={roots} small={small} />}
     </>

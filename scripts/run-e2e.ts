@@ -315,6 +315,8 @@ async function main(): Promise<void> {
         SEED_ACCOUNTS: product ? "1" : "0",
         SEED_ACCOUNT_PASSWORD: PRODUCT_SEED_PASSWORD,
         DEMO_MODE: product ? "0" : "1",
+        // The Daylight theme (REQUIREMENTS §166) is offered on the test server, as the local run offers it.
+        DAYLIGHT_THEME: product ? "0" : "1",
         ALLOW_SIGNUP: product ? "0" : "1",
         // SAMPLE DATA IN A LIVE RECORD (REQUIREMENTS §98): never in the plant, where it is Demo Mode's alone;
         // on both test servers, because the suites fill the records they check with Mitra's sample data.

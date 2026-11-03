@@ -1,4 +1,8 @@
 // Development server with live rebuild-on-request (esbuild serve + watch).
+//
+// ONE ADDRESS (the owner, 3-Nov-2026: "only run localhost on port 5173, not another port"): the website answers on
+// PORT alone. The bundler behind it serves on a loopback port of its own that is never printed or reachable from
+// another computer, and the API is reached through this port (/api is proxied). The terminal names port 5173 only.
 import * as esbuild from "esbuild";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -19,17 +23,33 @@ const ctx = await esbuild.context({
   target: "es2020",
   sourcemap: true,
   loader: { ".tsx": "tsx", ".ts": "ts", ".css": "css" },
-  logLevel: "info",
+  // Silent: esbuild would print the bundler's own address. The plugin says what matters: a build that failed, or finished.
+  logLevel: "silent",
+  plugins: [
+    {
+      name: "watch-words",
+      setup(build) {
+        build.onEnd((result) => {
+          if (result.errors.length > 0) {
+            console.error(`[watch] build failed: ${result.errors.length} error${result.errors.length === 1 ? "" : "s"}`);
+            for (const e of result.errors) console.error(`  ${e.text}${e.location ? ` (${e.location.file}:${e.location.line})` : ""}`);
+          } else {
+            console.log("[watch] built; reload the page");
+          }
+        });
+      },
+    },
+  ],
 });
 
 await ctx.watch();
-console.log("Watching for changes...");
 
-const { hosts, port } = await ctx.serve({
+const host = "127.0.0.1";
+const { port } = await ctx.serve({
   servedir: path.join(root, ".devbuild"),
+  host,
   port: 0,
 });
-const host = hosts[0] ?? "127.0.0.1";
 
 const publicDir = path.join(root, "public");
 
@@ -132,5 +152,5 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
 }
 
 server.listen(PORT, () => {
-  console.log(`Dev server running at http://localhost:${PORT}`);
+  console.log(`Website at http://localhost:${PORT} (the one address: the API is behind it)`);
 });

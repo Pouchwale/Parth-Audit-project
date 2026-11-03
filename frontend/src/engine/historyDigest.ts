@@ -317,14 +317,14 @@ function namedPeriod(text: string, lower: string, today: string): Period | "none
   const m = d.getMonth();
   const q = Math.floor(m / 3);
   // Cut at today, a label that says its own dates loses them, so withDates
-  // says the real ones: "this week (20-09-26 to 24-09-26)", not to the 26th.
+  // says the real ones: "this week (20-09-2026 to 24-09-2026)", not to the 26th.
   const range = (from: string, to: string, label: string, unit?: PeriodUnit): Period | null =>
     compareISO(from, today) > 0
       ? null
       : {
           from,
           to: earlier(to, today),
-          label: compareISO(to, today) > 0 ? label.replace(/\s*\(\d{2}-\d{2}-\d{2} to \d{2}-\d{2}-\d{2}\)$/, "") : label,
+          label: compareISO(to, today) > 0 ? label.replace(/\s*\(\d{2}-\d{2}-\d{4} to \d{2}-\d{2}-\d{4}\)$/, "") : label,
           named: true,
           ...(unit ? { unit } : {}),
         };
@@ -397,11 +397,8 @@ function unitOfRange(r: { from: string; to: string }, lower: string): PeriodUnit
   return undefined;
 }
 
-/** A label moved a year back with its dates: "October 2026" → "October 2025", "12-11-26" → "12-11-25". */
-const yearBack = (label: string): string =>
-  label
-    .replace(/\b((?:19|20)\d{2})\b/g, (yy) => String(Number(yy) - 1))
-    .replace(/\b(\d{2})-(\d{2})-(\d{2})\b/g, (_whole, d: string, m: string, y: string) => `${d}-${m}-${y === "00" ? "1999" : pad2(Number(y) - 1)}`);
+/** A label moved a year back with its dates: "October 2026" → "October 2025", "12-11-2026" → "12-11-2025" (every date the app writes carries its year in full, §171). */
+const yearBack = (label: string): string => label.replace(/\b((?:19|20)\d{2})\b/g, (yy) => String(Number(yy) - 1));
 
 function defaultPeriod(today: string): Period {
   return { from: addDays(today, -(DEFAULT_WINDOW_DAYS - 1)), to: today, label: `the last ${DEFAULT_WINDOW_DAYS} days`, named: false };

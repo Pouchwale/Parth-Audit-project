@@ -27,6 +27,11 @@ export interface FillHints {
    * from this table (0-based, in body order; the section's own page settings kept) is the owner's examples and is left out.
    */
   cutFromTable?: number;
+  /**
+   * docx: the paper is one page whatever is written on it (F/QC/12, the owner, 30-Oct-2026): the words of its wide grid are
+   * written smaller, each cell's to fit its column on one line (docxFill.ts fitGridWords), so no line wraps and none runs on.
+   */
+  onePage?: boolean;
   /** xlsx: a box the paper has a cell for but no label (F/HR/21's overall result under its Achieved column): label -> "N20". */
   cellOf?: Record<string, string>;
   /**

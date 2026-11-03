@@ -14,19 +14,20 @@ import { SEED_DOCUMENTS } from "../../data/seed/documentDefinitions";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-type Kind = ScheduleConfig["type"];
-const KINDS: { kind: Kind; label: string; frequency: Frequency }[] = [
+export type Kind = ScheduleConfig["type"];
+export const KINDS: { kind: Kind; label: string; frequency: Frequency }[] = [
   { kind: "daily", label: "Every day", frequency: "Daily" },
   { kind: "weekly", label: "Every week", frequency: "Weekly" },
   { kind: "fortnightly", label: "Twice a month (1st & 3rd of a weekday)", frequency: "Fortnightly" },
   { kind: "monthly", label: "Every month", frequency: "Monthly" },
   { kind: "quarterly", label: "Every quarter", frequency: "Quarterly" },
+  { kind: "half-yearly", label: "Every half year", frequency: "Half-yearly" },
   { kind: "yearly", label: "Every year", frequency: "Yearly" },
   { kind: "as-required", label: "As required", frequency: "As Required" },
 ];
 
 /** The schedule of this kind, keeping what the current one shares with it (its weekday, its day of the month). */
-function scheduleOf(kind: Kind, now: ScheduleConfig, weekday: number, day: number, month: number): ScheduleConfig {
+export function scheduleOf(kind: Kind, now: ScheduleConfig, weekday: number, day: number, month: number): ScheduleConfig {
   switch (kind) {
     case "daily":
       return { type: "daily" };
@@ -38,6 +39,9 @@ function scheduleOf(kind: Kind, now: ScheduleConfig, weekday: number, day: numbe
       return { type: "monthly", dayOfMonth: day };
     case "quarterly":
       return { type: "quarterly", anchorMonth: now.type === "quarterly" ? now.anchorMonth : month % 3, dayOfMonth: day };
+    case "half-yearly":
+      // Twice a year from the month chosen (January and July when none is), on the day chosen (REQUIREMENTS §163).
+      return { type: "half-yearly", anchorMonth: now.type === "half-yearly" ? now.anchorMonth : month % 6, dayOfMonth: day };
     case "yearly":
       return { type: "yearly", month, dayOfMonth: day };
     default:
@@ -54,7 +58,7 @@ export function FrequencyPicker({ doc, override, onChange }: { doc: DocumentDefi
   const [kind, setKind] = useState<Kind>(now.type);
   const [weekday, setWeekday] = useState<number>("weekday" in now && typeof now.weekday === "number" ? now.weekday : 1);
   const [day, setDay] = useState<number>("dayOfMonth" in now && typeof now.dayOfMonth === "number" ? now.dayOfMonth : 1);
-  const [month, setMonth] = useState<number>(now.type === "yearly" ? now.month : now.type === "quarterly" ? now.anchorMonth : 0);
+  const [month, setMonth] = useState<number>(now.type === "yearly" ? now.month : now.type === "quarterly" || now.type === "half-yearly" ? now.anchorMonth : 0);
   const chosen = scheduleOf(kind, now, weekday, day, month);
   const changed = !sameSchedule(chosen, now);
   const number = doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo;
@@ -85,11 +89,11 @@ export function FrequencyPicker({ doc, override, onChange }: { doc: DocumentDefi
           ))}
         </select>
       )}
-      {(kind === "monthly" || kind === "quarterly" || kind === "yearly") && (
+      {(kind === "monthly" || kind === "quarterly" || kind === "half-yearly" || kind === "yearly") && (
         <input className="input input-sm" data-field="frequency-day" type="number" min={1} max={31} value={day} onChange={(e) => setDay(Math.min(31, Math.max(1, Number(e.target.value) || 1)))} style={{ width: 64 }} aria-label="On which day of the month" />
       )}
-      {kind === "yearly" && (
-        <select className="input input-sm" data-field="frequency-month" value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="In which month">
+      {(kind === "yearly" || kind === "half-yearly") && (
+        <select className="input input-sm" data-field="frequency-month" value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label={kind === "half-yearly" ? "From which month (and six months on)" : "In which month"}>
           {MONTHS.map((m, i) => (
             <option key={m} value={i}>
               {m}

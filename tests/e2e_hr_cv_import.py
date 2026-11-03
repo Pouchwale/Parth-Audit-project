@@ -258,9 +258,9 @@ with sync_playwright() as p:
     last = comp["data"]["rows"][-1] if comp else {}
     check("F/HR/01 now has 81 lines, the last one Riya Mehta's",
           comp and len(comp["data"]["rows"]) == 81 and last.get("name") == "Riya Mehta", (len(comp["data"]["rows"]) if comp else None, last))
-    check("...with every column of the format: Sales & Marketing, Sales Coordinator, Graduate / MBA, 1 Year / 3 Years, NA, joined today in dd.mm.yyyy, no date of leaving",
+    check("...with every column of the format: Sales & Marketing, Sales Coordinator, Graduate / MBA, 1 Year / 3 Years, NA, joined today in dd-mm-yyyy (REQUIREMENTS §171), no date of leaving",
           (last.get("department"), last.get("designation"), last.get("eduRequired"), last.get("eduAvailable"), last.get("expRequired"), last.get("expAvailable"), last.get("gapJustification"), last.get("dateOfJoining"), last.get("dateOfLeaving"))
-          == ("Sales & Marketing", "Sales Coordinator", "Graduate", "MBA", "1 Year", "3 Years", "NA", TODAY.strftime("%d.%m.%Y"), ""), last)
+          == ("Sales & Marketing", "Sales Coordinator", "Graduate", "MBA", "1 Year", "3 Years", "NA", TODAY.strftime("%d-%m-%Y"), ""), last)
     check("...reopened for correction from Verified, with the reason naming the CV and the person",
           comp["status"] == "In Progress" and comp.get("correction", {}).get("fromStatus") == "Verified" and "Riya_Mehta_Resume.pdf" in comp["correction"]["reason"] and "Riya Mehta" in comp["correction"]["reason"],
           (comp["status"], comp.get("correction")))
@@ -323,8 +323,8 @@ with sync_playwright() as p:
           and not any(last.get(k) for k in ["printing", "pasting", "pouchingMachine", "lamination"]) and skill.get("correction", {}).get("fromStatus") == "Verified", last)
     ind = live(page, "hr-induction-operators")[0]
     last = ind["data"]["rows"][-1]
-    check("F/HR/06 has 29 inductions, the last his, with joining department & designation and today in dd/mm/yyyy",
-          len(ind["data"]["rows"]) == 29 and (last["name"], last["joining"], last["dateOfJoiningInduction"]) == ("Kamlesh Thakor", "Operator - Pouching - Pouch", TODAY.strftime("%d/%m/%Y")), last)
+    check("F/HR/06 has 29 inductions, the last his, with joining department & designation and today in dd-mm-yyyy (REQUIREMENTS §171)",
+          len(ind["data"]["rows"]) == 29 and (last["name"], last["joining"], last["dateOfJoiningInduction"]) == ("Kamlesh Thakor", "Operator - Pouching - Pouch", TODAY.strftime("%d-%m-%Y")), last)
     tni = live(page, "hr-training-needs")[0]
     check("F/HR/08 now has both new joiners - 156 employees", len(tni["data"]["rows"]) == 156 and tni["data"]["rows"][-1]["name"] == "Kamlesh Thakor")
     comp = record(page, "hr-competence-2026-10-01")

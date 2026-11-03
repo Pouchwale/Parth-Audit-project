@@ -6,9 +6,9 @@ import { addDays } from "../utils/date";
 // 24.09.2024 copied. Called from engine/autoFill.ts alone; a Live record's master calibration, ruler, readings and name
 // are the person's.
 //
-//   the master scale  Kristeen, QC-44, 0 - 600 mm, 1 mm (the layout's standing values), calibrated outside every year
+//   the master scale  Kristeel, QC-44, 0 - 600 mm, 1 mm (the layout's standing values), calibrated outside every year
 //                     on 23 September as on the supplied page (23.09.2024, due 22.09.2025), its certificate numbered
-//                     on the page's series — CAL/LPI/GP-23/23 for 2024, one on each year
+//                     from its years — CAL/LPI/GP-24/25 for 2024 (the owner, 30-10-26)
 //   the ruler         the page's own: Ajanta, GP-3/MS/36, 0-600mm, 1 mm (the updated page of 27-Oct-2026; GP-3/MS/04
 //                     before it); verified the day the record is for, due a
 //                     year less a day later (24.09.2024 -> 23.09.2025). The 300 mm scale's document (§117, 17-Oct-2026)
@@ -45,7 +45,8 @@ export function rulerVerificationSample(dueDate: string, documentId: string = RU
   const header: Record<string, string> = {
     masterCalibrationDate: calibrated,
     masterCalibrationDueDate: addDays(`${year + 1}-09-23`, -1),
-    masterCalibrationReportNo: `CAL/LPI/GP-23/${23 + (year - 2024)}`,
+    // The certificate's number from its calibration and due years (the owner, 30-10-26: 21-09-26 to 20-09-27 is GP-26/27).
+    masterCalibrationReportNo: `CAL/LPI/GP-${String(year).slice(2)}/${String(year + 1).slice(2)}`,
     make: "Ajanta",
     serialNo: scale.serialNo,
     range: scale.range,

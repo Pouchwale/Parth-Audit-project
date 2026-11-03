@@ -1,4 +1,5 @@
-import type { LogColumn, LogHeaderField, LogSheetLayout, ServiceReportAreaLine } from "../types";
+import type { LogColumn, LogHeaderField, LogSheetData, LogSheetLayout, ServiceReportAreaLine } from "../types";
+import { followHeader } from "./headerFollowers";
 import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { documentTextIn } from "../i18n/documentText";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -7,7 +8,7 @@ import { normalizeServiceLines } from "./serviceMaterials";
 import { codeRulesFor, softFgCodeProblem } from "./documentFormats";
 import { addDays, pad2, todayISO, twoFigureYear } from "../utils/date";
 import { generateId } from "../utils/id";
-import { clearedLine, insertLines, lineRuleFor, lineWords, newLine, withoutLines, type LineRule } from "./recordLines";
+import { clearedLine, insertLines, lineRuleFor, lineWords, newLine, printedLineOf, withoutLines, type LineRule } from "./recordLines";
 
 // EVERY CHANGE THE ASSISTANT MAKES IS CHECKED HERE FIRST.
 //
@@ -543,7 +544,15 @@ function normRow(layout: LogSheetLayout, row: Obj, set: Obj, problems: string[])
     }
     // Worked out from the other cells (engine/calibration.ts): whatever is sent is dropped.
     if (col.computed) continue;
-    if (col.fixed) {
+    // A standard nobody types over (F/QC/12's weights, the owner, 30-Oct-2026, §146): refused, the line keeps it.
+    if (col.locked) {
+      if (String(v ?? "") !== String(row[k] ?? "")) problems.push(`${col.label.split(" (")[0]} is fixed on the form (${String(row[k] ?? col.standard ?? "")}) and can't be changed.`);
+      continue;
+    }
+    // On a form whose printed lines are open (REQUIREMENTS §158) a line of the person's own — one the form prints
+    // blank, or one they added — has nothing printed on it, so its printed columns are written like any other.
+    const printedHere = col.fixed && !(layout.rowMode.kind === "fixedRows" && layout.rowMode.openLines && String(printedLineOf(layout, row, -1)?.[k] ?? "") === "");
+    if (printedHere) {
       if (String(v ?? "") !== String(row[k] ?? "")) problems.push(`${col.label.split(" (")[0]} is printed on the form and can't be changed.`);
       continue;
     }
@@ -1072,6 +1081,12 @@ export function applyAssistantPatch<T>(kind: string, documentId: string, current
   if (kind === "service-report" && isObj(current)) next.lines = serviceLinesAfterPatch(documentId, current.lines, next.lines, problems);
   if (kind === "complaint-checklist" && isObj(current)) keepChecklistOrder(current, next, problems);
   applyCodeFormats(kind, next, isObj(current) ? current : {}, problems);
+  // A column that follows a header box (REQUIREMENTS §159): a box Mitra wrote moves the lines with it, and a line
+  // it added takes the box's value.
+  if (layout && Array.isArray(next.rows)) {
+    const followed = followHeader(layout, (isObj(current) ? current : undefined) as LogSheetData | undefined, next as unknown as LogSheetData);
+    if ((followed as unknown) !== next) next.rows = followed.rows;
+  }
   return { data: next as unknown as T, problems };
 }
 

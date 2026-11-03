@@ -27,6 +27,7 @@ const DATA: Record<string, WordsData> = {
   overdue: { ...PEST, daysLate: 2 },
   verify: { ...PEST, by: "Vinay Bhojak" },
   sent_back: { ...PEST, by: "Super Admin", reason: "Sign the sheet" },
+  training: { documentId: "hr-training-calendar", formatNo: "F/HR/09", documentName: "Training Plan Calender", module: "HR", recordId: "rec-2", dueDate: "2026-11-30", subject: "CCP monitoring", by: "Ajay Vaghela (Flexo Manager)", daysLate: 0 },
   boss_summary: { part: "morning", dueDate: "2026-10-09", modules: [{ module: "QC", ready: 2, needsInput: 3, awaitingVerification: 1, notSubmitted: 4, overdue: 5 }] },
   escalation: { subject: "Kapila Barad", module: "QC", late: 3, neverDone: 2 },
   access_changed: { module: "PRD", level: "write", by: "Super Admin" },
@@ -54,7 +55,7 @@ test("every kind in every language: a title and a body, worded from the facts, i
 test("the owner's sentence: 12 readings to enter for the Daily Pest Control Monitoring Record", () => {
   const en = notificationWords("needs_input", DATA.needs_input, "en");
   assert.equal(en.title, "12 readings to enter: Daily Pest Control Monitoring Record");
-  assert.equal(en.body, "F/HR/17 Daily Pest Control Monitoring Record of 09-10-26 is ready for you: 12 readings to enter, then submit.");
+  assert.equal(en.body, "F/HR/17 Daily Pest Control Monitoring Record of 09-10-2026 is ready for you: 12 readings to enter, then submit.");
   assert.match(notificationWords("needs_input", DATA.needs_input, "hi").title, /^12 रीडिंग भरनी हैं: /);
   assert.match(notificationWords("needs_input", DATA.needs_input, "gu").title, /^12 રીડિંગ ભરવાના બાકી: /);
   assert.match(notificationWords("needs_input", { ...PEST, count: 1 }, "en").title, /^1 reading to enter/);
@@ -140,10 +141,10 @@ test("the reminder email's own words, in each language: no em dash, no gendered 
     assert.ok(w.again("reminder", times).includes("17:45") && !w.again("reminder", times).includes("15:30"), lang);
   }
   assert.equal(emailWords("fr"), emailWords("en"), "a language not known is English");
-  assert.deepEqual([...EMAIL_GROUPS], ["overdue", "sent_back", "to_fill", "verify", "upcoming"]);
+  assert.deepEqual([...EMAIL_GROUPS], ["overdue", "sent_back", "to_fill", "verify", "training", "upcoming"]);
   assert.deepEqual(
-    ["overdue", "sent_back", "due", "needs_input", "ready", "verify", "upcoming", "boss_summary", "escalation", "access_changed"].map(emailGroupOf),
-    ["overdue", "sent_back", "to_fill", "to_fill", "to_fill", "verify", "upcoming", null, null, null],
+    ["overdue", "sent_back", "due", "needs_input", "ready", "verify", "training", "upcoming", "boss_summary", "escalation", "access_changed"].map(emailGroupOf),
+    ["overdue", "sent_back", "to_fill", "to_fill", "to_fill", "verify", "training", "upcoming", null, null, null],
     "the summaries, the escalations and an access change are in no email"
   );
 });

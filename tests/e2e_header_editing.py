@@ -162,7 +162,7 @@ def say(page, text, wait=1600):
 
 
 def shown_date(iso):
-    return datetime.strptime(iso, "%Y-%m-%d").strftime("%d-%m-%y")
+    return datetime.strptime(iso, "%Y-%m-%d").strftime("%d-%m-%Y")
 
 
 with sync_playwright() as p:
@@ -214,8 +214,8 @@ with sync_playwright() as p:
     # The DATE cell DCRS added for the record's own date is gone (REQUIREMENTS s117, the owner, 16-Oct-2026).
     check("...and no Date cell of the record's own: the header is the paper's", clickable(page, "rename-record-date") == 0 and "Date" not in header(page), header(page))
     before = header(page)
-    check("...footed as the paper is: F/QC/33 (00 / 15.12.2024), Page 1 of 1",
-          before.get("Format No.") == "F/QC/33" and before.get("Rev No.") == "00" and before.get("Rev Date") == "15.12.2024" and before.get("Page No.") == "1 of 1"
+    check("...footed as the paper is, the date as the app writes one (REQUIREMENTS §171): F/QC/33 (00 / 15-12-2024), Page 1 of 1",
+          before.get("Format No.") == "F/QC/33" and before.get("Rev No.") == "00" and before.get("Rev Date") == "15-12-2024" and before.get("Page No.") == "1 of 1"
           and list(before.keys()) == ["Format No.", "Rev No.", "Rev Date", "Page No."], before)
 
     type_over(page, "rename-page-no", "header-page", "1 of 3", yes=False)

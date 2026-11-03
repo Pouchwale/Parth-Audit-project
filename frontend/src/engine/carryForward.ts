@@ -27,6 +27,13 @@ import { generateId } from "../utils/id";
 // (engine/recordCrud.ts createRecordForDocument) and the morning prepare of a scheduled one
 // (engine/knownParts.ts). Demo Mode's fill (engine/autoFill.ts) has its own carry and is not changed.
 
+/** `prefix` and the two dates' years, two figures each ("CAL/LPI/GP-" 2026-09-21, 2027-09-20 -> "CAL/LPI/GP-26/27"); "" without both dates. */
+export function numberOfYears(prefix: string, date: unknown, due: unknown): string {
+  const yy = (v: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v ?? "")) ? String(v).slice(2, 4) : "");
+  const [a, b] = [yy(date), yy(due)];
+  return a && b ? `${prefix}${a}/${b}` : "";
+}
+
 const written = (v: unknown): boolean => v !== null && v !== undefined && String(v).trim() !== "" && !isPlaceholder(v);
 
 /** A person wrote on this sheet: something stands in a box or a cell that the blank sheet does not hold. */
@@ -64,12 +71,28 @@ export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blan
       continue;
     }
     if (kind === "computed") continue;
+    // A box the person writes fresh on every sheet (autoFill.carryForward false: F/QC/17's ruler Make, Serial number,
+    // Range and Least count, the owner, 30-10-26) starts empty, never the last sheet's.
+    if (f.autoFill?.carryForward === false) continue;
     const v = previous.header?.[f.key];
     if (!written(v)) continue;
+    // A value the box started with before its default changed (autoFill.formerDefaults): the default now, not the old one.
+    if (f.autoFill?.formerDefaults?.includes(String(v).trim())) continue;
     // A calibration certificate's date (autoFill.newest, 27-Oct-2026): the later of the last sheet's and the one the
     // format starts with - dates written YYYY-MM-DD compare as text.
     const start = header[f.key] ?? "";
     header[f.key] = f.autoFill?.newest && start && String(v) < start ? start : String(v);
+  }
+  // A number made of two dates' years (autoFill.yearsOf: F/QC/17's master report number): the new sheet's own dates give
+  // it, unless the last sheet held a number a person wrote (one its own dates did not give).
+  for (const f of layout.headerFields) {
+    const y = f.autoFill?.yearsOf;
+    if (!y) continue;
+    const carried = String(previous.header?.[f.key] ?? "").trim();
+    // (a bare figure - a trial "0.01" - is no report number a person gave it: the years give it; "CAL/300" is a person's, kept)
+    const automatic = !carried || /^[\d.,\s-]+$/.test(carried) || carried === numberOfYears(y.prefix, previous.header?.[y.date], previous.header?.[y.due]) || !!f.autoFill?.formerDefaults?.includes(carried);
+    const own = numberOfYears(y.prefix, header[y.date], header[y.due]);
+    if (automatic && own) header[f.key] = own;
   }
   // A sheet whose lines start from their standards each time (F/QC/12, REQUIREMENTS §142) carries its boxes alone; its
   // lines are dated the new day, as a carried line is.
@@ -112,6 +135,8 @@ export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blan
       if (kind === "computed") continue;
       // A printed line's own words stay the paper's; a standard (F/QC/12's weights) and every entry are the person's to carry.
       if (c.fixed || c.autoFill?.lineNumber) continue;
+      // A column a new sheet writes afresh (autoFill.carryForward false: F/QC/17's tester, this year's) is never carried.
+      if (c.autoFill?.carryForward === false) continue;
       const v = p[c.key];
       if (written(v)) row[c.key] = v;
     }

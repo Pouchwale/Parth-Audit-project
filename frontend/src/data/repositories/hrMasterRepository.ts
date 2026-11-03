@@ -1,7 +1,8 @@
 import type { HrMasterColumnKey, HrMasterPerson } from "../../types";
-import { hrMasterSeed } from "../seed/hrMasterSeed";
+import { hrMasterSeed, HR_MASTER_SEEDED_BY, HR_MASTER_STAFF_BY } from "../seed/hrMasterSeed";
 import { readJSON, readJSONCached, writeJSON } from "../storageAdapter";
 import { blankHrMasterValues, HR_MASTER_COLUMNS, namesPerson, sameGp3, type HrMasterValues, type ImportPlan } from "../../engine/hrMaster";
+import type { RegisterTake } from "../../engine/hrMasterRegisters";
 import { generateId } from "../../utils/id";
 
 // THE HR MASTER SHEET'S STORE (REQUIREMENTS §53) — localStorage key
@@ -28,7 +29,8 @@ const SEED_IDS = { has: (id: string) => (seedIds ??= new Set(hrMasterSeed().map(
 function load(): Store {
   const raw = readJSONCached<Store | null>(KEY, null);
   if (!raw || !Array.isArray(raw.people)) return { people: hrMasterSeed(), removedSeedIds: [] };
-  return { people: raw.people, removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] };
+  // A line stored before a column existed (Sub Department, Machine / Process Name, §169) has it blank.
+  return { people: raw.people.map((p) => ({ ...blankHrMasterValues(), ...p })), removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] };
 }
 
 function save(store: Store): boolean {
@@ -43,8 +45,35 @@ export function ensureSeeded(): void {
   }
   const ids = new Set(raw.people.map((p) => p.id));
   const removed = new Set(raw.removedSeedIds ?? []);
-  const additions = hrMasterSeed().filter((p) => !ids.has(p.id) && !removed.has(p.id));
-  if (additions.length > 0) save({ people: [...raw.people, ...additions], removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] });
+  const removedAny = new Set(raw.removedIds ?? []);
+  const seed = hrMasterSeed();
+  // THE STAFF SHEET'S WORD ONTO A SHEET ALREADY KEPT (REQUIREMENTS §169). A line the registers put on the sheet that
+  // nobody has touched since (updatedBy still the registers') is the staff sheet's person: it takes the sheet's every
+  // column, aliases, sources and notes, under its own id. Any other stored line - one HR wrote on, or added - takes the
+  // seed's values into its BLANK boxes only, by id or by name, and nothing HR wrote is changed. A seeded person whose
+  // name is already on the sheet is never added a second time.
+  let filled = 0;
+  const people = raw.people.map((stored) => {
+    const from = seed.find((s) => s.id === stored.id) ?? seed.find((s) => namesPerson(s.fullName, stored) || (s.aliases ?? []).some((a) => namesPerson(a, stored)));
+    if (!from) return stored;
+    if (stored.updatedBy === HR_MASTER_SEEDED_BY && from.updatedBy === HR_MASTER_STAFF_BY) {
+      const changed = HR_MASTER_COLUMNS.some(({ key }) => String(stored[key] ?? "") !== String(from[key] ?? ""));
+      if (!changed) return stored;
+      filled += 1;
+      return { ...from, id: stored.id };
+    }
+    let next = stored;
+    for (const { key } of HR_MASTER_COLUMNS) {
+      if (!String(stored[key] ?? "").trim() && String(from[key] ?? "").trim()) {
+        next = { ...next, [key]: from[key] };
+        filled += 1;
+      }
+    }
+    return next;
+  });
+  const named = (s: HrMasterPerson) => people.some((p) => namesPerson(s.fullName, p) || (s.aliases ?? []).some((a) => namesPerson(a, p)));
+  const additions = seed.filter((s) => !ids.has(s.id) && !removed.has(s.id) && !removedAny.has(s.id) && !named(s));
+  if (additions.length > 0 || filled > 0) save({ people: [...people, ...additions], removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] });
 }
 
 const clean = (values: Partial<HrMasterValues>): Partial<HrMasterValues> =>
@@ -79,7 +108,7 @@ export const hrMasterRepository = {
     let saved: HrMasterPerson | undefined;
     const people = store.people.map((p) => {
       if (p.id !== id) return p;
-      saved = { ...p, [key]: key === "fullName" || key === "gp3No" || key === "department" || key === "designation" ? value.replace(/\s+/g, " ") : value, updatedAt: new Date().toISOString(), updatedBy: actor };
+      saved = { ...p, [key]: key === "fullName" || key === "gp3No" || key === "department" || key === "subDepartment" || key === "machine" || key === "designation" ? value.replace(/\s+/g, " ") : value, updatedAt: new Date().toISOString(), updatedBy: actor };
       return saved;
     });
     if (saved) save({ ...store, people });
@@ -90,6 +119,37 @@ export const hrMasterRepository = {
     const store = load();
     const removedSeedIds = SEED_IDS.has(id) && !store.removedSeedIds.includes(id) ? [...store.removedSeedIds, id] : store.removedSeedIds;
     save({ people: store.people.filter((p) => p.id !== id), removedSeedIds, removedIds: [...(store.removedIds ?? []), id] });
+  },
+
+  /**
+   * THE REGISTERS' WORD TAKEN ONTO THE SHEET (engine/hrMasterRegisters.ts, REQUIREMENTS §161): each fill into a box
+   * that is still blank (checked again here: the sheet may have been written since the take was worked out), and
+   * each newcomer as a new line with where they came from. One save.
+   */
+  takeFromRegisters(take: RegisterTake, actor: string): { filled: number; added: number } {
+    const store = load();
+    const now = new Date().toISOString();
+    let filled = 0;
+    const people = store.people.map((p) => {
+      const mine = take.fills.filter((f) => f.personId === p.id && !String(p[f.key] ?? "").trim());
+      if (mine.length === 0) return p;
+      filled += mine.length;
+      return { ...p, ...Object.fromEntries(mine.map((f) => [f.key, f.after])), updatedAt: now, updatedBy: actor };
+    });
+    const added: HrMasterPerson[] = take.newcomers
+      .filter((n) => n.fullName.trim() && !people.some((p) => namesPerson(n.fullName, p)))
+      .map((n) => ({
+        id: generateId("hrm"),
+        ...blankHrMasterValues(),
+        ...clean(n.values),
+        fullName: n.fullName.replace(/\s+/g, " ").trim(),
+        ...(n.aliases.length ? { aliases: n.aliases } : {}),
+        sources: n.sources,
+        updatedAt: now,
+        updatedBy: actor,
+      }));
+    if (filled > 0 || added.length > 0) save({ ...store, people: [...people, ...added] });
+    return { filled, added: added.length };
   },
 
   /** Carries out an upload the person has looked over (engine/hrMaster.ts planImport). */

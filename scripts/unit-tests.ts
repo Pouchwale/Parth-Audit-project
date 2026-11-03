@@ -36,6 +36,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const testsDir = path.join(root, "frontend", "tests");
 const backendTestsDir = path.join(root, "backend", "tests");
+const indexingTestsDir = path.join(root, "indexing", "tests");
 const browserGlobals = path.join(testsDir, "support", "browserGlobals.ts");
 
 function testFiles(dir: string, filters: string[]): string[] {
@@ -135,7 +136,9 @@ async function main(): Promise<number> {
   const filters = process.argv.slice(2).filter((a) => !a.startsWith("-"));
   const frontend = testFiles(testsDir, filters);
   const backend = testFiles(backendTestsDir, filters);
-  if (frontend.length === 0 && backend.length === 0) {
+  // The Indexing module's own tests (indexing/tests, run by indexing/tests/run.ts): with every run, or a filter naming them.
+  const indexing = filters.length === 0 || filters.some((w) => "indexing".includes(w) || w.includes("index") || testFiles(indexingTestsDir, [w]).length > 0);
+  if (frontend.length === 0 && backend.length === 0 && !indexing) {
     console.error(filters.length ? `No test file in frontend/tests or backend/tests matches ${filters.join(", ")}.` : "No test files in frontend/tests or backend/tests.");
     return 1;
   }
@@ -143,6 +146,10 @@ async function main(): Promise<number> {
   let code = 0;
   if (frontend.length > 0) code = await runFrontend(frontend);
   if (backend.length > 0) code = Math.max(code, runBackend(backend));
+  if (indexing) {
+    const run = spawnSync(process.execPath, ["--no-warnings=ExperimentalWarning", path.join(root, "indexing", "tests", "run.ts")], { cwd: root, stdio: "inherit" });
+    code = Math.max(code, run.status ?? 1);
+  }
   return code;
 }
 

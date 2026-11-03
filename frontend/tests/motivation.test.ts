@@ -278,7 +278,7 @@ test("the top bar's words: kept says 'sign in tomorrow' (or the day the next wor
   assert.equal(v.tip, "🔥 Your 7-day streak — today is kept. Sign in tomorrow to keep it going.");
   // Wednesday the 23rd: tomorrow is the Thursday weekly off, so the next working day is Friday the 25th.
   const wednesday = withSignIns([], ["2026-09-22"], "2026-09-22", CALENDAR, "2026-09-23");
-  assert.equal(streakBarView(wednesday, 9 * 60, "en").tip, "🔥 Your 2-day streak — today is kept. Sign in on 25-09-26, the next working day, to keep it going.");
+  assert.equal(streakBarView(wednesday, 9 * 60, "en").tip, "🔥 Your 2-day streak — today is kept. Sign in on 25-09-2026, the next working day, to keep it going.");
   assert.equal(streakBarView(withSignIns([], [], null, CALENDAR, "2026-09-22"), 9 * 60, "en").label, "day", "one day: the word is 'day'");
   // Nothing yet: the first day the system is live, a record still to do.
   const fresh = withSignIns([rec(A, TODAY)], [], null, { ...CALENDAR, countedFrom: TODAY });
@@ -297,7 +297,7 @@ test("the top bar's words: kept says 'sign in tomorrow' (or the day the next wor
   assert.ok(GUJARATI.test(gu.label), gu.label);
 });
 
-test("the day card's streak: the big number, how today stands, the best run, the last fourteen days in words — dates as 24-10-26 — and none for the super admin", () => {
+test("the day card's streak: the big number, how today stands, the best run, the last fourteen days in words — dates as 24-10-2026 — and none for the super admin", () => {
   const kept = withSignIns(fortnight());
   const card = streakCardView(kept, 10 * 60, "en")!;
   assert.deepEqual({ days: card.days, best: card.best, tone: card.tone, unit: card.unit }, { days: 7, best: 7, tone: "lit", unit: "days in a row" });
@@ -305,10 +305,10 @@ test("the day card's streak: the big number, how today stands, the best run, the
   assert.equal(card.bestLine, "🏆 Your best yet");
   assert.equal(card.rule, "A kept day = signed in, nothing of yours missed — what keeps your score at 0.");
   assert.equal(card.strip.length, 14);
-  assert.equal(card.strip[13].label, "26-09-26: kept");
-  assert.equal(card.strip[11].label, "24-09-26: closed");
-  assert.equal(card.strip[5].label, "18-09-26: missed");
-  assert.equal(card.strip[0].label, "13-09-26: nothing due");
+  assert.equal(card.strip[13].label, "26-09-2026: kept");
+  assert.equal(card.strip[11].label, "24-09-2026: closed");
+  assert.equal(card.strip[5].label, "18-09-2026: missed");
+  assert.equal(card.strip[0].label, "13-09-2026: nothing due");
   assert.equal(card.stripLabel, "The last 14 days: 7 kept, 1 missed.");
   assert.equal(streakCardView({ ...kept, plantDay: true }, 600, "en"), null, "the super admin: no streak of his own");
   const shorter = streakCardView(withSignIns(fortnight(), SIGNED_IN.filter((d) => d !== "2026-09-23")), 600, "en")!;
@@ -318,7 +318,7 @@ test("the day card's streak: the big number, how today stands, the best run, the
   assert.deepEqual({ days: fresh.days, tone: fresh.tone, unit: fresh.unit, bestLine: fresh.bestLine, today: fresh.todayLine }, { days: 0, tone: "none", unit: "Start today", bestLine: "", today: "Today: 1 to go" });
   const gu = streakCardView(kept, 600, "gu")!;
   for (const s of [gu.unit, gu.todayLine, gu.rule, gu.stripLabel, gu.strip[13].label]) assert.ok(GUJARATI.test(s), s);
-  assert.ok(gu.strip[13].label.startsWith("26-09-26: "), gu.strip[13].label);
+  assert.ok(gu.strip[13].label.startsWith("26-09-2026: "), gu.strip[13].label);
 });
 
 test("the 100-day streak: earned the day today makes it a hundred, and its badge has 💯 beside the flame", () => {
@@ -536,7 +536,7 @@ test("a late record is never scolded, and is told when the next one is due", () 
     assert.ok(!/\b(should|must|failed|bad|careless|again\?|why)\b/i.test(line), `scolding: ${line}`);
     if (nextDue === TODAY) assert.ok(line.includes("due today"), line);
     if (nextDue === "2026-09-27") assert.ok(line.includes("due tomorrow"), line);
-    if (nextDue === "2026-10-02") assert.ok(line.includes("02-10-26"), line);
+    if (nextDue === "2026-10-02") assert.ok(line.includes("02-10-2026"), line);
     assert.ok(GUJARATI.test(lateLine("late", { days, nextDue, today: TODAY }, "gu", `${days}`)));
   }
   assert.equal(lateLine("waiting", { count: 3, today: TODAY }, "en"), "3 are waiting from earlier days — clearing them keeps the file whole.");

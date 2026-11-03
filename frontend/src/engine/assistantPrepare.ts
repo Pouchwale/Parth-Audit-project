@@ -1,4 +1,4 @@
-import type { RecordInstance } from "../types";
+import type { LogSheetData, RecordInstance } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
@@ -6,11 +6,15 @@ import { settingsRepository } from "../data/repositories/settingsRepository";
 import { autoFillRecord } from "./autoFill";
 import { prepareKnownParts, PREPARED_NOTE } from "./knownParts";
 import { ensureNearTermRecordsGenerated } from "./reminders";
+import { fillsThroughYear } from "./recordGenerator";
 import { diffRecordData, makeEntry } from "./recordHistory";
 import { fieldLabels } from "./recordPatch";
 import { supersededRevisionOf } from "./validation";
 import { compareISO, todayISO } from "../utils/date";
 import { mayWriteRecordsOf } from "./departmentScope";
+import { fillScaleLinesDue, SCALE_DAY_NOTE } from "./nominalFill";
+import { firstWeekDate } from "./calibrationWeeks";
+import { withComputedCells } from "./computedCells";
 
 // Statuses in which a record is still an untouched shell the assistant may
 // fill. "In Progress" is deliberately excluded: that means a person has
@@ -98,7 +102,9 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
         (r) =>
           BLANK_STATUSES.includes(r.status as (typeof BLANK_STATUSES)[number]) &&
           !r.prepared &&
-          compareISO(r.dueDate, referenceISO) <= 0 &&
+          // A year-long sheet made ahead of its year (the training plan calendar, REQUIREMENTS §164) is prepared as soon
+          // as it is made: its known parts are the coming year's plan, wanted a month before the year begins.
+          (compareISO(r.dueDate, referenceISO) <= 0 || (fillsThroughYear(doc) && doc.madeAheadDays !== undefined)) &&
           (!liveStartDate || compareISO(r.dueDate, liveStartDate) >= 0)
       )
       .sort((a, b) => compareISO(a.dueDate, b.dueDate));
@@ -131,7 +137,49 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   }
 
   if (prepared.length > 0) recordRepository.upsertMany(prepared);
-  return prepared;
+
+  // F/QC/12's WEEKS FILL ON THEIR DAY, by themselves (the owner, 30-Oct-2026): see fillScaleWeeksDue.
+  const weeks = fillScaleWeeksDue(referenceISO);
+  if (weeks.length === 0) return prepared;
+  const ids = new Set(weeks.map((r) => r.id));
+  return [...prepared.filter((r) => !ids.has(r.id)), ...weeks];
+}
+
+const SCALE_ID = "qc-weight-scale-calibration";
+
+/**
+ * F/QC/12'S WEEKLY LINES FILLED ON THEIR DAY (the owner, 30-Oct-2026: "till today or upcoming date only it will fill the
+ * form ... it should feel automatically"). Every open F/QC/12 sheet of the month that has begun gets its dates worked out
+ * (the first line starts on the previous week's Next Due Date, engine/calibrationWeeks.ts; each line below on the Next Due
+ * Date above it), and every line whose date is `referenceISO` or earlier and not yet read is filled by the index's
+ * formulas (engine/nominalFill.ts) and marked to be confirmed: nobody's name goes on it, the person who answers for the
+ * sheet confirms it (the notify job reminds them every day, engine/notificationPlan.ts). A line dated later stays blank
+ * until its day comes. A sheet already filled for the day is left, so run again it fills nothing. Returns the sheets changed.
+ */
+export function fillScaleWeeksDue(referenceISO = todayISO()): RecordInstance[] {
+  const doc = documentRepository.getByIdUnscoped(SCALE_ID);
+  if (!doc || !mayWriteRecordsOf(doc.id)) return [];
+  const { liveStartDate } = settingsRepository.get();
+  const now = new Date().toISOString();
+  const changed: RecordInstance[] = [];
+  for (const record of recordRepository.queryUnscoped({ documentId: SCALE_ID, isDemo: false })) {
+    if (!["Scheduled", "Due", "In Progress"].includes(record.status)) continue;
+    if (compareISO(record.dueDate, referenceISO) > 0 || (liveStartDate && compareISO(record.dueDate, liveStartDate) < 0)) continue;
+    const data = record.data as LogSheetData | undefined;
+    if (!data || !Array.isArray(data.rows) || data.rows.length === 0) continue;
+    // The dates first: the first line's, where nobody has written one, then the chain below it.
+    const first = data.rows[0];
+    const started = String(first.date ?? "").trim() ? data : { ...data, rows: [{ ...first, date: firstWeekDate(SCALE_ID, record) }, ...data.rows.slice(1)] };
+    const dated = withComputedCells(SCALE_ID, started, data);
+    const filled = fillScaleLinesDue(dated, referenceISO);
+    if (!filled) continue;
+    const after = withComputedCells(SCALE_ID, filled, dated);
+    const entry = { ...makeEntry("prepared", "Assistant", { note: SCALE_DAY_NOTE, changes: diffRecordData(record.data, after, fieldLabels(doc.kind, doc.id)) }), at: now };
+    if (!entry.changes?.length) delete entry.changes;
+    changed.push({ ...record, data: after, status: "In Progress", updatedAt: now, history: [...(record.history ?? []), entry] });
+  }
+  if (changed.length > 0) recordRepository.upsertMany(changed);
+  return changed;
 }
 
 /** The history line of a draft the simulation filled before 8-Oct-2026, prepared again by the rule. */

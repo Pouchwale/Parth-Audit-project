@@ -65,9 +65,9 @@ test("the day card's streak box: the flame and the count, fourteen squares in wo
   assert.match(html, /<\/ol><div class="my-day-streak-row"><span class="my-day-streak-today" data-field="my-day-streak-today">Today is kept ✓<\/span><span class="my-day-streak-best" data-field="my-day-streak-best">🏆 Your best yet<\/span><\/div>/, "today and the best run on one line, under the strip");
   assert.equal(count(/<li /), 14, "fourteen days");
   assert.equal(count(/<span class="sr-only">/), 14, "each in words for a screen reader");
-  assert.match(html, /<li class="streak-day is-kept" data-state="kept" data-date="2026-10-26" title="26-10-26: kept"><span class="sr-only">26-10-26: kept<\/span><\/li><\/ol>/, "today last");
-  assert.match(html, /<li class="streak-day is-closed" data-state="closed" data-date="2026-10-15" title="15-10-26: closed">/, "the Thursday weekly off");
-  assert.match(html, /<li class="streak-day is-kept" data-state="kept" data-date="2026-10-22" title="22-10-26: kept">/, "the adjustment Thursday, worked and kept");
+  assert.match(html, /<li class="streak-day is-kept" data-state="kept" data-date="2026-10-26" title="26-10-2026: kept"><span class="sr-only">26-10-2026: kept<\/span><\/li><\/ol>/, "today last");
+  assert.match(html, /<li class="streak-day is-closed" data-state="closed" data-date="2026-10-15" title="15-10-2026: closed">/, "the Thursday weekly off");
+  assert.match(html, /<li class="streak-day is-kept" data-state="kept" data-date="2026-10-22" title="22-10-2026: kept">/, "the adjustment Thursday, worked and kept");
   assert.doesNotMatch(html, /my-day-streak-rule/, "the rule's line is the card's, in its main column, not the box's");
   assert.doesNotMatch(html, /my-day-score/, "nothing of the score's own: beside it, never inside it");
   // No streak yet: the grey flame, no best line.

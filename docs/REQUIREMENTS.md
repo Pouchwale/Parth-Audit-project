@@ -2436,6 +2436,65 @@ by GP3 No. or name, each with *Show on the sheet*; "hr master" offers the sheet.
 
 - Covered by `tests/e2e_hr_master_data.py` (**81 checks**).
 
+**FILED BY ROLE, FROM THE SHEET (2-Nov-2026).** The owner: "the data should be fetched and go to the other HR
+records according to the role of the person … perfectly without any mistake or confusion." Until now a person
+reached a format only when somebody opened that record and fetched them. Now the sheet files them
+(`src/engine/hrMasterFiling.ts`, `src/components/hr/HrMasterFilingDialog.tsx`; `frontend/tests/hrMasterFiling.test.ts`):
+
+- **The role is the Designation/Position** — operator / worker (operator, helper, worker, packing, loading,
+  machine…, as the CV import has always read it, `hrJoiner.ts categoryFor`; or a PROCESS where a designation
+  would go — Printing, Slitting, Punching, Pouching, Lamination, Cutting… — which is how F/HR/03 writes its
+  operators; or a line set up from F/HR/03 or F/HR/06 alone) or staff (a position: manager, supervisor, HOD,
+  executive, assistant, head, co-ordinator, designer, caller…, which wins over any process it names —
+  "Manager-Pouch" is staff; and everyone else). The role
+  decides the formats: **staff** → F/HR/01 (a line) and F/HR/05 (a record of their own); **operators / workers** →
+  F/HR/03 (a line) and F/HR/06 (a line); **everyone** → F/HR/08 (a line) and F/HR/04 (a record of their own) — the
+  same formats a new joiner from a CV goes on. F/HR/13 is offered but never ticked by itself (a mobile is the
+  PSTL's decision); F/HR/11, 12 and 20 are written when a training or survey happens, not when a person joins.
+- **On the sheet:** the button on a person's line opens *File on the HR formats* — their role, the formats for it
+  ticked, each format's standing said (a line would be added; a record started; "already on line 12"; a submitted
+  register "will be reopened for correction, and goes back to be verified"); a format kept for the other role is
+  offered with a warning. *File everyone on their formats* counts first — per format, what would be written, who
+  is already there, who is left out and why — and writes on one press. A line without a Full Name cannot be filed.
+- **Written through the one fetch map** (`HR_MASTER_LINKS`), so a line on F/HR/01 reads 05.07.2024, on F/HR/03
+  7/5/2024, on F/HR/06 01/06/2025, exactly as *Add line* on the record would write it. A register that is
+  submitted or verified is reopened for correction with the reason in its history ("Filed from HR Master Data: …
+  — line added; submit and verify the register again"), as the CV import does.
+- **Nobody twice, nothing guessed.** A person already on a register — by the sheet's own mark, by a GP3 No. in the
+  name box, or by name when no one else on the sheet has it — is left as they are. Two people of one name with no
+  GP3 No. are not filed on any register, and the reason is said; given GP3 Nos., each gets a line of his own. A
+  line of that name written by hand, with no mark, stops both ("Line 1 of F/HR/03 is named Anil Raval, and 2
+  people on the sheet have that name — nothing written; check the register").
+- **The sheet's mark.** Every line or header the sheet writes — filed from the sheet, or *Add line* / *Fetch* on a
+  record — carries the person's GP3 No. under `hrMasterGp3`, a key of no format: not printed, not exported, not
+  in the history's words of the line (`recordLines.ts lineWords`), not in the record's text for Mitra
+  (`recordText.ts`). It is how two Anil Ravals are told apart on F/HR/08 for ever after. A line written by hand
+  has no mark and is matched as before.
+- **On a record, the format's own role is kept to.** *Fetch* / *Add line* for somebody of the other role — a Manager
+  on F/HR/03, the operators' matrix — says so first ("Sandeep Parekh is a Manager (staff); F/HR/03 is kept for
+  operator / worker. Add anyway?") with *Add anyway* and *Leave it*. F/HR/08, 04, 11, 12, 13 and 20 take anybody.
+
+**F/HR/04, AS THE OWNER ASKED (2-Nov-2026):** "by default the answer is No for all the questions; Name, Department &
+Designation and Date of Birth fetched from the master data; Sex — if the name is male it selects Male, if female,
+Female." (`src/engine/sexFromName.ts`; `frontend/tests/hrPreEmployment.test.ts`.)
+
+- **Every answer starts at "No"** on a new Pre-Employment Medical Health Declaration, the details blank: the
+  applicant changes only the question that applies to them. The one format that starts an answer decided
+  (REQUIREMENTS §98 keeps every other sheet blank): it is the person's own declaration about themselves, not an
+  observation of the plant. F/HR/14, the visitor's declaration, stays blank.
+- **Sex from the name**, a source of the fetch map like the six columns: Male or Female when the name says so for
+  sure — a title (Mr / Mrs / Ms / Shri / Smt), a Gujarati suffix (-ben / -bahen / -bai; -bhai / -kumar / -sinh /
+  -lal), or a first name on the lists of the plant's roster and the common Gujarati and Indian given names — and
+  nothing otherwise (Kiran, Harsha, Krishna: the box is left for HR). It comes with *Fetch*, with a name left in
+  the Name box, with *Fill blanks from the sheet*, and with filing from the sheet; a name typed by hand that is not
+  on the sheet still sets a blank Sex box from the name alone. A Sex HR has written is never replaced without asking.
+- Name, Department & Designation ("Department - Designation") and Date of Birth come from the sheet as before, and
+  **the Date beside the signature is the Joining Date** from the sheet: the declaration is made on joining.
+- **The staff's form, not a worker's or a helper's** (the owner: "supervisor, HOD, executive, assistant, managers").
+  F/HR/04 is kept for staff like F/HR/01 and F/HR/05: filing by role gives an operator / worker no health
+  declaration (nor does the CV import's default), and *Fetch* for one on an F/HR/04 record asks first ("Azaz
+  Bharach is an OPERATOR (operator / worker); F/HR/04 is kept for staff. Fetch anyway?").
+
 ### What HR is asked to confirm
 
 1. **GP3 No. and Date of Birth** for every employee — on no supplied document.
@@ -10060,9 +10119,17 @@ deviation will come accordingly".
    "there is a weekly due of 7 days and so date should come accordingly"): written as the line's date + 7 days where
    none is written, on opening and on Add Row (a line added takes the sheet's day as its date); a date a person wrote
    is kept. A standing fact of a weekly calibration, not an observation.
-6. **Proved:** frontend/tests/nominalFill.test.ts (the standard line, the older sheet, the next due date) and qcCarryForward.test.ts,
-   tests/e2e_editing.py (a new sheet and a line added: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty;
-   typed readings give their deviations and Pass).
+6. **The boxes above the grid fixed, editable** (the owner, later the same day, with his sheet's header block: "i want
+   this values fix in but editable in format of qc-12"): Device ID No QC-76, Location Laboratory, Department LAB,
+   Manufacturer Force Strain Sensors, Minimum Reading Capacity 0.1 gm, Maximum Reading Capacity 600 gm and Acceptable
+   Tolerance 0.05 % are the format's own fixed values (WEIGHT_SCALE_FIXED_BOXES, autoFill.default), beside the
+   certificate's expiry 20-09-2027 (the owner, 27-Oct-2026). Every new sheet starts with them, with or without an
+   earlier page; each is editable on the sheet, what a person writes over one carries to the next sheet as before
+   (§117), and a box left blank starts fixed again. The Serial No is the person's, as the owner's page leaves it blank.
+7. **Proved:** frontend/tests/nominalFill.test.ts (the standard line, the older sheet, the next due date) and
+   qcCarryForward.test.ts (the fixed boxes, a written one carried, a blank one fixed again), tests/e2e_editing.py (a new
+   sheet and a line added: the five weights, Tested Values 1 and 2 at 0%, 3 to 5 empty; typed readings give their
+   deviations and Pass; the boxes fixed).
 
 ## §143 Told the working day before; the super admin sets every document's frequency (29-Oct-2026)
 
@@ -10091,288 +10158,696 @@ verify and submit it".
    for a long period), frontend/tests/scheduleOverride.test.ts (the override for every reader, from its day; dropped;
    never on a reference document; asked first), tests/e2e_master_data_frequency.py.
 
-## Master data provenance summary
 
-| Master list | Source | Notes |
-|---|---|---|
-| Employees | Handwritten specimens + certificate/report signatories | "Roshni" spelling TO BE CONFIRMED |
-| PC Locations (fly catchers) | F/HR/18 specimen | PC‑10 floor TO BE CONFIRMED |
-| Areas (per Service Report variant) | Service ReportApril 2026.xls | Kept separate per variant, as in source |
-| Chemicals | Chemical Chart + SOP + Service Report | |
-| Rodent Stations | — | **None supplied.** The Dec‑2023 GAP report explicitly flags that RBS numbering was *missing* at the time of inspection — left empty by design, not populated with invented IDs |
-| Checkpoints (Daily Monitoring) | F/HR/17 specimen | Response-type reconciliation noted above |
-| Lamination staff (Gaurav Singh, "Jeni", "Singh") | Photographed QC / production registers | Tester names handwritten — TO BE CONFIRMED |
-| Training attendees (6 names) + Shail Patel (CEO) | Training - Yrl (1).doc; SOC signature | Departments TO BE CONFIRMED |
-| Log-sheet layouts (columns, bands, specimen rows) | Photographed registers §9–§13 | Code-driven registry, not stored data |
+## §145 F/QC/12 a sheet a month, a line a week; the first date the person's, the rest a week apart (29-Oct-2026)
 
-## Full "TO BE CONFIRMED" list (single reference)
+The owner, 29-Oct-2026, with the F/QC/12 list (a sheet every Sunday, several with lines added) and a sheet's boxes: "now
+want this month wise from January to December and date will decide by user not system ... there are 4 rows in document
+each row denotes one week and it frequency is 7 day so ... user fill date in first row like date and weight and tested
+value are already fixed and next date should be after 6 day and 7th day date will be enter over there and in next
+second new row it will take old date and start".
 
-1. Exact spelling of the checker/verifier name ("Roshni").
-2. ~~Response vocabulary for Daily Monitoring checkpoints (OK/NOT OK header text vs. Yes/No
-   actual usage)~~ — **RESOLVED**: Yes/No throughout, confirmed against the source a second time
-   (see §1 above).
-3. ~~Daily Monitoring holiday calendar (which dates are non-working days).~~ — **RESOLVED**: the
-   Gujarat Print Pack Leave Calendar 2026 is loaded (see §16).
-4. PC‑10's floor designation.
-5. Format No. / Revision No. for: Service Report (all variants), GAP report, Chemical Chart,
-   Training Certificate, SOP, and the **Process Parameter Record** (hidden under the clip in the
-   photograph — see §12). The Process Parameter Record is **ANSWERED (§91)**: its paper, sent on
-   06-Oct-2026, prints F-PRD-19 (00/15.12.2024).
-6. Whether Mosquito Control needs its own standalone Service Report document.
-7. ~~Whether Service Report material/qty/method is meant to be logged once per visit or per
-   area.~~ — **RESOLVED**: Material/Method are fixed per area (pre-filled, not re-entered); Qty is
-   entered once per material — on the first line, carried by every line with that material — and
-   Remarks per area per visit (see §5 above).
-8. ~~Training cadence (no source-stated recurrence).~~ — **RESOLVED** as Yearly (see §15).
-9. Rodent Bait Station master list / numbering scheme (explicitly missing per the GAP report).
-10. ~~Exact source of the company's existing "Rodent Catch Report" numbers (see section 8
-    above).~~ — **RESOLVED** 13-Sep-2026: "GP-3 Trend Analysis - 2025.pdf", which also supplied
-    the lizard and flies pages. Transcribed in `src/data/seed/trendReports.ts` (§41). One cell
-    to confirm: that file reports 2025 to October and leaves Nov/Dec blank, while the earlier
-    "Kapila mam department reports .pdf" gives the complete 2025 (Nov 0, Dec 0, Total 2) and
-    Jan–Jun 2026. The complete transcription is kept, since it agrees with the new file on
-    every cell the new file fills — say so if the Oct-2025 snapshot is wanted verbatim instead.
-11. Full names / spelling of the lamination QC testers ("Jeni" day shift, "Singh" night shift) and
-    the departments of the six training attendees.
-12. Adhesive / hardener batch numbers on the Process Parameter specimen (best-effort handwriting
-    reads `B35007107` / `44000N0301`) and the Layer 2 film type suffix on F-PRD-18 ("MetPET …").
-13. Whether the Process Parameter and ALC reports should be one record per **shift** (as on paper)
-    rather than one per day with a Shift field — trivially changed to three daily variants
-    (`variantKey` A/B/C) if so. Since §91 the box is the paper's own DATE & SHIFT, written by the person; the same
-    question now covers F-PRD-20 and F-PRD-26, and each machine as well (item 58).
-14. Whether the QC inspection records (F/QC/34, /35, /37) and F/QC/13 should be one record per
-    **lot / job** rather than one per production day (currently Daily so they are prepared in advance;
-    a second lot on the same day is added from the Day View). Also the Rev/date of F/QC/13, and
-    proof-reading of its Gujarati transcription.
-15. Full names of the QA inspectors signing as "Harsh", "Pooja P", "S.V.M." and "HNP".
-16. Who approves customer complaint checklists (F/MKT/05) — activity 31 says "QA Head", so the app
-    defaults the Approved By designation to that; the actual person's name is whoever verifies.
-17. **How much of the Rat / Mice round is baited rather than glue-boarded.** The Dec-2023 and
-    April-2026 specimens bait ONE area (First floor - Offline punching & QC Inspection) with
-    Bromadiolone Cake and glue-board the other fifteen, which is what the app pre-fills
-    (`src/engine/serviceMaterials.ts`, AREA_OVERRIDES). The March-2026 specimen supplied on
-    13-Sep-2026 ("Service Report- March 2026.xls — 1st Service-Rcs") baits EIGHT: rows 9–16,
-    Offline punching & QC Inspection through Canteen, at 50 gramms, with rows 1–8 on Glue Board
-    at 3. Left as it is rather than changed on one specimen — the field is editable per area and
-    per visit — but if rows 9–16 are the standing arrangement, that is a one-line change.
-    **Answered, 17-Oct-2026 (§118):** the owner, with the March PDF: "make sure it looks like it only" — rows 9–16 are the standing plan.
-18. **Which floor the Ink store is on.** The master list of Rodent Control areas has "Ink store -
-    Ground floor" as row 4; the March-2026 specimen prints "First floor - Ink store" in that
-    position. Master data, corrected in Master Data → Service Areas once confirmed.
-    **Answered, 17-Oct-2026 (§118):** the March paper is the owner's reference: the area is "First floor - Ink store" now.
-19. **F/HR/08's topic ticks** (§46). The 154 names and designations of the 01.04.2026 ~ 31.03.2027
-    Training Need Identification Record are on file; the X marks against the seventeen topics did
-    not survive the PDF's text layer unambiguously and are not guessed. The record is seeded
-    Submitted with a note to that effect — tick from the paper copy, then verify.
-20. **F/HR/09, topic 10's training duration** ("Quality & Product safety Policy + PRP Policies") is
-    not legible on the supplied copy — marked TO BE CONFIRMED on the calendar.
-21. **F/HR/07's Executive-Lab sheet appears twice** across the two PDFs, near-identically; seeded once.
-    Say so if the second is a different position. Also: F/HR/01 is "Reviewed as on 01.10.2026", a
-    date after the copy was supplied (14-Sep-2026) — kept as printed; and F/HR/22 prints "Rev. 00"
-    without a revision date.
-22. **The cadence of the sixteen HR formats** (§46) is this system's assumption — competence review
-    1 Oct, skill matrix 1 Sep, TNI and calendar 1 Apr, GMP walk monthly on the 1st, hygiene sheet
-    monthly (due month end), survey analysis 31 Jan, the rest as required — since none of the formats
-    states one. Each is one line in `documentDefinitions.ts`.
-23. **Two HR titles differ between the Master List of Formats and the forms themselves.** F/SYS/02
-    (re-supplied 15-Sep-2026) lists F-HR-11 as "Training Evaluation Record" and F-HR-12 as "TRAINING
-    EFFECTIVENESS EVALUATION RECORD"; the forms supplied on 14-Sep-2026 print F/HR/11 as "TRAINING
-    EFFECTIVENESS EVALUATION RECORD" and F/HR/12 as "TRAINING FEEDBACK & EVALUATION RECORD". The system
-    follows the forms, which are the controlled copies. The list also names formats not supplied yet:
-    F-HR-02 Personnel competence criteria and F-HR-10 Training Imparted Record (F-HR-15 / F-HR-16, the
-    cleaning records, were supplied and built on 02-Oct-2026, §86).
-24. **F/SYS format numbers and revisions** (§76). F/SYS/04-A and F/SYS/20 print numbers the Master List of
-    Formats does not hold yet; F/SYS/03 and F/SYS/11 print an empty "Format No.:" box; F/SYS/03, F/SYS/04 and
-    F-MNT-02 print Rev 01 where the list has revision 0 only; F/SYS/10 prints its revision date as 01.05.2013 where
-    the list gives 01.03.23; the list gives F/SYS/14 and 15 a revision 1 of 01.04.2025, which was not supplied (the
-    pages supplied are on Rev 00).
-25. **Which master list of formats is current** (§76). The PDF of F/SYS/02 supplied on 25-Sep-2026 is an earlier
-    print (135 formats) than the company's own workbook (141, to 01.09.2026). The record on file is the workbook;
-    every difference is listed line by line in `sysDocumentControlLayouts.ts`. The print also carries the note "Not
-    added in project" beside F-HR-11 (see item 23).
-26. **How often the SYS formats fall due** (§76): F/SYS/12 monthly on the 22nd (the supplied meeting's day — the
-    paper prints none); F/SYS/05, 07, 17 and 20 on 1 January; the management review, its notice and the objectives
-    sheet when the PSTL calls them; each product's mock withdrawal and both traceability tests at least yearly (the
-    Insights S1 and S2 watch the twelve months).
-27. **The open points on the SYS pages** (§76 part 10): NC - 01 (4.2.1) and Feb -25/02's closing; F/SYS/14's printing
-    date 21.07.2027 and sales order date 12.07.2023; the Pouch mock withdrawal's response text; the unticked
-    "effective?" boxes; the MRM's item 7 action and item 3 complaint count; F/SYS/16's totals and #DIV/0!;
-    POUCH/SOP/01's date of 15.12.2025.
-28. **The formats F/SYS/02 gives no retention period** (§76 part 5): F-MKT-05, F-MKT-06 and F-PRD-27 to 30 (the
-    newer lines) and F-QC-39, F-QC-41 (obsolete) have a blank Retention Period and Method of Disposition in the
-    workbook — three years and shredded, as every other format, or something else?
-29. **The Marketing formats not supplied, and where the complaint formats belong** (§77). F/MKT/03 was not supplied
-    and nothing stands in for it. F/MKT/05 (the complaint handling checklist) and F/MKT/06 (its acknowledgement) are
-    Marketing's on the master list but live in the CAPA module's External side, where the complaints are handled —
-    leave them there, or list them under Marketing as well?
-30. **F/MKT/02's weights and cadence** (§77 part 3). The workbook has formulas for the 5, 4 and 3 columns only; the
-    weights of "2 Average" (2) and "- 5 Poor" (minus five) are taken from the headings as printed — confirm, since a
-    Poor rating would then subtract from the Average Rating. And how often F/MKT/02 and F/MKT/04 are made: this
-    system assumes one per product per calendar year, made when the year's forms are in (as required), not on one
-    calendar date.
-31. **F/MKT/04's Pareto marks** (§77 part 6). The Sleeve page prints "The first 3 Causes cover 64.29% of the Total
-    Defects" while four of its causes are within the 80% cut-off (78.57%), and its Vital Few marks skip causes 2 and 4;
-    the LABELS worksheet's rows were re-sorted by hand and its chart leaves seven causes without a bar. This system
-    marks every cause within the cut-off Vital Few and says "the first 4 … 78.57%" (LABELS: the first 9, 76.19%). The
-    template's stray 8th line "Packing related" with no count is left out. The 2026 running sheets (LABELS and SHRINK
-    SLEEVE, one complaint each in January 2026) are not on file as records.
-32. **F/MNT/05 is printed on two different slips** (§82 part 2): "Breakdown Maintenance Memo & Post Maintenance
-    Hygiene Record" and "Breakdown Maintenance Memo & Hygiene Clearance Record", both "(00/01.12.2021)". Both are in the
-    system; which one is in use, and should the other be withdrawn or given its own number?
-33. **M-07 is printed on two blocks of the 2026 PM schedule** (§82 part 8): "ZHEJIANG MANUAL INSPECTION MACHINE"
-    (which F/MNT/01 lists as M-46) and "DK 450 SLITTING MACHINE" (M-07 on F/MNT/01). Neither block follows F/MNT/02
-    until the number is corrected on the schedule.
-34. **M-58 on the 2026 PM schedule is "DCMF-480 Semi Rotary Die Cutting Machine"**, which F/MNT/01 lists as M-54;
-    F/MNT/01's M-58 is the Orthotec SRC3030 Compact Screen printing machine. The schedule's line is linked by its number
-    (M-58) and rule M8 says so. And M-68, the machine of the supplied F/MNT/02, is not on the 2026 schedule, nor is
-    any Pouch machine — intended?
-35. **F/MNT/01's duplicate serials** (§82 part 1): 194 on M-61 and M-62, and 231624BO638 on M-73 and M-74. M-76 has
-    no Department, and M-68's row is one column out of step, in both the PDF and the workbook.
-36. **The F/MNT/11 round of 15.10.2025** (§82 part 6) prints the Rev 00 code on the Rev 01 list and changes four lines
-    (Ink Kitchen, Conference room, Change room, Packing Area); its readings are otherwise the 12.08.2025 ones. Is it a
-    real round, and is the area list now changed (a Rev 02)? Also: the supplied F/MNT/09 of 15.12.2024 and the built
-    one of 01.09.2025 both print Rev 02 — was a revision number missed?
-37. **Which database is DCRS's real one, and the go-ahead to set it up** (§83). Everything was proven on a copy. To apply it:
-    `npm run db:shared -- setup` with a superuser's URL for that database (parts 1 and 2), the two login passwords given
-    then, and the daily backup registered with `scripts/database/schedule-backup.ps1`. Is it the PostgreSQL service on :5432
-    (which database?) or the development one on :5433?
-38. **The Audit Assistant's updated migration files** (§83 part 8): its tables in `chatbot` (pgSchema), the ledger in
-    `chatbot`, and `CREATE SCHEMA IF NOT EXISTS` on the first line. Part 3 (`database/sql/03-overview-chatbot.sql`, the views
-    over the assistant's tables) is written and tested against the tables the assistant made on the copy, and is applied only
-    once it is checked against the real files.
-39. **The CAPA page's stale copy** (§83). The internal CAPA report page keeps the report it loaded when it opened
-    (pages/GapPage.tsx), so an edit made on a page left open can put back a finding that was closed elsewhere in the meantime
-    — by the Audit Assistant, or by another person in another browser. The fix is small (build the list of findings from the
-    stored report, not the page's copy), but it changes DCRS's behaviour, which §83's rules leave to the owner. Fix it?
-40. **Comments on DCRS's own tables** (§83). `database/sql/optional/dcrs-table-comments.sql` describes every DCRS table and
-    column in plain English for the data dictionary. It is metadata only, but "change nothing that already exists in DCRS"
-    leaves it to the owner. Apply it?
-41. **DCRS's own database login** (§83). In development DCRS connects as the PostgreSQL superuser, so DCRS's own connection
-    could read the assistant's tables, though it never does. For production, DCRS should connect as a role of its own that
-    owns DCRS's tables and is not a superuser (docs/DEPLOYMENT.md already shows `postgres://dcrs:…`). Agreed?
-42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 32 in all
-    (F-QC-14 came on 13-Oct-2026, and F-QC-10, F-QC-17, F-QC-40.A and F-QC-40.B on 14-Oct-2026, all built, §111 parts 5 and 8),
-    since five came on 02-Oct-2026 (F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04, built in §86) and seven on 06-Oct-2026
-    (F-PRD-10, 20, 21, 22, 23, 24 and 26, built in §91, with F-PRD-18 and 19 sent again and F-PRD-25 sent empty):
-    MKT — F-MKT-03 Customer complaint Form. PUR — F-PUR-04 Purchase Order. QC — F-QC-31 COA Pouch, F-QC-39 FGPO Specification.
-    QA — F-QA-01 Traceability Report.
-    PRD — F-PRD-01 to 09, 11 to 13, 14.A, 14.B, 14.E, 15, 16, 17.A, 17.B, 17.C, 25 (sent on 06-Oct-2026 as an empty
-    workbook, item 54), and the workbook's 27 to 30. HR — F-HR-02
-    Personnel competence criteria, F-HR-10 Training Imparted Record. Until they come, search and the Document Library show them
-    as "on the Master List — not in DCRS yet".
-43. **F-QC-15-B, the punching line clearance** (§84). A paper printing "F/QC/15-B, Rev 00, 16.02.2022" is in the owner's Downloads
-    (`F-QC-15-A-G Line Clearance Punching - Printing.pdf`, 18-Sep-2026) but was never sent (§57 records it as not supplied). Send
-    it to be built? — **ANSWERED (§85)**: built from that paper.
-44. **The company's name as the system writes it** (§84). The opening spelt it "Gujarat Print Pack Publication", as the plant's
-    papers print it; the sign-in card, the page title and the sidebar said "Gujarat Printpack Publication Pvt. Ltd.". Which one,
-    everywhere? — **ANSWERED by the owner, 02-Oct-2026 (§87)**: "Gujarat Print Pack Publications Pvt Ltd", everywhere: on each
-    and every document of every module (the header's company line in capitals, GUJARAT PRINT PACK PUBLICATIONS PVT LTD), in the
-    opening, on the sign-in card, in the page title and in the sidebar, in Gujarati too.
-45. **A neural voice on the DCRS server** (§85 part 3). Piper speaks a reminder in about a second on the plant's kind of laptop
-    and sounds human, but the phonemiser it needs (espeak-ng) is licensed GPL-3.0, and the voice's own data licence must be
-    checked. Adopt it, or wait for Groq's voice (its terms accepted once by the Groq organisation's admin)? Until then, DCRS
-    opened in Microsoft Edge has the most human voice. — **ANSWERED by the owner's ChatGPT key, 12-Oct-2026 (§109)**: the
-    server's voice is OpenAI's gpt-4o-mini-tts, which speaks English, Hindi and Gujarati; no voice is made on the PC.
-46. **Who verifies a record** (§85). DCRS lets the person who submitted a record verify it too — no rule says the verifier must
-    be somebody else (it was so before §85; the mobile app's live check showed a QC account doing both). Should the verifier
-    always be a different person, or the department head?
-47. **F/HR/15's company line** (§86). The paper's title reads "GUJARAT PRINT PACA1:AH16K PUBLICATION PRIVATE LIMITED" — the
-    range A1:AH16 typed into the spreadsheet's title cell by mistake. DCRS printed "GUJARAT PRINT PACK PUBLICATION PRIVATE
-    LIMITED", as the sister form F/HR/16 does. Correct the original at its next revision (the header can now be typed over
-    on the record page if another spelling is wanted)? — **ANSWERED by the owner, 02-Oct-2026 (§87)**: DCRS prints the
-    company's name as the owner gave it, GUJARAT PRINT PACK PUBLICATIONS PVT LTD, on F/HR/15 as on every format; correcting
-    the paper itself at its next revision stays with the MR.
-48. **F/DISP/04's revision** (§86). The paper is "Rev. no. – 01, Effective date: - 01-11-2023"; the Master List of Formats
-    (F/SYS/02) lists F-DISP-04 at its first issue, 16.02.22, with no revision. DCRS follows the paper. Update the list?
-49. **What one F/DISP/04 record is** (§86). The paper is a running sheet per vehicle, sixteen lines a page. DCRS keeps it
-    as it keeps every as-required format, the store's F/STR/02 included: a record is started with New when a vehicle is
-    cleaned and handed in within two days, or it counts as late on the Performance Scorecard. Should Dispatch rather keep
-    one record per vehicle open for the month and hand it in at the month's end? That needs a month's allowance, which
-    DCRS gives no as-required format yet — say so and it is added.
-50. **The plant's Expo account, for the iPhones** (§88). Since 3 September 2026, Expo Go on an iPhone opens an app from a
-    computer only when the iPhone and the computer's Expo CLI are signed in to the same Expo account, so every iPhone at the
-    plant signs in to the account the server PC uses (Android does not need it yet; Expo says it will follow). A dedicated
-    plant account, made at expo.dev for nothing else, is safer than a personal one, since its password goes to every iPhone
-    user. Which account does the plant use?
-51. **The Groq plan** (§88). Mitra's answers, in the browser and on the phones, come from Groq. The free plan allows about
-    8,000 tokens a minute for the whole plant, so once a few questions have been asked within a minute the next answers
-    wait. A paid plan removes that wait. Stay on the free plan, or move to a paid one? — **ANSWERED by the owner,
-    12-Oct-2026 (§109)**: Mitra's answers in both apps come from his paid ChatGPT (OpenAI) key, 2,000,000 tokens a
-    minute; a daily cost guard (`AI_DAILY_TOKEN_BUDGET`, 3,000,000 tokens by default) holds the bill.
-52. **The server PC's fixed address and firewall** (§88). The server PC needs a fixed address on the company network (a
-    DHCP reservation by its network card's MAC address) and its three ports (4000, 3000 and 8081) reachable from the staff
-    Wi-Fi, with client isolation off and the network marked Private in Windows. The note to hand to IT is section 2 of
-    docs/phone-app-setup.md, and `scripts\windows\open-firewall.ps1` opens the ports. Who does it, and when?
-53. **Microsoft Edge on the plant's laptops** (§89). Mitra speaks Gujarati only in Microsoft Edge: Google Chrome has no
-    Gujarati voice, so there it shows a Gujarati reply without saying it. Edge's natural voices (Neerja and Prabhat, Swara
-    and Madhur, Dhwani and Niranjan) are free but come over the internet. Will the plant's laptops open DCRS in Edge (a
-    desktop shortcut to the server's address, opened with Edge), with the internet on? And will somebody at the plant
-    listen once to Mitra in each language on those laptops, Master Data's "Hear Mitra" buttons, and say whether it sounds
-    like a person?
-54. **F-PRD-25 came empty** (§91). F-PRD-25_POUCHING - PROCESS PARAMETER RECORD.xlsx, sent on 06-Oct-2026 with no PDF, is
-    Excel's blank workbook: three sheets and not one cell. DCRS built nothing from it and lists it as not in DCRS yet. The
-    pouching procedure POUCH-WP-03 calls it the "Production & Process log book (F/PRD/25)". Please send the format itself:
-    its PDF, or the workbook with the form in it.
-55. **F/PRD/23's revision date** (§91). The paper prints "F/PRD/23 (00/15.12.2025)"; the Master List of Formats gives
-    F-PRD-23 15.12.2024, as it does F-PRD-21, 22 and 24. DCRS follows the paper. A slip on the paper, or a later issue?
-56. **Newer production papers on this PC** (§91). The plant's own folder Desktop\GP3 work\Audit document\Prd holds papers
-    of 01.01.2026 that were not sent: F/PRD/10 Rev 01, "DAILY SCISSOR ISSUE & RETURN INTEGRITY MONITORING RECORD - LABEL &
-    SLEEVE DEPARTMENT (MAX. STOCK - 15 Nos.)", with one column for each count where Rev 00 has two; four numbers of their
-    own, F/PRD/10A (scissors, pouching, MAX. STOCK - 10 Nos.), 10B (safety cutters, pouching, 20), 10C (safety cutters,
-    slitting, 5) and 10D (safety cutters, lamination, 5); F/PRD/12 Rev 01; F/PRD/22 Rev 01, "TIo2 COATED TRIMMING BLADE
-    STOCK & MONITORING RECORD (USED ON - POUCHING MACHINES)"; and F/PRD/24 Rev 01, "RAZOR BLADE STOCK & MONITORING RECORD
-    (USED ON - LAMINATED FILM'S SLITTING MACHINE BLADE HOLDER)", both "SHALL BE ALWAYS MAINTAINED 30 NOS" where the papers
-    sent say 20. The Master List of Formats (the workbook, to 01.09.2026) lists none of them. DCRS holds the papers the
-    owner sent (Rev 00). Which are in use? If the 2026 ones, send them, and DCRS takes them up as the next revisions (the
-    records already written stay on the revision they were written on, as F/MNT/11's do, §74).
-57. **Who keeps the Production formats** (§91). DCRS names the pouch section's manager, Azaz Bharach (written "Azaz
-    Bhaach" on F/HR/01, "Azaz Bharach" on F/HR/06 and "Azazbhai Bharach" on F/HR/08), as the person who answers for the
-    seven new formats; F-PRD-18 and 19 stay with the lamination operator. The operators and supervisors who sign the lines
-    are on no paper sent. Who should each be? And is F/PRD/10 (its 2021 issue names no department) the pouch section's?
-58. **One sheet a day, or one per machine and shift** (§91, item 13). F-PRD-18, 19, 20 and 26 are a sheet per machine and
-    shift on paper; DCRS keeps one a day, with the DATE & SHIFT box written by the person. F/MNT/01 lists three laminators
-    (M-61, M-62, M-80) and two slitters (M-66, M-78) in the pouch section: should each machine and shift be a record of its
-    own? F/PRD/21 is kept per machine already (as required).
-60. **F/MNT/09 and F/MNT/10 fall due on the 1st** (§93 part 6). Each is a month's sheet checked week by week (Week - 1 to
-    Week - 5), so it shows overdue from the 2nd while most of its weeks are still to come; F/HR/15, a month's sheet filled
-    day by day, is due on the month's last day. New now opens the month's sheet instead of starting another. Should these
-    two fall due at the month's end? (It changes the key of every month's sheet, so the sheets on file move with it.)
-61. **The Pest Control Training Record: one per training, or one a year?** (§93 part 2). It is scheduled yearly (the
-    December programme), but its page's New Training Record starts a record for every training and technician
-    certificate, so New (and Mitra's "create a new training record for <date>") starts one for the day asked, as before,
-    where every other yearly document opens the year's sheet. Is that right?
-62. **Which issue of F/MNT/09 is in use** (§93 part 5). The paper sent on 07-Oct-2026 is Rev 02 of 15.12.2024 (3,757
-    articles); DCRS holds Rev 02 of 01.09.2025 (3,980 articles, "New Glass Articals Added", the new ink kitchen), which the
-    company's workbook of formats lists as current. DCRS keeps the newer one.
+1. **A sheet a month** (data/seed/documentDefinitions.ts): F/QC/12 falls due on the 1st of every month from November 2026
+   (`scheduleSince` 2026-11-01); until then every Sunday (§130), and every Wednesday before that. A sheet's period is
+   its due date, so a Sunday sheet already started for 1-11-2026 is November's; the old schedule's blank shells for the
+   other Sundays go at start-up (§130), and a sheet a person wrote on stays as it is.
+2. **A line a week** (data/seed/qcCalibrationLayouts.ts): the sheet starts with four lines (`rowMode` free, `minRows` 4),
+   each with the five weights and the fixed Tested Values 1 and 2 (§142); a fifth week, or a re-test, is a line added.
+3. **The date is the person's** - the date column no longer takes the record's day (`autoFill.dueDate` removed): the
+   first line's date is typed by the person. Then, on every save (engine/nextDueChain.ts, run in the computed cells,
+   `LogSheetLayout.nextDueChain`): a line's Next Due Date is its date + 7 days where none is written, and the line
+   below starts on that Next Due Date where it has no date of its own - so one typed date sets the month's weeks. A
+   date changed later moves what the chain wrote from it (that line's Next Due Date, the next line's date, on down);
+   a date a person typed differently is kept. A line added with Add Row starts on the Next Due Date above it.
+4. **Tested By and Sign** go on the week's own line - the first not read yet - in the name of the person who opens the
+   sheet (§136, §140); the weeks below wait for whoever tests them. A demo sheet's weeks are its month's (the first
+   dated the sheet's day, a week apart), never the supplied page's 2024 dates (§75).
+5. **Proved:** frontend/tests/nominalFill.test.ts (four lines, the name on the week's line, the chain, a changed date, a
+   typed date kept, Add Row), qcCarryForward, periodSheet, scheduleChange28Oct, truthfulPrepare and qcPaperFormats;
+   tests/e2e_editing.py (four lines on opening, a first date typed and changed, Add Row on the Next Due Date above),
+   e2e_qc_calibration.py, e2e_print_fill.py; e2e_master_data_frequency.py now proves the picker on F/QC/11 (weekly).
 
-59. **Two minus scores** (§92). ANSWERED by the owner on 9-Oct-2026: the FMS way, a share. "assign 10 tasks and he has
-    completed 8 of them so his is 80 percent work is done in real but ... he will display -20". The Performance page's
-    minus score is round(done ÷ due × 100) − 100 now, the Dashboard's "Today's score" rule, and every person's is on the
-    administrator's and the super admin's dashboard.
+## §146 F/QC/12's five weights fixed on every line (30-Oct-2026)
 
-## How the assistant prepares records (and what it never does)
+The owner, 30-Oct-2026: "keep weight which is fix ... weight 1 is 0.050 mg, weight 2 is 50.000 gm and weight 3 is 100.000
+gm, weight 4 is 200.000 gm, and weight 5 is 400.000 gm so first fix this in all four rows". Sheets started on an earlier
+build kept the former weights (50 / 100 / 200 / 500 / 600 gm, §117) on lines that already had a name on them - the
+opening fill of §142 note 4 converted only lines with nobody's name - so a reading typed against the weight really
+placed (100.004 against 100 g) was worked out against 200 gm: a deviation of tens of per cent.
 
-Since 8-Oct-2026 a Live record that falls due is prepared by ONE rule (§98, `src/engine/knownParts.ts`, run by
-`prepareDueRecords()` at app start, in the engine host on the server and by the server's morning job, §97). The rules
-that keep this honest:
+1. **Fixed, never typed over** (`LogColumn.locked`, data/seed/qcCalibrationLayouts.ts): Weight 1 to 5 hold the five
+   weights on every line and are drawn as words, like a worked-out cell, not a box; Mitra is refused a weight ("is fixed
+   on the form"), and a Word or Excel file read back never writes one (not bound). Tested Values 1 and 2 stay the fixed
+   readings of §142, and 3 to 5 the person's.
+2. **Every open sheet put right at start** (data/standardWeightsMigration.ts, run by data/bootstrap.ts like §129's
+   dates): on every Scheduled, Due, In Progress or sent-back F/QC/12 sheet each line takes the five weights; Tested
+   Values 1 and 2 the fixed figures where blank or where the old fill had written the former weight; the old fill's
+   former figure in 3 to 5 is rubbed out (no reading), with a Pass that stood on no reading; a reading a person typed is
+   kept and its deviation worked out again against the right weight; a line in each sheet's history. A sheet handed in,
+   verified or under correction is left as it was handed in. The opening fill uses the same rule
+   (engine/nominalFill.ts onStandardWeights).
+3. **The deviation is not made to fit** (asked again the same day: "what ever the number user enter the deviation should
+   not exceed ... 0.05 percent"): it is worked out from the reading typed against the fixed weight (a bare figure takes
+   the weight's unit, 0.050 against 0.050mg is 0%), and a reading outside ± the Acceptable Tolerance is a Fail - a
+   calibration record shows what the scale read (§98, declined 28 and 29-Oct-2026). With the weights right, a reading
+   the scale really shows gives its true, small deviation.
+4. **Proved:** frontend/tests/nominalFill.test.ts (the columns fixed, a former line put right, a typed reading kept and
+   worked out, Mitra refused, the start-up fix with its history line, a verified sheet left), qcPaperFormats.test.ts (the
+   weights drawn as words, no box), tests/e2e_editing.py (twenty fixed weights as words on the four lines).
 
-- Only what is **known** is written: the record and its date, the fixed rows the form prints, the plant's standing
-  values (the machine, the instrument, the chemicals in use, the fixed material and method per pest-control area, the
-  contractor, the standing team), and what truly carries forward unchanged from the last record a person confirmed
-  (tube light dates, a yearly list's people or suppliers, a ledger's opening stock).
-- **Every observation is left for the person**: readings, counts, pass or fail, OK or not OK, findings, the time of a
-  round, quantities used, the lot in front of them, the shift, signatures and the names of whoever checked
-  (`src/engine/observations.ts` classes every box and column). The record is "needs input", and the briefing and the
-  notifications say how many readings wait.
-- The assistant **never signs, submits, verifies, or ticks an attendance**, and a **blank form never carries a
-  decision** (H-9: no Lot Status, Line Clearance, ALC, cleaning type, compliance or shift arrives answered).
-- Prepared records stay **In Progress** with a banner saying the assistant filled them "as far as it is known: the
-  readings are yours to enter", and a line in their history. Nothing is Submitted or Verified until a signed-in person
-  does it; the login briefing offers "Submit" only after the person ticks the record as reviewed and it passes the same
-  checks a manual submit would.
-- The **simulation** that writes plausible readings (`src/engine/autoFill.ts` with the plant behaviour model of §25 and
-  the pest patterns) fills **Demo Mode's records only**, and sample data in a Live record on a test server
-  (`ALLOW_SAMPLE_FILL=1`). It never reaches a Live record in the plant, and no report counts a draft (§98.5).
+## §152 Indexing: every format and document in one place, the super admin's (31-Oct-2026)
 
-None of these block the Phase‑1 prototype — each is either handled with a clearly-labeled
-default/fallback in the UI, or left as an empty, addable Master Data list.
+Added from parth-project-main at the owner's word (31-Oct-2026); the module is described in full in indexing/README.md.
+
+1. **The page** (sidebar → Indexing, `#/indexing`, the super admin's alone): every format with the Master List of Formats
+   (F/SYS/02), the 173 documents of F/SYS/01, the ranges and limits, the 19 worked-out formulas, which formats are automatic,
+   and every saved version (compare, restore, reset to default).
+2. **What a save reaches:** a format's number, name, revision, frequency and responsible role go into the format and Master
+   Data; a range or a formula is in force from the save for open and new records, and a submitted or verified record keeps
+   the ones it was signed with (indexing/formulaRuntime.ts, rangeRuntime.ts). Text & layout re-words, hides or moves a
+   format's printed words on the screen, the print and the downloads; a signed record keeps the words it was signed with.
+3. **Asked first:** the save lists every change, takes a reason, and - where a formula changes - names how many open
+   records of which formats will be worked out again, each with a line in its history (the owner, 31-Oct-2026).
+4. **Only the super admin writes it:** the server refuses the stored item `indexing` to anybody else
+   (backend/storageRoutes.ts); the engine host reads it like the other company items (backend/engineHost.ts ITEM_KEYS).
+5. **Proved:** indexing/tests (run with every `npm run test:unit`), frontend/tests/qc12Automation.test.ts (the index's
+   tolerance and days on F/QC/12).
+
+## §149 F/HR/17 answered as the plant's usual day when a person opens it; nothing found is the usual (30-Oct-2026)
+
+The owner, 30-Oct-2026: "the system should filled it on daily basis and user will verify and submit it", with the check
+points' usual answers. When a person who may fill the day's Daily Pest Control Monitoring Record opens it and nothing is
+answered yet (engine/dailyPestFill.ts, run by pages/RecordPage.tsx): 1 Yes, 2 No, 3 Yes, 4 100, 5 Yes, 6 Yes, 7 No, 8 No,
+9 No, 10 Yes; the time of checking the time it was opened; the checker that person; a line in its history. Every answer
+is theirs to change before submitting. A rodent or lizard really found is answered Yes with its box, place and count,
+and only that reaches the rodent trend. Asked the same day for random catches written by the system ("4 or 5 rodent ...
+in whole year and other are lizards"): declined, as on 28-Oct-2026 - a record shows what was found. A holiday and a day
+already answered are left as they are; the schedule and the morning prepare still write no answer (§98).
+Submitted, the day was signed by whoever verified and submitted it (the owner, later the same day): the checker and the
+time of checking became that person and that moment (engine/recordLifecycle.ts submitRecord) - until 3-Nov-2026, when
+§177 fixed the checker and the time on the fill: since then Submit keeps both as they stand (a blank one is refused, as
+it always was). Proved: frontend/tests/dailyPestFill.test.ts, tests/e2e_hr_module.py.
+
+## §147 F/QC/11's I. Calibration Date / Due Date row back (30-Oct-2026)
+
+The owner, 30-Oct-2026, with F/QC/11's paper and DCRS's F/HR/18 visit page: "in qc-11 when in our system you have missed
+the calibration date and due date in format so add that and in fly catcher- HR-18 when i open visit list then it is not
+showing second row so do fix it and when any document i download or even take print then it should be proper".
+
+1. **F/QC/11's row back** (taken away on 28-Oct-2026 at the owner's word, §132): "I. Calibration Date:-" two columns wide
+   and "Due Date:-" at the right of its line, under the boxes after the paper's space, on the screen, in print and in the
+   downloads (data/seed/qcCalibrationLayouts.ts, qcCalibrationGeometry.ts, styles.css). Every new sheet starts them at the
+   certificate's 21-09-26 and 20-09-27, editable, the later kept (autoFill.newest, §129); a sheet that held a date there
+   shows it again (the 2024 page's 31.12.2024), and an open sheet's blank Due Date takes the certificate's at start
+   (data/certificateDatesMigration.ts). A sheet MADE WITHOUT the row while it was taken away (28 to 30-Oct-2026) takes the
+   certificate's dates at start whatever its status - signed off or not, the owner's sheet of that week signed and
+   passed showed the row empty ("Still you have not added qc-11 calibration date and due due in above index") - with a
+   line in its history (ROW_BACK_NOTE); a box a handed-in sheet holds stays as handed in. A demo sheet's Due Date is
+   the next month's calibration, as before 28-Oct.
+
+   (Taken from the 31-10 improvements copy on 31-Oct-2026: F/QC/11's part only. Its Word and Excel downloads draw the row after
+   the paper's space, utils/calibrationWord.ts. The F/HR/18 visit page of the same section was not taken.)
+
+## §150 F/QC/11 opens every month filled and signed, every value editable (30-Oct-2026)
+
+The owner, 30-Oct-2026, with a new F/QC/11 whose Sign. line was empty: "these should be fixed but editable values should
+be present everytime and whenever user open it for verify and submit it". A sheet carried from last month arrived with
+its sizes on it, so the opening fill (§136), which waited for blank sizes, never ran, and nobody's name went on Sign.
+Now: a new month's sheet carries its boxes alone (LogSheetLayout.carryLines false, as F/QC/12 since §142) and its lines
+start from the plant's standards - each plate's size on its four lines, Pass on Pass/Fail; when a person who may fill
+it opens it, the Sign. line takes their name where it is blank, and any blank size or Pass takes the usual (a size, a
+Pass or a name already written is kept). The fill waits only while the Sign. line is empty. Every value stays editable;
+the person verifies and submits. Proved: frontend/tests/nominalFill.test.ts, qcCarryForward.test.ts.
+
+## §154 The Pest Control Service Report: its words the format's, Deltamethrin's 150 ml, the screen's width, the A4 print (31-Oct-2026)
+
+The owner, 31-Oct-2026: "make each and editable and make sure whatever user change in format then it should be change
+from that format to all upcoming formats"; "150 ml is fixed in quantity"; "when user take print then it should be
+completely perfect on A4 Size page and every fonts are visible"; and, with a screenshot, the empty half of the screen
+beside the sheet.
+1. Every printed word of the three service reports but the date (the title, the contractor, the plant, the service, the
+   headings, each area, material and method, the captions) is the FORMAT's: typed over, "Are you sure?" names the change
+   for every report from now on and asks which revision - a new one with its number and date, or none (§148) - and it is
+   saved on the format (data/formatEdits.ts FormatEdit.printedWords, each change with the moment it took effect;
+   engine/formatOps.ts FormatDraft.wordsAt), in its change history and the activity log. This report and every one after
+   it print it; a report handed in before keeps the words it was handed in with (formatWordsAt by its submittedAt). A
+   report's own words from §137 stand until that place is changed again. The date is the report's own.
+2. Deltamethrin 2.5% SC's quantity is 150 ml, and the fly report's Beta-Cyfluthrin 2.45% SC's is 100 ml (the owner, later
+   the same day: "quantity is fix which 100"; engine/serviceMaterials.ts FIXED_SERVICE_QTY), each written when a signed-in
+   person opens a report where it is blank, in their name with a line in its history (serviceQtyFillOnOpen, RecordPage), and
+   theirs to change. Asked in the same message: the glue boards' count "randomly ... between 3 to 5" and the bait
+   "sometime 40 gms to 50 grams" every time - declined, as §136 and §149 declined made-up varying values: the quantity
+   used is what the technician used on the visit. Offered: a fixed quantity for each, as the 150 ml, if the owner names one.
+3. On a laptop the sheet runs the card's width, its words a quarter larger (styles.css, screen only; measured for print it
+   is the paper's width again).
+4. Printed, the sheet is the contractor's March sheet enlarged evenly to the A4 page's width (utils/print.ts fillPage now
+   fills .svc-paper): about 516 pt across where it was 432 pt, its letters about 10 pt, one portrait page.
+Proved: frontend/tests/serviceReportFormatWords.test.ts; tests/e2e_editing.py (the question, the next report printing the
+area, 150 ml); tests/e2e_print_all_documents.py (the page's width, every rule and word of the March PDF at its scale).
+5. Later the same day, with the rodent report on the screen ("each and every part of this record should be editable"; a
+   picture of its lines 2, 3, 5, 9, 12 and 14 drawn twice as tall as the rest): the line numbers are typed over like the
+   rest (place slno:N), and on the screen every line is drawn to its words - the contractor's hand-set tall rows are the
+   print's only, where they match his PDF (styles.css, screen media). A name that runs to two lines (the general report's
+   "RM Inward & FG Outward area (outer periphery)") wraps on the screen as it does on his paper. Asked again, the glue
+   boards "between 3 to 5 always" and the bait "between 40 to 50" filled by the system: declined again, as item 2.
+6. Lines added and removed (the owner, 31-Oct-2026: "can able to add 17, 18, 19 and more or can remove also ... applied
+   for other two pest control also"). Beside every area, on the screen only, a + adds a line below it and a × removes it.
+   The report's lines are the service's area list in Master Data (Areas, context service-report:<service>), which every
+   new report is made from, so the change is that list's (engine/serviceLines.ts): the new line's area is asked for under
+   the sheet, then "Are you sure?" with the revision - a new one or none (§148) - and the format's change history and the
+   activity log say "added the line X after Y" / "removed the line X". This report and every report not yet handed in
+   follow at once, each keeping the quantities and remarks it holds by area (a history line on each); a report handed in
+   keeps its lines. A line added below another carries that line's material and method (the Master Data area says them:
+   AreaLocation.material/method), so the paper's merged block stays whole; a line's number, area, material and method
+   places are now keyed by the area, so words typed over stay with their line when lines move. Refused: an empty name, a
+   name already on the report, the last line. Restoring the issued format does not restore the area list (Master Data's).
+   Proved: frontend/tests/serviceLines.test.ts; tests/e2e_editing.py (a line added after line 9 of the general report,
+   the next report with ten lines, removed again).
+7. Neither signature is required on the three service reports (the owner, 31-Oct-2026: "make sure the GPC Technician
+   sign and Customer's representative sign is not mandatory for all three pest control service report"): a report is
+   submitted without the technician's name and verified without the customer's (engine/validation.ts); both boxes stay,
+   written when known, the customer's while the report waits for verification as before. Asked a third time in the same
+   message for glue boards "between 3 to 5" and bait "between 40gm to 50 gm" filled by the system "sometime 4 ... sometime
+   40 gm or 50 gm": declined again, as item 2.
+
+   (Taken from the 31-10 improvements copy on 31-Oct-2026 for the three service reports. The revision question it asks
+   (§148) is asked on the service reports only; the other formats' Edit format and header questions are as before.)
+
+## Mitra switched off for the staff by the super admin (2-Nov-2026)
+
+```
+REQUESTED            "give an option to the super admin only, that he can disable the AI option for all the other users"
+DIGITAL TEMPLATE     backend/assistantSwitch.ts (the switch, its routes and the guard); backend/index.ts (featuresFor,
+                     requireAssistant on every route of Mitra's); src/engine/features.ts (assistantAvailable);
+                     src/components/access/MitraSwitch.tsx on Users & Access; src/App.tsx, src/components/layout/Sidebar.tsx
+TESTS                backend/tests/assistantSwitch.test.ts; frontend/tests/assistantSwitch.test.ts
+```
+
+**ONE SWITCH FOR THE PLANT, THE SUPER ADMIN'S.** On Users & Access, above "Who may do what": *Mitra (AI) for the
+staff* — **On for everybody** or **Off — super admin only**, with one button to change it and who set it last, when.
+The switch is the company item `assistantAccess` in PostgreSQL (`{ staff, by, at }`), read at GET /api/assistant/access
+by anybody signed in and set at PUT /api/assistant/access by the super admin alone; each change is a line of the
+activity log ("Mitra switched off for the staff"). On until the super admin says otherwise, and on again when what is
+stored cannot be read.
+
+**OFF, FOR EVERYBODY BUT THE SUPER ADMIN:**
+
+- The server tells each person with who is signed in (`features.mitra`, at sign-in and /api/auth/me): the super admin
+  always true, the staff the switch. The app then draws **no Ask Mitra in the sidebar, no Ask Mitra page** ("Page not
+  found", as for any address that does not exist), **no floating Mitra** on any screen — so no "Ask Mitra about …",
+  no guided fill, no Mitra chips, no "Let Mitra read it", no microphone — and the CAPA checklist's "Walk me through
+  it" and "Review & approve with the assistant" buttons go too.
+- **The screen is never the lock.** Every route of Mitra's — chat, the agent, reading a file or a picture, transcribing
+  a recording, the voice (reading and speaking) and the checklist answers — stands behind `requireAssistant`: 403
+  `assistant-off` for the staff while it is off, in words ("Mitra has been switched off for the staff by the super
+  admin."). HR's CV read stays: by the text rules alone, never by the model. The super admin's own Mitra is never touched.
+- Each person loses or regains Mitra at their next page load or sign-in; the server refuses or allows at once. The
+  reminder voice (SoundVoiceHost) is refused with the rest, so a reminder is shown, not spoken, for the staff.
+- The phone app, Mitra for Expo Go, speaks to its own Mitra server, which asks the model with its own key; this switch
+  is DCRS's and does not reach it.
+
+
+## §158 The HR forms' printed lines are open: a topic added or taken off on the record (2-Nov-2026)
+
+The owner, 2-Nov-2026, over the induction record's Training Topics (F/HR/05): "give option for adding and removing
+anything from this column and this applies to the HR module documents."
+
+- `rowMode.openLines` on a form that prints its lines (types/logSheet.ts). Every HR layout with printed lines carries
+  it — F/HR/04's questions, F/HR/05's topics, F/HR/09's calendar topics, F/HR/11's evaluation lines, the visitor
+  health questions, the GMP checklist items, the PSC survey and analysis attributes, F/HR/15's and F/HR/16's areas —
+  except the hygiene report, which prints one line a day of the month. The QC inspection formats keep their printed
+  parameters as the format's own (§64).
+- The lines registry (engine/recordLines.ts, §113) opens such a form's lines: Add Row and the bin on the sheet, Mitra's
+  "add a row" and the patch's addItems / removeItems; the record keeps at least one line. Its printed columns are
+  writable on a line of the person's own.
+- A LINE IS KNOWN BY ITS WORDS, NOT ITS PLACE (`printedLineOf`): a record's line has always carried its printed words
+  (recordDefaults, autoFill), so taking line 2 off leaves line 3 reading as line 3, printed and not editable; the
+  form's blank spare lines, and a line the person adds, match no printed words and are written in — topic and
+  responsibility both. The patch checker (recordPatch.ts) refuses a printed column only on a line that is printed.
+- The format itself is unchanged: the next record starts from the printed list again. Changing the list for every
+  record to come is still the designer's work (§62, SheetDesigner's printed lines).
+- Tests: frontend/tests/openLines.test.ts.
+
+## §159 F/HR/05's Planned Date follows the Date of Joining (2-Nov-2026)
+
+The owner, 2-Nov-2026: "in HR 05 the planned date is filled according to date of joining of the user which user will
+select." Every induction topic is planned for the day the new employee joins.
+
+- A column says which header box it follows with `autoFill.fromHeader` (types/logSheet.ts); F/HR/05's Planned Date
+  follows `dateOfJoining`. One rule, engine/headerFollowers.ts (`followHeader`), wherever a record is saved: the
+  sheet's save (a typed box, the HR Master Data fetch, a line added later), Mitra's patch (recordPatch.ts), the HR
+  master filing of a new record (hrMasterFiling.ts) and the sample fill (autoFill.ts).
+- A blank cell takes the box's value. A cell still holding the box's previous value moves with a corrected one, and
+  is cleared when the box is cleared. A date the person wrote differently is theirs and is left alone.
+- Tests: frontend/tests/headerFollowers.test.ts.
+
+## §160 Backups from Users & Access: the database, or the code and the database (2-Nov-2026)
+
+The owner, 2-Nov-2026: "add a backup option ... give two options like backup database, and backup with code and
+database, and make sure it works."
+
+- Two buttons on Users & Access, the super admin's alone (components/access/BackupCard.tsx; backend/backupRoutes.ts):
+  `POST /api/backup {kind: "database" | "code-and-database"}`, `GET /api/backup` (what runs, what the last run said,
+  every backup file), `GET /api/backup/files/<name>` (download). One backup at a time (409 `backup-running`).
+- The database: scripts/database/backup.ts run as a child process, exactly as `npm run db:backup` (§83): the dump,
+  the roles file, Mitra's dump when MITRA_DATABASE_URL names it, in backend/data/backups or BACKUP_DIR, the older
+  files kept fourteen days. The PostgreSQL client tools must be installed (the plant PC has PostgreSQL 18's).
+- The code and the database: the same, then `dcrs-code-and-database-<stamp>.zip` beside it, made by the tar the
+  operating system ships (bsdtar on Windows 10 and later writes zip; elsewhere a .tgz): the whole repository — source,
+  built website, docs, scripts, source documents, git history, the phone app's folder — with the run's database files
+  and a BACKUP-README.txt that says what is in it and how to restore. Left out: node_modules, backend/data, the logs,
+  the IMPROVEMENTS folder of old copies,
+  every .env (the keys are copied by hand). The three newest zips are kept.
+- Each run is one activity-log line: "Backed up the database", "Backed up the code and the database", or "Backup
+  failed" with the script's own reason. The page follows a run every two seconds and lists the files for download.
+- Tests: backend/tests/backup.test.ts (a real Express server, a stand-in database step, a real zip of a tiny folder).
+
+## §161 The registers feed HR Master Data: the date of joining from F/HR/01, by name (2-Nov-2026)
+
+The owner, 2-Nov-2026: "the date of joining is present on F/HR/01, so take it from there into the master data
+according to the name; and if that name comes on any document, the other details required there should be filled."
+
+- engine/hrMasterRegisters.ts. A person ON the sheet whose joining date, department, designation or date of birth
+  is blank takes it from the first register line (or header) that names them and gives it — F/HR/01 first, then the
+  other linked formats (engine/hrMaster.ts HR_MASTER_LINKS), the newest record of each first. Nothing HR wrote on the
+  sheet is ever changed by a register.
+- Applied on its own: when a linked record is saved (components/records/LogSheetRecordView.tsx — the F/HR/01 line
+  just written reaches the sheet at once) and whenever HR Master Data is opened (pages/HrMasterDataPage.tsx), with
+  an activity-log line each time something was filled. Demo records feed nothing.
+- A name on F/HR/01, F/HR/03 or F/HR/06 that is nobody on the sheet is a newcomer: HR Master Data shows "Add N from
+  the registers", which adds them with their department, designation and date of joining and where they came from
+  (`sources`), the other spellings as `aliases`. Never added while a name is still being typed on a register.
+- From then on the fetch the formats already do (§53 personFill, the name box's blur) finds the date of joining on
+  the sheet: F/HR/05's Date of Joining and so its Planned Dates (§159), F/HR/04's Date of Birth, and the rest.
+- Tests: frontend/tests/hrMasterRegisters.test.ts.
+
+## §162 F/HR/19 starts at its compliant answers (2-Nov-2026)
+
+The owner, 2-Nov-2026: "in HR 19 by default the answer is Yes, and make sure it is editable."
+
+- A new Monthly GMP Inspection record (hr-gmp-checklist, data/seed/hrLayouts.ts) has every point's Compliance box
+  answered with its compliant answer: Yes on every point, except the few asked the other way round ("Whether any
+  person found with illness or injury?", "Whether any materials found with expired shelf life?"), whose compliant
+  answer is No — the answer each point's specimen gives (GMP_ITEMS). The team changes only the point that failed and
+  writes its action. The second format that starts an answer decided (§98 keeps the others blank; F/HR/04 is the
+  first, §157).
+- The box stays a Yes / No the team changes on the record, like any cell; the point's words stay printed.
+- Tests: frontend/tests/hrGmpDefaults.test.ts.
+
+## §163 The Frequency panel: how often every document of every module falls due, and the half-yearly frequency (2-Nov-2026)
+
+The owner, 2-Nov-2026: "give the super admin a panel called Frequency in which all the documents of all modules are
+listed, so the super admin can set the frequency of each and every document — daily, weekly, monthly, half-yearly,
+yearly."
+
+- pages/FrequencyPage.tsx at #/frequency, beside Users & Access in the sidebar, the super admin's alone. Every
+  document that holds records, grouped by module in the master list's order (engine/frequencyPanel.ts), with a count
+  by frequency, a search box, and on each line what it falls due as now, who set it and from when, and the same
+  picker Master Data's Documents tab carries (§143): every day, every week, twice a month, every month, every
+  quarter, every half year, every year, as required — then Set, after "Are you sure?". "As issued" puts the
+  document back. One setting with Master Data's (scheduleOverrides), from today, one activity-log line.
+- HALF-YEARLY joined the frequencies: `Frequency` "Half-yearly" (types/common.ts), the schedule
+  `{ type: "half-yearly", anchorMonth, dayOfMonth }` (types/document.ts) — twice a year, six months apart, from the
+  month chosen, on the day chosen. The frequency engine names its dates and its six-month period, the reminders
+  count it as 182 days and warn of it in advance like a monthly or yearly one, the picker offers it, the index
+  knows it, and the words are in English and Gujarati.
+- Tests: frontend/tests/frequencyPanel.test.ts.
+
+## §164 F/HR/09 plans the coming year each March, and the system keeps to its training dates (2-Nov-2026)
+
+The owner, 2-Nov-2026: "for HR 09, from March 2027 it should plan for next March 2028, so the system will plan the date
+for various trainings which are there in the document, and it will remind the responsible person that this day this
+training is coming, so do it and write the actual date; so this also the system will do according to date."
+
+1. **One sheet a year, April to March, due at the year's end** (data/seed/documentDefinitions.ts): F/HR/09 falls due on
+   31 March (`yearly`, month 2, day 31, from 2-Nov-2026), is year-long (`DocumentDefinition.yearLong`: filed from 1 April,
+   written on as each training is held, never late before the year is over, as F/HR/16 is - engine/recordGenerator.ts
+   `fillsThroughYear`, now for any due month), and is **made a month ahead** (`madeAheadDays` 31, engine/reminders.ts
+   ensureNearTermRecordsGenerated): on 1 March 2027 the 2027-28 sheet exists, and the morning prepare fills it at once
+   (engine/assistantPrepare.ts). The 2026-27 calendar on file, filed on 1-04-2026, is its year's sheet: no second one is
+   made for 31-03-2027 (the generator's year-long guard).
+2. **The plan is drawn from this year's calendar** (engine/trainingCalendar.ts nextYearPlan, run by engine/knownParts.ts):
+   every topic of the last calendar with writing on it, with its source, method, duration and evaluation; every planned
+   month planned again on the same day of the month the training was held (or planned) this year, moved past the weekly
+   off and the festival holidays; the 15th where no date was written. The planned date stands in the **Plan** cell
+   ("23-07-27"), where the paper's "Yes" (its X) stood; the **Actual** cell is empty, the person's to write when the
+   training is held. The period box is the sheet's own year ("01.04.2027 ~ 31.03.2028", `autoFill.financialYear`), and
+   the months are headed April to March without a year. The record's history notes where the plan came from.
+3. **Each training is a reminder of its own** (engine/notificationPlan.ts, kind `training`; engine/notificationText.ts in
+   English, Hindi and Gujarati; the bell's page, the phone's push and the reminder email, under "Trainings to hold"):
+   to the people who answer for F/HR/09, from three days ahead of the planned day (or the working day before, whichever
+   is earlier, as a yearly document's heads-up is): "Training coming up: GMP Principles (Kapila Barad(PSTL)) is planned
+   for 09-04-27 in F/HR/09 Training Plan Calender. Hold it on that day, then write the actual date in the calendar."
+   From the day after, every day, counted in days late, pushed once a day like an overdue record: "Training not held
+   yet: ... was planned for 09-04-27, 3 days ago. Hold it, then write the actual date in F/HR/09 ...". It ends the moment
+   the actual date is written. Whatever the calendar's status - the year's calendar is on file, verified, from its first
+   day. The 2026-27 calendar's own dates count the same way: a date pre-written under Actual is the planned day until it
+   passes (the plant writes the intended date ahead, as its paper shows); a planned month with no date is due by its last
+   working day. Nothing from before the go-live.
+4. **Proved:** frontend/tests/trainingCalendar.test.ts (the year, the dates as written, the trainings the calendar on
+   file plans, next year's plan, the schedule and the generator's one sheet a year, the prepare, the notifications),
+   notificationText.test.ts and notificationPlan.test.ts (the kind in every language and in every email group);
+   tests/e2e_hr_module.py (the headings).
+
+## §165 The training formats follow one another: F/HR/09 → F/HR/11 → F/HR/12; the score 3 by default; F/HR/19 Yes on every point (2-Nov-2026)
+
+The owner, 2-Nov-2026: "HR 10 is connected with HR 11 and HR 11 is connected with HR 12, and the score is 3 by default
+but editable, and in HR 19 by default the answer is Yes." The plant's F/HR/10, the Training Imparted Record, is a
+hard-copy format DCRS does not hold (it is on the master list of formats only); what DCRS holds of the trainings
+imparted is the Training Plan Calendar, F/HR/09 (§164), with each training's topic, trainer, duration and the day it
+was held. So the chain is built from the calendar (engine/trainingLinks.ts).
+
+1. **F/HR/09 → F/HR/11.** The Training Effectiveness Evaluation's Training Topic box offers the calendar's trainings,
+   latest first ("GMP Principles — 19-09-26", `list: hr-trainings`). The one chosen fills the Date of Training and the
+   Trainer's name when the box is left; a topic typed in words alone names the calendar's latest training of that topic
+   held so far (else the next planned) and fills only the boxes still blank. The trainee's own boxes come from HR
+   Master Data as before (§53).
+2. **F/HR/11 → F/HR/12.** The Training Feedback & Evaluation Record's Topic box offers the same list. The training
+   chosen fills the date, who imparted it and the duration, and lists, one line each, the employees whose F/HR/11
+   evaluation is on file for that training (the same topic and date) - the sheet's blank first line, then lines added -
+   each scored 3 and marked for additional training as the evaluation's further-training answer said ("Yes, very
+   much" / "Partly" → Yes, "No, not at all" → No, unanswered → blank). Named again later, only newcomers are added; a
+   line the person wrote is never changed.
+3. **The score is 3 by default, editable** (`LogColumn.standard` "3" on the rating column): every line of F/HR/12 starts
+   at 3, the paper's best, whether the record is new, a line is added, or an employee is listed from F/HR/11; the box
+   is a 0-3 choice the person changes.
+4. **F/HR/19 starts at Yes on every point** - the handful asked the other way round too (§162 had started those at No,
+   their compliant answer; the owner's second word is Yes everywhere). The team changes the point that failed and
+   writes its action; the box stays editable.
+5. **Proved:** frontend/tests/trainingLinks.test.ts, hrGmpDefaults.test.ts.
+
+## §166 Daylight: a theme that follows the real sun over the plant (2-Nov-2026; on the plant's server since 3-Nov-2026, on the owner's word)
+
+The owner, 2-Nov-2026: "add a theme for the whole day, like in the morning the sun will arrive, at noon the sun is at
+its peak and in the evening the sun is about to go - it should work on real time, how the sun rises to sunset, and feel
+natural, so the user feels like working in nature. Check it and test it locally; when I tell you that I like the
+feature, then only deploy it."
+
+1. **A fourth choice, Daylight (with the sun)** (store/theme.tsx, components/layout/ThemeSwitch.tsx, Master Data's
+   theme card, index.html): kept with the person's settings like the other three, mirrored for the first paint.
+2. **The real sun** (engine/daylight.ts, pure): NOAA's solar equations for Mehsana (23.59 N, 72.37 E, IST) give the day's
+   civil dawn, sunrise, solar noon, sunset and civil dusk to the minute, and the sun's height at any moment - to a few
+   minutes of the almanac on the year's longest and shortest days (frontend/tests/daylight.test.ts). The plant's wall
+   clock (engine/workingHoursCore.ts, Asia/Kolkata) is read every minute.
+3. **The day in phases:** night until civil dawn; dawn (the sun arriving); morning; noon (the middle fifth of the day,
+   the sun at its peak); afternoon; evening (the last tenth, the sun about to go); dusk; night. `data-sky` on <html>
+   names the phase.
+4. **What is painted:** the top bar wears the sky as a band - a gradient of the sky's colour at that minute: indigo to
+   rose at dawn, amber at sunrise, blue over the morning and noon, cream in the afternoon, amber and rose at sunset,
+   deep blue at night - with the sun on its arc from the left edge at sunrise, over the top at noon, to the right edge
+   at sunset (components/layout/SkyArc.tsx), and by night the moon crossing the same way among a few stars. The app's
+   canvas, surfaces, panel and hairlines are tinted a little toward the sky's light (the light theme's values by day;
+   the dark theme's, toward the night's blue, from civil dusk to civil dawn), set inline on <html> each minute. The
+   ink is the theme's own, so the words read at every hour (WCAG 7:1 or better on every surface at every ten minutes
+   of the year, held by the unit test). The sun moves by place alone: no colour animates (the §90 rule).
+5. **The sign of the day in the switch:** with Daylight ticked, the menu says "Sunrise 06:50 · Sunset 17:59 · now: the
+   sun at its peak" and offers **See the day**: Dawn, Noon, Evening, Night, Now - a look for this page alone, never
+   kept, so the owner can see the whole day in a minute.
+6. **Print** reads today's values as ever: the inline tokens are lifted while printing (beforeprint / afterprint).
+7. **Offered only where the server says so** (`DAYLIGHT_THEME=1`, backend/features.ts → `features.daylightTheme`,
+   engine/features.ts): the local run and the test server offer it; the plant's server does not until the line is added
+   to backend/.env and the server restarted, so a build made for anything else never puts it before the plant. On a
+   server that does not offer it the switch shows the three themes of §90, and a setting that says daylight paints light.
+   **3-Nov-2026:** the owner said "deploy that changes also"; `DAYLIGHT_THEME=1` was added to the plant's backend/.env and
+   the plant servers restarted through scripts/windows/start-plant-servers.ps1 (-Stop, then started hidden): the plant's
+   Theme menu offers Daylight since.
+8. **Proved:** frontend/tests/daylight.test.ts (the almanac, the phases, the arc, the contrast, the store, the switch
+   off and on), theme.test.ts (four choices; daylight's night block screen only, the dark tokens; the first paint).
+   Checked on the local run with the preview of each phase; on the plant since 3-Nov-2026.
+
+## §167 F/HR/03 starts every operator at 5, editable (3-Nov-2026)
+
+The owner, 3-Nov-2026: "in HR 03 every operator has by default score 5, but make sure it is editable, as I have already
+told you: in the HR module, for every document, every single thing the user must be able to edit."
+
+- Every operation column of the Skill Matrix - Operator (data/seed/hrLayouts.ts SKILL_OPERATIONS) carries
+  `standard: "5"`: a new line - a new record's, Add line's, a person fetched from HR Master Data's, a line Mitra adds -
+  starts at 5 (S, can operate individually) under every operation. The box stays the 5 / 3 / 1 choice the person
+  changes; the matrix on file (status as on 01.09.2026) keeps the paper's own points.
+- The standing rule is unchanged: nothing on an HR sheet is locked or worked out for the person, and the printed words
+  are typed over in place on the record (§135). Proved: frontend/tests/hrSkillDefaults.test.ts.
+
+## §168 F/HR/10, the Training Imparted Record, in DCRS: the calendar feeds it, and it feeds F/HR/11 and F/HR/12 (3-Nov-2026)
+
+The owner, 3-Nov-2026: "HR 10 is connected with HR 11 and HR 12 is connected with HR 11; many fields are the same, so
+according to the user the data should go into those documents; in HR 12 the data should also come from HR 10."
+
+1. **F/HR/10 is DCRS's own now** (data/seed/documentDefinitions.ts `hr-training-imparted`, Training, As Required): the
+   master list of formats (F/SYS/02) names F-HR-10, Training Imparted Record, a hard copy, and the paper was never
+   supplied - so this is DCRS's layout of what such a record holds, to be aligned with the paper when it comes (Edit
+   format changes any of it): Date of Training (the record's day), Topic, Training Imparted by, Duration, Method, Venue;
+   one line per employee who attended (name, department, designation from HR Master Data, §53; signature); the
+   trainer's signature and the HR Manager at the foot. Its page is /hr/training-imparted, under Training; Mitra knows
+   it by "training imparted record" and "F/HR/10"; the people who answer for it are HR's (§96).
+2. **F/HR/09 → F/HR/10:** its Topic box offers the calendar's trainings; the one chosen fills who imparts it, the
+   duration and the method, and its date.
+3. **F/HR/10 → F/HR/11:** the Training Topic box offers the trainings imparted first (the calendar's behind them); the
+   one chosen fills the Date of Training and the Trainer's name, and a trainee who attended takes the department and
+   designation the attendance line gave, where the form's boxes are blank.
+4. **F/HR/10 and F/HR/11 → F/HR/12:** the Topic box offers the same; the one chosen fills the date, who imparted it and
+   the duration, and lists one line per person - everybody who attended (F/HR/10) and anybody evaluated for it on
+   F/HR/11 - each scored 3 and marked for additional training as their evaluation answered. Named again later, only
+   newcomers are added; nothing a person wrote is changed (engine/trainingLinks.ts, §165).
+5. **Counts:** the Document Library holds 137 documents and the Human Resources module 29 (nineteen HR formats and the
+   pest control file's ten). F/PUR/04, the purchase order, now stands for "a master-list format not in DCRS" in the
+   suites that need one.
+6. **Proved:** frontend/tests/trainingLinks.test.ts, documentFinding.test.ts, recordSearch.test.ts; tests/e2e_hr_module.py,
+   e2e_smoke.py, e2e_find_every_document.py.
+
+## §169 HR Master Data holds the plant's staff sheet: 445 people in eight columns (3-Nov-2026)
+
+The owner, 3-Nov-2026, with "Master Data Staff.xlsx" (GP3 No, Joining Date, Full Name, Department, Sub Department,
+Machine / Process Name, Position, Date of Birth; 445 people): "I am sharing the master data with you, so add
+accordingly."
+
+1. **Two more columns** (types/hrMaster.ts, engine/hrMaster.ts HR_MASTER_COLUMNS): Sub Department and Machine /
+   Process Name, between Department and Designation/Position, on the page, in the Excel download and in an upload
+   (its headings, and "Position", are read). A line kept from before has them blank.
+2. **The staff sheet is the sheet as first set up** (data/seed/hrMasterStaff.ts, generated from the workbook; data/seed/
+   hrMasterSeed.ts): every one of its 445 people, in its own words and dates, under a stable id from the GP3 No.
+   ("hrm-staff-gp3-001"); the registers' people (F/HR/01, 03, 06, §53) after them where the sheet does not hold them.
+   A person both hold is ONE line, under the register line's id, with the register's other spellings as aliases and both
+   sources noted. Two birthdays the sheet could not write (25/02/19993, 28/1282009) are blank with a note for HR; one
+   is blank on the sheet.
+3. **A sheet already kept on a plant computer** (data/repositories/hrMasterRepository.ts ensureSeeded): every stored
+   line takes the staff sheet's word into its BLANK boxes - by id, or by name where HR added the person themselves -
+   and nothing HR wrote is changed; a person whose name is already on the sheet is never added a second time; a line
+   HR deleted stays deleted; everybody else is added once.
+4. **What follows from the sheet:** F/HR/03 writes the operator's process where a designation would go, so its fetch
+   takes the Sub Department (else the Designation/Position), and a process written on F/HR/03 fills a blank Sub
+   Department (§161). The sheet's positions decide the role (§53): Helper, Operator, Guard, Driver, Sweeper, Peon,
+   Electrician are workers; Executive, Manager, Coordinator, HOD, Designer, Director, accountants and the like are staff.
+5. **Proved:** frontend/tests/hrMasterStaff.test.ts; the HR master suites updated for the eight columns.
+
+## §170 F/HR/19 opens at Yes on the sheets already made too (3-Nov-2026)
+
+The owner, 3-Nov-2026: "whenever HR opens any new record the answer of all those questions present in that format will
+be Yes by default, but make that editable so the user can edit it any time." A new sheet has started at Yes on every
+point since §165; the month's sheet the calendar had already made, or the morning prepare had already filled, before
+that still held the earlier answers - and that is the sheet HR opens as the month's new record.
+
+- data/gmpYesMigration.ts, run at every start (data/bootstrap.ts, as §146's weights are): every open F/HR/19 sheet nobody
+  has touched (made, or prepared, and nothing written since - engine/calendarMigration.ts untouchedByPeople) has every
+  point's Compliance answered Yes, with a line in its history. A sheet a person wrote on, handed in, verified or sent
+  back is left exactly as it is. Run again, nothing to do. Each answer stays a Yes / No the person changes (§162).
+- Proved: frontend/tests/hrGmpDefaults.test.ts.
+
+## §171 Every date written with the year in full: 03-11-2026, over §124's 24-10-26 (3-Nov-2026)
+
+The owner, 3-Nov-2026: "make sure the date format in all the records is like dd-mm-yyyy, for example 03-11-2026, and this
+applies to all documents for all modules."
+
+- One way for every date the app writes: day-month-year in numbers, the year in four figures - "03-11-2026". The §124
+  rule of 24-Oct-2026 (numbers, not month names) stands; its two-figure year does not.
+- Where it shows (everything §124 listed, and the papers' own styles that had stayed):
+  - utils/date.ts `formatDisplayDate`, the app's one writer of a date: every record's dates on screen and in print, the
+    lists and the calendar, a record's Created, Prepared, Submitted, Verified and Last saved and its history
+    (`formatDisplayDateTime`, "24-10-2026 15:30"), the activity log, the names of the downloaded files;
+  - the header block's Date and Rev Date, "01-12-2021" (components/documents/DocumentHeader.tsx dottedDate - the papers'
+    dotted "01.12.2021" before), and the format number's revision in a footer or band of a filled original ("F/QC/16
+    (00/01-12-2021)", utils/originalFill/text.ts appDate, which also reads the earlier two-figure, dotted and month-named
+    writings), the Rev Date on F/HR/15's and F/HR/16's sheets (utils/paperSheets.ts);
+  - the registers' dates: F/HR/01, F/HR/03, F/HR/06, F/HR/13 and the rest take "05-07-2024" where each had its own style
+    (dotted, slashed month first, slashed day first) - from HR Master Data (engine/hrMaster.ts writeDate), from a new
+    joiner (engine/hrJoiner.ts), from a CV import; the registers' earlier writings are still read (slashOrderOf);
+  - F/HR/18's visit dates ("03-08-2026", the specimen's "3/08/26" before), the service report's dates (data/seed/
+    serviceReportPaper.ts), the forms' dotted dates (components/records/FormField.tsx formDate), the QC sample sheets'
+    Date / Shift, F/HR/09's period band "01-04-2027 ~ 31-03-2028" (engine/trainingCalendar.ts calendarPeriod and the
+    layout's default);
+  - the notifications' dates in every language (engine/notificationText.ts), the training calendar's planned dates and the
+    trainings offered on F/HR/10, 11 and 12 ("GMP Principles — 19-09-2026", engine/trainingCalendar.ts displayDay);
+  - the server's letters and archives: the escalation mails (backend/escalation.ts), the access report
+    (backend/accessRoutes.ts), the activity archive's and the records archive's names (backend/activityArchive.ts,
+    backend/recordsArchive.ts);
+  - the date cells of the Excel downloads: the number format is dd-mm-yyyy (utils/xlsx.ts, utils/documentExport.ts).
+  - the leave calendar's adjustment days name their holiday with the year in full ("Navratri Navam (20-10-2026)",
+    data/seed/masterData.ts - a plant whose master data was saved before keeps the words it saved), and F/HR/01's printed
+    note says dd-mm-yyyy (a line carried over from the paper register keeps the register's own spelling).
+- Still read as before: what a person types with two figures ("24-10-26", displayDateToISO / twoFigureYear), the papers'
+  dotted and slashed dates, the ISO value of a date box. The `<input type=date>` boxes keep their ISO value.
+- Not touched: the paper's own words - a date transcribed from a supplied page keeps its spelling (a Rev Date band read
+  from an upload, a specimen's dates), the printed footer statements the papers carry ("F/QC-10 (Rev – 00 / 01.12.2021)"),
+  a financial-year label ("26-27"), a report number ("CAL/LPI/GP-26/27"), F/HR/18's month band ("AUGUST-26").
+- Proved: the unit suites and the Playwright suites that pinned the two-figure year or a paper's style, moved to the
+  year in full.
+
+## §172 Master Data for Kapila Barad's ID too - that and nothing else of the System menu (3-Nov-2026)
+
+The owner, 3-Nov-2026, with a picture of the System menu (Reports, Master Data): "for kapila barad ID just give this
+access only for master data in system, nothing more or less than that."
+
+- **Who opens Master Data** (frontend/src/engine/masterDataAccess.ts, the one rule the server runs too, over §134): the
+  super admin, the testing accounts (at example.com), and Kapila Barad's account - known by its sign-in,
+  kapila.barad@gpp.local (§96, §110), and by the sign-in it had before it was renamed, kapilabarad01@gmail.com, either
+  way it is typed (MASTER_DATA_PEOPLE, isMasterDataPerson). She has Master Data in her System menu, opens #/master-data,
+  the assistant offers it to her beside the calendar, and the server takes her changes to its lists.
+- **Nothing more:** the plant's hours on the page stay the super admin's (§84: her write keeps them as stored, as a
+  testing account's does), and Users & Access, the master list, the indexing item, the frequency and the database
+  overview stay the administrator's (§66). Reports, the Activity Log, the Performance Scorecard and Insights are as
+  they were for her. **Nothing less:** everything else she had is untouched.
+- **Everybody else** of the plant's people is as §134 left them: no Master Data, their writes keep every list as stored
+  but the Chemical Master's.
+- **Proved:** frontend/tests/masterDataAccess.test.ts (Kapila by either sign-in, however typed; the other people not),
+  backend/tests/storageRoutes.test.ts (Kapila's write of the lists taken, the hours kept; another member of staff's
+  kept as stored but the Chemical Master's), and tests/e2e_working_hours.py (Kapila has the link and the page; another
+  member of staff has neither).
+
+## §173 Kapila Barad's System menu is Master Data alone (3-Nov-2026)
+
+The owner, 3-Nov-2026, with a picture of the System menu (Reports, Master Data, Activity Log, Performance Scorecard,
+Insights, Demo Mode): "Remove all the thing from this system for kapila barad id except Master data."
+
+- **The rule** (frontend/src/engine/masterDataAccess.ts mayOpenSystemPages / mayOpenRoute, import-free, the server runs
+  it too): Reports, the Activity Log, the Performance Scorecard, Insights, and Demo Mode where a server has it, are
+  everybody's as before except Kapila Barad's ID (§172's MASTER_DATA_PEOPLE: kapila.barad@gpp.local, and the sign-in it
+  was). The super admin always has them.
+- **Where it shows for her:** the System menu lists Master Data and nothing else (components/layout/Sidebar.tsx); the
+  five addresses (#/reports and its months, #/activity, #/performance, #/insights, #/demo) show "In System, only Master
+  Data is open to this account" (App.tsx SystemPageNotAllowed, data-state system-not-allowed, in English and Gujarati);
+  a shortcut of Mitra's to one of them says the same instead of going there (components/common/DocumentAssistant.tsx);
+  and the server refuses her reading of the Activity Log's lines and tally (backend/activityRoutes.ts, 403) - the
+  screen is never the lock (§66). Her forms, records, calendar, HR pages and Master Data (§172) are as they were.
+- **Proved:** frontend/tests/masterDataAccess.test.ts (the rule by either sign-in, the menu, the addresses, the
+  assistant and the server held to it), backend/tests/activityRoutes.test.ts (her reading refused; Ankur Raval, now the
+  suite's member of staff, reads as before), tests/e2e_working_hours.py (her menu: Master Data alone; the addresses).
+
+## §174 Master Data: the Areas editable, the Checkpoints tab gone (3-Nov-2026)
+
+The owner, 3-Nov-2026, with pictures of Master Data's Areas (read-only: Area Name, Belongs To) and Checkpoints tabs:
+"now give me edit option in area in that master list and remove checkpoints."
+
+- **Areas** (pages/MasterDataPage.tsx): one table a service report - Rodent Control Service, General Pest Control
+  Services, Fly Control Services - in the order the lists are kept, each area's name a box typed over in place, "Add
+  Row" adding a line under that service (after its last line, as "TO BE CONFIRMED" to be typed over), and the bin
+  taking a line away after a confirmation, as the Rodent Stations tab works (§134 item 3). The service a list belongs to
+  is its heading, not a box: engine/serviceLines.ts and the service report pages read each list by that context, so a
+  renamed service would lose its report its areas. A report already made keeps the lines it was made with; the next
+  report is made from the list as it stands (engine/recordDefaults.ts). An area added on a report itself (§154 item 6)
+  still lands on this list.
+- **Checkpoints**: no tab. F/HR/17's ten checkpoints are the record's own list (data/seed/masterData.ts checkpoints,
+  read by the Daily Pest Control Monitoring Record and the monthly summary as before); Master Data no longer shows
+  them. Nothing else of the page changes.
+- **Who edits:** whoever opens Master Data (§134, §172): the super admin, Kapila Barad, the testing accounts.
+- **Proved:** frontend/tests/masterDataAreas.test.ts (the tabs, the three tables, add / edit / remove through the
+  repository as the page does them, the helper's grouping).
+
+## §175 Back from wherever you are: the top bar's Back on every page (3-Nov-2026)
+
+The owner, 3-Nov-2026: "add back option in whole project so user can go back from wherever he is at the time."
+
+- **One Back for the whole app** (components/layout/Topbar.tsx, beside the menu toggle, on every page): it goes to the
+  page you came from - the router's own trail of the app's addresses (§48), so the browser's history stays in step and
+  a screen opened straight from an address never leaves the app - or to the Dashboard when there is nothing behind it.
+  On the Dashboard with nothing behind it there is nowhere to go, so the button is not shown there. A screen holding
+  unsaved work asks before it is left, as for every other move (§64). On a phone the word goes and the arrow stays, as
+  the bar's other words do (§75). In Gujarati the word is the app's "પાછળ".
+- **The pages' own Back buttons** (the calendar's, a record's) stay where they are.
+- **Proved:** frontend/tests/backEverywhere.test.ts (the router's canGoBack, the button on the bar, hidden only on the
+  Dashboard with nothing behind it, the word in both languages).
+
+## §176 Kapila Barad known by her account's name too; every list of Master Data editable, the PC ID among them (3-Nov-2026)
+
+The owner, 3-Nov-2026, with a picture of Kapila's System menu at the plant still showing Reports, Activity Log,
+Performance Scorecard and Insights and no Master Data: "do add master data in kapila barad id, in which from master
+data for kapila barad id make sure to remove the checkpoints, and make sure everything in it is editable also."
+
+- **Her account, by its name** (frontend/src/engine/masterDataAccess.ts isMasterDataPerson): the plant's account for
+  Kapila signs in by whatever address the super admin gave it (§110 renamed it once; the database is the plant's and is
+  not read from here), so the rule knows her by the name the account carries - every word of "Kapila Barad" in it,
+  letters only, any case or order ("Kapila B Barad", "Ms. Kapila Barad") - as well as by the two sign-ins of §172.
+  §172 (Master Data hers) and §173 (the System menu's other pages not hers) both follow this one test. A browser that
+  was already open on the old build shows the old menu until the page is reloaded or she signs in again.
+- **Everything in Master Data editable** for whoever opens it: the PC ID is typed over in place like the rodent
+  station's (§134 item 3) - a fly catcher record already written keeps the ID it was written with - beside the
+  location and floor; the Employees, Chemicals, Rodent Stations, Areas (§174), Holidays and the documents' frequency
+  and role keyword were already boxes. Two things stay the administrator's: Departments & access (who may use which
+  module, §66) and the plant's hours on Working Hours & Briefing (§84). No Checkpoints tab (§174).
+- **Proved:** frontend/tests/masterDataAccess.test.ts (by name, in any case or order; not a near-name; the owner's own
+  account), the page's PC ID column in frontend/tests/masterDataAreas.test.ts.
+
+
+## §177 F/HR/17: the round at 09:00-09:30 in Kapila Barad's name; a catch suggested from Master Data on a Yes (3-Nov-2026)
+
+The owner, 3-Nov-2026, with pictures of check points 7-9, the Rodent catch details box and the Summary of Actions: "daily
+when system fills the record it should take time every day between 9:00 am to 9:30 am with username, so time will come
+random and name is fix which is Kapila barad but editable ... when system or user click on question 7 and select answer
+yes instead of no then the box number, location and number of rodents should come automatically ... any box number, any
+location and any number of rodents, all from plant and the details will come from master data ... rodent station and
+Areas ... and in summary of action taken will also be filled automatically: ... rodent has catched ... rodent disposed."
+
+1. **The fill** (engine/dailyPestFill.ts, run by pages/RecordPage.tsx when a person opens the day's record, §149): the
+   time of checking is a time of the morning round drawn at random between 09:00 and 09:30 (dailyPestRoundTime), and
+   the checker is Kapila Barad (DAILY_PEST_CHECKER) - both boxes the person's to change. The history line still names
+   who opened it. The fill is for today's and earlier days: a day still to come is left unanswered until it comes. The
+   check points' usual answers are as §149 lists them: 7, 8 and 9 stay No - the system never writes that a rodent was
+   found (§98, §118, the refusals of 28 and 30-Oct-2026 stand).
+2. **Submit keeps the checker and the time as written** (engine/recordLifecycle.ts submitRecord): a blank one is refused
+   by the validation, as for every record. Until now the submitter's name and the moment of submitting replaced both
+   (§149's last paragraph, amended).
+3. **A Yes on check point 7 brings the catch's details** (engine/rodentCatches.ts suggestedRodentCatch, run by the
+   record page's one answer handler withCheckpointAnswer): where the plant keeps rodent stations in Master Data (System >
+   Master Data > Rodent Stations), one Active station chosen at random - its Station ID as the trap box number, its
+   place as the location (the rodent area of that name when there is one, so the choice box shows it); where there are
+   none, a trap box RB-NN numbered at random up to check point 4's count of traps (100 when not known) and one of the
+   rodent areas (Master Data > Areas, the Rodent Control Service report's list) at random; and 1 to 3 rodents. The row
+   is marked as suggested and says so under the table; a person's change to any of its boxes makes it theirs. "Add box"
+   still adds an empty row, and Submit still refuses a row without a place and a count (§118).
+4. **The Summary of Actions gets its line** at the same moment (suggestedCatchAction): the day's date, "Rodent caught
+   in trap box RB-27 at Canteen" ("2 rodents caught in ..." for more), action "Rodent removed and disposed" - the
+   owner's "rodent disposed" in the words engine/insightRules.ts counts as the register working (a rodent trapped,
+   removed, disposed of or caught raises no CAPA insight), remarks blank; every box editable.
+5. **Back to No**, every catch row goes (the catch table is hidden while 7 is not Yes, so a row left there could neither
+   be seen nor taken away, yet the reports and the v1 API would still count it) and so do the Summary lines still
+   marked suggested; Summary lines a person wrote or changed stay, in the table they can see. Yes again brings a fresh
+   suggestion. Submit confirms the rows: the suggested marks come off (withSuggestionsConfirmed). Mitra's, the API's and the phone's patches are as they were: a Yes with its own catch line adds exactly
+   that line (backend/tests/apiV1Records.test.ts); the suggestion is the record page's.
+6. **What a Yes means for the reports:** as before, the count on the day's record reaches the rodent trend and the
+   dashboard once the day holds a person's entry - the person answered Yes; the suggested count is theirs to correct
+   before they submit.
+7. **Proved:** frontend/tests/dailyPestFill.test.ts (the time's bounds and randomness, the fixed name, Submit keeping
+   both and filling blanks), frontend/tests/dailyPestRecord.test.ts (the suggestion with and without stations, its
+   bounds, the Summary line's words, Yes / No / Yes again, rows a person changed kept), tests/e2e_hr_module.py (the
+   screen: the suggested row and line, No, the emptied row refused, the person's own place and count kept, Submit).
+
+## §178 Vinay Bhojak's ID as Kapila Barad's; Master Data without "Departments & access" for them (3-Nov-2026)
+
+The owner, 3-Nov-2026, with a picture of Master Data's "Departments & access" tab: "Remove this also from master data in
+kapila barad id and give same as to vinay bhojak also."
+
+- **Vinay Bhojak** (frontend/src/engine/masterDataAccess.ts MASTER_DATA_PEOPLE / MASTER_DATA_PEOPLE_NAMES: his sign-in
+  vinay.bhojak@gpp.local, or an account named Vinay Bhojak) has what §172 and §173 gave Kapila: Master Data in the
+  System menu and nothing else of it, his changes to the lists taken by the server, the Activity Log refused.
+- **"Departments & access"** (pages/MasterDataPage.tsx, mayOpenDepartmentsAccess) is shown to the administrator, whose
+  page it works for (§66), and to the testing accounts; Kapila's and Vinay's Master Data opens without that tab. The
+  Checkpoints tab is gone for everybody (§174); the plant's hours stay the super admin's (§84).
+- **Proved:** frontend/tests/masterDataAccess.test.ts (Vinay by sign-in and by name, the tab's rule, the page held to
+  it), backend/tests/storageRoutes.test.ts (Vinay's write taken; Ankur Raval, now the suite's member of staff without
+  Master Data, kept as stored), tests/e2e_working_hours.py (Chirag Parmar as the member of staff without it).
+
+## §179 Vinay Bhojak's Master Data without the Employees tab (3-Nov-2026)
+
+The owner, 3-Nov-2026, with a picture of Master Data's Employees tab: "remove this employee in from master data for
+vinay bhojak id." Vinay Bhojak's Master Data (§178) opens without the Employees tab and lands on Chemicals
+(frontend/src/engine/masterDataAccess.ts mayOpenEmployeesTab, pages/MasterDataPage.tsx); everybody else who opens Master
+Data - the super admin, Kapila Barad, the testing accounts - has it as before. Proved: frontend/tests/masterDataAccess.test.ts.
+

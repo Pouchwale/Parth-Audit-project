@@ -158,7 +158,8 @@ test("a format number finds exactly its document, as before; a number DCRS does 
   assert.equal(findDocuments("F/HR/99").length, 0, "a number on no list finds nothing");
   // What the Search page's registers and Mitra rest on is unchanged.
   assert.deepEqual(documentsByFormatNumber("F/HR/05").map((d) => d.id), ["hr-induction-staff"]);
-  assert.deepEqual(documentsByFormatNumber("F/HR/10"), []);
+  assert.deepEqual(documentsByFormatNumber("F/HR/10").map((d) => d.id), ["hr-training-imparted"], "F/HR/10 is in DCRS since 3-Nov-2026 (§168)");
+  assert.deepEqual(documentsByFormatNumber("F/PUR/04"), [], "the purchase order is on the master list only");
 });
 
 // ---------------------------------------------------------------------------
@@ -229,7 +230,8 @@ test("the Master List of Formats (F/SYS/02) is read line by line, and each line 
   // F-QC-15 - B, the punching line clearance, has been in DCRS since REQUIREMENTS §85.
   assert.equal(held("F-QC-15 - B"), "qc-line-clearance-punching");
   assert.ok(!masterListFormatsNotInDcrs().some((l) => l.formatNo === "F-QC-15 - B"), "F-QC-15 - B is not listed as not in DCRS yet");
-  assert.equal(held("F-HR-10"), null);
+  // F-HR-10, the Training Imparted Record, has been DCRS's own since REQUIREMENTS §168 (3-Nov-2026).
+  assert.equal(held("F-HR-10"), "hr-training-imparted");
   assert.equal(held("F-PUR-04"), null);
   // A line said to be not in DCRS yet carries no number any DCRS document carries.
   const keys = new Set(DOCS.map((d) => formatKey(d.formatNo)).filter(Boolean));
@@ -238,10 +240,11 @@ test("the Master List of Formats (F/SYS/02) is read line by line, and each line 
 });
 
 test("a format on the master list that DCRS does not have yet is found by its number and its name, by anybody", () => {
-  const hr10 = findDocuments("F/HR/10");
-  assert.equal(hr10.length, 1, describe(hr10));
-  const line = hr10[0];
-  assert.ok(line.kind === "master" && line.format.formatNo === "F-HR-10" && line.format.name === "Training Imparted Record" && line.format.departmentName === "Human Resources", describe(hr10));
+  const pur4 = findDocuments("F/PUR/04");
+  assert.equal(pur4.length, 1, describe(pur4));
+  const line = pur4[0];
+  assert.ok(line.kind === "master" && line.format.formatNo === "F-PUR-04" && line.format.name === "Purchase Order" && line.format.departmentName === "Purchase", describe(pur4));
+  assert.ok(findDocuments("F/HR/10").every((f) => f.kind !== "master"), "F/HR/10, the Training Imparted Record, is DCRS's own since §168: no master-list line stands in for it");
   assert.equal(NOT_IN_DCRS_YET, "On the Master List of Formats (F/SYS/02) — not in DCRS yet");
   assert.ok(findDocuments("purchase order").some((f) => f.kind === "master" && f.format.formatNo === "F-PUR-04"));
   assert.deepEqual(
@@ -260,7 +263,7 @@ test("a format on the master list that DCRS does not have yet is found by its nu
   noProblems("A master-list format not found", problems);
   // A Quality Control account finds them too.
   asDepartment(["QC"], () => {
-    assert.ok(findDocuments("F-HR-10").some((f) => f.kind === "master" && f.format.formatNo === "F-HR-10"));
+    assert.ok(findDocuments("F-PUR-04").some((f) => f.kind === "master" && f.format.formatNo === "F-PUR-04"));
   });
 });
 
