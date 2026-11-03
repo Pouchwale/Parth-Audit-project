@@ -42,6 +42,27 @@ export const DEFAULT_TRAP_BOXES = 100;
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 const isPlaceholder = (v: unknown): boolean => typeof v === "string" && /^\s*to be confirmed\s*$/i.test(v);
 
+/** Whether a Summary line still reads as the system wrote it (REQUIREMENTS §177): "Rodent caught in ..." / "2 rodents caught in ..." and the suggested action. */
+export function inSuggestedWords(a: Pick<SummaryAction, "descriptionOfObservation" | "actionTaken">): boolean {
+  return /^(?:Rodent|\d+ rodents) caught in /.test(String(a.descriptionOfObservation ?? "")) && String(a.actionTaken ?? "").trim() === SUGGESTED_CATCH_ACTION;
+}
+
+/**
+ * THE DAY'S DATA AFTER A PERSON CHANGES A CATCH ROW (REQUIREMENTS §177): the row is theirs now (no longer the suggestion),
+ * and a Summary line still the system's - marked suggested and in the suggested words - follows the row it describes,
+ * so a box or a place corrected on the row is corrected on the line too; a line a person edited is left alone.
+ */
+export function withCatchEdited(data: DailyPestMonitoringData, id: string, patch: Partial<RodentCatch>): DailyPestMonitoringData {
+  const catches = (data.rodentCatches ?? []).map((c) => (c.id === id ? { ...withoutSuggested(c), ...patch } : c));
+  const first = catches[0];
+  const summaryActions = (data.summaryActions ?? []).map((a) => {
+    if (!a.suggested || !inSuggestedWords(a) || !first) return a;
+    const fresh = suggestedCatchAction(first, a.dateOfObservation);
+    return { ...a, descriptionOfObservation: fresh.descriptionOfObservation };
+  });
+  return { ...data, rodentCatches: catches, summaryActions };
+}
+
 /** The day's data with every "suggested" mark taken off: the person's Submit confirms the rows as the day's (REQUIREMENTS §177). */
 export function withSuggestionsConfirmed(data: DailyPestMonitoringData): DailyPestMonitoringData {
   const catches = data.rodentCatches;
@@ -127,6 +148,7 @@ export function withCheckpointAnswer(
     return next;
   }
   if (next.rodentCatches && next.rodentCatches.length > 0) next.rodentCatches = [];
-  next.summaryActions = (next.summaryActions ?? []).filter((a) => !a.suggested);
+  // A line still marked suggested but reworded by a person through Mitra, the API or an uploaded file is theirs: it stays.
+  next.summaryActions = (next.summaryActions ?? []).filter((a) => !(a.suggested && inSuggestedWords(a)));
   return next;
 }

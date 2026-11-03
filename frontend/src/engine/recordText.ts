@@ -203,7 +203,7 @@ const LINE_NAME_KEYS = ["pcId", "trapBoxNo", "areaName", "employeeName", "issue"
 // Fields that are never searched: ids and the links between records, the
 // printed numbering and activity text every copy of a form carries, internal
 // markers, and the base64 payload of a photograph or a scan.
-const SKIPPED_FIELDS = new Set([
+const SKIPPED_FIELDS = new Set(["suggested", 
   "id",
   "dataUrl",
   "sNo",
@@ -450,8 +450,9 @@ function walkLogSheet(b: TextBuilder, data: LogSheetData, layout: LogSheetLayout
       b.cell(where, label, row[col.key], col.unit);
     }
     for (const [k, v] of Object.entries(row)) {
+      if (k === "suggested") continue; // the system's own mark on a suggested row (REQUIREMENTS §177), not a word of the record
       // hrMasterGp3: HR Master Data's own mark on a line it wrote (engine/hrMaster.ts HR_MASTER_TAG), not a box.
-      if (reading?.known.has(k) || k === "id" || k === "hrMasterGp3") continue;
+      if (reading?.known.has(k) || k === "id" || k === "hrMasterGp3" || k === "suggested") continue;
       b.cell(where, words(k), v);
     }
   });

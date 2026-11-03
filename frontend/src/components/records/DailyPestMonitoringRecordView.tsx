@@ -7,7 +7,7 @@ import { masterRepository } from "../../data/repositories/masterRepository";
 import { isCheckpointFinding } from "../../engine/checkpoints";
 import { dayInfo } from "../../engine/holidays";
 import { totalRodents } from "../../engine/rodentPattern";
-import { newRodentCatch, rodentAreaNames, withCheckpointAnswer, withoutSuggested } from "../../engine/rodentCatches";
+import { newRodentCatch, rodentAreaNames, withCatchEdited, withCheckpointAnswer, withoutSuggested } from "../../engine/rodentCatches";
 import { Link } from "../../store/router";
 import { FHR17_INSTRUCTION_1, FHR17_INSTRUCTION_2 } from "./DailyRegisterSheet";
 import { MONTH_NAMES, fromISODate } from "../../utils/date";
@@ -70,9 +70,9 @@ export function DailyPestMonitoringRecordView({
     onChange(withCheckpointAnswer(data, no, patch, { master, dueDate: record.dueDate }));
   };
 
-  // A person's change makes the row theirs: it is no longer the system's suggestion (and stays when 7 goes back to No).
-  const updateCatch = (id: string, patch: Partial<RodentCatch>) =>
-    setField("rodentCatches", catches.map((c) => (c.id === id ? { ...withoutSuggested(c), ...patch } : c)));
+  // A person's change makes the row theirs: it is no longer the system's suggestion; the Summary line still the system's
+  // follows the corrected box, place or number (engine/rodentCatches.ts withCatchEdited, §177).
+  const updateCatch = (id: string, patch: Partial<RodentCatch>) => onChange(withCatchEdited(data, id, patch));
   const editedActions = (id: string, patch: Partial<DailyPestMonitoringData["summaryActions"][number]>) =>
     data.summaryActions.map((x) => (x.id === id ? { ...withoutSuggested(x), ...patch } : x));
   const addCatch = () => setField("rodentCatches", [...catches, newRodentCatch()]);

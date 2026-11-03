@@ -162,7 +162,7 @@ function dailyMonitoring(doc: DocumentDefinition, dueDate: string, master: Maste
   }
   return {
     data,
-    notes: [`The ${master.checkpoints.length} check points are listed for ${formatDisplayDate(dueDate)}. Every answer, the time of the round and the checker's name are written by whoever walks the round.`],
+    notes: [`The ${master.checkpoints.length} check points are listed for ${formatDisplayDate(dueDate)}. The check points are answered as the plant's usual day when the record is opened, the round at a time between 09:00 and 09:30 in Kapila Barad's name (REQUIREMENTS §149, §177) - every one of them yours to change.`],
     basedOn: "the register's printed check points (Master Data)",
   };
 }

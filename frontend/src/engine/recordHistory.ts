@@ -200,7 +200,9 @@ function flatten(value: unknown, path: string, label: string, out: Map<string, L
   }
   if (value !== null && typeof value === "object") {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (k === "id") continue;
+      // A row's id, and the mark that a catch row or a Summary line is still the system's suggestion (REQUIREMENTS §177),
+      // are bookkeeping, not something a person wrote: neither is a change.
+      if (k === "id" || k === "suggested") continue;
       const childPath = path ? `${path}.${k}` : k;
       // checkpoints.7.value -> "Check point 7"; checkpoints.7.note -> "Check point 7 note"
       let childLabel: string;

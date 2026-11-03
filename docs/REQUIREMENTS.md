@@ -10819,13 +10819,16 @@ Areas ... and in summary of action taken will also be filled automatically: ... 
 5. **Back to No**, every catch row goes (the catch table is hidden while 7 is not Yes, so a row left there could neither
    be seen nor taken away, yet the reports and the v1 API would still count it) and so do the Summary lines still
    marked suggested; Summary lines a person wrote or changed stay, in the table they can see. Yes again brings a fresh
-   suggestion. Submit confirms the rows: the suggested marks come off (withSuggestionsConfirmed). Mitra's, the API's and the phone's patches are as they were: a Yes with its own catch line adds exactly
+   suggestion. Submit confirms the rows: the suggested marks come off (withSuggestionsConfirmed). A Summary line still
+   the system's follows the box, place or number a person corrects on the catch row (withCatchEdited); a line reworded
+   by any path - the screen, Mitra, the API, an uploaded file - is the person's and stays. The mark itself is
+   bookkeeping: it is no change in the record's history and no word of the record for Mitra. Mitra's, the API's and the phone's patches are as they were: a Yes with its own catch line adds exactly
    that line (backend/tests/apiV1Records.test.ts); the suggestion is the record page's.
 6. **What a Yes means for the reports:** as before, the count on the day's record reaches the rodent trend and the
    dashboard once the day holds a person's entry - the person answered Yes; the suggested count is theirs to correct
    before they submit.
 7. **Proved:** frontend/tests/dailyPestFill.test.ts (the time's bounds and randomness, the fixed name, Submit keeping
-   both and filling blanks), frontend/tests/dailyPestRecord.test.ts (the suggestion with and without stations, its
+   both and refusing blanks), frontend/tests/dailyPestRecord.test.ts (the suggestion with and without stations, its
    bounds, the Summary line's words, Yes / No / Yes again, rows a person changed kept), tests/e2e_hr_module.py (the
    screen: the suggested row and line, No, the emptied row refused, the person's own place and count kept, Submit).
 

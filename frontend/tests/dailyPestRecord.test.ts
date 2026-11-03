@@ -20,7 +20,8 @@ import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../sr
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { prepareKnownParts } from "../src/engine/knownParts";
 import { isCompanyHoliday, nextWorkingDay } from "../src/engine/holidays";
-import { newRodentCatch, rodentAreaNames, rodentCatchComplete, RODENT_AREA_CONTEXT, SUGGESTED_CATCH_ACTION, suggestedCatchAction, suggestedRodentCatch, withCheckpointAnswer, withoutSuggested, withSuggestionsConfirmed } from "../src/engine/rodentCatches";
+import { inSuggestedWords, newRodentCatch, rodentAreaNames, rodentCatchComplete, RODENT_AREA_CONTEXT, SUGGESTED_CATCH_ACTION, suggestedCatchAction, suggestedRodentCatch, withCatchEdited, withCheckpointAnswer, withoutSuggested, withSuggestionsConfirmed } from "../src/engine/rodentCatches";
+import { diffRecordData } from "../src/engine/recordHistory";
 import { validateForSubmit } from "../src/engine/validation";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { todayISO } from "../src/utils/date";
@@ -248,6 +249,16 @@ describe("a catch suggested from Master Data when a person answers check point 7
     const noAfterEdit = withCheckpointAnswer(edited, 7, { value: "No" }, { master: noStations, dueDate: workDay });
     assert.deepEqual(noAfterEdit.rodentCatches, [], "every catch row goes with the No: the hidden table could not be changed, and the reports would still count it");
     assert.equal(noAfterEdit.summaryActions.length, 2, "the Summary lines the person wrote or changed stay, in the table they can see");
+    // The Summary line follows the row a person corrects, until they edit the line itself; the mark is no change in the history.
+    const corrected = withCatchEdited(yes, yes.rodentCatches![0].id, { trapBoxNo: "RB-12", count: 1 });
+    assert.equal(corrected.rodentCatches![0].suggested, undefined, "the row is the person's now");
+    assert.equal(corrected.summaryActions[0].descriptionOfObservation, `Rodent caught in trap box RB-12 at ${areas[areas.length - 1]}`, "the line says the corrected box and count");
+    assert.equal(corrected.summaryActions[0].suggested, true, "...and is still the system's until a person edits it");
+    const reworded = { ...yes, summaryActions: [{ ...yes.summaryActions[0], descriptionOfObservation: "Two rats near the canteen door" }] };
+    assert.equal(withCheckpointAnswer(reworded, 7, { value: "No" }, { master: noStations, dueDate: workDay }).summaryActions.length, 1, "a line reworded by any path stays on a No, mark or no mark");
+    assert.equal(inSuggestedWords(yes.summaryActions[0]), true);
+    assert.equal(inSuggestedWords(reworded.summaryActions[0]), false);
+    assert.deepEqual(diffRecordData(yes, { ...yes, rodentCatches: [withoutSuggested(yes.rodentCatches![0])], summaryActions: [withoutSuggested(yes.summaryActions[0])] }), [], "taking the mark off is no change in the history");
     const confirmed = withSuggestionsConfirmed(yes);
     assert.deepEqual([confirmed.rodentCatches![0].suggested, confirmed.summaryActions[0].suggested, confirmed.rodentCatches![0].trapBoxNo], [undefined, undefined, "RB-50"], "Submit confirms the rows: the marks come off, the words stay");
     assert.equal(withSuggestionsConfirmed(day), day, "nothing marked: the same data");
