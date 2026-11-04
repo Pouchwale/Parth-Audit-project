@@ -1,0 +1,941 @@
+# Digital Controlled Record System — Human Resources & Pest Control · Lamination QC & Production · Compliance
+
+**Phase 1 prototype.** A digital reproduction of Gujarat Print Pack Publications Pvt Ltd's
+existing paper-based controlled records — not a generic document manager. Every screen is built
+from the company's actual uploaded documents (Format numbers, checkpoint wording, PC locations,
+chemical charts, GAP findings, training certificates, photographed lamination registers) so the
+digital record looks and behaves like the paper one it replaces. The uploaded sources are kept in
+`source-documents/`.
+
+See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for the full source-document inventory and traceability,
+[docs/DATA_MODEL.md](docs/DATA_MODEL.md) for architecture, [docs/TESTING.md](docs/TESTING.md) for what was tested,
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for how to run/deploy it, [docs/phone-app-setup.md](docs/phone-app-setup.md)
+for the plant's server PC and Mitra on the staff's phones, and [docs/FUTURE_ROADMAP.md](docs/FUTURE_ROADMAP.md)
+for how to extend this to the remaining ~141 controlled formats. [docs/README.md](docs/README.md) lists every document.
+
+## The assistant: records are ready before you arrive
+
+The app behaves like a personal assistant rather than a blank form:
+
+- **Every record that falls due is pre-filled** (`src/engine/autoFill.ts`) from the user's last real
+  record of that document, or from the filled specimen in the source file when there is no history —
+  operators, machines, batch numbers, job lists, hourly readings, checkers, trap counts. It never
+  signs, submits or verifies anything: a person does that.
+- **The records read like a real plant's, not like a demo.** A year in which every reading sits on
+  nominal, every check point says Yes and every lot is Accepted is the first thing an auditor
+  disbelieves — what they look for is the exceptions and what was done about each. So the readings
+  follow a behaviour model measured from the company's own filled specimens
+  (`tools/plant_pattern.py` → `src/data/seed/plantPattern.ts`, applied by
+  `src/engine/plantSimulation.ts`): mostly in control, with the occasional drift episode that takes
+  a reading out of the printed band — and every one of those carries its consequence, whether that's
+  the operator's remark beside it, the Summary of Actions row against a flagged check point, the
+  reason beside a lot held on deviation, or a corrective action with a target date. The wording of
+  the pest-control findings is the company's own, from its Dec-2023 GAP report. Anything the model
+  flags is put in the first line of the record's notes — "Check this before you submit…" — so it is
+  confirmed by a person, never quietly signed off. Every value is deterministic per date, so an
+  auditor who comes back to 14-Aug finds exactly the record they saw. See REQUIREMENTS §25.
+- **Every record can be corrected — by hand or by asking the assistant — and nothing is lost.**
+  - *While a record is a draft* every field is editable and **saves itself** a moment after you type
+    ("All changes saved" beside the buttons), so there's no Save button to forget and leaving the page
+    loses nothing.
+  - *Once it's submitted or verified* it's locked, and offers **Correct this record**: pick or type a
+    reason, and the record reopens — a banner says who reopened it and why — you make the change, and
+    it goes through Submit and verification again. A verified record is never changed quietly. Pressed
+    Edit and found nothing to put right? **Cancel edit** puts it straight back as it was.
+  - *Every change is recorded*: each record has a **Record history** listing every edit field by field
+    (before → after), every submit, verification, rejection and correction, and who did it. That is
+    what makes a correction a correction and not a rewrite.
+  - *The assistant can make the change for you*: say or type it — "14:00 viscosity is 20.4",
+    "check point 3 is no", "PC-05 count is 3", "customer sign is Kapila Barad", "Akash Patel attended".
+    Common changes are understood instantly with no network; anything else goes to the AI. Every
+    change is checked first (a word can't go into a number, "OK" can't go into a Yes/No, a printed
+    time slot can't be moved), saved, listed back to you, and can be **undone**. On a signed-off
+    record it asks before reopening it, and records your words as the reason.
+  - *Master Data* rows (chemicals, fly catcher locations, rodent stations, employees) are corrected in
+    place, and deleting one takes two taps. The service provider's licence and the Statements of
+    Compliance stay read-only: they are issued documents, reproduced exactly. See REQUIREMENTS §27.
+- **On login the assistant greets the user with a briefing**: what it filled in and why, what still
+  needs a detail only a person knows, what is waiting for a verifier, what is coming up, and any
+  compliance statement due for re-issue. Each prepared record can be viewed or submitted in one
+  click ("Submit all" for the lot); each record page shows a "Your assistant has filled this in"
+  banner with the exact notes. The briefing can be reopened from the top bar at any time.
+- Prepared records stay **In Progress** — nothing is recorded as a person's until they press Submit,
+  and verification is still a separate human step. See docs/REQUIREMENTS.md "How the assistant pre-fills
+  records" for the full rules.
+- **When the briefing shows itself** (working day 09:00–18:00 by default, Master Data → Working Hours
+  & Briefing): the very first time a browser opens the app; once in the **first hour** of the day
+  ("here's what I've prepared"); and once in the **last hour** — only if something is still
+  unsubmitted ("before you go"). Otherwise it's a click away in the top bar. Each section lists the
+  first dozen items and says "…and N more" — "Submit all" still covers everything — so it opens
+  instantly however big the backlog is. Records dated before the browser's launch date are treated as
+  generator leftovers: never listed, never reminded about, offered as a one-click clean-up instead.
+- **The assistant is a chat, present on every screen.** Message bubbles, quick-reply buttons and a
+  text box — no wall of status text. Free text like *"show me all reports of August"*, *"open CAPA"*,
+  *"what happened on the 15th"* or *"take me to the lamination QC documents"* navigates you straight
+  there; on an open record, *"checker is Ramesh, time 9:15"* fills it in. Quick buttons always offer
+  today's briefing, what's due today, this month's reports and CAPA. One endpoint,
+  `POST /api/assistant/chat` (`backend/assistant.ts`, calling the AI service — ChatGPT since REQUIREMENTS §109, see **Configuration** below),
+  classifies each message as `fill` / `navigate` / `reply`; a route the model proposes is re-validated
+  against a strict allowlist (`isValidAppRoute`, `src/store/router.tsx`) before the app ever
+  navigates to it, so a bad or hallucinated destination just falls back to a plain reply.
+- **CAPA has two doors — Internal and External — and the assistant walks you through External.**
+  Internal is the pest-control inspection-findings report (the Dec-2023 GAP report lives there).
+  External is the Customer Complaint Handling Checklist (F/MKT/05, from "Updated Checklist.doc").
+  Opening a new complaint starts the assistant automatically: it asks for the customer and complaint
+  details, then goes through Section A → B → C → D → E one activity at a time ("Done today", "Done on
+  a date…", "Not required", "Skip", or just type what happened — "got the samples on the 3rd" is
+  understood), and finally asks *"Shall I submit it for approval?"*. Prepared By is stamped with the
+  logged-in user; the approver then sees it and can approve (Verify) from the same chat, which stamps
+  Approved By. Quick-reply answers never need the network; typed answers go through the model and fall
+  back gracefully. See `src/engine/guidedChecklist.ts`.
+- **The sidebar is organized module-by-module, collapsible, and can be closed altogether** — Human
+  Resources (HR's eighteen F/HR formats under **HR Records**, and the whole pest control file under
+  **Pest Control**), CAPA, Lamination — Quality Control, Production, Quality Control —
+  Inspection Records, and Quality — Compliance each carry their own icon and expand/collapse independently; a
+  module you close stays closed until you open it again (remembered per browser), and one control
+  collapses or expands all six at once. The module holding the page you're on stays marked with a dot
+  even while shut. The whole panel closes from the **×** in its header or the button at the left of
+  the top bar — useful when a wide register wants the full window — and comes back from that same
+  button; that choice is remembered too. On a narrow window or tablet it becomes an overlay drawer
+  instead, dismissed by the backdrop, Escape, or picking a link. Modules without their own list page
+  link into Document Library pre-filtered to just that module (`/library/{module-slug}`).
+- **The Human Resources module holds HR's own formats and the pest control file** (REQUIREMENTS §46).
+  The sixteen F/HR formats supplied on 14-Sep-2026 — Personal Competence Records, Skill Matrix, Job
+  Responsibility & Authority, mobile-usage authorisation, Training Need Identification, Training Plan
+  Calender, training effectiveness and feedback, pre-employment and visitor health declarations, the
+  two induction records, the Monthly PRP (GMP) check list, the Daily Personal Sanitation & Hygiene
+  sheet, and the Product Safety Culture Survey with its analysis — and the daily and monthly cleaning
+  records (F/HR/15, F/HR/16) supplied on 02-Oct-2026 (REQUIREMENTS §86) are laid out like the pest control
+  file (REQUIREMENTS §47): **HR Records** in the sidebar reads *HR Overview* (`/hr`) and then the five
+  groups with a page per format (`/hr/{slug}`), each page holding the format's records on file with the
+  latest shown in full as it prints, and New. In the Document Library they are shelved by section, and
+  **Open Document** opens a document on its own page — never the Record Calendar (log sheets of other
+  modules open at `/document/{id}`). The eight
+  registers that arrived filled are on file as Live records line for line: 80 staff on the competence
+  register (reviewed as on 01.10.2026), 58 operators on the skill matrix, 28 inductions, eight
+  position sheets, 154 employees on the TNI, the nineteen-topic 2026-27 calendar, 37 mobile
+  authorisations and the January-2026 survey analysis (93.99%). A Quality Control account sees none of
+  them.
+- **Quality Control's own thirty-two formats** (REQUIREMENTS §57): the incoming material inspection records,
+  the line clearance reports (including the two Gujarati checklists), the master list of calibration
+  instruments, the three certificates of analysis, the registers and the analyses and minutes — every one
+  editable, printable, downloadable as the kind of file it reads as, and answerable by the assistant. The
+  pages the department supplied filled in are on file as records.
+- **QC Records, and the language the documents read in** (REQUIREMENTS §58): Quality Control's own page
+  at `/qc` lists all forty-six of its formats as the department asks for them — format number, then name —
+  in its seven sections plus the formats the Lamination and Compliance modules keep, each opening on the
+  format's own page. The language box beside Today's Briefing
+  now decides the documents too: Gujarati translates the forms and registers along with the screens, English
+  shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
+  readings typed, the format number and the revision — reads exactly as issued in either language.
+- **Insights: the system reads its own records together** (REQUIREMENTS §75). Fixed rules — plain arithmetic, no
+  model — find what no single record shows: readings leaving their printed band or drifting before they do, the same
+  lot deviation or pest finding again and again, a CAPA that did not hold or is past its date, an expired calibration,
+  a supplier graded C, a cabinet that lost 45% of its light between two lux rounds, a machine that keeps breaking
+  down. Every insight names the records it was read from; the Dashboard shows the three that matter most; and one
+  click raises an insight as a CAPA finding — never without that click.
+- **Mitra answers from all history** (REQUIREMENTS §75): "which machine breaks down most?", "how did QC do last
+  quarter?", "what stands out?", and a follow-up — the app works the figures out from every record the account may
+  see and hands them to the model as the only source for numbers, the answer naming the records it was read from.
+  With no model, the same figures are the answer. A daily allowance keeps the plant inside the provider's free tier.
+- **A Management Summary for every month** (Reports, REQUIREMENTS §75): record-keeping, CAPA, quality, maintenance,
+  purchase, pest control and what the records show, in plain English worked out by code — never a model — as of the
+  month's end, scoped to the reader's departments, and printable.
+- **Lateness escalated to the super admin, by the server itself** (REQUIREMENTS §75): every working day it applies the
+  Performance Scorecard's own rule to the records in PostgreSQL — 3 late submissions, or 2 records never done, in 30
+  days — and raises it once a week per person or department: in the bell, the day's notification, the Performance
+  page and Mitra, with a digest of each week on the next week's first working day. The **Activity Log is kept for ever**, append-only in the database
+  itself, and archived only when the super admin chooses to.
+- **"This browser is nearly full" names the cause and clears it in a click** (REQUIREMENTS §79): the warning says how
+  much of the browser's room is used and how much of it is demo data, blank sheets from before go-live, or the plant's
+  own records — with a button for the first two that clears exactly that and lets the warning go by itself (pressed in
+  Demo Mode it also returns the app to Live Mode, or the dashboard would fill the demo year again at once). Demo Mode
+  now generates every month's light records and the heavy daily sheets of the month in hand and the three before it
+  only — a fixed window, the same in every browser — so opening it no longer fills the browser.
+- **Mitra you can hear, work that celebrates, and every document uploaded back** (REQUIREMENTS §81): short sounds
+  for the bell, the briefing, a submit and a finished day; Mitra reads the briefing aloud and reminds by voice during
+  working hours ("…you are at minus 20 today — finish 2 more to reach zero") in a natural voice (Edge's natural Indian
+  English, Hindi and Gujarati voices first, else the AI service's from the server: ChatGPT's since §109); confetti and a cheer line for work on time in
+  every module, a big celebration when the day is done, streaks and badges, and lines on why each module's work matters
+  beyond the score. The Dashboard's day score is loss-framed — 8 of 10 done shows **−20**, all done **0**. A 3D
+  introduction of the project's name on the sign-in screen and self-hosted fonts (Baloo Bhai 2, Plus Jakarta Sans, Noto
+  Sans Gujarati; the printed forms keep their font). And **Upload changes** beside every Download Excel/Word: edit the
+  file in Excel or Word, upload it, check the preview, and the record takes exactly those changes, with its history.
+- **Ask Mitra works as an agent** (REQUIREMENTS §80): with a key on the server, what you tell Mitra — in English,
+  Gujarati or a mix, typed or spoken — goes to the model first, with the tools the screen offers (open a document,
+  read and fill the open record, submit or verify it, change a format, search and list records, the history figures,
+  today's facts …); the model decides, the browser does, and every step shows in the chat as it runs. When an
+  instruction could mean two things Mitra asks, with options as chips, instead of guessing. You can attach **files, a
+  folder or a picture** (PDF, Word, Excel, CSV, text; pictures read by OCR in English and Gujarati) and Mitra reads
+  them; the microphone goes through the AI service (ChatGPT's gpt-4o-mini-transcribe since §109), which hears Gujarati, Hindi and English mixed. The interface is new —
+  one calm chat, Claude-like, on the full page and in the dock — and the old rules stay as the fallback whenever the
+  model cannot be reached, marked as such.
+- **The top bar tells the time and whether the site is there** (REQUIREMENTS §78): a clock in hours, minutes and
+  seconds, 12-hour, and a connection badge coloured at a glance — green Online with the speed beside it, amber Slow,
+  orange Very slow, grey No internet, red Site down when the network is there but the site's server does not answer —
+  judged from the browser's own word on the network, the site's server asked and timed every few seconds, and the
+  browser's estimate of the line. And **the header block is Mitra's to change by words**: from a record, "change the
+  format number to F/MKT/01-A and the revision to 02" is read with no network, said back, saved on "Yes" and shown on the
+  record's header at once — nobody leaves the page.
+- **A Marketing (MKT) module** (REQUIREMENTS §77), second in the sidebar where the company's master list puts F/MKT:
+  the customer's own word on the plant's product — the Customer Value added Feedback each customer fills, the yearly
+  Customer Feedback analysis per product with its % Satisfaction Index **worked out, never typed** (LABELS 92%, POUCHES
+  89%, SLEEVES 83% for 2025), and the Customer Complaints Trend Analysis per product with the **bar chart of the years
+  and the Pareto of the causes drawn from the figures**, as the paper draws them. Every supplied page is on file as a
+  record and shown beside its form. And **the header block of every format is the plant's to change**: on a sheet
+  designed in place the company's name, the title, the format number, the revision and its date are clicked and typed
+  over where they stand; on a form the program draws the same boxes are in the Edit format dialog — saved as a
+  revision, said in words in the change history, shown on every record's header, and undone by restoring the issued
+  format.
+- **A System / Management (SYS) module** (REQUIREMENTS §76), first in the sidebar where the company's master list puts
+  F/SYS: the Product Safety Team Leader's eighteen formats — the Master Lists of Documents and of Formats & Records,
+  document change, the management review with its agenda and the quality & product safety objectives, the internal
+  audit from its yearly schedule, plan and risk assessment to the clause-by-clause checklist and the NC report, the
+  NC & corrective action report, the monthly and annual HARA verifications, the site security risk assessment, and
+  the backward and forward traceability tests and mock product withdrawals. Verbatim to the last misspelling, with
+  every page supplied filled in on file as a record, and every supplied page shown beside its form (the blank
+  F/SYS/03 and F/SYS/11 as they came; F/SYS/02's earlier print beside the workbook that is its record). **Every one is editable** — Edit reopens a
+  verified record, Edit format changes the format itself. F/SYS/07 works out its own audit frequency; Mitra prepares a
+  new checklist without last time's findings; and the Insights read the PSTL's records together — the mock withdrawals
+  and traceability tests more than a year old, an audit NC never verified closed or never reported, a traceability test
+  dated out of its own order.
+- **A Maintenance module** (REQUIREMENTS §74): the eight F/MNT formats the department supplied, verbatim to the
+  last misspelling ("Equipoment", "Monthaly", "BREKAGE", "VARIFIED"). **F/MNT/01, the list of 43 machines, is the
+  equipment master** — the preventive maintenance record, the daily health sheet and the breakdown register fetch a
+  machine from it by its number, and Mitra answers "which machine is M-47?". F/MNT/04 prints its check parameters
+  in **Hindi and Gujarati side by side**, read from the page itself because the PDF's text was mis-encoded, and
+  reads in English with English chosen. F/MNT/06 **works out** its breakdown minutes. And a record is now **read under
+  the revision it was made on**: the 2024 lux round, filled on the superseded Rev 00 with Day and Night columns, is
+  still drawn and headed as Rev 00, while the 2025 round reads on Rev 01. Every supplied page can be seen as it came,
+  captioned with its revision. F/MNT/05, 07 and 10 came later (REQUIREMENTS §82).
+- **Maintenance from the papers of 29-Sep-2026, and F/MNT/03 driven by F/MNT/02** (REQUIREMENTS §82). F/MNT/01 is now
+  the list of all **68 machines** (Flexo and Pouch) with the old machinery beside it; F/MNT/05's two slips, F/MNT/07,
+  F/MNT/10 and F/MNT/04's back side are built as printed. **The yearly PM schedule's Actual dates are read from each
+  machine's F/MNT/02** — a PM is written once, where it is done, and the schedule follows every correction without ever
+  being written to. F/MNT/02 shows the machine's next planned PM. **Sample PM dates for 2026** (made up, and marked so
+  in each record's history) show the link working on the plant's real 2026 schedule, slips and all; the papers' own
+  conflicts (M-07 printed twice, M-58's name) are said by the Insights, never mended.
+- **Five more formats, and every header typed over** (REQUIREMENTS §86). The daily and monthly cleaning records (F/HR/15,
+  F/HR/16) are in Human Resources, the incoming lamination grade film and solvent base lamination film inspections (F/QC/33,
+  F/QC/36) in Quality Control, and the company vehicles' cleaning record (F/DISP/04) in Dispatch. On every log sheet's
+  record and the program-drawn forms (the exceptions are in REQUIREMENTS §86), the
+  **header block is clicked and typed over where it stands**: the record's own Date and Page No. change that record (in its
+  history); the company, title, Format No. and Rev No. change the format itself — the page asks why and saves it as the next
+  revision, as Edit format does.
+- **The company's name, everywhere** (REQUIREMENTS §87). The owner's decision of 2-Oct-2026: **Gujarat Print Pack
+  Publications Pvt Ltd**, over every paper's own spelling; in capitals on every printed company line and header, in running
+  text on the screen, the sign-in card, the page title, the opening and the sidebar (in Latin letters in Gujarati too, as a
+  registered name is never translated). Records, formats and statements already stored are brought in line when the app
+  starts, each changed record with one history line saying so; other companies' names, the addresses, the document numbers
+  and the Leave Calendar's title are left as they are.
+- **Mitra's look, Mitra on your phone, and one PC for the whole plant** (REQUIREMENTS §88). The Ask Mitra page and the
+  dock share one calmer look (Mitra's face, a welcome with cards, every movement by transform and opacity only, still under
+  reduced motion). The "Mitra on your phone" card that showed the QR code on the Ask Mitra page was removed at the
+  owner's request on 22-Oct-2026 (docs/phone-app-setup.md says where a phone finds the code). The phone's Mitra now also answers the equipment list (F/MNT/01), the
+  insights and, for the super admin, the escalations, through three new `/api/v1` routes. One server PC runs DCRS (port
+  4000), the Mitra server (3000) and Mitra for Expo Go (8081): `npm run plant:start` starts and keeps all three running,
+  `npm run phone:check` says what works, `scripts/windows` holds the firewall and autostart scripts, and
+  [docs/phone-app-setup.md](docs/phone-app-setup.md) is the guide.
+- **Mitra speaks and answers in English, Hindi and Gujarati, free** (REQUIREMENTS §89). Asked in Gujarati, Mitra answers in
+  Gujarati; in Hindi, in Hindi; in English, in English (in the script it was asked in, Latin letters included), and Whisper
+  hears which language is spoken. Each sentence is said by the browser's voice for its script: in Microsoft Edge the
+  natural Neerja, Swara and Dhwani (or Prabhat, Madhur and Niranjan), free and human-sounding; Chrome has no Gujarati
+  voice, so there a Gujarati reply is shown and the person is told once to use Edge. Master Data's voice card shows the
+  voice for each language in this browser, with a "Hear Mitra" button for each. No paid voice, no card on file.
+- **The Production module** (REQUIREMENTS §91). The plant's production formats sent on 6-Oct-2026 are one module,
+  **Production**, in five sections the way the pouch section's floor works: Lamination (F-PRD-18, F-PRD-19), Slitting
+  (F-PRD-20), Pouching (F/PRD/21), Doctoring (F-PRD-26), and Sharp Objects & Blades (F/PRD/10, 22, 23 and 24). Each is
+  built from the company's own .xls or .xlsx, word for word (spellings and double spaces included, the company's name
+  the owner's), shown beside its paper, found by its number however it is written (F-PRD-20 or F/PRD/20) and by its
+  name, filled with sample data, printed and downloaded as a workbook. F-PRD-19's number, hidden in the photograph, is
+  confirmed, and F-PRD-18 and 19 now read as their originals. The module's old address, /library/lamination-production,
+  still opens it. F-PRD-25 came as an empty workbook and waits on the owner. DCRS holds 129 documents.
+- **Every record starts, and stays** (REQUIREMENTS §93). Start, New record, the library's New, Mitra and the phone open
+  the sheet of the week, fortnight, month or year the day is in when one is on file, never a second sheet for a
+  period that has one (an as-required document still starts a new one each time). A record started while the browser's
+  storage is full is kept on the page and saved to the database all the same, and the page says so ("This browser's copy
+  is full - your record WAS saved") instead of "Record not found". Marketing starts its Complaint Acknowledgement,
+  Purchase its service provider agreement and Human Resources its pest service reports and F/HR/18 from their own pages,
+  a document's page shows the record just started, and every record started by hand is in the activity log as "Record
+  started". F/STR/02, F/MNT/08 and F/MNT/09, sent again on 7-Oct-2026, read as their papers (F/MNT/09 stays on its newer
+  issue of 01.09.2025).
+- **Every QC format exactly as the paper** (REQUIREMENTS §111). Each Quality Control format is held against the owner's
+  originals of 13-Oct-2026 (source-documents/qc-originals-2026-10-13/): its title, labels, columns and printed text in
+  their places, nothing of DCRS's own printed on it, a value the paper prints shown as printed, and Demo Mode's sample
+  data a real day's. F-QC-14, the internal test reliability record, came with them and is built from its workbook, one
+  document for its Label sheet and one for its Sleeve sheet. Mitra finds every QC document by its number however it is
+  written, and the two Statements of Compliance open as issued on the phone too. On 14-Oct-2026 the owner sent four
+  more, each built as its paper: F-QC-40.A (temperature and humidity of the printing area, ink kitchen and ware house),
+  F-QC-40.B (the sleeve division's temperature), F/QC/17 (a measuring scale verified against the master scale) and F/QC-10
+  (the shrink sleeves' Statement of Compliance). DCRS holds 135 documents.
+- **Mitra in your pocket, and Mitra like Claude** (REQUIREMENTS §85). The **Mitra mobile app** (its own repository) now
+  signs people in with their DCRS accounts and does what Mitra does in the browser — what is due, finding and reading records,
+  starting and filling them, submitting and verifying, photos, figures, PDFs — through DCRS's own engine running on the server,
+  so every change follows DCRS's rules and is written in its history as "Through Mitra mobile app". In the browser, every
+  Mitra message has **Copy**, your own messages have **Edit** (the answer after it is replaced, as in Claude), and **Stop**
+  stops an answer. Mitra **sounds more human** (the most natural voice the browser has, text read the way a person says it).
+  The **motion-graphics opening** plays every time the sign-in page opens, and a **guided tour** shows each person the whole
+  software on their first Dashboard visit of the day — skip it, or turn it off.
+- **Every document findable, and the plant's working hours** (REQUIREMENTS §84). Search and the Document Library find every
+  document for everybody — another department's shown as kept by it, and the formats on the company's Master List not in DCRS
+  yet shown as such (docs/document-coverage.md lists them). The system opens with a **five-second motion-graphics
+  introduction**, and moves gently throughout. The super admin's new **User access** dashboard shows who may use which module
+  (switch a person in or out of any module there), what each can see, and when each signed in and out. **Staff working hours
+  are 8:40 am to 6:20 pm on the plant's working days** — Thursday off unless it is an adjustment day, festival holidays off —
+  and **the super admin can sign in and work at any time** (warned ten minutes before his session ends at midnight, when he
+  simply signs in again); every day starts with signing in.
+- **DCRS and the Audit Assistant share one database** (REQUIREMENTS §83). The Audit Assistant - the plant's chat and
+  voice app - signs people in with their DCRS accounts and acts **through a new DCRS API, as that person**: it lists and
+  searches the CAPA findings, closes one with a note (exactly what DCRS's own Close button does, written in the report's
+  history and the activity log as "Through Audit Assistant"), lists customer complaints, and hands over the day's pest
+  control report as a PDF of DCRS's own page. Both applications keep their data in DCRS's PostgreSQL, each in a schema of
+  its own; plain-English **overview views** show both, and the super admin reads them on the new **Database overview**
+  page - "Who downloaded or printed what last week?" and more, without SQL. Nothing of DCRS's own was changed, and it was
+  all proven on a copy first. See [docs/database/README.md](docs/database/README.md) and
+  [docs/chatbot-integration.md](docs/chatbot-integration.md).
+- **Mitra asks the model, and says when it could not** (REQUIREMENTS §72). A question goes to the model (ChatGPT
+  since §109). Only four things are answered without it, each for a reason: an out-of-scope message, "are you a real
+  person?", the opening greeting with its buttons, and a command that opens a screen. **When the model cannot be
+  reached the reply says so on its face** — no internet on this machine, Mitra did not answer, or no key on this
+  server, which are three different things and are never run together. The app can still answer offline from the
+  plant's own records; what it no longer does is pass that off as the model's.
+- **Every log-out asks about the day first** (REQUIREMENTS §72), for every account and every module: what is due and
+  not submitted, worst first, with an offer to go and review it, and a word about anything that has not reached the
+  database yet. Nobody is held there — "Log out" always logs out. Work itself is saved as it is typed, and now also
+  when a tab is discarded, a phone sleeps, or the connection drops.
+- **Every person's work over a day, a month or a year** (REQUIREMENTS §73): the Activity Log filters to a span and to
+  one person, and counts what each of them did — filled in, submitted, approved, days active. The same tally sits on
+  the **Performance Scorecard beside the scores**, because the two answer different questions: the score is what fell
+  due and what was submitted on time, and this is who actually did the work. A department can be perfectly up to date
+  because one person did all of it, and the score alone would never say so.
+- **A Store module** (REQUIREMENTS §71): the two formats the store keeps, sitting between Purchase and Dispatch
+  because that is the order the material moves in. The **Incoming Material Vehicle & Condition Monitoring
+  Record** was supplied as a photograph of the **rubber stamp** the store puts on receiving paperwork, so it is
+  built as the stamp is — a date, seven points answered Yes or No, and who checked it — and **the photograph
+  itself is shown beside it, unaltered**, on a "Show the supplied original" button. The stamp's own spellings
+  ("Foreign matter contaminaiton", "Oil Sport on Floor") are kept, because a controlled format is reproduced,
+  not corrected. Beside it, the **Sharp Metal Objects Issuance & Return Record**: every blade, scissor and
+  cutter the store issues and what came back against it, with RETURN QTY. the one column that may be empty —
+  the format's own second paragraph allows an issue with nothing returned.
+- **A Dispatch module** (REQUIREMENTS §70): the Safe Transporter Agreement a contract transporter signs, clause
+  by clause under the paper's own headings, and the Container Stuffing & Vehicle Inspection Record — the fourth
+  form the plant issues in **Gujarati**, so it reads as issued in Gujarati and in the plant's own English when
+  English is chosen, with no network either way. Its checklist keeps the paper's own numbering: 1, 2, 3, 4, 6,
+  7, 8, 9, with no 5. Since 02-Oct-2026 (REQUIREMENTS §86) the Vehicle (Company Owned) Cleaning Protocol & Record
+  too (F/DISP/04): a record per company vehicle, started when it is cleaned and handed in within two days, a line
+  for each dry or wet cleaning.
+- **A Purchase module, and the words a form prints edited on the sheet** (REQUIREMENTS §68): the department's
+  five supplied formats — the supplier registration form, the supplier audit report, the approved supplier list
+  and the two performance monitoring registers — reproduced from the company's paper, with F/PUR/05's
+  weightages (50 / 40 / 10), Overall Rating and A / B / C grade and F/PUR/06's Overall Rating worked out rather
+  than typed. Editing a format now covers its PROSE as well as its grid: each printed line is changed where it
+  stands, with undo and a revision on record, and Mitra takes the same instructions in words.
+- **The day's own notification, by priority** (REQUIREMENTS §69): once a day, a person is told what is waiting
+  for THEM — their department's documents and the ones Master Data names them on — ranked **high / medium /
+  low** from each document's own frequency and its due date, with where that leaves them on the Performance
+  Scorecard. The bell groups by the same priority. The Dashboard's leave-calendar line is gone.
+- **Mitra asks first, about work that is yours** (REQUIREMENTS §67): opened, the assistant greets you by the
+  hour, says what of *your own* documents is waiting — the ones your department keeps and Master Data names you
+  on — offers the three that have waited longest as one-tap buttons, and asks where you would like to go. Every
+  time it is opened, not only the first. The closed pill carries the figure, so you can see it without opening
+  anything. And the chat moves like something alive: the panel slides in, messages rise into place, answers lift
+  under the pointer, Mitra's face pulses while it thinks. Anybody who has asked their computer for less movement
+  gets none of it, and hears every word just the same.
+- **A login-only portal: the administrator makes every account** (REQUIREMENTS §66): nobody creates their own
+  — the sign-in screen has no way to, and the server refuses registration as well. The super admin's
+  **Users & Access** page (`/users`) adds a person with a first password and one tick for what they see ("all of
+  Quality Control to Kapila Barad"), resets a forgotten password, and switches off somebody who has left
+  without deleting anything. A person given a password must choose their own before the records open — and the
+  server, not the dialog, holds that door.
+- **Fast on a low-end laptop** (REQUIREMENTS §65, measured at 6× CPU throttle): typing no longer waits while
+  the whole year of records is written out again — only the record that changed is (38 ms → 4 ms, so the
+  quarter-second freeze at every pause in typing is gone); a daily format's page draws its year of lines a
+  batch at a time rather than all 5,200 elements at once (the F/QC/13 and F/QC/34 pages that took ~2.9 s);
+  Today's Briefing works itself out when it is shown rather than on every change while closed; a month of
+  Document Files fills in progressively; a hidden tab asks the database for nothing until you look at it; and
+  the app warns that this browser is filling up months before it is full.
+- **The company's own mark, no Demo Mode, and a colleague's work never saved over** (REQUIREMENTS §65): the
+  mark the company sent is in the sidebar, on the sign-in screen and in the browser tab — never on a printed
+  record; the sidebar's second line and the Dashboard's date line carry the company's name alone. Demo Mode is
+  no longer part of the portal (no switch, no page, no route) — it exists only for a server started with
+  `DEMO_MODE=1`, which is how the Playwright suites still get their year of synthetic records. A record open on
+  one computer while somebody else changes it is no longer saved over: every save and every button starts from
+  the record as stored, and the page says plainly when it moved on. And the low-end standard was measured and
+  mended: the documents list, master data and HR master sheet are parsed once per stored value instead of once
+  per lookup, a month's due sheets are made in an effect rather than while drawing, and the app warns that this
+  browser is filling up months before it is full.
+- **A format designed on the sheet, changed by telling Mitra, reacted to, and scored** (REQUIREMENTS §64):
+  *Edit format* turns the page into the sheet itself, edited the way a spreadsheet is — click a name and type,
+  a menu on every column, box and printed line to insert, duplicate, move or delete (and to retype a column or
+  a box), undo and redo, and pop-ups that say what is about to happen, leaving included — saved as the next
+  revision with who, what and why. Or say it: "add a column Batch No. after Remarks", "delete line 3" — Mitra
+  asks before it saves a format change; "add 3 rows" changes the open record at once, with Undo. Mitra reacts
+  to a record handed in (🎉 on time, ⏰ N days late, ✅ verified, ↩️ sent back, 🌟 the last one due) — Live
+  records, on the screen of the person who did it.
+  And the **Performance Scorecard** (`/performance`) scores each person, department, module and document on
+  one rule, with the decision written out as a sentence. The score anybody sees is the **minus score** (REQUIREMENTS
+  §92; the owner, 13-Oct-2026): the share of the records due never done, so 10 due and 8 done is -20 and nothing missed
+  is 0 — never "80%" — with what is still open on its last day today. The grade's words (excellent, on track...) weigh
+  lateness: on time 1, late ½, never done 0.
+- **An eye beside every password box** (REQUIREMENTS §63): signing in, signing up and changing a password all
+  let a person see what they have typed, and hide it again, without sending the form.
+- **Reviewed before submitted, formats revised on record, named accounts, the activity log** (REQUIREMENTS §62):
+  the briefing submits only what has been ticked as reviewed; *Edit format* changes any format and raises its
+  revision with who, what and why; the super admin, Quality Control's and Human Resources' named accounts are
+  added at start-up (`admin@gpp.local`, `kapila.barad@gpp.local`, `vinay.bhojak@gpp.local`,
+  `sandeep.parekh@gpp.local`, first password `Gpp@12345`, which the system asks them to change at their first
+  sign-in — §66); everything done on the
+  portal is a line in the Activity Log; and the rodent, fly and lizard trends follow the plant's own season.
+- **The calibration records work their deviation out** (REQUIREMENTS §61): on the weight scale sheet each
+  Deviation % comes from the weight and its tested value, in gm, mg or kg, with Pass / Fail following the
+  Acceptable Tolerance; on the GSM cutting plate it is the measured plate against its printed size, by area —
+  typed or told to Mitra alike.
+- **Mitra opens with the document** (REQUIREMENTS §60): open any record or format and the assistant opens
+  beside it, docked down the side with the page making room, says where the document stands and offers the
+  task — one tap starts today's record and asks the first question. Left untouched, it closes again when the
+  document is left.
+- **A printout carries the document alone** (REQUIREMENTS §59): the page takes no margin, so no browser
+  prints the date, the time, the screen's address or the page number around a controlled record; each
+  document keeps that 12 mm for itself, on every page of a register.
+- **Fast on a low-end computer** (REQUIREMENTS §56): measured with the processor slowed six times; read-only
+  sheets as text, long lists that appear at once and fill in, no repeated scans of the records, syncing that
+  never freezes the screen, and the app and its data compressed over the network.
+- **The whole project's data in PostgreSQL** (REQUIREMENTS §55): accounts and all the app's data in one
+  PostgreSQL database — shared by everyone signed in, each person's settings their own, two people's
+  simultaneous changes merged against the copy both started from, a department's account handed only
+  its department's records, a change that could not be saved said so and sent again.
+- **Download Excel / Download Word, and print that fits the paper** (REQUIREMENTS §54). Every document screen can
+  download the document as its own kind of file — registers and log sheets and the workbook originals as Excel,
+  forms, letters and the Word originals as Word — made from the document as filled in on screen; only the
+  scanned service licence stays print-to-PDF. Printing measures a wide grid first: slightly too wide stays
+  portrait, scaled; much wider turns landscape, scaled — every column on the paper and in the PDF.
+- **HR Master Data** (REQUIREMENTS §53). Human Resources' employee master sheet — GP3 No., Joining Date, Full
+  Name, Department, Designation/Position, Date of Birth — in the HR module, set up with the 115 current employees
+  on F/HR/01, F/HR/03 and F/HR/06, typed in place, downloaded to a real Excel workbook and uploaded back (with a
+  look over first). Ten HR formats fetch a person from it by GP3 No. or name — blank boxes at once, anything
+  already written only when told — on the record, through Mitra (which lists what goes where and waits for yes),
+  from the CV import, and Search finds people on it.
+- **Any document by its format number** (REQUIREMENTS §52). Search and Mitra both take a format number
+  however it is written — F/HR/05, F-HR-05, FHR05, hr 5, F-QC-40.C, QA-CAF-00 — in every module. Search
+  lists the document (with *Open document* and *New record*) and its records; Mitra says what the document
+  is and asks what to do — *Open it*, *Start a new one*, *Fill it question by question*, *Fill it with
+  sample data* — doing nothing until one is chosen, and opens it straight away when told "open F-QC-12".
+  Another department's number is answered by naming that department only.
+- **The assistant has a name and a character: Mitra** (REQUIREMENTS §50). *Mitra* is "friend" in
+  Gujarati, and that is the idea — the plant's record-keeping buddy. The floating button reads **Ask
+  Mitra**; it opens with a greeting by the hour and by name and asks **"Where would you like to go?"**,
+  with the answers as buttons: today's work, a document (which shelf → which part → which one, each
+  opening that document's own page), a report, finding something, today's briefing, or what it can do.
+  Each answer asks the next question the way a colleague would, none of it needs the network, and it
+  only offers what your departments may see. A typed "hi", "thanks", "what can you do?" or "are you a
+  real person?" is answered on the spot — the last one plainly: Mitra is this system's assistant, not a
+  person. The name is one constant (`src/engine/assistantPersona.ts`) if you want to call it something
+  else.
+- **A new joiner from their CV** (REQUIREMENTS §49). *Add from CV / Resume* on Personal Competence Records
+  reads a PDF, Word (.docx) or text CV on the server — name, sex and date of birth where written, the
+  highest qualification, the experience, the position applied for — into a form HR checks, adds the
+  department, designation and date of joining, and gets what the position requires and the gap from the
+  competence register itself. Add then files the person on every HR format that asks for the same
+  details: F/HR/01 (staff), F/HR/03 and F/HR/06 (operators), F/HR/08, and a started F/HR/05 induction and
+  F/HR/04 declaration, each in its own register's date style. A submitted or verified register is
+  reopened for correction to take the line, and nobody is added twice. Text rules read every CV; the
+  assistant fills gaps when an AI key is set (`CV_READ_WITH_ASSISTANT=0` turns that off).
+- **The pest control file inside it is laid out the way the department reads its paperwork** (`/pest-control`
+  overview, `src/pages/PestControlPages.tsx`): **Daily Report** — the Daily Pest Control Monitoring
+  Record as a month register (`/pest/daily`); **Service Reports** — Gurudev Pest Control's three
+  fortnightly visit reports, Rat / Mice (Rodent Control Service), Ants & Cockroaches (General Pest
+  Control Services) and Fly Control (`/pest/service/{rodent|general|fly}`), each with last visit,
+  next due, materials and areas; **Trend Analysis** — the Rodent Catch Report and Trend Analysis and
+  the Fly Catcher Infestation trend (`/pest/trend/{rodent|fly-catcher}`). Both are reproduced in the
+  company's own printed formats, filled from the records: the **Rodent Catch Report and Trend
+  Analysis** exactly as on "trend analysis .pdf" (two-line header, one row per year — Source / Unit /
+  Target Pest / YEAR / JAN–DEC / Total — and the "Number or Quantity Trapped" bar chart), each month
+  added up from the Daily Pest Control Monitoring Records where the register holds it and taken from
+  the paper report before that; and the **Fortnightly Fly Catcher Inspection & Cleaning Record
+  (F/HR/18)** as its two-page monthly register exactly as on "Fly catcher reports .pdf" (Month &
+  Year, the PC location legend, PC-01–08 on page 1 and PC-09–13 on page 2, one line per unit per
+  visit, dates written d/mm/yy and the two fixed tube-light dates — installed 24/11/25, due 23/11/26 —
+  dittoed down). The same two sheets also sit
+  beside the services they belong to, on the Fly Control and Rat / Mice service pages; **Training & Reference** — Training
+  Records and the Chemical Master. The assistant navigates there from plain speech ("show me the rat
+  reports", "fly catcher infestation for this year").
+- **The F/HR/18 register can be filled in for any Month & Year, where it stands.** Pick the month and
+  year above the register (Pest Control > Trend Analysis > Fly Catcher Infestation, or the Fly Control
+  service page): **Add visit** puts a visit on that month's register for the date it was carried out —
+  a paper register from before go-live copied in, or an extra inspection — carrying the tube-light
+  dates and names forward from the visit before it; **Edit register** turns every draft visit's cells
+  into inputs that save themselves a moment later, each change going into that visit's history. A date
+  outside the month, a date still to come or a second visit on one date is refused with the reason; a
+  visit already submitted or verified stays locked (grey) and is corrected from its own page
+  (`src/engine/flyRegister.ts`, `src/components/records/FlyCatcherRegisterSheet.tsx`).
+- **Service reports: material and method are fixed, the quantity is entered once.** On the Rat / Mice,
+  Ants & Cockroaches and Fly Control reports, Material Name and Method of Application are fixed text for
+  each area (the Chemical Master's values, following the provider's procedure). The quantity is typed on the first line and every other
+  line with the same material carries it — the April-2026 specimens write it once, on the first row. The
+  one bait area on the Rat / Mice report (Bromadiolone Cake, in grams) is the first line of its own
+  material and keeps its own quantity. The assistant follows the same rule (it won't change a material;
+  "quantity is 4" sets every line), and drafts written before the rule are brought into line at
+  start-up, with the change logged (`src/engine/serviceMaterials.ts`).
+- **Printing prints the document, nothing else.** Every Print button — a record's "Print Original-Style
+  Record", the registers, the report sheets, the licence, a Statement of Compliance, Document Files, and
+  new Print buttons on the Chemical Master and the Statements of Compliance — and the browser's own Print / Ctrl+P print only
+  the document on the screen: no page title, explanations, stat tiles, banners, tabs, history or
+  buttons. A register being edited prints as the paper form; a demo printout keeps its DEMO band
+  (`src/utils/print.ts`; each document is marked `data-print-doc`).
+- **Every document has an Edit button — for a mistake by the assistant or by a person.** A draft is
+  edited directly (it saves itself). A record already submitted or verified shows **Edit**: pick a
+  reason (the first one offered is "The assistant filled it in wrong"), change anything on it, Submit —
+  it goes for verification again, and its history keeps what it said before. A rejected record's
+  button is **Edit** too. The reference documents are editable in place as well: the
+  **Chemical Master** and each **Statement of Compliance** have Edit / Save / Cancel, and a corrected page
+  or statement keeps a "Restore the original" button and says who edited it and when
+  (`src/data/repositories/referenceRepository.ts`). The service provider's licence stays exactly as
+  issued, on the owner's instruction. The service report no longer shows the Chemical Master suggestion
+  box.
+- **Complaint Acknowledgement Report (QA-CAF-00) under CAPA → Internal.** A customer complaint explained
+  to the employee involved, on the company's two-page form ("Foram P. - FGSL3877.pdf" as the format
+  reference): logo, title, date, "To", subject, the complaint table (Customer Name / FG code / Complaint
+  received on / Job name / Com. Type / Comp. sub type), the scenario with **photos uploaded from the
+  computer or phone** (up to four, scaled down to keep the record small), root cause, corrective and
+  preventive action, the employee's acknowledgement, signature line, name and date, and the footer
+  "QA-CAF-00 (22.03.26)" on both pages. Every value — including the form's own wording — is editable, it
+  saves itself, Submit / Verify / **Edit** / history work as on every record, and it prints as the two
+  paper pages (`src/components/records/ComplaintAckRecordView.tsx`).
+- **Responsibilities of Pest Control — Site & Service Provider.** The three-page agreement on the
+  company's letterhead ("responsibilities of pest control report .pdf"), signed by both parties on
+  01-Jan-2025 and held as signed: the site's fourteen responsibilities; the service provider's
+  equipment and storage rules, emergency contacts, yearly awareness training note, environmental /
+  health & safety clauses and service clauses; then both signatories. Open it from Pest Control →
+  Training & Reference. Every line is editable and a point can be added or removed — and nothing on it
+  is ever filled in automatically (`src/components/records/PestResponsibilitiesRecordView.tsx`).
+- **The assistant can fill in and correct every document, not only some.** Say or type the change on
+  whichever document is open — any record (including the two new ones), the Chemical Master
+  chart or a Statement of Compliance — and it is checked, saved, listed back field by field and can be
+  undone, exactly as before. The one document it can't change is the service provider's licence, which
+  stays exactly as issued.
+- **The Pest Control Training Record is headed with the service provider's letterhead, and nothing
+  else.** The training is run and issued by Gurudev Pest Control, so both training records carry their
+  printed letterhead from "Letter head.pdf" — the GPC mark, both mobile numbers, the name, the Golden
+  Square Complex address, the email and the website — and the plant's company line, the title and the
+  Format No. / Rev No. / Date row have come off it, as the department asked. It prints that way too.
+  One component serves both documents the provider issues, the training record and the service
+  agreement (`src/components/documents/ProviderLetterhead.tsx`).
+- **External CAPA is mandatory section by section — and answered one activity at a time.** On the
+  Customer Complaint Handling Checklist (F/MKT/05) the checklist is always waiting on exactly **one**
+  activity: the first one still blank, reading A1 → E32. Everything after it is **locked** — on the form
+  the later rows are dimmed with their tick, date and comment disabled, each later section says
+  "Locked — finish Section B first", and the row to answer is highlighted "Answer this one next". Answer
+  it — tick **Done** with its date, press **N/R** if it doesn't apply, or write what happened in
+  **Comments** — and the next one opens, one at a time. An activity already answered always stays open
+  so a mistake can be put right, and clearing an answer makes the checklist wait on it again. The
+  assistant is held to the same order: its walk-through asks in it, and a change that would jump ahead
+  is refused with the reason. **Submit is refused** while anything is blank and says exactly which
+  section and which activities are still open, from the form and from the chat alike. None of the
+  locking prints — the paper form is unchanged.
+- **The assistant always hands the work back for checking.** Every change it makes ends with "check it
+  on the form before you submit — if I have got anything wrong, tap Undo, tell me the correction, or
+  use Edit on the record", and when it is asked to submit it **stops and asks for the record to be
+  looked over first**, submitting only on "I've checked it". Nothing it fills in is ever signed off
+  without a person seeing it.
+- **Every document can be created, read, updated and deleted — by hand, by asking, or out loud.**
+  - **Create.** The Document Library has a **New** button on every document that holds records, and
+    the assistant starts one from words: *"create a new fly catcher record"*, *"start a training record
+    for 5 September"*. A new record gets the same starting data the schedule would have given it, and
+    asking twice for the same day of a scheduled document opens the first one rather than putting two
+    sheets on a controlled register (`src/engine/recordCrud.ts`). The reference documents — the Chemical Master, a
+    Statement of Compliance, the licence — are single documents kept as issued and edited in place, so
+    there is nothing to create or delete for them.
+  - **Read and update** were already there: every field editable, saved as you type, changed by the
+    assistant, with the full history.
+  - **Delete.** Any record can now be deleted, whatever its status — but never silently. The page and
+    the assistant both confirm first; a **submitted or verified** record takes a **reason**; and every
+    deletion is recorded — the document, the date, the status it was in, who removed it, when and why —
+    in **Document Library → Records deleted**, so the audit trail doesn't get a hole in it.
+  - **The assistant can do everything the buttons do**: fill in, correct, cancel an edit, submit,
+    verify, print, create and delete — each understood with no internet, and each asked for before
+    anything is signed off or destroyed. **Spoken instructions take exactly the same path**, so
+    pressing the microphone and saying "submit this record" does what typing it does
+    (`src/engine/assistantCommands.ts`).
+  - An **as-required** document — a complaint, an inspection report, an acknowledgement — can be
+    started as often as things happen, two on one day included; only a *scheduled* document keeps to
+    one sheet per period.
+- **The assistant fills a whole document on request — question by question, or with sample data
+  (13-Sep-2026).** Two ways, on every document that holds records, from the record itself, from the
+  library or from the full-page Assistant:
+  - **"I want to fill the external CAPA"**, *"help me fill this"*, *"walk me through the daily
+    record"*, *"ask me question by question"*: the document is opened (started if there isn't one) and
+    the assistant asks what to put where, one thing at a time, with the likely answers as buttons —
+    the check points, the time and the checker on F/HR/17; each unit's catch on F/HR/18; the quantity
+    per material and the technician on a service report; the header and the readings on a log sheet
+    ("fill typical readings for me" is offered); each finding with its action and target date on an
+    inspection report; the session, topics and attendance on a training record; every line of an
+    acknowledgement report; the signatures on the Responsibilities document and the agreement. Every
+    answer is checked the way a typed value is (dates day-first, 24-hour times, Yes / No, the exact
+    option, the department's code formats) and saved at once with an "assistant" history line; "skip",
+    "stop" and "submit this record" work mid-questions; the complaint checklist keeps its own A → E
+    walk-through (`src/engine/guidedRecord.ts`).
+  - **"Fill it with sample data"**, *"generate an external CAPA for me"*, *"create a complaint
+    checklist with dummy data"*: the whole form is filled with **realistic, made-up** values — the
+    plant's own people, areas and units, customers and jobs from its own specimens, codes in the
+    department's formats, dates on or before today — and the chat says plainly that it is sample data
+    to be checked. A generated complaint checklist, for example, has every one of the 31 activities
+    answered on a date from receipt to closure with a comment against each, prepared-by filled and
+    approval left for the QA Head; an inspection report has three to five findings in the plant's own
+    wording, some already closed. The routine registers reuse the calibrated auto-fill. It is a draft
+    like any other assistant change — history line, undoable, never submitted by the assistant — and
+    it passes every submit check on every document (`src/engine/sampleFill.ts`).
+  - Said where nothing is open, the document is started first and the request carried on there
+    (`src/engine/assistantHandoff.ts`); an ambiguous name ("a CAPA record") is asked about, not
+    guessed. The model is told the same rule: it may invent values only when sample data is asked
+    for explicitly, and must say so.
+- **The data follows the plant's own year.** Flies are busiest in the monsoon and busy again in
+  winter, when they come indoors; the dry summer heat is the quiet season. Rodents run to three or
+  four a year, in three or four different months — what this plant actually catches, and what its own
+  Rodent Catch Report shows. Both are measured off the generated register rather than assumed, and the
+  pattern generator asserts the seasonal ordering so it cannot be lost by a later change
+  (REQUIREMENTS §45).
+- **Three pest trend reports, exactly as the company writes them.** The plant keeps a
+  **RODENT**, a **LIZARD** and a **FLIES CATCH REPORT AND TREND ANALYSIS**, each one table of a year
+  per row over a bar chart of one year, with a "Report prepared by" line at the foot. All three are
+  here, with the company's own header wording and its own figures to the cell - including the flies
+  being reported by weight ("Collected in EFKs", unit "Gramms"), which is a different measurement from
+  the board counts on the fortnightly F/HR/18 register, so the two are shown as what they are and
+  never converted into one another. The rodent months the digital register covers are added up from
+  F/HR/17's check point 7 and tinted to say so; the lizards have no column on F/HR/17, so that sheet
+  is the provider's own report, transcribed, and tints nothing. A Total is printed only once a year is
+  complete, as on the paper. See REQUIREMENTS §41.
+- **Every document belongs to a department, and you see your own.** The plant's own **Master List of
+  Formats & Records (F/SYS/02)** already groups every format by the department inside its number, so that
+  is the list the app uses: SYS, MKT, PUR, STR, QC, QA, PRD, MNT, HR and DISP. F-QC-30 is Quality
+  Control's, F-PRD-18 is Production's, F/MKT/05 is Marketing's, and - exactly as the list has it - the
+  pest control paperwork is HR's (F-HR-17 and F-HR-18 sit beside the cleaning records). A person assigned
+  to Quality Control sees the nine QC documents and nothing else: not in the Document Library, not in the
+  sidebar, not on the Record Calendar or in Reports, not through Search or the assistant, and not by
+  typing another department's record address - which answers "This record belongs to Human Resources...
+  ask the system administrator" instead of opening it. A new joiner picks their department when they sign
+  up; the administrator changes anyone's in **Master Data > Departments & access**, which also lists the
+  ten departments and the documents each owns. An account with no department assigned covers every
+  department, which is what management, the MR and QA need. The records themselves are still generated
+  for the whole plant whoever is logged in, so no department's obligations can go missing
+  (`src/engine/departmentScope.ts`; it decides what is shown, and is not a server-side security boundary
+  while the records live in each browser - see REQUIREMENTS §40).
+- **Printing prints the whole document.** A list that is a document on paper carries the register's own
+  header block - company name, title, Format No. / Rev No. and the period - and the buttons stay off the
+  paper. Four print defects went with it: a table is no longer a scroll container under print media, so a
+  31-row register no longer stops at the bottom of page one; the grey header bands of the company's grids
+  print as grey; a tick box prints ticked; and a card is allowed to break across pages, with an A4 page
+  margin (REQUIREMENTS §38).
+- **The service provider agreement, asked for every two years.** The contract with Gurudev Pest
+  Control runs two years, and the **Service Provider** page asks for it sixty days before it ends —
+  and keeps asking once it has run out — with the two ways out of it in the pop-up itself: **"Draft it
+  for me"** writes the agreement on the provider's own letterhead (the format from their
+  "Letter head.pdf" — the GPC mark, the name, the address, the numbers, the email and the website),
+  already filled in with what this system holds: the two parties, the two-year term, the services and
+  their frequencies as the provider's procedure states them, the provider's insecticide licence number, and the obligations both
+  parties have already signed in the Responsibilities document. Nothing beyond that is invented —
+  what nobody has told the system (the charges, the payment terms, the notice period) is written
+  **TO BE CONFIRMED** for the two of you to complete. **"Upload the signed agreement"** takes the scan,
+  the photographed pages or the PDF instead, and puts it on file as the agreement itself. Either way
+  it becomes a record like any other: editable by hand or by asking the assistant, submitted, verified,
+  printed, with its own history. "Remind me later" is a week, never a way to switch the asking off; the
+  card on the page always says where the agreement stands (`src/engine/serviceAgreement.ts`).
+- **Pressed Edit by mistake? Cancel edit.** Every document in every module now offers **Cancel edit**
+  beside Submit (and in the banner at the top) while it is open for correction: the record goes
+  straight back to the status it came from — Verified stays Verified — without having to be submitted
+  and verified all over again. If something was changed after all, it says how much and asks before
+  putting it back; either way the history records that the edit was cancelled, because the reopening is
+  in there too and the trail has to make sense to an auditor.
+- **The plant's own codes, written the plant's way, everywhere.** A new customer complaint is numbered
+  the way the department numbers one — the two calendar years, then a three-digit count that starts
+  again at 001 each January (**26-27/001**) — put on the sheet the moment the complaint is opened, and
+  still yours to change: type `7` over it and it becomes 26-27/007. A **Job Code / FG code** reads like
+  **FGSL3877** (FG, two letters for the job type — SL, PO, LA … — then four digits, eight characters in
+  all) and a **PO No.** is **eight digits** (10004321). Type one loosely and it is tidied on the spot
+  (`fgsl 3877` → `FGSL3877`); type one that doesn't fit and the form says what the format is and
+  Submit is refused until it does. The assistant is held to exactly the same formats — whether you ask
+  it in plain words or let it walk a new complaint through, it tidies what you tell it and refuses what
+  doesn't fit, with the reason, rather than writing a wrong code onto a controlled record. All of it is
+  in one place, `src/engine/documentFormats.ts`, so the person typing, the assistant and the check at
+  Submit can never disagree. The lamination and QC log sheets are deliberately left alone: their FG /
+  PO columns hold the short codes the company's own specimens use ("7204", "88825").
+- **Ask the assistant for a CAPA summary.** "CAPA summary", "how many complaints are open", "where does
+  internal CAPA stand" — it answers from the records themselves, instantly and with no internet:
+  **Internal** — how many inspection findings reports, how many findings, how many open, overdue,
+  closed or verified, the last inspection, the oldest overdue finding and how many complaint
+  acknowledgement reports are signed off; **External** — how many customer complaints are being worked
+  on, waiting for approval or approved, how many checklist activities are done, and the latest
+  complaint's number and customer. Name one side ("external CAPA summary") and it answers for that side
+  only, and offers a way straight into it (`src/engine/assistantLocal.ts`).
+- **Two languages — English and ગુજરાતી — chosen in the top bar.** Choosing ગુજરાતી switches
+  **Google Translate** on automatically for the whole website: every page, menu, list, message and the
+  assistant's chat turns Gujarati as it appears, including text that changes afterwards. Choosing
+  English switches it off — the page reloads in the original English, on the same screen, with
+  nothing lost (records save themselves). Remembered per browser (a reload stays Gujarati). The one
+  control sits in the top bar, so it is the same on every screen. Nothing is sent to Google while
+  English is chosen. If Google can't be reached (no internet), Gujarati falls back to the app's own
+  built-in Gujarati and the word beside the box says so. What
+  deliberately does **not** translate is the controlled documents' own text — every form and
+  register, format numbers (F/HR/17), the printed check points transcribed verbatim from the paper
+  form, the licence and its terms, the Statements of Compliance — and people's and
+  master-data names, because translating a controlled record's wording would break the traceability
+  the system exists to provide (those parts are marked `translate="no"`, so they aren't sent to
+  Google either). (The Gujarati F/QC/13 in-process sheet stays Gujarati either way.) Ask the
+  assistant something in Gujarati and it answers in Gujarati.
+- **The assistant listens and talks.** Press the microphone on the Assistant page (or in the floating
+  widget) and speak — the browser's own speech recognition turns it into text, which then follows
+  exactly the same path as anything typed, so nothing is sent anywhere extra. **It waits until you
+  have finished the whole sentence**: your words appear in the composer as you speak, a pause to think
+  mid-sentence does not send anything, and the question goes only after you have actually stopped
+  talking (2.5 s of silence) — or the moment you press **Done**, which sends what you have said rather
+  than throwing it away. A question asked out loud is answered out loud; the speaker button turns that
+  on for typed questions too. Both follow the chosen language (Indian English or Gujarati). Chrome and
+  Edge support it; where a browser doesn't (Firefox), the button says so instead of failing silently.
+  Listening is always press-to-talk — the microphone is never left open, and it is released when you
+  leave the page.
+- **The assistant only answers about this software.** It is a tool for operating this record system,
+  not a general chatbot: ask it something outside the system — general knowledge, news, weather, a
+  joke, a poem, coding or medical/legal advice — and it politely declines and offers what it can do
+  here instead, without answering the question even partially. That rule is enforced twice: a hard
+  SCOPE block in the model's system prompt (`backend/assistant.ts`), plus a small client-side list of
+  unmistakably-general phrasings declined instantly with no network call
+  (`offTopicReply`, `src/engine/assistantLocal.ts`). Greetings and "what can you do?" are still
+  answered warmly — and questions about the plant's own work are, of course, in scope.
+- **Document Files — every record filed like a file system, for exactly the dates you ask for.**
+  Ask the assistant "i want all documents of pest control module from June to August" (or "from 3
+  June to 17 July", "November to February", "all documents from 1 to 5 August") and it opens
+  `#/files/{module}/{from}/{to}`: a folder per module, a folder per document, a folder per month,
+  and one dated file per record — only inside that span, never the whole calendar of the month.
+  Month to month means the 1st of the first month to the last day of the last; "November to
+  February" runs into the next year. Folders narrow the list, From/To boxes change the span, a file
+  opens its record (to view or correct it), and the list exports to CSV or prints. Also in the
+  sidebar as **Document Files** (`src/pages/FileBrowserPage.tsx`, `src/engine/fileScope.ts`).
+- **The assistant lists a document's records for exactly the date span you name** — "I want documents
+  of daily pest control monitoring record from 1 to 19 January", "pest control records for this
+  week", "fly catcher documents for September". Answered locally (`src/engine/assistantLocal.ts`), so
+  it's instant: an explicit day-to-day span (even shorthand like "1 to 19 January", month stated once)
+  lists only those days, never a whole month unless that's what was asked (a bare month name, or
+  "this/last/next month", does list the whole month); the document or module you name (over 30
+  recognised aliases, falling back to the whole module — "pest", "lamination" — when you don't name
+  one document) scopes which records show. Only fires when both a document/module and a date are
+  named, so plain navigation phrasing ("show me all reports of august") is untouched and still goes
+  to the model.
+- **The assistant also has a screen of its own** — **Assistant** in the sidebar (`/assistant`,
+  `src/pages/AssistantPage.tsx`): a ChatGPT-style page with your conversations on the left, the thread
+  in the middle, suggested questions when a chat is empty and a composer at the bottom (typed or
+  spoken — see the voice bullet above). Conversations are kept in the browser, so a chat
+  survives the assistant taking you to another screen. Calendar and workload questions ("is Thursday a
+  holiday?", "next company holiday?", "adjustment days?", "what's due today?", "my briefing") are
+  answered instantly on the client from the app's own data (`src/engine/assistantLocal.ts`); everything
+  else goes to the model with a short digest of live facts attached (today's working-day status, the weekly
+  off, upcoming holidays, what's due), so the model answers from real data.
+- **The company's working calendar is built in** (`src/engine/holidays.ts`, Master Data → Holidays):
+  **Thursday is the weekly off**, the 13 festival holidays and the five adjustment (working)
+  Thursdays come straight from the Gujarat Print Pack Leave Calendar 2026 in the zip. On a closed day
+  the Daily Pest Control Monitoring Record is pre-marked as a holiday, no lamination log sheet is
+  expected, no reminder fires, and a fortnightly / monthly / quarterly / yearly record that lands on it
+  is due the next working day instead of disappearing. The Record Calendar, Day View and Dashboard
+  all say which kind of day it is. Records an earlier build left on a closed day are brought into line
+  at start-up (moved to the next working day, re-marked as a holiday, or dropped — only ones nobody
+  has worked on), and a seeded holiday or adjustment day you delete in Master Data stays deleted.
+- **The Daily Pest Control Monitoring Record is shown in its own F/HR/17 layout** — the company's
+  three-page monthly register exactly as the blank format in the zip prints it
+  (`src/components/records/DailyRegisterSheet.tsx`): page 1 the header, the two instruction lines and
+  the ten check points; page 2 dates 1–19; page 3 dates 20–31 and the Summary of Actions Taken if
+  Pest Observed. Each row is that day's record (Yes / No per check point, the trap count in column 4,
+  the number of pests trapped in column 7, HOLIDAY written across a closed day, time of checking,
+  checker); click a row to open the day. It is the default view of Pest Control > Daily Report, the
+  Reports > Daily Monitoring Summary tab, and prints as three pages; the original blank pages can be
+  shown alongside for comparison.
+- **The service provider's insecticide licence is on file, unchanged** — Gurudev Pesticides'
+  Government of Gujarat Form III licence (`/licence`, Pest Control > Training & Reference). The
+  supplied PDF is held byte for byte and opens from the page ("Open the original PDF"); the two pages
+  shown on screen are that same file page for page, with a verbatim transcription (registration and
+  licence numbers, expert staff, the terms and conditions as printed) beneath them for reading and
+  search only.
+
+## What's implemented
+
+**Documents (40 configured):**
+
+- Human Resources — the department's own formats (18), in five groups (REQUIREMENTS §46, §86) — *Personnel &
+  Competence*: Personal Competence Records (F/HR/01, yearly), Skill Matrix - Operator (F/HR/03,
+  yearly), Job Responsibility & Authority (F/HR/07), Authorization for Mobile Usage in Plant Area
+  (F/HR/13). *Training*: Employee Wise Training Need Identification Record (F/HR/08, yearly), Training
+  Plan Calender (F/HR/09, yearly), Training Effectiveness Evaluation Record (F/HR/11), Training
+  Feedback & Evaluation Record (F/HR/12). *Induction & Health*: Pre-Employment Medical Health
+  Declaration (F/HR/04), Induction Training Record — Staff (F/HR/05) and — Operators / Workers
+  (F/HR/06), Visitor Health Status Declaration Record (F/HR/14). *Hygiene & GMP*: Daily Cleaning Record
+  (F/HR/15, a month sheet), Monthly Cleaning Record (F/HR/16, a year sheet), Monthly PRP Check
+  List / GMP Inspection Record (F/HR/19, monthly), Daily Personal Sanitation & Hygiene Inspection
+  Report (F/HR/22, a month sheet). *Product Safety Culture*: the survey (F/HR/20) and its analysis
+  (F/HR/21, yearly). All are log sheets (`src/data/seed/hrLayouts.ts`); the filled registers among
+  them are seeded as history (`src/data/seed/hrRecords.ts`).
+- Human Resources — the pest control file (10), in its four groups — *Daily Report*: Daily Pest Control Monitoring
+  Record (F/HR/17). *Service Reports*: Rat / Mice (Rodent Control Service), Ants & Cockroaches
+  (General Pest Control Services), Fly Control Services — the three reports in the April-2026
+  service-report workbook. *Trend Analysis*: Fortnightly Fly Catcher Inspection & Cleaning Record
+  (F/HR/18), which feeds the Fly Catcher Infestation trend (the Rodent Catch trend is computed from
+  the daily record). *Training & Reference*: Training Record (**Yearly**, with both the Dec-2025
+  technician certificate and the 24-Dec-2025 awareness programme loaded as history), Chemical
+  Master, and Gurudev Pesticides' Government of Gujarat insecticide licence (Form III, kept as
+  the scanned pages, unaltered, plus a transcription). (A Lizard Control service-report variant that existed earlier was retired — no
+  specimen for it exists in the uploaded files. The lizards trapped in the Roda-boxes are reported on
+  the company's own Lizard Catch Report and Trend Analysis instead — REQUIREMENTS §41.)
+- CAPA (Corrective & Preventive Action) (3): **Internal** — Pest Control Inspection Findings Report
+  (the Dec-2023 GAP report as history) and the Complaint Acknowledgement Report (QA-CAF-00, with
+  photos); **External** — Customer Complaint Handling Checklist
+  (F/MKT/05, Rev 00 / 21.07.2026): 31 activities in five sections A–E plus Prepared-by / Approved-by,
+  filled conversationally by the assistant.
+- Lamination — Quality Control (3, from the photographed registers in "Audit documents.zip"):
+  Lamination Adhesive Viscosity Record (F-QC-30, 24 hourly readings), Adhesive Mixing Ratio Record
+  (F-QC-32), Temperature Monitoring Record — Hot Room (F-QC-40.C).
+- Production (9), in five sections (REQUIREMENTS §91). *Lamination*: the Solvent Base Lamination ALC & Production Report
+  (F-PRD-18) and Process Parameter Record (F-PRD-19). *Slitting*: the Slitting ALC & Production Report (F-PRD-20).
+  *Pouching*: the Area Line Clearance Report - Pouching (F/PRD/21, a record per machine, as required). *Doctoring*: the
+  Doctoring ALC & Production Report (F-PRD-26). *Sharp Objects & Blades*: the daily issue and return of scissors and
+  manual cutters (F/PRD/10) and of the pouching section's manual cutters (F/PRD/23), and the razor blade records of the
+  pouching machines (F/PRD/22) and of the slitting machine (F/PRD/24).
+- Quality Control — Inspection Records (7): the two internal calibration records supplied on
+  16-Sep-2026 (REQUIREMENTS §51) — **Weekly Internal Calibration Records - Weight Scale** (F/QC/12: the
+  five test weights against scale QC-76, with the deviation beside each, four calibrations of Feb–Mar
+  2024 on file) and **Monthly Internal Calibration Records – GSM Cutting Plate** (F/QC/11: plates No. 54
+  to No. 57 measured four times each, the 31.12.2024 calibration on file). The Deviation % is entered as
+  found — the arithmetic is deliberately not done yet. Plus the five inspection records: Pouching Process (F/QC/37),
+  Solvent Base Lamination Film (F/QC/36, REQUIREMENTS §86), Slitting - Lamination Grade
+  Film (F/QC/35), Lamination Grade Printed Film (F/QC/34) and the Gujarati In Process Quality Control
+  sheet for printing (F/QC/13). Fixed printed test parameters with read-only specifications; the
+  assistant carries observations, grades, lot status and the inspector's sign forward; "Approved by /
+  QA Manager" is the Verify step, not a box to type in.
+- Quality — Compliance (3): Statements of Compliance for Pressure Labels (F/QC-09), Flexible
+  Packaging (F/QC-38) and Shrink Sleeves (F/QC-10, the owner's paper of 14-Oct-2026, REQUIREMENTS §111
+  part 8), each as its paper prints it, with validity tracking (two years from publication).
+
+All grid-shaped registers share one generic **log-sheet** renderer driven by a layout registry
+(`src/data/seed/logSheetLayouts.ts`) — a new register is a layout entry plus a DocumentDefinition
+row, no new component.
+
+**Previously delivered (unchanged):**
+
+- **Document → Frequency → Date → Record** core model, driving Dashboard, Document Library,
+  Calendar (month view) and Day View.
+- **Six digitized document types**, each reproducing its source format's header, fields and
+  tables rather than a generic form:
+  1. Daily Pest Control Monitoring Record (F/HR/17) — 10 checkpoints, daily.
+  2. Fortnightly Fly Catcher Inspection & Cleaning Record (F/HR/18) — PC‑01…PC‑13.
+  3. Pest Control Service Report — Rat / Mice (Rodent), Ants & Cockroaches (General Pest) and Fly
+     Control variants.
+  4. GAP / Corrective Action report (with the real Dec‑2023 findings loaded as history).
+  5. Training Record (with the real Dec‑2025 technician certificate loaded as history).
+  6. Chemical Master (Pesticide Application Chart).
+- **Frequency engine** (Daily / Weekly / Fortnightly / Monthly / Quarterly / Yearly / As Required)
+  that generates due record shells automatically and idempotently.
+- **Record lifecycle**: Scheduled → Due → In Progress → Submitted → Pending Verification →
+  Verified, with Rejected → Resume → Resubmit, and validation that blocks Verified without the
+  required sign-off.
+- **Demo Mode**: one-click synthetic month generation, always watermarked
+  "DEMO / SYNTHETIC DATA — NOT AUDIT EVIDENCE", fully isolated from Live data (`isDemo` flag).
+- **Reports**: Monthly summary, Daily Monitoring register view (with a Rodents column — count, box,
+  location per day), **Rodent Catch Report and Trend Analysis** in the company's own Source / Unit
+  / Target Pest / Year / Jan–Dec / Total layout (their reported 2024–2026 history alongside the
+  digital total, a bar chart, and where-found / which-box breakdowns), Fly Catcher Trend, Chemical
+  Usage, CAPA Status, Training Status, **Lamination QC** — all computed from stored data, with CSV
+  export and original-style print.
+- **Pest patterns**: the Daily Pest Control Monitoring Record's pre-fill (and Demo Mode) follows a
+  generated seasonal rodent-catch pattern — mostly quiet days, a few catches a year clustered in the
+  monsoon, each with trap box, location and number of rodents — and the Fly Catcher record's counts
+  follow a seasonal per-unit fly pattern (busy entrances and dispatch gates in the monsoon, near-empty
+  boards in winter). Both are produced by `tools/pest_pattern.py` (Python + numpy; rodents calibrated
+  against the company's reported 0 / 2 / 0 rodents for 2024 / 2025 / Jan–Jun 2026, flies against the
+  August-2026 F/HR/18 specimen) into `src/data/seed/pestPattern.ts`, and applied deterministically per
+  date by `src/engine/rodentPattern.ts` / `flyPattern.ts`. Answering Yes to checkpoint 7 by hand opens
+  the same catch-details table.
+- **Master Data** screen (Employees, Chemicals, PC IDs, Rodent Stations, Areas, Checkpoints,
+  Documents) seeded from source, editable for the fields safe to edit in a prototype.
+- **Global search** across records, dates, PC IDs, employees, status.
+- **One database: PostgreSQL** (REQUIREMENTS §55). Accounts and all of the app's data — records,
+  documents, master data, HR Master Data, settings — are stored in PostgreSQL; the browser keeps a
+  working copy that is loaded at sign-in, written back as people work, and refreshed from the database
+  every few seconds, so everyone sees everyone else's work. With no `DATABASE_URL` the server starts a
+  PostgreSQL of its own. See docs/DEPLOYMENT.md.
+- **Accounts**: real signup/login (`backend/`, a small Express service on PostgreSQL) gates the app —
+  no more free-text "Acting as" dropdown. Passwords are bcrypt-hashed, sessions are a signed JWT
+  in an httpOnly cookie, and every submit/verify/reject action now records the actual logged-in
+  user. Nobody signs up: `POST /api/auth/signup` answers 403 unless `ALLOW_SIGNUP=1`, which only the
+  test runner sets. At its first start DCRS seeds the plant's named accounts (the super admin
+  `admin@gpp.local`, and Quality Control's and Human Resources' people) on the first password
+  `SEED_ACCOUNT_PASSWORD` names, or the built-in one, which each person must change at their first
+  sign-in; the super admin makes everybody else's account on Users & Access (REQUIREMENTS §66).
+  See docs/DEPLOYMENT.md for how this is deployed alongside the static frontend.
+
+## Quick start
+
+Needs **Node.js 23.6+** (the backend and scripts are TypeScript run directly by Node — no compile
+step) and Python 3 with Playwright for the browser tests. The whole repository is TypeScript + Python;
+there is no plain JavaScript.
+
+```bash
+npm install
+npm run dev       # frontend (http://localhost:5173) + auth API (http://localhost:4000) together
+```
+
+Open `http://localhost:5173` and sign in as one of the plant's named accounts (the super admin is
+`admin@gpp.local`; docs/DEPLOYMENT.md "Accounts / Authentication" has the first password, which must be
+changed at the first sign-in). Nobody signs up: `POST /api/auth/signup` answers 403 unless
+`ALLOW_SIGNUP=1`, which only the test runner sets. For a single-process production build:
+
+```bash
+npm start         # builds frontend/dist/ then serves it + the API from one Express process
+```
+
+The data is in PostgreSQL: set `DATABASE_URL` in `backend/.env` to use your own server, or leave it
+unset and `npm start` / `npm run dev` start a local PostgreSQL of their own (data in
+`backend/data/postgres`). See docs/DEPLOYMENT.md for LAN pilot instructions, backups and resets.
+
+**Mitra on your phone.** The plant runs the whole application from one server PC: DCRS on port 4000
+for the browsers, and for the staff's phones the Mitra server on port 3000 and Mitra for Expo Go on
+port 8081 (Android and iPhone open it in the Expo Go app; nothing is installed or built for the phones,
+no APK, no TestFlight). A phone scans the QR code Expo prints on the server PC (the Ask Mitra page's phone card was removed on 22-Oct-2026).
+[docs/phone-app-setup.md](docs/phone-app-setup.md) sets the PC up step by step: `npm run mitra:setup`
+installs the app, `npm run plant:start` starts all three servers and keeps them running,
+`npm run phone:check` says what works and what to do about what does not, and `scripts/windows` holds
+the firewall and autostart scripts. The Mitra app is its own repository, kept inside this folder as
+`Audit project chatbot-mobile` (git-ignored here).
+
+## Configuration
+
+`backend/.env` — one required key, the owner's ChatGPT (OpenAI) key, which serves both apps
+(REQUIREMENTS §109; the Mitra server reads the AI settings from this file through its `DCRS_ENV_FILE`).
+`backend/.env.example` names every AI setting; never print, log or commit `backend/.env` itself.
+
+```
+CHATGPT_API_KEY=...        # powers Mitra: the chat, the agent and its tools, the checklist, CVs, pictures, the microphone, the voice — see backend/ai.ts
+                            # (OPENAI_API_KEY is the same key under OpenAI's own name)
+AI_CHAT_MODEL=...          # optional: default gpt-5.4-mini (sent reasoning_effort "none"); AI_AGENT_MODEL follows it
+AI_SHORT_MODEL=...         # optional: default gpt-5.4-nano (a checklist answer)
+AI_VISION_MODEL=...        # optional: default gpt-5.4-mini (the words in an attached picture)
+AI_FALLBACK_MODEL=...      # optional: default gpt-4.1-mini, asked once when the first model cannot answer ("none": no second)
+AI_TRANSCRIBE_MODEL=...    # optional: default gpt-4o-mini-transcribe (the microphone)
+AI_TTS_MODEL=...           # optional: default gpt-4o-mini-tts (Mitra's voice); AI_TTS_VOICE_FEMALE / _MALE default coral / ash
+AI_DAILY_TOKEN_BUDGET=...  # optional: the cost guard, default 3000000 tokens a day (the chat stops at 90%, every call at 100%)
+PICTURES_READ_WITH_ASSISTANT=1  # set to 0 to read attached pictures by OCR alone
+MITRA_OCR=1                # set to 0 to stop reading the words in attached pictures by OCR (tesseract.js, English + Gujarati)
+MITRA_OCR_LANG_PATH=...    # optional: a folder or URL with eng/guj.traineddata.gz for an offline plant (else downloaded once, ~15 MB)
+GROQ_API_KEY=...           # an older setup with no OpenAI key: Groq as before §109 (GROQ_MODEL, GROQ_AGENT_MODEL,
+                            # GROQ_TTS_MODEL, GROQ_TTS_VOICE_FEMALE / _MALE); ignored whenever an OpenAI key is set
+```
+
+Without an AI key, every screen still works — Mitra answers from the system's own records and says
+so (REQUIREMENTS §72), never silently.
+
+## A note on the build toolchain
+
+This prototype was built in a sandboxed environment with **no access to the npm/PyPI package
+registries or any CDN** (an infrastructure constraint of the build environment, discovered at
+the start of this build — see docs/DEPLOYMENT.md for the full explanation). React, TypeScript and
+Playwright were available locally; Vite, Tailwind CLI and react-router-dom were not and could
+not be installed. The app is therefore built with **esbuild** (already present on disk) instead
+of Vite, and styled with a small hand-written CSS design system instead of Tailwind, with a
+minimal hand-rolled router instead of react-router-dom. None of this affects the architecture
+the master prompt asked for — component structure, the data layer, and the document-template
+approach are unchanged — and every substitution is a mechanical, later swap (documented in
+docs/DEPLOYMENT.md) once this project is built somewhere with normal registry access.
