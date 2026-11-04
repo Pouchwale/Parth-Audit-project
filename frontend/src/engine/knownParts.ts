@@ -196,7 +196,7 @@ function serviceReport(doc: DocumentDefinition, dueDate: string, master: MasterD
     data,
     notes: [
       data.lines.length
-        ? `The ${data.lines.length} areas are listed with the material and method fixed for each. The quantity used, the technician's remarks and both signatures are written at the visit.`
+        ? `The ${data.lines.length} areas are listed with the material and method fixed for each. The quantity is written when the report is opened - the usual amount, yours to check (REQUIREMENTS §154, §184); the technician's remarks and both signatures are written at the visit.`
         : "No fixed area list exists for this service yet: add the areas treated at the visit.",
     ],
     basedOn: "the service's fixed areas and materials (Master Data)",

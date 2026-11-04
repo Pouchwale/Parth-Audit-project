@@ -11,7 +11,7 @@ import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/dat
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { formatEditFor, formatWordsAt } from "../src/data/formatEdits";
 import { commitFormatChange, draftOf, restoreIssuedFormat } from "../src/engine/formatOps";
-import { FIXED_SERVICE_QTY, serviceQtyFillOnOpen } from "../src/engine/serviceMaterials";
+import { FIXED_SERVICE_QTY, USUAL_SERVICE_QTY, serviceQtyFillOnOpen } from "../src/engine/serviceMaterials";
 
 ensureDocumentsSeeded();
 ensureMasterSeeded();
@@ -77,12 +77,35 @@ describe("Deltamethrin's 150 ml is written when a person opens the report (§154
     assert.equal(serviceQtyFillOnOpen(doc.variantKey, filled), null);
   });
 
-  it("leaves a quantity a person wrote, and writes nothing on the rodent report (glue boards and bait are the technician's count)", () => {
+  it("leaves a quantity a person wrote", () => {
     const general = docOf("service-report-general");
     const typed = blank(general.id);
     typed.lines = typed.lines.map((l) => ({ ...l, qtyUsed: "120 ml" }));
     assert.equal(serviceQtyFillOnOpen(general.variantKey, typed), null);
+  });
+
+  it("writes the rodent report's usual quantities on opening: glue boards 3, 4 or 5, the bait 40 or 50 gms (the owner, 4-Nov-2026, §184)", () => {
+    assert.deepEqual([...USUAL_SERVICE_QTY["Glue Board"]], ["3", "4", "5"]);
+    assert.deepEqual([...USUAL_SERVICE_QTY["Bromadiolone Cake"]], ["40 gms", "50 gms"]);
     const rodent = docOf("service-report-rodent");
-    assert.equal(serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id)), null);
+    const qtys = (data: ServiceReportData, material: string) => [...new Set(data.lines.filter((l) => l.materialName === material).map((l) => l.qtyUsed))];
+    const low = serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id), () => 0);
+    assert.ok(low);
+    assert.deepEqual([qtys(low, "Glue Board"), qtys(low, "Bromadiolone Cake")], [["3"], ["40 gms"]], "one quantity per material, on every line of it");
+    const high = serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id), () => 0.999);
+    assert.ok(high);
+    assert.deepEqual([qtys(high, "Glue Board"), qtys(high, "Bromadiolone Cake")], [["5"], ["50 gms"]]);
+    const middle = serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id), () => 0.5);
+    assert.deepEqual(qtys(middle!, "Glue Board"), ["4"]);
+    // Every quantity drawn is one of the usual ones.
+    for (let i = 0; i < 40; i++) {
+      const any = serviceQtyFillOnOpen(rodent.variantKey, blank(rodent.id))!;
+      assert.ok(USUAL_SERVICE_QTY["Glue Board"].includes(qtys(any, "Glue Board")[0]) && USUAL_SERVICE_QTY["Bromadiolone Cake"].includes(qtys(any, "Bromadiolone Cake")[0]));
+    }
+    assert.equal(serviceQtyFillOnOpen(rodent.variantKey, low), null, "a report already written is left as it is");
+    const typed = blank(rodent.id);
+    typed.lines = typed.lines.map((l) => ({ ...l, qtyUsed: l.materialName === "Glue Board" ? "6" : "" }));
+    const kept = serviceQtyFillOnOpen(rodent.variantKey, typed, () => 0)!;
+    assert.deepEqual([qtys(kept, "Glue Board"), qtys(kept, "Bromadiolone Cake")], [["6"], ["40 gms"]], "a quantity a person wrote stays; only the blank one is written");
   });
 });

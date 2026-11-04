@@ -18,7 +18,7 @@ import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { createDefaultData } from "./recordDefaults";
 import { followHeader } from "./headerFollowers";
 import { resolveResponsibleEmployees } from "./documentInfo";
-import { fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "./serviceMaterials";
+import { USUAL_SERVICE_QTY, fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "./serviceMaterials";
 import { describeRodentEvent, rodentEventFor, totalRodents } from "./rodentPattern";
 import { flyCatchFor, flySeasonLabel, tubeLightCycle } from "./flyPattern";
 import {
@@ -322,8 +322,9 @@ function fillFlyCatcher(
 // 3. Pest Control Service Report (Rat / Mice, Ants & Cockroaches, Fly)
 
 function typicalQty(materialName: string, rng: Rng): string {
-  if (materialName === "Glue Board") return `${rng.int(3, 4)}`;
-  if (materialName === "Bromadiolone Cake") return `${rng.int(30, 40)} grams`;
+  // The rodent report's usual quantities (engine/serviceMaterials.ts, REQUIREMENTS §184): glue boards 3, 4 or 5, the bait 40 or 50 gms.
+  const usual = USUAL_SERVICE_QTY[materialName];
+  if (usual) return rng.pick([...usual]);
   if (materialName.startsWith("Deltamethrin")) return "150 ml";
   if (materialName.startsWith("Beta-Cyfluthrin")) return `${rng.pick([100, 125, 150])} ml`;
   return "";
@@ -359,7 +360,8 @@ function fillServiceReport(
         ...l,
         materialName: fixed.materialName,
         methodOfApplication: fixed.methodOfApplication,
-        qtyUsed: prev?.qtyUsed?.trim() || typicalQty(fixed.materialName, rng),
+        // A usual quantity varies from visit to visit (§184); any other is the last visit's, or the usual amount.
+        qtyUsed: USUAL_SERVICE_QTY[fixed.materialName] ? typicalQty(fixed.materialName, rng) : prev?.qtyUsed?.trim() || typicalQty(fixed.materialName, rng),
         remarks: observation.remark,
       };
     })

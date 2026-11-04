@@ -10978,3 +10978,22 @@ notes kept; the dashed and slashed readings; F/HR/01's and F/HR/09's dates and p
 left alone; the number a page prints at its foot); the check of all 137 documents run again after the fixes; the deploy to
 the plant waits for the owner's word.
 
+## §184 The rodent service report comes with its glue boards and bait written (4-Nov-2026)
+
+The owner, 4-Nov-2026, with a picture of the Pest control Service Report (Rodent Control Service, Rat / Mice / Bandicoots):
+"in this for Glue board quantity will come automatically between 3 to 5 so sometime it will fill 3 sometime 4 and sometime 5
+according to there frequency and for Bromadiolone Cake quantity will be 40gm and 50 gms so sometime it will be 40 gms and
+sometime it will be 50 gms so when new document due so it will come with filled data so user just need to verify and submit."
+
+- The rodent report's two quantities are written as the fixed ones of the other two reports are (§154): when a person opens a
+  report where they are blank, in that person's name, one line in its history ("The usual quantity written on opening ...,
+  yours to check and change"). Glue Board: 3, 4 or 5; Bromadiolone Cake: 40 gms or 50 gms - one of them, now one and now
+  another, drawn afresh for each report (engine/serviceMaterials.ts USUAL_SERVICE_QTY, serviceQtyFillOnOpen; the record page
+  writes it, pages/RecordPage.tsx). One quantity per material, on every line of its block, as the paper merges them.
+- A quantity already written is never changed; the person checks the report and submits it, and may change either figure.
+- The morning prepare still writes only a report's standing parts (§98); the quantities are written when the report is opened,
+  so a report opened for the visit always comes with them.
+- Demo Mode's sample reports use the same quantities (engine/autoFill.ts).
+- Proved: frontend/tests/serviceReportFormatWords.test.ts (3 / 4 / 5 and 40 / 50 gms, one per material on every line, every
+  draw one of the usual ones, a written quantity left as it is).
+

@@ -60,24 +60,47 @@ export function fixedMaterialForServiceArea(variantKey: string | undefined, area
 // A MATERIAL USED IN THE SAME QUANTITY EVERY VISIT (the owner, 31-Oct-2026, with the general pest control report:
 // "150 ml is fixed in quantity"; and later that day with the fly report: "quantity is fix which 100"; REQUIREMENTS §154):
 // its quantity is written when a person opens a report where it is blank (serviceQtyFillOnOpen, in their name), and
-// stays theirs to change. The glue boards' and the bait's quantities are what the technician used on the visit, written
-// by a person.
+// stays theirs to change.
 export const FIXED_SERVICE_QTY: Record<string, string> = {
   "Deltamethrin 2.5% SC": "150 ml",
   "Beta-Cyfluthrin 2.45% SC": "100 ml",
 };
 
-export const SERVICE_QTY_FILL_NOTE = "The fixed quantity written on opening (Deltamethrin 2.5% SC: 150 ml; Beta-Cyfluthrin 2.45% SC: 100 ml), yours to change.";
+// THE RODENT REPORT'S USUAL QUANTITIES (the owner, 4-Nov-2026, REQUIREMENTS §184: "Glue board quantity will come
+// automatically between 3 to 5 so sometime it will fill 3 sometime 4 and sometime 5 ... and for Bromadiolone Cake quantity
+// will be 40gm and 50 gms ... so when new document due so it will come with filled data so user just need to verify and
+// submit"): one of the usual quantities, now one and now another, is written the same way - when a person opens a report
+// where it is blank, in their name - and stays theirs to change.
+export const USUAL_SERVICE_QTY: Record<string, readonly string[]> = {
+  "Glue Board": ["3", "4", "5"],
+  "Bromadiolone Cake": ["40 gms", "50 gms"],
+};
 
-/** The report with each fixed-quantity material's blank quantity written (on the first line of its material, as a person writes it), or null when nothing is to fill. */
-export function serviceQtyFillOnOpen<T extends { lines: ServiceReportAreaLine[] }>(variantKey: string | undefined, data: T | null | undefined): T | null {
+export const SERVICE_QTY_FILL_NOTE =
+  "The usual quantity written on opening (Deltamethrin 2.5% SC: 150 ml; Beta-Cyfluthrin 2.45% SC: 100 ml; Glue Board: 3, 4 or 5; Bromadiolone Cake: 40 or 50 gms), yours to check and change.";
+
+/**
+ * The report with each blank quantity of a fixed or usual-quantity material written (one quantity per material, on every
+ * line of it, as a person writes it), or null when nothing is to fill. `rand` chooses among a material's usual quantities.
+ */
+export function serviceQtyFillOnOpen<T extends { lines: ServiceReportAreaLine[] }>(variantKey: string | undefined, data: T | null | undefined, rand: () => number = Math.random): T | null {
   if (!data || !Array.isArray(data.lines) || data.lines.length === 0) return null;
+  const chosen = new Map<string, string>();
+  const quantityOf = (material: string): string | undefined => {
+    const fixed = FIXED_SERVICE_QTY[material];
+    if (fixed) return fixed;
+    const usual = USUAL_SERVICE_QTY[material];
+    if (!usual || usual.length === 0) return undefined;
+    if (!chosen.has(material)) chosen.set(material, usual[Math.min(usual.length - 1, Math.floor(rand() * usual.length))]);
+    return chosen.get(material);
+  };
   let changed = false;
   const lines = data.lines.map((l) => {
-    const fixed = FIXED_SERVICE_QTY[l.materialName];
-    if (!fixed || qtyOf(l).trim()) return l;
+    if (qtyOf(l).trim()) return l;
+    const qty = quantityOf(l.materialName);
+    if (!qty) return l;
     changed = true;
-    return { ...l, qtyUsed: fixed };
+    return { ...l, qtyUsed: qty };
   });
   return changed ? { ...data, lines: normalizeServiceLines(variantKey, lines) } : null;
 }
