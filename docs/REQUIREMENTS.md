@@ -10937,7 +10937,8 @@ were opened and read, not printed.
    engine/hrMaster.ts parseWrittenDate reads a dashed date day first on every register: the app's own "05-07-2024" was
    read as the 7th of May on F/HR/01 and F/HR/03. A date printed from a box stays on one line, never broken at a dash, its
    writing sized to its cell's printed width so it neither widens the grid nor runs into the next cell (utils/print.ts;
-   F/MNT/09's week columns).
+   F/MNT/09's week columns); a date written in a grid's cell stays on one line too, the print fitting the grid with it
+   (components/records/LogSheetRecordView.tsx, .cell-date).
 3. A date on the Responsibilities document and the Service Agreement printed twice ("Dated: 01-01-2025 01-01-2025"): the
    print no longer writes a second copy beside a box that prints its own words (utils/print.ts, FormField's boxes).
 4. F/HR/01 printed an empty sixth page: the document's 12 mm under its last line spilled onto a page of its own. And every
