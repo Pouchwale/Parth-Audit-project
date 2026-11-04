@@ -162,6 +162,7 @@ describe("backups from Users & Access", () => {
     assert.equal((await call("GET", "/api/backup", "u-kapila")).status, 403);
     assert.equal((await call("POST", "/api/backup", "u-kapila", { kind: "database" })).status, 403);
     assert.equal((await call("GET", "/api/backup/files/dcrs-before-demo-removal-2026-09-19.dump", "u-kapila")).status, 403);
+    assert.equal((await call("DELETE", "/api/backup/files/dcrs-before-demo-removal-2026-09-19.dump", "u-kapila")).status, 403, "nor delete one");
     assert.equal((await call("GET", "/api/backup", null)).status, 401);
     const r = await call("GET", "/api/backup", "u-admin");
     assert.equal(r.status, 200);
@@ -273,4 +274,30 @@ describe("backups from Users & Access", () => {
     assert.match(s.lines[s.lines.length - 1].detail, /^the code and the database: The backup FAILED/);
     assert.ok(existsSync(path.join(s.repo, "backend", ".env")), "nothing of the repository was touched");
   });
+
+  it("the super admin deletes a backup file by its name (REQUIREMENTS §182): listed no more, one line in the log; a name that is not a backup's is refused, a missing one is 404, nothing is deleted while a backup runs", async () => {
+    s.next.kind = "ok";
+    writeFileSync(path.join(s.dir, "dcrs-2026-10-01-0900.dump"), "PGDMP to delete");
+    assert.equal((await call("DELETE", "/api/backup/files/backup-log.txt", "u-admin")).status, 400, "not a backup: refused");
+    assert.ok(existsSync(path.join(s.dir, "backup-log.txt")), "...and left where it was");
+    assert.equal((await call("DELETE", "/api/backup/files/..%2F..%2Fpackage.json", "u-admin")).status, 400, "no way out of the folder");
+    assert.equal((await call("DELETE", "/api/backup/files/dcrs-2020-01-01-0000.dump", "u-admin")).status, 404);
+    s.next.kind = "wait";
+    assert.equal((await call("POST", "/api/backup", "u-admin", { kind: "database" })).status, 202);
+    const busy = await call("DELETE", "/api/backup/files/dcrs-2026-10-01-0900.dump", "u-admin");
+    assert.equal(busy.status, 409, "not while a backup runs");
+    assert.ok(existsSync(path.join(s.dir, "dcrs-2026-10-01-0900.dump")));
+    s.next.kind = "ok";
+    s.next.release?.();
+    await untilDone();
+    const r = await call("DELETE", "/api/backup/files/dcrs-2026-10-01-0900.dump", "u-admin");
+    assert.equal(r.status, 200);
+    assert.ok(!existsSync(path.join(s.dir, "dcrs-2026-10-01-0900.dump")), "the file is gone");
+    const st = r.body as unknown as BackupStatus;
+    assert.ok(!st.files.some((f) => f.name === "dcrs-2026-10-01-0900.dump"), "the answer is the folder as it now stands");
+    const line = s.lines[s.lines.length - 1];
+    assert.deepEqual([line.action, line.target], ["Deleted a backup", "Backup"]);
+    assert.match(line.detail, /^dcrs-2026-10-01-0900\.dump \(/);
+  });
 });
+

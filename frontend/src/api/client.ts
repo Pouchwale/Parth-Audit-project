@@ -679,6 +679,8 @@ export const backupApi = {
   status: () => api.get<BackupStatus>("/backup"),
   start: (kind: BackupKind) => api.post<BackupStatus>("/backup", { kind }),
   download: async (name: string): Promise<Blob> => (await fetchFile(`/backup/files/${encodeURIComponent(name)}`)).blob,
+  /** The super admin deletes one backup file (REQUIREMENTS §182); the answer is the folder as it now stands. */
+  remove: (name: string) => api.del<BackupStatus>(`/backup/files/${encodeURIComponent(name)}`),
 };
 
 // EACH PERSON'S NOTIFICATIONS (REQUIREMENTS §97): the ledger the server keeps, worded in the language asked. Every

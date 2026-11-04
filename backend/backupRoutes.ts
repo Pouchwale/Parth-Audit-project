@@ -377,5 +377,35 @@ export function registerBackupRoutes(app: Express, deps: BackupDeps): { status: 
     res.download(full, name);
   });
 
+  // A BACKUP FILE DELETED BY THE SUPER ADMIN (the owner, 4-Nov-2026: "add delete option in backup where download option
+  // is there", REQUIREMENTS §182): only a file the folder lists as a backup, by its exact name; never while a backup runs
+  // (it may be writing that very file); one line in the activity log. The answer is the folder as it now stands.
+  app.delete("/api/backup/files/:name", deps.requireAuth, deps.requireAdmin, (req: Request, res: Response): void => {
+    const name = String(req.params.name ?? "");
+    if (!SAFE_NAME.test(name) || !backupFileKind(name)) {
+      res.status(400).json({ error: "That is not the name of a backup file." });
+      return;
+    }
+    if (running) {
+      res.status(409).json({ error: `A backup is running (${kindWords(running.kind)}, started by ${running.by}). Delete files once it has finished.`, code: BACKUP_RUNNING_CODE });
+      return;
+    }
+    const full = path.join(dir, name);
+    if (!existsSync(full) || !statSync(full).isFile()) {
+      res.status(404).json({ error: `There is no backup file called ${name}.` });
+      return;
+    }
+    const size = statSync(full).size;
+    try {
+      unlinkSync(full);
+    } catch (e) {
+      res.status(500).json({ error: `${name} could not be deleted: ${e instanceof Error ? e.message : String(e)}` });
+      return;
+    }
+    const user = (req as Request & { user: PublicUser }).user;
+    deps.logActivity(req, user, "Deleted a backup", "Backup", `${name} (${formatBytes(size)})`);
+    res.json(status());
+  });
+
   return { status };
 }

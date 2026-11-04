@@ -10891,3 +10891,18 @@ then it should ask reason also why today is holiday you are marking."
 - Proved: frontend/tests/dailyPestRecord.test.ts (refused without a reason on a working day, accepted with one, the
   calendar's word on a closed day).
 
+## §182 Backups: a Delete beside each file's Download (4-Nov-2026)
+
+The owner, 4-Nov-2026, with a picture of the Backups card on Users & Access: "add delete option in backup where download
+option is there."
+
+- Each backup file's line has **Delete** beside **Download** (components/access/BackupCard.tsx). Pressed, it asks once
+  more - "Delete this backup for good? Yes, delete / Keep it" - and only "Yes, delete" removes the file; the card then
+  shows the folder as it stands and says the file was deleted.
+- The server does it (backend/backupRoutes.ts, `DELETE /api/backup/files/:name`): the super admin's alone, like the
+  rest of the card; only a file the folder lists as a backup, by its exact name (nothing outside the folder, nothing
+  that is not a backup such as backup-log.txt); refused while a backup is running, as that run may be writing the very
+  file; one line in the activity log, "Deleted a backup", with the file's name and size.
+- Proved: backend/tests/backup.test.ts (staff refused; not a backup's name refused and kept; a way out of the folder
+  refused; a missing file 404; refused while a backup runs; deleted, listed no more, logged).
+

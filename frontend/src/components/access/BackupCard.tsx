@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { FiAlertTriangle, FiArchive, FiCheckCircle, FiDatabase, FiDownload, FiLoader } from "react-icons/fi";
+import { FiAlertTriangle, FiArchive, FiCheckCircle, FiDatabase, FiDownload, FiLoader, FiTrash2 } from "react-icons/fi";
 import { ApiError, backupApi, type BackupFile, type BackupKind, type BackupStatus } from "../../api/client";
 import { downloadBlob } from "../../utils/csv";
 import { formatDisplayDateTime } from "../../utils/date";
@@ -30,6 +30,10 @@ export function BackupCard() {
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
+  // The file whose Delete was pressed and is waiting for "Yes, delete" (REQUIREMENTS §182), and the one being deleted.
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleted, setDeleted] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -72,6 +76,21 @@ export function BackupCard() {
       setError(e instanceof ApiError ? e.message : `${name} could not be downloaded.`);
     } finally {
       setDownloading(null);
+    }
+  };
+
+  const remove = async (name: string) => {
+    setDeleting(name);
+    setError(null);
+    setDeleted(null);
+    try {
+      setStatus(await backupApi.remove(name));
+      setDeleted(name);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : `${name} could not be deleted.`);
+    } finally {
+      setDeleting(null);
+      setConfirming(null);
     }
   };
 
@@ -123,6 +142,11 @@ export function BackupCard() {
             {error}
           </p>
         )}
+        {deleted && !error && (
+          <p className="text-sm mt-2" data-state="backup-deleted">
+            <FiCheckCircle size={13} style={{ verticalAlign: -2, color: "var(--color-success)" }} /> {deleted} was deleted.
+          </p>
+        )}
         {status && (
           <div className="mt-3">
             <div className="text-xs text-muted mb-1">
@@ -153,10 +177,34 @@ export function BackupCard() {
                       <td>{KIND_WORDS[f.kind]}</td>
                       <td>{formatFileSize(f.size)}</td>
                       <td>{formatDisplayDateTime(f.at)}</td>
-                      <td>
-                        <button className="btn btn-ghost btn-sm" data-action="backup-download" disabled={downloading === f.name} onClick={() => void download(f.name)} title={`Download ${f.name}`}>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <button className="btn btn-ghost btn-sm" data-action="backup-download" disabled={downloading === f.name || deleting === f.name} onClick={() => void download(f.name)} title={`Download ${f.name}`}>
                           <FiDownload size={12} /> Download
                         </button>
+                        {confirming === f.name ? (
+                          <span className="ml-2" data-state="backup-confirm-delete">
+                            <span className="text-xs text-danger">Delete this backup for good?</span>{" "}
+                            <button className="btn btn-danger btn-sm" data-action="backup-delete-yes" disabled={deleting === f.name || running} onClick={() => void remove(f.name)}>
+                              {deleting === f.name ? "Deleting…" : "Yes, delete"}
+                            </button>{" "}
+                            <button className="btn btn-ghost btn-sm" data-action="backup-delete-no" disabled={deleting === f.name} onClick={() => setConfirming(null)}>
+                              Keep it
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            className="btn btn-ghost btn-sm text-danger"
+                            data-action="backup-delete"
+                            disabled={running || !!deleting}
+                            onClick={() => {
+                              setDeleted(null);
+                              setConfirming(f.name);
+                            }}
+                            title={running ? "A backup is running: delete files once it has finished" : `Delete ${f.name}`}
+                          >
+                            <FiTrash2 size={12} /> Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
