@@ -10997,3 +10997,20 @@ sometime it will be 50 gms so when new document due so it will come with filled 
 - Proved: frontend/tests/serviceReportFormatWords.test.ts (3 / 4 / 5 and 40 / 50 gms, one per material on every line, every
   draw one of the usual ones, a written quantity left as it is).
 
+## §185 A record's name says its day as dd-mm-yyyy: the activity log, the messages, the PDF names (4-Nov-2026)
+
+The owner, 4-Nov-2026, shown that the "submitted on time" message and the activity log named a record "... — 2026-11-18":
+"fix that date issue and then check it and then only deploy it."
+
+- engine/recordHistory.ts `recordLabel` - what the activity log calls a record, and what the messages say ("Pest Control
+  Service Report — Rat / Mice (Rodent Control Service) — 18-11-2026 submitted on time.", verified, sent back), and what Mitra
+  is told - writes the record's day as the app writes every date (§171), "18-11-2026"; the server's own copy (backend/
+  findingsCore.ts, the CAPA findings edited through the API) writes it the same way.
+- The PDFs the server prints for Mitra (F/HR/17's daily report, any record): the file's name and the activity log's line
+  carry the day as dd-mm-yyyy (backend/apiV1.ts, backend/apiV1Records.ts); so does the morning prepare's line in the log
+  (backend/notificationJobs.ts).
+- The "changes uploaded from Excel / Word" line names the record the same way (engine/roundTrip/applyImport.ts).
+- Lines written before keep the words they were written with.
+- Proved: backend/tests/findingsCore.test.ts, backend/tests/apiV1.test.ts, frontend/tests/findingsCloseEquivalence.test.ts
+  (the website's and the server's names the same), tests/e2e_mitra_format.py.
+

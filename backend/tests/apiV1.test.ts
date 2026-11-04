@@ -579,7 +579,7 @@ describe("closing a finding", () => {
     assert.deepEqual(s.lines.at(-1), {
       who: "Kajal Shah",
       action: "Record edited",
-      target: "CAPA — Internal: Pest Control Inspection Findings Report — 2023-12-13",
+      target: "CAPA — Internal: Pest Control Inspection Findings Report — 13-12-2023",
       detail: "Through Audit Assistant: Rodent box numbers painted. · 2 field(s): Finding 1 · Actual date of action, Finding 1 · Status",
       department: "QA",
     });
@@ -746,13 +746,13 @@ describe("the daily pest control report", () => {
     const r = await call(s, "GET", "/api/v1/pest-control/daily-report?date=2026-09-28", { token: T.hr, headers: CLIENT });
     assert.equal(r.status, 200);
     assert.equal(r.headers.get("content-type"), "application/pdf");
-    assert.equal(r.headers.get("content-disposition"), 'attachment; filename="F-HR-17 Daily Pest Control Monitoring Record 2026-09-28.pdf"');
+    assert.equal(r.headers.get("content-disposition"), 'attachment; filename="F-HR-17 Daily Pest Control Monitoring Record 28-09-2026.pdf"');
     assert.ok((r.body as Buffer).subarray(0, 5).equals(Buffer.from("%PDF-")));
     assert.equal(s.printed.length, 1);
     assert.equal(s.printed[0].recordId, "rec-pest-new");
     assert.equal(s.printed[0].sessionToken, T.hr, "printed as the person who asked");
     assert.equal(s.printed[0].appUrl, s.base, "the browser reaches this very server");
-    assert.deepEqual(s.lines.at(-1), { who: "Vinay Bhojak", action: "Document downloaded as PDF", target: "F/HR/17 Daily Pest Control Monitoring Record", detail: "Through Audit Assistant: 2026-09-28", department: "HR" });
+    assert.deepEqual(s.lines.at(-1), { who: "Vinay Bhojak", action: "Document downloaded as PDF", target: "F/HR/17 Daily Pest Control Monitoring Record", detail: "Through Audit Assistant: 28-09-2026", department: "HR" });
   });
 
   it("refuses a bad date, a day with no live report, and another department — before printing anything", async () => {

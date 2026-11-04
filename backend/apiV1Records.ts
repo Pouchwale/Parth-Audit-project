@@ -2,6 +2,7 @@ import express, { type Express, type NextFunction, type Request, type RequestHan
 import type { PublicUser } from "./auth.ts";
 import type { EscalationRow } from "./escalation.ts";
 import { clientName } from "./findingsCore.ts";
+import { displayDate } from "../frontend/src/engine/notificationText.ts";
 import { EngineUnavailable, type ActivityLine, type EngineAnswer, type EngineCaller, type EngineHost } from "./engineHost.ts";
 import { PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
 
@@ -368,8 +369,9 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
     }
     const number = brief.formatNo && !brief.formatNo.startsWith("TO BE") ? `${brief.formatNo} ` : "";
     const department = (await deps.departmentOf(brief.documentId).catch(() => null)) ?? "";
-    deps.logActivity(req, user, "Document downloaded as PDF", `${number}${brief.name}`.slice(0, 240), `Through ${clientName(req.get("x-client-name"))}: ${brief.dueDate}`, department);
-    const file = fileNameOf(`${number.replace(/\//g, "-")}${brief.name} ${brief.dueDate}`);
+    // The day as the app writes dates, in the log and in the file's name (REQUIREMENTS §171, §185).
+    deps.logActivity(req, user, "Document downloaded as PDF", `${number}${brief.name}`.slice(0, 240), `Through ${clientName(req.get("x-client-name"))}: ${displayDate(brief.dueDate)}`, department);
+    const file = fileNameOf(`${number.replace(/\//g, "-")}${brief.name} ${displayDate(brief.dueDate)}`);
     res
       .status(200)
       .set({ "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${file}.pdf"`, "Content-Length": String(bytes.length), "Cache-Control": "no-store" })

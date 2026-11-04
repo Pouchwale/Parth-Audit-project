@@ -21,7 +21,7 @@ import { sharedEngineHost, type ActivityLine, type EngineCaller, type EngineHost
 import { databaseLedger, type LedgerItem, type NotificationLedger } from "./notifications.ts";
 import { scrubAddresses } from "./email.ts";
 import { PLANNED_KINDS } from "../frontend/src/engine/notificationPlan.ts";
-import { MODULE_NAMES } from "../frontend/src/engine/notificationText.ts";
+import { MODULE_NAMES, displayDate } from "../frontend/src/engine/notificationText.ts";
 
 /** The engine's caller for the server's own jobs: every department, nobody's name. */
 export const SYSTEM_CALLER: EngineCaller = { userId: "system", userName: "The assistant", email: "system", departments: null, client: "DCRS server", role: "admin" };
@@ -137,7 +137,7 @@ export async function runMorningPrepare(opts: { now?: Date } = {}, deps: JobDeps
       systemLine(
         "Records prepared by the assistant",
         `The assistant prepared ${result.prepared} record${result.prepared === 1 ? "" : "s"}`,
-        `${modules}. The known parts only; the readings are for the people who answer for them (the morning prepare, ${result.date}).`.slice(0, 600)
+        `${modules}. The known parts only; the readings are for the people who answer for them (the morning prepare, ${displayDate(result.date)}).`.slice(0, 600)
       )
     );
   }

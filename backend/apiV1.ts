@@ -846,12 +846,12 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     const client = clientName(req.get("x-client-name"));
     const code = departmentOfDocument(PEST_DAILY_DOCUMENT_ID, info.formatNo);
     const number = info.formatNo && !info.formatNo.startsWith("TO BE") ? `${info.formatNo} ` : "";
-    logActivity(req, user, "Document downloaded as PDF", `${number}${info.name}`, `Through ${client}: ${found.date}`, code ?? "");
+    logActivity(req, user, "Document downloaded as PDF", `${number}${info.name}`, `Through ${client}: ${displayDate(found.date)}`, code ?? "");
     res
       .status(200)
       .set({
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="F-HR-17 Daily Pest Control Monitoring Record ${found.date}.pdf"`,
+        "Content-Disposition": `attachment; filename="F-HR-17 Daily Pest Control Monitoring Record ${displayDate(found.date)}.pdf"`,
         "Content-Length": String(bytes.length),
       })
       .end(bytes);

@@ -623,7 +623,8 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     const r = await call(s, "GET", `/api/v1/records/${recordId}/pdf`, T.qc);
     assert.equal(r.status, 200);
     assert.equal(r.headers.get("content-type"), "application/pdf");
-    assert.match(r.headers.get("content-disposition") ?? "", /^attachment; filename="F-QC-30 Lamination Adhesive Viscosity Record \d{4}-\d{2}-\d{2}\.pdf"$/);
+    // The day as the app writes dates, dd-mm-yyyy (REQUIREMENTS §185).
+    assert.match(r.headers.get("content-disposition") ?? "", /^attachment; filename="F-QC-30 Lamination Adhesive Viscosity Record \d{2}-\d{2}-\d{4}\.pdf"$/);
     assert.equal(s.printed.at(-1)?.recordId, recordId);
     assert.ok(s.lines.some((l) => l.action === "Document downloaded as PDF" && /^Through Mitra mobile app/.test(l.detail)));
     const gap = await call(s, "POST", "/api/v1/records", T.admin, { documentId: "gap-inspection" });

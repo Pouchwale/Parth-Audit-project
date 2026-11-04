@@ -33,7 +33,7 @@ import { documentRepository } from "../../data/repositories/documentRepository";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
 import { logActivity } from "../../utils/activityLog";
-import { todayISO } from "../../utils/date";
+import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { withComputedCells } from "../computedCells";
 import { isDocumentIdVisible, mayDo } from "../departmentScope";
@@ -348,7 +348,8 @@ function logUpload(plan: ImportPlan, recordId: string, applied: number, fileName
     const documentId = r?.documentId ?? plan.envelope.documentId;
     const doc = documentRepository.getById(documentId);
     const number = doc && doc.formatNo && !doc.formatNo.startsWith("TO BE") ? `${doc.formatNo} ` : plan.envelope.formatNo && !plan.envelope.formatNo.startsWith("TO BE") ? `${plan.envelope.formatNo} ` : "";
-    const what = `${number}${doc?.name ?? documentId}${r?.dueDate ? ` — ${r.dueDate}` : ""}`;
+    // The record's day as the app writes dates, "18-11-2026" (REQUIREMENTS §185), as engine/recordHistory.ts recordLabel names it.
+    const what = `${number}${doc?.name ?? documentId}${r?.dueDate ? ` — ${formatDisplayDate(r.dueDate)}` : ""}`;
     logActivity(
       plan.envelope.kind === "docx" ? "Document changes uploaded from Word" : "Document changes uploaded from Excel",
       what,

@@ -328,11 +328,17 @@ export function closeFindingChange<R extends StoredRecord>(record: R, position: 
   return { record: { ...record, data, history: [...history, entry], status, updatedAt: options.at }, entry };
 }
 
-/** What DCRS calls a record in its activity log (engine/recordHistory.ts recordLabel). */
+/** 2026-11-18 -> 18-11-2026, as the app writes a date (utils/date.ts formatDisplayDate, REQUIREMENTS §171, §185); anything else as it is. */
+function dayFirst(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : iso;
+}
+
+/** What DCRS calls a record in its activity log (engine/recordHistory.ts recordLabel): its number, name and day, "... — 18-11-2026". */
 export function recordLabel(document: { name?: string; formatNo?: string } | undefined, documentId: string, dueDate: string): string {
   const formatNo = document?.formatNo ?? "";
   const number = document && !formatNo.startsWith("TO BE") ? `${formatNo} ` : "";
-  return `${number}${document?.name ?? documentId} — ${dueDate}`;
+  return `${number}${document?.name ?? documentId} — ${dayFirst(dueDate)}`;
 }
 
 /** The activity-log detail of a history entry, as DCRS writes it (engine/recordHistory.ts logEntry): the note, then the fields changed. */

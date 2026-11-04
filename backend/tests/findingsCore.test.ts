@@ -245,8 +245,9 @@ describe("the audit trail's words", () => {
   });
 
   it("calls a record by its format number, name and date — leaving out a number still TO BE CONFIRMED", () => {
-    assert.equal(recordLabel({ name: "CAPA — Internal: Pest Control Inspection Findings Report", formatNo: "TO BE CONFIRMED" }, "gap-inspection", "2023-12-13"), "CAPA — Internal: Pest Control Inspection Findings Report — 2023-12-13");
-    assert.equal(recordLabel({ name: "Daily Pest Control Monitoring Record", formatNo: "F/HR/17" }, "daily-pest-monitoring", "2026-09-28"), "F/HR/17 Daily Pest Control Monitoring Record — 2026-09-28");
-    assert.equal(recordLabel(undefined, "gap-inspection", "2023-12-13"), "gap-inspection — 2023-12-13");
+    // The day as the app writes dates, dd-mm-yyyy (REQUIREMENTS §185).
+    assert.equal(recordLabel({ name: "CAPA — Internal: Pest Control Inspection Findings Report", formatNo: "TO BE CONFIRMED" }, "gap-inspection", "2023-12-13"), "CAPA — Internal: Pest Control Inspection Findings Report — 13-12-2023");
+    assert.equal(recordLabel({ name: "Daily Pest Control Monitoring Record", formatNo: "F/HR/17" }, "daily-pest-monitoring", "2026-09-28"), "F/HR/17 Daily Pest Control Monitoring Record — 28-09-2026");
+    assert.equal(recordLabel(undefined, "gap-inspection", "2023-12-13"), "gap-inspection — 13-12-2023");
   });
 });

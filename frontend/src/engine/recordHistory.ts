@@ -2,6 +2,7 @@ import type { FieldChange, HistoryAction, HistoryEntry, RecordInstance } from ".
 import { generateId } from "../utils/id";
 import { withoutLineNumber } from "./lineNumbers";
 import { logActivity } from "../utils/activityLog";
+import { formatDisplayDate } from "../utils/date";
 import { documentRepository } from "../data/repositories/documentRepository";
 
 const ACTIVITY_WORDS: Record<HistoryAction, string> = {
@@ -32,7 +33,10 @@ export function logRecordStarted(record: Pick<RecordInstance, "documentId" | "du
 export function recordLabel(record: Pick<RecordInstance, "documentId" | "dueDate">): string {
   const doc = documentRepository.getById(record.documentId);
   const number = doc && !doc.formatNo.startsWith("TO BE") ? `${doc.formatNo} ` : "";
-  return `${number}${doc?.name ?? record.documentId} — ${record.dueDate}`;
+  // The day the record is for as the app writes every date, "18-11-2026" (REQUIREMENTS §171, §185): the activity log, the
+  // "submitted on time" message and Mitra read it so (it read "2026-11-18").
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(record.dueDate ?? "") ? formatDisplayDate(record.dueDate) : record.dueDate;
+  return `${number}${doc?.name ?? record.documentId} — ${day}`;
 }
 
 // One line per NEW history entry (REQUIREMENTS §62). Not for demo records,

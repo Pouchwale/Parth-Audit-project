@@ -430,7 +430,7 @@ with sync_playwright() as p:
         check("A click sends the toast away", toast(page).count() == 0)
 
     # Late, and many at once: the same toast, given the facts a late submit and a morning's Submit would give it.
-    what = f"{doc.get('formatNo', '')} {doc.get('name', '')} — 2026-01-05".strip()
+    what = f"{doc.get('formatNo', '')} {doc.get('name', '')} — 05-01-2026".strip()
     page.evaluate(
         "(d) => window.dispatchEvent(new CustomEvent('dcrs:reaction', { detail: d }))",
         {"kind": "submitted", "what": what, "dueDate": "2026-01-05", "on": "2026-01-08", "asRequired": False},
