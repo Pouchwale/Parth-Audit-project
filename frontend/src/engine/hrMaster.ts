@@ -120,7 +120,9 @@ export function parseWrittenDate(value: unknown, slash: SlashOrder = "dmy"): str
     const a = +m[1];
     const b = +m[3];
     const y = fullYear(m[4]);
-    let order: SlashOrder = m[2] === "." ? "dmy" : slash;
+    // Dots and dashes are day first - the papers' dotted dates and every date the app writes, "05-07-2024" (REQUIREMENTS §171,
+    // §183: read month first, F/HR/01's "05-07-2024" was the 7th of May); only slashes follow the register's own order.
+    let order: SlashOrder = m[2] === "/" ? slash : "dmy";
     if (a > 12 && b <= 12) order = "dmy";
     else if (b > 12 && a <= 12) order = "mdy";
     return order === "dmy" ? isoDate(y, b, a) : isoDate(y, a, b);

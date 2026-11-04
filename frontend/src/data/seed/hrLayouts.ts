@@ -38,9 +38,11 @@ const items = (list: string[]): Record<string, string | number | null>[] => list
 
 const competence: LogSheetLayout = {
   documentId: "hr-competence",
-  instructions: [
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "PERSONAL COMPETENCE RECORDS (STAFF MEMBERS ONLY) — one line per staff member: the education and experience the position requires against what the person holds, with the justification for any gap.",
-    "Dates are written dd-mm-yyyy (a line carried over from the paper register keeps the register's own spelling); a Date of Leaving is filled in only when the person has left.",
+    "Dates are written dd-mm-yyyy; a Date of Leaving is filled in only when the person has left.",
   ],
   headerFields: [{ key: "reviewedOn", label: "Reviewed as on", type: "text", width: 160, autoFill: { carryForward: true } }],
   columns: [
@@ -86,7 +88,9 @@ export const SKILL_OPERATIONS: { key: string; label: string }[] = [
 
 const skillMatrix: LogSheetLayout = {
   documentId: "hr-skill-matrix",
-  instructions: [
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "SKILL MATRIX - OPERATOR. One line per operator; the points under each operation are the operator's skill status for it, graded as printed on the form (5 = S, 3 = SS, 1 = US).",
   ],
   headerFields: [{ key: "statusAsOn", label: "Status as on", type: "text", width: 160, autoFill: { carryForward: true } }],
@@ -158,6 +162,9 @@ const preEmployment: LogSheetLayout = {
     "Only to be completed by applicants prior to employment.",
     "MEDICAL INFORMATION SUPPLIED WILL BE TREATED AS PRIVATE AND CONFIDENTIAL AND WILL NOT BE DISCLOSED TO THIRD PARTIES.",
     "I declare that I have had no other disorder, mental or physical, not already mentioned. I understand that is any of the information is incorrect or there is any other omission that I may become liable to dismissal.",
+  ],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "Question 06 is a set of tick boxes on the paper; each condition is one line here, ticked Yes where it applies.",
   ],
   headerFields: [
@@ -188,7 +195,13 @@ const preEmployment: LogSheetLayout = {
 
 const inductionStaff: LogSheetLayout = {
   documentId: "hr-induction-staff",
-  instructions: ["Induction programme;", "One record per new employee in the staff category (Supervisor & above). The two blank lines under topic 5 are the form's own, for a further topic."],
+  instructions: [
+    "Induction programme;",
+  ],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
+    "One record per new employee in the staff category (Supervisor & above). The two blank lines under topic 5 are the form's own, for a further topic.",
+  ],
   headerFields: [
     { key: "name", label: "Name", type: "text", required: true, autoFill: { sign: true } },
     { key: "deptProcess", label: "Department / Process", type: "text", autoFill: { carryForward: true } },
@@ -245,7 +258,11 @@ export const INDUCTION_TOPICS: string[][] = [
 
 const inductionOperators: LogSheetLayout = {
   documentId: "hr-induction-operators",
-  instructions: ["INDUCTION TRAINING RECORD — the register of operators and workers inducted, one line per person, against the training topics printed on the form."],
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
+    "INDUCTION TRAINING RECORD — the register of operators and workers inducted, one line per person, against the training topics printed on the form.",
+  ],
   headerFields: [],
   columns: [
     text("name", "Name of the Operator / EMP", 190, true),
@@ -270,8 +287,11 @@ const inductionOperators: LogSheetLayout = {
 const jobResponsibility: LogSheetLayout = {
   documentId: "hr-job-responsibility",
   instructions: [
-    "JOB RESPONSIBILITY & AUTHORITY — one record per position. Each line of the grid is one responsibility or authority, in the order printed.",
     "Acknowledgement: I Acknowledge Receipt of This Job Description and I Understand My Position Responsibility and Authorities.",
+  ],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
+    "JOB RESPONSIBILITY & AUTHORITY — one record per position. Each line of the grid is one responsibility or authority, in the order printed.",
   ],
   headerFields: [
     { key: "position", label: "Position", type: "text", required: true, autoFill: { carryForward: true } },
@@ -321,7 +341,9 @@ export const TRAINING_TOPICS: { key: string; label: string }[] = [
 
 const trainingNeeds: LogSheetLayout = {
   documentId: "hr-training-needs",
-  instructions: [
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "EMPLOYEE WISE TRAINING NEED IDENTIFICATION RECORD — one line per employee; Yes under a topic is the X on the paper.",
   ],
   headerFields: [{ key: "period", label: "Period", type: "text", autoFill: { default: "01-04-2026 ~ 31-03-2027" }, width: 220 }],
@@ -402,7 +424,9 @@ export function calendarRow(t: CalendarTopic): Record<string, string | number | 
 
 const trainingCalendar: LogSheetLayout = {
   documentId: "hr-training-calendar",
-  instructions: [
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "Training Plan Calender (Rev. 00 / 07.03.2022), one sheet a year from April to March. For every topic and month: Plan — Yes where the paper prints X, or the date DCRS planned the training for; Actual — the date the training was held, written when it is. Each March the coming year is planned from this year's calendar, and the people who answer for it are reminded before each planned day until the actual date is written.",
     "The training duration of topic 10 is not legible on the supplied copy and is marked TO BE CONFIRMED.",
   ],
@@ -425,7 +449,9 @@ const trainingCalendar: LogSheetLayout = {
 
 const trainingImparted: LogSheetLayout = {
   documentId: "hr-training-imparted",
-  instructions: [
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "TRAINING IMPARTED RECORD — one record per training held. The topic box offers the training plan calendar's trainings: the one chosen fills the trainer, the duration and the method. One line per employee who attended, with a signature; F/HR/11 and F/HR/12 then take the training and its people from here.",
   ],
   headerFields: [
@@ -460,8 +486,13 @@ const BENEFIT = ["Yes, very much", "Partly", "No, not at all"];
 const trainingEffectiveness: LogSheetLayout = {
   documentId: "hr-training-effectiveness",
   instructions: [
-    "TRAINER'S EVALUATION BY TRAINEE — on a scale of 1 to 10 (1 being the worst, 10 being the best), how you would rate this workshop; then the general evaluation of the trainer.",
-    "Page 2, TRAINEE'S EVALUATION BY – TRAINER / REPORTING OFFICER, is below the grid: this evaluation may be done after a specified period of time, when the knowledge / skill acquired by the trainee after this training program could be assessed by his Superior as getting utilized beneficially for his/her day to day activity or specialized work in his/her department / function.",
+    "TRAINER'S EVALUATION BY TRAINEE",
+    "On a scale of 1 to 10 (1 being the worst, 10 being the best), how you would rate this workshop",
+  ],
+  // Page 2 of the paper, word for word, above the trainer's boxes under the grid (REQUIREMENTS §183).
+  notesBelow: [
+    "TRAINEE'S EVALUATION BY – TRAINER / REPORTING OFFICER",
+    "This evaluation may be done after a specified period of time, when the knowledge / skill acquired by the trainee after this training program could be assessed by his Superior as getting utilized beneficially for his/her day to day activity or specialized work in his/her department / function",
   ],
   headerFields: [
     // Sample fill: the Training Coordinator as trainee, at the external BRCGS
@@ -513,7 +544,11 @@ const trainingEffectiveness: LogSheetLayout = {
 
 const trainingFeedback: LogSheetLayout = {
   documentId: "hr-training-feedback",
-  instructions: ["TRAINING FEEDBACK & EVALUATION RECORD — one line per employee who attended: has the employee grasped & adopted knowledge/skill of the topic? (rated 0 to 3), and does the employee need additional training on the subject?"],
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
+    "TRAINING FEEDBACK & EVALUATION RECORD — one line per employee who attended: has the employee grasped & adopted knowledge/skill of the topic? (rated 0 to 3), and does the employee need additional training on the subject?",
+  ],
   headerFields: [
     { key: "trainingDate", label: "Date of the Training", type: "date", autoFill: { carryForward: true } },
     // The calendar's trainings are offered here (REQUIREMENTS §165, engine/trainingLinks.ts): the one chosen fills the date,
@@ -714,11 +749,15 @@ export const GMP_ITEMS: [string, "Yes" | "No"][] = [
 
 const gmpChecklist: LogSheetLayout = {
   documentId: "hr-gmp-checklist",
-  instructions: [
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "MONTHLY PRP CHECK LIST (GMP INSPECTION RECORD) — fifty-five points walked by the HARA team once a month, each answered Yes / No with the action taken if NC.",
     `Location Guide (tick the areas covered): ${GMP_LOCATIONS.join(" · ")}.`,
     "Page 5 of the format is the inspection team's sign-off: Name / Department / Process / Designation / Sign — entered below the grid, one team member per line.",
   ],
+  // The inspection team's sign-off stands once, after the last point, as on page 5 of the paper (REQUIREMENTS §183).
+  footOnce: true,
   headerFields: [
     { key: "responsibility", label: "Responsibility", type: "text", autoFill: { default: "HARA TEAM" } },
     { key: "inspectionDate", label: "Date", type: "date" },
@@ -763,7 +802,11 @@ const PSC_SCALE = ["7 — Strongly Agree", "6 — Moderately Agree", "5 — Agre
 
 const pscSurvey: LogSheetLayout = {
   documentId: "hr-psc-survey",
-  instructions: ["PRODUCT SAFETY CULTURE SURVEY — one form per employee. For each attribute, the response on the printed scale: 7 Strongly Agree · 6 Moderately Agree · 5 Agree · 4 Neutral · 3 Disagree · 2 Moderately Disagree · 1 Strongly Disagree. The form is also issued in Gujarati."],
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
+    "PRODUCT SAFETY CULTURE SURVEY — one form per employee. For each attribute, the response on the printed scale: 7 Strongly Agree · 6 Moderately Agree · 5 Agree · 4 Neutral · 3 Disagree · 2 Moderately Disagree · 1 Strongly Disagree. The form is also issued in Gujarati.",
+  ],
   headerFields: [
     { key: "surveyDate", label: "Date", type: "date" },
     // Sample fill: the PSTL, who runs the survey (documentRoleKeywords).
@@ -785,7 +828,9 @@ const num = (key: string, label: string, width = 70): LogColumn => ({ key, label
 
 const pscAnalysis: LogSheetLayout = {
   documentId: "hr-psc-survey-analysis",
-  instructions: [
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "PRODUCT SAFETY CULTURE SURVEY — the analysis of one survey round: how many responses each attribute drew at each point of the scale, the actual and ideal weighted responses, and the percentage achieved.",
     "The figures are as printed on the company's own analysis sheet; nothing is recomputed.",
   ],
@@ -829,7 +874,9 @@ const hygieneReport: LogSheetLayout = {
   documentId: "hr-hygiene-report",
   // The paper's own Date column (1 to 31) numbers the lines (REQUIREMENTS §102).
   ownLineNumbers: true,
-  instructions: [
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "Daily Personal Sanitation & Hygiene Inspection Report — one sheet per month, one line per day of the month, each of the nine checks answered Yes / No as found at frisking, with the observation, the corrective action and who checked.",
     "A day's line is filled on the day; the sheet is not pre-filled for days that have not happened.",
   ],

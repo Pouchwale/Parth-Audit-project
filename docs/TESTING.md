@@ -1695,6 +1695,19 @@ Seven scripts live in `tests/`:
   field filling on an already-open record. Makes real calls to Groq, so — like `visual_qa.py` —
   it's not wired into `npm run test:e2e` (network/quota-dependent); run it manually.
 
+## Every document's Word, Excel and printout (REQUIREMENTS §183, 4-Nov-2026)
+
+`tests/check_all_documents.py` runs against the local run (`npm run dev:local`, port 5173): every document of the Document
+Library started (New) or opened, words typed into its boxes, both downloads pressed and read back, "Print Original-Style
+Record" pressed and its print layout and PDF inspected (the document alone, A4, empty boxes empty, dd-mm-yyyy, the format
+number, no blank page, nothing within 3.5 mm of the paper's edge). `tests/office_open_check.ps1` then opens every file in a
+new Excel and Word instance. On 4-Nov-2026 all 137 documents were checked; what was put right and what is right as it is
+are in REQUIREMENTS §183. `frontend/tests/printsAndDownloads.test.ts` holds the fixes.
+
+```bash
+python -I tests/check_all_documents.py
+```
+
 ## How to re-run
 
 ```bash

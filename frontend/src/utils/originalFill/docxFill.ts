@@ -21,7 +21,7 @@ import { ENVELOPE_PROPERTY, ExportMapBuilder, MAP_XML_NAMESPACE, envelopePropert
 import { Pkg, setCustomProperty } from "./pkg";
 import { el, kid, kids, all, clone, insertAfter, parents, removeChild, type XmlElement, type XmlNode } from "./xml";
 import { modelOf, bandValue, labelsOf, numberedGroups, withPaperWords, type DcrsModel, type ModelField, type ModelGrid } from "./model";
-import { COMPANY_RE, FORMAT_NO_RE, afterLabel, bandWordOf, headingPrefix, isBlankish, isSerialHeading, norm, same, similarity } from "./text";
+import { COMPANY_RE, FORMAT_NO_RE, afterLabel, bandWordOf, headingPrefix, isBlankish, isSerialHeading, norm, numberPrinted, same, similarity } from "./text";
 import { bandEdit, choiceWords, labelInside, replaceFormat } from "./xlsxFill";
 import { emptyReport, type FillHints, type FillReport } from "./types";
 
@@ -372,7 +372,14 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
 
   // ---- the header and footer parts, and the band wherever it is: words only
   const headerParts = pkg.names().filter((n) => /^word\/(header|footer)\d*\.xml$/i.test(n));
-  const dcrs = { formatNo: bandValue(model, "formatNo"), revNo: bandValue(model, "revNo"), revDate: bandValue(model, "revDate"), page: bandValue(model, "page") };
+  // A page with no header band (a calibration paper) says its number at its foot: that is the document's number too (§183).
+  const printedNo = bandValue(model, "formatNo") ? null : numberPrinted(model.texts);
+  const dcrs = {
+    formatNo: bandValue(model, "formatNo") || printedNo?.formatNo || "",
+    revNo: bandValue(model, "revNo") || printedNo?.revNo || "",
+    revDate: bandValue(model, "revDate") || printedNo?.revDate || "",
+    page: bandValue(model, "page"),
+  };
   const own = ownFormatNo([...headerParts.map((n) => pkg.xml(n)!).filter(Boolean), doc]);
   const fixWords = (p: XmlElement, inBand: boolean) => {
     const text = paraText(p);

@@ -588,6 +588,23 @@ function walk(el: Element, out: ExportBlock[]): void {
         if (text) out.push({ kind: "text", text, strong: true, title: true });
       }
     }
+    // THE PAPER'S OWN HEAD (REQUIREMENTS §183): a framed QC paper's title beside its logo; a line clearance's company, title,
+    // machine box and its Format no. / Rev. no. / Effective date band - in the file as the page prints them. Their words go in
+    // as the paper's own words, not as DCRS's title, so a download made as the owner's own file keeps his title as he wrote it.
+    for (const part of Array.from(el.querySelectorAll(".dhf-title, .lc-company, .lc-title"))) {
+      const text = clean(textOf(part));
+      if (text) out.push({ kind: "text", text, strong: true });
+    }
+    const machine = el.querySelector(".lc-machine");
+    if (machine) walk(machine, out);
+    const lcBand = Array.from(el.querySelector(".lc-meta")?.children ?? []).flatMap((d) => {
+      const value = d.children.length > 0 ? d.children[d.children.length - 1] : null;
+      const whole = clean(textOf(d));
+      const said = value ? clean(textOf(value)) : "";
+      const label = clean(whole.slice(0, Math.max(0, whole.length - said.length))).replace(/\s*[-:]\s*$/, "");
+      return [{ text: label }, value ? cellFrom([value]) : { text: "" }];
+    });
+    if (lcBand.length > 0) out.push({ kind: "table", rows: [lcBand], headerRows: 0, band: true });
     const meta = Array.from(el.querySelectorAll(".meta-cell")).flatMap((c) => [{ text: clean(textOf(c.querySelector(".k") ?? c)) }, cellFrom([c.querySelector(".v") ?? c])]);
     // The Format No. / Rev No. / Date / Page row is a band across the page, not a grid: however many cells the paper
     // prints in it, it never turns the page (utils/docx.ts).

@@ -24,6 +24,8 @@ import { COMPANY } from "./masterData";
 
 const SAFE_TRANSPORTER: LogSheetLayout = {
   documentId: "disp-safe-transporter-agreement",
+  // The agreement's signatures stand once, at its end, as on the paper (REQUIREMENTS §183).
+  footOnce: true,
   // The agreement itself, clause by clause, under the paper's own headings.
   instructions: [
     "In order to maintain Quality, Product safety, integrity & legality of the products being supplied by us, following standards & code of practices are required to be followed by contract transport / distribution service providers.",

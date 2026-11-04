@@ -103,6 +103,20 @@ export const FORMAT_NO_RE = /\bF\s*[-/]\s*(?:QC|HR|SYS|MNT|PRD|PUR|MKT|DISP|STR|
 /** "(00/01.12.2021)", "(01 / 16.02.2022)", "(00-15.12.2024)", "/00": a revision and its date after a format number. */
 export const REVISION_AFTER_RE = /\(\s*(\d{1,2})\s*[/-]\s*(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\s*\)/;
 
+/**
+ * The format number the page prints in its own words (a calibration paper's foot, "F/QC/12 (01/01-01-2022)"), with the
+ * revision and its date after it: what a page with no header band says its number is (REQUIREMENTS §183).
+ */
+export function numberPrinted(texts: readonly string[]): { formatNo: string; revNo: string; revDate: string } | null {
+  for (const t of texts) {
+    const m = FORMAT_NO_RE.exec(t);
+    if (!m) continue;
+    const rev = REVISION_AFTER_RE.exec(t.slice(m.index + m[0].length));
+    return { formatNo: m[0].replace(/\s+/g, ""), revNo: rev?.[1] ?? "", revDate: rev?.[2] ?? "" };
+  }
+  return null;
+}
+
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /**

@@ -5,6 +5,7 @@ import { withMaintenanceCalc } from "./maintenanceCalc";
 import { withPurchaseRatings } from "./purchaseRatings";
 import { withPrintedBoxes } from "./paperLayout";
 import { withNextDueChain } from "./nextDueChain";
+import { withRegisterDates } from "./registerDates";
 import { withFormulaTime } from "../../../indexing/formulaRuntime";
 
 // EVERY WORKED-OUT CELL, IN ONE PASS (REQUIREMENTS §74, building on §61 and
@@ -41,5 +42,6 @@ function computedNow<T>(documentId: string | undefined, data: T, before?: unknow
   // F/QC/12's weeks follow one another (REQUIREMENTS §145): `before`, where the caller has it, lets a changed date move
   // what the chain had written from it.
   const chained = withNextDueChain(documentId, data, before);
-  return withPrintedBoxes(documentId, withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, chained))))));
+  // The HR registers' dates as the app writes dates, 05-07-2024, whatever spelling a line carried over from the paper (§183).
+  return withRegisterDates(documentId, withPrintedBoxes(documentId, withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, chained)))))));
 }

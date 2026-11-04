@@ -10906,3 +10906,74 @@ option is there."
 - Proved: backend/tests/backup.test.ts (staff refused; not a backup's name refused and kept; a way out of the folder
   refused; a missing file 404; refused while a backup runs; deleted, listed no more, logged).
 
+## §183 Every format's Word, Excel and printout checked, and what was put right (4-Nov-2026)
+
+The owner, 4-Nov-2026: "check each and every document by downloading there word and excel and by checking when user click
+on print original style record then it is coming perfectly or not of all module ... first check it locally then tell me and
+when i will tell you then only you should start deploying it."
+
+**How it was checked.** All 137 documents of the Document Library on the local run (npm run dev:local, its scratch database):
+each one that holds records started with New (132), the other five opened; words typed into up to eight of its boxes; both
+downloads pressed and each file read back (sound zip and XML, openpyxl / python-docx open it, the format number and the
+typed words in it, a proper file name) and opened in the real Excel and Word (136 of each, every one opens, none repaired;
+the service provider's licence is a PDF and has no download); "Print Original-Style Record" pressed (the browser's print
+stubbed) and the printout inspected - the document alone, its grids within A4, an empty box printing empty, no
+month-named date, the format number and the typed words on it - and the browser's PDF of it made and every page looked at.
+Word lays out no PDF on the plant PC: its page layout waits on the default printer (the network Canon), so the Word files
+were opened and read, not printed.
+
+**Put right.**
+1. DCRS's own explanation lines printed on the paper, and went into the downloads made from the sheet, on fourteen HR and
+   five Purchase formats ("one line per staff member ...", "fifty-five points walked by the HARA team ...", "The five tick
+   columns ...", "Both lines above are printed across the grid itself ..."): they are `screenNotes` now
+   (types/logSheet.ts), shown above the sheet on the screen only (.no-print, which the downloads leave out too). The
+   paper's own words stay `instructions`, each line held against the owner's original file. F/HR/11 prints its paper's two
+   lines word for word above the grid, and page 2's heading and sentence under it (notesBelow), not DCRS's paraphrase.
+2. Dates written as the app writes dates, dd-mm-yyyy (§171): the registers carried over from the paper printed and
+   downloaded the paper's spellings - F/HR/01's "01.04.2014" and "4/30/2025", F/HR/03's "5/13/2008", F/HR/09's actual
+   dates "7/22/2026", F/HR/06's and F/HR/13's "01/06/2025", the periods "01.04.2026 ~ 31.03.2027". engine/registerDates.ts
+   writes each date or period as dd-mm-yyyy wherever the register is shown or stored (engine/computedCells.ts), a slashed
+   date read in the register's own order and F/HR/09's in its month's column; anything else in a box is left as it is.
+   engine/hrMaster.ts parseWrittenDate reads a dashed date day first on every register: the app's own "05-07-2024" was
+   read as the 7th of May on F/HR/01 and F/HR/03. A date printed from a box stays on one line, never broken at a dash, its
+   writing sized to its cell's printed width so it neither widens the grid nor runs into the next cell (utils/print.ts;
+   F/MNT/09's week columns).
+3. A date on the Responsibilities document and the Service Agreement printed twice ("Dated: 01-01-2025 01-01-2025"): the
+   print no longer writes a second copy beside a box that prints its own words (utils/print.ts, FormField's boxes).
+4. F/HR/01 printed an empty sixth page: the document's 12 mm under its last line spilled onto a page of its own. And every
+   long sheet printed its repeated header block at the paper's very top edge and its lines to the very foot of the page
+   (F/HR/08's page 2 ended 0.9 mm from the edge), where a printer cannot print. Every page of a long sheet now keeps its
+   12 mm at the head and the foot (styles.css "Print": in the sheet's repeated head and foot, or a page foot of its own),
+   and so does every page of the complaint checklist (F/MKT/05, whose first page ran to 2 mm of the foot) and of the
+   inspection findings report (data-print-flow). The page itself still takes no margin, so no browser date or address
+   prints on it (§59).
+5. A foot the paper prints once printed at the foot of every page, or ran to the page's very edge when taller than a foot
+   can be: F/DISP/01's signatures, F/HR/19's inspection team, F/PUR/01's office boxes, F/PUR/02's summary and NC tables,
+   F/SYS/20's review team - `footOnce`, printed once after the last line.
+6. F/SYS/20 printed the review team's names a page after their labels: a box's label and its value stay on one page.
+7. The files made from the page left out the framed QC papers' titles (INSPECTION RECORD – BOPP FILM and the rest) and the
+   line clearances' whole head (company, title, machine box, Format no. / Rev. no. / Effective date): utils/documentExport.ts
+   reads them (as the paper's words, so a download made as the owner's own file keeps his title as he wrote it).
+8. F/QC/11's Word file had no number at its foot: utils/calibrationWord.ts writes "F/QC/11 (01/01-01-2022)" under the
+   PROCEDURE, as the page prints it.
+9. F/QC/12's Word file - the owner's own file filled - read "F/QC/13 (01/01.01.2022)" in its footer, a slip in his file: a
+   page with no header band gives the number it prints at its foot, so the footer reads F/QC/12 (utils/originalFill:
+   text.ts numberPrinted, docxFill.ts).
+10. The Service Agreement's first page ran one clause over and printed it alone on a page: its print is a little tighter,
+   two pages as written.
+
+**Found right, and left as they are.**
+- The owner's own Word forms leave out a value his paper has no box for (§119, the owner's 22-Oct-2026 rule): F/HR/04's
+  question 06 details, F/HR/14's readings for questions 1-8, F/HR/19's inspection team. The record and the Excel download
+  keep them.
+- F/SYS/07 and F/SYS/13 (his Excel files) and F/DISP/01 (his Word file) carry no format number because his files carry
+  none; their printouts do.
+- F/DISP/02 numbers its checklist 1-4 and 6-9, as its paper does. The certificates of analysis (F/QC/06, F/QC/07, F/QC/25),
+  F/QC/13 and F-QC-14's Sleeve sheet print no F/QC number, as their papers print none.
+- The owner's Excel files keep their own print scaling (37 %, 46 % ... fitted by him).
+
+**Proved.** frontend/tests/printsAndDownloads.test.ts (no explanation of DCRS's in any layout's printed lines, the screen
+notes kept; the dashed and slashed readings; F/HR/01's and F/HR/09's dates and periods written dd-mm-yyyy, other words
+left alone; the number a page prints at its foot); the check of all 137 documents run again after the fixes; the deploy to
+the plant waits for the owner's word.
+

@@ -38,7 +38,8 @@ npm run test:unit                 # every unit suite: frontend, backend, indexin
 npm run test:unit -- dailyPest    # the suites whose file name contains a word
 ```
 
-The Playwright suites are in `tests/` (`scripts/run-e2e.ts` runs them against a build);
+The Playwright suites are in `tests/` (`scripts/run-e2e.ts` runs them against a build; `tests/check_all_documents.py` checks
+every document's Word, Excel and printout on the local run);
 [docs/TESTING.md](docs/TESTING.md) says what each one proves.
 
 ## Configuration
@@ -53,4 +54,4 @@ works and Mitra answers from the records), `DAYLIGHT_THEME=1` for the theme that
   server through `engineHost/`), the formats and seeds in `data/seed/`.
 - `backend/` — the Express API, the database (`db.ts`), the jobs (reminders, escalation, the morning prepare).
 - `indexing/` — the index of every format and document.
-- `docs/` — REQUIREMENTS.md (every decision, §1-§181), TESTING.md, DEPLOYMENT.md, the data model and the API notes.
+- `docs/` — REQUIREMENTS.md (every decision, §1-§183), TESTING.md, DEPLOYMENT.md, the data model and the API notes.

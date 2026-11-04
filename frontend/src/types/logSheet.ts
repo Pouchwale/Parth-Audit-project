@@ -404,6 +404,16 @@ export interface LogSheetLayout {
   // values, ALC protocol, ...), verbatim. Only what the paper prints: an
   // explanation of DCRS's own is never put here (REQUIREMENTS §111).
   instructions?: string[];
+  /**
+   * DCRS's own word on how the sheet is kept ("one line per staff member ..."): shown above the sheet on the screen, never
+   * printed and never in a download (REQUIREMENTS §183). The paper's own words stay in `instructions`.
+   */
+  screenNotes?: string[];
+  /**
+   * The paper's foot (its boxes below the grid) printed once, after the last line, rather than at the foot of every page: an
+   * agreement's signatures, an office-use block, a sign-off that stands once on the paper (REQUIREMENTS §183).
+   */
+  footOnce?: boolean;
   headerFields: LogHeaderField[];
   columns: LogColumn[];
   rowMode: LogRowMode;

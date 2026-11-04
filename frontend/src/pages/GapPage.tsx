@@ -441,7 +441,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
 
       {/* The document itself — the part that prints (utils/print.ts) — and whose
           values a downloaded file binds to this record (REQUIREMENTS §81). */}
-      <div data-print-doc data-bind-record={record.id} data-format-id={GAP_DOC_ID} data-format-asof={formulaTimeOf(record)}>
+      {/* data-print-flow: every printed page keeps its 12 mm, head and foot (REQUIREMENTS §183, styles.css "Print"). */}
+      <div data-print-doc data-print-flow="" data-bind-record={record.id} data-format-id={GAP_DOC_ID} data-format-asof={formulaTimeOf(record)}>
       <div className="doc-header">
         <div className="company-name">CAPA — Internal: Pest Control Inspection Findings Report</div>
         <div className="meta-row">

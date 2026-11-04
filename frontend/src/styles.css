@@ -1290,7 +1290,9 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
      report are built of page sections, one printed page each, so the margin
      goes on those and every page of them keeps it; anything else takes it on
      the document itself. */
-  [data-print-doc] { padding: 12mm; }
+  /* No margin under the last line (REQUIREMENTS §183): a sheet that ends near the foot of a page put its 12 mm on a page of
+     its own, an empty last page (F/HR/01's sixth). Nothing is printed there, so nothing is lost. */
+  [data-print-doc] { padding: 12mm 12mm 0; }
   [data-print-doc]:has(.register-page), [data-print-doc]:has(.caf-page) { padding: 0; }
   .register-page, .caf-page { padding: 12mm !important; }
   .print-only { display: block !important; }
@@ -1391,11 +1393,38 @@ html.print-scoped .paper-sheet .doc-table table th, html.print-scoped .paper-she
   .paper-head { display: table-header-group; }
   .paper-body { display: table-row-group; }
   .paper-foot { display: table-footer-group; }
+  /* A FOOT PRINTED ONCE (REQUIREMENTS §183): an agreement's signatures, an office-use block, a sign-off that the paper prints
+     once stand after the last line, not at the foot of every page (LogSheetLayout.footOnce). */
+  .paper-sheet[data-foot="once"] > .paper-foot { display: table-row-group; }
+  /* EVERY PAGE OF A LONG SHEET KEEPS ITS 12 MM (REQUIREMENTS §183). The page has no margin (above), so a sheet that runs to
+     a second page printed its repeated header block at the paper's very top edge and its lines to the very foot - inside
+     the 4 to 5 mm a printer cannot print (F/HR/08 at 58%: page 2's last line 0.9 mm from the edge). The 12 mm stand in the
+     sheet's head and foot, which the browser repeats on every page: at the head of the header block, at the end of the
+     foot (or, where the foot stands once, in a foot of its own, .paper-page-foot). Scaled with the sheet, as the rest. */
+  [data-print-doc]:has(.paper-sheet:not([data-frame]):not([data-paper-form])) { padding-top: 0; }
+  .paper-sheet:not([data-frame]):not([data-paper-form]) > .paper-head::before { content: ""; display: block; height: 12mm; }
+  .paper-sheet:not([data-frame]):not([data-paper-form]) > .paper-foot::after { content: ""; display: block; height: 12mm; }
+  .paper-sheet[data-foot="once"]:not([data-frame]):not([data-paper-form]) > .paper-foot::after { content: none; }
+  /* (break-inside: avoid, as the head and the foot have it: the browser repeats only a header or a footer that stays whole.) */
+  .paper-sheet[data-foot="once"]:not([data-frame]):not([data-paper-form]) > .paper-page-foot { display: table-footer-group; break-inside: avoid; }
+  .paper-sheet[data-foot="once"]:not([data-frame]):not([data-paper-form]) > .paper-page-foot::after { content: ""; display: block; height: 12mm; }
+  /* A DOCUMENT OF PLAIN BLOCKS THAT RUNS PAST ONE PAGE (REQUIREMENTS §183) - the complaint checklist (F/MKT/05), the
+     inspection findings report: its 12 mm at the head and the foot of every page, in a header and a footer of its own that
+     the browser repeats (the page itself has no margin, §59; F/MKT/05's first page ran to 2 mm of the paper's foot). */
+  [data-print-doc][data-print-flow] { display: table; width: 100%; padding-top: 0; padding-bottom: 0; }
+  [data-print-doc][data-print-flow]::before { content: ""; display: table-header-group; height: 12mm; break-inside: avoid; }
+  [data-print-doc][data-print-flow]::after { content: ""; display: table-footer-group; height: 12mm; break-inside: avoid; }
+  /* The service agreement's first page holds its scope and schedule whole (REQUIREMENTS §183: clause 2.5 had a page to itself). */
+  .sa-sheet .caf-page .pr-item { margin-bottom: 3px; }
+  .sa-sheet .caf-page .caf-section { margin-top: 8px; }
+  .sa-sheet .caf-page .pr-letterhead { margin-bottom: 10px; }
   /* Nothing cut at the foot (§117): the header block stays with what follows it; the boxes above the grid, the
      paper's text below it and its boxes below it each stay whole on one page; a grid's heading rows repeat (thead,
      above) and no line of it is broken across pages (tr, above). */
   .doc-header { break-after: avoid; }
   .paper-head, .paper-foot, [data-section="sheet-boxes"], .sheet-boxes-paper, [data-section="notes-below"], [data-section="notes-at-foot"], .paper-foot .card { break-inside: avoid; }
+  /* A box's words and its value on one page (REQUIREMENTS §183): F/SYS/20's review team printed its names a page after their labels. */
+  .paper-sheet .field { break-inside: avoid; }
   /* THE SHEET AT THE PAPER'S DENSITY (§117): on screen a card has room around its boxes and a line is as tall as a box
      to type into; printed so, F/QC/11 (landscape) and F/QC/17 (portrait) ran to a second page where the paper is one
      (the print suite's PDF page count, 16-Oct-2026). Printed, the cards lose their room, the lines and boxes are the
@@ -1723,6 +1752,8 @@ body { top: 0 !important; }
 .caf-table .caf-long { min-height: 48px; }
 .caf-value.long { display: block; white-space: pre-wrap; }
 .caf-sheet .caf-print-only { display: none !important; }
+/* A printed page's foot of its own (REQUIREMENTS §183, "Print"): nothing on the screen. */
+.paper-page-foot { display: none; }
 .caf-photos { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; margin: 12px 0; }
 .caf-photo { position: relative; margin: 0; }
 .caf-photo img { display: block; height: 220px; width: auto; max-width: 100%; border: 1px solid var(--color-border); }

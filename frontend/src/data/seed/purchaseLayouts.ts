@@ -155,8 +155,13 @@ const supplierRegistration: LogSheetLayout = {
     "3. Food grade declaration or compatible to food contact packaging",
     "4. Traceability protocol or yours internal Traceability record for one of the lots supplied to us",
     "5. Copy of management system certification (e.g. ISO 9001 / FSSC 22000 / BRCGS as applicable)",
+  ],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "INTERNAL OFFICE USE ONLY — the five boxes BELOW are the office's, as on page 3 of the form: the status of the supplier, the type of assessment, what the supplier is approved for, the assessment status and the authorised person's signature. Everything above them is the supplier's to fill.",
   ],
+  // The office's five boxes stand once, at the end, as on page 3 of the paper (REQUIREMENTS §183).
+  footOnce: true,
   headerFields: SUPPLIER_REGISTRATION_FIELDS,
   // The form has no grid: it is labelled lines and prose blocks throughout.
   columns: [],
@@ -314,11 +319,17 @@ const NC_TABLE_FIELDS: LogHeaderField[] = [1, 2, 3].flatMap((line) => [
 
 const supplierAuditReport: LogSheetLayout = {
   documentId: "pur-supplier-audit-report",
+  // The summary of observations, the NC table and the overall status stand once, after the audit points, as on pages 8 and 9
+  // of the paper (REQUIREMENTS §183): taller than a page, they ran to its very foot as the sheet's foot.
+  footOnce: true,
   // The paper numbers its audit points 1.1 to 8.x in a "No." column of its own (REQUIREMENTS §102).
   ownLineNumbers: true,
   instructions: [
     "AUDIT CRITERIA:",
     "DEPENDING ON THE TYPE OF SUPPLY CRITERIA MAY BE OMITTED - IF OMITTED PLEASE MARK N/A",
+  ],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "The eight criteria above are answered Y / N / NA in the boxes below; the eight sections' audit points are the grid. Section 1 is answered under the form's headings \"C/NC/NA\" and \"COMMENTS / ACTIONS\", sections 2 to 8 under \"RATING\" and \"COMMENTS\" — one grid heads each of those columns both ways, and the answer column offers the only values the format prints: C, NC, NA.",
     "SUMMARY OF OBSERVATIONS, the observations / NC table and \"Overall Status - Approved / Rejected\" are the boxes BELOW the grid, as on pages 8 and 9 of the form.",
   ],
@@ -393,6 +404,9 @@ const approvedSuppliers: LogSheetLayout = {
   documentId: "pur-approved-suppliers",
   instructions: [
     "LIST OF APPROVED SUPPLIERS (RM, PM, SERVICE PROVIDER)",
+  ],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "The five tick columns under \"METHOD OF APPROVAL\" are the methods the form prints; the list is updated as suppliers are approved, and the date it was last updated goes in the box above.",
   ],
   headerFields: [{ key: "updationAsOn", label: "UPDATION AS ON :", type: "date", autoFill: { dueDate: true } }],
@@ -493,6 +507,9 @@ const supplierPerformance: LogSheetLayout = {
   instructions: [
     "Enter value based on above criteria in the following cells",
     "Don’t enter value in the following cell, its formula based",
+  ],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "Both lines above are printed across the grid itself: the first over the Product Safety, Quality and Delivery Rating columns, the second over the three Weightage columns, the Overall Rating and the Grade — which are worked out here from the three ratings and cannot be typed into. The criteria the first line refers to are the four tables the form prints across its top, shown below.",
   ],
   headerFields: [],
@@ -547,6 +564,9 @@ const serviceProviderPerformance: LogSheetLayout = {
   documentId: "pur-service-provider-performance",
   instructions: [
     "SERVICE PROVIDER - PERFORMANCE MONITORING REGISTER",
+  ],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: [
     "Both parameter ratings are out of 50, so the Overall Rating is 100 at most. It is the two added and is worked out here, not typed — the blank form prints 0 in every one of its cells. The Status / Decision is written in.",
   ],
   headerFields: [{ key: "ratingPeriod", label: "Rating Period :", type: "text", autoFill: { carryForward: true } }],

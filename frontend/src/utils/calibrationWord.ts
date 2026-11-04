@@ -1,6 +1,7 @@
 import type { Cell, ExportBlock, PaperCellSpec } from "./documentExport";
 import { calibrationGeometryFor } from "../data/seed/qcCalibrationGeometry";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { FORMAT_NO_RE } from "./originalFill/text";
 
 // F/QC/11 - THE MONTHLY INTERNAL CALIBRATION RECORD OF THE GSM CUTTING PLATE, DOWNLOADED AS WORD AS ITS PAGE IS DRAWN (the
 // owner, 30-10-26, with the Word download beside the page: "the exact format of the document should come like the second
@@ -170,6 +171,16 @@ export function gsmPlateWord(blocks: ExportBlock[]): ExportBlock[] | null {
       widths: [Math.round(geo.width * PT * 100) / 100],
       rows: [{ cells: [cell({ text: ` ${proc[2]}` }, 22, false, "left", "top", ARIAL, { boldLead: proc[1], borders: [0, 0, 0, 0] })] }],
       spaceAfter: 1,
+    });
+  }
+  // The number the page prints alone at its foot, "F/QC/11 (01/01-01-2022)" (REQUIREMENTS §183): the file carried none.
+  const foot = blocks.find((b): b is Text => b.kind === "text" && FORMAT_NO_RE.test(b.text) && /\(.*\)/.test(b.text));
+  if (foot) {
+    out.push({
+      kind: "paper",
+      widths: [Math.round(geo.width * PT * 100) / 100],
+      rows: [{ cells: [cell({ text: foot.text.trim() }, 20, false, "center", "top", TIMES, { borders: [0, 0, 0, 0] })] }],
+      spaceAfter: 0,
     });
   }
   return out;

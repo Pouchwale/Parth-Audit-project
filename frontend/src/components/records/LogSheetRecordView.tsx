@@ -893,6 +893,7 @@ export function LogSheetRecordView({
       data-paper-left={cal ? cal.left : undefined}
       data-frame={frame ? "" : undefined}
       data-sheet={doc.id}
+      data-foot={layout.footOnce ? "once" : undefined}
       data-paper-form={pf ? "incoming" : lc ? "lineclear" : cal ? "calib" : rep ? "report" : undefined}
       style={
         lc
@@ -904,6 +905,16 @@ export function LogSheetRecordView({
               : undefined
       }
     >
+      {/* DCRS's own word on keeping the sheet (REQUIREMENTS §183): on the screen only, never on the paper or in a download. */}
+      {(layout.screenNotes?.length ?? 0) > 0 && (
+        <div className="no-print text-xs text-muted mb-2" data-section="screen-notes">
+          {layout.screenNotes!.map((line, i) => (
+            <p key={i} className="mb-1">
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
       <div className="paper-head">
       {/* The calibration papers print no number row at their head: their number stands at the foot (the owner, 30-Oct-2026). */}
       <DocumentHeader {...headerProps} frame={frame} numberRow={!cal} />
@@ -1254,6 +1265,8 @@ export function LogSheetRecordView({
         frame?.address && <NotesBelow lines={[frame.address]} section="notes-at-foot" />
       )}
       </div>
+      {/* The foot of every printed page when the paper's own foot stands once at the end: its 12 mm (REQUIREMENTS §183). */}
+      <div className="paper-page-foot" aria-hidden="true" />
       {fetching && <HrMasterPeopleList />}
       {eqFetching && <EquipmentMachineList />}
       <datalist id="log-sheet-employees">

@@ -97,6 +97,8 @@ function markEmptyBoxes(docs: Element[]): Element[] {
 export const PRINTED_AS_TEXT = "print-as-text";
 export const PRINT_BOX_TEXT = "print-box-text";
 const WRITTEN_BOXES = "input[type='date'], input[type='time']";
+/** A box that prints its own words beside it (components/records/FormField.tsx): given no second copy (REQUIREMENTS §183). */
+const OWN_PRINTED_WORDS = "caf-screen-only";
 
 /** What a written date or time box prints: the date as the sheet writes dates, the time as written. */
 export function printedBoxText(type: string, value: string): string {
@@ -109,7 +111,7 @@ function writeBoxesAsText(docs: Element[]): Written[] {
   const written: Written[] = [];
   for (const d of docs) {
     for (const box of Array.from(d.querySelectorAll(WRITTEN_BOXES)) as HTMLInputElement[]) {
-      if (box.value === "" || box.classList.contains(PRINTED_AS_TEXT)) continue;
+      if (box.value === "" || box.classList.contains(PRINTED_AS_TEXT) || box.classList.contains(OWN_PRINTED_WORDS)) continue;
       const text = document.createElement("span");
       text.className = PRINT_BOX_TEXT;
       text.textContent = printedBoxText(box.type, box.value);
@@ -123,6 +125,8 @@ function writeBoxesAsText(docs: Element[]): Written[] {
 
 /** The text boxes whose words may be too long for them, and the class of the words printed in their place. */
 const LONG_BOXES = "input[type='text'], input:not([type])";
+/** A date written in a box (F/HR/01's Date of Joining, "30-04-2025"): printed on one line, never broken at a dash (REQUIREMENTS §183). */
+const ONE_LINE_DATE = /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/;
 export const PRINT_BOX_WORDS = "print-box-words";
 /** The wrapped lines' pitch to their size, and the share of two lines' width the words may fill (a line breaks between words). */
 const WORDS_LINE = 1.15;
@@ -137,10 +141,10 @@ const PAPER_FORM = ".paper-sheet[data-paper-form]";
 /** Puts the words of every written value too long for its box in its place, for the print (after fitAll); the pairs are returned. */
 function writeLongBoxesAsWords(docs: Element[]): Written[] {
   // Every box read first, then every one written: one layout for the lot.
-  const plan: { box: HTMLInputElement; size: number; floor: number; height: number | null; align: string }[] = [];
+  const plan: { box: HTMLInputElement; size: number; floor: number; height: number | null; align: string; oneLine?: boolean }[] = [];
   for (const d of docs) {
     for (const box of Array.from(d.querySelectorAll<HTMLInputElement>(LONG_BOXES))) {
-      if (box.value.trim() === "" || box.classList.contains(PRINTED_AS_TEXT) || box.clientWidth === 0) continue;
+      if (box.value.trim() === "" || box.classList.contains(PRINTED_AS_TEXT) || box.classList.contains(OWN_PRINTED_WORDS) || box.clientWidth === 0) continue;
       const { need, room, own, now, floor } = measureWords(box);
       const align = getComputedStyle(box).textAlign;
       if (box.closest(PAPER_FORM)) {
@@ -149,18 +153,39 @@ function writeLongBoxesAsWords(docs: Element[]): Written[] {
         plan.push({ box, size: Math.min(own, Math.max(floor, (own * TWO_LINES * room) / need)), floor, height: box.clientHeight, align });
         // Any other sheet: a value that fills most of its box (written smaller to fit, or nearly full) keeps the size it is
         // written at, and wraps only where the page's box is narrower than the screen's: the printout is as before, uncut.
-      } else if ((need * now) / own > room * WEB_FULL) plan.push({ box, size: now, floor, height: null, align });
+      } else if ((need * now) / own > room * WEB_FULL) {
+        // A date stays on one line, written as small as it needs to be to fit its box (no smaller than the smallest writing).
+        // The sheet never grows wider for it (F/MNT/09's week columns ran into the paper's margin): measured on the page below,
+        // after every box is written.
+        if (ONE_LINE_DATE.test(box.value.trim())) plan.push({ box, size: Math.max(floor, Math.min(now, ((room * own) / need) * 0.97)), floor, height: null, align, oneLine: true });
+        else plan.push({ box, size: now, floor, height: null, align });
+      }
     }
   }
   const written: Written[] = [];
-  for (const { box, size, height, align } of plan) {
+  for (const { box, size, height, align, oneLine } of plan) {
     const text = document.createElement("span");
     text.className = `${PRINT_BOX_TEXT} ${PRINT_BOX_WORDS}`;
     text.textContent = box.value;
-    // Inline, so that no rule written for a date's one line (its nowrap, a line's height) holds the words to one line.
+    // Inline, so that no rule written for a date's one line (its nowrap, a line's height) holds the words to one line - but a
+    // date itself is one line, as wide as its box (REQUIREMENTS §183).
     Object.assign(text.style, { whiteSpace: "pre-wrap", overflowWrap: "anywhere", height: "auto", maxHeight: "none", overflow: "visible", textAlign: align, fontSize: `${size}px` });
+    if (oneLine) Object.assign(text.style, { whiteSpace: "nowrap", overflowWrap: "normal" });
     if (height !== null) text.style.lineHeight = String(WORDS_LINE);
-    else text.style.display = "block";
+    // A date's line takes its cell's width and never widens the cell (no width of its own for the grid to make room for); its
+    // writing is sized from the cell's own printed width (a share of it, cqw), so it fits however the page lays the grid out -
+    // never larger than it is written, a digit being about 0.56 of the size and a dash 0.33.
+    else if (oneLine) {
+      // (A container of its own width: what it holds never counts towards the cell's width, so the cell is never widened.)
+      Object.assign(text.style, { display: "block", width: "100%", containerType: "inline-size" });
+      const words = text.textContent ?? "";
+      const share = Math.floor((1000 / (5.6 * words.length + 2)) * 10) / 10;
+      text.textContent = "";
+      const inner = document.createElement("span");
+      inner.textContent = words;
+      inner.style.fontSize = `min(${size}px, ${share}cqw)`;
+      text.appendChild(inner);
+    } else text.style.display = "block";
     box.insertAdjacentElement("afterend", text);
     box.classList.add(PRINTED_AS_TEXT);
     written.push({ box, text, display: box.style.display });

@@ -581,7 +581,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
 
       {/* The document itself — the part that prints (utils/print.ts) — and whose
           values a downloaded file binds to this record (REQUIREMENTS §81). */}
-      <div data-print-doc data-bind-record={record.id} data-format-id={doc.id} data-format-asof={formulaTimeOf(record)}>
+      {/* data-print-flow: every printed page keeps its 12 mm, head and foot (REQUIREMENTS §183, styles.css "Print"). */}
+      <div data-print-doc data-print-flow="" data-bind-record={record.id} data-format-id={doc.id} data-format-asof={formulaTimeOf(record)}>
       <DocumentHeader doc={doc} pageLabel={record.headerBlock?.page ?? "1 of 1"} edit={headerEdit} />
       {headerPanel}
 

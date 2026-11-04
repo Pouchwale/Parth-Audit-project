@@ -445,6 +445,9 @@ export const HARA_ANNUAL_2026_01_TEAM: [name: string, designation: string][] = [
 
 const HARA_ANNUAL: LogSheetLayout = {
   documentId: "sys-hara-annual",
+  // The review team and the next review stand once, after the conclusion, as on the paper (REQUIREMENTS §183): taller than
+  // the page's foot can be, they ran to the very foot of page 3 and on to page 4.
+  footOnce: true,
   // Printed between the site's table and "2. Changes Reviewed"; the second
   // heading is the one over the POINTS / OBSERVATION grid.
   instructions: [
