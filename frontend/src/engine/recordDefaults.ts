@@ -12,7 +12,7 @@ import type {
 } from "../types";
 import { formatMonthYearShort, fromISODate } from "../utils/date";
 import { fixedMaterialForServiceArea } from "./serviceMaterials";
-import { isCompanyHoliday } from "./holidays";
+import { dayInfo, isCompanyHoliday } from "./holidays";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { generateId } from "../utils/id";
 import { newComplaintAckData } from "../data/seed/complaintAck";
@@ -45,7 +45,9 @@ export function createDefaultData(
         // Closed days — the Thursday weekly off and the leave calendar's
         // festival holidays, minus adjustment (working) days — arrive
         // pre-marked, like the "H O L I D A Y" rows on the paper register.
-        isHoliday: isCompanyHoliday(dueDateISO, master),
+        isHoliday: dayInfo(dueDateISO, master).isHoliday,
+      // The calendar's own word for the closed day is the reason (REQUIREMENTS §181); a person who marks a working day writes theirs.
+      ...(dayInfo(dueDateISO, master).isHoliday ? { holidayReason: dayInfo(dueDateISO, master).name ?? dayInfo(dueDateISO, master).short } : {}),
         checkpoints: {},
         timeOfChecking: "",
         checker: "",

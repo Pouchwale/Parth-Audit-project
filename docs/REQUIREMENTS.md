@@ -10876,3 +10876,18 @@ yes instead of no then also it should filled automatically like Summary of Actio
   written kept, the note's edit followed, No per check point, reworded lines kept), tests/e2e_hr_module.py (8 and 9
   on the screen).
 
+## §181 F/HR/17: marking the day a holiday asks why (4-Nov-2026)
+
+The owner, 4-Nov-2026, with a picture of the "Mark as Holiday / Non-working day" box: "when user click on mark as holiday
+then it should ask reason also why today is holiday you are marking."
+
+- Ticked, a box opens under it - "Why is this day a holiday?" - and Submit refuses the day until it is written
+  (engine/validation.ts: "Holiday: the reason the plant did not work this day is required."). Unticked, the reason goes.
+- A day the plant's calendar closes (the weekly off, a festival, Master Data > Holidays) carries the calendar's own word
+  as its reason from the start (engine/recordDefaults.ts, and the box when a person ticks it), so nothing is asked twice;
+  the person may still write their own.
+- The register's month sheet prints "HOLIDAY — <reason>" on the day's line (components/records/DailyRegisterSheet.tsx);
+  the history and Mitra name the box "Holiday reason". Stored as DailyPestMonitoringData.holidayReason.
+- Proved: frontend/tests/dailyPestRecord.test.ts (refused without a reason on a working day, accepted with one, the
+  calendar's word on a closed day).
+

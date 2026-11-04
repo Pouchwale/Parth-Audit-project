@@ -143,7 +143,7 @@ export function DailyRegisterSheet({
           <td className={`date-cell st-${status}`}>{beyond ? "" : `${d}.`}</td>
           {r?.data.isHoliday ? (
             <td colSpan={checkpoints.length} className="holiday-cell">
-              HOLIDAY
+              HOLIDAY{String(r.data.holidayReason ?? "").trim() ? ` — ${String(r.data.holidayReason).trim()}` : ""}
             </td>
           ) : (
             checkpoints.map((cp) => {

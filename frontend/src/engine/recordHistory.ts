@@ -75,6 +75,7 @@ const KEY_LABELS: Record<string, string> = {
   timeOfChecking: "Time of checking",
   checker: "Checker",
   isHoliday: "Holiday",
+  holidayReason: "Holiday reason",
   trapBoxNo: "Trap box",
   qtyUsed: "Quantity used",
   materialName: "Material",

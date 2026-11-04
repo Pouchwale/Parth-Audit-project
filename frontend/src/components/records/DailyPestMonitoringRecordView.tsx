@@ -62,6 +62,18 @@ export function DailyPestMonitoringRecordView({
     onChange({ ...data, [key]: value });
   };
 
+  // MARKING THE DAY A HOLIDAY ASKS WHY (the owner, 4-Nov-2026, REQUIREMENTS §181): ticked, the reason box opens - with the
+  // calendar's own word when the calendar closed the day, else empty and required before Submit; unticked, the reason goes.
+  const calendarDay = dayInfo(record.dueDate, master);
+  const onHoliday = (checked: boolean) => {
+    if (!checked) {
+      onChange({ ...data, isHoliday: false, holidayReason: "" });
+      return;
+    }
+    const reason = String(data.holidayReason ?? "").trim() || (calendarDay.isHoliday ? calendarDay.name ?? calendarDay.short : "");
+    onChange({ ...data, isHoliday: true, holidayReason: reason });
+  };
+
   // Answering "Yes" to checkpoint 7 fills the catch-details table with one row suggested from Master Data - a rodent
   // station's number and place, or a trap box RB-NN and one of the rodent areas, and a count - and writes the Summary
   // line (REQUIREMENTS §177; engine/rodentCatches.ts withCheckpointAnswer). Every box is the person's to change; back
@@ -110,10 +122,26 @@ export function DailyPestMonitoringRecordView({
               {...bindProps(dailyPestBind.holiday())}
               checked={data.isHoliday}
               disabled={!editable}
-              onChange={(e) => setField("isHoliday", e.target.checked)}
+              onChange={(e) => onHoliday(e.target.checked)}
             />
             <span className="text-sm">Mark as Holiday / Non-working day (matches "H O L I D A Y" rows in the source register — no checkpoint entry required)</span>
           </label>
+          {data.isHoliday && (
+            <div className="mt-2" style={{ paddingLeft: 22 }} data-section="holiday-reason">
+              <label className="text-sm font-semibold" htmlFor="holiday-reason">
+                Why is this day a holiday?
+              </label>
+              <input
+                id="holiday-reason"
+                className={`input input-sm mt-1 ${String(data.holidayReason ?? "").trim() ? "" : "tbc"}`}
+                data-field="holiday-reason"
+                placeholder="The reason the plant did not work this day (required)"
+                disabled={!editable}
+                value={data.holidayReason ?? ""}
+                onChange={(e) => setField("holidayReason", e.target.value)}
+              />
+            </div>
+          )}
           {(() => {
             const day = dayInfo(record.dueDate, master);
             return day.kind !== "working" ? (

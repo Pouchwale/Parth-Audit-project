@@ -21,6 +21,7 @@ import { numbersOwnLines } from "./formLineNumbers";
 import { mergedRuns } from "./paperLayout";
 import { codeRulesFor } from "./documentFormats";
 import { outOfBandCount } from "./printedBands";
+import { dayInfo } from "./holidays";
 
 // "Was the lot accepted as it is?" — the one status that needs no reason
 // beside it. Each form prints the words its own way (the incoming material
@@ -107,7 +108,11 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
   switch (doc.kind) {
     case "daily-pest-monitoring": {
       const d = record.data as DailyPestMonitoringData;
-      if (d.isHoliday) break;
+      if (d.isHoliday) {
+        // A day marked a holiday says why (REQUIREMENTS §181): the calendar's word when the calendar closed it, else the person's.
+        if (!text(d.holidayReason) && !dayInfo(record.dueDate, masterRepository.get()).isHoliday) errors.push("Holiday: the reason the plant did not work this day is required.");
+        break;
+      }
       const checkpoints = masterRepository.get().checkpoints;
       if (!text(d.checker)) errors.push("Checker name is required.");
       if (!text(d.timeOfChecking)) errors.push("Time of checking is required.");

@@ -200,6 +200,8 @@ export interface DailyPestMonitoringData {
   /** The day's own wording of its printed words (REQUIREMENTS §137). */
   printedWords?: PrintedWords;
   isHoliday: boolean;
+  /** Why the day was marked a holiday (REQUIREMENTS §181): the calendar's word when the calendar closed it, else the person's own. */
+  holidayReason?: string;
   checkpoints: Record<number, DailyCheckpointAnswer>; // key = checkpoint no. 1-10
   timeOfChecking: string;
   checker: string;

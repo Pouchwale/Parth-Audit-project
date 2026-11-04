@@ -295,5 +295,23 @@ describe("a catch suggested from Master Data when a person answers check point 7
     const other = withCheckpointAnswer(day, 10, { value: "No" }, ctx);
     assert.deepEqual([other.checkpoints[10], other.summaryActions], [{ value: "No" }, []], "another check point: simply answered");
   });
+
+  it("a day marked a holiday says why (REQUIREMENTS §181): required on a working day, the calendar's own word on a closed one", () => {
+    const base = createDefaultData(doc, workDay, master) as DailyPestMonitoringData;
+    assert.equal(base.isHoliday, false);
+    assert.equal(base.holidayReason, undefined, "a working day carries no reason");
+    const marked = { ...confirmed(workDay, { ...base, isHoliday: true, holidayReason: "" }), status: "In Progress" } as RecordInstance;
+    const refused = validateForSubmit(doc, marked);
+    assert.equal(refused.valid, false);
+    assert.ok(refused.errors.some((e) => /reason the plant did not work/.test(e)), refused.errors.join(" | "));
+    const said = { ...marked, data: { ...(marked.data as DailyPestMonitoringData), holidayReason: "Power shutdown, plant closed" } } as RecordInstance;
+    const ok = validateForSubmit(doc, said);
+    assert.equal(ok.valid, true, ok.errors.join(" | "));
+    const closed = createDefaultData(doc, weeklyOff, master) as DailyPestMonitoringData;
+    assert.equal(closed.isHoliday, true);
+    assert.ok(String(closed.holidayReason ?? "").trim().length > 0, `the calendar's word is the reason: ${closed.holidayReason}`);
+    const prepared = { ...confirmed(weeklyOff, { ...closed, holidayReason: "" }), status: "In Progress" } as RecordInstance;
+    assert.equal(validateForSubmit(doc, prepared).valid, true, "a day the calendar closed needs no typed reason");
+  });
 });
 

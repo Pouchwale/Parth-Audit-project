@@ -97,6 +97,7 @@ const FIELD_LABELS: Record<string, string> = {
   // daily pest round, fly catcher, service reports
   checker: "Checker",
   timeOfChecking: "Time of checking",
+  holidayReason: "Holiday reason",
   dateOfObservation: "Date of observation",
   descriptionOfObservation: "Observation",
   actionTaken: "Action taken",
