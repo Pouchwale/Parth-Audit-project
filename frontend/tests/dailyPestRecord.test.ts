@@ -20,7 +20,7 @@ import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../sr
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { prepareKnownParts } from "../src/engine/knownParts";
 import { isCompanyHoliday, nextWorkingDay } from "../src/engine/holidays";
-import { inSuggestedWords, newRodentCatch, rodentAreaNames, rodentCatchComplete, RODENT_AREA_CONTEXT, SUGGESTED_CATCH_ACTION, suggestedCatchAction, suggestedRodentCatch, withCatchEdited, withCheckpointAnswer, withoutSuggested, withSuggestionsConfirmed } from "../src/engine/rodentCatches";
+import { inSuggestedWords, newRodentCatch, rodentAreaNames, rodentCatchComplete, RODENT_AREA_CONTEXT, SUGGESTED_CAKE_BITING_ACTION, SUGGESTED_CATCH_ACTION, SUGGESTED_DEAD_RODENT_ACTION, suggestedCatchAction, suggestedCheckpointAction, suggestedPlace, suggestedRodentCatch, withCatchEdited, withCheckpointAnswer, withoutSuggested, withSuggestionsConfirmed } from "../src/engine/rodentCatches";
 import { diffRecordData } from "../src/engine/recordHistory";
 import { validateForSubmit } from "../src/engine/validation";
 import { createDefaultData } from "../src/engine/recordDefaults";
@@ -263,6 +263,37 @@ describe("a catch suggested from Master Data when a person answers check point 7
     assert.deepEqual([confirmed.rodentCatches![0].suggested, confirmed.summaryActions[0].suggested, confirmed.rodentCatches![0].trapBoxNo], [undefined, undefined, "RB-50"], "Submit confirms the rows: the marks come off, the words stay");
     assert.equal(withSuggestionsConfirmed(day), day, "nothing marked: the same data");
     const other = withCheckpointAnswer(day, 8, { value: "Yes", note: "RC23" }, { master: noStations, dueDate: workDay });
-    assert.deepEqual([other.checkpoints[8], other.rodentCatches, other.summaryActions], [{ value: "Yes", note: "RC23" }, undefined, []], "another check point: simply answered");
+    assert.deepEqual([other.checkpoints[8], other.rodentCatches, other.summaryActions.map((a) => a.descriptionOfObservation)], [{ value: "Yes", note: "RC23" }, undefined, ["Dead rodent observed at RC23"]], "check point 8 with its place already written: its own line (§180), no catch row");
+  });
+
+  it("check points 8 and 9 answered Yes (REQUIREMENTS §180): the note box takes a place or a box from Master Data, the Summary gets a line each; No takes them away; an edited note keeps its line true", () => {
+    const day = { ...(createDefaultData(doc, workDay, master) as DailyPestMonitoringData), checkpoints: { 4: { value: 100 } } };
+    const ctx = { master: noStations, dueDate: workDay, rand: () => 0.9999 };
+    const dead = withCheckpointAnswer(day, 8, { value: "Yes" }, ctx);
+    assert.equal(dead.checkpoints[8].note, areas[areas.length - 1], "a dead rodent: one of the rodent areas");
+    assert.equal(dead.summaryActions.length, 1);
+    assert.deepEqual([dead.summaryActions[0].descriptionOfObservation, dead.summaryActions[0].actionTaken, dead.summaryActions[0].dateOfObservation, dead.summaryActions[0].suggested], [`Dead rodent observed at ${areas[areas.length - 1]}`, SUGGESTED_DEAD_RODENT_ACTION, workDay, true]);
+    const bitten = withCheckpointAnswer(dead, 9, { value: "Yes" }, ctx);
+    assert.equal(bitten.checkpoints[9].note, "RB-100", "cake bitten: a box numbered from the day's traps");
+    assert.equal(bitten.summaryActions.length, 2);
+    assert.deepEqual([bitten.summaryActions[1].descriptionOfObservation, bitten.summaryActions[1].actionTaken], ["Rodent cake biting observed in rodent box RB-100", SUGGESTED_CAKE_BITING_ACTION]);
+    assert.equal(withCheckpointAnswer(bitten, 9, { value: "Yes" }, ctx).summaryActions.length, 2, "Yes again: no second line");
+    const typedFirst = withCheckpointAnswer({ ...day, checkpoints: { ...day.checkpoints, 8: { value: "No", note: "Behind the compressor" } } }, 8, { value: "Yes" }, ctx);
+    assert.equal(typedFirst.checkpoints[8].note, "Behind the compressor", "a place already written is kept");
+    assert.equal(typedFirst.summaryActions[0].descriptionOfObservation, "Dead rodent observed at Behind the compressor");
+    const renoted = withCheckpointAnswer(bitten, 9, { note: "RB-07" }, ctx);
+    assert.equal(renoted.summaryActions[1].descriptionOfObservation, "Rodent cake biting observed in rodent box RB-07", "the line follows the note while it is still the system's");
+    const no9 = withCheckpointAnswer(renoted, 9, { value: "No" }, ctx);
+    assert.deepEqual([no9.checkpoints[9].note, no9.summaryActions.length, no9.summaryActions[0].descriptionOfObservation.startsWith("Dead rodent")], ["", 1, true], "No on 9: its note and its line go; 8's line stays");
+    const reworded = { ...no9, summaryActions: [{ ...no9.summaryActions[0], descriptionOfObservation: "Dead rat behind the compressor, reported to GPC" }] };
+    assert.equal(withCheckpointAnswer(reworded, 8, { value: "No" }, ctx).summaryActions.length, 1, "a line a person reworded stays");
+    assert.equal(withCheckpointAnswer(no9, 8, { value: "No" }, ctx).summaryActions.length, 0, "...the system's own goes");
+    for (let i = 0; i < 50; i++) assert.ok(areas.includes(suggestedPlace(noStations)), "a real area every time");
+    assert.equal(suggestedPlace({ areas: [] }), "");
+    assert.equal(inSuggestedWords(suggestedCheckpointAction(8, "Canteen", workDay), 8), true);
+    assert.equal(inSuggestedWords(suggestedCheckpointAction(8, "Canteen", workDay), 9), false);
+    const other = withCheckpointAnswer(day, 10, { value: "No" }, ctx);
+    assert.deepEqual([other.checkpoints[10], other.summaryActions], [{ value: "No" }, []], "another check point: simply answered");
   });
 });
+

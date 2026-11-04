@@ -717,7 +717,7 @@ const DAILY_PEST_ID = "daily-pest-monitoring";
 
 // A rodent caught is the register working, not a failure to correct — the
 // monthly CAPA leaves it out for the same reason (data/demoGenerator.ts).
-const isRoutineCatch = (actionTaken: string): boolean => /rodent (trapped|removed|disposed|caught)/i.test(actionTaken);
+const isRoutineCatch = (actionTaken: string): boolean => /rodent (trapped|removed|disposed|caught)|bait cake replaced/i.test(actionTaken);
 
 interface Observation {
   record: RecordInstance;

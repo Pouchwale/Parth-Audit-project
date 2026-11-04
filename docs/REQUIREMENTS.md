@@ -10854,3 +10854,25 @@ vinay bhojak id." Vinay Bhojak's Master Data (§178) opens without the Employees
 (frontend/src/engine/masterDataAccess.ts mayOpenEmployeesTab, pages/MasterDataPage.tsx); everybody else who opens Master
 Data - the super admin, Kapila Barad, the testing accounts - has it as before. Proved: frontend/tests/masterDataAccess.test.ts.
 
+## §180 F/HR/17: check points 8 and 9 answered Yes bring their place or box and their Summary line (4-Nov-2026)
+
+The owner, 4-Nov-2026, with pictures of check points 8 and 9 and the Summary of Actions: "for question 7 you done very
+good way ... likewise for question 8 and 9 i want that this also filled by system ... if user manually also go and do
+yes instead of no then also it should filled automatically like Summary of Actions Taken."
+
+- **8 "Any dead rodent observed? If yes, mention the location"** answered Yes: the note box takes one of the rodent areas
+  (Master Data > Areas, the Rodent Control Service list) at random when it is blank - a place already written stays -
+  and the Summary gets "Dead rodent observed at <place>" / "Dead rodent removed and disposed; the place cleaned", dated
+  the day (engine/rodentCatches.ts suggestedPlace, suggestedCheckpointAction, withCheckpointAnswer).
+- **9 "Any sign of Rodent cake biting in Rodent box? If yes, mention the Rodent box number"** answered Yes: the note box
+  takes a box from Master Data as check point 7 does (an Active rodent station's ID, else RB-NN up to check point 4's
+  count; suggestedBox) and the Summary gets "Rodent cake biting observed in rodent box <box>" / "Rodent bait cake
+  replaced and the box re-set" (engine/insightRules.ts counts that, like a rodent removed, as the register working).
+- **Every box editable:** the note changed on 8 or 9 is followed by its line while the line is still the system's;
+  the line itself reworded is the person's. **Back to No** on 8 or 9 clears its note and takes away its own line, as
+  7 does; a line a person reworded by any path stays. Yes again writes it afresh. The system's fill on opening still
+  answers 7, 8 and 9 No (§98, §118, §149): the details come the moment a person answers Yes.
+- **Proved:** frontend/tests/dailyPestRecord.test.ts (8 and 9: the place and the box, the lines, a place already
+  written kept, the note's edit followed, No per check point, reworded lines kept), tests/e2e_hr_module.py (8 and 9
+  on the screen).
+

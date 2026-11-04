@@ -686,6 +686,25 @@ with sync_playwright() as p:
     page.wait_for_timeout(1200)
     rec = stored()
     check("Yes again brings a fresh suggestion", len(((rec.get("data") or {}).get("rodentCatches")) or []) == 1 and len(((rec.get("data") or {}).get("summaryActions")) or []) == 1, (rec.get("data") or {}).get("rodentCatches"))
+    # CHECK POINTS 8 AND 9 (s180): Yes fills the note box from Master Data and writes the Summary line; No takes them away.
+    sel8 = page.locator("tr:has-text('Any dead rodent observed') select").first
+    sel9 = page.locator("tr:has-text('Rodent cake biting') select").first
+    sel8.select_option("Yes")
+    page.wait_for_timeout(1200)
+    sel9.select_option("Yes")
+    page.wait_for_timeout(1200)
+    rec = stored()
+    cps = (rec.get("data") or {}).get("checkpoints") or {}
+    lines = (rec.get("data") or {}).get("summaryActions") or []
+    check("8 Yes: the place of the dead rodent is one of the rodent areas, written in its box", (cps.get("8") or {}).get("note") in areas, cps.get("8"))
+    check("9 Yes: the bitten box is numbered RB-NN, written in its box", bool(re.match(r"^RB-\d{2,3}$", str((cps.get("9") or {}).get("note") or ""))), cps.get("9"))
+    check("...and the Summary has a line for each, dated the day", len(lines) == 3 and lines[1]["descriptionOfObservation"].startswith("Dead rodent observed at ") and lines[2]["descriptionOfObservation"].startswith("Rodent cake biting observed in rodent box ") and lines[1]["dateOfObservation"] == rec.get("dueDate"), [l.get("descriptionOfObservation") for l in lines])
+    sel8.select_option("No")
+    sel9.select_option("No")
+    page.wait_for_timeout(1200)
+    rec = stored()
+    cps = (rec.get("data") or {}).get("checkpoints") or {}
+    check("Back to No on 8 and 9: their notes and their lines go, the catch's line stays", (cps.get("8") or {}).get("note", "") == "" and (cps.get("9") or {}).get("note", "") == "" and len((rec.get("data") or {}).get("summaryActions") or []) == 1, (cps.get("8"), cps.get("9")))
     # Emptied by the person, the row is refused by Submit, naming the place and the number (s118).
     how_many.first.fill("")
     where.first.select_option("")

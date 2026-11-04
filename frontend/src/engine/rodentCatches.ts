@@ -35,6 +35,20 @@ export function rodentCatchComplete(c: Pick<RodentCatch, "location" | "count"> |
 
 /** What the suggested Summary line says was done (engine/insightRules.ts counts a rodent removed as the register working, not a finding to correct). */
 export const SUGGESTED_CATCH_ACTION = "Rodent removed and disposed";
+/** Check point 8's line, a dead rodent seen (REQUIREMENTS §180). */
+export const SUGGESTED_DEAD_RODENT_ACTION = "Dead rodent removed and disposed; the place cleaned";
+/** Check point 9's line, rodent cake bitten in a box (REQUIREMENTS §180). */
+export const SUGGESTED_CAKE_BITING_ACTION = "Rodent bait cake replaced and the box re-set";
+
+/** The suggested lines by the check point they answer for: how each description begins, and its action. */
+export const SUGGESTED_LINES: Record<7 | 8 | 9, { begins: RegExp; action: string }> = {
+  7: { begins: /^(?:Rodent|\d+ rodents) caught in /, action: SUGGESTED_CATCH_ACTION },
+  8: { begins: /^Dead rodent observed at /, action: SUGGESTED_DEAD_RODENT_ACTION },
+  9: { begins: /^Rodent cake biting observed in rodent box /, action: SUGGESTED_CAKE_BITING_ACTION },
+};
+const SUGGESTED_CHECKPOINTS = [7, 8, 9] as const;
+type SuggestedCheckpoint = (typeof SUGGESTED_CHECKPOINTS)[number];
+const isSuggestedCheckpoint = (no: number): no is SuggestedCheckpoint => no === 7 || no === 8 || no === 9;
 
 /** The most trap boxes a day's suggestion numbers when the plant keeps no stations in Master Data: check point 4's usual 100. */
 export const DEFAULT_TRAP_BOXES = 100;
@@ -42,9 +56,18 @@ export const DEFAULT_TRAP_BOXES = 100;
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 const isPlaceholder = (v: unknown): boolean => typeof v === "string" && /^\s*to be confirmed\s*$/i.test(v);
 
-/** Whether a Summary line still reads as the system wrote it (REQUIREMENTS §177): "Rodent caught in ..." / "2 rodents caught in ..." and the suggested action. */
-export function inSuggestedWords(a: Pick<SummaryAction, "descriptionOfObservation" | "actionTaken">): boolean {
-  return /^(?:Rodent|\d+ rodents) caught in /.test(String(a.descriptionOfObservation ?? "")) && String(a.actionTaken ?? "").trim() === SUGGESTED_CATCH_ACTION;
+/** Whether a Summary line still reads as the system wrote it for check point `no` (or any of 7, 8, 9): its opening words and its action (REQUIREMENTS §177, §180). */
+export function inSuggestedWords(a: Pick<SummaryAction, "descriptionOfObservation" | "actionTaken">, no?: SuggestedCheckpoint): boolean {
+  const description = String(a.descriptionOfObservation ?? "");
+  const action = String(a.actionTaken ?? "").trim();
+  return (no ? [no] : SUGGESTED_CHECKPOINTS).some((n) => SUGGESTED_LINES[n].begins.test(description) && action === SUGGESTED_LINES[n].action);
+}
+
+/** The Summary line for check point 8 (a dead rodent at `note`) or 9 (cake bitten in box `note`), dated the record's day (REQUIREMENTS §180). */
+export function suggestedCheckpointAction(no: 8 | 9, note: string, dateISO: string): SummaryAction {
+  const where = String(note ?? "").trim();
+  const description = no === 8 ? `Dead rodent observed at ${where || "a place not named"}` : `Rodent cake biting observed in rodent box ${where || "not numbered"}`;
+  return { id: generateId("act"), dateOfObservation: dateISO, descriptionOfObservation: description, actionTaken: SUGGESTED_LINES[no].action, remarks: "", suggested: true };
 }
 
 /**
@@ -98,18 +121,35 @@ function areaNamed(areas: readonly string[], place: string): string | null {
  */
 export function suggestedRodentCatch(master: Pick<MasterData, "areas" | "rodentStations">, opts: { rand?: () => number; traps?: number } = {}): RodentCatch {
   const rand = opts.rand ?? Math.random;
+  const count = 1 + Math.min(2, Math.max(0, Math.floor(rand() * 3)));
+  const box = suggestedBox(master, { rand, traps: opts.traps });
+  return { id: generateId("rc"), trapBoxNo: box.trapBoxNo, location: box.location, count, suggested: true };
+}
+
+/**
+ * A trap box and its place from Master Data (REQUIREMENTS §177, §180): an Active rodent station chosen at random (its ID,
+ * its place as the area of that name when one fits), else a box RB-NN numbered at random up to `traps` (100 when not
+ * known) in one of the rodent areas chosen at random. `rand` is drawn for the station or the area, then the box number.
+ */
+export function suggestedBox(master: Pick<MasterData, "areas" | "rodentStations">, opts: { rand?: () => number; traps?: number } = {}): { trapBoxNo: string; location: string } {
+  const rand = opts.rand ?? Math.random;
   const pick = <T,>(arr: readonly T[]): T => arr[Math.min(arr.length - 1, Math.max(0, Math.floor(rand() * arr.length)))];
   const areas = rodentAreaNames(master);
-  const count = 1 + Math.min(2, Math.max(0, Math.floor(rand() * 3)));
   const stations = (master.rodentStations ?? []).filter((s) => /^active$/i.test(String(s.status ?? "").trim()) && String(s.id ?? "").trim() && String(s.location ?? "").trim() && !isPlaceholder(s.id) && !isPlaceholder(s.location));
   if (stations.length > 0) {
     const s = pick(stations);
-    return { id: generateId("rc"), trapBoxNo: s.id.trim(), location: areaNamed(areas, s.location) ?? s.location.trim(), count, suggested: true };
+    return { trapBoxNo: s.id.trim(), location: areaNamed(areas, s.location) ?? s.location.trim() };
   }
   const location = areas.length ? pick(areas) : "";
   const boxes = Number.isFinite(opts.traps) && (opts.traps as number) >= 1 ? Math.floor(opts.traps as number) : DEFAULT_TRAP_BOXES;
   const n = 1 + Math.min(boxes - 1, Math.max(0, Math.floor(rand() * boxes)));
-  return { id: generateId("rc"), trapBoxNo: `RB-${pad2(n)}`, location, count, suggested: true };
+  return { trapBoxNo: `RB-${pad2(n)}`, location };
+}
+
+/** One of the rodent areas at random: the place a dead rodent was seen (check point 8, REQUIREMENTS §180). "" when the list is empty. */
+export function suggestedPlace(master: Pick<MasterData, "areas">, rand: () => number = Math.random): string {
+  const areas = rodentAreaNames(master);
+  return areas.length ? areas[Math.min(areas.length - 1, Math.max(0, Math.floor(rand() * areas.length)))] : "";
 }
 
 /** The Summary of Actions line for a catch (REQUIREMENTS §177): what was found, where, and that it was removed and disposed of; dated the record's day. */
@@ -138,17 +178,41 @@ export function withCheckpointAnswer(
     ...data,
     checkpoints: { ...data.checkpoints, [no]: { ...(data.checkpoints[no] ?? { value: null }), ...patch } },
   };
-  if (no !== 7 || !("value" in patch)) return next;
-  if (patch.value === "Yes") {
-    if ((next.rodentCatches ?? []).length > 0) return next;
-    const traps = Number(data.checkpoints[4]?.value);
-    const suggested = suggestedRodentCatch(ctx.master, { rand: ctx.rand, traps: Number.isFinite(traps) && traps >= 1 ? traps : undefined });
-    next.rodentCatches = [suggested];
-    next.summaryActions = [...(data.summaryActions ?? []), suggestedCatchAction(suggested, ctx.dueDate)];
+  if (!isSuggestedCheckpoint(no)) return next;
+  const traps = Number(data.checkpoints[4]?.value);
+  const trapsOpt = Number.isFinite(traps) && traps >= 1 ? traps : undefined;
+  const lines = next.summaryActions ?? [];
+  // The system's own line for this check point, still in its words (a line a person reworded by any path is theirs).
+  const ownLine = (a: SummaryAction) => !!a.suggested && inSuggestedWords(a, no);
+  if (!("value" in patch)) {
+    // A note changed on 8 or 9: the line still the system's follows it (as the catch row's line follows the row, withCatchEdited).
+    if (no !== 7 && "note" in patch) {
+      const note = String(patch.note ?? "");
+      next.summaryActions = lines.map((a) => (ownLine(a) ? { ...a, descriptionOfObservation: suggestedCheckpointAction(no, note, a.dateOfObservation).descriptionOfObservation } : a));
+    }
     return next;
   }
-  if (next.rodentCatches && next.rodentCatches.length > 0) next.rodentCatches = [];
-  // A line still marked suggested but reworded by a person through Mitra, the API or an uploaded file is theirs: it stays.
-  next.summaryActions = (next.summaryActions ?? []).filter((a) => !(a.suggested && inSuggestedWords(a)));
+  if (patch.value === "Yes") {
+    if (no === 7) {
+      if ((next.rodentCatches ?? []).length > 0) return next;
+      const suggested = suggestedRodentCatch(ctx.master, { rand: ctx.rand, traps: trapsOpt });
+      next.rodentCatches = [suggested];
+      next.summaryActions = [...lines, suggestedCatchAction(suggested, ctx.dueDate)];
+      return next;
+    }
+    // 8: the place a dead rodent was seen; 9: the box whose cake was bitten - the note box filled when it is blank, the line written once.
+    const current = String(next.checkpoints[no]?.note ?? "").trim();
+    const note = current || (no === 8 ? suggestedPlace(ctx.master, ctx.rand) : suggestedBox(ctx.master, { rand: ctx.rand, traps: trapsOpt }).trapBoxNo);
+    next.checkpoints = { ...next.checkpoints, [no]: { ...next.checkpoints[no], value: "Yes", note } };
+    if (!lines.some(ownLine)) next.summaryActions = [...lines, suggestedCheckpointAction(no, note, ctx.dueDate)];
+    return next;
+  }
+  // Back to No (or blank): what the system suggested for this check point goes; what a person wrote or reworded stays.
+  if (no === 7) {
+    if (next.rodentCatches && next.rodentCatches.length > 0) next.rodentCatches = [];
+  } else {
+    next.checkpoints = { ...next.checkpoints, [no]: { ...next.checkpoints[no], note: "" } };
+  }
+  next.summaryActions = lines.filter((a) => !ownLine(a));
   return next;
 }
