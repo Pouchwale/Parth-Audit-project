@@ -99,6 +99,9 @@ const DRAW_NEAR_MARGIN = "1500px 0px";
 // One renderer for every grid-shaped log sheet. The shape of the form —
 // header fields, columns, how rows are created — comes entirely from the
 // document's LogSheetLayout, so a new register is configuration, not code.
+/** A cell's words that are a date and nothing else: written on one line (REQUIREMENTS §183). */
+const CELL_DATE = /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/;
+
 export function LogSheetRecordView({
   doc,
   record,
@@ -2610,8 +2613,10 @@ function CellInput({
     // What was WRITTEN into the record — a reading, a name signed, a remark —
     // reads exactly as it was written in either language (REQUIREMENTS §58).
     // The form's own printed cells are above, and those do follow the language.
+    // A date stays on one line, never broken at a dash (REQUIREMENTS §183: F/HR/01's "01-04-" over "2014"); the print fits
+    // the grid to the page with it.
     return (
-      <span className="cell-text notranslate" translate="no" {...bind}>
+      <span className={`cell-text notranslate${CELL_DATE.test(shown.trim()) ? " cell-date" : ""}`} translate="no" {...bind}>
         {shown}
       </span>
     );

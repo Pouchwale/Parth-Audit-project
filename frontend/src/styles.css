@@ -1938,6 +1938,8 @@ body { top: 0 !important; }
 .doc-table table.log-sheet td .input-sm { min-width: 64px; }
 /* A sheet that cannot be written on shows its values as text (LogSheetRecordView). */
 .doc-table table.log-sheet td .cell-text { display: block; min-width: 40px; font-size: 12.5px; line-height: 1.35; white-space: pre-line; }
+/* A date in a cell on one line, never broken at a dash (REQUIREMENTS §183). */
+.doc-table table.log-sheet td .cell-text.cell-date { white-space: nowrap; }
 .cell-out-of-band { background: var(--color-warning-bg) !important; }
 .cell-out-of-band .input { border-color: var(--color-warning); }
 /* A box outside the paper's tolerance of the box it is judged against (LogHeaderField.within, REQUIREMENTS §111 rule 2):
