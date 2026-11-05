@@ -50,6 +50,7 @@ import {
   type DocumentAction,
 } from "../frontend/src/engine/accessRules.ts";
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
+import { SUPPLIER_LINK_DOC_IDS } from "../frontend/src/engine/supplierLinkDocs.ts";
 
 // THE WEBSITE'S OWN WORDS for a refusal (frontend/src/engine/accessWords.ts), so the server, the pages and Mitra never
 // say it differently. Loaded by name rather than by a static import: that file names its two types with an
@@ -697,10 +698,15 @@ export function writesHrMaster(view: AccessView): boolean {
 // ---------------------------------------------------------------------------
 // the Purchase Master Data sheet (REQUIREMENTS §186)
 
-/** Purchase's List of Approved Suppliers, with their ratings, is held by an account that sees Purchase. */
+/**
+ * Purchase's List of Approved Suppliers, with their ratings, is held by an account that sees Purchase — and, to fetch a
+ * supplier from it, by one that sees a document that does (the owner, 5-Nov-2026: "so it can be used in other document for
+ * fetching details from him": the QC incoming inspections, frontend/src/engine/supplierLinkDocs.ts). Only Purchase changes it.
+ */
 export function holdsPurchaseMaster(view: AccessView): boolean {
   const modules = view.modules();
-  return modules === null || modules.includes("PUR");
+  if (modules === null || modules.includes("PUR")) return true;
+  return SUPPLIER_LINK_DOC_IDS.some((id) => view.level(id) !== "none");
 }
 
 /**

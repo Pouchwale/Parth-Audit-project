@@ -11058,3 +11058,43 @@ delivery weightage ... 10 ... overall rating ity should be 100 % by default so i
   re-approval rule on every seeded line, the download and its round trip, an upload, the store),
   backend/tests/storageRoutes.test.ts (held with Purchase, changed at Write, refused at Read).
 
+## §187 Purchase Master Data: every cell editable, and the formats fetch a supplier from it (5-Nov-2026)
+
+The owner, 5-Nov-2026, after §186: "So make sure it should completely editable and so it can be used in other document for
+fetching details from him so make it properly and fast."
+
+- EVERY CELL EDITABLE (pages/PurchaseMasterDataPage.tsx). Besides F/PUR/03's columns and the three ratings, the five
+  worked-out figures - the three weightages, the Overall Rating, the Grade - can be typed over by whoever may change the
+  list (§186). A typed figure is marked (bold, shaded, "Typed over the worked-out figure"), counts in what follows it - a
+  typed weightage in the Overall Rating, a typed Overall Rating in the Grade - and stays until its cell is emptied; then it
+  is worked out again. A weightage is 0 to its weight (50, 40, 10), the Overall Rating 0 to 100, the Grade A, B or C;
+  anything else is not saved, and the person is told why (engine/purchaseMaster.ts checkWorked, supplierRating). Typing the
+  worked-out figure itself keeps the cell worked out. Every change is in the activity log. The Excel download carries the
+  figures as shown.
+- THE FORMATS FETCH A SUPPLIER (engine/purchaseMasterLinks.ts, components/records/SupplierFetch.tsx), the way the HR formats
+  fetch a person (§53) and the Maintenance formats a machine (§74): a bar above the form while the record can be written
+  in - type or pick the supplier's name or Vendor Code, and its boxes are filled from the list: blank boxes at once, a box
+  that already holds something else only on "Replace". The supplier's box offers the list's names, and a name left in it
+  fills that supplier's blank boxes. "Fill blanks from Purchase Master Data" fills every blank box the list can.
+  - F/PUR/01 Supplier Registration Form: SUPPLIER'S NAME, CONTACT PERSON, TELEPHONE NOS, COMPANY ACTIVITIES (Trading /
+    Manufacturing / Services from the CATEGORY), RANGE OF PRODUCTS, the products approved for.
+  - F/PUR/02 Supplier Audit Report: SUPPLIER, CONTACTS (person and number), PRODUCT SUPPLIED.
+  - F/PUR/03 List of Approved Suppliers: a line per supplier - name, product, category, manufacturer, contact person and
+    number, location, approval date - and "Add all": every line of the list at once.
+  - F/PUR/05 RM & PM supplier performance: a line per material supplier with its material and its Product Safety, Quality
+    and Delivery Ratings (the register works its weightages out itself, §68); "Add all": every material supplier.
+  - F/PUR/06 Service provider performance: a line per service provider with its service; "Add all": every service provider.
+  - The fourteen QC incoming inspection records (F/QC/01 ... ): Supplier Name and Product Description.
+  A register's "Add all" writes on its blank lines first, then new ones, and never adds a supplier already on it (by name,
+  and product where the format has a product box). A supplier is found by its Vendor Code or name; two lines of the list
+  sharing a name (Shikha Trading Co.'s HMA and Gum) are told apart by the form's product box, or offered to choose from. A
+  date box takes only a date (the list's "Approved Prior to 01.1.2021" stays on the list); a "-" fills nothing.
+- WHO HOLDS IT: the server now hands the list to an account that sees Purchase OR a format that fetches from it - so Quality
+  Control's inspectors fetch the supplier on their incoming records (backend/accessLevels.ts holdsPurchaseMaster,
+  engine/supplierLinkDocs.ts). Changing it stays Purchase's (Write on a Purchase document) and the super admin's; the page
+  itself opens only for those who see Purchase.
+- The old folder "Audit project", where the owner runs his local check, is kept a copy of the live one (all tracked files).
+- Proved: frontend/tests/purchaseMaster.test.ts (the typed-over figures and their bands), frontend/tests/
+  purchaseMasterLinks.test.ts (every box the fetch writes is its format's, the search, the fills and conflicts, "Add all" on
+  F/PUR/03, 05 and 06, "Fill blanks"), backend/tests/storageRoutes.test.ts (Quality Control handed the list, refused a change).
+

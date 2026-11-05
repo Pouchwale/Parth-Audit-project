@@ -167,20 +167,23 @@ describe("what each person is handed", () => {
 
   it("HR Master Data only with Human Resources (and its version not even named to anybody else)", async () => {
     const ankur = (await get(s, "ankur")).body;
-    assert.deepEqual(ankur.denied, ["hrMasterData", "purchaseMasterData"]);
+    // Purchase Master Data he is handed: Quality Control's incoming inspections fetch their supplier from it (§186).
+    assert.deepEqual(ankur.denied, ["hrMasterData"]);
     assert.equal(itemOf(ankur, "hrMasterData"), undefined);
     assert.equal(ankur.versions.hrMasterData, undefined);
     assert.deepEqual((await get(s, "vinay")).body.denied, ["purchaseMasterData"]);
     assert.deepEqual((await get(s, "kapila")).body.denied, []);
   });
 
-  it("Purchase Master Data only with Purchase (§186), and its version not named to anybody else", async () => {
+  it("Purchase Master Data with Purchase and with the formats that fetch a supplier from it (§186), its version named to nobody else", async () => {
     const chirag = (await get(s, "chirag")).body;
     assert.deepEqual(chirag.denied, ["hrMasterData"]);
     assert.deepEqual(itemOf(chirag, "purchaseMasterData"), { suppliers: [], removedSeedIds: [] });
-    const ankur = (await get(s, "ankur")).body;
-    assert.equal(itemOf(ankur, "purchaseMasterData"), undefined);
-    assert.equal(ankur.versions.purchaseMasterData, undefined);
+    // Quality Control's incoming inspections fetch the supplier: its people are handed the list too.
+    assert.ok(itemOf((await get(s, "ankur")).body, "purchaseMasterData"));
+    const vinay = (await get(s, "vinay")).body;
+    assert.equal(itemOf(vinay, "purchaseMasterData"), undefined, "Human Resources has no format that fetches a supplier");
+    assert.equal(vinay.versions.purchaseMasterData, undefined);
     for (const who of ["admin", "kapila", "all"]) assert.ok(itemOf((await get(s, who)).body, "purchaseMasterData"), who);
   });
 
@@ -191,7 +194,7 @@ describe("what each person is handed", () => {
   it("an account nobody has described keeps what it had: its departments' lines, or every line", async () => {
     const clerk = (await get(s, "clerk")).body;
     assert.deepEqual(idsOf(itemOf(clerk, "records")), ["p-1", "v-1"]);
-    assert.deepEqual(clerk.denied, ["hrMasterData", "purchaseMasterData"]);
+    assert.deepEqual(clerk.denied, ["hrMasterData"]);
     const all = (await get(s, "all")).body;
     assert.deepEqual(idsOf(itemOf(all, "records")), ["hr-1", "p-1", "v-1"]);
     assert.equal(all.scope, "*");
@@ -323,14 +326,30 @@ describe("Purchase Master Data (§186): changed at Write on a Purchase document,
   after(() => s.close());
   const sheet = (rating: string) => ({ suppliers: [{ id: "pur-sup-32", supplierName: "K S Inctech Pvt.Ltd.", qualityRating: rating }], removedSeedIds: [] });
 
-  it("Purchase Master Data: refused to whoever does not see Purchase, taken from Purchase (Chirag Parmar) and from Kapila Barad", async () => {
-    const refused = await put(s, "ankur", "purchaseMasterData", sheet("98"));
+  it("Purchase Master Data: refused to whoever does not hold it or only fetches from it, taken from Purchase (Chirag Parmar) and from Kapila Barad", async () => {
+    const refused = await put(s, "vinay", "purchaseMasterData", sheet("98"));
     assert.equal(refused.status, 403);
     assert.equal(refused.body.error, "This account's departments do not hold that.");
+    const fetcher = await put(s, "ankur", "purchaseMasterData", sheet("98"));
+    assert.equal(fetcher.status, 403, "Quality Control fetches from the list and does not change it");
+    assert.equal(fetcher.body.code, "access-level");
     assert.equal((await put(s, "chirag", "purchaseMasterData", sheet("98"))).status, 200);
     assert.deepEqual(s.store.value("purchaseMasterData"), sheet("98"));
     assert.equal((await put(s, "kapila", "purchaseMasterData", sheet("99"))).status, 200);
     assert.equal((await put(s, "admin", "purchaseMasterData", sheet("100"))).status, 200);
+  });
+
+  it("a person who sees a format that fetches a supplier (a QC incoming inspection) is handed the list to fetch from, and cannot change it", async () => {
+    const docs = [...(JSON.parse(DOCS_JSON) as unknown[]), { id: "qc-bopp-film", formatNo: "F/QC/01", name: "Inspection Record - BOPP Film", kind: "log-sheet" }];
+    s.store.put("documents", docs);
+    const ankur = (await get(s, "ankur")).body;
+    assert.ok(!ankur.denied.includes("purchaseMasterData"), "Quality Control's inspector fetches the supplier");
+    assert.ok(itemOf(ankur, "purchaseMasterData"));
+    const refused = await put(s, "ankur", "purchaseMasterData", sheet("97"));
+    assert.equal(refused.status, 403);
+    assert.equal(refused.body.code, "access-level");
+    assert.deepEqual((await get(s, "vinay")).body.denied, ["purchaseMasterData"], "Human Resources sees no such format, so is not handed it");
+    s.store.put("documents", DOCS_JSON);
   });
 
   it("a person who only reads Purchase is handed the sheet, and their change is refused with the level in plain words", async () => {

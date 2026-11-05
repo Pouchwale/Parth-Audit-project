@@ -8,6 +8,9 @@ import { isBossSignedIn, isDocumentIdVisible, mayDo } from "../engine/department
 import {
   APPLICABLE_PRODUCTS,
   DOCUMENT_ANSWERS,
+  GRADES,
+  WORKED_BANDS,
+  WORKED_KEYS,
   DOCUMENT_KEYS,
   LIST_COLUMNS,
   PURCHASE_DOCUMENT_IDS,
@@ -18,6 +21,7 @@ import {
   SUPPLIER_CATEGORIES,
   WORKED_COLUMNS,
   checkRating,
+  checkWorked,
   dateOrWords,
   isServiceProvider,
   planSupplierImport,
@@ -28,6 +32,7 @@ import {
   supplierProblems,
   supplierRating,
   supplierSheet,
+  typedWorked,
   type RatingKey,
   type SupplierImportPlan,
   type SupplierRating,
@@ -63,6 +68,10 @@ interface PendingImport {
 const NUMERIC_SORT = new Set<string>(["productSafetyRating", "qualityRating", "deliveryRating", "productSafetyWeightage", "qualityWeightage", "deliveryWeightage", "overallRating"]);
 const ACTOR = "Purchase Master Data";
 const GRADE_COLOUR: Record<string, string> = { A: "var(--color-success)", B: "var(--color-warning)", C: "var(--color-danger)" };
+/** A figure typed over a worked-out one is marked, so it is never taken for the arithmetic. */
+const TYPED_STYLE: React.CSSProperties = { fontWeight: 700, borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" };
+const TYPED_TIP = "Typed over the worked-out figure. Empty the cell to have it worked out again.";
+const WORKED_TIP = "Worked out from the ratings (auto). Type a figure, or choose a grade, to put your own in its place.";
 
 async function gridOf(file: File): Promise<string[][]> {
   const buffer = await file.arrayBuffer();
@@ -118,7 +127,8 @@ export function PurchaseMasterDataPage() {
       : rows;
     if (!sort.key) return filtered;
     const key = sort.key;
-    const valueOf = (s: ApprovedSupplier): string => (key in s ? String(s[key as SupplierKey] ?? "") : String(ratings.get(s.id)?.[key as WorkedKey] ?? ""));
+    const worked = (WORKED_KEYS as string[]).includes(key);
+    const valueOf = (s: ApprovedSupplier): string => (worked ? String(ratings.get(s.id)?.[key as WorkedKey] ?? "") : String(s[key as SupplierKey] ?? ""));
     return [...filtered].sort((a, b) => {
       const x = valueOf(a.supplier);
       const y = valueOf(b.supplier);
@@ -187,6 +197,42 @@ export function PurchaseMasterDataPage() {
     }
     save(s, { [key]: checked.value });
     logActivity("Purchase Master Data: rating changed", s.supplierName || "A supplier line", `${supplierColumnLabel(key)}: ${before} → ${checked.value}`);
+  };
+
+  // A worked-out figure typed over (the owner, 5-Nov-2026: "make sure it should completely editable"). The figure the
+  // arithmetic gives is not kept as typed; an emptied cell is worked out again.
+  const editWorked = (s: ApprovedSupplier, key: Exclude<WorkedKey, "grade">, box: HTMLInputElement) => {
+    if (!canEdit) return;
+    const shown = (ratings.get(s.id) ?? supplierRating(s))[key];
+    const raw = box.value.trim();
+    if (!raw) {
+      if (s[key]) {
+        save(s, { [key]: "" });
+        logActivity("Purchase Master Data: rating changed", s.supplierName || "A supplier line", `${supplierColumnLabel(key)}: ${shown} → worked out`);
+      } else box.value = shown;
+      return;
+    }
+    const checked = checkWorked(key, raw);
+    if ("error" in checked) {
+      box.value = shown;
+      setMessage({ tone: "warn", text: `${s.supplierName || "This line"}: ${checked.error}` });
+      return;
+    }
+    const auto = supplierRating({ ...s, [key]: "" })[key];
+    const next = checked.value === auto ? "" : checked.value;
+    if (next === s[key]) {
+      box.value = shown;
+      return;
+    }
+    save(s, { [key]: next });
+    logActivity("Purchase Master Data: rating changed", s.supplierName || "A supplier line", `${supplierColumnLabel(key)}: ${shown} → ${checked.value}`);
+  };
+
+  const editGrade = (s: ApprovedSupplier, value: string) => {
+    if (!canEdit || value === s.grade) return;
+    const before = (ratings.get(s.id) ?? supplierRating(s)).grade;
+    save(s, { grade: value });
+    logActivity("Purchase Master Data: rating changed", s.supplierName || "A supplier line", `Grade: ${before} → ${value || "worked out"}`);
   };
 
   const addLine = () => {
@@ -311,6 +357,7 @@ export function PurchaseMasterDataPage() {
   const ratingCells = (s: ApprovedSupplier) => {
     const issues = problems.get(s.id) ?? [];
     const r = ratings.get(s.id) ?? supplierRating(s);
+    const typedKeys = typedWorked(s);
     return (
       <>
         {RATING_COLUMNS.map((c) => {
@@ -337,11 +384,56 @@ export function PurchaseMasterDataPage() {
             </td>
           );
         })}
-        {WORKED_COLUMNS.map((c) => (
-          <td key={c.key} data-worked={c.key} style={{ textAlign: c.key === "grade" ? "center" : "right", fontWeight: c.key === "overallRating" || c.key === "grade" ? 700 : undefined, whiteSpace: "nowrap" }}>
-            {c.key === "grade" ? <span style={{ color: GRADE_COLOUR[r.grade] }}>{r.grade}</span> : r[c.key]}
-          </td>
-        ))}
+        {WORKED_COLUMNS.map((c) => {
+          const typed = typedKeys.includes(c.key);
+          if (c.key === "grade") {
+            const auto = supplierRating({ ...s, grade: "" }).grade;
+            return (
+              <td key={c.key} data-worked={c.key} data-typed={typed || undefined} title={typed ? TYPED_TIP : WORKED_TIP} style={{ textAlign: "center" }}>
+                <select
+                  className="input input-sm no-print"
+                  data-field="grade"
+                  value={s.grade}
+                  disabled={!canEdit}
+                  style={{ fontWeight: 700, color: GRADE_COLOUR[r.grade], ...(typed ? TYPED_STYLE : {}) }}
+                  aria-label={`Grade${s.supplierName ? ` — ${s.supplierName}` : ""}`}
+                  onChange={(e) => editGrade(s, e.target.value)}
+                >
+                  {/* Worked out from the Overall Rating: the letter, "(auto)" beside it; a letter chosen below stands as typed. */}
+                  <option value="">{auto ? `${auto} (auto)` : "(auto)"}</option>
+                  {GRADES.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+                <span className="print-only" style={{ fontWeight: 700 }}>
+                  {r.grade}
+                </span>
+              </td>
+            );
+          }
+          const band = WORKED_BANDS[c.key];
+          return (
+            <td key={c.key} data-worked={c.key} data-typed={typed || undefined} title={typed ? TYPED_TIP : WORKED_TIP}>
+              <input
+                key={`${c.key}:${s[c.key]}:${r[c.key]}`}
+                className="input input-sm"
+                style={{ textAlign: "right", fontWeight: c.key === "overallRating" ? 700 : undefined, ...(typed ? TYPED_STYLE : {}) }}
+                data-field={c.key}
+                type="number"
+                step="any"
+                min={band.min}
+                max={band.max}
+                defaultValue={r[c.key]}
+                readOnly={!canEdit}
+                aria-label={`${c.label}${s.supplierName ? ` — ${s.supplierName}` : ""}`}
+                onBlur={(e) => editWorked(s, c.key as Exclude<WorkedKey, "grade">, e.target)}
+                onKeyDown={enterLeaves}
+              />
+            </td>
+          );
+        })}
       </>
     );
   };
@@ -391,8 +483,9 @@ export function PurchaseMasterDataPage() {
       <p className="text-muted mb-4 mt-2">
         Purchase's master list of approved suppliers: the List of Approved Suppliers' own columns, then each supplier's rating. The Product Safety, Quality and
         Delivery Ratings are <strong>100</strong> unless changed — the Quality Rating is kept between <strong>97 and 100</strong> — and what they are worth is worked
-        out, never typed: Product Safety × 50%, Quality × 40%, Delivery × 10%, the Overall Rating their sum. So a supplier reads 50 + 40 + 10 ={" "}
-        <strong>100, Grade A</strong>, until a rating is changed. Type in any cell; it is saved when you leave it.
+        out: Product Safety × 50%, Quality × 40%, Delivery × 10%, the Overall Rating their sum. So a supplier reads 50 + 40 + 10 ={" "}
+        <strong>100, Grade A</strong>, until a rating is changed. Every cell can be written in — the weightages, the Overall Rating and the Grade too: a figure
+        typed there stands (marked) until the cell is emptied. A cell is saved when you leave it.
       </p>
 
       {!canEdit && (
@@ -597,6 +690,11 @@ export function PurchaseMasterDataPage() {
               as the F/PUR/05 register.
             </li>
             <li>Overall Rating = the three weightages added: 100.00 when all three ratings are 100.</li>
+            <li>
+              Any of the five worked-out figures can be typed over — a weightage up to its weight (50, 40, 10), the Overall Rating 0 to 100, the Grade A, B or C. A
+              typed figure is marked, counts in what follows it (a typed weightage in the Overall Rating, a typed Overall Rating in the Grade), and stays until its
+              cell is emptied; then it is worked out again.
+            </li>
             <li>
               Grade, as F/PUR/05's Overall Rating table prints it:{" "}
               {OVERALL_GRADES.map((g, i) => (

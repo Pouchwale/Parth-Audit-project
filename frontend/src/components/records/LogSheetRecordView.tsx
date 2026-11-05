@@ -41,6 +41,8 @@ import {
   type PmRowActuals,
 } from "../../engine/pmSchedule";
 import { EquipmentFetch, EquipmentMachineList } from "./EquipmentFetch";
+import { SUPPLIER_NAMES_LIST, SupplierFetch, SupplierNameList } from "./SupplierFetch";
+import { purchaseMasterHeld, purchaseMasterOpenable, supplierBlankFills, supplierLinkFor } from "../../engine/purchaseMasterLinks";
 import { isOutOfBand, supersededRevisionOf } from "../../engine/validation";
 import { boxOutOfBand, judgeFor, outOfBandCount, type CellJudge } from "../../engine/printedBands";
 import { withoutLineNumber } from "../../engine/lineNumbers";
@@ -173,6 +175,7 @@ export function LogSheetRecordView({
     setHeader: (key: string, value: string) => void;
     fillFromName: (rowId: string | null, value: string) => void;
     fillFromMachine: (rowId: string | null, value: string) => void;
+    fillFromSupplier: (rowId: string | null, value: string) => void;
     fillFromTraining: (value: string) => void;
     removeRow: (rowId: string) => void;
   } | null>(null);
@@ -180,6 +183,7 @@ export function LogSheetRecordView({
   const onBox = React.useCallback((key: string, value: string) => handlers.current?.setHeader(key, value), []);
   const onPersonBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromName(rowId, value), []);
   const onMachineBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromMachine(rowId, value), []);
+  const onSupplierBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromSupplier(rowId, value), []);
   const onTrainingBlur = React.useCallback((_rowId: string | null, value: string) => handlers.current?.fillFromTraining(value), []);
   const onRemoveRow = React.useCallback((rowId: string) => handlers.current?.removeRow(rowId), []);
   // Before the early return below: a hook called only on some renders breaks
@@ -406,8 +410,27 @@ export function LogSheetRecordView({
     if (!eqLink || eqLink.where !== "header" || !eqLink.fields.some((x) => x.key === key)) return undefined;
     return eqFetching && eqLink.idField === key ? "equipment-machines" : "";
   };
+  // THE FORMATS THAT NAME A SUPPLIER FETCH IT FROM PURCHASE MASTER DATA (REQUIREMENTS §186), the same way: the bar above
+  // the form, the list's names on the supplier's box, and a name left in that box fills the supplier's BLANK boxes.
+  // Only for an account that holds the list (it sees Purchase, or a format that fetches from it).
+  const supLink = supplierLinkFor(doc.id);
+  const supFetching = !!supLink && editable && purchaseMasterHeld();
+  const fillFromSupplier = (rowId: string | null, value: string) => {
+    if (!supLink || !supFetching) return;
+    if (rowId === null) {
+      const header = { ...data.header, [supLink.idField]: value };
+      const fills = supplierBlankFills(supLink, header, value);
+      if (fills.length > 0) save({ ...data, header: applyFills(header, fills) });
+      return;
+    }
+    const row = data.rows.find((r) => r.id === rowId);
+    if (!row) return;
+    const current = { ...row, [supLink.idField]: value };
+    const fills = supplierBlankFills(supLink, current, value);
+    if (fills.length > 0) save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(current, fills) : r)) });
+  };
   // What the stable handlers above forward to: this render's, which hold this render's data.
-  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, fillFromTraining, removeRow };
+  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, fillFromSupplier, fillFromTraining, removeRow };
 
   // One box above the grid: a person's or a machine's box offers the people or the machines it can be filled from.
   // `inTable`: a cell of the paper's table of boxes (boxTable, REQUIREMENTS §111), headed by the table's words.
@@ -415,6 +438,7 @@ export function LogSheetRecordView({
     const personBox = fetching && link?.where === "header" && link.nameField === f.key;
     const machineList = machineHeaderList(f.key);
     const machineIdBox = eqFetching && eqLink?.where === "header" && eqLink.idField === f.key;
+    const supplierIdBox = supFetching && supLink?.where === "header" && supLink.idField === f.key;
     return (
       <SheetBox
         key={f.key}
@@ -424,8 +448,8 @@ export function LogSheetRecordView({
         editable={editable}
         onBox={onBox}
         employees={employeeNames}
-        list={personBox ? "hr-master-people" : machineList !== undefined ? machineList : (lists?.[f.key] ?? f.list)}
-        onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : trainingBox === f.key ? onTrainingBlur : undefined}
+        list={personBox ? "hr-master-people" : machineList !== undefined ? machineList : supplierIdBox ? SUPPLIER_NAMES_LIST : (lists?.[f.key] ?? f.list)}
+        onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : supplierIdBox ? onSupplierBlur : trainingBox === f.key ? onTrainingBlur : undefined}
         inTable={inTable}
         outOfBand={boxOutOfBand(f, data.header)}
         ordinals={!!pf}
@@ -1014,6 +1038,17 @@ export function LogSheetRecordView({
 
       {fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
       {eqFetching && eqLink && <EquipmentFetch key={`eq-${record.id}`} link={eqLink} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
+      {supFetching && supLink && (
+        <SupplierFetch
+          key={`sup-${record.id}`}
+          link={supLink}
+          layout={layout}
+          data={data}
+          onChange={save}
+          newRowId={() => generateId("row")}
+          canOpenList={purchaseMasterOpenable()}
+        />
+      )}
 
       {pmPlanLine && <PmPlanLine line={pmPlanLine} />}
       {pmLines && <PmLinkNotice lines={pmLines} />}
@@ -1169,6 +1204,7 @@ export function LogSheetRecordView({
                 lists={lists}
                 personKey={fetching && link?.where === "rows" ? link.nameField : undefined}
                 machineKey={eqFetching && eqLink?.where === "rows" ? eqLink.idField : undefined}
+                supplierKey={supFetching && supLink?.where === "rows" ? supLink.idField : undefined}
                 linked={rowLinks?.get(row.id)}
                 canRemove={canRemoveRows}
                 height={gridRowHeight(i + 1)}
@@ -1179,6 +1215,7 @@ export function LogSheetRecordView({
                 onCell={onCell}
                 onPersonBlur={onPersonBlur}
                 onMachineBlur={onMachineBlur}
+                onSupplierBlur={onSupplierBlur}
                 onRemove={onRemoveRow}
               />
               </React.Fragment>
@@ -1272,6 +1309,7 @@ export function LogSheetRecordView({
       <div className="paper-page-foot" aria-hidden="true" />
       {fetching && <HrMasterPeopleList />}
       {eqFetching && <EquipmentMachineList />}
+      {supFetching && <SupplierNameList />}
       <datalist id="log-sheet-employees">
         {employees.map((e) => (
           <option key={e.id} value={e.name} />
@@ -2064,6 +2102,7 @@ const SheetRow = React.memo(function SheetRow({
   lists,
   personKey,
   machineKey,
+  supplierKey,
   linked,
   canRemove,
   height,
@@ -2074,6 +2113,7 @@ const SheetRow = React.memo(function SheetRow({
   onCell,
   onPersonBlur,
   onMachineBlur,
+  onSupplierBlur,
   onRemove,
 }: {
   row: LogSheetRow;
@@ -2106,6 +2146,8 @@ const SheetRow = React.memo(function SheetRow({
   personKey?: string;
   /** The column that names a machine the equipment master can fill a line from (REQUIREMENTS §74). */
   machineKey?: string;
+  /** The column that names a supplier Purchase Master Data can fill a line from (REQUIREMENTS §186). */
+  supplierKey?: string;
   /** The line's cells read from another document (REQUIREMENTS §82), by column key; never stored on the line. */
   linked?: RowLinks;
   canRemove: boolean;
@@ -2122,6 +2164,7 @@ const SheetRow = React.memo(function SheetRow({
   onCell: (rowId: string, key: string, value: string | number | null) => void;
   onPersonBlur: (rowId: string | null, value: string) => void;
   onMachineBlur: (rowId: string | null, value: string) => void;
+  onSupplierBlur: (rowId: string | null, value: string) => void;
   onRemove: (rowId: string) => void;
 }) {
   // What the line is called in a downloaded file's list of boxes: its time slot, its parameter (REQUIREMENTS §81).
@@ -2180,13 +2223,15 @@ const SheetRow = React.memo(function SheetRow({
               paper={paper}
               onChange={(v) => onCell(row.id, c.key, v)}
               employees={employees}
-              list={personKey === c.key ? "hr-master-people" : machineKey === c.key ? "equipment-machines" : (lists?.[c.key] ?? c.list)}
+              list={personKey === c.key ? "hr-master-people" : machineKey === c.key ? "equipment-machines" : supplierKey === c.key ? SUPPLIER_NAMES_LIST : (lists?.[c.key] ?? c.list)}
               onBlur={
                 personKey === c.key
                   ? (v) => onPersonBlur(row.id, v)
                   : machineKey === c.key
                     ? (v) => onMachineBlur(row.id, v)
-                    : col.unitFrom
+                    : supplierKey === c.key
+                      ? (v) => onSupplierBlur(row.id, v)
+                      : col.unitFrom
                       ? (v) => {
                           // The unit of the cell it is read against (F/QC/12: "100.002" → "100.002gm").
                           const withUnit = unitized(v, row[col.unitFrom!]);

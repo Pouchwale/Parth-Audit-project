@@ -323,7 +323,8 @@ const recordOf = (t: Tag): string | undefined => (t.attrs["data-bind-record"] ? 
 /** Why this box carries no binding on purpose, or null when it should carry one. */
 function unboundOnPurpose(t: Tag): string | null {
   if (t.attrs.type === "file" || t.attrs.type === "hidden") return "a file picker";
-  if (within(t, (a) => a.attrs["data-section"] === "hr-master-fetch" || a.attrs["data-section"] === "equipment-fetch")) return "the fetch bar";
+  // The bars that fetch a person, a machine or a supplier from a master (REQUIREMENTS §53, §74, §187): tools, not the record's values.
+  if (within(t, (a) => a.attrs["data-section"] === "hr-master-fetch" || a.attrs["data-section"] === "equipment-fetch" || a.attrs["data-section"] === "supplier-fetch")) return "the fetch bar";
   if ((t.attrs.title ?? "").startsWith("Same as line")) return "the service report's mirrored quantity";
   if (/-address$/.test(t.attrs["data-field"] ?? "")) return "an address held as several lines, edited joined";
   if (t.attrs["data-field"] === "fhr18-add-date" || t.attrs["data-field"] === "soc-lines") return "not a value of the record";

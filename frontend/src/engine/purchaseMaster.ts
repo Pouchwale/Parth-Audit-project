@@ -1,5 +1,5 @@
 import type { ApprovedSupplier, SupplierKey, SupplierValues } from "../types";
-import { supplierRatingCells } from "./purchaseRatings";
+import { gradeForOverall, supplierRatingCells } from "./purchaseRatings";
 import { isIsoDate, parseWrittenDate } from "./hrMaster";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import type { SheetColumn, SheetMerge } from "../utils/xlsx";
@@ -109,29 +109,41 @@ export const RATING_BANDS: Record<RatingKey, { min: number; max: number }> = {
 
 /** F/PUR/05's worked-out columns, as its headings print them: the three ratings at their weights, their sum and its letter. */
 export const WORKED_COLUMNS = [
-  { key: "productSafetyWeightage", label: "Product safety Weightage 50%", width: 104 },
-  { key: "qualityWeightage", label: "Quality Weightage 40%", width: 96 },
-  { key: "deliveryWeightage", label: "Delivery Weightage 10%", width: 96 },
-  { key: "overallRating", label: "Overall Rating", width: 86 },
-  { key: "grade", label: "Grade", width: 60 },
+  { key: "productSafetyWeightage", label: "Product safety Weightage 50%", width: 108 },
+  { key: "qualityWeightage", label: "Quality Weightage 40%", width: 104 },
+  { key: "deliveryWeightage", label: "Delivery Weightage 10%", width: 104 },
+  { key: "overallRating", label: "Overall Rating", width: 112 },
+  { key: "grade", label: "Grade", width: 132 },
 ] as const;
 
 export type WorkedKey = (typeof WORKED_COLUMNS)[number]["key"];
 export type SupplierRating = Record<WorkedKey, string>;
+export const WORKED_KEYS: WorkedKey[] = WORKED_COLUMNS.map((c) => c.key);
 
-const ALL_KEYS: SupplierKey[] = [...SUPPLIER_COLUMNS.map((c) => c.key), "serviceApproval"];
+/** What a figure typed over a worked-out one may be: a weightage up to its weight's worth, the Overall Rating 0 to 100. */
+export const WORKED_BANDS: Record<Exclude<WorkedKey, "grade">, { min: number; max: number }> = {
+  productSafetyWeightage: { min: 0, max: 50 },
+  qualityWeightage: { min: 0, max: 40 },
+  deliveryWeightage: { min: 0, max: 10 },
+  overallRating: { min: 0, max: 100 },
+};
+/** The letters F/PUR/05's Overall Rating table gives. */
+export const GRADES = ["A", "B", "C"] as const;
+
+/** The cells an upload reads (the worked-out figures are not read: the download carries them as worked out). */
+const IMPORT_KEYS: SupplierKey[] = [...SUPPLIER_COLUMNS.map((c) => c.key), "serviceApproval"];
 
 const LABELS: Record<SupplierKey, string> = {
-  ...(Object.fromEntries(SUPPLIER_COLUMNS.map((c) => [c.key, c.label])) as Record<SupplierKey, string>),
+  ...(Object.fromEntries([...SUPPLIER_COLUMNS, ...WORKED_COLUMNS].map((c) => [c.key, c.label])) as Record<SupplierKey, string>),
   serviceApproval: "SERVICE PROVIDER'S DOCUMENT (SERVICE AGREEMENT / ISO 17025 ACCREDITATION)",
 };
 
 /** A column's heading — "Quality Rating (Y)". */
 export const supplierColumnLabel = (key: SupplierKey): string => LABELS[key] ?? key;
 
-/** A blank line: every cell empty but the three ratings, which start full. */
+/** A blank line: every cell empty but the three ratings, which start full; the worked-out figures blank, so worked out. */
 export function blankSupplierValues(): SupplierValues {
-  const out = Object.fromEntries(ALL_KEYS.map((k) => [k, ""])) as SupplierValues;
+  const out = Object.fromEntries([...IMPORT_KEYS, ...WORKED_KEYS].map((k) => [k, ""])) as SupplierValues;
   for (const k of RATING_KEYS) out[k] = RATING_DEFAULT;
   return out;
 }
@@ -142,16 +154,42 @@ export const isServiceProvider = (s: Pick<SupplierValues, "category">): boolean 
 /** A rating as the sheet counts it: what is written, or full marks when nothing is. */
 export const ratingOf = (value: unknown): string => String(value ?? "").trim() || RATING_DEFAULT;
 
-/** The line's worked-out figures, as F/PUR/05 works them out: 100 / 100 / 100 gives 50.00 / 40.00 / 10.00, 100.00, A. */
-export function supplierRating(s: Pick<SupplierValues, RatingKey>): SupplierRating {
+const twoPlaces = (n: number): string => (Math.round(n * 100) / 100).toFixed(2);
+const typedIn = (s: Partial<SupplierValues>, key: WorkedKey): string | null => String(s[key] ?? "").trim() || null;
+
+/**
+ * The line's figures as the sheet shows them. Worked out as F/PUR/05 works them out — 100 / 100 / 100 gives 50.00 / 40.00 /
+ * 10.00, 100.00, A — unless a person typed a figure over one: a typed weightage counts in the Overall Rating, a typed
+ * Overall Rating gives the Grade, and a typed Grade stands as typed.
+ */
+export function supplierRating(s: Partial<SupplierValues>): SupplierRating {
   const cells = supplierRatingCells({ productSafetyRating: ratingOf(s.productSafetyRating), qualityRating: ratingOf(s.qualityRating), deliveryRating: ratingOf(s.deliveryRating) });
-  return {
-    productSafetyWeightage: String(cells.productSafetyWeightage ?? ""),
-    qualityWeightage: String(cells.qualityWeightage ?? ""),
-    deliveryWeightage: String(cells.deliveryWeightage ?? ""),
-    overallRating: String(cells.overallRating ?? ""),
-    grade: String(cells.grade ?? ""),
-  };
+  const productSafetyWeightage = typedIn(s, "productSafetyWeightage") ?? String(cells.productSafetyWeightage ?? "");
+  const qualityWeightage = typedIn(s, "qualityWeightage") ?? String(cells.qualityWeightage ?? "");
+  const deliveryWeightage = typedIn(s, "deliveryWeightage") ?? String(cells.deliveryWeightage ?? "");
+  const partTyped = (["productSafetyWeightage", "qualityWeightage", "deliveryWeightage"] as const).some((k) => typedIn(s, k) !== null);
+  const typedOverall = typedIn(s, "overallRating");
+  const overallRating = typedOverall ?? (partTyped ? twoPlaces(Number(productSafetyWeightage) + Number(qualityWeightage) + Number(deliveryWeightage)) : String(cells.overallRating ?? ""));
+  const grade = typedIn(s, "grade") ?? (partTyped || typedOverall !== null ? gradeForOverall(Number(overallRating)) : String(cells.grade ?? ""));
+  return { productSafetyWeightage, qualityWeightage, deliveryWeightage, overallRating, grade };
+}
+
+/** The worked-out figures a person has typed over on this line. */
+export const typedWorked = (s: Partial<SupplierValues>): WorkedKey[] => WORKED_KEYS.filter((k) => typedIn(s, k) !== null);
+
+/** A figure typed over a worked-out one, checked: the figure to keep (two decimals; a grade's letter), or why it is not kept. */
+export function checkWorked(key: WorkedKey, raw: unknown): { value: string } | { error: string } {
+  const text = String(raw ?? "").trim();
+  const label = supplierColumnLabel(key);
+  if (key === "grade") {
+    const letter = text.toUpperCase();
+    return (GRADES as readonly string[]).includes(letter) ? { value: letter } : { error: `${label} is A, B or C, so "${text}" was not saved.` };
+  }
+  const n = Number(text);
+  if (!text || !Number.isFinite(n)) return { error: `${label}: "${text}" is not a figure, so it was not saved.` };
+  const band = WORKED_BANDS[key];
+  if (n < band.min || n > band.max) return { error: `${label} is ${band.min} to ${band.max}, so ${text} was not saved.` };
+  return { value: twoPlaces(n) };
 }
 
 /** A rating as a person wrote it, checked: the figure to save, or why it is not saved. An empty cell is full marks again. */
@@ -249,7 +287,7 @@ export function supplierSheet(suppliers: ApprovedSupplier[]): { columns: SheetCo
 // ---------------------------------------------------------------------------
 // reading an uploaded sheet (the list as Purchase keeps it in Excel, or the sheet's own download)
 
-const HEADER_ALIASES: Record<SupplierKey, RegExp> = {
+const HEADER_ALIASES: Partial<Record<SupplierKey, RegExp>> = {
   vendorCode: /^(?:vendor\s*code|vendor\s*no|supplier\s*code|code)$/,
   supplierName: /^(?:supplier\s*name|supplier|vendor\s*name|name\s*of\s*(?:the\s*)?supplier|supplier\s*\/\s*service\s*provider\s*name)$/,
   productService: /^(?:product\s*\/\s*service|products?|material(?:\s*description)?|products?\s*\/\s*services?)$/,
@@ -287,8 +325,8 @@ export function supplierHeaderColumns(cells: string[]): Partial<Record<SupplierK
   cells.forEach((cell, i) => {
     const text = headerText(cell);
     if (!text) return;
-    for (const key of ALL_KEYS) {
-      if (out[key] === undefined && HEADER_ALIASES[key].test(text)) {
+    for (const key of IMPORT_KEYS) {
+      if (out[key] === undefined && HEADER_ALIASES[key]?.test(text)) {
         out[key] = i;
         break;
       }
@@ -351,7 +389,7 @@ export function planSupplierImport(grid: string[][], suppliers: ApprovedSupplier
     }
   }
   if (headerIndex < 0) return { error: "No heading row was found. It should name at least SUPPLIER NAME and one more column of the list (Vendor Code, PRODUCT / SERVICE, CATEGORY …)." };
-  const columns = ALL_KEYS.filter((k) => map[k] !== undefined);
+  const columns = IMPORT_KEYS.filter((k) => map[k] !== undefined);
   const plan: SupplierImportPlan = { headerLine: headerIndex + 1, columns, additions: [], updates: [], unchanged: 0, skipped: [], warnings: [] };
   const touched = new Set<string>();
   const seen: { line: number; code: string; name: string; product: string }[] = [];
@@ -422,7 +460,7 @@ export function planSupplierImport(grid: string[][], suppliers: ApprovedSupplier
       continue;
     }
     touched.add(match.id);
-    const changes: SupplierImportChange[] = ALL_KEYS.filter((key) => {
+    const changes: SupplierImportChange[] = IMPORT_KEYS.filter((key) => {
       const after = given[key];
       return !!after && after !== String(match[key] ?? "").trim() && !(key === "vendorCode" && sameCode(after, match.vendorCode));
     }).map((key) => ({ key, before: String(match[key] ?? ""), after: given[key] as string }));

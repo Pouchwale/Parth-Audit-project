@@ -22,6 +22,7 @@ import {
   RATING_DEFAULT,
   blankSupplierValues,
   checkRating,
+  checkWorked,
   dateOrWords,
   isServiceProvider,
   planSupplierImport,
@@ -30,6 +31,7 @@ import {
   supplierProblems,
   supplierRating,
   supplierSheet,
+  typedWorked,
 } from "../src/engine/purchaseMaster";
 import { purchaseMasterSeed, PURCHASE_MASTER_SEEDED_BY } from "../src/data/seed/purchaseMasterSeed";
 import { ensureSeeded, purchaseMasterRepository } from "../src/data/repositories/purchaseMasterRepository";
@@ -78,6 +80,31 @@ test("a changed rating is checked: Quality 97 to 100, Product Safety and Deliver
   assert.ok("error" in checkRating("productSafetyRating", "-5"));
   assert.ok("error" in checkRating("deliveryRating", "full"));
   assert.deepEqual(checkRating("deliveryRating", "  "), { value: "100" }, "an emptied cell is full marks again");
+});
+
+test("every cell is editable: a weightage, the Overall Rating and the Grade can be typed over, and emptied back (the owner, 5-Nov-2026)", () => {
+  const base = blankSupplierValues();
+  assert.deepEqual(typedWorked(base), [], "nothing typed over at first");
+  // A typed weightage counts in the Overall Rating, and the Overall Rating gives the Grade.
+  const qw = { ...base, qualityWeightage: "35.00" };
+  assert.deepEqual(supplierRating(qw), { productSafetyWeightage: "50.00", qualityWeightage: "35.00", deliveryWeightage: "10.00", overallRating: "95.00", grade: "A" });
+  assert.deepEqual(typedWorked(qw), ["qualityWeightage"]);
+  // A typed Overall Rating gives its own Grade; a typed Grade stands as typed.
+  assert.deepEqual(supplierRating({ ...base, overallRating: "85.00" }).grade, "B");
+  assert.deepEqual(supplierRating({ ...base, overallRating: "85.00", grade: "A" }).grade, "A");
+  assert.deepEqual(supplierRating({ ...base, grade: "C" }), { productSafetyWeightage: "50.00", qualityWeightage: "40.00", deliveryWeightage: "10.00", overallRating: "100.00", grade: "C" });
+  // Emptied, it is worked out again from the ratings.
+  assert.deepEqual(supplierRating({ ...qw, qualityWeightage: "", qualityRating: "97" }).qualityWeightage, "38.80");
+  // What may be typed: a weightage up to its weight, the Overall Rating 0 to 100, the Grade A, B or C.
+  assert.deepEqual(checkWorked("productSafetyWeightage", "45"), { value: "45.00" });
+  assert.deepEqual(checkWorked("qualityWeightage", "41"), { error: "Quality Weightage 40% is 0 to 40, so 41 was not saved." });
+  assert.deepEqual(checkWorked("deliveryWeightage", "10"), { value: "10.00" });
+  assert.ok("error" in checkWorked("deliveryWeightage", "11"));
+  assert.deepEqual(checkWorked("overallRating", "99.5"), { value: "99.50" });
+  assert.ok("error" in checkWorked("overallRating", "101"));
+  assert.deepEqual(checkWorked("grade", "b"), { value: "B" });
+  assert.ok("error" in checkWorked("grade", "D"));
+  assert.ok("error" in checkWorked("overallRating", "full"));
 });
 
 test("the seed: F/PUR/03's Sr. No. 32 to 72 cell by cell, then the 2025 register's 24 suppliers — every one at 100, Grade A", () => {

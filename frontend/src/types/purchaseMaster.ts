@@ -25,7 +25,14 @@ export type SupplierKey =
   | "fileNo"
   | "productSafetyRating"
   | "qualityRating"
-  | "deliveryRating";
+  | "deliveryRating"
+  // The worked-out figures a person may type over (the owner, 5-Nov-2026: "make sure it should completely editable"):
+  // blank, the figure is worked out from the ratings; typed, the typed figure stands until the cell is emptied.
+  | "productSafetyWeightage"
+  | "qualityWeightage"
+  | "deliveryWeightage"
+  | "overallRating"
+  | "grade";
 
 export type SupplierValues = Record<SupplierKey, string>;
 
