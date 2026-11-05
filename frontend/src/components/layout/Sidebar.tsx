@@ -65,6 +65,7 @@ import { assistantAvailable, demoModeAvailable } from "../../engine/features";
 import { useAuth } from "../../store/AuthContext";
 import { mayOpenMasterData, mayOpenSystemPages } from "../../engine/masterDataAccess";
 import { currentAddress } from "../../utils/moduleSlug";
+import { PURCHASE_DOCUMENT_IDS } from "../../engine/purchaseMaster";
 
 interface NavItem {
   to: string;
@@ -305,6 +306,9 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
   // format opens on its own document page, like an HR format does.
   Purchase: [
     { to: "/library/purchase", labelKey: "nav.purchaseDocs", icon: FiBookOpen },
+    // The List of Approved Suppliers with each supplier's rating — Purchase's master sheet, as HR Master Data leads the
+    // HR module (REQUIREMENTS §186).
+    { to: "/purchase/master-data", labelKey: "nav.purchaseMasterData", icon: FiDatabase },
     { headingKey: "nav.purSupplierApproval" },
     { to: "/document/pur-supplier-registration", labelKey: "nav.purSupplierRegistration", icon: FiUserPlus },
     { to: "/document/pur-supplier-audit-report", labelKey: "nav.purSupplierAudit", icon: FiClipboard },
@@ -455,6 +459,8 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/document/pur-approved-suppliers": ["pur-approved-suppliers"],
   "/document/pur-supplier-performance": ["pur-supplier-performance"],
   "/document/pur-service-provider-performance": ["pur-service-provider-performance"],
+  // Purchase Master Data serves every one of them, so it is shown when any Purchase document is the viewer's (§186).
+  "/purchase/master-data": PURCHASE_DOCUMENT_IDS,
   // Store and Dispatch (REQUIREMENTS §71, §70) — missing until §74, so their
   // links showed to anybody who could see the module at all.
   "/document/str-incoming-material-vehicle": ["str-incoming-material-vehicle"],

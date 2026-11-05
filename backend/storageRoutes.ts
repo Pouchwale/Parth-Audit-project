@@ -2,7 +2,21 @@ import express, { type Express, type Request, type RequestHandler, type Response
 import zlib from "node:zlib";
 import type { PublicUser } from "./auth.ts";
 import { deleteItem, readItem, storedItems, writeItem, type StoredItem, type StoredItems, type WriteResult } from "./db.ts";
-import { ACCESS_KEY, AccessRefused, checkFormatChange, composeDefinitions, composeRecords, holdsHrMaster, languageOf, levelRefusal, viewFor, writesHrMaster, type AccessView } from "./accessLevels.ts";
+import {
+  ACCESS_KEY,
+  AccessRefused,
+  checkFormatChange,
+  composeDefinitions,
+  composeRecords,
+  holdsHrMaster,
+  holdsPurchaseMaster,
+  languageOf,
+  levelRefusal,
+  viewFor,
+  writesHrMaster,
+  writesPurchaseMaster,
+  type AccessView,
+} from "./accessLevels.ts";
 import { accessAccountOf, catalogueLoader, databaseItemSource } from "./accessStore.ts";
 import type { AccessCatalogue } from "./accessLevels.ts";
 import { mayOpenMasterData } from "../frontend/src/engine/masterDataAccess.ts";
@@ -24,7 +38,7 @@ import { mayOpenMasterData } from "../frontend/src/engine/masterDataAccess.ts";
 // is handed and may write follows the super admin's access rules (the company item "access", read like "master" by
 // everybody and written by the super admin alone): the records and deletions-log lines of a document at Read or more
 // (an account nobody has described keeps its departments' — REQUIREMENTS §40 — or every one, as before), HR Master Data
-// only with Human Resources; and a write of the records is checked RECORD BY RECORD against the version stored — start,
+// only with Human Resources and Purchase Master Data only with Purchase (§186); and a write of the records is checked RECORD BY RECORD against the version stored — start,
 // fill, submit, verify, send back at Write, correct and delete at Edit — while the document definitions and the format
 // edits are Edit's alone. A person's own act their level does not allow is refused with 403 and the level in plain
 // words; the app's own housekeeping (a blank or prepared sheet, a start-up migration) is left as stored. Everyone
@@ -34,7 +48,7 @@ import { mayOpenMasterData } from "../frontend/src/engine/masterDataAccess.ts";
 // over a stand-in for the database (backend/tests/storageRoutes.test.ts).
 
 // "indexing": the index of every format and document (indexing/), read by everybody, written by the super admin alone (below).
-export const COMPANY_KEYS = new Set(["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", ACCESS_KEY, "indexing"]);
+export const COMPANY_KEYS = new Set(["records", "documents", "master", "hrMasterData", "purchaseMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", ACCESS_KEY, "indexing"]);
 export const USER_SCOPED_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
 const STORAGE_MAX_BYTES = "25mb";
 const MAX_VERSION = 2147483647;
@@ -42,6 +56,8 @@ const MAX_VERSION = 2147483647;
 const LINE_KEYS = new Set(["records", "deletions"]);
 /** Items only Human Resources may hold. */
 const HR_ONLY_KEYS = ["hrMasterData"];
+/** Items only Purchase may hold: its List of Approved Suppliers with their ratings (REQUIREMENTS §186). */
+const PURCHASE_ONLY_KEYS = ["purchaseMasterData"];
 
 const storageScope = (key: string, userId: string) => (USER_SCOPED_KEYS.has(key) ? userId : "company");
 
@@ -182,7 +198,7 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
     const since = Number(req.query.since ?? 0);
     const result = await store.storedItems(user.id, Number.isSafeInteger(since) && since > 0 ? since : 0);
     const view = await viewOf(user);
-    const denied = holdsHrMaster(view) ? [] : HR_ONLY_KEYS;
+    const denied = [...(holdsHrMaster(view) ? [] : HR_ONLY_KEYS), ...(holdsPurchaseMaster(view) ? [] : PURCHASE_ONLY_KEYS)];
     if (!view.readsAll || denied.length) {
       result.items = result.items
         .filter((item) => !denied.includes(item.key))
@@ -245,6 +261,16 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
         }
         if (!writesHrMaster(view)) {
           res.status(403).json({ error: levelRefusal("HR Master Data", "read", "write", "fill", languageOf(req.get("x-language"))), code: "access-level", level: "read", needed: "write", action: "fill" });
+          return;
+        }
+      }
+      if (key === "purchaseMasterData") {
+        if (!holdsPurchaseMaster(view)) {
+          res.status(403).json({ error: "This account's departments do not hold that." });
+          return;
+        }
+        if (!writesPurchaseMaster(view)) {
+          res.status(403).json({ error: levelRefusal("Purchase Master Data", "read", "write", "fill", languageOf(req.get("x-language"))), code: "access-level", level: "read", needed: "write", action: "fill" });
           return;
         }
       }

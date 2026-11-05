@@ -58,7 +58,7 @@ const STORAGE_HELD = "dcrs:storage-held";
 const STORAGE_HELD_SAVED = "dcrs:storage-held-saved";
 
 /** The company's items. Mirrors backend/index.ts COMPANY_KEYS. */
-const COMPANY_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "indexing"];
+const COMPANY_KEYS = ["records", "documents", "master", "hrMasterData", "purchaseMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "indexing"];
 /** A person's own. Mirrors backend/index.ts USER_SCOPED_KEYS. */
 const USER_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
 /** Everything kept in the database. Anything else (the assistant bubble's position) stays in this browser. */
@@ -755,6 +755,11 @@ function merge(key: string, base: BaseView | null, mine: string, theirs: string,
       // A line removed by anyone stays removed.
       const removed = new Set([...(Array.isArray(out.removedSeedIds) ? out.removedSeedIds : []), ...(Array.isArray(out.removedIds) ? out.removedIds : [])].map(String));
       out = { ...out, people: out.people.filter((p) => !removed.has(String(idOf(p)))) };
+    }
+    if (key === "purchaseMasterData" && isObject(out) && Array.isArray(out.suppliers)) {
+      // The same for Purchase Master Data's lines (REQUIREMENTS §186).
+      const removed = new Set([...(Array.isArray(out.removedSeedIds) ? out.removedSeedIds : []), ...(Array.isArray(out.removedIds) ? out.removedIds : [])].map(String));
+      out = { ...out, suppliers: out.suppliers.filter((p) => !removed.has(String(idOf(p)))) };
     }
     if (key === "deletions" && Array.isArray(out)) {
       out = [...out].sort((x, y) => String((y as Obj)?.deletedAt ?? "").localeCompare(String((x as Obj)?.deletedAt ?? "")));

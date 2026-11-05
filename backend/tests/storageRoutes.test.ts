@@ -2,10 +2,12 @@
 // over an in-memory stand-in for PostgreSQL (the same writeItem contract: the version check, then the composition of
 // the value from what is stored, inside one transaction):
 //   * GET /api/storage hands each person the records and deletions-log lines of the documents they see at Read or more,
-//     HR Master Data only with Human Resources, the access rules to everybody, and the key of their copy;
+//     HR Master Data only with Human Resources, Purchase Master Data only with Purchase (§186), the access rules to
+//     everybody, and the key of their copy;
 //   * PUT /api/storage/records is checked record by record against the version stored, and refused with 403 and the
 //     level in plain words for a person's own act their level does not allow; everyone else's lines are kept;
 //   * the documents and the format edits are Edit's; the access rules are the super admin's, through their own writer;
+//   * Purchase Master Data is changed by a person with Write on a Purchase document, and refused at Read (§186);
 //   * the super admin passes everything; an account nobody has described keeps its departments, as before.
 // Run: npm run test:unit -- storageRoutes
 import assert from "node:assert/strict";
@@ -70,6 +72,7 @@ const USERS: Record<string, PublicUser> = {
   admin: { id: "u-admin", name: "Super Admin", email: "admin@gpp.local", role: "admin", departments: [] },
   ankur: { id: "u-ankur", name: "Ankur Raval", email: "ankur.raval@gpp.local", role: "staff", departments: ["QC"] },
   vinay: { id: "u-vinay", name: "Vinay Bhojak", email: "vinay.bhojak@gpp.local", role: "staff", departments: ["HR"] },
+  chirag: { id: "u-chirag", name: "Chirag Parmar", email: "chirag.parmar@gpp.local", role: "staff", departments: ["PUR"] },
   kapila: { id: "u-kapila", name: "Kapila Barad", email: "kapila.barad@gpp.local", role: "staff", departments: ["QC"] },
   clerk: { id: "u-clerk", name: "Dept QC QA", email: "dept-qc@example.com", role: "staff", departments: ["QC"] },
   all: { id: "u-all", name: "Dept All QA", email: "dept-all@example.com", role: "staff", departments: [] },
@@ -97,6 +100,7 @@ async function start(): Promise<Server> {
   store.put("records", [HR_RECORD, POUCHING, VISCOSITY]);
   store.put("deletions", [{ id: "d-1", documentId: "hr-competence" }, { id: "d-2", documentId: "qc-viscosity" }]);
   store.put("hrMasterData", { people: [] });
+  store.put("purchaseMasterData", { suppliers: [], removedSeedIds: [] });
   store.put("formatEdits", { "qc-viscosity": { revisionNo: "01" } });
   store.put("access", { version: 1, people: {}, responsibility: {} });
   const lines: Server["lines"] = [];
@@ -163,11 +167,21 @@ describe("what each person is handed", () => {
 
   it("HR Master Data only with Human Resources (and its version not even named to anybody else)", async () => {
     const ankur = (await get(s, "ankur")).body;
-    assert.deepEqual(ankur.denied, ["hrMasterData"]);
+    assert.deepEqual(ankur.denied, ["hrMasterData", "purchaseMasterData"]);
     assert.equal(itemOf(ankur, "hrMasterData"), undefined);
     assert.equal(ankur.versions.hrMasterData, undefined);
-    assert.deepEqual((await get(s, "vinay")).body.denied, []);
+    assert.deepEqual((await get(s, "vinay")).body.denied, ["purchaseMasterData"]);
     assert.deepEqual((await get(s, "kapila")).body.denied, []);
+  });
+
+  it("Purchase Master Data only with Purchase (§186), and its version not named to anybody else", async () => {
+    const chirag = (await get(s, "chirag")).body;
+    assert.deepEqual(chirag.denied, ["hrMasterData"]);
+    assert.deepEqual(itemOf(chirag, "purchaseMasterData"), { suppliers: [], removedSeedIds: [] });
+    const ankur = (await get(s, "ankur")).body;
+    assert.equal(itemOf(ankur, "purchaseMasterData"), undefined);
+    assert.equal(ankur.versions.purchaseMasterData, undefined);
+    for (const who of ["admin", "kapila", "all"]) assert.ok(itemOf((await get(s, who)).body, "purchaseMasterData"), who);
   });
 
   it("the access rules to everybody signed in", async () => {
@@ -177,7 +191,7 @@ describe("what each person is handed", () => {
   it("an account nobody has described keeps what it had: its departments' lines, or every line", async () => {
     const clerk = (await get(s, "clerk")).body;
     assert.deepEqual(idsOf(itemOf(clerk, "records")), ["p-1", "v-1"]);
-    assert.deepEqual(clerk.denied, ["hrMasterData"]);
+    assert.deepEqual(clerk.denied, ["hrMasterData", "purchaseMasterData"]);
     const all = (await get(s, "all")).body;
     assert.deepEqual(idsOf(itemOf(all, "records")), ["hr-1", "p-1", "v-1"]);
     assert.equal(all.scope, "*");
@@ -303,6 +317,36 @@ describe("the definitions, the format edits, HR Master Data and the access rules
 // MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS §134, the owner, 28-Oct-2026), KAPILA BARAD'S (§172, 3-Nov-2026: "for
 // kapila barad ID just give this access only for master data in system, nothing more or less than that") and the testing
 // accounts' (example.com).
+describe("Purchase Master Data (§186): changed at Write on a Purchase document, refused at Read", () => {
+  let s: Server;
+  before(async () => (s = await start()));
+  after(() => s.close());
+  const sheet = (rating: string) => ({ suppliers: [{ id: "pur-sup-32", supplierName: "K S Inctech Pvt.Ltd.", qualityRating: rating }], removedSeedIds: [] });
+
+  it("Purchase Master Data: refused to whoever does not see Purchase, taken from Purchase (Chirag Parmar) and from Kapila Barad", async () => {
+    const refused = await put(s, "ankur", "purchaseMasterData", sheet("98"));
+    assert.equal(refused.status, 403);
+    assert.equal(refused.body.error, "This account's departments do not hold that.");
+    assert.equal((await put(s, "chirag", "purchaseMasterData", sheet("98"))).status, 200);
+    assert.deepEqual(s.store.value("purchaseMasterData"), sheet("98"));
+    assert.equal((await put(s, "kapila", "purchaseMasterData", sheet("99"))).status, 200);
+    assert.equal((await put(s, "admin", "purchaseMasterData", sheet("100"))).status, 200);
+  });
+
+  it("a person who only reads Purchase is handed the sheet, and their change is refused with the level in plain words", async () => {
+    s.store.put("access", { version: 1, people: { "vinay.bhojak@gpp.local": { modules: { PUR: "read" } } }, responsibility: {} });
+    const vinay = (await get(s, "vinay")).body;
+    assert.ok(!vinay.denied.includes("purchaseMasterData"), "he sees Purchase");
+    assert.ok(itemOf(vinay, "purchaseMasterData"));
+    const before = s.store.value("purchaseMasterData");
+    const refused = await put(s, "vinay", "purchaseMasterData", sheet("97"));
+    assert.equal(refused.status, 403);
+    assert.equal(refused.body.code, "access-level");
+    assert.match(String(refused.body.error), /^Purchase Master Data is Read only for you\./);
+    assert.deepEqual(s.store.value("purchaseMasterData"), before, "nothing written");
+  });
+});
+
 describe("Master Data, the super admin's, Kapila Barad's and the testing accounts'", () => {
   let s: Server;
   before(async () => (s = await start()));

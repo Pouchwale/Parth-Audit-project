@@ -693,3 +693,22 @@ export function writesHrMaster(view: AccessView): boolean {
   if (view.catalogue.docs.length === 0) return holdsHrMaster(view);
   return view.catalogue.docs.some((d) => d.department === "HR" && view.may(d.id, "fill"));
 }
+
+// ---------------------------------------------------------------------------
+// the Purchase Master Data sheet (REQUIREMENTS §186)
+
+/** Purchase's List of Approved Suppliers, with their ratings, is held by an account that sees Purchase. */
+export function holdsPurchaseMaster(view: AccessView): boolean {
+  const modules = view.modules();
+  return modules === null || modules.includes("PUR");
+}
+
+/**
+ * And changed — a rating included — by one with Write on a Purchase document (the owner, 5-Nov-2026: "make sure it should
+ * be editable every time who has given access"); the super admin always.
+ */
+export function writesPurchaseMaster(view: AccessView): boolean {
+  if (view.editsAll) return true;
+  if (view.catalogue.docs.length === 0) return holdsPurchaseMaster(view);
+  return view.catalogue.docs.some((d) => d.department === "PUR" && view.may(d.id, "fill"));
+}

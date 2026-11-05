@@ -37,6 +37,7 @@ import {
 } from "./pages/PestControlPages";
 import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
 import { HrMasterDataPage } from "./pages/HrMasterDataPage";
+import { PurchaseMasterDataPage } from "./pages/PurchaseMasterDataPage";
 import { QcOverviewPage } from "./pages/QcPages";
 import { UsersPage } from "./pages/UsersPage";
 import { FrequencyPage } from "./pages/FrequencyPage";
@@ -207,6 +208,9 @@ function RouteSwitch() {
       // lamination line's paperwork (REQUIREMENTS §58). Each row opens the
       // format's own page, which is where "Open Document" lands too.
       return <QcOverviewPage />;
+    case "purchase":
+      // Purchase Master Data — the List of Approved Suppliers with each supplier's rating (REQUIREMENTS §186).
+      return rest[0] === "master-data" ? <PurchaseMasterDataPage /> : <NotFoundPage />;
     case "document":
       // Any other log sheet's own page — where "Open Document" lands.
       return rest[0] ? <DocumentRecordsPage key={rest[0]} docId={rest[0]} /> : <NotFoundPage />;

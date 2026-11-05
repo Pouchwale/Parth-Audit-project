@@ -11014,3 +11014,47 @@ The owner, 4-Nov-2026, shown that the "submitted on time" message and the activi
 - Proved: backend/tests/findingsCore.test.ts, backend/tests/apiV1.test.ts, frontend/tests/findingsCloseEquivalence.test.ts
   (the website's and the server's names the same), tests/e2e_mitra_format.py.
 
+## §186 Purchase Master Data: the List of Approved Suppliers with each supplier's rating (5-Nov-2026)
+
+The owner, 5-Nov-2026, with "LIST OF APPROVED SUPPLIERS.pdf" (photographs of the plant's F/PUR/03, Sr. No. 32 to 72, and of
+the 2025 F/PUR/05 register): "create a master data in Purchase module in which also called list of approved suppliers in which
+all type of rating product safety, quality rating, delivery rating, product safety weightage, quality weightage ... we have to
+keep good rating always like for rating all the rating will be full which is 100 and quality rating will be 97 to 100 so every
+time by default it is 100 and it should be editable and make sure it should be editable every time who has given access ...
+delivery rating ... 100 by user can edit also ... product safety weightage it should also 50% and in quality weightage 40% ...
+delivery weightage ... 10 ... overall rating ity should be 100 % by default so i am sharing document so add that perfectly."
+
+- Purchase → Purchase Master Data (/purchase/master-data, pages/PurchaseMasterDataPage.tsx), first in the Purchase menu, as
+  HR Master Data leads HR's. One line per supplier and product, in F/PUR/03's own columns and wording - Vendor Code, SUPPLIER
+  NAME, PRODUCT / SERVICE, APPLICABLE PRODUCT, CATEGORY, MANUFACTURER NAME, SRF, TDS/SPECS, MSDS, FOOD GRADE DECLARATION,
+  TRACEABILITY, ISO CERTIFICATE, CONTACT PERSON, CONTACT NUMBER, LOCATION, APPROVAL DATE, Re-approval Due date, File No -
+  then F/PUR/05's rating: Product Safety Rating (X), Quality Rating (Y), Delivery Rating (Z), Product safety Weightage 50%,
+  Quality Weightage 40%, Delivery Weightage 10%, Overall Rating, Grade.
+- THE RATING (engine/purchaseMaster.ts). Every rating is 100 unless a person changes it - a new line, an uploaded line
+  without one, an emptied cell - so a supplier reads 50.00 + 40.00 + 10.00 = 100.00, Grade A. The Quality Rating is 97 to
+  100, the other two 0 to 100; a figure outside is not saved and the person is told why. The weightages, the Overall Rating
+  and the Grade are worked out, never typed, by F/PUR/05's own functions (engine/purchaseRatings.ts, the index's formulas
+  included), so the master and the register always agree (the 2025 register's Avery Dennison line, 100 / 97 / 90, gives its
+  printed 50.00 / 38.80 / 9.00 / 97.80). Every rating change is written in the activity log.
+- WHO CHANGES IT: a person with Write on a Purchase document, and the super admin; everyone else who sees Purchase reads it
+  (the cells locked, and a line saying why). The server holds it to the same rule: "purchaseMasterData" is handed only to an
+  account that sees Purchase, and a change from one without Write is refused with the level in plain words
+  (backend/accessLevels.ts holdsPurchaseMaster, writesPurchaseMaster; backend/storageRoutes.ts).
+- THE FIRST LINES (data/seed/purchaseMasterSeed.ts): F/PUR/03's Sr. No. 32 to 72 transcribed cell by cell, spelling as
+  printed, then the 24 suppliers of the 2025 F/PUR/05 register with the material it names (their F/PUR/03 lines, Sr. No. 1 to
+  31, were not among the pages: the rest of each is Purchase's to write in, and the line says so). Every one starts at 100,
+  Grade A, as the owner said - the 2025 register's own figures (Avery Dennison 97.80, Mazda Agencies 87.50 ...) stay on that
+  register. A cell the photograph leaves unreadable is noted, not guessed: Sr. No. 61's name ("?? Traders", S0224), Sr. No.
+  34's TRACEABILITY ("??"), Sr. No. 72's contact (cut at the page's edge).
+- As the list draws them: a service provider's six document cells are one ("SERVICE AGREEMENT", "ISO 17025 ACCREDITATION");
+  a date is a date (stored YYYY-MM-DD, shown 17-01-2025) or the list's own words ("Approved Prior to 01.1.2021"). Writing an
+  APPROVAL DATE on a line without a Re-approval Due date writes that too, as every line of the list has it: three years less
+  a day for a material supplier, a year less a day for a service provider. A passed re-approval date is marked.
+- Download Excel (the list's headings, a service provider's documents one merged cell, the ratings and weightages as
+  figures) and Upload Excel / CSV (matched by Vendor Code - or the name - and PRODUCT / SERVICE, shown line by line before
+  anything changes); the download uploaded back changes nothing. Print on a landscape page.
+- F/PUR/03 and F/PUR/05 keep their own records as before; the master does not fill them (yet).
+- Proved: frontend/tests/purchaseMaster.test.ts (the defaults, the arithmetic, the bands, the seed cell by cell, the
+  re-approval rule on every seeded line, the download and its round trip, an upload, the store),
+  backend/tests/storageRoutes.test.ts (held with Purchase, changed at Write, refused at Read).
+

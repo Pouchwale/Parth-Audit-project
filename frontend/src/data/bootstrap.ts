@@ -1,6 +1,7 @@
 import { ensureSeeded as ensureDocsSeeded } from "./repositories/documentRepository";
 import { ensureSeeded as ensureMasterSeeded } from "./repositories/masterRepository";
 import { ensureSeeded as ensureHrMasterSeeded } from "./repositories/hrMasterRepository";
+import { ensureSeeded as ensurePurchaseMasterSeeded } from "./repositories/purchaseMasterRepository";
 import { ensureSeeded as ensureRecordsSeeded, recordRepository } from "./repositories/recordRepository";
 import { RETIRED_DOCUMENT_IDS } from "./seed/documentDefinitions";
 import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
@@ -31,6 +32,8 @@ export function bootstrap(): void {
   ensureMasterSeeded();
   // The HR Master Data sheet (REQUIREMENTS §53) — seeded once, then HR's own.
   ensureHrMasterSeeded();
+  // Purchase Master Data, the List of Approved Suppliers with their ratings (REQUIREMENTS §186) — seeded once, then Purchase's own.
+  ensurePurchaseMasterSeeded();
   ensureRecordsSeeded();
   // Records of a document that has been withdrawn (e.g. the retired Lizard
   // Control service-report variant) would be unreachable — no page lists

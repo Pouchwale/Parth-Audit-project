@@ -138,23 +138,35 @@ export function serialToIso(serial: number, date1904 = false): string | null {
 
 export interface SheetColumn {
   header: string;
-  kind: "text" | "date";
+  /** "number": a figure as Excel's own number; "decimal": the same shown with two decimals (50.00), as F/PUR/05 prints its weightages. */
+  kind: "text" | "date" | "number" | "decimal";
   /** Excel's column width, in characters. */
   width: number;
 }
 
-/** A one-sheet workbook: `rows` hold text, and ISO dates in the date columns. */
-export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: string[][]): Uint8Array<ArrayBuffer> {
+/** Cells drawn as one, as the paper draws them: on data row `row` (0 = the first line under the headings), columns `from` to `to` (0-based). */
+export interface SheetMerge {
+  row: number;
+  from: number;
+  to: number;
+}
+
+/** A one-sheet workbook: `rows` hold text, ISO dates in the date columns and figures in the number columns. */
+export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: string[][], merges: SheetMerge[] = []): Uint8Array<ArrayBuffer> {
   const S_HEADER = 1;
   const S_DATE = 2;
   const S_TEXT = 3;
+  const S_DECIMAL = 4;
   const lastColumn = columnName(columns.length - 1);
   const lastRow = rows.length + 1;
-  const cell = (ref: string, value: string, kind: "text" | "date" | "header"): string => {
+  const cell = (ref: string, value: string, kind: SheetColumn["kind"] | "header"): string => {
     if (kind === "date") {
       const serial = isoToSerial(value);
       if (serial !== null) return `<c r="${ref}" s="${S_DATE}"><v>${serial}</v></c>`;
       if (!value) return `<c r="${ref}" s="${S_DATE}"/>`;
+    }
+    if ((kind === "number" || kind === "decimal") && /^-?\d+(?:\.\d+)?$/.test(value.trim())) {
+      return `<c r="${ref}"${kind === "decimal" ? ` s="${S_DECIMAL}"` : ""}><v>${Number(value)}</v></c>`;
     }
     if (!value) return kind === "header" ? "" : `<c r="${ref}" s="${S_TEXT}"/>`;
     const space = /^\s|\s$/.test(value) ? ' xml:space="preserve"' : "";
@@ -197,11 +209,12 @@ export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: strin
         `<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>` +
         `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
         `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-        `<cellXfs count="4">` +
+        `<cellXfs count="5">` +
         `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
         `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` +
         `<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
         `<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
+        `<xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
         `</cellXfs>` +
         `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
         `</styleSheet>`,
@@ -212,9 +225,12 @@ export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: strin
         `<dimension ref="A1:${lastColumn}${lastRow}"/>` +
         `<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` +
         `<sheetFormatPr defaultRowHeight="15"/>` +
-        `<cols>${columns.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c.width}" style="${c.kind === "date" ? S_DATE : S_TEXT}" customWidth="1"/>`).join("")}</cols>` +
+        `<cols>${columns.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c.width}" style="${c.kind === "date" ? S_DATE : c.kind === "decimal" ? S_DECIMAL : c.kind === "number" ? 0 : S_TEXT}" customWidth="1"/>`).join("")}</cols>` +
         `<sheetData>${headerRow}${body}</sheetData>` +
         `<autoFilter ref="A1:${lastColumn}${lastRow}"/>` +
+        (merges.length > 0
+          ? `<mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${columnName(m.from)}${m.row + 2}:${columnName(m.to)}${m.row + 2}"/>`).join("")}</mergeCells>`
+          : "") +
         `<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>` +
         `</worksheet>`,
     ],
