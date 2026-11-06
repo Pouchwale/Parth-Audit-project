@@ -187,7 +187,8 @@ test("the sheet is drawn in its three parts, its boxes bound as every sheet's, t
     const html = await sheet(id);
     const form = QC_PAPER_TABLES[id];
     assert.ok(
-      new RegExp(`<div class="paper-sheet[^"]* paper-table-sheet"( translate="no")? data-bind-record="pt-${id}" data-paper="${form.page}" data-paper-left="${paperTablePrint(form).left}" data-sheet="${id}" data-paper-form="table"`).test(html),
+      // (every QC paper is printed to fill the A4 page since §194: 12 mm from the page's left, as F/QC/17 was)
+      new RegExp(`<div class="paper-sheet[^"]* paper-table-sheet"( translate="no")? data-bind-record="pt-${id}" data-paper="${form.page}" data-paper-left="${paperTablePrint(form, true).left}" data-sheet="${id}" data-paper-form="table" data-fill-a4=""`).test(html),
       id
     );
     for (const part of ["head", "body"]) assert.match(html, new RegExp(`<table class="pt-table pt-${part} pt-font-[a-z]+( pt-frame)?"[^>]*data-paper-part="${part}"`), `${id} ${part}`);
@@ -293,4 +294,15 @@ test("F/QC/17 prints filling the A4 page: 12 mm from its left and top, its width
     assert.ok(12 + height * p.scale <= 297 - 4, `${id}: ${12 + height * p.scale} mm of 297`);
   }
   for (const [id, form] of Object.entries(QC_PAPER_TABLES)) if (!id.startsWith("qc-ruler-verification")) assert.deepEqual(paperTablePrint(form), { left: form.left, top: form.top, scale: 1 }, id);
+  // ...of itself: the sheet passes `fill` for every paper of a document that fills its page (§194), and every QC paper's
+  // document does, so each prints 12 mm from the page's edges, its width the page's less 12 mm each side at most, inside its foot.
+  for (const [id, form] of Object.entries(QC_PAPER_TABLES)) {
+    const p = paperTablePrint(form, true);
+    const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
+    const width = form.head[0]?.cells.reduce((a, c) => a + c.w, 0) ?? pageW;
+    const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
+    assert.deepEqual([p.left, p.top], [12, 12], id);
+    assert.ok(p.scale >= 0.9 && 12 + width * p.scale <= pageW - 12 + 0.05, `${id}: ${12 + width * p.scale} mm of ${pageW} wide at ${p.scale}`);
+    assert.ok(12 + height * p.scale <= pageH - 4 + 0.05, `${id}: ${12 + height * p.scale} mm of ${pageH}`);
+  }
 });

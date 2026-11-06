@@ -20,6 +20,7 @@ import {
   type HeaderDefaults,
 } from "../engine/recordLifecycle";
 import { withEditHistory } from "../engine/recordHistory";
+import { printFillOf } from "../engine/printFill";
 import { fieldLabels } from "../engine/recordPatch";
 import { reprepareRecord } from "../engine/assistantPrepare";
 import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
@@ -613,7 +614,8 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       {/* The form as issued, in the language chosen beside Today's Briefing (REQUIREMENTS §58). */}
       {/* ...and the part that prints (utils/print.ts): the form, nothing around it —
           and whose values a downloaded file binds to this record (REQUIREMENTS §81). */}
-      <div data-print-doc data-bind-record={record.id} data-format-id={doc.id} data-format-asof={formulaTimeOf(record)}>
+      {/* ...and a QC, HR or Purchase document fills its A4 page (data-print-fill, REQUIREMENTS §194). */}
+      <div data-print-doc data-print-fill={printFillOf(doc)} data-bind-record={record.id} data-format-id={doc.id} data-format-asof={formulaTimeOf(record)}>
       {doc.kind === "daily-pest-monitoring" && (
         <DailyPestMonitoringRecordView
           doc={doc}

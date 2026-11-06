@@ -140,6 +140,43 @@ const EVERY_VALUE_AS_WORDS = "[data-print-words='all']";
  *  calibration papers, the report forms, a paper's own table). Every other sheet is laid out afresh for the page. */
 const PAPER_FORM = ".paper-sheet[data-paper-form]";
 
+// A DOCUMENT OF THE QC, HR OR PURCHASE MODULE FILLS ITS A4 PAGE (REQUIREMENTS §194; the owner, 6-Nov-2026: "when user click
+// on print original copy then format is not covering whole A4 size page all this applies to all documents when i take
+// print on physically A4 size paper then it not coming perfectly so fix it and do this for only three module which is QC,
+// HR and Purchase"). Measured on every QC, HR and Purchase printout that day: a register with one line written printed its
+// header and that line in the top fifth of the page (F-QC-40.A 18%, F/QC/16 30%, the line clearances 35% - their paper's
+// ten ruled lines hidden since §126), a short form stopped half way down (F/HR/13 44%, F/HR/10 52%, F/HR/06 35%), and
+// F/PUR/01 printed its instructions alone on a first page, every box on the second. The record's page marks such a
+// document data-print-fill="page" (engine/printFill.ts: the module decides). Printed:
+//   * its words are drawn bigger, to PAGE_FILL_SCALE (10 pt -> 14 pt) where the page's width allows - a sheet that names
+//     its paper too (F/HR/15, F/QC/08), though not one drawn in its paper's millimetres or points, which is its paper
+//     already (grows);
+//   * a REGISTER (a grid that takes free lines: LogSheetRecordView data-lines="free") is ruled with blank lines after its
+//     written ones, down to the foot of its page, as the paper rules them (ruleToFoot; the line clearance papers' own ten
+//     lines print again, styles.css "Print"). The owner's rule of 25-Oct-2026 (§126) still holds for what is written: a
+//     line nobody wrote between written ones stays off the paper, and F/QC/12's other entries do;
+//   * a FORM (no free lines) has its lines drawn taller (PAGE_ROW_MAX_MM) and its boxes, its paragraphs and its blocks set
+//     further apart (spreadToPage), until the page is STRETCH_TO full;
+//   * a block of boxes taller than half the page may break across pages (letBlocksBreak: F/PUR/01).
+// Every other module prints as before. The lines ruled, the room given and the breaks allowed come off when printing ends.
+const FILLS_PAGE = "[data-print-fill='page']";
+const fillsPage = (doc: Element): boolean => doc.matches(FILLS_PAGE) || doc.closest(FILLS_PAGE) !== null || doc.querySelector(FILLS_PAGE) !== null;
+const PAGE_FILL_SCALE = 1.4;
+const PAGE_ROW_MAX_MM = 14;
+const PAGE_BOX_MAX_MM = 12;
+const PAGE_PARA_MAX_MM = 6;
+const PAGE_BLOCK_MAX_MM = 10;
+const SPREAD_ROUNDS = 8;
+/** A register's grid, whose lines are added as the work is done (engine/recordLines.ts canAdd). */
+const FREE_LINES = "table.log-sheet[data-lines='free']";
+export const RULED_LINE = "print-ruled-line";
+/** A ruled line is no shorter than this (a written line's own height where taller), and no more than this many are ruled. */
+const RULED_MIN_MM = 7;
+const RULED_MOST = 200;
+/** A block of boxes taller than this share of the page may break across pages. */
+const BREAKS_OVER = 0.5;
+const BREAKABLE = "[data-section='sheet-boxes'], .sheet-boxes-paper, [data-section='printed-group'], .paper-foot > .card";
+
 /** Puts the words of every written value too long for its box in its place, for the print (after fitAll); the pairs are returned. */
 function writeLongBoxesAsWords(docs: Element[]): Written[] {
   // Every box read first, then every one written: one layout for the lot.
@@ -433,11 +470,22 @@ function ownMake(doc: HTMLElement): boolean {
   return ![PAPER_FORM, "[data-paper]", DRAWN_TO_PAPER].some((s) => doc.matches(s) || doc.querySelector(s) !== null);
 }
 
+/**
+ * Whether `doc` is drawn to fill its page: a sheet of DCRS's own make - or, in a module that fills its page (FILLS_PAGE,
+ * §194), a sheet that names its paper (F/HR/15, F/QC/08) without being drawn in its paper's millimetres or points.
+ */
+function grows(doc: HTMLElement): boolean {
+  return ownMake(doc) || (fillsPage(doc) && ![PAPER_FORM, DRAWN_TO_PAPER].some((s) => doc.matches(s) || doc.querySelector(s) !== null));
+}
+
+/** The most a sheet is drawn bigger by: 1.3x, or 1.4x in a module that fills its page (§194). */
+const fillScale = (doc: HTMLElement): number => (fillsPage(doc) ? PAGE_FILL_SCALE : FILL_SCALE);
+
 /** FILLING THE PAGE (above): the zoom that brings a short one-page sheet of DCRS's own make toward FILL_TO. */
 function fillPage(doc: HTMLElement, zoom: number, width: number, across: number, landscape: boolean): number {
   // The contractor's service report prints across the A4 page too (the owner, 31-Oct-2026, REQUIREMENTS §154: "completely
   // perfect on A4 Size page and every fonts are visible"): drawn at 576 px it filled three quarters of the width.
-  if (!ownMake(doc) && !doc.querySelector(".svc-paper")) return zoom;
+  if (!grows(doc) && !doc.querySelector(".svc-paper")) return zoom;
   return withPrintRules(() => fillMeasured(doc, zoom, width, across, landscape));
 }
 
@@ -463,9 +511,9 @@ function fillMeasured(doc: HTMLElement, zoom: number, width: number, across: num
   const now = pagesAt(doc, zoom, landscape, part);
   if (now <= 0 || now >= FILL_TO) return zoom;
   // (a document with no table - a form of labelled boxes - flows to whatever width it is given: only FILL_SCALE holds it)
-  const byWidth = width > 0 ? Math.floor(((across * 0.98) / width) * 1000) / 1000 : FILL_SCALE;
+  const byWidth = width > 0 ? Math.floor(((across * 0.98) / width) * 1000) / 1000 : fillScale(doc);
   const byHeight = Math.floor(zoom * (FILL_TO / now) * 1000) / 1000;
-  const grown = Math.min(FILL_SCALE, byWidth, byHeight);
+  const grown = Math.min(fillScale(doc), byWidth, byHeight);
   if (grown > zoom) {
     // Measured again at that size (its words wrap anew across the narrower layout); a hair too tall there, the largest
     // zoom between that keeps to FILL_TO, the gap halved six times (once the margin was measured as it prints, a sheet
@@ -502,7 +550,7 @@ function measureAndFit(docs: Element[]): void {
     // A short one-page sheet is drawn to fill its page (FILLING THE PAGE, above); a sheet printed as pages of its own, each
     // of its pages (FILLING EACH PAGE).
     if (own === null && !isFramed(doc)) {
-      const sections = ownMake(doc) ? pageSections(doc) : [];
+      const sections = grows(doc) ? pageSections(doc) : [];
       if (sections.length > 1) fillSections(doc, sections, zoom, room, landscape);
       else zoom = fillPage(doc, zoom, width, room, landscape);
     }
@@ -525,8 +573,8 @@ function measureAndFit(docs: Element[]): void {
   }
 }
 
-/** A line drawn taller for the print (FILLING EACH PAGE), and what it was. */
-type Stretched = { el: HTMLElement; prop: "height" | "paddingBottom"; was: string };
+/** A line drawn taller for the print (FILLING EACH PAGE), a box given room or a block let break (§194), and what it was. */
+type Stretched = { el: HTMLElement; prop: "height" | "paddingBottom" | "paddingTop" | "breakInside"; was: string };
 let stretched: Stretched[] = [];
 
 function stretch(el: HTMLElement, prop: Stretched["prop"], value: string): void {
@@ -554,8 +602,9 @@ function stretchToPages(docs: Element[]): void {
     withPrintRules(() => {
       for (const d of docs) {
         const doc = d as HTMLElement;
-        if (!ownMake(doc) || ownLeftMargin(doc) !== null || isFramed(doc)) continue;
+        if (!grows(doc) || ownLeftMargin(doc) !== null || isFramed(doc)) continue;
         const zoom = Number(doc.style.zoom) || 1;
+        if (fillsPage(doc)) letBlocksBreak(doc, zoom, landscape);
         const sections = pageSections(doc);
         if (sections.length > 1) for (const sec of sections) stretchPart(doc, sec, zoom * (Number(sec.style.zoom) || 1), landscape);
         else stretchPart(doc, doc, zoom, landscape);
@@ -568,8 +617,15 @@ function stretchToPages(docs: Element[]): void {
 
 function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscape: boolean): void {
   const pageH = (landscape ? 210 : 297) * PX_PER_MM;
+  const fills = fillsPage(doc);
   laidOutAt(doc, part, zoom, landscape, () => {
-    const share = () => (part.getBoundingClientRect().height * zoom) / pageH;
+    // (a module that fills its page measures the sheet as it prints: the 12 mm the measure's rules put under the document
+    // - which the print does not, the sheet's own foot carrying its 12 mm since §183 - left out, so a register is ruled
+    // and a form spread to where the paper's foot is, not 12 mm short of it)
+    const under = fills && part === doc ? parseFloat(getComputedStyle(doc).paddingBottom) || 0 : 0;
+    const share = () => ((part.getBoundingClientRect().height - under) * zoom) / pageH;
+    // A register of a module that fills its page is ruled to the foot, its lines as they are (§194).
+    if (fills && ruleToFoot(part, zoom, share)) return;
     const before = share();
     if (before <= 0 || before >= STRETCH_TO) return;
     // What the page still has, in the sheet's own pixels (before its zoom).
@@ -579,7 +635,7 @@ function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscap
     if (rows.length > 0) {
       // Every line shorter than `line` is drawn `line` high: the one height that takes up the room, a ruled line's at most.
       const heights = rows.map((r) => r.getBoundingClientRect().height);
-      const most = (ROW_MAX_MM * PX_PER_MM) / zoom;
+      const most = ((fills ? PAGE_ROW_MAX_MM : ROW_MAX_MM) * PX_PER_MM) / zoom;
       const grow = (t: number) => heights.reduce((sum, h) => sum + Math.max(0, t - h), 0);
       let line = Math.min(...heights);
       if (most > line) {
@@ -598,7 +654,7 @@ function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscap
         });
         room -= grow(line);
       }
-    } else {
+    } else if (!fills) {
       // A page of words and no table (F/HR/17's check points): its list's items further apart - the room between them,
       // none under the last, which would be blank paper (the tenth check point stopped at 84% of the page so).
       const gaps = itemsOf(part).slice(0, -1);
@@ -607,9 +663,120 @@ function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscap
         for (const li of gaps) stretch(li, "paddingBottom", `${(parseFloat(getComputedStyle(li).paddingBottom) || 0) + add}px`);
       }
     }
+    // A form of a module that fills its page: its boxes, paragraphs and blocks set further apart (§194).
+    if (fills) spreadToPage(part, zoom, share, pageH);
     // Never onto a second page: measured again as drawn, and put back as it was if it would be.
     if (stretched.length > from && share() > FILL_TO) {
       for (const s of stretched.splice(from).reverse()) s.el.style[s.prop] = s.was;
+    }
+  });
+}
+
+/** The blank lines ruled under a register for the print (§194 ruleToFoot), taken off when printing ends. */
+let ruled: HTMLElement[] = [];
+
+/**
+ * RULED TO THE FOOT (§194): where `part` holds a register - a grid that takes free lines (FREE_LINES), the outermost -
+ * blank lines are ruled after its written ones, each a copy of its last line emptied, no shorter than RULED_MIN_MM, until
+ * the page is FILL_TO full (measured with the 12 mm under the sheet's foot: the last line ends about 30 mm from the
+ * paper's edge, as the paper's do), and never past it. True where `part` holds such a grid, ruled or not.
+ */
+function ruleToFoot(part: HTMLElement, zoom: number, share: () => number): boolean {
+  const table = Array.from(part.querySelectorAll<HTMLTableElement>(FREE_LINES)).find((t) => isShown(t) && !t.parentElement?.closest("table"));
+  if (!table) return false;
+  const body = table.tBodies[0];
+  if (!body || share() >= FILL_TO) return true;
+  const lines = Array.from(body.rows).filter((r) => isShown(r) && !r.classList.contains("log-gap-line"));
+  if (lines.length === 0) return true;
+  // The line ruled: the last entry's row - its two rows, where an entry takes two (data-line first / second) - emptied.
+  const last = lines[lines.length - 1];
+  const entry = last.classList.contains("log-second-line") && lines.length > 1 ? [lines[lines.length - 2], last] : [last];
+  const least = (RULED_MIN_MM * PX_PER_MM) / zoom;
+  const rule = (): HTMLElement[] =>
+    entry.map((row) => {
+      const line = row.cloneNode(true) as HTMLElement;
+      line.classList.add(RULED_LINE);
+      line.setAttribute("aria-hidden", "true");
+      for (const attr of ["data-empty-line", "data-continues", "data-bind-row", "data-row"]) line.removeAttribute(attr);
+      for (const cell of Array.from(line.children)) {
+        cell.replaceChildren();
+        cell.removeAttribute("data-empty-line");
+      }
+      line.style.height = `${Math.max(least, row.getBoundingClientRect().height).toFixed(2)}px`;
+      body.appendChild(line);
+      ruled.push(line);
+      return line;
+    });
+  let added: HTMLElement[][] = [];
+  while (added.length < RULED_MOST && share() < FILL_TO) added.push(rule());
+  // (the last line ruled may run past the foot: taken off again)
+  while (added.length > 0 && share() > FILL_TO) {
+    for (const line of added.pop()!) {
+      line.remove();
+      ruled = ruled.filter((r) => r !== line);
+    }
+  }
+  return true;
+}
+
+/** A part of a form set further apart to fill its page (§194 spreadToPage): the most it may be given (mm), what it had, what it has been given. */
+type Spread = { el: HTMLElement; prop: "paddingBottom" | "paddingTop"; most: number; base: number; given: number };
+
+/** The parts of a form that may be set further apart: its boxes, its paragraphs, its lists' items (under each) and its blocks (above each) - outside any table, the header block or a paper's own table. */
+function spreadables(part: HTMLElement): Spread[] {
+  const out: Spread[] = [];
+  const free = (el: Element): boolean => isShown(el) && !el.closest("table, .doc-header, [data-pf]");
+  const take = (sel: string, prop: Spread["prop"], most: number, keep: (el: Element) => boolean = () => true) => {
+    for (const el of Array.from(part.querySelectorAll<HTMLElement>(sel))) {
+      if (free(el) && keep(el)) out.push({ el, prop, most, base: parseFloat(getComputedStyle(el)[prop]) || 0, given: 0 });
+    }
+  };
+  take(".field", "paddingBottom", PAGE_BOX_MAX_MM, (el) => !el.parentElement?.closest(".field"));
+  take("p", "paddingBottom", PAGE_PARA_MAX_MM, (el) => !el.closest(".field, li"));
+  take("ol > li, ul > li", "paddingBottom", ITEM_MAX_MM);
+  take(".paper-body > .card, .paper-foot > .card", "paddingTop", PAGE_BLOCK_MAX_MM);
+  return out;
+}
+
+/**
+ * SET FURTHER APART (§194): the page's room shared out among the form's parts, round after round - a part given its share
+ * up to the most it may have; boxes side by side take the one room, so a round is measured as drawn and the next shares
+ * out what is still left - until the page is STRETCH_TO full, every part has all it may have, or nothing more is given. A
+ * round that runs past FILL_TO is undone.
+ */
+function spreadToPage(part: HTMLElement, zoom: number, share: () => number, pageH: number): void {
+  const parts = spreadables(part);
+  if (parts.length === 0) return;
+  for (let round = 0; round < SPREAD_ROUNDS; round++) {
+    const now = share();
+    if (now >= STRETCH_TO - 0.005) break;
+    const room = ((STRETCH_TO - now) * pageH) / zoom;
+    const open = parts.filter((p) => p.given < (p.most * PX_PER_MM) / zoom - 0.5);
+    if (open.length === 0) break;
+    const each = room / open.length;
+    const from = stretched.length;
+    let added = 0;
+    for (const p of open) {
+      const add = Math.min(each, (p.most * PX_PER_MM) / zoom - p.given);
+      if (add < 0.5) continue;
+      p.given += add;
+      added += add;
+      stretch(p.el, p.prop, `${(p.base + p.given).toFixed(2)}px`);
+    }
+    if (added < 1) break;
+    if (share() > FILL_TO) {
+      for (const s of stretched.splice(from).reverse()) s.el.style[s.prop] = s.was;
+      break;
+    }
+  }
+}
+
+/** A BLOCK OF BOXES TALLER THAN HALF THE PAGE MAY BREAK (§194): F/PUR/01's boxes, one block kept whole, printed their instructions alone on the first page. */
+function letBlocksBreak(doc: HTMLElement, zoom: number, landscape: boolean): void {
+  const pageH = (landscape ? 210 : 297) * PX_PER_MM;
+  laidOutAt(doc, doc, zoom, landscape, () => {
+    for (const el of Array.from(doc.querySelectorAll<HTMLElement>(BREAKABLE))) {
+      if (isShown(el) && (el.getBoundingClientRect().height * zoom) / pageH > BREAKS_OVER) stretch(el, "breakInside", "auto");
     }
   });
 }
@@ -622,6 +789,8 @@ function unfit(): void {
   fitted = [];
   for (const s of stretched.reverse()) s.el.style[s.prop] = s.was;
   stretched = [];
+  for (const line of ruled) line.remove();
+  ruled = [];
   const style = document.getElementById(PAGE_STYLE_ID);
   if (style) style.textContent = "";
   delete document.documentElement.dataset.printPage;

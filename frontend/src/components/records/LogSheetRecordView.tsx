@@ -20,6 +20,7 @@ import { masterRepository } from "../../data/repositories/masterRepository";
 import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
 import { applyFills, hrMasterLinkFor, personFill, personNamed } from "../../engine/hrMaster";
 import { sexFromName } from "../../engine/sexFromName";
+import { printFillOf } from "../../engine/printFill";
 import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
 import { trainingBoxOf, trainingFill, trainingLabel, trainingsFor, TRAININGS_LIST } from "../../engine/trainingLinks";
 import { equipmentLinkFor, equipmentMasterVisible, machineBlankFills, machineByNumber, machineValue } from "../../engine/equipmentMaster";
@@ -853,8 +854,10 @@ export function LogSheetRecordView({
       gridCell: paperGridCell,
       value: (key: string) => String(data.header?.[key] ?? ""),
     };
-    // Where the paper stands on its printed page, and how much bigger it is drawn there (PaperTable.fillA4: F/QC/17).
-    const ptPrint = paperTablePrint(pt);
+    // Where the paper stands on its printed page, and how much bigger it is drawn there (PaperTable.fillA4: F/QC/17; and
+    // every paper of a document that fills its page, REQUIREMENTS §194 - the QC papers).
+    const ptFill = !!pt.fillA4 || printFillOf(doc) === "page";
+    const ptPrint = paperTablePrint(pt, ptFill);
     return (
       <div
         className={`${rootClass} paper-table-sheet`}
@@ -864,8 +867,8 @@ export function LogSheetRecordView({
         data-paper-left={ptPrint.left}
         data-sheet={doc.id}
         data-paper-form="table"
-        data-fill-a4={pt.fillA4 ? "" : undefined}
-        style={{ "--pt-left": String(ptPrint.left), "--pt-top": String(ptPrint.top), ...(pt.fillA4 ? { "--pt-print-scale": String(ptPrint.scale) } : {}) } as React.CSSProperties}
+        data-fill-a4={ptFill ? "" : undefined}
+        style={{ "--pt-left": String(ptPrint.left), "--pt-top": String(ptPrint.top), ...(ptFill ? { "--pt-print-scale": String(ptPrint.scale) } : {}) } as React.CSSProperties}
       >
         <div className="paper-head">
           <div className="doc-header doc-header-paper">
@@ -1183,8 +1186,10 @@ export function LogSheetRecordView({
       <div className="doc-table mt-4">
         <table
           className={editable ? "compact log-sheet is-editing" : "compact log-sheet"}
-          // A register's grid: lines are added as the work is done, so on paper it is ruled with blank lines to the page's
-          // foot (utils/print.ts FILLING THE PAGE, REQUIREMENTS §123).
+          // A register's grid: its lines are added as the work is done (rowMode "free", and the registry allows it), so on
+          // paper a QC, HR or Purchase document's is ruled with blank lines to the page's foot (utils/print.ts ruleToFoot,
+          // REQUIREMENTS §194). A form whose printed lines are open (F/HR/15's areas, §158) is a form: spread, not ruled.
+          data-lines={mode.kind === "free" && linesRule.canAdd ? "free" : undefined}
           style={gridCols ? ({ "--pf-w": `calc(${gridCols.reduce((a, b) => a + b, 0)} * var(--u))` } as React.CSSProperties) : undefined}
           {...gridBind}
         >

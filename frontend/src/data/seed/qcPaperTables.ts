@@ -1529,11 +1529,12 @@ export const A4_MARGIN_MM = 12;
 
 /**
  * Where a paper stands on its printed page and how much bigger it is drawn there: its own place at its own size, or - a
- * paper printed to fill the A4 page (PaperTable.fillA4) - A4_MARGIN_MM from the page's left and top edges, drawn so its
- * width is the page's less that margin each side, unless that would take it past the page's foot (4 mm kept clear).
+ * paper printed to fill the A4 page (PaperTable.fillA4; or `fill`, which the sheet passes for every paper of a document
+ * that fills its page, REQUIREMENTS §194) - A4_MARGIN_MM from the page's left and top edges, drawn so its width is the
+ * page's less that margin each side, unless that would take it past the page's foot (4 mm kept clear).
  */
-export function paperTablePrint(form: PaperTable): { left: number; top: number; scale: number } {
-  if (!form.fillA4) return { left: form.left, top: form.top, scale: 1 };
+export function paperTablePrint(form: PaperTable, fill: boolean = !!form.fillA4): { left: number; top: number; scale: number } {
+  if (!fill) return { left: form.left, top: form.top, scale: 1 };
   const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
   const width = form.head[0]?.cells.reduce((a, c) => a + c.w, 0) ?? pageW;
   const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);

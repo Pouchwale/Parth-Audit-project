@@ -36,6 +36,7 @@ import { useT } from "../i18n";
 import { MONTH_NAMES, WEEKDAY_NAMES, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
 import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, MasterData, PestResponsibilitiesData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
 import { mayDo } from "../engine/departmentScope";
+import { printFillOf } from "../engine/printFill";
 
 // The Pest Control module, organised the way the department actually talks
 // about its paperwork (and the way the source documents fall):
@@ -592,7 +593,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
       // prints with the register's own header block — company name, title,
       // Format No. / Rev No. and the month it covers (REQUIREMENTS §38). A
       // bare grid with no heading is what made a printout look unfinished.
-      <div className="register-sheet" data-print-doc data-format-id={doc?.id}>
+      <div className="register-sheet" data-print-doc data-print-fill={printFillOf(doc)} data-format-id={doc?.id}>
         <section className="register-page">
         {doc && <DocumentHeader doc={doc} extraTitle={`STATUS LIST — ${MONTH_NAMES[month].toUpperCase()} ${year}`} edit={dailyHeader.edit} />}
         {dailyHeader.panel}
@@ -771,7 +772,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
 
       {/* On paper this is the service report's own visit register for the year,
           so it carries the document's header block (REQUIREMENTS §38). */}
-      <div className="register-sheet" data-print-doc data-format-id={doc?.id}>
+      <div className="register-sheet" data-print-doc data-print-fill={printFillOf(doc)} data-format-id={doc?.id}>
         <section className="register-page">
         <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${year}`} edit={visitHeader.edit} />
         {visitHeader.panel}
@@ -1042,7 +1043,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
       {view === "list" && (
       // The year's inspections as a document: the F/HR/18 header block, then
       // the list (REQUIREMENTS §38).
-      <div className="register-sheet" data-print-doc data-format-id={doc?.id}>
+      <div className="register-sheet" data-print-doc data-print-fill={printFillOf(doc)} data-format-id={doc?.id}>
         <section className="register-page">
           {doc && <DocumentHeader doc={doc} extraTitle={`INSPECTION & CLEANING RECORDS ${year}`} edit={flyHeader.edit} />}
           {flyHeader.panel}

@@ -9,6 +9,7 @@ import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useAppStore } from "../store/AppStore";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { printDocument } from "../utils/print";
+import { printFillOf } from "../engine/printFill";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { bindProps, chemicalBind } from "../engine/roundTrip/bindingsFor";
 
@@ -73,7 +74,7 @@ export function ChemicalMasterPage() {
   // (REQUIREMENTS §81). The chemicals are bound one by one where they are listed
   // one by one; the box that holds them all while Edit is on is not.
   return (
-    <div data-print-doc data-bind-record={CHEMICAL_DOC_ID} data-format-id={CHEMICAL_DOC_ID}>
+    <div data-print-doc data-print-fill={printFillOf(doc)} data-bind-record={CHEMICAL_DOC_ID} data-format-id={CHEMICAL_DOC_ID}>
       <div className="mb-3 no-print">
         <ReferenceEditBar
           documentId={doc?.id}

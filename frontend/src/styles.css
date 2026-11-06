@@ -3809,6 +3809,13 @@ table.svc-paper {
      forms' own rules, which no longer bring them back for print) - stay off the printout; nor does a register's line
      nobody wrote while another is written (LogSheetRecordView data-empty-line). */
   tr.pf-pad, tr[data-empty-line] { display: none; }
+  /* A DOCUMENT OF THE QC, HR OR PURCHASE MODULE FILLS ITS PAGE (REQUIREMENTS §194, utils/print.ts FILLS_PAGE): the line
+     clearance papers' own ten ruled lines print again, as the paper rules them, and a register's lines ruled for the
+     print (tr.print-ruled-line, copies of its last line emptied) rule as its lines do. */
+  [data-print-fill="page"] .paper-sheet[data-paper-form="lineclear"] tr.pf-pad { display: table-row; }
+  /* ...and a QC paper drawn as its own table (PaperTable.lines: F/QC/08, F/QC/16, F-QC-30, F-QC-32, F-QC-40.A/B/C) prints
+     the ruled lines its paper rules beyond the record's, blank, as the paper does. */
+  [data-print-fill="page"] .pt-table tr.pt-pad { display: table-row; }
   /* (in print the marked words are the box: its choice box does not print) */
   .pt-table td.pt-c > .field-choices-across.field-in-table > select.input { display: none; }
   /* An empty date in the sentence leaves the paper's own blank, not the width of a box to type in. */

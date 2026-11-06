@@ -20,6 +20,7 @@ import {
   resumeAfterRejection,
 } from "../engine/recordLifecycle";
 import { logRecordStarted, withEditHistory } from "../engine/recordHistory";
+import { printFillOf } from "../engine/printFill";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { mayDo } from "../engine/departmentScope";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
@@ -332,7 +333,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
 
       {/* The document itself — the part that prints (utils/print.ts) — and whose
           values a downloaded file binds to this record (REQUIREMENTS §81). */}
-      <div data-print-doc data-bind-record={record.id} data-format-id={TRAINING_DOC_ID} data-format-asof={formulaTimeOf(record)}>
+      <div data-print-doc data-print-fill={printFillOf(doc)} data-bind-record={record.id} data-format-id={TRAINING_DOC_ID} data-format-asof={formulaTimeOf(record)}>
       {/* The training is run and issued by Gurudev Pest Control, so the record
           carries their printed letterhead ("Letter head.pdf") — and nothing else
           above the form: the department asked for the title and the Format No. /

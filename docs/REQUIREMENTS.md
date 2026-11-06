@@ -11287,3 +11287,47 @@ the description which is written and in second image from chiragparmer@gpp.local
   shown its heading (components/layout/Sidebar.tsx).
 - Proved: frontend/tests/masterDataAccess.test.ts (staff: no System pages; the super admin: all), the sidebar and the
   page by source.
+
+## §194 A QC, HR or Purchase document fills its A4 page when printed (6-Nov-2026)
+
+The owner, 6-Nov-2026: "when user click on print original copy then format is not covering whole A4 size page all this
+applies to all documents when i take print on physically A4 size paper then it not coming perfectly so fix it and do this
+for only three module which is QC, HR and Purchase".
+
+Measured first, on every QC, HR and Purchase document's "Print Original-Style Record" (84 documents, a scratch run against
+the local site, the browser's PDF of each read for the ink's reach down the page): a register with one line written printed
+its header and that line in the top fifth of the page - F-QC-40.A 18%, F-QC-32 18%, F/QC/16 30%, the seven line clearance
+reports 35% (their paper's ten ruled lines hidden since §126), F/HR/06 35% - and a blank one, printed for writing by hand,
+the same; a short form stopped half way down (F/HR/13 44%, F/HR/12 53%, F/HR/10 52%, F/HR/07 58%, F-QC-19 57%); F/PUR/01
+printed its instructions alone on a first page and every box on a second, its block of boxes kept whole; and a sheet that
+names its paper (F/HR/15 75%, F/QC/08 66%) was never drawn bigger at all. The framed QC papers (F/QC/01 to 05, 18 to 24,
+33, 36), the certificates (F/QC/06, 07) and F/QC/17 already filled their page.
+
+- THE MODULE DECIDES (engine/printFill.ts, import-free): a document of Quality Control - Inspection Records, of the QC
+  sheets the Lamination module keeps (F-QC-30, F-QC-32, F-QC-40.C), of Human Resources or of Purchase is marked
+  `data-print-fill="page"` by every page that prints a record (pages/RecordPage.tsx, the document page's preview, the
+  training record, the chemical master, the pest-control lists). Every other module prints exactly as before.
+- ITS WORDS BIGGER: a one-page sheet is drawn to 1.4x (10 pt -> 14 pt) where the page's width allows, where every other
+  module stops at 1.3x (§123) - a sheet that names its paper too (F/HR/15, F/HR/16, F/QC/08: utils/print.ts `grows`),
+  though not one drawn in its paper's millimetres or points, which is its paper already.
+- A REGISTER IS RULED TO THE FOOT: a grid that takes free lines (LogSheetRecordView `data-lines="free"`, the registry's
+  rule of §113) is ruled with blank lines after its written ones, each a copy of its last line emptied, no shorter than
+  7 mm, down to the foot of its page and never past it (`ruleToFoot`) - the paper's look, ready for a pen. The line
+  clearance papers print their own ten ruled lines again, and a QC paper drawn as its own table (F/QC/08, F/QC/16,
+  F-QC-30, F-QC-32, F-QC-40.A/B/C) the lines its paper rules (styles.css "Print"); such a paper is printed to fill the
+  A4 page's width as F/QC/17 is (§117 round 2, the owner's word of 30-Oct-2026; `paperTablePrint(form, fill)`). What
+  §126 settled for what is written still holds: a line nobody wrote between written ones stays off the paper, and
+  F/QC/12's other entries do. The lines ruled for the print leave the screen when printing ends.
+- A FORM IS SPREAD DOWN ITS PAGE: a sheet with no free lines has its lines drawn taller (14 mm at most, where every other
+  module keeps 11) and its boxes (12 mm each at most), its paragraphs (6 mm), its lists' items and its blocks (10 mm) set
+  further apart, round by round, until the page is 92% full and never past 94% (`spreadToPage`) - measured as it
+  prints, the 12 mm the measuring rules put under the document (which the print does not, §183) left out.
+- A BLOCK OF BOXES TALLER THAN HALF THE PAGE MAY BREAK across pages (`letBlocksBreak`): F/PUR/01's boxes now start on its
+  first page under its instructions.
+- Measured again after: F/HR/13 44% -> 89%, F/HR/10 52% -> 87%, F/HR/07 58% -> 84%, F/HR/06 35% -> 82%, F/HR/09 88% ->
+  92%, F/HR/15 75% -> 85%, F/QC/15-A to G 35% -> 81% (the ten lines), F/QC/16 30% -> 96%, F-QC-30 72% -> 97%, F-QC-32
+  18% -> 95%, F-QC-40.A 18% -> 70% (its paper's 31 lines, at its paper's height), F/PUR/01's first page 30% -> 95%. A
+  sheet that was a page or more already (F/HR/01, F/HR/03, F/HR/08, F/PUR/02, F/PUR/03, F/PUR/05) prints as it did.
+- Proved: frontend/tests/printFill.test.ts (§194's rules: the module, the marks on every page, the limits, the ruling,
+  the spreading, the breaks, the papers' lines), frontend/tests/qcPaperTables.test.ts (every QC paper printed 12 mm from
+  the page's edges inside its foot), the scratch measurement above, and the printouts looked at.
