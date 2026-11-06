@@ -14,7 +14,9 @@ const read = (...p: string[]) => readFileSync(path.join(root, ...p), "utf8").rep
 test("the header draws the words after its title as their own click, and the box in their place while they are changed", () => {
   const header = read("frontend", "src", "components", "documents", "DocumentHeader.tsx");
   assert.match(header, /extraTitleEdit\?: \{ editing: boolean; onEdit: \(\) => void; box: React\.ReactNode; action: string \};/);
-  assert.match(header, /\{extraTitle && !extraTitleEdit \? ` — \$\{extraTitle\}` : ""\}\n {8}<\/Cell>\n {8}\{suffix\}/, "outside the title's own cell, so a click on the month is not a click on the title");
+  assert.match(header, /\{extraTitle && !extraTitleEdit \? `\$\{extraTitleSeparator\}\$\{extraTitle\}` : ""\}\n {8}<\/Cell>\n {8}\{suffix\}/, "outside the title's own cell, so a click on the month is not a click on the title");
+  // No dash before the daily register's month (the owner, later that evening): a space, where every other register keeps its dash.
+  assert.match(header, /extraTitleSeparator = " — ",/);
   assert.match(header, /className="designer-head"\n {12}data-action=\{extraTitleEdit\.action\}/, "clickable as the header's cells are");
   assert.match(header, /extraTitleEdit\.editing \? \(\n {10}extraTitleEdit\.box/);
 });
@@ -27,7 +29,8 @@ test("the daily register offers its month and year in the title's place, and the
   assert.match(sheet, /data-field="register-month"[^>]*value=\{month\} onChange=\{\(e\) => onMonthChange\(year, Number\(e\.target\.value\)\)\}/);
   assert.match(sheet, /data-field="register-year"[^>]*value=\{year\} onChange=\{\(e\) => onMonthChange\(Number\(e\.target\.value\), month\)\}/);
   assert.match(sheet, /className="register-month-box no-print"/, "the screen's only: never printed");
-  assert.match(sheet, /<DocumentHeader doc=\{doc\} extraTitle=\{monthLabel\} extraTitleEdit=\{monthEdit\} pageLabel="1 Of 3" edit=\{headerEdit\} \/>/, "the first page's header takes the click; the other two repeat the month");
+  assert.match(sheet, /<DocumentHeader doc=\{doc\} extraTitle=\{monthLabel\} extraTitleSeparator=" " extraTitleEdit=\{monthEdit\} pageLabel="1 Of 3" edit=\{headerEdit\} \/>/, "the first page's header takes the click; the other two repeat the month");
+  assert.equal((sheet.match(/extraTitleSeparator=" "/g) ?? []).length, 3, "no dash before the month on any of the three pages");
   const pest = read("frontend", "src", "pages", "PestControlPages.tsx");
   assert.match(pest, /onMonthChange=\{\(y, m\) => \{\n {12}setYear\(y\);\n {12}setMonth\(m\);\n {10}\}\}/, "the page's own year and month, which its pickers show too");
 });

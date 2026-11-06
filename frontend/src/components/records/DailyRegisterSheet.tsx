@@ -240,7 +240,8 @@ export function DailyRegisterSheet({
   return (
     <div className="register-sheet" data-print-doc>
       <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleEdit={monthEdit} pageLabel="1 Of 3" edit={headerEdit} />
+        {/* "DAILY PEST CONTROL MONITORING RECORD November 2026": no dash before the month (the owner, 6-Nov-2026, §197). */}
+        <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " extraTitleEdit={monthEdit} pageLabel="1 Of 3" edit={headerEdit} />
         {headerPanel}
         <div className="register-instructions">
           <p>{FHR17_INSTRUCTION_1}</p>
@@ -254,12 +255,12 @@ export function DailyRegisterSheet({
       </section>
 
       <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={monthLabel} pageLabel="2 Of 3" />
+        <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " pageLabel="2 Of 3" />
         {grid(1, 19)}
       </section>
 
       <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={monthLabel} pageLabel="3 Of 3" />
+        <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " pageLabel="3 Of 3" />
         {grid(20, 31)}
         {notes.length > 0 && (
           <div className="register-notes text-xs">

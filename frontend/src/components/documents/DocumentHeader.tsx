@@ -157,6 +157,7 @@ export function DocumentHeader({
   doc,
   extraTitle,
   extraTitleEdit,
+  extraTitleSeparator = " — ",
   pageLabel,
   companyName,
   letterhead,
@@ -207,6 +208,8 @@ export function DocumentHeader({
    * choose, which the page then follows.
    */
   extraTitleEdit?: { editing: boolean; onEdit: () => void; box: React.ReactNode; action: string };
+  /** What stands between the title and the words after it: a dash by default; a space on the daily register (the owner, 6-Nov-2026: "just remove dash symbol", §197). */
+  extraTitleSeparator?: string;
   pageLabel?: string;
   /** The company name exactly as THIS form prints it (spellings differ between forms). */
   companyName?: string;
@@ -402,7 +405,7 @@ export function DocumentHeader({
         <div className={`dhf-title ${frame.titleAlign}`} style={frame.title ? ({ "--title-pt": frame.title.size, color: frame.title.color } as React.CSSProperties) : undefined}>
           <Cell field="title" edit={edit}>
             {frame.titleBreak ? brokenAfterDash(documentTextIn(title ?? doc.name, lang).toUpperCase()) : documentTextIn(title ?? doc.name, lang).toUpperCase()}
-            {extraTitle ? ` — ${extraTitle}` : ""}
+            {extraTitle ? `${extraTitleSeparator}${extraTitle}` : ""}
           </Cell>
         </div>
       </div>
@@ -413,7 +416,7 @@ export function DocumentHeader({
   const suffix =
     extraTitle && extraTitleEdit ? (
       <>
-        {" — "}
+        {extraTitleSeparator}
         {extraTitleEdit.editing ? (
           extraTitleEdit.box
         ) : (
@@ -457,7 +460,7 @@ export function DocumentHeader({
       <div className="doc-title">
         <Cell field="title" edit={edit}>
           {titleAsPrinted ? documentTextIn(title ?? doc.name, lang) : documentTextIn(title ?? doc.name, lang).toUpperCase()}
-          {extraTitle && !extraTitleEdit ? ` — ${extraTitle}` : ""}
+          {extraTitle && !extraTitleEdit ? `${extraTitleSeparator}${extraTitle}` : ""}
         </Cell>
         {suffix}
       </div>

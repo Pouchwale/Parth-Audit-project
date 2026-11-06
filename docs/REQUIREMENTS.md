@@ -11372,4 +11372,7 @@ The owner, 6-Nov-2026, with a picture of the F/HR/17 register's title, "DAILY PE
   in its place, with Done; the register and the page's own pickers above it follow (pages/PestControlPages.tsx, the
   Daily Pest Control Monitoring page). The title's own words stay the format's, typed over as before (§77).
 - Printed and downloaded, the title reads as before: the choosers are the screen's only.
+- NO DASH BEFORE THE MONTH (the owner, later the same evening, with the same picture: "just remove dash symbol and before
+  month is written"): the register's three pages read "DAILY PEST CONTROL MONITORING RECORD November 2026"
+  (DocumentHeader `extraTitleSeparator`, a space here); every other register keeps its dash.
 - Proved: frontend/tests/registerMonth.test.ts (by source), and the register clicked through locally.
