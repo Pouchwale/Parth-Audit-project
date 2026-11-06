@@ -42,6 +42,7 @@ import {
 } from "../../engine/pmSchedule";
 import { EquipmentFetch, EquipmentMachineList } from "./EquipmentFetch";
 import { SUPPLIER_NAMES_LIST, SupplierFetch, SupplierNameList } from "./SupplierFetch";
+import { SupplierFormImport } from "./SupplierFormImport";
 import { purchaseMasterHeld, purchaseMasterOpenable, supplierBlankFills, supplierLinkFor } from "../../engine/purchaseMasterLinks";
 import { isOutOfBand, supersededRevisionOf } from "../../engine/validation";
 import { boxOutOfBand, judgeFor, outOfBandCount, type CellJudge } from "../../engine/printedBands";
@@ -1089,6 +1090,8 @@ export function LogSheetRecordView({
           canOpenList={purchaseMasterOpenable()}
         />
       )}
+      {/* F/PUR/01 filled from the supplier's own copy of the form (REQUIREMENTS §191). */}
+      {supFetching && doc.id === "pur-supplier-registration" && <SupplierFormImport key={`form-${record.id}`} layout={layout} data={data} onChange={save} />}
 
       {pmPlanLine && <PmPlanLine line={pmPlanLine} />}
       {pmLines && <PmLinkNotice lines={pmLines} />}

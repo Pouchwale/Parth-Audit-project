@@ -329,6 +329,26 @@ export const hrApi = {
     }),
 };
 
+// A SUPPLIER'S FILLED-IN REGISTRATION FORM, READ ON THE SERVER INTO F/PUR/01'S BOXES (backend/supplierFormExtract.ts,
+// REQUIREMENTS §191): the boxes by key, which of the paper's labels the file did not give, and how it was read.
+export interface SupplierFormReadResult {
+  fields: Record<string, string>;
+  fileKind: "pdf" | "docx" | "text";
+  readBy: "assistant" | "rules";
+  missing: string[];
+  characters: number;
+}
+
+export const purchaseApi = {
+  // The file goes as the raw body, as a CV does (hrApi.readCv).
+  readSupplierForm: (file: File) =>
+    request<SupplierFormReadResult>("/purchase/supplier-form/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(file.name) },
+      body: file,
+    }),
+};
+
 // ESCALATION TO THE SUPER ADMIN AND THE WEEKLY DIGEST (REQUIREMENTS §75),
 // worked out on the server from the records in PostgreSQL (backend/escalation.ts,
 // on the rule engine/latenessCore.ts shares with the Performance Scorecard) and

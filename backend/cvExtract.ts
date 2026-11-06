@@ -80,7 +80,8 @@ function fileKindOf(buf: Buffer, fileName: string): CvFileKind | "doc" | "image"
   return "unknown";
 }
 
-async function cvText(buf: Buffer, fileName: string): Promise<{ text: string; fileKind: CvFileKind }> {
+// (exported for the supplier's registration form, read the same way: backend/supplierFormExtract.ts, REQUIREMENTS §191)
+export async function cvText(buf: Buffer, fileName: string): Promise<{ text: string; fileKind: CvFileKind }> {
   const kind = fileKindOf(buf, fileName);
   if (kind === "doc") throw new CvReadError("This is an old Word (.doc) file, which can't be read here. Save it as .docx or PDF and upload that — or enter the details by hand.");
   if (kind === "image") throw new CvReadError("This is a picture of the CV, which has no text to read. Upload the CV as a PDF or Word (.docx) file — or enter the details by hand.");

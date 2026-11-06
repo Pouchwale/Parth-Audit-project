@@ -11205,3 +11205,34 @@ properly and fast and pur-06 which is also fetch details from master data and in
 - Proved: frontend/tests/purchaseMasterLinks.test.ts (the registers started as the list, a typed-over figure carried and
   marked, F/PUR/06's 50 and 50 and Continue, a lower rating halved); checked in the browser on dev:local (new F/PUR/03,
   F/PUR/05 and F/PUR/06 records start filled).
+
+## §191 F/PUR/01 filled from the supplier's own filled-in form, uploaded (6-Nov-2026)
+
+The owner, 6-Nov-2026: "in pur-01 give upload document option so in that when user upload the pdf then system will
+fetch data from it and fill the pur-01 from it."
+
+- THE UPLOAD. Above an F/PUR/01 record that can be written on, a card: "Fill this form from the supplier's filled-in
+  copy" - choose the file the supplier sent back (a PDF with text, a Word .docx file or plain text, 5 MB at most) and
+  press Read & fill (components/records/SupplierFormImport.tsx). The form's blank boxes are filled from it at once and
+  named; a box already holding something else is listed and replaced only on "Replace with the file's"; what the file
+  did not give is said by the paper's label. Nothing is stored but what lands on the record. A scanned picture has no
+  text to read - the card says so, and those details are typed in.
+- HOW THE FILE IS READ (backend/supplierFormExtract.ts, POST /api/purchase/supplier-form/read, the file as the raw body as
+  a CV goes, §49). Its text is taken as a CV's is (unpdf for a PDF, the .docx's XML, the text itself); then rules that know
+  the paper's own labels, in the paper's order, take what follows each label on its line and on the lines under it until
+  the next label - an address or a list running over several lines kept whole, a one-line box's value on the line
+  below when it was written there. The paper's notes ("Please attach a separate sheet if required"), its own lines and
+  the INTERNAL OFFICE USE ONLY block are never a value. The two DESIGNATIONs are told apart (the contact's; then, after
+  the certification question or INFORMATION FURNISHED BY, the furnisher's NAME, DESIGNATION, DATE and PLACE). A choice
+  box takes the paper's choices (TYPE OF CONCERN from "Pvt. Ltd." - or from the supplier's name when the box was left
+  empty; COMPANY ACTIVITIES from "Manufacturer of..."), the certification question Yes or No, the date a date, NO. OF
+  EMPLOYEES its two figures. When Groq is configured the assistant then fills only what the rules could not, told to
+  return nothing the form doesn't state; anything it returns that is not in the form's own text is dropped. With Mitra
+  switched off for the staff, or no key, the rules alone read it.
+- WHERE IT LANDS (engine/supplierFormImport.ts supplierFormFills): the 22 boxes of the supplier's part of F/PUR/01, by
+  key; never the office's five; a value differing in spacing alone is the same value.
+- Proved: backend/tests/supplierFormExtract.test.ts (every box of a filled-in form by the paper's label, a value on the
+  line below, the choices, a blank form, a text file end to end, a scanned picture refused), frontend/tests/
+  supplierFormImport.test.ts (blank boxes filled, written ones on Replace, the office's never, the card and the route);
+  in the browser on dev:local a sample filled-in PDF filled a new F/PUR/01, was kept after a reload, and a box changed
+  by hand was replaced only on Replace.

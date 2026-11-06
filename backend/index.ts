@@ -49,6 +49,7 @@ import { readAttachment, picturesReadByModel, MAX_ATTACHMENT_BYTES } from "./att
 import { aiConfigured, aiProviderName, aiSpeakClip, aiTranscribe, aiUsage, geminiSpeaksFirst, speechEngine, speechSetup, voiceStatus } from "./ai.ts";
 import { speakFailure, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VOICE_PROBE_TEXT, VoiceAvailability, VoiceUnavailableError } from "./tts.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
+import { readSupplierForm, SUPPLIER_FORM_MAX_BYTES } from "./supplierFormExtract.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
 import { activityFilterOf, registerActivityRoutes } from "./activityRoutes.ts";
 import { registerEscalationRoutes } from "./escalationRoutes.ts";
@@ -1379,6 +1380,42 @@ app.post(
       }
       console.error(err);
       res.status(500).json({ error: "The CV couldn't be read — enter the details by hand." });
+    }
+  }
+);
+
+// A SUPPLIER'S FILLED-IN REGISTRATION FORM, READ INTO F/PUR/01 (REQUIREMENTS §191, backend/supplierFormExtract.ts): the
+// file as the raw body, as a CV goes; the text rules always run, the assistant adds what they miss on the same terms as
+// the CV's. Nothing is stored - the answer goes back to the record, whose blank boxes it fills.
+app.post(
+  "/api/purchase/supplier-form/read",
+  requireAuth,
+  express.raw({ type: "application/octet-stream", limit: SUPPLIER_FORM_MAX_BYTES }),
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as AuthedRequest).user.id;
+    const body = req.body;
+    if (!Buffer.isBuffer(body) || body.length === 0) {
+      res.status(400).json({ error: "Choose the supplier's filled-in form to read." });
+      return;
+    }
+    let fileName = "form";
+    try {
+      fileName = decodeURIComponent(String(req.get("x-file-name") ?? "form")).slice(0, 200);
+    } catch {
+      /* a malformed name only loses the extension hint */
+    }
+    const mitra = await assistantAllowedFor((req as AuthedRequest).user);
+    const useAssistant = mitra && process.env.CV_READ_WITH_ASSISTANT !== "0" && aiConfigured() && !isAssistantThrottled(userId);
+    if (useAssistant) recordAssistantCall(userId);
+    try {
+      res.json(await readSupplierForm(body, fileName, { useAssistant }));
+    } catch (err) {
+      if (err instanceof CvReadError) {
+        res.status(422).json({ error: err.message });
+        return;
+      }
+      console.error(err);
+      res.status(500).json({ error: "The form couldn't be read — enter the details by hand." });
     }
   }
 );
