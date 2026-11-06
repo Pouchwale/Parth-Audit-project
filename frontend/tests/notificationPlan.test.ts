@@ -24,6 +24,7 @@ import {
   AS_REQUIRED_DAYS,
   asRequiredDeadline,
   headsUpFrom,
+  monthsBefore,
   NOTIFICATION_KINDS,
   periodDays,
   planNotifications,
@@ -96,6 +97,23 @@ function plan(today: string, records: PlanRecord[], time = "09:00", countedFrom:
   return planNotifications({ today, time, documents: DOCS, records, people: PEOPLE, isClosedDay: closed, countedFrom });
 }
 const of = (items: PlannedItem[], userId: string, kind?: string) => items.filter((i) => i.userId === userId && (!kind || i.kind === kind));
+
+test("a service agreement running out (§192): told from two months before to the people who answer for F/PUR/01, high within a month, and after the date until a later one is written", () => {
+  const docs = [...DOCS, doc("pur-supplier-registration", { type: "as-required" }, "PUR")];
+  const purchase = person("u-chirag", "Chirag Parmar", ["pur-supplier-registration"]);
+  const run = (today: string, validUpto: string, people: PlanPerson[] = [...PEOPLE, purchase]) =>
+    planNotifications({ today, time: "09:00", documents: docs, records: [rec("pur-supplier-registration", "2026-01-10", "Verified", { agreement: { validUpto, supplier: "Gurudev Pest Control" } })], people, isClosedDay: closed }).filter((i) => i.kind === "expiry");
+  assert.equal(run("2026-09-30", "2026-12-01").length, 0, "more than two months away: nothing");
+  const first = run("2026-10-01", "2026-12-01");
+  assert.deepEqual(first.map((i) => [i.userId, i.priority, i.data.subject, i.data.dueDate, i.data.count, i.data.daysLate, i.data.formatNo]), [["u-chirag", "medium", "Gurudev Pest Control", "2026-12-01", 61, 0, "F/PUR/25"]]);
+  assert.match(first[0].key, /^expiry\|rec-pur-supplier-registration-/);
+  assert.equal(run("2026-11-05", "2026-12-01")[0].priority, "high", "within a month");
+  const past = run("2026-12-04", "2026-12-01")[0];
+  assert.deepEqual([past.priority, past.data.count, past.data.daysLate], ["high", 0, 3], "after the date: the days since");
+  assert.deepEqual(run("2026-11-05", "2026-12-01", PEOPLE).map((i) => i.userId), ["u-boss"], "nobody answering for the form: the super admin");
+  assert.ok(PLANNED_KINDS.includes("expiry"), "resolved by the ledger once a later date is written");
+  assert.deepEqual([monthsBefore("2026-12-01", 2), monthsBefore("2026-04-30", 2), monthsBefore("2026-01-15", 2)], ["2026-10-01", "2026-02-28", "2025-11-15"]);
+});
 
 test("the rules it shares are the browser's own: periodDays, priorityOf, ADVANCE_WARNING_DAYS, AS_REQUIRED_DAYS", () => {
   for (const s of SCHEDULES) {

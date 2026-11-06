@@ -131,6 +131,9 @@ const SUPPLIER_REGISTRATION_FIELDS: LogHeaderField[] = [
 
 const SUPPLIER_REGISTRATION_OFFICE_FIELDS: LogHeaderField[] = [
   { key: "statusOfSupplier", label: "Status of Supplier :", type: "select", options: ["New", "Established"], autoFill: { default: "New" } },
+  // The supplier's service agreement / certificate with the plant and the date it runs out (REQUIREMENTS §192): from two
+  // months before, the people who answer for the form are told; the agreement itself is kept on the record (the card above).
+  { key: "agreementValidUpto", label: "SERVICE AGREEMENT / CERTIFICATE VALID UPTO :", type: "date" },
   {
     key: "assessmentType",
     label: "If new supplier/new product, type of Assessment Status: (Please attach status report)",

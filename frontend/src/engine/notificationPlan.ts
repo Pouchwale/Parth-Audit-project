@@ -33,12 +33,18 @@
 // periodDays and priorityOf (engine/notifications.ts), ADVANCE_WARNING_DAYS (engine/reminders.ts) and AS_REQUIRED_DAYS
 // (engine/latenessCore.ts) — are written in here; frontend/tests/notificationPlan.test.ts holds them equal.
 
-export type NotificationKind = "ready" | "needs_input" | "due" | "upcoming" | "overdue" | "verify" | "sent_back" | "training" | "boss_summary" | "escalation" | "access_changed";
+//   expiry        a supplier's service agreement / certificate on F/PUR/01 running out (the owner, 6-Nov-2026, §192): from
+//                 EXPIRY_WARNING_MONTHS before the date it is valid upto, and every day after it, until a later date is
+//                 written on the record (the new agreement uploaded); to the people who answer for the form
+export type NotificationKind = "ready" | "needs_input" | "due" | "upcoming" | "overdue" | "verify" | "sent_back" | "training" | "expiry" | "boss_summary" | "escalation" | "access_changed";
 
-export const NOTIFICATION_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due", "upcoming", "overdue", "verify", "sent_back", "training", "boss_summary", "escalation", "access_changed"];
+export const NOTIFICATION_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due", "upcoming", "overdue", "verify", "sent_back", "training", "expiry", "boss_summary", "escalation", "access_changed"];
 
 /** The kinds this plan decides: an open one of these the plan no longer has is resolved (the record moved on). */
-export const PLANNED_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due", "upcoming", "overdue", "verify", "sent_back", "training", "boss_summary"];
+export const PLANNED_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due", "upcoming", "overdue", "verify", "sent_back", "training", "expiry", "boss_summary"];
+
+/** How long before a service agreement / certificate runs out the people who answer for F/PUR/01 are told (§192). */
+export const EXPIRY_WARNING_MONTHS = 2;
 
 export type NotificationPriority = "high" | "medium" | "low";
 
@@ -144,6 +150,15 @@ export function addDays(iso: string, n: number): string {
 }
 
 /** Whole days from `from` to `to` (negative when `to` is earlier). */
+/** The same day so many months earlier (the month's last day when that day does not exist: 30-04 two months back is 28-02). */
+export function monthsBefore(iso: string, months: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - 1 - months, 1));
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  first.setUTCDate(Math.min(d, last));
+  return first.toISOString().slice(0, 10);
+}
+
 export function daysBetween(from: string, to: string): number {
   const days = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
   return Number.isFinite(days) ? days : 0;
@@ -221,6 +236,8 @@ export interface PlanRecord {
   toConfirm?: readonly string[];
   /** The trainings this calendar plans (F/HR/09, engine/trainingCalendar.ts plannedTrainings). */
   trainings?: readonly PlanTraining[];
+  /** F/PUR/01: the supplier's service agreement / certificate on the record and the date it is valid upto (§192). */
+  agreement?: { validUpto: string; supplier: string };
 }
 
 export interface PlanPerson {
@@ -348,6 +365,16 @@ export function planNotifications(input: PlanInput): PlannedItem[] {
         const data: NotificationData = { ...base, dueDate: t.date, subject: t.topic, ...(t.by ? { by: t.by } : {}), daysLate: late };
         for (const p of responsible(doc.id)) add(p.id, "training", `training|${r.id}|${t.key}`, late > 0 ? "high" : t.date === today ? "medium" : "low", data);
       }
+    }
+
+    // A SERVICE AGREEMENT / CERTIFICATE RUNNING OUT (F/PUR/01; the owner, 6-Nov-2026, §192): from EXPIRY_WARNING_MONTHS
+    // before the date it is valid upto, the people who answer for the form are told it runs out - high within a month -
+    // and after the date that it has run out, every day, until a later date is written on the record (the new agreement).
+    // Whatever the record's own status: a verified registration holds a live agreement.
+    if (r.stored && r.agreement && DAY_RE.test(r.agreement.validUpto) && today >= monthsBefore(r.agreement.validUpto, EXPIRY_WARNING_MONTHS)) {
+      const left = daysBetween(today, r.agreement.validUpto);
+      const data: NotificationData = { ...base, dueDate: r.agreement.validUpto, subject: r.agreement.supplier, count: Math.max(0, left), daysLate: left < 0 ? -left : 0 };
+      for (const p of responsible(doc.id)) add(p.id, "expiry", `expiry|${r.id}`, left <= 30 ? "high" : "medium", data);
     }
 
     if (WAITING.includes(r.status)) {

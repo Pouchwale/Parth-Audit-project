@@ -28,6 +28,7 @@ const DATA: Record<string, WordsData> = {
   verify: { ...PEST, by: "Vinay Bhojak" },
   sent_back: { ...PEST, by: "Super Admin", reason: "Sign the sheet" },
   training: { documentId: "hr-training-calendar", formatNo: "F/HR/09", documentName: "Training Plan Calender", module: "HR", recordId: "rec-2", dueDate: "2026-11-30", subject: "CCP monitoring", by: "Ajay Vaghela (Flexo Manager)", daysLate: 0 },
+  expiry: { documentId: "pur-supplier-registration", formatNo: "F/PUR/01", documentName: "Supplier Registration Form", module: "PUR", recordId: "rec-3", dueDate: "2026-12-01", subject: "Gurudev Pest Control", count: 25, daysLate: 0 },
   boss_summary: { part: "morning", dueDate: "2026-10-09", modules: [{ module: "QC", ready: 2, needsInput: 3, awaitingVerification: 1, notSubmitted: 4, overdue: 5 }] },
   escalation: { subject: "Kapila Barad", module: "QC", late: 3, neverDone: 2 },
   access_changed: { module: "PRD", level: "write", by: "Super Admin" },
@@ -60,6 +61,18 @@ test("the owner's sentence: 12 readings to enter for the Daily Pest Control Moni
   assert.match(notificationWords("needs_input", DATA.needs_input, "gu").title, /^12 રીડિંગ ભરવાના બાકી: /);
   assert.match(notificationWords("needs_input", { ...PEST, count: 1 }, "en").title, /^1 reading to enter/);
   assert.match(notificationWords("needs_input", PEST, "en").title, /^To fill in: /, "no count: nothing invented");
+});
+
+test("a service agreement running out (§192): the supplier, the date, the days left; after the date, the days since", () => {
+  const soon = notificationWords("expiry", DATA.expiry, "en");
+  assert.equal(soon.title, "Service agreement runs out in 25 days: Gurudev Pest Control");
+  assert.equal(soon.body, "Gurudev Pest Control's service agreement / certificate on F/PUR/01 Supplier Registration Form is valid upto 01-12-2026. Renew it before then, upload the new agreement on the record and write its new valid-upto date.");
+  const past = notificationWords("expiry", { ...DATA.expiry, count: 0, daysLate: 3 }, "en");
+  assert.equal(past.title, "Service agreement ran out: Gurudev Pest Control");
+  assert.match(past.body, /was valid upto 01-12-2026, 3 days ago\./);
+  assert.match(notificationWords("expiry", DATA.expiry, "hi").title, /^सर्विस एग्रीमेंट 25 दिन में समाप्त: Gurudev Pest Control$/);
+  assert.match(notificationWords("expiry", DATA.expiry, "gu").title, /^સર્વિસ એગ્રીમેન્ટ 25 દિવસમાં પૂરો થાય છે: Gurudev Pest Control$/);
+  assert.equal(emailGroupOf("expiry"), "upcoming");
 });
 
 test("the facts each kind carries are said: the days late, who submitted, the reason, the counts, the level", () => {

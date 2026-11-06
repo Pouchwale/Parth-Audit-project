@@ -1167,6 +1167,11 @@ function notificationsOp(args: Obj): Outcome {
   const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   const docs = documentRepository.getRecordableUnscoped();
   const byId = new Map(docs.map((d) => [d.id, d] as const));
+  const agreementOf = (data: unknown): Pick<PlanRecord, "agreement"> => {
+    const header = (data as { header?: Record<string, unknown> } | undefined)?.header ?? {};
+    const validUpto = String(header.agreementValidUpto ?? "").trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(validUpto) ? { agreement: { validUpto, supplier: String(header.supplierName ?? "").trim() } } : {};
+  };
   const records: PlanRecord[] = [];
   for (const r of recordRepository.getAll()) {
     const doc = byId.get(r.documentId);
@@ -1189,6 +1194,8 @@ function notificationsOp(args: Obj): Outcome {
       ...(r.documentId === "qc-weight-scale-calibration" ? { toConfirm: scaleLinesToConfirm(r, today) } : {}),
       // F/HR/09: the trainings the calendar plans, each with its day and whether its actual date is written (§164).
       ...(r.documentId === TRAINING_CALENDAR_ID ? { trainings: plannedTrainings((r.data as { rows?: Obj[] } | undefined)?.rows, r.dueDate, today, (d) => isCompanyHoliday(d, master)) } : {}),
+      // F/PUR/01: the service agreement / certificate's valid-upto date and the supplier, for the two months' warning (§192).
+      ...(r.documentId === "pur-supplier-registration" ? agreementOf(r.data) : {}),
     });
   }
   const times = isObj(args.summaryTimes) && str(args.summaryTimes.morning) && str(args.summaryTimes.evening) ? { morning: str(args.summaryTimes.morning), evening: str(args.summaryTimes.evening) } : undefined;

@@ -349,6 +349,30 @@ export const purchaseApi = {
     }),
 };
 
+// THE SERVICE AGREEMENT / CERTIFICATE KEPT ON AN F/PUR/01 RECORD (backend/supplierAgreements.ts, REQUIREMENTS §192).
+export interface SupplierAgreementFile {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+  note: string;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+export const agreementsApi = {
+  list: (recordId: string) => request<{ files: SupplierAgreementFile[] }>(`/purchase/agreements/${encodeURIComponent(recordId)}`),
+  upload: (recordId: string, file: File, note: string) =>
+    request<{ file: SupplierAgreementFile }>(`/purchase/agreements/${encodeURIComponent(recordId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-File-Note": encodeURIComponent(note) },
+      body: file,
+    }),
+  remove: (recordId: string, fileId: string) => request<{ ok: true }>(`/purchase/agreements/${encodeURIComponent(recordId)}/${encodeURIComponent(fileId)}`, { method: "DELETE" }),
+  /** Where the file itself is read from (the session's cookie goes with it): a PDF or a picture opens in the browser. */
+  fileUrl: (recordId: string, fileId: string) => `/api/purchase/agreements/${encodeURIComponent(recordId)}/${encodeURIComponent(fileId)}`,
+};
+
 // ESCALATION TO THE SUPER ADMIN AND THE WEEKLY DIGEST (REQUIREMENTS §75),
 // worked out on the server from the records in PostgreSQL (backend/escalation.ts,
 // on the rule engine/latenessCore.ts shares with the Performance Scorecard) and

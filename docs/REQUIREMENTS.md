@@ -11242,3 +11242,32 @@ fetch data from it and fill the pur-01 from it."
   supplierFormImport.test.ts (blank boxes filled, written ones on Replace, the office's never, the card and the route);
   in the browser on dev:local a sample filled-in PDF filled a new F/PUR/01, was kept after a reload, and a box changed
   by hand was replaced only on Replace.
+
+## §192 F/PUR/01: the service agreement on file, and a warning two months before it runs out (6-Nov-2026)
+
+The owner, 6-Nov-2026: "in pur-01 in that there is a service report in which date of expiry is written so before two
+month of expiry and user should get the notification to tell whether the expiry is coming so do this and upload the new
+service agreement."
+
+- THE DATE. F/PUR/01's office block has a box of DCRS's own, SERVICE AGREEMENT / CERTIFICATE VALID UPTO (a date), under
+  Status of Supplier: the day the supplier's service agreement or certificate with the plant runs out. It prints with the
+  form and is typed over like every box.
+- THE WARNING (engine/notificationPlan.ts `expiry`, EXPIRY_WARNING_MONTHS = 2; the server reads the date off every
+  F/PUR/01 record, engineHost/entry.ts). From two months before that date the people who answer for F/PUR/01 (Purchase;
+  nobody named: the super admin) are told, on the website's bell and the phone, "Service agreement runs out in N days:
+  <supplier>" - medium, high within a month - and after the date, every day, "Service agreement ran out: <supplier>, N
+  days ago", until a later date is written on the record (the renewed agreement's). Worded in English, Hindi and
+  Gujarati (engine/notificationText.ts); in the reminder emails it stands with "Coming up". Whatever the record's own
+  status: a verified registration holds a live agreement.
+- THE AGREEMENT ITSELF (components/records/SupplierAgreementCard.tsx; backend/supplierAgreements.ts, table
+  supplier_agreements; GET / POST / DELETE /api/purchase/agreements/:recordId[/:fileId]). A card above an F/PUR/01
+  record, "Service agreement / certificate on file", for everyone who holds Purchase Master Data: how long the agreement
+  has left (or how long ago it ran out), and the files kept on the record newest first - each opened in the browser (a
+  PDF or a photograph inline). Whoever writes Purchase uploads the new agreement when it is renewed (a PDF, a Word file
+  or a photograph of the signed paper, 10 MB at most, with a note), and is told to write its new valid-upto date; an old
+  one is taken off only on "Yes, take it off". The old agreements stay under the new one. Each upload and removal is in
+  the activity log.
+- Proved: frontend/tests/notificationPlan.test.ts (told from two months before, high within a month, after the date, to
+  whom; monthsBefore), notificationText.test.ts (the words in three languages), supplierAgreement.test.ts (the box, the
+  card, the API, the server's reading), backend/tests/supplierAgreements.test.ts (upload, list, open, remove, who may,
+  what is kept); in the browser on dev:local.

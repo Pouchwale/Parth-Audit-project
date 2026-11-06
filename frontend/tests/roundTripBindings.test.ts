@@ -325,6 +325,8 @@ function unboundOnPurpose(t: Tag): string | null {
   if (t.attrs.type === "file" || t.attrs.type === "hidden") return "a file picker";
   // The bars that fetch a person, a machine or a supplier from a master (REQUIREMENTS §53, §74, §187): tools, not the record's values.
   if (within(t, (a) => a.attrs["data-section"] === "hr-master-fetch" || a.attrs["data-section"] === "equipment-fetch" || a.attrs["data-section"] === "supplier-fetch")) return "the fetch bar";
+  // The agreement kept on F/PUR/01 and the supplier's form uploaded to it (REQUIREMENTS §191, §192): the cards' own boxes, not the record's values.
+  if (within(t, (a) => a.attrs["data-section"] === "supplier-agreement" || a.attrs["data-section"] === "supplier-form-import")) return "the agreement card";
   if ((t.attrs.title ?? "").startsWith("Same as line")) return "the service report's mirrored quantity";
   if (/-address$/.test(t.attrs["data-field"] ?? "")) return "an address held as several lines, edited joined";
   if (t.attrs["data-field"] === "fhr18-add-date" || t.attrs["data-field"] === "soc-lines") return "not a value of the record";

@@ -186,7 +186,7 @@ export interface PushDecision {
 const TASK_KINDS: readonly NotificationKind[] = ["ready", "needs_input", "due"];
 const SUMMARY_KINDS: readonly NotificationKind[] = ["boss_summary", "upcoming"];
 /** The order the names are listed in a push of several: what is most pressing first. */
-const KIND_ORDER: Record<NotificationKind, number> = { sent_back: 0, overdue: 1, escalation: 2, verify: 3, needs_input: 4, ready: 5, due: 6, training: 7, access_changed: 8, boss_summary: 9, upcoming: 10 };
+const KIND_ORDER: Record<NotificationKind, number> = { sent_back: 0, overdue: 1, escalation: 2, verify: 3, needs_input: 4, ready: 5, due: 6, training: 7, expiry: 8, access_changed: 9, boss_summary: 10, upcoming: 11 };
 const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 const cut = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text);

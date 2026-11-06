@@ -50,6 +50,9 @@ import { aiConfigured, aiProviderName, aiSpeakClip, aiTranscribe, aiUsage, gemin
 import { speakFailure, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VOICE_PROBE_TEXT, VoiceAvailability, VoiceUnavailableError } from "./tts.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 import { readSupplierForm, SUPPLIER_FORM_MAX_BYTES } from "./supplierFormExtract.ts";
+import { createDatabaseAgreementStore, registerAgreementRoutes } from "./supplierAgreements.ts";
+import { holdsPurchaseMaster, writesPurchaseMaster } from "./accessLevels.ts";
+import { accessViewOf } from "./accessStore.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
 import { activityFilterOf, registerActivityRoutes } from "./activityRoutes.ts";
 import { registerEscalationRoutes } from "./escalationRoutes.ts";
@@ -1472,6 +1475,18 @@ app.get("/api/assistant/usage", requireAdmin, (_req: Request, res: Response): vo
 // here (any signed-in account could make the company mailbox write to 50 addresses of its choosing, audit M-26) is
 // retired: POST /api/reminders/send-digest answers 410 in words.
 registerEmailRoutes(app, { requireAuth, logActivity });
+
+// THE SERVICE AGREEMENT / CERTIFICATE ON AN F/PUR/01 RECORD (REQUIREMENTS §192, backend/supplierAgreements.ts): read by
+// whoever holds Purchase Master Data, uploaded and removed by whoever writes Purchase.
+registerAgreementRoutes(app, {
+  requireAuth,
+  logActivity,
+  store: createDatabaseAgreementStore(),
+  may: async (user) => {
+    const view = await accessViewOf(user);
+    return { read: holdsPurchaseMaster(view), write: writesPurchaseMaster(view) };
+  },
+});
 
 // ESCALATION TO THE SUPER ADMIN AND THE WEEKLY DIGEST (REQUIREMENTS §75):
 // /api/escalations, /api/digests/latest and /api/jobs/run, the super admin's

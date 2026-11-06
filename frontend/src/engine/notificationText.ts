@@ -124,6 +124,13 @@ const EN: Record<string, Words> = {
   },
   due: (d) => ({ title: `Due today: ${nameOf(d)}`, body: `${called(d)} of ${displayDate(d.dueDate)} is due and not started yet.` }),
   upcoming: (d) => ({ title: `Coming up: ${nameOf(d)}`, body: `${called(d)} is due on ${displayDate(d.dueDate)}.` }),
+  expiry: (d) => {
+    const left = num(d.count);
+    const late = num(d.daysLate);
+    const who = clean(d.subject) || nameOf(d);
+    if (late > 0) return { title: `Service agreement ran out: ${who}`, body: `${who}'s service agreement / certificate on ${called(d)} was valid upto ${displayDate(d.dueDate)}, ${late} ${late === 1 ? "day" : "days"} ago. Renew it, upload the new agreement on the record and write its new valid-upto date.` };
+    return { title: `Service agreement runs out in ${left} ${left === 1 ? "day" : "days"}: ${who}`, body: `${who}'s service agreement / certificate on ${called(d)} is valid upto ${displayDate(d.dueDate)}. Renew it before then, upload the new agreement on the record and write its new valid-upto date.` };
+  },
   overdue: (d) => {
     const n = num(d.daysLate);
     return { title: `Overdue: ${nameOf(d)}`, body: `${called(d)} of ${displayDate(d.dueDate)} is ${n} ${n === 1 ? "day" : "days"} late. Fill it in and submit it today.` };
@@ -177,6 +184,13 @@ const HI: Record<string, Words> = {
   },
   due: (d) => ({ title: `आज देय: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) देय है और इस पर अभी काम शुरू नहीं हुआ है।` }),
   upcoming: (d) => ({ title: `जल्द देय: ${nameOf(d)}`, body: `${called(d)} ${displayDate(d.dueDate)} को देय है।` }),
+  expiry: (d) => {
+    const left = num(d.count);
+    const late = num(d.daysLate);
+    const who = clean(d.subject) || nameOf(d);
+    if (late > 0) return { title: `सर्विस एग्रीमेंट की अवधि समाप्त: ${who}`, body: `${who} का सर्विस एग्रीमेंट / प्रमाणपत्र (${called(d)}) ${displayDate(d.dueDate)} तक वैध था, ${late} दिन बीत चुके हैं। इसे नवीनीकृत करें, नया एग्रीमेंट रिकॉर्ड पर अपलोड करें और नई वैधता तिथि लिखें।` };
+    return { title: `सर्विस एग्रीमेंट ${left} दिन में समाप्त: ${who}`, body: `${who} का सर्विस एग्रीमेंट / प्रमाणपत्र (${called(d)}) ${displayDate(d.dueDate)} तक वैध है। उससे पहले नवीनीकृत करें, नया एग्रीमेंट रिकॉर्ड पर अपलोड करें और नई वैधता तिथि लिखें।` };
+  },
   overdue: (d) => ({ title: `देर से: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) ${num(d.daysLate)} दिन देर से है। आज ही भरकर जमा करें।` }),
   verify: (d) => ({
     title: `सत्यापन के लिए: ${nameOf(d)}`,
@@ -227,6 +241,13 @@ const GU: Record<string, Words> = {
   },
   due: (d) => ({ title: `આજે ભરવાનું: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) ભરવાનું છે અને હજી શરૂ થયું નથી.` }),
   upcoming: (d) => ({ title: `આવનારું: ${nameOf(d)}`, body: `${called(d)} ${displayDate(d.dueDate)} ના રોજ ભરવાનું છે.` }),
+  expiry: (d) => {
+    const left = num(d.count);
+    const late = num(d.daysLate);
+    const who = clean(d.subject) || nameOf(d);
+    if (late > 0) return { title: `સર્વિસ એગ્રીમેન્ટની મુદત પૂરી: ${who}`, body: `${who} નો સર્વિસ એગ્રીમેન્ટ / પ્રમાણપત્ર (${called(d)}) ${displayDate(d.dueDate)} સુધી માન્ય હતો, ${late} દિવસ વીતી ગયા છે. તેને રિન્યૂ કરો, નવો એગ્રીમેન્ટ રેકોર્ડ પર અપલોડ કરો અને નવી માન્યતા તારીખ લખો.` };
+    return { title: `સર્વિસ એગ્રીમેન્ટ ${left} દિવસમાં પૂરો થાય છે: ${who}`, body: `${who} નો સર્વિસ એગ્રીમેન્ટ / પ્રમાણપત્ર (${called(d)}) ${displayDate(d.dueDate)} સુધી માન્ય છે. તે પહેલાં રિન્યૂ કરો, નવો એગ્રીમેન્ટ રેકોર્ડ પર અપલોડ કરો અને નવી માન્યતા તારીખ લખો.` };
+  },
   overdue: (d) => ({ title: `મોડું: ${nameOf(d)}`, body: `${called(d)} (${displayDate(d.dueDate)}) ${num(d.daysLate)} દિવસ મોડું છે. આજે જ ભરીને સબમિટ કરો.` }),
   verify: (d) => ({
     title: `ચકાસણી માટે: ${nameOf(d)}`,
@@ -366,6 +387,7 @@ export function emailGroupOf(kind: string): EmailGroup | null {
     case "training":
       return "training";
     case "upcoming":
+    case "expiry":
       return "upcoming";
     default:
       return null;
