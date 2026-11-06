@@ -658,8 +658,6 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
   const isDemo = mode === "demo";
   const now = new Date();
   const [year, setYear] = useState(initialYear ?? now.getFullYear());
-  // Month of the F/HR/18 register shown on the Fly Control page.
-  const [registerMonth, setRegisterMonth] = useState(now.getMonth());
   const today = todayISO();
   useEnsureMonth(now.getFullYear(), now.getMonth());
 
@@ -826,26 +824,10 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
         </section>
       </div>
 
-      {/* The company's own formats that go with this service, filled from the
-          records: the F/HR/18 fly catcher register beside Fly Control, and the
-          Rodent Catch Report and Trend Analysis beside Rat / Mice. Same
-          components (and the same data) as Pest Control > Trend Analysis. */}
-      {slug === "fly" && (
-        <div className="mt-6" data-section="fhr18">
-          <div className="flex items-center justify-between wrap gap-2 mb-1">
-            <h2 className="text-lg">{t("pest.fhr18SectionTitle")}</h2>
-            {/* The register's Month & Year (the year is the page's own). Add
-                visit / Edit register / Print sit on the register itself. */}
-            <div className="flex gap-2 no-print">
-              <YearSelect value={year} onChange={setYear} />
-              <MonthSelect value={registerMonth} onChange={setRegisterMonth} />
-            </div>
-          </div>
-          <FlyCatcherRegisterSheet year={year} month={registerMonth} isDemo={isDemo} onOpenVisit={(r) => navigate(`/record/${r.id}`)} allowEdit />
-        </div>
-      )}
-      {/* The Rodent Catch Report and Trend Analysis no longer stands under the Rat / Mice visit register: a trend is read
-          on its own page of the Trend Analysis menu and nowhere else (the owner, 6-Nov-2026, REQUIREMENTS §195). */}
+      {/* A service page carries its service's visits and nothing of the Trend Analysis menu's (the owner, 6-Nov-2026): the
+          Rodent Catch Report and Trend Analysis no longer stands under the Rat / Mice visit register (REQUIREMENTS §195),
+          and the F/HR/18 Fortnightly Fly Catcher Inspection & Cleaning Record no longer under Fly Control's (§196) - each
+          is read on its own page, Rodent Catch Trend and Fly Catcher Infestation. */}
     </div>
   );
 }

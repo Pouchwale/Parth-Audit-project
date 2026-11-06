@@ -25,6 +25,13 @@ test("the service report pages carry no trend: the Rodent Catch Report and Trend
   assert.match(pest, /"\/pest\/trend\/fly-catcher"/);
 });
 
+test("the Fly Control service page carries no F/HR/18 register (§196): the register is the Fly Catcher Infestation page's", () => {
+  const pest = read("frontend", "src", "pages", "PestControlPages.tsx");
+  assert.doesNotMatch(pest, /data-section="fhr18"/);
+  assert.doesNotMatch(pest, /registerMonth/);
+  assert.equal((pest.match(/<FlyCatcherRegisterSheet year=\{year\} month=\{month\} isDemo=\{isDemo\}/g) ?? []).length, 1, "the Fly Catcher Infestation page's register view alone");
+});
+
 test("the Reports page offers no trend tab, and its route and the assistant know none", () => {
   const reports = read("frontend", "src", "pages", "ReportsPage.tsx");
   assert.match(reports, /const TAB_KEYS: Tab\[\] = \["monthly", "summary", "daily", "chemical", "gap", "training", "lamination"\];/);

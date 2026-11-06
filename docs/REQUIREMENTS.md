@@ -11348,3 +11348,16 @@ anlysis of rodent, lizards and ants and cockroaches-General pest in Trend anlysi
   (/pest/trend/lizard) and Fly Catcher Infestation (/pest/trend/fly-catcher), each its own page as before.
 - Proved: tests/e2e_smoke.py (no trend sheet on the Rat / Mice service page; the Rodent Catch Trend page carries it),
   tests/visual_qa.py (the Reports page's tabs), frontend/tests/reportsTabs.test.ts (the tabs and the routes, by source).
+
+## §196 The F/HR/18 register is read on the Fly Catcher Infestation page and not on Fly Control's (6-Nov-2026)
+
+The owner, 6-Nov-2026, with a picture of the Fly Control service page and the Fortnightly Fly Catcher Inspection &
+Cleaning Record drawn under its visit list: "Fortnightly - Fly Catcher Inspection & Cleaning Record should present in
+Fly Catcher Inspection and not in Fly control".
+
+- THE FLY CONTROL SERVICE PAGE carries the service's visits and no longer the F/HR/18 register under them
+  (pages/PestControlPages.tsx; as §195 took the trend off the Rat / Mice page). A service page is its service's.
+- THE FLY CATCHER INFESTATION PAGE (/pest/trend/fly-catcher) keeps the register as its first view - with Add visit,
+  Edit register, the downloads and Print - beside its trend and its visit list, as before.
+- Proved: tests/e2e_smoke.py (no register on the Fly Control page; the Fly Catcher Infestation page's register, as
+  before), frontend/tests/reportsTabs.test.ts (by source).

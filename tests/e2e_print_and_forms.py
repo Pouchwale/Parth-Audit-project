@@ -475,9 +475,10 @@ with sync_playwright() as p:
 
     page.goto(f"{BASE}/index.html#/pest/service/fly")
     page.wait_for_timeout(500)
+    # The register is the Fly Catcher Infestation page's and not the Fly Control page's (REQUIREMENTS §196).
     check(
-        "The Fly Control service page's register has the same Add visit / Edit register",
-        page.locator("[data-section='fhr18'] [data-action='fhr18-add']").count() == 1 and page.locator("[data-section='fhr18'] [data-action='fhr18-edit']").count() == 1,
+        "The Fly Control service page carries no F/HR/18 register, nor its Add visit / Edit register",
+        page.locator("[data-section='fhr18'], .fhr18-sheet, [data-action='fhr18-add'], [data-action='fhr18-edit']").count() == 0,
     )
 
     # ---- 6. An added visit is the person's: the start-up clean-ups leave it alone ----
