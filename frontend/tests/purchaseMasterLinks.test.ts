@@ -123,9 +123,20 @@ test("F/PUR/03: every supplier on the register at once, on its blank lines first
   assert.equal(data.rows.length, seed.length, "the seven blank lines used first");
   assert.equal(data.rows[0].id, start.rows[0].id);
   assert.deepEqual(
-    [data.rows[0].supplierName, data.rows[0].productService, data.rows[0].category, data.rows[0].contactNumber, data.rows[0].approvalDate],
-    ["K S Inctech Pvt.Ltd.", "Printing Ink", "MANUFACTURER", "8754013955", "2025-01-17"]
+    [data.rows[0].vendorCode, data.rows[0].supplierName, data.rows[0].productService, data.rows[0].applicableProduct, data.rows[0].category, data.rows[0].contactNumber],
+    ["S0137", "K S Inctech Pvt.Ltd.", "Printing Ink", "PRESSURE LABEL", "MANUFACTURER", "8754013955"]
   );
+  // The list's own columns, as the plant's list writes them (REQUIREMENTS §188): the documents, the dates as written, the file.
+  assert.deepEqual(
+    [data.rows[0].srf, data.rows[0].isoCertificate, data.rows[0].approvalDate, data.rows[0].reapprovalDueDate, data.rows[0].fileNo],
+    ["YES", "YES", "17-01-2025", "16-01-2028", "1"]
+  );
+  const byName = (name: string) => data.rows.find((r) => r.supplierName === name)!;
+  assert.equal(byName("Gurudev Pest Control").srf, "SERVICE AGREEMENT", "a service provider's one document cell");
+  assert.equal(byName("Gurudev Pest Control").tdsSpecs, undefined);
+  assert.equal(byName("Hubergroup India Pvt.Ltd").traceability, "??", "copied as the list writes it");
+  assert.equal(byName("Industrial Solution").contactPerson, "-", "copied as the list writes it");
+  assert.equal(byName("Shilp Gravures Ltd.").approvalDate, "Approved Prior to 01.1.2021");
   const again = addAllSuppliers(l, data, blankRow, seed);
   assert.deepEqual([again.added, again.already], [0, seed.length], "a supplier already on the register is not added again");
   assert.deepEqual(

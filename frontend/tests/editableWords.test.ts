@@ -40,7 +40,9 @@ test("on a record that can be written on, the same words take the caret, drawn t
 test("every place a sheet prints words: a line's printed cell on either grid, the instructions, the text below the grid and at its foot", () => {
   const sheet = read("frontend", "src", "components", "records", "LogSheetRecordView.tsx");
   assert.doesNotMatch(sheet, /editable=\{editable && !(c|col|under)\.fixed/, "a printed cell is no longer locked by being printed");
-  assert.equal((sheet.match(/editable=\{editable && !(c|col|under)\.computed\}/g) ?? []).length, 6, "a worked-out cell stays worked out, in all six places a cell is drawn");
+  // A worked-out cell stays worked out in all six places a cell is drawn, unless its format lets it be typed over (§188).
+  assert.equal((sheet.match(/editable=\{editable && writable\((c|col|under)\)\}/g) ?? []).length, 6, "a worked-out cell stays worked out, in all six places a cell is drawn");
+  assert.match(sheet, /const writable = \(c: \{ computed\?: boolean; typable\?: boolean \}\): boolean => !c\.computed \|\| !!c\.typable;/);
   assert.match(sheet, /<EditableWords className="pt-words" shown=\{String\(words \?\? ""\)\} editable=\{editable\} onChange=\{\(w\) => onCell\(row\.id, key, w\)\}/, "the paper's own table");
   assert.match(sheet, /<EditableWords className="pf-text" shown=\{String\(value \?\? ""\)\} editable=\{editable\}/, "a paper form's cell");
   assert.match(sheet, /setWords\("instructions", layout\.instructions \?\? \[\], i, w\)/);

@@ -69,6 +69,10 @@ export const NOT_YET = new Set([
   "sys-audit-nc",
   "sys-nc-car",
   "pur-supplier-registration",
+  // F/PUR/03: the plant's list (REQUIREMENTS §188) has the columns of the owner's LIST OF APPROVED SUPPLIERS.pdf - Vendor
+  // Code, the six documents, the re-approval due date, the file number - which the 2021 workbook does not; downloaded as
+  // the page draws it.
+  "pur-approved-suppliers",
 ]);
 
 const cache = new Map<string, ArrayBuffer>();

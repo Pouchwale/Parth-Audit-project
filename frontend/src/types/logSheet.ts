@@ -216,6 +216,11 @@ export interface LogColumn {
    */
   computed?: boolean;
   /**
+   * A worked-out cell a person may type over on the record (REQUIREMENTS §188): the typed figure stands, marked, until the
+   * cell is emptied, when it is worked out again (engine/typedCells.ts).
+   */
+  typable?: boolean;
+  /**
    * READ LIVE FROM ANOTHER DOCUMENT, never stored on this one (REQUIREMENTS §82):
    * the id of the document whose records fill this column when the sheet is shown
    * — F/MNT/03's Actual dates come from F/MNT/02 (engine/pmSchedule.ts). Always
@@ -635,6 +640,12 @@ export interface LogSheetLayout {
   // and label it with a revision it was never on. Only the current revision is
   // ever filled in, so nothing here is scheduled, carried forward or corrected.
   supersededRevisions?: Record<string, SupersededRevision>;
+  /**
+   * CELLS OF A LINE DRAWN AS ONE (REQUIREMENTS §188): on a line whose `whenKey` reads `whenValue`, the columns `from` to
+   * `to` are one cell holding `from`'s value — F/PUR/03's service provider, whose SRF to ISO CERTIFICATE read "SERVICE
+   * AGREEMENT" across. Every other line draws them one by one.
+   */
+  lineMerges?: { whenKey: string; whenValue: string; from: string; to: string }[];
   // "Typical" example rows taken from the filled specimen, used by the
   // assistant when there is no previous record to carry forward from.
   specimenRows?: Record<string, string | number | null>[];

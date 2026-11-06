@@ -3,7 +3,7 @@ import type { FieldFill } from "./hrMaster";
 import { isIsoDate } from "./hrMaster";
 import { isBossSignedIn, isDocumentIdVisible } from "./departmentScope";
 import { purchaseMasterRepository } from "../data/repositories/purchaseMasterRepository";
-import { PURCHASE_DOCUMENT_IDS, RATING_KEYS, isServiceProvider, ratingOf, sameText, supplierRating } from "./purchaseMaster";
+import { PURCHASE_DOCUMENT_IDS, RATING_KEYS, isServiceProvider, ratingOf, sameText, shownDate, supplierRating } from "./purchaseMaster";
 import { QC_INCOMING_DOC_IDS, SUPPLIER_LINK_DOC_IDS } from "./supplierLinkDocs";
 
 // THE DOCUMENTS FETCH A SUPPLIER FROM PURCHASE MASTER DATA (REQUIREMENTS §186; the owner, 5-Nov-2026: "so it can be used in
@@ -23,7 +23,15 @@ import { QC_INCOMING_DOC_IDS, SUPPLIER_LINK_DOC_IDS } from "./supplierLinkDocs";
 // A supplier is found by its Vendor Code or its name. Two lines of the list may share a name (Shikha Trading Co.'s HMA and
 // its Gum): the format's product box tells them apart, and otherwise the person chooses.
 
-export type SupplierSource = SupplierKey | "contacts" | "companyActivity";
+export type SupplierSource =
+  | SupplierKey
+  | "contacts"
+  | "companyActivity"
+  // F/PUR/03's SRF cell: a service provider's one document cell ("SERVICE AGREEMENT"), else the SRF (REQUIREMENTS §188).
+  | "srfOrService"
+  // A date as the list writes it, 17-01-2025, or its words ("Approved Prior to 01.1.2021"), for a box that takes text.
+  | "approvalShown"
+  | "reapprovalShown";
 
 export interface SupplierLink {
   docId: string;
@@ -36,6 +44,8 @@ export interface SupplierLink {
   fields: { key: string; from: SupplierSource }[];
   /** A register the list can be put on at once: every line, the material suppliers, or the service providers. */
   all?: "every" | "materials" | "services";
+  /** The list's cells copied as it writes them, "-" and "??" included (F/PUR/03, the list itself, REQUIREMENTS §188). */
+  asWritten?: boolean;
 }
 
 const qcIncoming = (docId: string): SupplierLink => ({
@@ -75,20 +85,32 @@ export const SUPPLIER_LINKS: SupplierLink[] = [
     ],
   },
   {
+    // The list itself (REQUIREMENTS §188): every column of the plant's F/PUR/03, as Purchase Master Data holds it.
     docId: "pur-approved-suppliers",
     where: "rows",
     idField: "supplierName",
     productField: "productService",
     all: "every",
+    asWritten: true,
     fields: [
+      { key: "vendorCode", from: "vendorCode" },
       { key: "supplierName", from: "supplierName" },
       { key: "productService", from: "productService" },
+      { key: "applicableProduct", from: "applicableProduct" },
       { key: "category", from: "category" },
       { key: "manufacturerName", from: "manufacturerName" },
+      { key: "srf", from: "srfOrService" },
+      { key: "tdsSpecs", from: "tdsSpecs" },
+      { key: "msds", from: "msds" },
+      { key: "foodGradeDeclaration", from: "foodGradeDeclaration" },
+      { key: "traceability", from: "traceability" },
+      { key: "isoCertificate", from: "isoCertificate" },
       { key: "contactPerson", from: "contactPerson" },
       { key: "contactNumber", from: "contactNumber" },
       { key: "location", from: "location" },
-      { key: "approvalDate", from: "approvalDate" },
+      { key: "approvalDate", from: "approvalShown" },
+      { key: "reapprovalDueDate", from: "reapprovalShown" },
+      { key: "fileNo", from: "fileNo" },
     ],
   },
   {
@@ -131,16 +153,20 @@ export const purchaseMasterOpenable = (): boolean => isBossSignedIn() || PURCHAS
 export const allSuppliers = (): ApprovedSupplier[] => purchaseMasterRepository.all().filter((s) => s.supplierName.trim());
 
 const PLACEHOLDER = /^(?:-+|–|—|\?+)$/;
-const usable = (value: unknown): string => {
+const usableValue = (value: unknown): string => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return PLACEHOLDER.test(text) ? "" : text;
 };
 
 const ACTIVITY: Record<string, string> = { TRADER: "Trading", MANUFACTURER: "Manufacturing", "SERVICE PROVIDER": "Services" };
 
-/** What a box of the format gets from this line of the list: "" when the list has nothing for it. */
-export function supplierValue(s: ApprovedSupplier, from: SupplierSource): string {
-  if (from === "contacts") return [usable(s.contactPerson), usable(s.contactNumber)].filter(Boolean).join(", ");
+/** What a box of the format gets from this line of the list: "" when the list has nothing for it ("-" too, unless `asWritten`). */
+export function supplierValue(s: ApprovedSupplier, from: SupplierSource, asWritten = false): string {
+  const usable = asWritten ? (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim() : usableValue;
+  if (from === "srfOrService") return usable(isServiceProvider(s) ? s.serviceApproval : s.srf);
+  if (from === "approvalShown") return usable(shownDate(s.approvalDate));
+  if (from === "reapprovalShown") return usable(shownDate(s.reapprovalDueDate));
+  if (from === "contacts") return [usableValue(s.contactPerson), usableValue(s.contactNumber)].filter(Boolean).join(", ");
   if (from === "companyActivity") return ACTIVITY[s.category.trim().toUpperCase()] ?? "";
   // A date box takes a date; the list's own words ("Approved Prior to 01.1.2021") stay on the list.
   if (from === "approvalDate" || from === "reapprovalDueDate") return isIsoDate(s[from]) ? s[from] : "";
@@ -152,7 +178,7 @@ export function supplierValue(s: ApprovedSupplier, from: SupplierSource): string
 /** "S0137 · K S Inctech Pvt.Ltd. · Printing Ink · Grade A": what the list says the supplier is. */
 export function describeSupplier(s: ApprovedSupplier): string {
   const grade = supplierRating(s).grade;
-  return [usable(s.vendorCode), usable(s.supplierName), usable(s.productService), grade ? `Grade ${grade}` : ""].filter(Boolean).join(" · ");
+  return [usableValue(s.vendorCode), usableValue(s.supplierName), usableValue(s.productService), grade ? `Grade ${grade}` : ""].filter(Boolean).join(" · ");
 }
 
 const codeKey = (value: unknown): string => String(value ?? "").replace(/\s+/g, "").toUpperCase();
@@ -194,11 +220,11 @@ export function searchSuppliers(query: unknown, suppliers: ApprovedSupplier[] = 
 
 /** The line of the list a form's boxes name: by Vendor Code or name, told apart by the form's product box when two share it. Null when none, or not one. */
 export function supplierNamedIn(link: SupplierLink, current: Record<string, unknown>, suppliers: ApprovedSupplier[] = allSuppliers()): ApprovedSupplier | null {
-  const name = usable(current[link.idField]);
+  const name = usableValue(current[link.idField]);
   if (!name) return null;
   let found = suppliers.filter((s) => sameText(s.supplierName, name) || (codeKey(s.vendorCode) !== "" && codeKey(s.vendorCode) === codeKey(name)));
   if (found.length > 1 && link.productField) {
-    const product = usable(current[link.productField]);
+    const product = usableValue(current[link.productField]);
     if (product) found = found.filter((s) => sameText(s.productService, product));
   }
   return found.length === 1 ? found[0] : null;
@@ -218,7 +244,7 @@ export function supplierFill(link: SupplierLink, s: ApprovedSupplier, current: R
   const fills: FieldFill[] = [];
   const conflicts: FieldFill[] = [];
   for (const f of link.fields) {
-    const after = supplierValue(s, f.from);
+    const after = supplierValue(s, f.from, link.asWritten);
     if (!after) continue;
     const before = String(current[f.key] ?? "").trim();
     if (before === after || (before && sameValue(before, after))) continue;
@@ -231,7 +257,7 @@ export function supplierFill(link: SupplierLink, s: ApprovedSupplier, current: R
 export function lineForSupplier(link: SupplierLink, s: ApprovedSupplier, blank: LogSheetRow): LogSheetRow {
   const line: LogSheetRow = { ...blank };
   for (const f of link.fields) {
-    const value = supplierValue(s, f.from);
+    const value = supplierValue(s, f.from, link.asWritten);
     if (value) line[f.key] = value;
   }
   return line;
@@ -260,7 +286,7 @@ export function fillBlanksFromSuppliers(link: SupplierLink, data: LogSheetData, 
   const filled: SupplierBlankFill["filled"] = [];
   const notOnList: string[] = [];
   const apply = (current: Record<string, unknown>, index: number | null): Record<string, unknown> | null => {
-    const name = usable(current[link.idField]);
+    const name = usableValue(current[link.idField]);
     if (!name) return null;
     const s = supplierNamedIn(link, current, suppliers);
     if (!s) {
@@ -294,7 +320,7 @@ export function addAllSuppliers(link: SupplierLink, data: LogSheetData, newLine:
   const rows = [...data.rows];
   const onSheet = (s: ApprovedSupplier) =>
     data.rows.some(
-      (r) => sameText(r[link.idField], s.supplierName) && (!link.productField || !usable(r[link.productField]) || !usable(s.productService) || sameText(r[link.productField], s.productService))
+      (r) => sameText(r[link.idField], s.supplierName) && (!link.productField || !usableValue(r[link.productField]) || !usableValue(s.productService) || sameText(r[link.productField], s.productService))
     );
   let added = 0;
   let already = 0;

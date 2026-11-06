@@ -155,6 +155,8 @@ export interface SheetWords {
   instructions?: string[];
   notesBelow?: string[];
   notesAtFoot?: string[];
+  /** A reference table's headings and cells as the record words them, by the table's title (REQUIREMENTS §188). */
+  tables?: Record<string, { columns?: string[]; rows?: string[][] }>;
 }
 
 /** A photograph on a log sheet: its own id, the file's name and the picture (a scaled-down JPEG's data URL). */

@@ -2,6 +2,7 @@ import type { LogSheetData, LogSheetRow } from "../types";
 // INDEXING: a formula the super admin changed in the index is worked out in place of the code below (indexing/formulaRuntime.ts).
 import { formulaOverride } from "../../../indexing/formulaRuntime";
 import { asNumber, runFormula } from "../../../indexing/formulaLanguage";
+import { typedKeys } from "./typedCells";
 
 // THE WEIGHTED RATINGS ON THE TWO PURCHASE MONITORING REGISTERS ARE WORKED
 // OUT, NOT TYPED (REQUIREMENTS §68). Both formats print the arithmetic on the
@@ -125,6 +126,27 @@ export function serviceRatingCells(row: RatingCells): RatingCells {
   return { overallRating: String(Math.round(total * 100) / 100) };
 }
 
+/**
+ * The worked-out cells with what a person typed over kept (REQUIREMENTS §188): a typed weightage counts in the Overall
+ * Rating, and a typed weightage or Overall Rating gives the Grade, unless those were typed over too.
+ */
+function keepTyped(documentId: string, row: RatingCells, worked: RatingCells): RatingCells {
+  const typed = typedKeys(row as Parameters<typeof typedKeys>[0]);
+  if (typed.length === 0) return worked;
+  const out: RatingCells = { ...worked };
+  for (const k of typed) if (k in worked) out[k] = row[k] ?? "";
+  if (documentId === RM_PM_PERFORMANCE_ID) {
+    const parts = ["productSafetyWeightage", "qualityWeightage", "deliveryWeightage"];
+    const partTyped = parts.some((k) => typed.includes(k));
+    if (partTyped && !typed.includes("overallRating")) out.overallRating = twoPlaces(parts.reduce((sum, k) => sum + (figure(out[k]) ?? 0), 0));
+    if (!typed.includes("grade") && (partTyped || typed.includes("overallRating"))) {
+      const overall = figure(out.overallRating);
+      out.grade = overall === null ? "" : gradeForOverall(overall);
+    }
+  }
+  return out;
+}
+
 /** The record's data with every formula cell worked out; any other document's data is returned as it is. */
 export function withPurchaseRatings<T>(documentId: string | undefined, data: T): T {
   if (documentId !== RM_PM_PERFORMANCE_ID && documentId !== SERVICE_PROVIDER_PERFORMANCE_ID) return data;
@@ -134,7 +156,7 @@ export function withPurchaseRatings<T>(documentId: string | undefined, data: T):
   // A line whose figures are unchanged is handed back as it was, so the sheet
   // redraws only the line that changed (components/records/LogSheetRecordView.tsx SheetRow).
   const rows: LogSheetRow[] = d.rows.map((r) => {
-    const next = { ...r, ...cells(r) };
+    const next = { ...r, ...keepTyped(documentId, r, cells(r)) };
     return Object.keys(next).every((k) => next[k] === r[k]) ? r : next;
   });
   // Nothing changed is nothing to re-render: the same object goes back, so a

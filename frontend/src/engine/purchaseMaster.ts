@@ -113,7 +113,7 @@ export const WORKED_COLUMNS = [
   { key: "qualityWeightage", label: "Quality Weightage 40%", width: 104 },
   { key: "deliveryWeightage", label: "Delivery Weightage 10%", width: 104 },
   { key: "overallRating", label: "Overall Rating", width: 112 },
-  { key: "grade", label: "Grade", width: 132 },
+  { key: "grade", label: "Grade", width: 84 },
 ] as const;
 
 export type WorkedKey = (typeof WORKED_COLUMNS)[number]["key"];

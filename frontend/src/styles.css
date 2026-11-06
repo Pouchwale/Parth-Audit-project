@@ -4287,6 +4287,11 @@ textarea.input.input-cell-multiline:is(.gap-text, .wrap-text) { min-width: 140px
   [data-print-doc] input[list]:not(:hover):not(:focus)::-webkit-calendar-picker-indicator { width: 0; margin: 0; padding: 0; border: 0; opacity: 0; }
 }
 
+/* A worked-out cell typed over on the record (REQUIREMENTS §188): marked on the screen, plain on paper. */
+@media screen {
+  td[data-typed] .input { background: var(--color-warning-bg); border-color: var(--color-warning); font-weight: 700; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,

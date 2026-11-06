@@ -71,7 +71,7 @@ const GRADE_COLOUR: Record<string, string> = { A: "var(--color-success)", B: "va
 /** A figure typed over a worked-out one is marked, so it is never taken for the arithmetic. */
 const TYPED_STYLE: React.CSSProperties = { fontWeight: 700, borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" };
 const TYPED_TIP = "Typed over the worked-out figure. Empty the cell to have it worked out again.";
-const WORKED_TIP = "Worked out from the ratings (auto). Type a figure, or choose a grade, to put your own in its place.";
+const WORKED_TIP = "Worked out from the ratings. Type a figure, or choose a grade, to put your own in its place.";
 
 async function gridOf(file: File): Promise<string[][]> {
   const buffer = await file.arrayBuffer();
@@ -390,17 +390,17 @@ export function PurchaseMasterDataPage() {
             const auto = supplierRating({ ...s, grade: "" }).grade;
             return (
               <td key={c.key} data-worked={c.key} data-typed={typed || undefined} title={typed ? TYPED_TIP : WORKED_TIP} style={{ textAlign: "center" }}>
+                {/* The letter alone, A, B or C (the owner, 6-Nov-2026: "it should only written as A"). Choosing the letter the
+                    Overall Rating gives leaves it worked out; choosing another stands as typed, shaded. */}
                 <select
                   className="input input-sm no-print"
                   data-field="grade"
-                  value={s.grade}
+                  value={r.grade}
                   disabled={!canEdit}
                   style={{ fontWeight: 700, color: GRADE_COLOUR[r.grade], ...(typed ? TYPED_STYLE : {}) }}
                   aria-label={`Grade${s.supplierName ? ` — ${s.supplierName}` : ""}`}
-                  onChange={(e) => editGrade(s, e.target.value)}
+                  onChange={(e) => editGrade(s, e.target.value === auto ? "" : e.target.value)}
                 >
-                  {/* Worked out from the Overall Rating: the letter, "(auto)" beside it; a letter chosen below stands as typed. */}
-                  <option value="">{auto ? `${auto} (auto)` : "(auto)"}</option>
                   {GRADES.map((g) => (
                     <option key={g} value={g}>
                       {g}

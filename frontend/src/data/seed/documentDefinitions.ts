@@ -2138,8 +2138,8 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Yearly",
     status: "Configured",
     description:
-      "The landscape list of every approved supplier and service provider, updated as on a date written at its head: the supplier's name, the product or service, whether it is a trader, a manufacturer or a service provider, the manufacturer's name where the material is procured from a trader, the contact person and number, the location, the method by which it was approved — monopoly / reputed supplier, registration form, supplier visit / audit, trial lot / sample approval, GFSI scheme certification — and the approval date. The supplied format prints seven rows; the list grows as suppliers are approved.",
-    sourceFile: "F-PUR-03_List of Approved suppliers.pdf",
+      "The landscape list of every approved supplier and service provider, as the plant keeps it (the owner's list of 5-Nov-2026): Vendor Code, the supplier's name, the product or service, the product it is for (mono carton, corrugated box, pressure label, shrink sleeve), whether it is a trader, a manufacturer or a service provider, the manufacturer's name where the material is procured from a trader, its documents — SRF, TDS/SPECS, MSDS, food grade declaration, traceability, ISO certificate (a service provider's service agreement or ISO 17025 accreditation in one cell) — the contact person and number, the location, the approval date, the re-approval due date and the file number. Its lines are fetched from Purchase Master Data.",
+    sourceFile: "LIST OF APPROVED SUPPLIERS.pdf (the plant's list, supplied 5-Nov-2026); the 2021 blank format was F-PUR-03_List of Approved suppliers.pdf",
     // The format prints "UPDATION AS ON : XX - XX - XXXX" but no review
     // period; anchored on 1 December, the date the F/PUR formats took effect,
     // for the MR to confirm.

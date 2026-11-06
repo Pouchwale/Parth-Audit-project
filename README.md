@@ -54,4 +54,4 @@ works and Mitra answers from the records), `DAYLIGHT_THEME=1` for the theme that
   server through `engineHost/`), the formats and seeds in `data/seed/`.
 - `backend/` — the Express API, the database (`db.ts`), the jobs (reminders, escalation, the morning prepare).
 - `indexing/` — the index of every format and document.
-- `docs/` — REQUIREMENTS.md (every decision, §1-§187), TESTING.md, DEPLOYMENT.md, the data model and the API notes.
+- `docs/` — REQUIREMENTS.md (every decision, §1-§188), TESTING.md, DEPLOYMENT.md, the data model and the API notes.

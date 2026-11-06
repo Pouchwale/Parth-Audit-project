@@ -1,7 +1,7 @@
 import React from "react";
 import { unitized } from "../../engine/calibration";
 import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
-import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance, SheetPhoto, SheetWords } from "../../types";
+import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetLayout, LogSheetRow, RecordInstance, ReferenceTable, SheetPhoto } from "../../types";
 import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHeader";
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
@@ -91,6 +91,7 @@ import {
 import { BoxTable } from "./BoxTable";
 import { NotesBelow } from "./NotesBelow";
 import { EditableWords } from "./EditableWords";
+import { isTyped, typedOver } from "../../engine/typedCells";
 import { PrintedTable } from "./PrintedTable";
 
 /** A sheet open for writing with more lines than this draws only those near the screen (REQUIREMENTS §76). */
@@ -309,12 +310,14 @@ export function LogSheetRecordView({
     const settled = doc.id === "qc-weight-scale-calibration" ? settleScaleLines(dated, todayISO()) : dated;
     onChange(settled === dated ? dated : withComputedCells(doc.id, settled, dated));
   };
+  // The worked-out columns a person may type over (REQUIREMENTS §188).
+  const typableKeys = new Set(layout.columns.filter((c) => c.computed && c.typable).map((c) => c.key));
   const setCell = (rowId: string, key: string, value: string | number | null) =>
     (key === "date" || key === "nextDueDate" ? saveDates : save)({
       ...data,
       rows: data.rows.map((r) => {
         if (r.id !== rowId) return r;
-        const next: LogSheetRow = { ...r, [key]: value };
+        const next: LogSheetRow = typableKeys.has(key) ? typedOver(r, key, value) : { ...r, [key]: value };
         // A reading typed over a filled one is the person's own: nothing left to confirm on the line (F/QC/12).
         if (r[READINGS_TO_CONFIRM] && /^testedValue/.test(key)) {
           delete next[READINGS_TO_CONFIRM];
@@ -634,8 +637,25 @@ export function LogSheetRecordView({
   // on every page a long sheet runs to; on screen they are plain blocks. The paper's text below the grid is a foot
   // line unless the paper prints a photograph or a chart under it (F/QC/29), which keep their place in the body.
   // THE PAPER'S PARAGRAPHS AS THIS RECORD WORDS THEM (REQUIREMENTS §135): each line the format's until it is typed over here.
-  const recordWords = (part: keyof SheetWords, lines: readonly string[]): string[] => lines.map((line, i) => data.words?.[part]?.[i] ?? line);
-  const setWords = (part: keyof SheetWords, lines: readonly string[], index: number, words: string) =>
+  const recordWords = (part: "instructions" | "notesBelow" | "notesAtFoot", lines: readonly string[]): string[] => lines.map((line, i) => data.words?.[part]?.[i] ?? line);
+  // A REFERENCE TABLE'S WORDS AS THIS RECORD WORDS THEM (REQUIREMENTS §188): each heading and cell the format's until it is
+  // typed over here — F/PUR/05's criteria tables among them.
+  const tableWords = (t: ReferenceTable): { columns: string[]; rows: string[][] } => {
+    const own = data.words?.tables?.[t.title];
+    return {
+      columns: t.columns.map((c, i) => own?.columns?.[i] ?? c),
+      rows: t.rows.map((r, ri) => r.map((cell, ci) => own?.rows?.[ri]?.[ci] ?? cell)),
+    };
+  };
+  const setTableWord = (t: ReferenceTable, ri: number | "head", ci: number, words: string) => {
+    const now = tableWords(t);
+    const next =
+      ri === "head"
+        ? { columns: now.columns.map((c, i) => (i === ci ? words : c)), rows: now.rows }
+        : { columns: now.columns, rows: now.rows.map((r, i) => (i === ri ? r.map((cell, j) => (j === ci ? words : cell)) : r)) };
+    save({ ...data, words: { ...data.words, tables: { ...data.words?.tables, [t.title]: next } } });
+  };
+  const setWords = (part: "instructions" | "notesBelow" | "notesAtFoot", lines: readonly string[], index: number, words: string) =>
     save({ ...data, words: { ...data.words, [part]: recordWords(part, lines).map((line, i) => (i === index ? words : line)) } });
   const notesBelow =
     layout.notesBelow && layout.notesBelow.length > 0 ? (
@@ -754,8 +774,9 @@ export function LogSheetRecordView({
           </EditableWords>
         );
       }
-      // A worked-out cell (F/QC/17's Difference) reads as words, never a box, and says it is worked out (not bound).
-      if (col.computed) {
+      // A worked-out cell (F/QC/17's Difference) reads as words, never a box, and says it is worked out (not bound) —
+      // unless its format lets it be typed over (REQUIREMENTS §188).
+      if (col.computed && !col.typable) {
         const v = row[key];
         return (
           <div className={`pt-box${judge(row, c, fixedRow) ? " cell-out-of-band" : ""}`}>
@@ -772,7 +793,7 @@ export function LogSheetRecordView({
             bind={bindProps(logCellBind(row, line, col, logRowName(row, layout.columns)))}
             issuedLabel={issued?.columns[ci]?.label ?? c.label}
             value={row[key]}
-            editable={editable && !col.computed}
+            editable={editable && writable(col)}
             onChange={(v) => onCell(row.id, key, v)}
             employees={employeeNames}
             list={lists?.[key] ?? c.list}
@@ -1010,17 +1031,23 @@ export function LogSheetRecordView({
                     <table className="compact">
                       <thead>
                         <tr>
-                          {t.columns.map((c) => (
-                            <th key={c}>{c}</th>
+                          {tableWords(t).columns.map((c, ci) => (
+                            <th key={ci}>
+                              <EditableWords shown={c} editable={editable} onChange={(w) => setTableWord(t, "head", ci, w)} label={`A heading of ${t.title}`}>
+                                {c}
+                              </EditableWords>
+                            </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {t.rows.map((r, ri) => (
+                        {tableWords(t).rows.map((r, ri) => (
                           <tr key={ri}>
                             {r.map((cell, ci) => (
                               <td key={ci} className={`text-xs ${ci === 0 ? "font-semibold" : ""}`} style={{ verticalAlign: "top", whiteSpace: t.printed ? "pre-line" : "normal" }}>
-                                {cell}
+                                <EditableWords shown={cell} editable={editable} onChange={(w) => setTableWord(t, ri, ci, w)} label={`A cell of ${t.title}`}>
+                                  {cell}
+                                </EditableWords>
                               </td>
                             ))}
                           </tr>
@@ -1205,6 +1232,7 @@ export function LogSheetRecordView({
                 personKey={fetching && link?.where === "rows" ? link.nameField : undefined}
                 machineKey={eqFetching && eqLink?.where === "rows" ? eqLink.idField : undefined}
                 supplierKey={supFetching && supLink?.where === "rows" ? supLink.idField : undefined}
+                lineMerges={layout.lineMerges}
                 linked={rowLinks?.get(row.id)}
                 canRemove={canRemoveRows}
                 height={gridRowHeight(i + 1)}
@@ -1547,6 +1575,20 @@ function ColumnHead({
  * records), a box of the QA Manager's (F/QC/25's Sign By), or the words that it needs no signature at all
  * (the certificates of analysis).
  */
+/** The run of a line's cells drawn as one (LogSheetLayout.lineMerges, REQUIREMENTS §188): its first column and how many. */
+function lineMergeFor(merges: LogSheetLayout["lineMerges"], row: LogSheetRow, columns: LogColumn[]): { start: number; count: number } | null {
+  for (const m of merges ?? []) {
+    if (String(row[m.whenKey] ?? "").trim().toUpperCase() !== m.whenValue.trim().toUpperCase()) continue;
+    const start = columns.findIndex((c) => c.key === m.from);
+    const end = columns.findIndex((c) => c.key === m.to);
+    if (start >= 0 && end > start) return { start, count: end - start + 1 };
+  }
+  return null;
+}
+
+/** A cell takes a box unless it is worked out — and a worked-out one does when its format lets it be typed over (REQUIREMENTS §188). */
+const writable = (c: { computed?: boolean; typable?: boolean }): boolean => !c.computed || !!c.typable;
+
 export function paperHasItsOwnApproval(layout: { footerFields?: { label: string }[]; notesAtFoot?: string[] }): boolean {
   return (
     (layout.footerFields ?? []).some((f) => /approved by|qa manager/i.test(f.label)) ||
@@ -1751,7 +1793,7 @@ function PanelGrid({
                             bind={bindProps(logCellBind(row, i, c, rowName))}
                             issuedLabel={issuedColumns?.[at]?.label ?? c.label}
                             value={c.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
-                            editable={editable && !c.computed}
+                            editable={editable && writable(c)}
                             onChange={(v) => onCell(row.id, c.key, v)}
                             employees={employees}
                             list={lists?.[c.key] ?? c.list}
@@ -1924,7 +1966,7 @@ function AcrossGrid({
                       issuedLabel={issuedColumns?.[ci]?.label ?? c.label}
                       // A printed cell (the colour's number) reads in the chosen language; a written one as it was written.
                       value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
-                      editable={editable && !col.computed}
+                      editable={editable && writable(col)}
                       onChange={(v) => onCell(row.id, c.key, v)}
                       employees={employees}
                       list={lists?.[c.key] ?? c.list}
@@ -1989,7 +2031,7 @@ function AnswerAcrossGrid({
           issuedLabel={issuedColumns?.[at]?.label ?? c.label}
           // A printed cell (the line's number, its words) reads in the chosen language; a written one as it was written.
           value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
-          editable={editable && !col.computed}
+          editable={editable && writable(col)}
           onChange={(v) => onCell(row.id, c.key, v)}
           employees={employees}
           list={lists?.[c.key] ?? c.list}
@@ -2103,6 +2145,7 @@ const SheetRow = React.memo(function SheetRow({
   personKey,
   machineKey,
   supplierKey,
+  lineMerges,
   linked,
   canRemove,
   height,
@@ -2148,6 +2191,8 @@ const SheetRow = React.memo(function SheetRow({
   machineKey?: string;
   /** The column that names a supplier Purchase Master Data can fill a line from (REQUIREMENTS §186). */
   supplierKey?: string;
+  /** Runs of a line's cells drawn as one on the lines that call for it (REQUIREMENTS §188). */
+  lineMerges?: LogSheetLayout["lineMerges"];
   /** The line's cells read from another document (REQUIREMENTS §82), by column key; never stored on the line. */
   linked?: RowLinks;
   canRemove: boolean;
@@ -2169,6 +2214,7 @@ const SheetRow = React.memo(function SheetRow({
 }) {
   // What the line is called in a downloaded file's list of boxes: its time slot, its parameter (REQUIREMENTS §81).
   const rowName = logRowName(row, columns);
+  const merge = lineMergeFor(lineMerges, row, columns);
   const lineSpan = second ? 2 : undefined;
   // A second line headed with nothing (F-QC-40.C's sign under each reading, REQUIREMENTS §111): the first column — the
   // day — runs down both lines, as the one cell of the paper holds the reading and the sign.
@@ -2185,6 +2231,9 @@ const SheetRow = React.memo(function SheetRow({
         // columns are one cell, the first column's; the record keeps the others, empty.
         const across = groupCells && c.group !== undefined ? groupSpan(columns, ci) : 1;
         if (across === 0) return null;
+        // A run of the line's cells drawn as one (F/PUR/03's service provider, REQUIREMENTS §188): its first cell, across.
+        if (merge && ci > merge.start && ci < merge.start + merge.count) return null;
+        const mergedAcross = merge && ci === merge.start ? merge.count : 1;
         // A printed cell the line above draws down over this one (F/QC/18's DRYING TEST, §111 part 6).
         if (joinsAbove?.includes(c.key)) return null;
         // A line the form prints blank (F/HR/05's two spare topic lines)
@@ -2206,7 +2255,9 @@ const SheetRow = React.memo(function SheetRow({
           <td
             key={c.key}
             className={judge(row, c, fixedRow) ? "cell-out-of-band" : ""}
-            colSpan={across > 1 ? across : undefined}
+            data-typed={c.computed && c.typable && isTyped(row, c.key) ? "" : undefined}
+            title={c.computed && c.typable ? (isTyped(row, c.key) ? "Typed over the worked-out figure. Empty the cell to have it worked out again." : "Worked out. Type a figure to put your own in its place.") : undefined}
+            colSpan={across > 1 ? across : mergedAcross > 1 ? mergedAcross : undefined}
             rowSpan={rowSpan}
             data-merged={span !== undefined && span > 1 ? String(span) : undefined}
             data-pf-arial={arial?.includes(ci) ? "" : undefined}
@@ -2219,7 +2270,7 @@ const SheetRow = React.memo(function SheetRow({
               // the form prints down its side — reads in the chosen language;
               // a written one reads exactly as it was written. Its own number is the Sr. No.'s (§102).
               value={col.fixed ? documentTextIn(numbered ? withoutLineNumber(printedCell(row, c.key, fixedRow), index + 1) : printedCell(row, c.key, fixedRow), lang) : row[c.key]}
-              editable={editable && !col.computed}
+              editable={editable && writable(col)}
               paper={paper}
               onChange={(v) => onCell(row.id, c.key, v)}
               employees={employees}
@@ -2278,7 +2329,7 @@ const SheetRow = React.memo(function SheetRow({
                 bind={bindProps(logCellBind(row, index, under, rowName))}
                 issuedLabel={under.label}
                 value={row[under.key]}
-                editable={editable && !under.computed}
+                editable={editable && writable(under)}
                 onChange={(v) => onCell(row.id, under.key, v)}
                 employees={employees}
                 list={lists?.[under.key] ?? under.list}

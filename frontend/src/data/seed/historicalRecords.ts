@@ -21,6 +21,7 @@ import { SEED_SYS_MANAGEMENT_REVIEW_RECORDS } from "./sysManagementReviewRecords
 import { SEED_SYS_INTERNAL_AUDIT_RECORDS } from "./sysInternalAuditRecords";
 import { SEED_SYS_HARA_TRACEABILITY_RECORDS } from "./sysHaraTraceabilityRecords";
 import { SEED_MKT_RECORDS } from "./mktRecords";
+import { SEED_PUR_RECORDS } from "./purchaseRecords";
 
 const now = new Date().toISOString();
 
@@ -250,4 +251,6 @@ export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   // feedback, the three feedback analyses of 2025 and the three complaint
   // trend analyses of 2025 with their Paretos.
   ...(SEED_MKT_RECORDS as RecordInstance[]),
+  // Purchase's 2025 RM & PM supplier performance register, supplied filled in on 5-Nov-2026 (REQUIREMENTS §188).
+  ...(SEED_PUR_RECORDS as RecordInstance[]),
 ];

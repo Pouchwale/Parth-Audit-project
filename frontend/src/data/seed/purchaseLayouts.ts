@@ -396,10 +396,13 @@ const supplierAuditReport: LogSheetLayout = {
 // A landscape list, seven printed rows, with four tick columns and the GFSI
 // certification column drawn beneath one spanning "METHOD OF APPROVAL" heading.
 
-const METHOD_OF_APPROVAL = "METHOD OF APPROVAL";
-
-const method = (key: string, label: string): LogColumn => ({ key, label, type: "yesno", group: METHOD_OF_APPROVAL, width: 130 });
-
+// THE LIST AS THE PLANT KEEPS IT (the owner, 6-Nov-2026, of "LIST OF APPROVED SUPPLIERS.pdf": "in that header is fix as it
+// is do that also and i want same document in system which i have given to you", REQUIREMENTS §188). The 2021 blank
+// format's columns (the five METHOD OF APPROVAL ticks) gave way to the list's own: Vendor Code, the applicable product, the
+// six documents (SRF, TDS/SPECS, MSDS, FOOD GRADE DECLARATION, TRACEABILITY, ISO CERTIFICATE), the re-approval due date
+// and the file number - every heading in its wording. A service provider's six document cells are ONE cell, as the list
+// draws them ("SERVICE AGREEMENT", "ISO 17025 ACCREDITATION"): lineMerges. The two dates are written as the list writes
+// them, a date or its words ("Approved Prior to 01.1.2021"). The lines come from Purchase Master Data (§186, §187).
 const approvedSuppliers: LogSheetLayout = {
   documentId: "pur-approved-suppliers",
   instructions: [
@@ -407,36 +410,44 @@ const approvedSuppliers: LogSheetLayout = {
   ],
   // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
   screenNotes: [
-    "The five tick columns under \"METHOD OF APPROVAL\" are the methods the form prints; the list is updated as suppliers are approved, and the date it was last updated goes in the box above.",
+    "The list as the plant keeps it: Fetch from Purchase Master Data above writes a supplier's line, or every supplier at once. A service provider's six document columns are one cell, as the list draws them.",
   ],
   headerFields: [{ key: "updationAsOn", label: "UPDATION AS ON :", type: "date", autoFill: { dueDate: true } }],
   columns: [
-    { key: "supplierName", label: "SUPPLIER NAME", type: "text", required: true, width: 200 },
-    { key: "productService", label: "PRODUCT / SERVICE", type: "text", width: 200 },
+    { key: "vendorCode", label: "Vendor Code", type: "text", width: 100 },
+    { key: "supplierName", label: "SUPPLIER NAME", type: "text", required: true, width: 220 },
+    { key: "productService", label: "PRODUCT / SERVICE", type: "text", width: 170 },
+    { key: "applicableProduct", label: "APPLICABLE PRODUCT (MONO CARTON / CORRUGATED BOX / PRESSURE LABEL / SHRINK SLEEVE)", type: "text", width: 180 },
     { key: "category", label: "CATEGORY (TRADER / MANUFACTURER / SERVICE PROVIDER)", type: "select", options: ["TRADER", "MANUFACTURER", "SERVICE PROVIDER"], width: 180 },
     { key: "manufacturerName", label: "MANUFACTURER NAME (IF MATERIALS PROCURED FROM TRADERS)", type: "text", width: 200 },
+    { key: "srf", label: "SRF", type: "text", width: 80 },
+    { key: "tdsSpecs", label: "TDS/SPECS", type: "text", width: 90 },
+    { key: "msds", label: "MSDS", type: "text", width: 80 },
+    { key: "foodGradeDeclaration", label: "FOOD GRADE DECLARATION", type: "text", width: 110 },
+    { key: "traceability", label: "TRACEABILITY", type: "text", width: 110 },
+    { key: "isoCertificate", label: "ISO CERTIFICATE", type: "text", width: 100 },
     { key: "contactPerson", label: "CONTACT PERSON", type: "text", width: 160 },
     { key: "contactNumber", label: "CONTACT NUMBER", type: "text", width: 140 },
-    { key: "location", label: "LOCATION", type: "text", width: 150 },
-    method("monopolyReputed", "Monopoly supplier / Reputed Supplier"),
-    method("registrationForm", "Registration form"),
-    method("supplierVisitAudit", "Supplier visit / audit"),
-    method("trialLotSample", "Trial lot / Sample approval"),
-    method("gfsiCertification", "GFSI scheme certification"),
-    { key: "approvalDate", label: "APPROVAL DATE", type: "date", width: 150 },
+    { key: "location", label: "LOCATION", type: "text", width: 130 },
+    { key: "approvalDate", label: "APPROVAL DATE", type: "text", width: 150 },
+    { key: "reapprovalDueDate", label: "Re-approval Due date", type: "text", width: 140 },
+    { key: "fileNo", label: "File No", type: "text", width: 110 },
   ],
-  // Seven rows are printed; the list grows as suppliers are approved.
+  // A service provider's line: its six document cells are one, as the list draws them.
+  lineMerges: [{ whenKey: "category", whenValue: "SERVICE PROVIDER", from: "srf", to: "isoCertificate" }],
+  // Seven rows on a new sheet; the list grows as suppliers are approved (65 on Purchase Master Data).
   rowMode: { kind: "free", minRows: 1, typicalRows: 7 },
+  // The list's own first lines (Sr. No. 32 to 38 of the pages supplied), as specimen.
   specimenRows: [
-    { supplierName: "Sample Supplier A", productService: "Label stock — chromo paper", category: "MANUFACTURER", manufacturerName: "", contactPerson: "Sample contact person", contactNumber: "", location: "Mehsana", monopolyReputed: "No", registrationForm: "Yes", supplierVisitAudit: "Yes", trialLotSample: "Yes", gfsiCertification: "No", approvalDate: "" },
-    { supplierName: "Sample Supplier B", productService: "Offset ink", category: "MANUFACTURER", manufacturerName: "", contactPerson: "Sample contact person", contactNumber: "", location: "Ahmedabad", monopolyReputed: "No", registrationForm: "Yes", supplierVisitAudit: "No", trialLotSample: "Yes", gfsiCertification: "No", approvalDate: "" },
-    { supplierName: "Sample Supplier C", productService: "BOPP & PET films", category: "TRADER", manufacturerName: "Sample Film Mill D", contactPerson: "Sample contact person", contactNumber: "", location: "Vadodara", monopolyReputed: "No", registrationForm: "Yes", supplierVisitAudit: "No", trialLotSample: "Yes", gfsiCertification: "Yes", approvalDate: "" },
-    { supplierName: "Sample Supplier E", productService: "Paper cores", category: "MANUFACTURER", manufacturerName: "", contactPerson: "Sample contact person", contactNumber: "", location: "Mehsana", monopolyReputed: "No", registrationForm: "Yes", supplierVisitAudit: "Yes", trialLotSample: "No", gfsiCertification: "No", approvalDate: "" },
-    { supplierName: "Sample Supplier F", productService: "Wooden pallets", category: "MANUFACTURER", manufacturerName: "", contactPerson: "Sample contact person", contactNumber: "", location: "Kadi", monopolyReputed: "Yes", registrationForm: "Yes", supplierVisitAudit: "No", trialLotSample: "No", gfsiCertification: "No", approvalDate: "" },
-    { supplierName: "Sample Service Provider G", productService: "Pest control service", category: "SERVICE PROVIDER", manufacturerName: "", contactPerson: "Sample contact person", contactNumber: "", location: "Mehsana", monopolyReputed: "No", registrationForm: "Yes", supplierVisitAudit: "Yes", trialLotSample: "No", gfsiCertification: "No", approvalDate: "" },
-    { supplierName: "Sample Service Provider H", productService: "Instrument calibration service", category: "SERVICE PROVIDER", manufacturerName: "", contactPerson: "Sample contact person", contactNumber: "", location: "Ahmedabad", monopolyReputed: "No", registrationForm: "Yes", supplierVisitAudit: "No", trialLotSample: "No", gfsiCertification: "No", approvalDate: "" },
+    { vendorCode: "S0137", supplierName: "K S Inctech Pvt.Ltd.", productService: "Printing Ink", applicableProduct: "PRESSURE LABEL", category: "MANUFACTURER", manufacturerName: "NA", srf: "YES", tdsSpecs: "YES", msds: "YES", foodGradeDeclaration: "YES", traceability: "YES", isoCertificate: "YES", contactPerson: "Rajnarayan", contactNumber: "8754013955", location: "Banglore", approvalDate: "17-01-2025", reapprovalDueDate: "16-01-2028", fileNo: "1" },
+    { vendorCode: "S0086", supplierName: "Fujifilm Sericol India Private Limited", productService: "Printing Ink", applicableProduct: "PRESSURE LABEL", category: "MANUFACTURER", manufacturerName: "NA", srf: "YES", tdsSpecs: "YES", msds: "YES", foodGradeDeclaration: "YES", traceability: "YES", isoCertificate: "YES", contactPerson: "Vaibhavbhai", contactNumber: "9725145260", location: "Mumbai", approvalDate: "27-01-2025", reapprovalDueDate: "26-01-2028", fileNo: "1" },
+    { vendorCode: "S1105", supplierName: "Hubergroup India Pvt.Ltd", productService: "Printing Ink", applicableProduct: "PRESSURE LABEL", category: "MANUFACTURER", manufacturerName: "NA", srf: "YES", tdsSpecs: "YES", msds: "YES", foodGradeDeclaration: "YES", traceability: "??", isoCertificate: "NA", contactPerson: "Umangbhai", contactNumber: "9824750056", location: "Ahmedabad", approvalDate: "12-01-2025", reapprovalDueDate: "11-01-2028", fileNo: "1" },
+    { vendorCode: "S0584", supplierName: "San Printech Pvt.Ltd.", productService: "Flexo Printing Ink", applicableProduct: "PRESSURE LABEL", category: "MANUFACTURER", manufacturerName: "NA", srf: "YES", tdsSpecs: "YES", msds: "YES", foodGradeDeclaration: "NA", traceability: "YES", isoCertificate: "NA", contactPerson: "Niyatibhai", contactNumber: "9892061360", location: "Mumbai", approvalDate: "20-01-2024", reapprovalDueDate: "19-01-2027", fileNo: "1" },
+    { vendorCode: "S0191", supplierName: "Poojan Industries", productService: "Printing Ink", applicableProduct: "PRESSURE LABEL", category: "TRADER", manufacturerName: "TOYO Ink", srf: "YES", tdsSpecs: "YES", msds: "YES", foodGradeDeclaration: "NA", traceability: "NA", isoCertificate: "NA", contactPerson: "Bhavneshbhai", contactNumber: "9825503831", location: "Ahmedabad", approvalDate: "28-01-2025", reapprovalDueDate: "27-01-2028", fileNo: "1" },
+    { vendorCode: "S0529", supplierName: "Gurudev Pest Control", productService: "PEST CONTROL", applicableProduct: "NA", category: "SERVICE PROVIDER", manufacturerName: "NA", srf: "SERVICE AGREEMENT", tdsSpecs: "", msds: "", foodGradeDeclaration: "", traceability: "", isoCertificate: "", contactPerson: "Rohit patel", contactNumber: "", location: "Mahesana", approvalDate: "01-04-2025", reapprovalDueDate: "31-03-2026", fileNo: "Service File" },
+    { vendorCode: "S0223", supplierName: "Sakhidas Papers", productService: "Duplex", applicableProduct: "Mono Carton", category: "TRADER", manufacturerName: "Aditya", srf: "YES", tdsSpecs: "NA", msds: "NA", foodGradeDeclaration: "NA", traceability: "NA", isoCertificate: "NA", contactPerson: "Ashitbhai", contactNumber: "9825607434", location: "Ahmedabad", approvalDate: "03-01-2026", reapprovalDueDate: "02-01-2029", fileNo: "6" },
   ],
-  specimenSource: SPECIMEN_NOTE("F-PUR-03_List of Approved suppliers.pdf — F/PUR/03 (00/01.12.2021)"),
+  specimenSource: "LIST OF APPROVED SUPPLIERS.pdf — the plant's list as supplied by the owner on 5-Nov-2026 (Sr. No. 32 to 72), F/PUR/03",
 };
 
 // ---------------------------------------------------------------------------
@@ -489,7 +500,8 @@ const PERFORMANCE_CRITERIA: ReferenceTable[] = [
 ];
 
 /** A weighted column: worked out from the rating beside it, so it is never typed. */
-const weightage = (key: string, label: string): LogColumn => ({ key, label, type: "text", computed: true, width: 150 });
+// Worked out, and typed over when a person needs to (the owner, 6-Nov-2026: "completely editable", REQUIREMENTS §188).
+const weightage = (key: string, label: string): LogColumn => ({ key, label, type: "text", computed: true, typable: true, width: 150 });
 
 const SUPPLIER_PERFORMANCE_LINES: RatingCells[] = [
   { supplierName: "Sample Supplier A", period: "01.04.2026 to 30.09.2026", material: "Label stock — chromo paper", lotsReceived: 12, lotsRejected: 0, productSafetyRating: 100, qualityRating: 100, deliveryRating: 100 },
@@ -510,7 +522,7 @@ const supplierPerformance: LogSheetLayout = {
   ],
   // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
   screenNotes: [
-    "Both lines above are printed across the grid itself: the first over the Product Safety, Quality and Delivery Rating columns, the second over the three Weightage columns, the Overall Rating and the Grade — which are worked out here from the three ratings and cannot be typed into. The criteria the first line refers to are the four tables the form prints across its top, shown below.",
+    "Both lines above are printed across the grid itself: the first over the Product Safety, Quality and Delivery Rating columns, the second over the three Weightage columns, the Overall Rating and the Grade — which are worked out here from the three ratings; any of them may be typed over, and the typed figure stands, marked, until its cell is emptied. The criteria the first line refers to are the four tables the form prints across its top, shown below.",
   ],
   headerFields: [],
   columns: [
@@ -519,6 +531,8 @@ const supplierPerformance: LogSheetLayout = {
     { key: "material", label: "Material Description", type: "text", width: 190 },
     { key: "lotsReceived", label: "Nos. of Lots received", type: "number", decimals: 0, width: 130 },
     { key: "lotsRejected", label: "Nos. of Lots rejected / returned / infested", type: "number", decimals: 0, width: 160 },
+    // Printed on the register as the plant fills it (the owner's 2025 register, REQUIREMENTS §188): the lots delivered late.
+    { key: "delayed", label: "Delayed", type: "number", decimals: 0, width: 100 },
     { key: "productSafetyRating", label: "Product Safety Rating (X)", type: "number", decimals: 0, min: 0, max: 100, width: 140 },
     { key: "qualityRating", label: "Quality Rating (Y)", type: "number", decimals: 0, min: 0, max: 100, width: 130 },
     { key: "deliveryRating", label: "Delivery Rating (Z)", type: "number", decimals: 0, min: 0, max: 100, width: 130 },
@@ -526,7 +540,7 @@ const supplierPerformance: LogSheetLayout = {
     weightage("qualityWeightage", "Quality Weightage 40%"),
     weightage("deliveryWeightage", "Delivery Weightage 10%"),
     weightage("overallRating", "Overall Rating"),
-    { key: "grade", label: "Grade", type: "text", computed: true, width: 80 },
+    { key: "grade", label: "Grade", type: "text", computed: true, typable: true, width: 80 },
   ],
   // Eight rows are printed; a review adds a line per supplier and material.
   rowMode: { kind: "free", minRows: 1, typicalRows: 8 },
@@ -567,7 +581,7 @@ const serviceProviderPerformance: LogSheetLayout = {
   ],
   // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
   screenNotes: [
-    "Both parameter ratings are out of 50, so the Overall Rating is 100 at most. It is the two added and is worked out here, not typed — the blank form prints 0 in every one of its cells. The Status / Decision is written in.",
+    "Both parameter ratings are out of 50, so the Overall Rating is 100 at most. It is the two added and is worked out here — the blank form prints 0 in every one of its cells — and may be typed over; the typed figure stands, marked, until its cell is emptied. The Status / Decision is written in.",
   ],
   headerFields: [{ key: "ratingPeriod", label: "Rating Period :", type: "text", autoFill: { carryForward: true } }],
   columns: [
@@ -575,7 +589,7 @@ const serviceProviderPerformance: LogSheetLayout = {
     { key: "supplierName", label: "Supplier Name", type: "text", width: 220 },
     { key: "deliveryRating", label: "Delivery Parameter rating (Max 50)", type: "number", decimals: 0, min: 0, max: 50, width: 160 },
     { key: "qualityRating", label: "Quality & Product Safety Parameter rating (Max 50)", type: "number", decimals: 0, min: 0, max: 50, width: 190 },
-    { key: "overallRating", label: "Overall Rating", type: "text", computed: true, width: 120 },
+    { key: "overallRating", label: "Overall Rating", type: "text", computed: true, typable: true, width: 120 },
     { key: "status", label: "Status / Decision", type: "text", width: 200 },
   ],
   // Thirteen rows are printed; a rating period adds a line per service.

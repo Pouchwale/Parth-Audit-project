@@ -11098,3 +11098,42 @@ fetching details from him so make it properly and fast."
   purchaseMasterLinks.test.ts (every box the fetch writes is its format's, the search, the fills and conflicts, "Add all" on
   F/PUR/03, 05 and 06, "Fill blanks"), backend/tests/storageRoutes.test.ts (Quality Control handed the list, refused a change).
 
+## §188 Purchase's documents as the plant's papers are, every part of them editable; the Grade a letter (6-Nov-2026)
+
+The owner, 6-Nov-2026, with a picture of Purchase Master Data's rating columns: "make sure i don't want an which is written as
+auto in grade column it should only written as A not more or less than that, also make sure each and every part of this
+purchase module and all the documents in it are completely editable like everything header footer and all the things in
+every document"; and, of "LIST OF APPROVED SUPPLIERS.pdf": "in that header is fix as it is do that also and i want same
+document in system which i have given to you."
+
+- THE GRADE IS A LETTER. Purchase Master Data's Grade offers A, B and C and shows the one in force - nothing beside it.
+  Choosing the letter the Overall Rating gives keeps it worked out; choosing another stands, typed over (shaded).
+- F/PUR/03 IS THE PLANT'S LIST (data/seed/purchaseLayouts.ts). Its columns are the list's, heading by heading: Vendor Code,
+  SUPPLIER NAME, PRODUCT / SERVICE, APPLICABLE PRODUCT (MONO CARTON / CORRUGATED BOX / PRESSURE LABEL / SHRINK SLEEVE),
+  CATEGORY (TRADER / MANUFACTURER / SERVICE PROVIDER), MANUFACTURER NAME (IF MATERIALS PROCURED FROM TRADERS), SRF,
+  TDS/SPECS, MSDS, FOOD GRADE DECLARATION, TRACEABILITY, ISO CERTIFICATE, CONTACT PERSON, CONTACT NUMBER, LOCATION,
+  APPROVAL DATE, Re-approval Due date, File No - in place of the 2021 blank format's five METHOD OF APPROVAL ticks. A
+  service provider's six document cells are one cell, as the list draws them (LogSheetLayout.lineMerges: on a line whose
+  CATEGORY is SERVICE PROVIDER, SRF to ISO CERTIFICATE are drawn as one). The two dates are written as the list writes
+  them: a date (17-01-2025) or its words ("Approved Prior to 01.1.2021"). "Fetch from Purchase Master Data" fills every
+  column, the cells copied as the list writes them ("??", "-" included), and "Add all" writes the whole list. Its specimen
+  lines are the list's own. A record already kept keeps what it holds; the ticks are no longer drawn.
+- F/PUR/05 has the register's "Delayed" column (the lots delivered late), between the lots rejected and the ratings.
+- THE PLANT'S 2025 F/PUR/05 REGISTER IS ON FILE (data/seed/purchaseRecords.ts): page 1 of the PDF, its 24 suppliers, lots,
+  rejections, delays and ratings as printed, 01.01.2025 ~ 31.12.2025, verified as every supplied page is. Its weightages,
+  Overall Rating and Grade come out at the register's printed figures; the register prints Grade "A" beside Mazda
+  Agencies' 87.50, which its own table grades "B" - kept as printed, typed over and so marked, for Purchase to confirm.
+- EVERY PART EDITABLE. On a record that can be written in:
+  - the worked-out cells of F/PUR/05 (the three weightages, the Overall Rating, the Grade) and F/PUR/06 (the Overall Rating)
+    can be typed over (LogColumn.typable, engine/typedCells.ts): the typed figure stands, shaded on the screen and plain
+    on paper, counts in what follows it (a typed weightage in the Overall Rating, a typed Overall Rating in the Grade), and
+    is worked out again when its cell is emptied;
+  - the reference tables a record shows - F/PUR/05's four criteria tables - have every heading and cell typed over on the
+    record (its words, as the instructions and notes already are, §135), the format's own until changed;
+  - as before: every box above and below the grid, every cell, the printed words in the grid and the instructions and
+    notes (§135), the header block - company, title, Format No., Rev No., Rev Date, Page No. (§86) - and, at Edit, the
+    format itself on the Sheet Designer (headings, columns, boxes).
+- Proved: frontend/tests/purchaseRegisters.test.ts (F/PUR/03's headings, the merge, F/PUR/05's Delayed column, the
+  typed-over cells, the 2025 register as printed), frontend/tests/purchaseMasterLinks.test.ts (F/PUR/03 filled from the
+  master column by column).
+
