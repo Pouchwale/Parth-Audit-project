@@ -167,9 +167,10 @@ def main():
         page.click("a[href='#/reports']")
         page.wait_for_timeout(300)
         page.screenshot(path="tests/shots/10_reports.png", full_page=True)
-        page.click(".pill-tab:has-text('Rodent Catch Trend')")
-        page.wait_for_timeout(200)
-        page.screenshot(path="tests/shots/11_reports_rodent.png", full_page=True)
+        # The trends are read in the Pest Control module's Trend Analysis menu, not on the Reports page (REQUIREMENTS §195).
+        page.goto(f"{BASE}/index.html#/pest/trend/rodent")
+        page.wait_for_timeout(300)
+        page.screenshot(path="tests/shots/11_trend_rodent.png", full_page=True)
 
         # --- Pest Control module pages ---
         page.click("a[href='#/pest-control']")

@@ -244,7 +244,8 @@ const SIMPLE_ROUTES = new Set([
   "notifications",
 ]);
 // "summary" — the monthly management summary, /reports/{y}/{m0}/summary (REQUIREMENTS §75).
-const REPORT_TABS = new Set(["monthly", "summary", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"]);
+// (the three trends are no longer tabs of the Reports page: a trend is read in the Trend Analysis menu, /pest/trend/{slug}, REQUIREMENTS §195)
+const REPORT_TABS = new Set(["monthly", "summary", "daily", "chemical", "gap", "training", "lamination"]);
 // Pest Control module pages (src/pages/PestControlPages.tsx):
 // /pest/daily[/{year}/{month0}], /pest/service/{slug}[/{year}], /pest/trend/{slug}[/{year}]
 const PEST_SERVICE_SLUGS = new Set(["rodent", "general", "fly"]);

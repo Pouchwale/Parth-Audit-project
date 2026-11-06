@@ -526,7 +526,11 @@ def main():
         check("Fly Control service page carries the F/HR/18 register", page.locator("[data-section='fhr18'] .fhr18-sheet .register-page").count() == 2)
         page.goto(f"{BASE}/index.html#/pest/service/rodent")
         page.wait_for_timeout(500)
-        check("Rat / Mice service page carries the Rodent Catch Report and Trend Analysis", page.locator("[data-section='rodent-trend'] .trend-sheet").count() == 1)
+        # The trend is read on its own page of the Trend Analysis menu and nowhere else (REQUIREMENTS §195).
+        check("Rat / Mice service page carries no trend sheet", page.locator("[data-section='rodent-trend'], .trend-sheet").count() == 0)
+        page.goto(f"{BASE}/index.html#/pest/trend/rodent")
+        page.wait_for_timeout(500)
+        check("the Rodent Catch Trend page carries the Rodent Catch Report and Trend Analysis", page.locator(".trend-sheet").count() == 1)
 
         # Holiday-aware scheduling: Thursday is the weekly off, so a fortnightly
         # visit that falls on a Thursday moves to the next working day instead

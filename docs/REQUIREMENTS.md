@@ -11331,3 +11331,20 @@ names its paper (F/HR/15 75%, F/QC/08 66%) was never drawn bigger at all. The fr
 - Proved: frontend/tests/printFill.test.ts (§194's rules: the module, the marks on every page, the limits, the ruling,
   the spreading, the breaks, the papers' lines), frontend/tests/qcPaperTables.test.ts (every QC paper printed 12 mm from
   the page's edges inside its foot), the scratch measurement above, and the printouts looked at.
+
+## §195 A trend is read in Trend Analysis and nowhere else (6-Nov-2026)
+
+The owner, 6-Nov-2026, with a picture of the Rat / Mice service page and the Rodent Catch Report and Trend Analysis
+drawn under its visit register: "in this page there is trend analysis has also came so i don't want i just want trend
+anlysis of rodent, lizards and ants and cockroaches-General pest in Trend anlysis only not anywhere else".
+
+- THE SERVICE REPORT PAGES carry their service's register and visits and no trend: the Rodent Catch Report and Trend
+  Analysis no longer stands under the Rat / Mice visit register (pages/PestControlPages.tsx; the Ants & Cockroaches and
+  Fly Control pages never carried one). The Overview's Trend Analysis card keeps its links to the trend pages.
+- THE REPORTS PAGE (the super admin's, §193) no longer offers the Rodent Catch Trend, the Lizard Catch Report and the
+  Fly Catcher Infestation tabs (pages/ReportsPage.tsx, store/router.tsx REPORT_TABS, the assistant's list of its tabs):
+  Monthly, Management Summary, Daily Monitoring, Chemical Usage, GAP, Training and Lamination QC stay.
+- THE TREND ANALYSIS MENU is where a trend is read: Rodent Catch Trend (/pest/trend/rodent), Lizard Catch Trend
+  (/pest/trend/lizard) and Fly Catcher Infestation (/pest/trend/fly-catcher), each its own page as before.
+- Proved: tests/e2e_smoke.py (no trend sheet on the Rat / Mice service page; the Rodent Catch Trend page carries it),
+  tests/visual_qa.py (the Reports page's tabs), frontend/tests/reportsTabs.test.ts (the tabs and the routes, by source).

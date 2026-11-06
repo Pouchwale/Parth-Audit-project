@@ -129,7 +129,8 @@ export function guide(step: string): GuideStep {
   }
 
   if (step === "reports") {
-    const tabs = ["monthly", "summary", "daily", "rodent", "flycatcher", "training", "lamination"];
+    // (the trends are read in the Pest Control module's Trend Analysis menu, not on the Reports page: REQUIREMENTS §195)
+    const tabs = ["monthly", "summary", "daily", "training", "lamination"];
     const now = new Date();
     const chips: Chip[] = tabs.map((tab) => ({
       label: t(`rep.tab.${tab}`),

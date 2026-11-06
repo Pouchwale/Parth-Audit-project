@@ -40,11 +40,15 @@ import type {
   TrainingRecordData,
 } from "../types";
 
-type Tab = "monthly" | "summary" | "daily" | "rodent" | "lizard" | "flycatcher" | "chemical" | "gap" | "training" | "lamination";
+type Tab = "monthly" | "summary" | "daily" | "chemical" | "gap" | "training" | "lamination";
 // The tab key is the route segment (/reports/{y}/{m}/{tab}) and never
 // changes; only the label shown follows the language. "summary" is the
 // monthly management summary (REQUIREMENTS §75, components/reports/MonthlySummaryReport.tsx).
-const TAB_KEYS: Tab[] = ["monthly", "summary", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"];
+// The three trends - the Rodent Catch Trend, the Lizard Catch Report, the Fly Catcher Infestation - are no longer tabs
+// here: a trend is read on its own page of the Pest Control module's Trend Analysis menu and nowhere else (the owner,
+// 6-Nov-2026, REQUIREMENTS §195). Their sheets stay in this file (RodentTrendReport, LizardTrendReport,
+// FlyCatcherTrendReport), drawn by those pages (pages/PestControlPages.tsx).
+const TAB_KEYS: Tab[] = ["monthly", "summary", "daily", "chemical", "gap", "training", "lamination"];
 // A tab's English name until i18n/strings.ts carries its key (an unknown key comes back as its last segment).
 const TAB_FALLBACK: Partial<Record<Tab, string>> = { summary: "Management Summary" };
 
@@ -131,24 +135,18 @@ export function ReportsPage({
           A trend tab's sheet inside it is paper of its own (CatchTrendSheet's own data-print-doc). */}
       <div data-print-doc="ui">
       {/* On paper the report needs to say whose it is and what it covers; on
-          screen the page's own title and pickers already do (REQUIREMENTS §38).
-          The three trend tabs bring the company's own sheet header with them. */}
-      {tab !== "rodent" && tab !== "lizard" && tab !== "flycatcher" && (
-        <div className="doc-header print-only">
-          <div className="company-name notranslate" translate="no">
-            {COMPANY.name}
-          </div>
-          <div className="doc-title">
-            {tabLabel(tab).toUpperCase()} — {MONTH_NAMES[month]} {year}
-          </div>
+          screen the page's own title and pickers already do (REQUIREMENTS §38). */}
+      <div className="doc-header print-only">
+        <div className="company-name notranslate" translate="no">
+          {COMPANY.name}
         </div>
-      )}
+        <div className="doc-title">
+          {tabLabel(tab).toUpperCase()} — {MONTH_NAMES[month]} {year}
+        </div>
+      </div>
       {tab === "monthly" && <MonthlyReport records={monthRecords} year={year} month={month} />}
       {tab === "summary" && <MonthlySummaryReport isDemo={isDemo} year={year} month={month} />}
       {tab === "daily" && <DailyMonitoringReport isDemo={isDemo} year={year} month={month} />}
-      {tab === "rodent" && <RodentTrendReport isDemo={isDemo} year={year} />}
-      {tab === "lizard" && <LizardTrendReport isDemo={isDemo} year={year} />}
-      {tab === "flycatcher" && <FlyCatcherTrendReport isDemo={isDemo} year={year} month={month} />}
       {tab === "chemical" && <ChemicalUsageReport isDemo={isDemo} year={year} month={month} />}
       {tab === "gap" && <GapStatusReport isDemo={isDemo} />}
       {tab === "training" && <TrainingStatusReport isDemo={isDemo} />}

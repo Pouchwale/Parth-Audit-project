@@ -844,11 +844,8 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
           <FlyCatcherRegisterSheet year={year} month={registerMonth} isDemo={isDemo} onOpenVisit={(r) => navigate(`/record/${r.id}`)} allowEdit />
         </div>
       )}
-      {slug === "rodent" && (
-        <div className="mt-6" data-section="rodent-trend">
-          <RodentTrendReport isDemo={isDemo} year={year} />
-        </div>
-      )}
+      {/* The Rodent Catch Report and Trend Analysis no longer stands under the Rat / Mice visit register: a trend is read
+          on its own page of the Trend Analysis menu and nowhere else (the owner, 6-Nov-2026, REQUIREMENTS §195). */}
     </div>
   );
 }
