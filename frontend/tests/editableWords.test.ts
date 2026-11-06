@@ -37,6 +37,27 @@ test("on a record that can be written on, the same words take the caret, drawn t
   assert.match(notes, /<p class="text-sm" style="white-space:pre-wrap"><span class="editable-words" contenteditable="true"[^>]*><strong>PROCEDURE:<\/strong> weigh it\.<\/span><\/p>/i);
 });
 
+test("every heading and label of a record is typed over in place: the columns, the Sr. No., a group's heading, every box's label (§189)", () => {
+  const sheet = read("frontend", "src", "components", "records", "LogSheetRecordView.tsx");
+  // Kept as the record's own words, the format's until typed over.
+  assert.match(sheet, /const headingWords = \(key: string, own: string\): string => data\.words\?\.headings\?\.\[key\] \?\? own;/);
+  assert.match(sheet, /const setHeadingWords = \(key: string, words: string\) => save\(\{ \.\.\.data, words: \{ \.\.\.data\.words, headings: \{ \.\.\.data\.words\?\.headings, \[key\]: words \} \} \}\);/);
+  assert.match(read("frontend", "src", "types", "record.ts"), /headings\?: Record<string, string>;/);
+  // The column headings on both heading rows, the Sr. No. heading and a group's heading.
+  assert.equal((sheet.match(/shown=\{headingWords\(c\.key, columnHeading\(c\)\)\} editable=\{editable\} onWords=\{\(w\) => setHeadingWords\(c\.key, w\)\}/g) ?? []).length, 2);
+  assert.match(sheet, /<EditableWords shown=\{headingWords\("srNo", layout\.srNoLabel \?\? "Sr\. No\."\)\} editable=\{editable\} onChange=\{\(w\) => setHeadingWords\("srNo", w\)\}/);
+  assert.match(sheet, /<EditableWords shown=\{headingWords\(`group:\$\{run\.group\}`, run\.group\)\} editable=\{editable\} onChange=\{\(w\) => setHeadingWords\(`group:\$\{run\.group\}`, w\)\}/);
+  // A column's heading takes the caret only where the sheet hands it the record's words; drawn as before otherwise.
+  assert.match(sheet, /\{onWords \? \(\n\s+<EditableWords shown=\{shown \?\? own\} editable=\{editable\} onChange=\{onWords\} label=\{`The heading \$\{own\}`\}>/);
+  // Every box above and below the grid: its label, through the same stable handler (the boxes are drawn again only when they change).
+  assert.equal((sheet.match(/labelShown=\{headingWords\(`label:\$\{f\.key\}`, f\.printedLabel \?\? f\.label\)\}\n\s+onLabel=\{onLabel\}/g) ?? []).length, 2, "the header boxes and the footer boxes");
+  assert.match(sheet, /const onLabel = React\.useCallback\(\(key: string, words: string\) => handlers\.current\?\.setHeadingWords\(`label:\$\{key\}`, words\), \[\]\);/);
+  assert.equal((sheet.match(/<label>\{labelWords\(ownLabel\)\}<\/label>/g) ?? []).length, 2, "a printed box's label and a worked-out box's");
+  assert.match(sheet, /\{field\.inSentence \? field\.inSentence\.before : labelWords\(ordinals \? withOrdinals\(ownLabel\) : ownLabel\)\}/);
+  // A label nobody typed over is drawn exactly as before on a record that cannot be written on (EditableWords returns its words).
+  assert.match(sheet, /const typedLabel = labelShown !== undefined && labelShown !== ownLabel \? labelShown : null;/);
+});
+
 test("every place a sheet prints words: a line's printed cell on either grid, the instructions, the text below the grid and at its foot", () => {
   const sheet = read("frontend", "src", "components", "records", "LogSheetRecordView.tsx");
   assert.doesNotMatch(sheet, /editable=\{editable && !(c|col|under)\.fixed/, "a printed cell is no longer locked by being printed");

@@ -11137,3 +11137,48 @@ document in system which i have given to you."
   typed-over cells, the 2025 register as printed), frontend/tests/purchaseMasterLinks.test.ts (F/PUR/03 filled from the
   master column by column).
 
+## §189 Purchase Master Data's headings typed over; the Purchase module downloads and prints whole on A4 (6-Nov-2026)
+
+The owner, 6-Nov-2026, with a picture of Purchase Master Data's heading row: "Make this part also editable and i have
+already told you that it should completely print also in both excel and word so make sure this whole purchase module
+prints perfectly in excel and word and even if we take out print on physical A4 size paper than it should be print
+perfectly on it".
+
+- EVERY HEADING IS TYPED OVER IN PLACE. Purchase Master Data's SR. NO., the two headings over the list and the rating, and
+  every column's heading are typed over where they stand (EditableWords: asked first, kept on "Yes, I am sure", put back
+  on "No", §138), kept on the list for everyone who holds it (purchaseMasterRepository headings) and logged. Emptied, a
+  heading is the list's own again. The sort is a small button of its own beside each heading (⇅, ▲, ▼) and never prints.
+  A heading as typed is what the page, its printout, its Excel and its Word document show, and an upload of that Excel is
+  read by it (engine/purchaseMaster.ts supplierHeaderColumns).
+- EXCEL. The list's workbook is set up to print on A4 (utils/xlsx.ts SheetPage): landscape, one page wide and as many down
+  as it takes, the heading row on every page, the company and the list's name at the top of each page, "Page n of N" at
+  the foot, every cell's words wrapped, and the "Notes to confirm" column left off the paper (the sheet's print area).
+- WORD. "Download Word" gives the list as it prints: landscape A4, its heading, every line the search shows.
+- THE PRINTOUT. The list prints as F/PUR/03's paper does: every cell in a box, in ink; its cells as close as a register's;
+  every value as its words, whole - a name or a phone number is never broken across two lines ("Rajnaraya / n" and
+  "87540139 / 55" were) - and at one size (a long value printed smaller than its neighbours, and the Category, a choice
+  box, at two sizes). Then, from a page of its own, the rating: F/PUR/05's columns, a line per supplier. Measured: the 65
+  suppliers on 3 landscape pages and the rating on 2, at 0.61 of the screen's size (it was 0.44: words 5.5 pt high on 5
+  pages of the list's rows 59 px high, the screen's padding).
+- A SHEET WHOSE EVERY VALUE PRINTS AS WORDS IS FITTED TO THE PAGE BY ITS WORDS (utils/print.ts refitToWords: Purchase
+  Master Data, and F/PUR/03 through LogSheetLayout.printWordsAll). Once the words are written, the narrowest its grid lays
+  out with the print's rules on is brought to the page's width - smaller where it ran over, larger where it had room, never
+  above its own size. Fitted by its typing boxes, the list printed 1,090 px of grid on a 1,032 px page. F/PUR/03's 65
+  lines print on 3 landscape pages (they were 5), every name and number whole.
+- EVERY HEADING AND LABEL OF A RECORD TYPED OVER IN PLACE (the owner, 6-Nov-2026: "make each and everything in all
+  purchase document editable"). On any record that can be written on, the grid's column headings, the Sr. No. heading,
+  the heading over a run of columns and every box's label above and below the grid take the caret where they stand
+  (EditableWords, asked first, §138) and are kept as that record's own words (LogSheetData.words.headings, by the
+  column's key, "srNo", "group:" the group's words, "label:" the box's key); the format and every other record keep
+  theirs, as §135's paragraphs and §188's reference tables do. With §86 (the header block), §135 (every printed line,
+  the instructions, the text below the grid and at its foot), §188 (the worked-out cells, the reference tables) and
+  every written box and cell, nothing on a Purchase record - or any other sheet drawn this way - is fixed. Printed
+  and downloaded as typed (the print and both files read the sheet as drawn).
+- A REGISTER'S "REMOVE THE LINE" COLUMN NEVER PRINTS. On every sheet whose lines can be removed it printed as an empty
+  column at the grid's right edge (seen on F/PUR/03); it is off the paper, and off while print measures the page.
+- Checked: tests/check_all_documents.py on every document (Excel, Word, the printout), and on the list and F/PUR/03 and
+  F/PUR/05 records filled with the whole list; the headings clicked through in the browser (typed over, "No", "Yes, I am
+  sure", reloaded, sorted, downloaded as Excel and Word, printed, emptied). Proved: frontend/tests/purchaseMaster.test.ts
+  (a heading as typed in the download, the upload and the store; the Excel's page setup), frontend/tests/purchasePrint.test.ts
+  (the headings on the page, the downloads, the print's rules and its fit by words, the remove-the-line column); frontend/tests/editableWords.test.ts (every heading and
+  label of a record typed over).

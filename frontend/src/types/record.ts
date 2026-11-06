@@ -157,6 +157,12 @@ export interface SheetWords {
   notesAtFoot?: string[];
   /** A reference table's headings and cells as the record words them, by the table's title (REQUIREMENTS §188). */
   tables?: Record<string, { columns?: string[]; rows?: string[][] }>;
+  /**
+   * The grid's headings and the boxes' labels as the record words them (REQUIREMENTS §189): by the column's key, "srNo"
+   * for the Sr. No. heading, "group:" and a group's words for the heading over a run of columns, "label:" and a box's key
+   * for its label above or below the grid.
+   */
+  headings?: Record<string, string>;
 }
 
 /** A photograph on a log sheet: its own id, the file's name and the picture (a scaled-down JPEG's data URL). */

@@ -197,7 +197,8 @@ test("a box in its column of the line: Date of Inspection stands at the right, t
   assert.deepEqual(paperColumnProps({}), {}, "every other box as it was");
   assert.deepEqual(paperColumnProps({ paperColumn: 1 }), {}, "the first column is where a box stands anyway");
   const html = await sheet("qc-bopp-film");
-  assert.match(html, /<div class="field" data-paper-column="2"><label>Date of Inspection/);
+  // (its label typed over in place on a record that can be written on, REQUIREMENTS §189)
+  assert.match(html, /<div class="field" data-paper-column="2"><label>(?:<span class="editable-words"[^>]*>)?Date of Inspection/);
   assert.equal(html.split("data-paper-column").length - 1, 1, "only the one box the paper puts there");
   const css = readFileSync(path.join(process.cwd(), "frontend", "src", "styles.css"), "utf8");
   assert.match(css, /\.sheet-boxes-paper > \[data-paper-column="2"\] \{ grid-column-start: 2; \}/);
@@ -479,7 +480,7 @@ for (const [id, paper] of Object.entries(INCOMING)) {
     assert.deepEqual(headings(html), ["Sr. No.", ...paper.columns], "the paper's SR. NO., printed in capitals as every heading is");
     assert.deepEqual(boxLabels(html), [...header, ...INCOMING_FOOTER_PRINTED]);
     assert.match(html, /class="grid sheet-boxes-paper"[^>]*data-section="sheet-boxes"[^>]*style="--paper-box-columns:2/);
-    assert.match(html, /<div class="field" data-paper-column="2"><label>Date of Inspection/);
+    assert.match(html, /<div class="field" data-paper-column="2"><label>(?:<span class="editable-words"[^>]*>)?Date of Inspection/);
     const t = text(html);
     for (const [parameter] of paper.rows) assert.ok(t.includes(parameter.replace(/\s+/g, " ")), parameter);
     for (const w of DCRS_WORDS) assert.ok(!w.test(t), `${id}: ${w}`);

@@ -168,7 +168,8 @@ test("signed off, the LOT STATUS line shows the four words with the chosen one m
 test("open for writing, the LOT STATUS line is the choice box it was, and its words are what prints", async () => {
   const html = await sheet("qc-bopp-film");
   const box = boxMarkup(html, 'data-choices-across="lotStatus"');
-  assert.match(box, /^<div class="field field-choices-across is-editable"><label>LOT STATUS<\/label><select class="input input-sm" data-bind="header\/lotStatus"/);
+  // (its label typed over in place on a record that can be written on, REQUIREMENTS §189)
+  assert.match(box, /^<div class="field field-choices-across is-editable"><label>(?:<span class="editable-words"[^>]*>)?LOT STATUS(?:<\/span>)?<\/label><select class="input input-sm" data-bind="header\/lotStatus"/);
   assert.ok(!box.includes("disabled"), "it can be chosen in");
   assert.ok(!box.includes("is-chosen"), "nothing chosen yet");
   // On screen the words wait for the print; in print the choice box gives way to them; signed off, the box is kept off the screen but not out of the page.
@@ -203,9 +204,9 @@ test("each signature box is headed as the paper heads it, with its role printed 
   const html = await sheet("qc-bopp-film");
   assert.match(
     boxMarkup(html, 'data-printed-below="inspectedBy"'),
-    /^<div class="field field-printed-below"><label>INSPECTED BY<\/label><input[^>]*data-bind="header\/inspectedBy"[^>]*\/><span class="box-printed-below" aria-hidden="true" data-printed-below="inspectedBy">QA INSPECTOR<\/span><\/div>/
+    /^<div class="field field-printed-below"><label>(?:<span class="editable-words"[^>]*>)?INSPECTED BY(?:<\/span>)?<\/label><input[^>]*data-bind="header\/inspectedBy"[^>]*\/><span class="box-printed-below" aria-hidden="true" data-printed-below="inspectedBy">QA INSPECTOR<\/span><\/div>/
   );
-  assert.match(boxMarkup(html, 'data-printed-below="approvedBy"'), /<label>APPROVED BY<\/label>[\s\S]*>QA MANAGER<\/span>/);
+  assert.match(boxMarkup(html, 'data-printed-below="approvedBy"'), /<label>(?:<span class="editable-words"[^>]*>)?APPROVED BY(?:<\/span>)?<\/label>[\s\S]*>QA MANAGER<\/span>/);
   // F/QC/25 is its paper's own table (§117 round 2 of 22-Oct-2026): "Testing By" over the box it is signed in, "(QA
   // Inspector)" under it, and "Sign By" over "(QA Manager)" at the right.
   const coa = await sheet("qc-coa-corrugated");
@@ -241,7 +242,7 @@ test("the incoming records and F/QC/36 number their lines '1.', as printed; Flex
 
 test("the '*' of a box that must be written is the screen's mark and does not print", async () => {
   const html = await sheet("qc-bopp-film");
-  assert.match(html, /<label>Date of Inspection<span class="no-print"> \*<\/span><\/label>/);
+  assert.match(html, /<label>(?:<span class="editable-words"[^>]*>)?Date of Inspection(?:<\/span>)?<span class="no-print"> \*<\/span><\/label>/);
   assert.match(css, /\.no-print \{ display: none !important; \}|\.no-print \{ display: none !important/);
   const designer = readFileSync(path.join(root, "frontend", "src", "components", "documents", "SheetDesigner.tsx"), "utf8");
   assert.equal((designer.match(/required \? <span className="no-print"> \*<\/span> : ""/g) ?? []).length, 2, "nor on the format's designer");

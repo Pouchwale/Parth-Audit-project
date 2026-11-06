@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiDownload, FiInfo, FiLock, FiPlus, FiPrinter, FiTrash2, FiUpload } from "react-icons/fi";
+import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiDownload, FiFileText, FiInfo, FiLock, FiPlus, FiPrinter, FiTrash2, FiUpload } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { purchaseMasterRepository } from "../data/repositories/purchaseMasterRepository";
@@ -33,6 +33,8 @@ import {
   supplierRating,
   supplierSheet,
   typedWorked,
+  headingOf,
+  type HeadingKey,
   type RatingKey,
   type SupplierImportPlan,
   type SupplierRating,
@@ -49,6 +51,8 @@ import { formatDisplayDate, todayISO } from "../utils/date";
 import type { ApprovedSupplier, SupplierKey, SupplierValues } from "../types";
 import { useT } from "../i18n";
 import { useProgressiveCount } from "../utils/useProgressive";
+import { EditableWords } from "../components/records/EditableWords";
+import { documentBlocks, wordDocumentFromBlocks } from "../utils/documentExport";
 
 // PURCHASE MASTER DATA (REQUIREMENTS §186) — /purchase/master-data.
 //
@@ -106,6 +110,9 @@ export function PurchaseMasterDataPage() {
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const suppliers = useMemo(() => purchaseMasterRepository.all(), [version]);
+  // The sheet's headings as Purchase typed them over (REQUIREMENTS §189), else the list's own.
+  const headings = useMemo(() => purchaseMasterRepository.headings(), [version]);
+  const head = (key: HeadingKey) => headingOf(key, headings);
   const visible = PURCHASE_DOCUMENT_IDS.some((id) => isDocumentIdVisible(id));
   // "make sure it should be editable every time who has given access" (the owner, 5-Nov-2026): Write on a Purchase
   // document, as the server checks it (backend/accessLevels.ts writesPurchaseMaster); the super admin always.
@@ -246,10 +253,27 @@ export function PurchaseMasterDataPage() {
 
   const exportSheet = () => {
     // F/PUR/03's own columns, SR. NO. first; then the rating; a service provider's six document cells drawn as one, as the list draws them.
-    const { columns, rows, merges } = supplierSheet(suppliers);
-    const bytes = buildXlsx(PURCHASE_MASTER_SHEET_NAME, columns, rows, merges);
+    // Printed from Excel on A4 as the page prints (REQUIREMENTS §189): landscape, one page wide, the heading row on every
+    // page, the company and the list's name at the top, page numbers at the foot; the notes for the screen left off the paper.
+    const { columns, rows, merges } = supplierSheet(suppliers, headings);
+    const bytes = buildXlsx(PURCHASE_MASTER_SHEET_NAME, columns, rows, merges, {
+      landscape: true,
+      fitToWidth: true,
+      repeatHeading: true,
+      header: `${COMPANY.name} — LIST OF APPROVED SUPPLIERS (RM, PM, SERVICE PROVIDER)`,
+      printColumns: columns.length - 1,
+      wrap: true,
+    });
     downloadBlob(`Purchase Master Data - ${PURCHASE_MASTER_SHEET_NAME} ${formatDisplayDate(todayISO())}.xlsx`, new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
     setMessage({ tone: "ok", text: `Downloaded the list as an Excel workbook — ${suppliers.length} line${suppliers.length === 1 ? "" : "s"}.` });
+  };
+
+  // The list as a Word document, as the page prints it (REQUIREMENTS §189): landscape A4, its heading, every line shown.
+  const exportWord = () => {
+    if (!sheetRef.current) return;
+    const bytes = wordDocumentFromBlocks(documentBlocks([sheetRef.current]), undefined, "landscape", { top: 720, right: 567, bottom: 720, left: 567 });
+    downloadBlob(`Purchase Master Data - ${PURCHASE_MASTER_SHEET_NAME} ${formatDisplayDate(todayISO())}.docx`, new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }));
+    setMessage({ tone: "ok", text: `Downloaded the list as a Word document — ${shown.length} line${shown.length === 1 ? "" : "s"}${shown.length === suppliers.length ? "" : " (the lines the search shows)"}.` });
   };
 
   const chooseFile = async (file: File | undefined) => {
@@ -257,7 +281,7 @@ export function PurchaseMasterDataPage() {
     if (!file) return;
     setMessage(null);
     try {
-      const plan = planSupplierImport(await gridOf(file), purchaseMasterRepository.all());
+      const plan = planSupplierImport(await gridOf(file), purchaseMasterRepository.all(), headings);
       if ("error" in plan) setMessage({ tone: "warn", text: `${file.name}: ${plan.error}` });
       else setPending({ fileName: file.name, plan });
     } catch (e) {
@@ -276,13 +300,38 @@ export function PurchaseMasterDataPage() {
 
   const toggleSort = (key: SupplierKey | WorkedKey) => setSort((s) => (s.key !== key ? { key, dir: 1 } : s.dir === 1 ? { key, dir: -1 } : { key: null, dir: 1 }));
 
-  const heading = (key: SupplierKey | WorkedKey, label: string, width: number, title?: string) => (
-    <th key={key} style={{ minWidth: width }} title={title}>
-      <button className="btn btn-ghost btn-sm" style={{ padding: "0 2px", fontWeight: 600, whiteSpace: "normal", textAlign: "left" }} data-sort={key} onClick={() => toggleSort(key)} title="Sort by this column">
-        {label}
-        {sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
+  // A heading typed over (the owner, 6-Nov-2026: "Make this part also editable", REQUIREMENTS §189): kept on the list for
+  // everyone, printed and downloaded as typed; emptied, the list's own heading again.
+  const editHeading = (key: HeadingKey, words: string) => {
+    if (!canEdit) return;
+    const before = head(key);
+    purchaseMasterRepository.setHeading(key, words);
+    logActivity("Purchase Master Data: heading changed", before, words.trim() ? `→ ${words.replace(/\s+/g, " ").trim()}` : "→ the list's own heading");
+    bump();
+  };
+
+  const headingWords = (key: HeadingKey) => (
+    <EditableWords shown={head(key)} editable={canEdit} onChange={(w) => editHeading(key, w)} label={`The heading ${head(key)}`} style={{ whiteSpace: "normal" }}>
+      {head(key)}
+    </EditableWords>
+  );
+
+  // On paper the list and the rating are two tables, as the two papers are (REQUIREMENTS §189): the rating's columns are the
+  // screen's alone here, and print in the table of their own below the list.
+  const heading = (key: SupplierKey | WorkedKey, width: number, title?: string, screenOnly = false) => (
+    // (--col-min: the width for typing in, held on the screen only - styles.css - so the printout's columns are as narrow as their words)
+    <th key={key} className={screenOnly ? "no-print" : undefined} style={{ "--col-min": `${width}px`, fontWeight: 600 } as React.CSSProperties} title={title} data-heading={key}>
+      {headingWords(key)}
+      <button
+        className="btn btn-ghost btn-sm no-print"
+        style={{ padding: "0 3px", marginLeft: 2, fontWeight: 400 }}
+        data-sort={key}
+        onClick={() => toggleSort(key)}
+        title="Sort by this column"
+        aria-label={`Sort by ${head(key)}`}
+      >
+        {sort.key === key ? (sort.dir === 1 ? "▲" : "▼") : "⇅"}
       </button>
-      <span className="print-only">{label}</span>
     </th>
   );
 
@@ -312,7 +361,8 @@ export function PurchaseMasterDataPage() {
     const issues = problems.get(s.id) ?? [];
     const flag = (key: SupplierKey) => {
       const issue = issues.find((i) => i.field === key);
-      return issue ? { className: "cell-out-of-band", title: issue.message } : undefined;
+      // (shaded on the screen only: styles.css .pm-flag)
+      return issue ? { className: "pm-flag", title: issue.message } : undefined;
     };
     const cells: React.ReactNode[] = [];
     for (const c of LIST_COLUMNS) {
@@ -329,8 +379,10 @@ export function PurchaseMasterDataPage() {
         const known = (SUPPLIER_CATEGORIES as readonly string[]).includes(s.category);
         cells.push(
           <td key={c.key}>
+            {/* Printed as its words, at the size of the cells beside it (a choice box printed shrunk to its box, 6-Nov-2026). */}
+            <span className="print-only">{s.category}</span>
             <select
-              className="input input-sm"
+              className="input input-sm no-print"
               data-field="category"
               value={s.category}
               disabled={!canEdit}
@@ -365,7 +417,7 @@ export function PurchaseMasterDataPage() {
           const band = RATING_BANDS[key];
           const issue = issues.find((i) => i.field === key);
           return (
-            <td key={key} className={issue ? "cell-out-of-band" : undefined} title={issue?.message ?? `${band.min} to ${band.max}`}>
+            <td key={key} className={issue ? "cell-out-of-band no-print" : "no-print"} title={issue?.message ?? `${band.min} to ${band.max}`}>
               <input
                 key={`${key}:${s[key]}`}
                 className="input input-sm"
@@ -389,7 +441,7 @@ export function PurchaseMasterDataPage() {
           if (c.key === "grade") {
             const auto = supplierRating({ ...s, grade: "" }).grade;
             return (
-              <td key={c.key} data-worked={c.key} data-typed={typed || undefined} title={typed ? TYPED_TIP : WORKED_TIP} style={{ textAlign: "center" }}>
+              <td key={c.key} className="no-print" data-worked={c.key} data-typed={typed || undefined} title={typed ? TYPED_TIP : WORKED_TIP} style={{ textAlign: "center" }}>
                 {/* The letter alone, A, B or C (the owner, 6-Nov-2026: "it should only written as A"). Choosing the letter the
                     Overall Rating gives leaves it worked out; choosing another stands as typed, shaded. */}
                 <select
@@ -415,7 +467,7 @@ export function PurchaseMasterDataPage() {
           }
           const band = WORKED_BANDS[c.key];
           return (
-            <td key={c.key} data-worked={c.key} data-typed={typed || undefined} title={typed ? TYPED_TIP : WORKED_TIP}>
+            <td key={c.key} className="no-print" data-worked={c.key} data-typed={typed || undefined} title={typed ? TYPED_TIP : WORKED_TIP}>
               <input
                 key={`${c.key}:${s[c.key]}:${r[c.key]}`}
                 className="input input-sm"
@@ -458,6 +510,9 @@ export function PurchaseMasterDataPage() {
           )}
           <button className="btn btn-secondary btn-sm" data-action="purchase-master-export" onClick={exportSheet}>
             <FiDownload size={12} /> Download Excel
+          </button>
+          <button className="btn btn-secondary btn-sm" data-action="purchase-master-export-word" onClick={exportWord}>
+            <FiFileText size={12} /> Download Word
           </button>
           {canEdit && (
             <button className="btn btn-secondary btn-sm" data-action="purchase-master-import" onClick={() => fileRef.current?.click()}>
@@ -583,7 +638,9 @@ export function PurchaseMasterDataPage() {
         ))}
       </datalist>
 
-      <div ref={sheetRef} data-print-doc data-paper="landscape">
+      {/* data-print-flow: every printed page keeps its 12 mm, head and foot (REQUIREMENTS §183, §189; styles.css "Print"). */}
+      {/* No paper of its own: the print fits the list to A4 by its narrowest layout and turns the page as it needs (utils/print.ts). */}
+      <div ref={sheetRef} data-print-doc data-print-flow="" data-print-words="all" data-page-part="purchase-master-print">
         <div className="print-only" style={{ textAlign: "center", marginBottom: 8 }}>
           <div style={{ fontWeight: 700 }}>{COMPANY.name}</div>
           <div style={{ fontWeight: 700 }}>LIST OF APPROVED SUPPLIERS (RM, PM, SERVICE PROVIDER) — F/PUR/03</div>
@@ -593,21 +650,21 @@ export function PurchaseMasterDataPage() {
           <table className="compact" data-table="purchase-master">
             <thead>
               <tr>
-                <th rowSpan={2} style={{ width: 44 }}>
-                  SR. NO.
+                <th rowSpan={2} style={{ width: 44 }} data-heading="srNo">
+                  {headingWords("srNo")}
                 </th>
-                <th colSpan={LIST_COLUMNS.length} style={{ textAlign: "center" }}>
-                  LIST OF APPROVED SUPPLIERS (RM, PM, SERVICE PROVIDER) — F/PUR/03
+                <th colSpan={LIST_COLUMNS.length} style={{ textAlign: "center" }} data-heading="listGroup">
+                  {headingWords("listGroup")}
                 </th>
-                <th colSpan={RATING_COLUMNS.length + WORKED_COLUMNS.length} style={{ textAlign: "center" }} data-group="rating">
-                  RATING — F/PUR/05: X × 50% + Y × 40% + Z × 10%
+                <th colSpan={RATING_COLUMNS.length + WORKED_COLUMNS.length} className="no-print" style={{ textAlign: "center" }} data-group="rating" data-heading="ratingGroup">
+                  {headingWords("ratingGroup")}
                 </th>
                 <th rowSpan={2} className="no-print" style={{ width: 70 }}></th>
               </tr>
               <tr>
-                {LIST_COLUMNS.map((c) => heading(c.key, c.label, c.width))}
-                {RATING_COLUMNS.map((c) => heading(c.key, c.label, c.width, `${RATING_BANDS[c.key as RatingKey].min} to ${RATING_BANDS[c.key as RatingKey].max}; 100 unless changed`))}
-                {WORKED_COLUMNS.map((c) => heading(c.key, c.label, c.width, "Worked out from the ratings — never typed"))}
+                {LIST_COLUMNS.map((c) => heading(c.key, c.width))}
+                {RATING_COLUMNS.map((c) => heading(c.key, c.width, `${RATING_BANDS[c.key as RatingKey].min} to ${RATING_BANDS[c.key as RatingKey].max}; 100 unless changed`, true))}
+                {WORKED_COLUMNS.map((c) => heading(c.key, c.width, "Worked out from the ratings; a figure may be typed over it", true))}
               </tr>
             </thead>
             <tbody>
@@ -672,6 +729,51 @@ export function PurchaseMasterDataPage() {
               })}
             </tbody>
           </table>
+        </div>
+        {/* THE RATING ON PAPER (REQUIREMENTS §189): the second paper, F/PUR/05's columns, a line per supplier of the list. */}
+        <div className="print-only" data-section="purchase-master-rating-print" style={{ breakBefore: "page" }}>
+          <div style={{ textAlign: "center", fontWeight: 700, margin: "0 0 6px" }}>{head("ratingGroup")}</div>
+          <div className="doc-table">
+            <table className="compact" data-table="purchase-master-rating">
+              <thead>
+                <tr>
+                  <th>{head("srNo")}</th>
+                  <th>{head("vendorCode")}</th>
+                  <th>{head("supplierName")}</th>
+                  <th>{head("productService")}</th>
+                  {RATING_COLUMNS.map((c) => (
+                    <th key={c.key}>{head(c.key)}</th>
+                  ))}
+                  {WORKED_COLUMNS.map((c) => (
+                    <th key={c.key}>{head(c.key)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map(({ supplier: s, index }) => {
+                  const r = ratings.get(s.id) ?? supplierRating(s);
+                  return (
+                    <tr key={s.id}>
+                      <td>{index + 1}</td>
+                      <td>{s.vendorCode}</td>
+                      <td>{s.supplierName}</td>
+                      <td>{s.productService}</td>
+                      {RATING_COLUMNS.map((c) => (
+                        <td key={c.key} style={{ textAlign: "right" }}>
+                          {ratingOf(s[c.key])}
+                        </td>
+                      ))}
+                      {WORKED_COLUMNS.map((c) => (
+                        <td key={c.key} style={{ textAlign: c.key === "grade" ? "center" : "right", fontWeight: c.key === "overallRating" || c.key === "grade" ? 700 : undefined }}>
+                          {r[c.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

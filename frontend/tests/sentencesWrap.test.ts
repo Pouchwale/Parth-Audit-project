@@ -66,7 +66,10 @@ test("print writes a value too long for its box as words that wrap, and puts the
   // After the words are made smaller (fitAll), and only then.
   assert.match(print, /fitAll\(docs\);\n(?: {2}\/\/[^\n]*\n)* {2}active\.written\.push\(\.\.\.writeLongBoxesAsWords\(docs\)\);/);
   // The words wrap whatever a date's rule says (inline), and the box comes back with its own display when printing ends.
-  assert.match(print, /whiteSpace: "pre-wrap", overflowWrap: "anywhere", height: "auto", maxHeight: "none", overflow: "visible"/);
+  // (broken anywhere on a sheet whose boxes keep their widths; between words on one whose every value prints as words and
+  // is fitted to the page by them, so a name prints whole - §189)
+  assert.match(print, /const wrap = box\.closest\(EVERY_VALUE_AS_WORDS\) \? "break-word" : "anywhere";/);
+  assert.match(print, /whiteSpace: "pre-wrap", overflowWrap: wrap, height: "auto", maxHeight: "none", overflow: "visible"/);
   assert.match(print, /if \(display !== undefined\) \(box as HTMLElement\)\.style\.display = display;/);
   // Print still measures the page without the screen's zoom (72e8ea9).
   assert.match(print, /removeProperty\("--screen-zoom"\)/);

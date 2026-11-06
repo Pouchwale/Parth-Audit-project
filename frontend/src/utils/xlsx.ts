@@ -151,12 +151,33 @@ export interface SheetMerge {
   to: number;
 }
 
+/** How the sheet prints (REQUIREMENTS §189): on A4, turned and scaled to the paper, its heading row on every page. */
+export interface SheetPage {
+  /** Printed landscape. */
+  landscape?: boolean;
+  /** Scaled to one page wide, as many pages down as it takes. */
+  fitToWidth?: boolean;
+  /** The heading row printed again at the top of every page. */
+  repeatHeading?: boolean;
+  /** Words printed at the top of every page (the company and the list's name). */
+  header?: string;
+  /** Only the first so many columns are printed (a column of notes for the screen left off the paper). */
+  printColumns?: number;
+  /** Every cell's words wrap within its column (the headings too), so the columns can be narrow and the print larger. */
+  wrap?: boolean;
+}
+
+/** Words for an Excel page header or footer: its own "&" doubled. */
+const headerWords = (s: string): string => xmlText(s.replace(/&/g, "&&"));
+
 /** A one-sheet workbook: `rows` hold text, ISO dates in the date columns and figures in the number columns. */
-export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: string[][], merges: SheetMerge[] = []): Uint8Array<ArrayBuffer> {
+export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: string[][], merges: SheetMerge[] = [], page?: SheetPage): Uint8Array<ArrayBuffer> {
   const S_HEADER = 1;
   const S_DATE = 2;
   const S_TEXT = 3;
   const S_DECIMAL = 4;
+  // Words wrapped within the column, set at the top of the cell (SheetPage.wrap): a style's end, with its alignment or without.
+  const xfEnd = page?.wrap ? ' applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' : "/>";
   const lastColumn = columnName(columns.length - 1);
   const lastRow = rows.length + 1;
   const cell = (ref: string, value: string, kind: SheetColumn["kind"] | "header"): string => {
@@ -194,7 +215,12 @@ export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: strin
     [
       "xl/workbook.xml",
       `<workbook xmlns="${MAIN}" xmlns:r="${REL}"><sheets><sheet name="${xmlText(safeSheetName).replace(/"/g, "&quot;")}" sheetId="1" r:id="rId1"/></sheets>` +
-        `<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'${xmlText(safeSheetName).replace(/'/g, "''")}'!$A$1:$${lastColumn}$${lastRow}</definedName></definedNames></workbook>`,
+        `<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'${xmlText(safeSheetName).replace(/'/g, "''")}'!$A$1:$${lastColumn}$${lastRow}</definedName>` +
+        (page?.printColumns
+          ? `<definedName name="_xlnm.Print_Area" localSheetId="0">'${xmlText(safeSheetName).replace(/'/g, "''")}'!$A$1:$${columnName(Math.min(page.printColumns, columns.length) - 1)}$${lastRow}</definedName>`
+          : "") +
+        (page?.repeatHeading ? `<definedName name="_xlnm.Print_Titles" localSheetId="0">'${xmlText(safeSheetName).replace(/'/g, "''")}'!$1:$1</definedName>` : "") +
+        `</definedNames></workbook>`,
     ],
     [
       "xl/_rels/workbook.xml.rels",
@@ -210,11 +236,11 @@ export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: strin
         `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
         `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
         `<cellXfs count="5">` +
-        `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
-        `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` +
-        `<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
-        `<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
-        `<xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
+        `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"${xfEnd}` +
+        `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"${xfEnd}` +
+        `<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"${xfEnd}` +
+        `<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"${xfEnd}` +
+        `<xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"${xfEnd}` +
         `</cellXfs>` +
         `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
         `</styleSheet>`,
@@ -222,6 +248,7 @@ export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: strin
     [
       "xl/worksheets/sheet1.xml",
       `<worksheet xmlns="${MAIN}" xmlns:r="${REL}">` +
+        (page?.fitToWidth ? `<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>` : "") +
         `<dimension ref="A1:${lastColumn}${lastRow}"/>` +
         `<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` +
         `<sheetFormatPr defaultRowHeight="15"/>` +
@@ -231,7 +258,11 @@ export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: strin
         (merges.length > 0
           ? `<mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${columnName(m.from)}${m.row + 2}:${columnName(m.to)}${m.row + 2}"/>`).join("")}</mergeCells>`
           : "") +
-        `<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>` +
+        (page
+          ? `<pageMargins left="0.3" right="0.3" top="0.6" bottom="0.5" header="0.25" footer="0.25"/>` +
+            `<pageSetup paperSize="9" orientation="${page.landscape ? "landscape" : "portrait"}"${page.fitToWidth ? ' fitToWidth="1" fitToHeight="0"' : ""}/>` +
+            `<headerFooter>${page.header ? `<oddHeader>&amp;C&amp;"-,Bold"${headerWords(page.header)}</oddHeader>` : ""}<oddFooter>&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>`
+          : `<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>`) +
         `</worksheet>`,
     ],
   ];

@@ -133,6 +133,8 @@ const WORDS_LINE = 1.15;
 const TWO_LINES = 1.8;
 /** A web form's value is printed as words once it fills this much of its box on the screen. */
 const WEB_FULL = 0.8;
+/** A sheet whose every written value prints as words that wrap in its cell (LogSheetLayout.printWordsAll, REQUIREMENTS §189). */
+const EVERY_VALUE_AS_WORDS = "[data-print-words='all']";
 
 /** A paper form drawn in the paper's millimetres, the same on the screen and on paper (the incoming records, the line clearances, the
  *  calibration papers, the report forms, a paper's own table). Every other sheet is laid out afresh for the page. */
@@ -153,12 +155,14 @@ function writeLongBoxesAsWords(docs: Element[]): Written[] {
         plan.push({ box, size: Math.min(own, Math.max(floor, (own * TWO_LINES * room) / need)), floor, height: box.clientHeight, align });
         // Any other sheet: a value that fills most of its box (written smaller to fit, or nearly full) keeps the size it is
         // written at, and wraps only where the page's box is narrower than the screen's: the printout is as before, uncut.
-      } else if ((need * now) / own > room * WEB_FULL) {
+      } else if (box.closest(EVERY_VALUE_AS_WORDS) || (need * now) / own > room * WEB_FULL) {
         // A date stays on one line, written as small as it needs to be to fit its box (no smaller than the smallest writing).
         // The sheet never grows wider for it (F/MNT/09's week columns ran into the paper's margin): measured on the page below,
         // after every box is written.
         if (ONE_LINE_DATE.test(box.value.trim())) plan.push({ box, size: Math.max(floor, Math.min(now, ((room * own) / need) * 0.97)), floor, height: null, align, oneLine: true });
-        else plan.push({ box, size: now, floor, height: null, align });
+        // A sheet whose every value prints as words writes them at the box's own size: they wrap, so none is printed smaller
+        // than its neighbours for being long (Purchase Master Data's "water-based specialty coatings", 6-Nov-2026).
+        else plan.push({ box, size: box.closest(EVERY_VALUE_AS_WORDS) ? own : now, floor, height: null, align });
       }
     }
   }
@@ -169,7 +173,10 @@ function writeLongBoxesAsWords(docs: Element[]): Written[] {
     text.textContent = box.value;
     // Inline, so that no rule written for a date's one line (its nowrap, a line's height) holds the words to one line - but a
     // date itself is one line, as wide as its box (REQUIREMENTS §183).
-    Object.assign(text.style, { whiteSpace: "pre-wrap", overflowWrap: "anywhere", height: "auto", maxHeight: "none", overflow: "visible", textAlign: align, fontSize: `${size}px` });
+    // On a sheet whose every value prints as words, a word is broken only where it is longer than its whole column: a name or a
+    // phone number prints whole ("Rajnaraya / n", "87540139 / 55" did), the grid fitted to the page by its words (refitToWords).
+    const wrap = box.closest(EVERY_VALUE_AS_WORDS) ? "break-word" : "anywhere";
+    Object.assign(text.style, { whiteSpace: "pre-wrap", overflowWrap: wrap, height: "auto", maxHeight: "none", overflow: "visible", textAlign: align, fontSize: `${size}px` });
     if (oneLine) Object.assign(text.style, { whiteSpace: "nowrap", overflowWrap: "normal" });
     if (height !== null) text.style.lineHeight = String(WORDS_LINE);
     // A date's line takes its cell's width and never widens the cell (no width of its own for the grid to make room for); its
@@ -677,8 +684,43 @@ function scope(targets: Element[]): void {
   fitAll(docs);
   // ...and a value too long for its box even so prints as words that wrap.
   active.written.push(...writeLongBoxesAsWords(docs));
+  // A sheet whose every value prints as words is fitted again by those words (refitToWords).
+  refitToWords(docs);
   // Then a page still short of its foot has its lines drawn taller (FILLING EACH PAGE).
   stretchToPages(docs);
+}
+
+// A SHEET WHOSE EVERY VALUE PRINTS AS WORDS (EVERY_VALUE_AS_WORDS: Purchase Master Data, F/PUR/03; REQUIREMENTS §189) IS
+// FITTED AGAIN ONCE ITS WORDS ARE WRITTEN: the words, not the boxes they stand in for, set how narrow its grid can be laid
+// out. Fitted by its boxes, Purchase Master Data printed 1,090 px of grid on a 1,032 px page, its rows 59 px high
+// (6-Nov-2026). Measured with the words in place and the print's rules on, the sheet is drawn as large as the page's width
+// takes - smaller where it ran over, larger where it had room - and never above its own size.
+function refitToWords(docs: Element[]): void {
+  const landscape = document.documentElement.dataset.printPage === "landscape";
+  const room = PRINTABLE_WIDTH[landscape ? "landscape" : "portrait"] * 0.98;
+  document.documentElement.classList.add("print-measure");
+  try {
+    withPrintRules(() => {
+      for (const d of docs) {
+        const doc = d as HTMLElement;
+        if (!(doc.matches(EVERY_VALUE_AS_WORDS) || doc.querySelector(EVERY_VALUE_AS_WORDS))) continue;
+        if (ownLeftMargin(doc) !== null || isFramed(doc) || pageSections(doc).length > 1) continue;
+        // (measured as drawn, so a zoom's own rounding of the words is caught by the next round)
+        for (let round = 0; round < 3; round++) {
+          const zoom = Number(doc.style.zoom) || 1;
+          const width = narrowestWidth(doc);
+          if (width <= 0) break;
+          const z = Math.min(1, Math.max(SMALLEST_SCALE, Math.floor(((zoom * room) / width) * 1000) / 1000));
+          if (Math.abs(z - zoom) < 0.004) break;
+          doc.style.zoom = String(z);
+          doc.style.setProperty("--print-zoom", String(z));
+          if (!fitted.includes(doc)) fitted.push(doc);
+        }
+      }
+    });
+  } finally {
+    document.documentElement.classList.remove("print-measure");
+  }
 }
 
 /**

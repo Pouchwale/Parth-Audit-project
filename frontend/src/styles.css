@@ -3483,8 +3483,11 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td .cell-text { display: block; min-width: 0; font-size: calc(8.5 * var(--pt)); line-height: 1.2; color: #000; }
 }
 @media print {
-  .paper-sheet[data-paper-form="lineclear"] .pf-remove { display: none; }
+  /* A register's "remove the line" column holds nothing but its button: off the paper on every sheet, not an empty column
+     at the grid's right edge (F/PUR/03's printout, 6-Nov-2026; REQUIREMENTS §189) - and off while print measures the page. */
+  .pf-remove { display: none; }
 }
+html.print-measure .pf-remove { display: none; }
 /* HR-DOCS begin */
 /* THE SERVICE REPORT AS THE CONTRACTOR'S SHEET (REQUIREMENTS §118, the owner, 17-Oct-2026): one printed grid in Calibri,
    the paper's measures (data/seed/serviceReportPaper.ts: 569 px across, so one CSS pixel is one Excel point of the
@@ -4286,6 +4289,35 @@ textarea.input.input-cell-multiline:is(.gap-text, .wrap-text) { min-width: 140px
   [data-print-doc] td input[type="date"]:not(:hover):not(:focus)::-webkit-calendar-picker-indicator { display: none; }
   [data-print-doc] input[list]:not(:hover):not(:focus)::-webkit-calendar-picker-indicator { width: 0; margin: 0; padding: 0; border: 0; opacity: 0; }
 }
+
+/* Purchase Master Data on the screen (REQUIREMENTS §186, §189): a cell the list flags - a re-approval date passed - is shaded
+   for the screen only (the shared .cell-out-of-band's shading is kept even on paper); the paper is the list as it is kept. */
+@media screen {
+  .doc-table table[data-table="purchase-master"] tbody tr td.pm-flag { background: var(--color-warning-bg); }
+  .doc-table table[data-table="purchase-master"] tbody tr td.pm-flag .input { border-color: var(--color-warning); }
+}
+/* Purchase Master Data on paper (REQUIREMENTS §189). Its columns are as narrow as their words (the screen's widths, --col-min,
+   are for typing in and hold on the screen only), so the list prints larger; */
+@media print {
+  [data-page-part="purchase-master-print"] table td .input, [data-page-part="purchase-master-print"] table td select { min-width: 48px; font-size: 11.5px; }
+  [data-page-part="purchase-master-print"] [data-section="purchase-master-rating-print"] { break-before: page; }
+  /* ...its cells as close as a paper register's (the screen's 9 x 10 px kept a printed line 59 px high), its headings a size
+     under its words */
+  [data-page-part="purchase-master-print"] table :is(th, td) { padding: 2px 5px; line-height: 1.2; vertical-align: top; }
+  [data-page-part="purchase-master-print"] table th { font-size: 11px; white-space: normal; vertical-align: bottom; }
+  /* ...every cell in a box, in ink, as F/PUR/03's paper and its record print (the web's frame and hairlines go), every value black */
+  [data-page-part="purchase-master-print"] .doc-table { border: none; border-radius: 0; overflow: visible; }
+  [data-page-part="purchase-master-print"] .doc-table table :is(th, td) { border: 1px solid #000; }
+  [data-page-part="purchase-master-print"] .doc-table table td { color: #000; }
+}
+/* (the same borders while print measures it, as a paper sheet's: html.print-scoped is on only for the length of a print) */
+html.print-scoped [data-page-part="purchase-master-print"] .doc-table table :is(th, td) { border: 1px solid #000; }
+/* ...and measured so while print fits it to A4 (utils/print.ts html.print-measure): fitted at the widths it prints at, not
+   the screen's wider typing widths - measured at those, the list printed at 0.44 of its size, its words 5.5 pt high. */
+html.print-measure [data-page-part="purchase-master-print"] .doc-table table th[style*="--col-min"] { min-width: 0; }
+html.print-measure [data-page-part="purchase-master-print"] table th { font-size: 11px; white-space: normal; }
+html.print-measure [data-page-part="purchase-master-print"] table :is(th, td) { padding: 2px 5px; line-height: 1.2; }
+html.print-measure [data-page-part="purchase-master-print"] table td :is(.input, select) { min-width: 48px; font-size: 11.5px; }
 
 /* A worked-out cell typed over on the record (REQUIREMENTS §188): marked on the screen, plain on paper. */
 @media screen {

@@ -10,7 +10,11 @@
 //   * the re-approval due date the list writes (three years less a day; a year for a service provider) is every seeded line's;
 //   * the download, uploaded back, changes nothing; an upload matches by Vendor Code and PRODUCT / SERVICE, adds a new
 //     supplier at 100, and leaves out a rating outside its band;
-//   * the store: seeded once, a removed seeded line stays removed, an edit is kept.
+//   * the store: seeded once, a removed seeded line stays removed, an edit is kept;
+//   * a heading typed over (the owner, 6-Nov-2026: "Make this part also editable", §189) is printed, downloaded and read
+//     back from an upload as typed, kept on the list through edits and seeding; emptied, the list's own again;
+//   * the Excel prints on A4 as the page does (§189): landscape, one page wide, its heading row on every page, the company
+//     at the top, page numbers at the foot, the screen's notes left off the paper, every cell's words wrapped.
 // Run: npm run test:unit -- purchaseMaster
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -32,10 +36,12 @@ import {
   supplierRating,
   supplierSheet,
   typedWorked,
+  headingOf,
+  supplierHeaderColumns,
 } from "../src/engine/purchaseMaster";
 import { purchaseMasterSeed, PURCHASE_MASTER_SEEDED_BY } from "../src/data/seed/purchaseMasterSeed";
 import { ensureSeeded, purchaseMasterRepository } from "../src/data/repositories/purchaseMasterRepository";
-import { readJSON, storage } from "../src/data/storageAdapter";
+import { readJSON, storage, writeJSON } from "../src/data/storageAdapter";
 import { buildXlsx, isoToSerial, unzip } from "../src/utils/xlsx";
 
 const KEY = "purchaseMasterData";
@@ -293,4 +299,90 @@ test("the store: seeded once and then Purchase's own — an edit kept, a removed
   assert.deepEqual([ks.qualityRating, ks.deliveryRating, supplierRating(ks).overallRating], ["98", "95", "98.70"]);
   assert.equal(purchaseMasterRepository.all().length, 66);
   storage.removeItem(KEY);
+});
+
+test("a heading typed over: printed, downloaded and read back as typed; emptied, the list's own again (§189)", () => {
+  assert.equal(headingOf("srNo"), "SR. NO.");
+  assert.equal(headingOf("supplierName"), "SUPPLIER NAME");
+  assert.match(headingOf("listGroup"), /^LIST OF APPROVED SUPPLIERS \(RM, PM, SERVICE PROVIDER\)/);
+  const headings = { supplierName: "Party", srNo: "S.N.", vendorCode: "   " };
+  assert.equal(headingOf("supplierName", headings), "Party");
+  assert.equal(headingOf("vendorCode", headings), "Vendor Code", "a heading emptied is the list's own");
+
+  const seed = purchaseMasterSeed();
+  const { columns } = supplierSheet(seed, headings);
+  assert.deepEqual(columns.slice(0, 3).map((c) => c.header), ["S.N.", "Vendor Code", "Party"], "the download carries the headings as typed");
+
+  // An upload of that download is read by the headings as typed: "Party" is no heading of the list's own.
+  assert.equal(supplierHeaderColumns(["Vendor Code", "Party"]).supplierName, undefined);
+  assert.deepEqual(supplierHeaderColumns(["Vendor Code", "Party", "PRODUCT / SERVICE"], headings), { vendorCode: 0, supplierName: 1, productService: 2 });
+  const plan = planSupplierImport(
+    [
+      ["S.N.", "Vendor Code", "Party", "PRODUCT / SERVICE", "Delivery Rating (Z)"],
+      ["1", "S0137", "K S Inctech Pvt.Ltd.", "Printing Ink", "95"],
+    ],
+    seed,
+    headings
+  );
+  assert.ok(!("error" in plan));
+  assert.deepEqual([plan.additions.length, plan.updates.length], [0, 1]);
+  assert.deepEqual(plan.updates[0].changes.map((c) => [c.key, c.after]), [["deliveryRating", "95"]]);
+});
+
+test("the store keeps the headings typed over: through an edit, a removal and the seed merged in; emptied, gone (§189)", () => {
+  storage.removeItem(KEY);
+  ensureSeeded();
+  assert.deepEqual(purchaseMasterRepository.headings(), {});
+  purchaseMasterRepository.setHeading("supplierName", "  Party   name ");
+  purchaseMasterRepository.setHeading("listGroup", "APPROVED SUPPLIERS");
+  assert.deepEqual(purchaseMasterRepository.headings(), { supplierName: "Party name", listGroup: "APPROVED SUPPLIERS" });
+  purchaseMasterRepository.update("pur-sup-32", { qualityRating: "99" }, "Chirag Parmar");
+  purchaseMasterRepository.remove("pur-sup-33");
+  // A seeded line missing from the stored list (and never removed) is merged back in: the headings stay.
+  const raw = readJSON<{ suppliers: ApprovedSupplier[] }>(KEY, { suppliers: [] });
+  writeJSON(KEY, { ...raw, suppliers: raw.suppliers.filter((s) => s.id !== "pur-sup-40") });
+  ensureSeeded();
+  assert.ok(purchaseMasterRepository.get("pur-sup-40"), "merged back");
+  assert.equal(purchaseMasterRepository.headings().supplierName, "Party name");
+  purchaseMasterRepository.setHeading("supplierName", " ");
+  assert.deepEqual(purchaseMasterRepository.headings(), { listGroup: "APPROVED SUPPLIERS" });
+  storage.removeItem(KEY);
+});
+
+test("the Excel prints on A4 as the page does: landscape, one page wide, headings on every page, the notes left off (§189)", async () => {
+  const seed = purchaseMasterSeed();
+  const { columns, rows, merges } = supplierSheet(seed);
+  const bytes = buildXlsx("List of Approved Suppliers", columns, rows, merges, {
+    landscape: true,
+    fitToWidth: true,
+    repeatHeading: true,
+    header: "GUJARAT PRINT PACK PUBLICATIONS PVT LTD & CO — LIST OF APPROVED SUPPLIERS",
+    printColumns: columns.length - 1,
+    wrap: true,
+  });
+  const files = await unzip(bytes.slice().buffer);
+  const read = async (name: string) => new TextDecoder().decode(await files.get(name)!());
+  const [sheet, book, styles] = await Promise.all([read("xl/worksheets/sheet1.xml"), read("xl/workbook.xml"), read("xl/styles.xml")]);
+  const last = rows.length + 1;
+  // (Excel's column letters: the 27th is AA)
+  const letters = (n: number): string => (n > 26 ? letters(Math.floor((n - 1) / 26)) : "") + String.fromCharCode(65 + ((n - 1) % 26));
+  const lastPrinted = letters(columns.length - 1);
+  assert.equal(letters(27), "AA");
+  assert.equal(columns[columns.length - 1].header, "Notes to confirm");
+  assert.ok(sheet.startsWith('<?xml') || sheet.includes("<worksheet"), "a worksheet");
+  assert.ok(sheet.includes('<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension'), "scaled to the page, sheetPr first as Excel requires");
+  assert.ok(sheet.includes('<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>'), "A4, landscape, one page wide");
+  assert.ok(sheet.includes('<oddHeader>&amp;C&amp;"-,Bold"GUJARAT PRINT PACK PUBLICATIONS PVT LTD &amp;&amp; CO — LIST OF APPROVED SUPPLIERS</oddHeader>'), "the company at the top, its & doubled");
+  assert.ok(sheet.includes("<oddFooter>&amp;RPage &amp;P of &amp;N</oddFooter>"), "page numbers at the foot");
+  assert.ok(sheet.indexOf("<pageMargins") < sheet.indexOf("<pageSetup") && sheet.indexOf("<pageSetup") < sheet.indexOf("<headerFooter"), "in the order Excel requires");
+  assert.ok(book.includes(`<definedName name="_xlnm.Print_Area" localSheetId="0">'List of Approved Suppliers'!$A$1:$${lastPrinted}$${last}</definedName>`), "the notes left off the paper");
+  assert.ok(book.includes(`<definedName name="_xlnm.Print_Titles" localSheetId="0">'List of Approved Suppliers'!$1:$1</definedName>`), "the heading row on every page");
+  // Every cell's words wrap; each style closed once, as XML must be.
+  assert.equal((styles.match(/<alignment wrapText="1" vertical="top"\/>/g) ?? []).length, 5);
+  assert.equal((styles.match(/<xf /g) ?? []).length - 1, (styles.match(/<\/xf>/g) ?? []).length, "every cell style closed (the one cellStyleXfs style self-closed)");
+  assert.ok(!styles.includes("</xf/>"));
+
+  // Without a page setup, the workbook is as before.
+  const plain = new TextDecoder().decode(await (await unzip(buildXlsx("S", columns, rows, merges).slice().buffer)).get("xl/worksheets/sheet1.xml")!());
+  assert.ok(!plain.includes("<pageSetup") && !plain.includes("<sheetPr>") && plain.includes('<pageMargins left="0.7"'));
 });

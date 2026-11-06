@@ -17,6 +17,8 @@ interface Store {
   removedSeedIds: string[];
   /** Every line removed — so a copy merged with someone else's never brings one back (data/serverSync.ts). */
   removedIds?: string[];
+  /** The sheet's headings as Purchase typed them over, by column (REQUIREMENTS §189); a heading not here is the list's own. */
+  headings?: Record<string, string>;
 }
 
 let seedIds: Set<string> | null = null;
@@ -26,7 +28,12 @@ const isSeedId = (id: string) => (seedIds ??= new Set(purchaseMasterSeed().map((
 function load(): Store {
   const raw = readJSONCached<Store | null>(KEY, null);
   if (!raw || !Array.isArray(raw.suppliers)) return { suppliers: purchaseMasterSeed(), removedSeedIds: [], removedIds: [] };
-  return { suppliers: raw.suppliers.map((s) => ({ ...blankSupplierValues(), ...s })), removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] };
+  return {
+    suppliers: raw.suppliers.map((s) => ({ ...blankSupplierValues(), ...s })),
+    removedSeedIds: raw.removedSeedIds ?? [],
+    removedIds: raw.removedIds ?? [],
+    headings: raw.headings ?? {},
+  };
 }
 
 function save(store: Store): boolean {
@@ -43,7 +50,7 @@ export function ensureSeeded(): void {
   const ids = new Set(raw.suppliers.map((s) => s.id));
   const gone = new Set([...(raw.removedSeedIds ?? []), ...(raw.removedIds ?? [])]);
   const additions = purchaseMasterSeed().filter((s) => !ids.has(s.id) && !gone.has(s.id));
-  if (additions.length > 0) save({ suppliers: [...raw.suppliers, ...additions], removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] });
+  if (additions.length > 0) save({ ...raw, suppliers: [...raw.suppliers, ...additions], removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] });
 }
 
 const clean = (values: Partial<SupplierValues>): Partial<SupplierValues> =>
@@ -82,7 +89,7 @@ export const purchaseMasterRepository = {
   remove(id: string): void {
     const store = load();
     const removedSeedIds = isSeedId(id) && !store.removedSeedIds.includes(id) ? [...store.removedSeedIds, id] : store.removedSeedIds;
-    save({ suppliers: store.suppliers.filter((s) => s.id !== id), removedSeedIds, removedIds: [...(store.removedIds ?? []), id] });
+    save({ ...store, suppliers: store.suppliers.filter((s) => s.id !== id), removedSeedIds, removedIds: [...(store.removedIds ?? []), id] });
   },
 
   /** Carries out an upload the person has looked over (engine/purchaseMaster.ts planSupplierImport). One save. */
@@ -102,5 +109,20 @@ export const purchaseMasterRepository = {
 
   isSeeded(id: string): boolean {
     return isSeedId(id);
+  },
+
+  /** The sheet's headings as Purchase typed them over (REQUIREMENTS §189). */
+  headings(): Record<string, string> {
+    return load().headings ?? {};
+  },
+
+  /** A heading typed over; emptied, the list's own heading again. */
+  setHeading(key: string, text: string): void {
+    const store = load();
+    const headings = { ...(store.headings ?? {}) };
+    const words = text.replace(/\s+/g, " ").trim();
+    if (words) headings[key] = words;
+    else delete headings[key];
+    save({ ...store, headings });
   },
 };

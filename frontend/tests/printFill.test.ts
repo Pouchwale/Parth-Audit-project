@@ -67,7 +67,8 @@ test("each page filled: a sheet's own pages drawn bigger one by one, then a shor
   assert.match(print, /const ITEM_MAX_MM = 14;/);
   assert.match(print, /if \(sections\.length > 1\) fillSections\(doc, sections, zoom, room, landscape\);/, "a sheet of pages: each page drawn bigger");
   assert.match(print, /const grown = fillMeasured\(doc, zoom, narrowestWidth\(sec\), across, landscape, sec\);/, "each page by its own height and its own tables' width");
-  assert.match(print, /active\.written\.push\(\.\.\.writeLongBoxesAsWords\(docs\)\);\n {2}\/\/ [^\n]*\n {2}stretchToPages\(docs\);\n\}/, "last of all, after every box is written for the print");
+  // (a sheet whose every value prints as words fitted again by them first - §189 refitToWords - so its pages are measured as drawn)
+  assert.match(print, /active\.written\.push\(\.\.\.writeLongBoxesAsWords\(docs\)\);\n {2}\/\/ [^\n]*\n {2}refitToWords\(docs\);\n {2}\/\/ [^\n]*\n {2}stretchToPages\(docs\);\n\}/, "last of all, after every box is written for the print");
   assert.match(print, /if \(!ownMake\(doc\) \|\| ownLeftMargin\(doc\) !== null \|\| isFramed\(doc\)\) continue;/, "a sheet drawn to its paper is drawn as its paper");
   assert.match(print, /if \(stretched\.length > from && share\(\) > FILL_TO\) \{/, "a page that would run onto a second one is put back as it was");
   assert.match(print, /for \(const s of stretched\.reverse\(\)\) s\.el\.style\[s\.prop\] = s\.was;/, "and after printing, the screen is as it was");

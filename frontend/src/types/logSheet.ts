@@ -646,6 +646,12 @@ export interface LogSheetLayout {
    * AGREEMENT" across. Every other line draws them one by one.
    */
   lineMerges?: { whenKey: string; whenValue: string; from: string; to: string }[];
+  /**
+   * EVERY WRITTEN VALUE PRINTED AS WORDS THAT WRAP IN ITS CELL (REQUIREMENTS §189): a grid of many columns, whose cells are
+   * narrower on A4 than on the screen - F/PUR/03's eighteen - printed a supplier's name cut at its cell's edge where it had
+   * fitted on the screen. Every other sheet prints a value as words only where it fills most of its box (utils/print.ts).
+   */
+  printWordsAll?: boolean;
   // "Typical" example rows taken from the filled specimen, used by the
   // assistant when there is no previous record to carry forward from.
   specimenRows?: Record<string, string | number | null>[];

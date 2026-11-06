@@ -179,9 +179,12 @@ export function LogSheetRecordView({
     fillFromSupplier: (rowId: string | null, value: string) => void;
     fillFromTraining: (value: string) => void;
     removeRow: (rowId: string) => void;
+    setHeadingWords: (key: string, words: string) => void;
   } | null>(null);
   const onCell = React.useCallback((rowId: string, key: string, value: string | number | null) => handlers.current?.setCell(rowId, key, value), []);
   const onBox = React.useCallback((key: string, value: string) => handlers.current?.setHeader(key, value), []);
+  // A box's label typed over (REQUIREMENTS §189): kept as the record's own words for it.
+  const onLabel = React.useCallback((key: string, words: string) => handlers.current?.setHeadingWords(`label:${key}`, words), []);
   const onPersonBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromName(rowId, value), []);
   const onMachineBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromMachine(rowId, value), []);
   const onSupplierBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromSupplier(rowId, value), []);
@@ -433,7 +436,12 @@ export function LogSheetRecordView({
     if (fills.length > 0) save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(current, fills) : r)) });
   };
   // What the stable handlers above forward to: this render's, which hold this render's data.
-  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, fillFromSupplier, fillFromTraining, removeRow };
+  // A HEADING OR A BOX'S LABEL AS THIS RECORD WORDS IT (REQUIREMENTS §189; the owner, 6-Nov-2026: "each and everything in
+  // all purchase document editable"): a column's heading, the Sr. No. heading, the heading over a run of columns and every
+  // box's label above or below the grid are typed over where they stand (EditableWords, asked first), the format's until then.
+  const headingWords = (key: string, own: string): string => data.words?.headings?.[key] ?? own;
+  const setHeadingWords = (key: string, words: string) => save({ ...data, words: { ...data.words, headings: { ...data.words?.headings, [key]: words } } });
+  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, fillFromSupplier, fillFromTraining, removeRow, setHeadingWords };
 
   // One box above the grid: a person's or a machine's box offers the people or the machines it can be filled from.
   // `inTable`: a cell of the paper's table of boxes (boxTable, REQUIREMENTS §111), headed by the table's words.
@@ -456,6 +464,8 @@ export function LogSheetRecordView({
         inTable={inTable}
         outOfBand={boxOutOfBand(f, data.header)}
         ordinals={!!pf}
+        labelShown={headingWords(`label:${f.key}`, f.printedLabel ?? f.label)}
+        onLabel={onLabel}
       />
     );
   };
@@ -472,6 +482,8 @@ export function LogSheetRecordView({
       list={lists?.[f.key] ?? f.list}
       inTable={inTable}
       outOfBand={boxOutOfBand(f, data.header)}
+      labelShown={headingWords(`label:${f.key}`, f.printedLabel ?? f.label)}
+      onLabel={onLabel}
     />
   );
   // The printed tables offered behind "Show" above the sheet: all but those the paper prints in a place of their
@@ -938,6 +950,7 @@ export function LogSheetRecordView({
       translate={asIssued ? "no" : undefined}
       data-bind-record={record.id}
       data-paper={layout.paper ?? (frame ? "portrait" : lc ? "landscape" : undefined)}
+      data-print-words={layout.printWordsAll ? "all" : undefined}
       data-paper-left={cal ? cal.left : undefined}
       data-frame={frame ? "" : undefined}
       data-sheet={doc.id}
@@ -1164,8 +1177,10 @@ export function LogSheetRecordView({
             <tr style={paperRowStyle(gridRowHeight(0))}>
               {numbered && (
                 <th style={gridCols ? undefined : { width: layout.srNoShowsDate ? 96 : 44 }} rowSpan={headRows}>
-                  {/* "SR NO" on F-QC-40.C, nothing over F/QC/30's numbered points (REQUIREMENTS §111). */}
-                  {layout.srNoLabel ?? "Sr. No."}
+                  {/* "SR NO" on F-QC-40.C, nothing over F/QC/30's numbered points (REQUIREMENTS §111); typed over on the record (§189). */}
+                  <EditableWords shown={headingWords("srNo", layout.srNoLabel ?? "Sr. No.")} editable={editable} onChange={(w) => setHeadingWords("srNo", w)} label="The Sr. No. heading">
+                    {headingWords("srNo", layout.srNoLabel ?? "Sr. No.")}
+                  </EditableWords>
                 </th>
               )}
               {/* A run of columns the paper draws under ONE spanning heading gets
@@ -1174,10 +1189,14 @@ export function LogSheetRecordView({
               {headRuns.map((run, ri) => (
                 <React.Fragment key={`${run.group ?? "column"}-${ri}`}>
                   {run.group === undefined ? (
-                    run.columns.map((c) => <ColumnHead key={c.key} col={c} rowSpan={headRows} bound={freeRows} paper={!!gridCols} />)
+                    run.columns.map((c) => (
+                      <ColumnHead key={c.key} col={c} rowSpan={headRows} bound={freeRows} paper={!!gridCols} shown={headingWords(c.key, columnHeading(c))} editable={editable} onWords={(w) => setHeadingWords(c.key, w)} />
+                    ))
                   ) : (
                     <th className="col-group" colSpan={run.columns.length} rowSpan={headless(run) ? headRows : undefined} data-group-alone={headless(run) ? "" : undefined}>
-                      {run.group}
+                      <EditableWords shown={headingWords(`group:${run.group}`, run.group)} editable={editable} onChange={(w) => setHeadingWords(`group:${run.group}`, w)} label={`The heading ${run.group}`}>
+                        {headingWords(`group:${run.group}`, run.group)}
+                      </EditableWords>
                     </th>
                   )}
                 </React.Fragment>
@@ -1190,7 +1209,7 @@ export function LogSheetRecordView({
                   .filter((run) => run.group !== undefined && !headless(run))
                   .flatMap((run) => run.columns)
                   .map((c) => (
-                    <ColumnHead key={c.key} col={c} bound={freeRows} />
+                    <ColumnHead key={c.key} col={c} bound={freeRows} shown={headingWords(c.key, columnHeading(c))} editable={editable} onWords={(w) => setHeadingWords(c.key, w)} />
                   ))}
               </tr>
             )}
@@ -1541,6 +1560,9 @@ function ColumnHead({
   colSpan,
   bound,
   paper,
+  shown,
+  editable = false,
+  onWords,
 }: {
   col: LogColumn;
   rowSpan?: number;
@@ -1550,8 +1572,15 @@ function ColumnHead({
   colSpan?: number;
   /** A free-row sheet's heading names the box of a line it holds (REQUIREMENTS §81). */
   bound?: boolean;
+  /** The heading as the record words it (REQUIREMENTS §189), typed over where it stands when `onWords` is given. */
+  shown?: string;
+  editable?: boolean;
+  onWords?: (words: string) => void;
 }) {
   const b = bound ? logColumnBind(col) : null;
+  const own = columnHeading(col);
+  // The paper's own heading, "" where it prints none (F/QC/25's descriptions, REQUIREMENTS §111); the record's own words once typed over.
+  const heading = paper && /^Line Clearance\*/.test(own) ? underlinedLead(own, /^Line Clearance\*/) : (shown ?? own);
   return (
     <th
       {...(b ? bindColAttrs(b.key, b.type, b.options) : undefined)}
@@ -1563,8 +1592,13 @@ function ColumnHead({
       colSpan={colSpan}
       title={col.nominal !== undefined ? `Nominal ${col.nominal}${col.unit ? " " + col.unit : ""}; band ${col.min}–${col.max}` : undefined}
     >
-      {/* The paper's own heading, "" where it prints none (F/QC/25's descriptions, REQUIREMENTS §111). */}
-      {paper && /^Line Clearance\*/.test(columnHeading(col)) ? underlinedLead(columnHeading(col), /^Line Clearance\*/) : columnHeading(col)}
+      {onWords ? (
+        <EditableWords shown={shown ?? own} editable={editable} onChange={onWords} label={`The heading ${own}`}>
+          {heading}
+        </EditableWords>
+      ) : (
+        heading
+      )}
     </th>
   );
 }
@@ -2360,6 +2394,8 @@ const SheetBox = React.memo(function SheetBox({
   inTable,
   outOfBand,
   ordinals,
+  labelShown,
+  onLabel,
 }: {
   field: LogHeaderField;
   issuedLabel: string;
@@ -2376,6 +2412,9 @@ const SheetBox = React.memo(function SheetBox({
   outOfBand?: boolean;
   /** The paper sets "1st", "2nd" as small raised letters (a paper form's boxes). */
   ordinals?: boolean;
+  /** The label as the record words it, typed over where it stands (REQUIREMENTS §189). */
+  labelShown?: string;
+  onLabel?: (key: string, words: string) => void;
 }) {
   return (
     <HeaderFieldInput
@@ -2390,6 +2429,8 @@ const SheetBox = React.memo(function SheetBox({
       inTable={inTable}
       outOfBand={outOfBand}
       ordinals={ordinals}
+      labelShown={labelShown}
+      onLabel={onLabel ? (w) => onLabel(field.key, w) : undefined}
     />
   );
 });
@@ -2406,6 +2447,8 @@ function HeaderFieldInput({
   inTable = false,
   outOfBand = false,
   ordinals = false,
+  labelShown,
+  onLabel,
 }: {
   field: LogHeaderField;
   /** The label AS ISSUED — which boxes offer the employee list cannot depend on the language being read (REQUIREMENTS §58). */
@@ -2423,7 +2466,22 @@ function HeaderFieldInput({
   outOfBand?: boolean;
   /** The paper sets "1st", "2nd" as small raised letters (a paper form's boxes). */
   ordinals?: boolean;
+  /** The label as the record words it (REQUIREMENTS §189): typed over where it stands when `onLabel` is given. */
+  labelShown?: string;
+  onLabel?: (words: string) => void;
 }) {
+  // THE LABEL AS THIS RECORD WORDS IT (REQUIREMENTS §189): the paper's label (set as the paper sets it) until typed over;
+  // on a record that can be written on, the words take the caret where they stand, asked first.
+  const ownLabel = field.printedLabel ?? field.label;
+  const typedLabel = labelShown !== undefined && labelShown !== ownLabel ? labelShown : null;
+  const labelWords = (drawn: React.ReactNode): React.ReactNode =>
+    onLabel ? (
+      <EditableWords shown={labelShown ?? ownLabel} editable={editable} onChange={onLabel} label={`The label ${ownLabel}`}>
+        {typedLabel ?? drawn}
+      </EditableWords>
+    ) : (
+      (typedLabel ?? drawn)
+    );
   // A CELL OF THE PAPER'S TABLE OF BOXES (REQUIREMENTS §111) — F/QC/06's LABEL STOCK — is headed by the
   // table's own words, so it draws no label of its own: its name is what a screen reader says. Every other
   // box stands under its label, in its column of the line where the paper puts it there (paperColumn).
@@ -2468,7 +2526,7 @@ function HeaderFieldInput({
   if (isPrintedBox(field)) {
     return box(
       "field",
-      <label>{field.printedLabel ?? field.label}</label>,
+      <label>{labelWords(ownLabel)}</label>,
       <span className="cell-text notranslate" translate="no" data-printed={field.key}>
         {field.printed}
       </span>
@@ -2479,7 +2537,7 @@ function HeaderFieldInput({
   if (field.computed) {
     return box(
       "field",
-      <label>{field.printedLabel ?? field.label}</label>,
+      <label>{labelWords(ownLabel)}</label>,
       <span className="cell-text notranslate" translate="no" data-computed={field.key}>
         {value}
       </span>
@@ -2490,7 +2548,7 @@ function HeaderFieldInput({
   const required = field.required ? <span className="no-print"> *</span> : null;
   const label = (
     <label>
-      {field.inSentence ? field.inSentence.before : ordinals ? withOrdinals(field.printedLabel ?? field.label) : (field.printedLabel ?? field.label)}
+      {field.inSentence ? field.inSentence.before : labelWords(ordinals ? withOrdinals(ownLabel) : ownLabel)}
       {required}
     </label>
   );

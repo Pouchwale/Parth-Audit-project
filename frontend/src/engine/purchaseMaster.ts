@@ -141,6 +141,24 @@ const LABELS: Record<SupplierKey, string> = {
 /** A column's heading — "Quality Rating (Y)". */
 export const supplierColumnLabel = (key: SupplierKey): string => LABELS[key] ?? key;
 
+// THE SHEET'S HEADINGS ARE PURCHASE'S TO TYPE OVER (the owner, 6-Nov-2026, of the heading row: "Make this part also
+// editable", REQUIREMENTS §189): every column's, the SR. NO., and the two headings over the list and the rating. A heading
+// typed over is kept on the list for everyone, printed and downloaded as typed, and read back from an upload.
+export type HeadingKey = SupplierKey | "srNo" | "listGroup" | "ratingGroup";
+
+const OWN_HEADINGS: Record<"srNo" | "listGroup" | "ratingGroup", string> = {
+  srNo: "SR. NO.",
+  listGroup: "LIST OF APPROVED SUPPLIERS (RM, PM, SERVICE PROVIDER) — F/PUR/03",
+  ratingGroup: "RATING — F/PUR/05: X × 50% + Y × 40% + Z × 10%",
+};
+
+/** A heading as the sheet prints it: as typed over, or the list's own. */
+export function headingOf(key: HeadingKey, headings: Record<string, string> = {}): string {
+  const typed = String(headings[key] ?? "").trim();
+  if (typed) return typed;
+  return key in OWN_HEADINGS ? OWN_HEADINGS[key as keyof typeof OWN_HEADINGS] : supplierColumnLabel(key as SupplierKey);
+}
+
 /** A blank line: every cell empty but the three ratings, which start full; the worked-out figures blank, so worked out. */
 export function blankSupplierValues(): SupplierValues {
   const out = Object.fromEntries([...IMPORT_KEYS, ...WORKED_KEYS].map((k) => [k, ""])) as SupplierValues;
@@ -259,13 +277,14 @@ export function supplierProblems(s: SupplierValues, today = todayISO()): Supplie
  * the weightages with their two decimals), and the notes to confirm. A service provider's six document cells are one
  * merged cell holding its words, as the list draws them. Uploaded back, it changes nothing (planSupplierImport).
  */
-export function supplierSheet(suppliers: ApprovedSupplier[]): { columns: SheetColumn[]; rows: string[][]; merges: SheetMerge[] } {
+export function supplierSheet(suppliers: ApprovedSupplier[], headings: Record<string, string> = {}): { columns: SheetColumn[]; rows: string[][]; merges: SheetMerge[] } {
   const columns: SheetColumn[] = [
-    { header: "SR. NO.", kind: "number", width: 7 },
-    ...LIST_COLUMNS.map((c): SheetColumn => ({ header: c.label, kind: c.kind === "date" ? "date" : "text", width: Math.max(8, Math.round(c.width / 7)) })),
-    ...RATING_COLUMNS.map((c): SheetColumn => ({ header: c.label, kind: "number", width: 12 })),
-    ...WORKED_COLUMNS.map((c): SheetColumn => ({ header: c.label, kind: c.key === "grade" ? "text" : "decimal", width: c.key === "grade" ? 7 : 13 })),
-    { header: "Notes to confirm", kind: "text", width: 60 },
+    // Columns a little narrower than the screen's, their words wrapped (the download wraps them, REQUIREMENTS §189).
+    { header: headingOf("srNo", headings), kind: "number", width: 5 },
+    ...LIST_COLUMNS.map((c): SheetColumn => ({ header: headingOf(c.key, headings), kind: c.kind === "date" ? "date" : "text", width: Math.max(7, Math.round(c.width / 9.5)) })),
+    ...RATING_COLUMNS.map((c): SheetColumn => ({ header: headingOf(c.key, headings), kind: "number", width: 8 })),
+    ...WORKED_COLUMNS.map((c): SheetColumn => ({ header: headingOf(c.key, headings), kind: c.key === "grade" ? "text" : "decimal", width: c.key === "grade" ? 6 : 9 })),
+    { header: "Notes to confirm", kind: "text", width: 50 },
   ];
   const firstDocument = 1 + LIST_COLUMNS.findIndex((c) => c.key === DOCUMENT_KEYS[0]);
   const merges: SheetMerge[] = [];
@@ -319,14 +338,15 @@ const headerText = (cell: unknown) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** Which column of a heading row holds which cell of the sheet. */
-export function supplierHeaderColumns(cells: string[]): Partial<Record<SupplierKey, number>> {
+/** Which column of a heading row holds which cell of the sheet: by the list's headings, or as Purchase typed them over (§189). */
+export function supplierHeaderColumns(cells: string[], headings: Record<string, string> = {}): Partial<Record<SupplierKey, number>> {
   const out: Partial<Record<SupplierKey, number>> = {};
   cells.forEach((cell, i) => {
     const text = headerText(cell);
     if (!text) return;
     for (const key of IMPORT_KEYS) {
-      if (out[key] === undefined && HEADER_ALIASES[key]?.test(text)) {
+      const typed = String(headings[key] ?? "").trim();
+      if (out[key] === undefined && ((typed && sameText(cell, typed)) || HEADER_ALIASES[key]?.test(text))) {
         out[key] = i;
         break;
       }
@@ -377,11 +397,11 @@ const isAnswer = (v: string) => /^(?:yes|no|na|n\/a|-)$/i.test(v.trim());
  * line's filled cells update it and a blank cell leaves what the sheet has; anything else with a SUPPLIER NAME is added,
  * its ratings full unless the file gives them. A rating outside its band is left out and said so.
  */
-export function planSupplierImport(grid: string[][], suppliers: ApprovedSupplier[]): SupplierImportPlan | { error: string } {
+export function planSupplierImport(grid: string[][], suppliers: ApprovedSupplier[], headings: Record<string, string> = {}): SupplierImportPlan | { error: string } {
   let headerIndex = -1;
   let map: Partial<Record<SupplierKey, number>> = {};
   for (let i = 0; i < Math.min(grid.length, 30); i++) {
-    const found = supplierHeaderColumns(grid[i] ?? []);
+    const found = supplierHeaderColumns(grid[i] ?? [], headings);
     if (found.supplierName !== undefined && Object.keys(found).length >= 2) {
       headerIndex = i;
       map = found;

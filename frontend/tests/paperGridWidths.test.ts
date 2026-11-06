@@ -190,7 +190,8 @@ test("F/QC/01 with a column added draws five columns on its paper, none of them 
     assert.equal(w.length, 5, `${w.join(", ")}`);
     assert.ok(w.every((x) => x > 10), `every column has a width: ${w.join(", ")}`);
     assert.ok(near(sum(w), sum(F_QC_01)), `the paper's width: ${sum(w)} mm`);
-    assert.match(html, /<th[^>]*>Batch No\.<\/th>/, "the new column's heading");
+    // (typed over in place on a record that can be written on, REQUIREMENTS §189)
+    assert.match(html, /<th[^>]*>(?:<span class="editable-words"[^>]*>)?Batch No\.(?:<\/span>)?<\/th>/, "the new column's heading");
     const cells = firstLineCells(html);
     assert.equal(cells.length, 5);
     assert.match(cells[4], /<input[^>]*data-bind="rows\/@[^"]+\/batchNo/, "a box to write in on the first line, in the new column");

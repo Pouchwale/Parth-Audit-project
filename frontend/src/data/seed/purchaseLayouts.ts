@@ -435,6 +435,9 @@ const approvedSuppliers: LogSheetLayout = {
   ],
   // A service provider's line: its six document cells are one, as the list draws them.
   lineMerges: [{ whenKey: "category", whenValue: "SERVICE PROVIDER", from: "srf", to: "isoCertificate" }],
+  // Its eighteen columns are narrow on A4 (the print turns the page to landscape for them): every name wraps in its cell,
+  // never cut (§189).
+  printWordsAll: true,
   // Seven rows on a new sheet; the list grows as suppliers are approved (65 on Purchase Master Data).
   rowMode: { kind: "free", minRows: 1, typicalRows: 7 },
   // The list's own first lines (Sr. No. 32 to 38 of the pages supplied), as specimen.
