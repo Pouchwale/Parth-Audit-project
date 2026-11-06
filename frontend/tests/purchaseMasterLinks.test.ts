@@ -10,6 +10,8 @@
 // Run: npm run test:unit -- purchaseMasterLinks
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import type { ApprovedSupplier, LogSheetData, LogSheetRow } from "../src/types";
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { purchaseMasterSeed } from "../src/data/seed/purchaseMasterSeed";
@@ -178,6 +180,18 @@ test("F/PUR/05: the material suppliers with their X / Y / Z, a figure typed over
   const low = { ...line("pur-sup-55"), deliveryRating: "70", qualityRating: "97", productSafetyRating: "80" };
   assert.deepEqual(serviceRatings50(low), { delivery: 35, quality: 44 });
   assert.deepEqual([supplierValue(low, "serviceDelivery50"), supplierValue(low, "serviceQuality50"), supplierValue(low, "serviceStatus")], ["35", "44", ""]);
+});
+
+test("a register the schedule made blank is written from the list too: when New opens it still Due, and when an empty one is opened for writing (§190)", () => {
+  const read = (...p: string[]) => readFileSync(path.join(process.env.DCRS_REPO_ROOT ?? process.cwd(), ...p), "utf8").replace(/\r\n/g, "\n");
+  const crud = read("frontend", "src", "engine", "recordCrud.ts");
+  assert.match(crud, /const fromMaster = !!supplierLinkFor\(doc\.id\)\?\.all;\n\s+if \(!layout \|\| !\(layout\.carryForwardAll \|\| fromMaster\) \|\| rec\.status !== "Due" \|\| rec\.prepared\) return rec;/, "New on the period's blank sheet");
+  assert.match(crud, /const fromMaster = startRegisterFromMaster\(doc\.id, blank as LogSheetData, \(\) => blankLogRow\(layout\)\);\n\s+return fromMaster === blank \? blank : withComputedCells\(doc\.id, fromMaster\);/, "a sheet started by hand");
+  const view = read("frontend", "src", "components", "records", "LogSheetRecordView.tsx");
+  assert.match(view, /if \(!supFetching \|\| !supLink\?\.all \|\| !layout \|\| fromMasterOnce\.current === record\.id\) return;\n\s+if \(data\.rows\.some\(\(r\) => String\(r\[supLink\.idField\] \?\? ""\)\.trim\(\)\)\) return;/, "an empty register opened for writing, once; one with a line written left alone");
+  // The list reaches a freshly signed-in browser a moment after the first render: tried again when the store moves on, done once written.
+  assert.match(view, /const filled = startRegisterFromMaster\(doc\.id, data, \(\) => newRow\(layout, data\.rows, generateId\("row"\)\)\);\n(?:\s+\/\/[^\n]*\n)?\s+if \(filled === data\) return;\n\s+fromMasterOnce\.current = record\.id;\n\s+save\(filled\);/);
+  assert.match(view, /\}, \[record\.id, supFetching, version\]\);/);
 });
 
 test("the registers start as the list (§190): F/PUR/03 every supplier, F/PUR/05 the material suppliers, F/PUR/06 the service providers; any other sheet as it was", () => {

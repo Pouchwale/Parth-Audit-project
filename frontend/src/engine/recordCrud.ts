@@ -5,7 +5,7 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { blankLogRow, createDefaultData } from "./recordDefaults";
 import { carriedFrom, hasWriting, previousWrittenRecord } from "./carryForward";
 import { withComputedCells } from "./computedCells";
-import { startRegisterFromMaster } from "./purchaseMasterLinks";
+import { startRegisterFromMaster, supplierLinkFor } from "./purchaseMasterLinks";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
@@ -185,10 +185,14 @@ export function createRecordForDocument(
  * morning). On a sheet written as the last one was (LogSheetLayout.carryForwardAll, REQUIREMENTS §117) it is written so
  * now, as a sheet started by hand is: dated its own day, the last sheet's boxes and lines carried. Only a sheet still Due,
  * never prepared and with nothing written on it; anything else is returned as it is.
+ * So too a Purchase register (REQUIREMENTS §190; the owner, 6-Nov-2026: "data is not coming in those document which are
+ * pur-05 and pur-03" - the yearly schedule had made the period's F/PUR/03 and F/PUR/05 blank ahead of its day, and New
+ * opened that sheet): still Due and with nothing on it, it is written from Purchase Master Data as a sheet started by hand is.
  */
 function startedIfUntouched(doc: DocumentDefinition, rec: RecordInstance): RecordInstance {
   const layout = doc.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined;
-  if (!layout?.carryForwardAll || rec.status !== "Due" || rec.prepared) return rec;
+  const fromMaster = !!supplierLinkFor(doc.id)?.all;
+  if (!layout || !(layout.carryForwardAll || fromMaster) || rec.status !== "Due" || rec.prepared) return rec;
   const blank = createDefaultData(doc, rec.dueDate, masterRepository.get()) as LogSheetData;
   if (hasWriting(layout, rec.data as LogSheetData, blank)) return rec;
   const data = startingData(doc, rec.dueDate, !!rec.isDemo) as LogSheetData;

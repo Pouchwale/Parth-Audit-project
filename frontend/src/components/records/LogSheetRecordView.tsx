@@ -43,7 +43,7 @@ import {
 import { EquipmentFetch, EquipmentMachineList } from "./EquipmentFetch";
 import { SUPPLIER_NAMES_LIST, SupplierFetch, SupplierNameList } from "./SupplierFetch";
 import { SupplierFormImport } from "./SupplierFormImport";
-import { purchaseMasterHeld, purchaseMasterOpenable, supplierBlankFills, supplierLinkFor } from "../../engine/purchaseMasterLinks";
+import { purchaseMasterHeld, purchaseMasterOpenable, startRegisterFromMaster, supplierBlankFills, supplierLinkFor } from "../../engine/purchaseMasterLinks";
 import { isOutOfBand, supersededRevisionOf } from "../../engine/validation";
 import { boxOutOfBand, judgeFor, outOfBandCount, type CellJudge } from "../../engine/printedBands";
 import { withoutLineNumber } from "../../engine/lineNumbers";
@@ -422,6 +422,22 @@ export function LogSheetRecordView({
   // Only for an account that holds the list (it sees Purchase, or a format that fetches from it).
   const supLink = supplierLinkFor(doc.id);
   const supFetching = !!supLink && editable && purchaseMasterHeld();
+  // AN EMPTY PURCHASE REGISTER IS WRITTEN FROM THE LIST AS IT OPENS (REQUIREMENTS §190; the owner, 6-Nov-2026: "data is not
+  // coming in those document which are pur-05 and pur-03"). The yearly schedule makes the period's F/PUR/03, F/PUR/05 and
+  // F/PUR/06 blank ahead of its day, and New - or the dashboard - opens that sheet, not a sheet started by hand: so a
+  // register open for writing with no supplier on any line yet takes the list's lines as it opens (once per record), as a
+  // sheet started by hand does (engine/recordCrud.ts startingData). A register with a line written is left as it is.
+  const fromMasterOnce = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!supFetching || !supLink?.all || !layout || fromMasterOnce.current === record.id) return;
+    if (data.rows.some((r) => String(r[supLink.idField] ?? "").trim())) return;
+    const filled = startRegisterFromMaster(doc.id, data, () => newRow(layout, data.rows, generateId("row")));
+    // (the list may not have reached this browser yet - it is pulled from the server after signing in: tried again when the store moves on)
+    if (filled === data) return;
+    fromMasterOnce.current = record.id;
+    save(filled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record.id, supFetching, version]);
   const fillFromSupplier = (rowId: string | null, value: string) => {
     if (!supLink || !supFetching) return;
     if (rowId === null) {

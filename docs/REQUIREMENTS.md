@@ -11194,6 +11194,12 @@ properly and fast and pur-06 which is also fetch details from master data and in
   service provider. The list's lines are written on the sheet's blank lines first (F/PUR/06's twelve on its thirteen
   printed lines), then on new ones, and the worked-out cells are worked out. "Add all" on the fetch bar writes the lines
   added to the list since, never a supplier twice; "Fill blanks" and a name typed in a line fill as before (§187).
+- A SHEET THE SCHEDULE MADE BLANK IS WRITTEN SO TOO (the owner, 6-Nov-2026, on the plant: "data is not coming in those
+  document which are pur-05 and pur-03"). The three registers are yearly, so the schedule makes the period's sheet blank
+  ahead of its day, and New - or the dashboard - opens that sheet, not one started by hand. So: a register still Due with
+  nothing on it is written from the list when New opens it (engine/recordCrud.ts startedIfUntouched, as a carried-forward
+  sheet is), and a register open for writing with no supplier on any line takes the list's lines as it opens, once per
+  record (LogSheetRecordView). A register with a line written is left as it is.
 - F/PUR/05 CARRIES WHAT WAS TYPED OVER ON THE LIST. A weightage, Overall Rating or Grade a person typed over on Purchase
   Master Data (§187) is written on the register's line and marked typed there, as it is on the list; the others stay the
   register's own working-out from X, Y and Z, which gives the list's figures.
