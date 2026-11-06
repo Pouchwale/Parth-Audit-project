@@ -11271,3 +11271,19 @@ service agreement."
   whom; monthsBefore), notificationText.test.ts (the words in three languages), supplierAgreement.test.ts (the box, the
   card, the API, the server's reading), backend/tests/supplierAgreements.test.ts (upload, list, open, remove, who may,
   what is kept); in the browser on dev:local.
+
+## §193 No description under a document's name; the System menu is the super admin's (6-Nov-2026)
+
+The owner, 6-Nov-2026, with two pictures - F/PUR/05's page and Chirag Parmar's menu: "i don't want this in first image
+the description which is written and in second image from chiragparmer@gpp.local remove this part".
+
+- A DOCUMENT'S PAGE shows the format's name, its number, revision, frequency, who answers for it and its source file, the
+  buttons and its records - no longer the paragraph describing the format (pages/DocumentRecordsPage.tsx). The
+  description stays in the catalogue (data/seed/documentDefinitions.ts) for Mitra and the search.
+- THE SYSTEM MENU - Reports, the Activity Log, the Performance Scorecard, Insights (and Demo Mode where a server has
+  it) - is the super admin's alone (engine/masterDataAccess.ts mayOpenSystemPages): first taken off Kapila Barad's ID
+  (§173), now off every staff account, as the boss sees everything (§97). The pages refuse anyone else as before
+  (mayOpenRoute). Master Data stays with those who may open it (§173); an account with nothing left in the menu is not
+  shown its heading (components/layout/Sidebar.tsx).
+- Proved: frontend/tests/masterDataAccess.test.ts (staff: no System pages; the super admin: all), the sidebar and the
+  page by source.

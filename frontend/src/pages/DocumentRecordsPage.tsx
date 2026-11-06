@@ -305,7 +305,8 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
           </button>
         </div>
       </div>
-      <p className="text-muted mb-4">{doc.description}</p>
+      {/* The document's description is not drawn here (the owner, 6-Nov-2026, REQUIREMENTS §193): the page is the format's name, its
+          number and its records; the description stays in the catalogue for Mitra and the search. */}
       {/* Why New record or Edit format is not here, for a person whose level stops it (REQUIREMENTS §96). */}
       <AccessReason documentId={doc.id} action={doc.isReferenceOnly ? "format" : "start"} className="mb-4" />
 

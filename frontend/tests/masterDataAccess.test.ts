@@ -45,7 +45,7 @@ test("who may open Master Data: the super admin, Kapila Barad and the testing ac
   }
   for (const name of ["Kapila", "Barad", "Kapil Barad", "Kapila Patel", "Vinay", "Bhojak", "Sandeep Parekh", ""]) {
     assert.equal(isMasterDataPerson({ email: "someone.else@gmail.com", name }), false, `not her: "${name}"`);
-    assert.equal(mayOpenSystemPages({ role: "staff", email: "someone.else@gmail.com", name }), true, `"${name}" keeps the System menu`);
+    assert.equal(mayOpenSystemPages({ role: "staff", email: "someone.else@gmail.com", name }), false, `"${name}": the System menu is the super admin's (§193)`);
   }
   assert.equal(mayOpenMasterData({ role: "admin", email: "superadmin05@gmail.com", name: "Superadmin" }), true, "the owner's own account");
   assert.equal(mayOpenSystemPages({ role: "admin", email: "superadmin05@gmail.com", name: "Superadmin" }), true);
@@ -60,8 +60,9 @@ test("who may open Master Data: the super admin, Kapila Barad and the testing ac
 // KAPILA BARAD'S SYSTEM MENU IS MASTER DATA ALONE (REQUIREMENTS §173, the owner, 3-Nov-2026, with a picture of the menu:
 // "remove all the thing from this system for kapila barad id except Master data"): Reports, the Activity Log, the
 // Performance Scorecard, Insights and Demo Mode are not hers - not in her menu, not at their addresses, not through
-// Mitra's shortcuts, and the Activity Log's lines not from the server. Everybody else has them as before.
-test("the System menu's other pages: everybody's but Kapila Barad's", () => {
+// Mitra's shortcuts, and the Activity Log's lines not from the server. Since REQUIREMENTS §193 (the owner, 6-Nov-2026,
+// with a picture of Chirag Parmar's menu: "remove this part") they are nobody's but the super admin's.
+test("the System menu's other pages: the super admin's alone; no staff account's", () => {
   assert.deepEqual(SYSTEM_ROUTES, ["/reports", "/activity", "/performance", "/insights", "/demo"]);
   for (const email of ["kapila.barad@gpp.local", "Kapila.Barad@GPP.local", "kapilabarad01@gmail.com"]) {
     assert.equal(mayOpenSystemPages({ role: "staff", email }), false, `not Kapila's: ${email}`);
@@ -71,10 +72,20 @@ test("the System menu's other pages: everybody's but Kapila Barad's", () => {
     assert.equal(mayOpenRoute({ role: "staff", email }, "/day/2026-11-03"), true, "every other address as before");
     assert.equal(mayOpenRoute({ role: "staff", email }, "/hr/master-data"), true, "HR Master Data is HR's page, not the System menu's");
   }
-  for (const account of [{ role: "admin", email: "admin@gpp.local" }, { role: "staff", email: "chirag.parmar@gpp.local" }, { role: "staff", email: "dept-qc@example.com" }]) {
+  for (const account of [{ role: "admin", email: "admin@gpp.local" }, { role: "admin", email: "superadmin05@gmail.com" }]) {
     assert.equal(mayOpenSystemPages(account), true, account.email);
     for (const route of SYSTEM_ROUTES) assert.equal(mayOpenRoute(account, route), true, `${account.email} ${route}`);
   }
+  // Every staff account (§193): Chirag Parmar's among them, and a testing account's.
+  for (const account of [{ role: "staff", email: "chirag.parmar@gpp.local" }, { role: "staff", email: "dept-qc@example.com" }, { role: "staff", email: "sandeep.parekh@gpp.local", name: "Sandeep Parekh" }]) {
+    assert.equal(mayOpenSystemPages(account), false, account.email);
+    for (const route of SYSTEM_ROUTES) assert.equal(mayOpenRoute(account, route), false, `${account.email} ${route}`);
+    assert.equal(mayOpenRoute(account, "/library"), true, "every other address as before");
+  }
+  // ...and the heading goes with the pages: an account with nothing in the System menu is not shown it.
+  assert.match(read("frontend", "src", "components", "layout", "Sidebar.tsx"), /\{systemItems\.length > 0 && \(\n\s+<>\n\s+<div className="nav-section-label">\{t\("nav\.system"\)\}<\/div>/);
+  // ...nor a document's page its description (§193).
+  assert.ok(!read("frontend", "src", "pages", "DocumentRecordsPage.tsx").includes("<p className=\"text-muted mb-4\">{doc.description}</p>"), "no description paragraph under the document's name");
   // The Departments & access tab (§178): the administrator's and the testing accounts', not Kapila's or Vinay's.
   assert.equal(mayOpenDepartmentsAccess({ role: "admin", email: "admin@gpp.local" }), true);
   assert.equal(mayOpenDepartmentsAccess({ role: "staff", email: "dept-qc@example.com" }), true, "a testing account");

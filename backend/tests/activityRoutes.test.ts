@@ -220,35 +220,25 @@ describe("each chip is one parameter, read into the one filter the lines and the
   });
 });
 
-describe("the Activity Log is not Kapila Barad's (REQUIREMENTS §173)", () => {
-  it("her reading of the lines and of the tally is refused; another member of QC reads as before", async () => {
-    assert.equal((await get("/api/activity", "kapila")).status, 403);
-    assert.equal((await get("/api/activity/summary", "kapila")).status, 403);
-    assert.equal((await get("/api/activity?department=QC", "kapila")).status, 403, "whatever is asked for");
-    assert.equal((await get("/api/activity", "staff")).status, 200);
-    assert.equal((await get("/api/activity/summary", "staff")).status, 200);
-  });
-});
-
-describe("staff cannot filter beyond their own lines", () => {
-  it("a member of QC asking for HR's lines gets their own lines in HR, nobody else's", async () => {
-    const res = await get("/api/activity?department=HR", "staff");
-    assert.deepEqual(targets(res.json), ["Ankur Raval · Record started · F/HR/17 Fly Catcher — 2026-10-14"]);
-    assert.deepEqual([asked[0].filter.departments, asked[0].filter.userId, asked[0].filter.superAdmin], [["QC"], "u-ankur", false], "the scope is still there under the chip");
-    // Nor by naming the person: Vinay's HR lines are not Ankur's to read.
-    assert.deepEqual((await get("/api/activity?person=u-vinay&department=HR", "staff")).json.lines, []);
-    // Nor by action or document: an escalation is the super admin's alone, whatever is asked for.
-    assert.deepEqual((await get(`/api/activity?action=${encodeURIComponent(ESCALATION)}`, "staff")).json.lines, []);
-    assert.deepEqual((await get(`/api/activity?action=${encodeURIComponent(ESCALATION)}`, "every")).json.lines, []);
-    assert.equal((await get(`/api/activity?action=${encodeURIComponent(ESCALATION)}`, "admin")).json.lines.length, 1);
+describe("the Activity Log is the super admin's alone (REQUIREMENTS §173, §193)", () => {
+  it("a staff account's reading of the lines and of the tally is refused, whatever is asked for - Kapila Barad's, a member of QC's, one of no department", async () => {
+    for (const who of ["kapila", "staff", "every"]) {
+      assert.equal((await get("/api/activity", who)).status, 403, who);
+      assert.equal((await get("/api/activity/summary", who)).status, 403, who);
+      assert.equal((await get("/api/activity?department=QC", who)).status, 403, `${who}: whatever is asked for`);
+      assert.equal((await get("/api/activity?person=u-vinay&department=HR", who)).status, 403, who);
+      assert.equal((await get(`/api/activity?action=${encodeURIComponent(ESCALATION)}`, who)).status, 403, who);
+    }
+    assert.equal((await get("/api/activity", "admin")).status, 200);
+    assert.equal((await get("/api/activity/summary", "admin")).status, 200);
+    assert.equal((await get(`/api/activity?action=${encodeURIComponent(ESCALATION)}`, "admin")).json.lines.length, 1, "an escalation is the super admin's to read");
   });
 
   it("a value that is not a module's code is no filter at all — never an error, never a wider reading", async () => {
     for (const bad of ["Quality Control", "'; drop table users;--", "Q", "ABCDE", ""]) {
-      const res = await get(`/api/activity?department=${encodeURIComponent(bad)}`, "staff");
+      const res = await get(`/api/activity?department=${encodeURIComponent(bad)}`, "admin");
       assert.equal(res.status, 200, bad);
       assert.equal(asked[0].filter.department, undefined, bad);
-      assert.deepEqual(asked[0].filter.departments, ["QC"], bad);
     }
   });
 });

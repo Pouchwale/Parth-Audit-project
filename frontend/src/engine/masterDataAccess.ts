@@ -48,12 +48,13 @@ export const SYSTEM_ROUTES: readonly string[] = ["/reports", "/activity", "/perf
 
 /**
  * Whether an account may open the System menu's pages besides Master Data - Reports, the Activity Log, the Performance
- * Scorecard, Insights (and Demo Mode where a server has it): everybody but Kapila Barad's ID, whose System menu is
- * Master Data alone (the owner, 3-Nov-2026, with a picture of the menu: "remove all the thing from this system for
- * kapila barad id except Master data", REQUIREMENTS §173). The super admin always may.
+ * Scorecard, Insights (and Demo Mode where a server has it): the super admin alone. First taken off Kapila Barad's ID
+ * (the owner, 3-Nov-2026, with a picture of the menu: "remove all the thing from this system for kapila barad id except
+ * Master data", REQUIREMENTS §173), then off every staff account (the owner, 6-Nov-2026, with a picture of Chirag Parmar's
+ * menu: "remove this part", REQUIREMENTS §193): the System pages are the boss's, who sees everything (§97).
  */
 export function mayOpenSystemPages(account: { role?: string | null; email?: string | null; name?: string | null } | null | undefined): boolean {
-  return !!account && (account.role === "admin" || !isMasterDataPerson(account));
+  return !!account && account.role === "admin";
 }
 
 /**

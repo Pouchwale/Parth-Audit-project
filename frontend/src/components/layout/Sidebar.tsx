@@ -779,8 +779,13 @@ export function Sidebar() {
             );
           })}
 
-          <div className="nav-section-label">{t("nav.system")}</div>
-          <NavGroup items={systemItems} path={path} />
+          {/* The System menu is the super admin's (engine/masterDataAccess.ts mayOpenSystemPages, REQUIREMENTS §173, §193): an account with nothing in it is not shown its heading. */}
+          {systemItems.length > 0 && (
+            <>
+              <div className="nav-section-label">{t("nav.system")}</div>
+              <NavGroup items={systemItems} path={path} />
+            </>
+          )}
         </nav>
 
       </aside>
