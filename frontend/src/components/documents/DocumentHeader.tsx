@@ -156,6 +156,7 @@ export function dottedDate(iso: string | null | undefined): string {
 export function DocumentHeader({
   doc,
   extraTitle,
+  extraTitleEdit,
   pageLabel,
   companyName,
   letterhead,
@@ -199,6 +200,13 @@ export function DocumentHeader({
   part?: "head" | "foot";
   /** Words after the title — a register's year, never a record's date (§117). */
   extraTitle?: string;
+  /**
+   * THE WORDS AFTER THE TITLE CHANGED IN PLACE (the owner, 6-Nov-2026, of the daily register's "— November 2026": "i cannot
+   * be able to edit month so do make that editable", REQUIREMENTS §197): the words take a click like the header's cells
+   * (data-action `action`), and while being changed the `box` stands in their place - the register's month and year to
+   * choose, which the page then follows.
+   */
+  extraTitleEdit?: { editing: boolean; onEdit: () => void; box: React.ReactNode; action: string };
   pageLabel?: string;
   /** The company name exactly as THIS form prints it (spellings differ between forms). */
   companyName?: string;
@@ -401,6 +409,33 @@ export function DocumentHeader({
     );
   }
   const dateWords = (iso: string) => (dotDates && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso.slice(8)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : formatDisplayDate(iso));
+  // The words after the title, changed in place (§197): outside the title's own cell, so a click on them is theirs alone.
+  const suffix =
+    extraTitle && extraTitleEdit ? (
+      <>
+        {" — "}
+        {extraTitleEdit.editing ? (
+          extraTitleEdit.box
+        ) : (
+          <span
+            role="button"
+            tabIndex={0}
+            className="designer-head"
+            data-action={extraTitleEdit.action}
+            title="Click to change"
+            onClick={extraTitleEdit.onEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                extraTitleEdit.onEdit();
+              }
+            }}
+          >
+            {extraTitle}
+          </span>
+        )}
+      </>
+    ) : null;
   return (
     <div className="doc-header">
       {letterhead ?? (
@@ -422,8 +457,9 @@ export function DocumentHeader({
       <div className="doc-title">
         <Cell field="title" edit={edit}>
           {titleAsPrinted ? documentTextIn(title ?? doc.name, lang) : documentTextIn(title ?? doc.name, lang).toUpperCase()}
-          {extraTitle ? ` — ${extraTitle}` : ""}
+          {extraTitle && !extraTitleEdit ? ` — ${extraTitle}` : ""}
         </Cell>
+        {suffix}
       </div>
       {numberRow && <div className="meta-row">
         <div className="meta-cell">

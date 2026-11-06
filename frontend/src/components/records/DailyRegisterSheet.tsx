@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { DailyPestMonitoringData, DailyCheckpointDef, RecordInstance } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
 import { FORMAT_HEADER_FIELDS, useHeaderEditing } from "../documents/HeaderEditing";
@@ -75,6 +75,7 @@ export function DailyRegisterSheet({
   isDemo,
   onOpenDay,
   headerEditable = false,
+  onMonthChange,
 }: {
   year: number;
   month: number;
@@ -82,6 +83,12 @@ export function DailyRegisterSheet({
   onOpenDay?: (record: RecordInstance<DailyPestMonitoringData>) => void;
   /** The register's own page offers its header typed over in place (REQUIREMENTS §86); a report shows it only. */
   headerEditable?: boolean;
+  /**
+   * THE MONTH IN THE TITLE CHANGED IN PLACE (the owner, 6-Nov-2026: "i cannot be able to edit month so do make that
+   * editable", REQUIREMENTS §197): a click on "— November 2026" opens the month and the year to choose, and the page
+   * follows (its own pickers say the same). Given by the register's own page; a report shows the month only.
+   */
+  onMonthChange?: (year: number, month: number) => void;
 }) {
   const doc = documentRepository.getById(DAILY_DOC_ID);
   // The first page's header takes the clicks; the other two repeat it. Its Date cell
@@ -102,6 +109,39 @@ export function DailyRegisterSheet({
   for (const r of records) byDay.set(Number(r.dueDate.slice(8, 10)), r);
   const today = todayISO();
   const monthLabel = `${MONTH_NAMES[month]} ${year}`;
+  // The month and the year chosen in the title's place (§197): this year and the two before, as the page's own picker offers.
+  const [changingMonth, setChangingMonth] = useState(false);
+  const thisYear = new Date().getFullYear();
+  const years = Array.from(new Set([year - 1, year, year + 1, thisYear].filter((y) => y <= thisYear))).sort();
+  const monthEdit =
+    headerEditable && onMonthChange
+      ? {
+          editing: changingMonth,
+          onEdit: () => setChangingMonth(true),
+          action: "change-register-month",
+          box: (
+            <span className="register-month-box no-print" data-section="register-month-box" style={{ display: "inline-flex", gap: 6, alignItems: "center", verticalAlign: "middle" }}>
+              <select className="input input-sm" data-field="register-month" aria-label="Month of the register" value={month} onChange={(e) => onMonthChange(year, Number(e.target.value))}>
+                {MONTH_NAMES.map((n, i) => (
+                  <option key={n} value={i}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <select className="input input-sm" data-field="register-year" aria-label="Year of the register" value={year} onChange={(e) => onMonthChange(Number(e.target.value), month)}>
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="btn btn-secondary btn-sm" data-action="register-month-done" onClick={() => setChangingMonth(false)}>
+                Done
+              </button>
+            </span>
+          ),
+        }
+      : undefined;
   if (!doc) return null;
 
   const notes: Note[] = [];
@@ -200,7 +240,7 @@ export function DailyRegisterSheet({
   return (
     <div className="register-sheet" data-print-doc>
       <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={monthLabel} pageLabel="1 Of 3" edit={headerEdit} />
+        <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleEdit={monthEdit} pageLabel="1 Of 3" edit={headerEdit} />
         {headerPanel}
         <div className="register-instructions">
           <p>{FHR17_INSTRUCTION_1}</p>

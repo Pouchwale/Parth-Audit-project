@@ -586,7 +586,20 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
         </div>
       )}
 
-      {view === "register" && <DailyRegisterSheet year={year} month={month} isDemo={isDemo} onOpenDay={(r) => navigate(`/record/${r.id}`)} headerEditable />}
+      {/* ...its month changed from its title too (REQUIREMENTS §197): the page's pickers above follow. */}
+      {view === "register" && (
+        <DailyRegisterSheet
+          year={year}
+          month={month}
+          isDemo={isDemo}
+          onOpenDay={(r) => navigate(`/record/${r.id}`)}
+          headerEditable
+          onMonthChange={(y, m) => {
+            setYear(y);
+            setMonth(m);
+          }}
+        />
+      )}
 
       {view === "list" && (
       // The list is a document in its own right once it is on paper, so it

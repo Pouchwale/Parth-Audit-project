@@ -11361,3 +11361,15 @@ Fly Catcher Inspection and not in Fly control".
   Edit register, the downloads and Print - beside its trend and its visit list, as before.
 - Proved: tests/e2e_smoke.py (no register on the Fly Control page; the Fly Catcher Infestation page's register, as
   before), frontend/tests/reportsTabs.test.ts (by source).
+
+## §197 The daily register's month changed from its title (6-Nov-2026)
+
+The owner, 6-Nov-2026, with a picture of the F/HR/17 register's title, "DAILY PEST CONTROL MONITORING RECORD — November
+2026": "in this i cannot be able to edit month so do make that editable".
+
+- THE MONTH IN THE TITLE TAKES A CLICK, as the header's cells do (components/documents/DocumentHeader.tsx
+  `extraTitleEdit`; components/records/DailyRegisterSheet.tsx): "— November 2026" opens the month and the year to choose
+  in its place, with Done; the register and the page's own pickers above it follow (pages/PestControlPages.tsx, the
+  Daily Pest Control Monitoring page). The title's own words stay the format's, typed over as before (§77).
+- Printed and downloaded, the title reads as before: the choosers are the screen's only.
+- Proved: frontend/tests/registerMonth.test.ts (by source), and the register clicked through locally.
