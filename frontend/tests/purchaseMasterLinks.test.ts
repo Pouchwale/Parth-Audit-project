@@ -21,6 +21,8 @@ import {
   fillBlanksFromSuppliers,
   lineForSupplier,
   searchSuppliers,
+  serviceRatings50,
+  startRegisterFromMaster,
   supplierBlankFills,
   supplierFill,
   supplierLinkFor,
@@ -145,7 +147,7 @@ test("F/PUR/03: every supplier on the register at once, on its blank lines first
   );
 });
 
-test("F/PUR/05: the material suppliers with their X / Y / Z; F/PUR/06: the service providers", () => {
+test("F/PUR/05: the material suppliers with their X / Y / Z, a figure typed over on the list carried as typed; F/PUR/06: the service providers, 50 and 50, Continue", () => {
   const rmpm = link("pur-supplier-performance");
   const materials = suppliersForRegister(rmpm, seed);
   assert.equal(materials.length, seed.length - 12);
@@ -155,10 +157,42 @@ test("F/PUR/05: the material suppliers with their X / Y / Z; F/PUR/06: the servi
     [data.rows[0].supplierName, data.rows[0].material, data.rows[0].productSafetyRating, data.rows[0].qualityRating, data.rows[0].deliveryRating],
     ["K S Inctech Pvt.Ltd.", "Printing Ink", "100", "100", "100"]
   );
+  // The weightages, the Overall Rating and the Grade are the register's to work out: nothing of them is written...
+  assert.deepEqual([data.rows[0].productSafetyWeightage, data.rows[0].overallRating, data.rows[0].grade, data.rows[0].typedCells], [undefined, undefined, undefined, undefined]);
+  // ...unless typed over on the list (REQUIREMENTS §190): then carried, and marked typed on the line as on the list.
+  const typed = { ...line("pur-sup-32"), grade: "B", overallRating: "88.00" };
+  const one = lineForSupplier(rmpm, typed, blankRow());
+  assert.deepEqual([one.grade, one.overallRating, one.productSafetyWeightage, one.typedCells], ["B", "88.00", undefined, "overallRating,grade"]);
+  assert.deepEqual(supplierFill(rmpm, typed, { supplierName: "K S Inctech Pvt.Ltd." }).fills.map((f) => f.key), ["material", "productSafetyRating", "qualityRating", "deliveryRating", "overallRating", "grade"]);
+
   const services = link("pur-service-provider-performance");
   const sp = addAllSuppliers(services, sheet(), blankRow, seed);
   assert.equal(sp.added, 12);
-  assert.deepEqual([sp.data.rows[0].supplierName, sp.data.rows[0].serviceDescription], ["Gurudev Pest Control", "PEST CONTROL"]);
+  // The two ratings out of 50 from the list's full ratings - a good grade - and Continue (the owner, 6-Nov-2026: "give good grade only").
+  assert.deepEqual(
+    [sp.data.rows[0].supplierName, sp.data.rows[0].serviceDescription, sp.data.rows[0].deliveryRating, sp.data.rows[0].qualityRating, sp.data.rows[0].status],
+    ["Gurudev Pest Control", "PEST CONTROL", "50", "50", "Continue"]
+  );
+  assert.ok(sp.data.rows.every((r) => r.deliveryRating === "50" && r.qualityRating === "50" && r.status === "Continue"));
+  // A service provider rated lower on the list: its ratings halved, the decision the buyer's own.
+  const low = { ...line("pur-sup-55"), deliveryRating: "70", qualityRating: "97", productSafetyRating: "80" };
+  assert.deepEqual(serviceRatings50(low), { delivery: 35, quality: 44 });
+  assert.deepEqual([supplierValue(low, "serviceDelivery50"), supplierValue(low, "serviceQuality50"), supplierValue(low, "serviceStatus")], ["35", "44", ""]);
+});
+
+test("the registers start as the list (§190): F/PUR/03 every supplier, F/PUR/05 the material suppliers, F/PUR/06 the service providers; any other sheet as it was", () => {
+  const start = sheet(Array.from({ length: 7 }, blankRow));
+  const all = startRegisterFromMaster("pur-approved-suppliers", start, blankRow, seed);
+  assert.equal(all.rows.length, seed.length);
+  assert.equal(all.rows[0].id, start.rows[0].id, "on its blank lines first");
+  assert.equal(startRegisterFromMaster("pur-supplier-performance", sheet(), blankRow, seed).rows.length, seed.length - 12);
+  const services = startRegisterFromMaster("pur-service-provider-performance", sheet(Array.from({ length: 13 }, blankRow)), blankRow, seed);
+  assert.equal(services.rows.length, 13, "twelve service providers on the thirteen printed lines");
+  assert.equal(services.rows[11].status, "Continue");
+  assert.equal(services.rows[12].supplierName, undefined, "the thirteenth line blank");
+  const other = sheet([blankRow()]);
+  assert.equal(startRegisterFromMaster("pur-supplier-registration", other, blankRow, seed), other, "a form of one supplier starts blank");
+  assert.equal(startRegisterFromMaster("qc-bopp-film", other, blankRow, seed), other);
 });
 
 test("Fill blanks: only the blank boxes of the lines whose supplier is on the list; a name not on it is said", () => {

@@ -2,9 +2,10 @@ import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types"
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
-import { createDefaultData } from "./recordDefaults";
+import { blankLogRow, createDefaultData } from "./recordDefaults";
 import { carriedFrom, hasWriting, previousWrittenRecord } from "./carryForward";
 import { withComputedCells } from "./computedCells";
+import { startRegisterFromMaster } from "./purchaseMasterLinks";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
@@ -127,6 +128,12 @@ export function recordCoveringDate(doc: DocumentDefinition, dateISO: string, isD
 export function startingData(doc: DocumentDefinition, dueDate: string, isDemo: boolean): unknown {
   const blank = createDefaultData(doc, dueDate, masterRepository.get());
   const layout = doc.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined;
+  // The Purchase registers start as Purchase Master Data's list (REQUIREMENTS §190): F/PUR/03 every supplier, F/PUR/05 the
+  // material suppliers, F/PUR/06 the service providers - their worked-out cells worked out.
+  if (layout && !layout.carryForwardAll) {
+    const fromMaster = startRegisterFromMaster(doc.id, blank as LogSheetData, () => blankLogRow(layout));
+    return fromMaster === blank ? blank : withComputedCells(doc.id, fromMaster);
+  }
   if (!layout?.carryForwardAll) return blank;
   const previous = previousWrittenRecord(doc.id, dueDate, isDemo, layout, blank as LogSheetData);
   if (!previous) return blank;

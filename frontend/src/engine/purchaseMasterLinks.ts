@@ -3,8 +3,9 @@ import type { FieldFill } from "./hrMaster";
 import { isIsoDate } from "./hrMaster";
 import { isBossSignedIn, isDocumentIdVisible } from "./departmentScope";
 import { purchaseMasterRepository } from "../data/repositories/purchaseMasterRepository";
-import { PURCHASE_DOCUMENT_IDS, RATING_KEYS, isServiceProvider, ratingOf, sameText, shownDate, supplierRating } from "./purchaseMaster";
+import { PURCHASE_DOCUMENT_IDS, RATING_KEYS, isServiceProvider, ratingOf, sameText, shownDate, supplierRating, typedWorked } from "./purchaseMaster";
 import { QC_INCOMING_DOC_IDS, SUPPLIER_LINK_DOC_IDS } from "./supplierLinkDocs";
+import { typedOver } from "./typedCells";
 
 // THE DOCUMENTS FETCH A SUPPLIER FROM PURCHASE MASTER DATA (REQUIREMENTS §186; the owner, 5-Nov-2026: "so it can be used in
 // other document for fetching details from him"), the way the HR formats fetch a person (§53) and the Maintenance formats
@@ -15,13 +16,21 @@ import { QC_INCOMING_DOC_IDS, SUPPLIER_LINK_DOC_IDS } from "./supplierLinkDocs";
 //
 //   F/PUR/01  Supplier Registration Form   SUPPLIER'S NAME, CONTACT PERSON, TELEPHONE NOS, COMPANY ACTIVITIES, the products
 //   F/PUR/02  Supplier Audit Report        SUPPLIER, CONTACTS, PRODUCT SUPPLIED
-//   F/PUR/03  List of Approved Suppliers   a line per supplier: name, product, category, manufacturer, contact, approval date
-//   F/PUR/05  RM & PM performance          a line per material supplier: name, material, X, Y and Z
-//   F/PUR/06  Service provider performance a line per service provider: the service and the name
+//   F/PUR/03  List of Approved Suppliers   a line per supplier: every column of the list
+//   F/PUR/05  RM & PM performance          a line per material supplier: name, material, X, Y and Z, and a weightage, Overall
+//                                         Rating or Grade typed over on the list (marked typed on the line, as on the list)
+//   F/PUR/06  Service provider performance a line per service provider: the service, the name, its two ratings out of 50 from
+//                                         the list's ratings (full, 50 and 50: a good grade), "Continue" where they are good
 //   QC incoming inspection (14 formats)   Supplier Name and Product Description
 //
 // A supplier is found by its Vendor Code or its name. Two lines of the list may share a name (Shikha Trading Co.'s HMA and
 // its Gum): the format's product box tells them apart, and otherwise the person chooses.
+//
+// THE REGISTERS START AS THE LIST (REQUIREMENTS §190; the owner, 6-Nov-2026: "Pur-03 and Pur-05 is connected with master
+// data so everything will be fetch from that ... pur-06 which is also fetch details from master data and in that give good
+// grade only"): a new F/PUR/03, F/PUR/05 or F/PUR/06 record is written from Purchase Master Data as it starts
+// (startRegisterFromMaster, engine/recordCrud.ts startingData) - every supplier, the material suppliers, the service
+// providers - and "Add all" writes the lines added to the list since.
 
 export type SupplierSource =
   | SupplierKey
@@ -31,7 +40,13 @@ export type SupplierSource =
   | "srfOrService"
   // A date as the list writes it, 17-01-2025, or its words ("Approved Prior to 01.1.2021"), for a box that takes text.
   | "approvalShown"
-  | "reapprovalShown";
+  | "reapprovalShown"
+  // F/PUR/06's two parameter ratings, each out of 50, from the list's ratings out of 100 (REQUIREMENTS §190): the Delivery
+  // Rating halved; Product Safety and Quality averaged and halved. Full on the list, they are 50 and 50: an Overall Rating of 100.
+  | "serviceDelivery50"
+  | "serviceQuality50"
+  // F/PUR/06's Status / Decision: "Continue" where the two ratings come to 90 or more (the list's Grade A), else the buyer's own.
+  | "serviceStatus";
 
 export interface SupplierLink {
   docId: string;
@@ -41,7 +56,8 @@ export interface SupplierLink {
   idField: string;
   /** The box that names the product, when the format has one: it tells two lines of one supplier apart. */
   productField?: string;
-  fields: { key: string; from: SupplierSource }[];
+  /** `typedOnly`: a worked-out figure of the list, carried only where a person typed over it there, and marked typed on the line (§190). */
+  fields: { key: string; from: SupplierSource; typedOnly?: boolean }[];
   /** A register the list can be put on at once: every line, the material suppliers, or the service providers. */
   all?: "every" | "materials" | "services";
   /** The list's cells copied as it writes them, "-" and "??" included (F/PUR/03, the list itself, REQUIREMENTS §188). */
@@ -125,6 +141,12 @@ export const SUPPLIER_LINKS: SupplierLink[] = [
       { key: "productSafetyRating", from: "productSafetyRating" },
       { key: "qualityRating", from: "qualityRating" },
       { key: "deliveryRating", from: "deliveryRating" },
+      // The register works these out from X, Y and Z as the list does; a figure typed over on the list is carried as typed (§190).
+      { key: "productSafetyWeightage", from: "productSafetyWeightage", typedOnly: true },
+      { key: "qualityWeightage", from: "qualityWeightage", typedOnly: true },
+      { key: "deliveryWeightage", from: "deliveryWeightage", typedOnly: true },
+      { key: "overallRating", from: "overallRating", typedOnly: true },
+      { key: "grade", from: "grade", typedOnly: true },
     ],
   },
   {
@@ -136,6 +158,9 @@ export const SUPPLIER_LINKS: SupplierLink[] = [
     fields: [
       { key: "serviceDescription", from: "productService" },
       { key: "supplierName", from: "supplierName" },
+      { key: "deliveryRating", from: "serviceDelivery50" },
+      { key: "qualityRating", from: "serviceQuality50" },
+      { key: "status", from: "serviceStatus" },
     ],
   },
   ...QC_INCOMING_DOC_IDS.map(qcIncoming),
@@ -170,9 +195,32 @@ export function supplierValue(s: ApprovedSupplier, from: SupplierSource, asWritt
   if (from === "companyActivity") return ACTIVITY[s.category.trim().toUpperCase()] ?? "";
   // A date box takes a date; the list's own words ("Approved Prior to 01.1.2021") stay on the list.
   if (from === "approvalDate" || from === "reapprovalDueDate") return isIsoDate(s[from]) ? s[from] : "";
-  if ((RATING_KEYS as string[]).includes(from)) return ratingOf(s[from]);
+  if ((RATING_KEYS as string[]).includes(from)) return ratingOf(s[from as SupplierKey]);
   if (from === "productSafetyWeightage" || from === "qualityWeightage" || from === "deliveryWeightage" || from === "overallRating" || from === "grade") return supplierRating(s)[from];
-  return usable(s[from]);
+  if (from === "serviceDelivery50") return String(serviceRatings50(s).delivery);
+  if (from === "serviceQuality50") return String(serviceRatings50(s).quality);
+  if (from === "serviceStatus") {
+    const { delivery, quality } = serviceRatings50(s);
+    return delivery + quality >= 90 ? "Continue" : "";
+  }
+  return usable(s[from as SupplierKey]);
+}
+
+/** F/PUR/06's two ratings out of 50 from the list's three out of 100 (§190): 100 / 100 / 100 gives 50 and 50. */
+export function serviceRatings50(s: ApprovedSupplier): { delivery: number; quality: number } {
+  const out100 = (key: "productSafetyRating" | "qualityRating" | "deliveryRating") => Math.min(100, Math.max(0, Number(ratingOf(s[key])) || 0));
+  return { delivery: Math.round(out100("deliveryRating") / 2), quality: Math.round((out100("productSafetyRating") + out100("qualityRating")) / 4) };
+}
+
+/** What a box gets from this line: a worked-out figure the list has only where it was typed over there (`typedOnly`). */
+const fetchedValue = (link: SupplierLink, s: ApprovedSupplier, f: SupplierLink["fields"][number]): string =>
+  f.typedOnly && !(typedWorked(s) as string[]).includes(f.from) ? "" : supplierValue(s, f.from, link.asWritten);
+
+/** The line with the list's typed-over figures among `keys` marked typed, as they are on the list (engine/typedCells.ts). */
+function markedTyped(link: SupplierLink, row: LogSheetRow, keys: string[]): LogSheetRow {
+  let out = row;
+  for (const f of link.fields) if (f.typedOnly && keys.includes(f.key)) out = typedOver(out, f.key, String(out[f.key] ?? ""));
+  return out;
 }
 
 /** "S0137 · K S Inctech Pvt.Ltd. · Printing Ink · Grade A": what the list says the supplier is. */
@@ -244,7 +292,7 @@ export function supplierFill(link: SupplierLink, s: ApprovedSupplier, current: R
   const fills: FieldFill[] = [];
   const conflicts: FieldFill[] = [];
   for (const f of link.fields) {
-    const after = supplierValue(s, f.from, link.asWritten);
+    const after = fetchedValue(link, s, f);
     if (!after) continue;
     const before = String(current[f.key] ?? "").trim();
     if (before === after || (before && sameValue(before, after))) continue;
@@ -255,11 +303,12 @@ export function supplierFill(link: SupplierLink, s: ApprovedSupplier, current: R
 
 /** A register's line for this supplier, written on the line given (a blank one). */
 export function lineForSupplier(link: SupplierLink, s: ApprovedSupplier, blank: LogSheetRow): LogSheetRow {
-  const line: LogSheetRow = { ...blank };
+  let line: LogSheetRow = { ...blank };
   for (const f of link.fields) {
-    const value = supplierValue(s, f.from, link.asWritten);
+    const value = fetchedValue(link, s, f);
     if (value) line[f.key] = value;
   }
+  line = markedTyped(link, line, link.fields.filter((f) => f.typedOnly && line[f.key]).map((f) => f.key));
   return line;
 }
 
@@ -296,7 +345,8 @@ export function fillBlanksFromSuppliers(link: SupplierLink, data: LogSheetData, 
     const { fills } = supplierFill(link, s, current);
     if (fills.length === 0) return null;
     filled.push({ index, name: s.supplierName, fills });
-    return { ...current, ...Object.fromEntries(fills.map((f) => [f.key, f.after])) };
+    const next = { ...current, ...Object.fromEntries(fills.map((f) => [f.key, f.after])) };
+    return index === null ? next : markedTyped(link, next as LogSheetRow, fills.map((f) => f.key));
   };
   if (link.where === "header") {
     const header = apply(data.header ?? {}, null);
@@ -335,4 +385,14 @@ export function addAllSuppliers(link: SupplierLink, data: LogSheetData, newLine:
     added++;
   }
   return { data: added > 0 ? { ...data, rows } : data, added, already };
+}
+
+/**
+ * THE REGISTERS START AS THE LIST (§190): a new F/PUR/03, F/PUR/05 or F/PUR/06 record, as it starts, with the list's lines
+ * for it written on its blank lines and then on new ones (addAllSuppliers); any other document's data as it was.
+ */
+export function startRegisterFromMaster(docId: string, data: LogSheetData, newLine: () => LogSheetRow, suppliers: ApprovedSupplier[] = allSuppliers()): LogSheetData {
+  const link = supplierLinkFor(docId);
+  if (!link?.all || link.where !== "rows") return data;
+  return addAllSuppliers(link, data, newLine, suppliers).data;
 }

@@ -11182,3 +11182,26 @@ perfectly on it".
   (a heading as typed in the download, the upload and the store; the Excel's page setup), frontend/tests/purchasePrint.test.ts
   (the headings on the page, the downloads, the print's rules and its fit by words, the remove-the-line column); frontend/tests/editableWords.test.ts (every heading and
   label of a record typed over).
+
+## §190 The Purchase registers start as Purchase Master Data; F/PUR/06 rated from it, a good grade (6-Nov-2026)
+
+The owner, 6-Nov-2026: "Pur-03 and Pur-05 is connected with master data so everything will be fetch from that so do it
+properly and fast and pur-06 which is also fetch details from master data and in that give good grade only."
+
+- A NEW REGISTER IS THE LIST (engine/recordCrud.ts startingData, engine/purchaseMasterLinks.ts startRegisterFromMaster).
+  A new F/PUR/03 record starts with every supplier of Purchase Master Data on its lines, every column as the list writes
+  it (§188); a new F/PUR/05 with every material supplier, its name, material and X, Y, Z; a new F/PUR/06 with every
+  service provider. The list's lines are written on the sheet's blank lines first (F/PUR/06's twelve on its thirteen
+  printed lines), then on new ones, and the worked-out cells are worked out. "Add all" on the fetch bar writes the lines
+  added to the list since, never a supplier twice; "Fill blanks" and a name typed in a line fill as before (§187).
+- F/PUR/05 CARRIES WHAT WAS TYPED OVER ON THE LIST. A weightage, Overall Rating or Grade a person typed over on Purchase
+  Master Data (§187) is written on the register's line and marked typed there, as it is on the list; the others stay the
+  register's own working-out from X, Y and Z, which gives the list's figures.
+- F/PUR/06 IS RATED FROM THE LIST, A GOOD GRADE. Its two parameter ratings, each out of 50, come from the list's three
+  ratings out of 100: Delivery halved; Product Safety and Quality averaged and halved. The list's ratings are full unless
+  changed, so every service provider starts at 50 and 50, Overall Rating 100 - the good grade asked for - and its Status /
+  Decision reads "Continue" where the two come to 90 or more; rated lower on the list, the ratings follow and the
+  decision is the buyer's own. The Overall Rating may be typed over as before (§188).
+- Proved: frontend/tests/purchaseMasterLinks.test.ts (the registers started as the list, a typed-over figure carried and
+  marked, F/PUR/06's 50 and 50 and Continue, a lower rating halved); checked in the browser on dev:local (new F/PUR/03,
+  F/PUR/05 and F/PUR/06 records start filled).
