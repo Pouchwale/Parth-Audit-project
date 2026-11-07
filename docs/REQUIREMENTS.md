@@ -11432,3 +11432,48 @@ barad id so do this fast".
 - Nothing else of hers changes: the forms that draw on the employee list still do.
 - Proved: frontend/tests/masterDataAccess.test.ts; locally, Kapila's and the super admin's Master Data tabs read
   (scratchpad check_kapila.py).
+
+## §200 Purchase: the master fetched on every document, F/PUR/01 read from the supplier's PDF, and Mitra does both (7-Nov-2026)
+
+The owner, 7-Nov-2026: "make sure the In purchase module the data which are fetching from master data should be fetch
+perfectly for all the document of that module and in Pur-01 format when user upload the pdf files then make sure it will
+fetch perfectly whatever the field required in the document and if even told to ai assistant then it can also able to do
+it properly."
+
+- THE MASTER FETCHED, CHECKED ON EVERY DOCUMENT (dev:local, scratchpad check_purchase.py and check_purchase2.py): a
+  supplier typed on the Fetch bar of a new F/PUR/01 writes SUPPLIER'S NAME, CONTACT PERSON, TELEPHONE NOS, COMPANY
+  ACTIVITIES, RANGE OF PRODUCTS and the products approved for; of a new F/PUR/02 SUPPLIER, CONTACTS and PRODUCT SUPPLIED;
+  of a QC incoming record (F/QC/01) Supplier Name and Product Description; a new F/PUR/03, F/PUR/05 and F/PUR/06 start
+  with the list's lines (65, 53 and 12 on the local list). As §187 and §190 had it: nothing was found wanting.
+- F/PUR/01 READ FROM THE COMPANY'S OWN FORM AS WORD PRINTS IT. The reader of §191 was tried on the original
+  pur-supplier-registration.docx filled in Word as a supplier would - the answer after the colon, or on the line under -
+  and on Word's PDF of it (scratchpad make_forms.py, docx2pdf.ps1, read_form.ts). The Word file read 21 of 22 boxes and
+  the PDF 10, and the form sent back blank read as Private Limited, Manufacturing and Yes. Four faults, fixed
+  (backend/supplierFormExtract.ts):
+  - Word prints the paper's list with a bullet before every label ("❑ SUPPLIER'S NAME : ..."): a bullet, a box, a dash or
+    a number before a label is ignored (LEAD).
+  - The header Word prints on every page (SUPPLIER / REGISTRATION FORM / Document no. / Rev. no. / Effective date / Page
+    no.), a note on a line of its own ("(Please attach a separate sheet if required)"), a rule and the digits a drawing
+    leaves in a Word file's text are passed over, and a box running on past them keeps going (PASSED).
+  - Two boxes on one line ("CONTACT PERSON : Mr. Hiren Patel DESIGNATION : Sales Manager") are told apart at the second
+    label and its colon; both left empty there, the line under holds both, split at the gap between them (a PDF that
+    drops the gap gives the first box both words; the assistant's pass may part them).
+  - The paper's printed choices unmarked ("Proprietary / Partnership / Private Limited / Limited", "Trading
+    Manufacturing Services", "YES NO", "Technical Non-Technical") are no answer: the line under is read instead, or the
+    supplier's name for the type of concern; a choice marked with an X, a tick or a filled box before or after it, or
+    left alone with the others deleted, is the answer.
+  Now the filled Word file and its PDF read 22 of 22 (the PDF with both names on one line under, 21), and the blank
+  form 0 of 22.
+- MITRA DOES BOTH, BY WORD (engine/mitraTools.ts): on a record that fetches from the list, "fetch Hubergroup's details"
+  runs fetch_supplier_into_open_record - the form's boxes filled, a register line written, or every supplier added (all)
+  - a box already written asked about first and replaced on yes or on "replace"; purchase_master_lookup finds a supplier
+  by name or Vendor Code wherever the list is held; on F/PUR/01 with the supplier's form attached to the chat (a PDF with
+  text, a Word file, or a photo Mitra reads), "fill this form from it" runs fill_open_record_from_supplier_form: the
+  attachment's words go to the same reader (POST /api/purchase/supplier-form/read, as text), the blank boxes are
+  written, the written ones asked about, and what the file did not give is said. Each change carries "Asked of Mitra"
+  in the record's history, as every tool's does. In English and Gujarati (i18n/strings.ts).
+- Proved: backend/tests/supplierFormExtract.test.ts (the form as Word prints it, the blank form, two boxes on one line
+  and the choices), frontend/tests/purchaseAssistant.test.ts (the three tools: the lookup, the fetch with its conflicts
+  and "all", the form read through the reader, offered on Purchase records alone, refused on a record not open for
+  writing), mitraTools.test.ts (the tool set); locally, the fetch on every Purchase document and a QC incoming record,
+  and the import card on the filled PDF (17 boxes besides the 5 the fetch had written, those asked about).

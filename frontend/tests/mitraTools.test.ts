@@ -134,7 +134,15 @@ test("the schema set stays small: under 9,000 characters with a record open, eve
   const bareSize = JSON.stringify(toolSchemas(bare)).length;
   console.log(`Mitra's schema set: ${withRecordSize} characters with a record open (${withRecord.length} tools); ${bareSize} characters on a plain page (${bare.length} tools).`);
   assert.ok(withRecordSize < 9000, `the whole schema set is ${withRecordSize} characters`);
-  assert.equal(withRecord.length, ALL_TOOLS.length, "with a record, a picture and the widget, every tool is offered");
+  // Every tool but Purchase's two record tools (§200), which a Purchase record offers - F/PUR/01's form reader with an attachment in hand.
+  assert.equal(withRecord.length, ALL_TOOLS.length - 2, "with a record, a picture and the widget, every tool but Purchase's two is offered");
+  const pur = documentRepository.getById("pur-supplier-registration");
+  assert.ok(pur);
+  const purTarget = fakeTarget("log-sheet", "pur-supplier-registration", createDefaultData(pur!, today, masterRepository.get())).target;
+  const onPurchase = mitraTools(ctxOf({ target: purTarget, attachments: [photo], runWidgetAction: () => {}, currentRoute: "/record/rec-fake" }));
+  const onPurchaseNames = new Set(onPurchase.map((x) => x.name));
+  for (const n of ["purchase_master_lookup", "fetch_supplier_into_open_record", "fill_open_record_from_supplier_form"]) assert.ok(onPurchaseNames.has(n), `${n} on F/PUR/01 with an attachment`);
+  assert.equal(onPurchase.length, ALL_TOOLS.length - 1, "on F/PUR/01 with an attachment, every tool but the photo's (the form has no photo list)");
   assert.equal(new Set(ALL_TOOLS.map((x) => x.name)).size, ALL_TOOLS.length, "tool names are unique");
   for (const x of ALL_TOOLS) {
     assert.ok(x.description.length <= 140, `${x.name}'s description is ${x.description.length} characters`);
@@ -144,7 +152,7 @@ test("the schema set stays small: under 9,000 characters with a record open, eve
   for (const n of ["get_open_record", "edit_open_record", "record_action", "fill_open_record_with_sample_data", "add_photo_to_open_record", "read_attachment", "change_format", "start_guided_fill"]) {
     assert.ok(!names.has(n), `${n} is not offered on a plain page`);
   }
-  for (const n of ["navigate", "find_documents", "open_document", "search_records", "list_records", "get_record", "history_figures", "todays_facts", "ask_user", "hr_master_lookup"]) {
+  for (const n of ["navigate", "find_documents", "open_document", "search_records", "list_records", "get_record", "history_figures", "todays_facts", "ask_user", "hr_master_lookup", "purchase_master_lookup"]) {
     assert.ok(names.has(n), `${n} is offered everywhere`);
   }
   // A format's own page offers the format change; the record's tools stay away.

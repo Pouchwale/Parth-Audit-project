@@ -127,8 +127,25 @@ const LABELS: Label[] = [
 
 /** The paper's notes beside a label, never a value. */
 const NOTES = /\((?:please\s*)?attach[^)]*\)|\(provide\s*details[^)]*\)|\(not\s*applicable[^)]*\)|\(please\s*attach[^)]*\)/gi;
-const LEAD = /^[\s\-–•*·]*(?:\(?\d{1,2}[.)]\s*)?/;
+// A bullet, a box, a dash or a number before the label is ignored: Word prints the paper's list as "❑ SUPPLIER'S NAME : ..."
+// (the company's own form exported to PDF, 7-Nov-2026, REQUIREMENTS §200), and a supplier may number the lines.
+const LEAD = /^[^\p{L}\p{N}(]*(?:\(?\d{1,2}[.)]\s*)?/u;
 const SEP = /^[\s:：\-–]+/;
+// THE PAPER'S OWN LINES BETWEEN THE BOXES are passed over, and a box running on past them keeps going: the header Word
+// prints on every page (SUPPLIER / REGISTRATION FORM / Document no. / Rev. no. / Effective date / Page no.), a note on a
+// line of its own ("(Please attach a separate sheet if required)"), a rule, and the digits a drawing leaves in a Word
+// file's text (§200).
+const PASSED: RegExp[] = [
+  /^(?:supplier|registration\s*form|supplier\s*registration\s*form|gujarat\s*print\s*pack\b.*)$/i,
+  /^(?:document|format)\s*no\.?\b/i,
+  /^rev(?:ision)?\.?\s*(?:no\.?)?\s*[:\-–]?\s*\d*$/i,
+  /^effective\s*date\b/i,
+  /^page\s*(?:no\.?)?\s*[:\-–]?\s*\d+\s*(?:of|\/)\s*\d+/i,
+  /^_{4,}$/,
+  /^\(\s*(?:please\s*)?(?:attach|provide\s*details)[^)]*\)$/i,
+  /^\d{12,}$/,
+];
+const passed = (clean: string): boolean => PASSED.some((re) => re.test(clean.trim()));
 
 function labelOf(line: string): { label: Label; rest: string } | null {
   const clean = line.replace(LEAD, "");
@@ -143,29 +160,93 @@ function labelOf(line: string): { label: Label; rest: string } | null {
 
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
+/** The one-line labels as they may stand mid-line after another box's words, with the paper's colon ("CONTACT PERSON : ... DESIGNATION : ..."). */
+const MID_LABELS = LABELS.filter((l) => !l.block && !["stop", "furnished", "supplierName", "holdsCertification"].includes(l.key)).map((l) => ({
+  label: l,
+  re: new RegExp(`(?:^|\\s)(?:${l.re.source.replace(/^\^/, "")})\\s*[:：]`, "i"),
+}));
+
+/** A second box on the same line as the first (§200): where its label starts in `rest`, and what follows it. */
+function secondLabelIn(rest: string, first: LabelKey): { label: Label; at: number; rest: string } | null {
+  let best: { label: Label; at: number; rest: string } | null = null;
+  for (const { label, re } of MID_LABELS) {
+    if (label.key === first) continue;
+    const m = re.exec(rest);
+    if (!m || (best && m.index >= best.at)) continue;
+    best = { label, at: m.index, rest: rest.slice(m.index + m[0].length).replace(NOTES, "").replace(SEP, "").trim() };
+  }
+  return best;
+}
+
+// THE PAPER'S PRINTED CHOICES (the company's form: "Proprietary / Partnership / Private Limited / Limited", "Trading
+// Manufacturing Services" with a box before each, "YES NO"). A supplier marks one - an X, a tick or a filled box before or
+// after it - or deletes the others and leaves the one. Left as printed, the box says nothing: the line under it, or the
+// supplier's name, is read instead (§200: the blank form had read as Private Limited, Manufacturing and Yes).
+const MARK = String.raw`(?:x|✓|✔|✗|☒|☑|■|●|\[\s*[x✓✔]\s*\]|\(\s*[x✓✔]\s*\))`;
+const esc = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function chosen(raw: string, options: readonly string[]): { choice: string; several: boolean } {
+  const t = raw.toLowerCase();
+  const present: string[] = [];
+  let left = t;
+  for (const o of [...options].sort((a, b) => b.length - a.length)) {
+    const re = new RegExp(`(?<!\\p{L})${esc(o.toLowerCase())}(?!\\p{L})`, "u");
+    if (!re.test(left)) continue;
+    present.push(o);
+    left = left.replace(re, " ");
+  }
+  if (present.length === 0) return { choice: "", several: false };
+  if (present.length === 1) return { choice: present[0], several: false };
+  for (const o of present) {
+    const e = esc(o.toLowerCase());
+    if (new RegExp(`(?:^|\\s)${MARK}\\s*[-:]?\\s*${e}(?!\\p{L})|(?<!\\p{L})${e}\\s*[-:]?\\s*${MARK}(?:\\s|$|[,.;)])`, "u").test(t)) return { choice: o, several: true };
+  }
+  return { choice: "", several: true };
+}
+
 function typeOfConcern(raw: string, supplierName = ""): string {
-  const t = `${raw} ${raw ? "" : supplierName}`.toLowerCase();
+  const { choice, several } = chosen(raw, TYPES_OF_CONCERN);
+  if (choice) return choice;
+  // The supplier's own words ("Pvt. Ltd.", "LLP"); the choices left as printed, or the box left empty, the name's.
+  const t = `${several ? "" : raw} ${several || !raw.trim() ? supplierName : ""}`.toLowerCase();
   if (/\b(?:pvt|private)\b/.test(t) || /\(p\)\s*ltd/.test(t)) return "Private Limited";
   if (/\bllp\b|partnership|partners?\b/.test(t)) return "Partnership";
   if (/proprietor|proprietary|sole\b/.test(t)) return "Proprietary";
   if (/\b(?:ltd|limited)\b/.test(t)) return "Limited";
-  return TYPES_OF_CONCERN.find((o) => o.toLowerCase() === raw.trim().toLowerCase()) ?? "";
+  return "";
 }
 
 function activity(raw: string): string {
+  const { choice, several } = chosen(raw, ACTIVITIES);
+  if (choice || several) return choice;
   const t = raw.toLowerCase();
   if (/manufactur|producer|maker|mill|press|printer/.test(t)) return "Manufacturing";
   if (/trad|dealer|distribut|stockist|supplier|wholesal|import/.test(t)) return "Trading";
   if (/service|contractor|agency|laborator|calibration|transport|pest/.test(t)) return "Services";
-  return ACTIVITIES.find((o) => o.toLowerCase() === raw.trim().toLowerCase()) ?? "";
+  return "";
 }
 
 function yesNo(raw: string): string {
+  const { choice, several } = chosen(raw, ["Yes", "No"]);
+  if (choice || several) return choice;
   const t = raw.trim().toLowerCase();
   if (!t) return "";
-  if (/^(?:no\b|n\b|nil|none|not\b|-)/.test(t)) return "No";
-  if (/^(?:yes\b|y\b|iso|fssc|brc|haccp|certified|holding|have)/.test(t) || /\biso\s*\d|fssc|brcgs?|haccp/.test(t)) return "Yes";
+  if (/^(?:n\b|nil|none|not\b|-)/.test(t)) return "No";
+  if (/^(?:y\b|iso|fssc|brc|haccp|certified|holding|have)/.test(t) || /\biso\s*\d|fssc|brcgs?|haccp/.test(t)) return "Yes";
   return "";
+}
+
+/** The paper's own words standing in a box - its choices unmarked, "Technical Non-Technical" - are no value: the line under is read. */
+function paperOnly(key: LabelKey, rest: string): boolean {
+  if (!rest.trim()) return true;
+  const unmarked = (options: readonly string[]) => {
+    const c = chosen(rest, options);
+    return c.several && !c.choice;
+  };
+  if (key === "typeOfConcern") return unmarked(TYPES_OF_CONCERN);
+  if (key === "companyActivities") return unmarked(ACTIVITIES);
+  if (key === "holdsCertification") return unmarked(["Yes", "No"]);
+  if (key === "employees") return !/\d/.test(rest);
+  return false;
 }
 
 function employees(raw: string): { technical: string; nonTechnical: string } {
@@ -191,35 +272,57 @@ export function readSupplierFormByRules(text: string): SupplierFormFields {
   let current: { key: LabelKey; block: boolean } | null = null;
   let afterCertification = false;
   let furnished = false;
+  // Two boxes on one line, both left empty there ("CONTACT PERSON : DESIGNATION :"): the line under holds both (§200).
+  let pair: [LabelKey, LabelKey] | null = null;
+  const take = (label: Label, rest: string): LabelKey | null => {
+    let key: LabelKey = label.key;
+    if (key === "stop" || key === "furnished") {
+      if (key === "furnished") furnished = true;
+      current = null;
+      return null;
+    }
+    const atFoot = furnished || afterCertification;
+    if (key === "designation") key = atFoot ? "furnishedDesignation" : "contactDesignation";
+    else if (key === "name") key = atFoot ? "furnishedName" : "stop";
+    else if (key === "date") key = atFoot ? "furnishedDate" : "stop";
+    else if (key === "place") key = atFoot ? "furnishedPlace" : "stop";
+    if (key === "stop") {
+      current = null;
+      return null;
+    }
+    if (key === "holdsCertification") afterCertification = true;
+    (raw[key] ??= []).push(paperOnly(key, rest) ? "" : rest);
+    current = { key, block: !!label.block };
+    return key;
+  };
   for (const line of text.split("\n")) {
+    if (passed(line.replace(LEAD, ""))) continue;
     const found = labelOf(line);
     if (found) {
-      const { label, rest } = found;
-      let key: LabelKey = label.key;
-      if (key === "stop") {
-        current = null;
-        continue;
+      pair = null;
+      const { label } = found;
+      let { rest } = found;
+      const second = label.block ? null : secondLabelIn(rest, label.key);
+      if (second) rest = rest.slice(0, second.at).trim();
+      const first = take(label, rest);
+      if (second) {
+        const k2 = take(second.label, second.rest);
+        if (first && k2 && !rest.trim() && !second.rest.trim()) pair = [first, k2];
+        // The first box empty and the second written: the first's value may still follow on the line under.
+        else if (first && !rest.trim() && second.rest.trim()) current = { key: first, block: false };
       }
-      if (key === "furnished") {
-        furnished = true;
-        current = null;
-        continue;
-      }
-      const atFoot = furnished || afterCertification;
-      if (key === "designation") key = atFoot ? "furnishedDesignation" : "contactDesignation";
-      else if (key === "name") key = atFoot ? "furnishedName" : "stop";
-      else if (key === "date") key = atFoot ? "furnishedDate" : "stop";
-      else if (key === "place") key = atFoot ? "furnishedPlace" : "stop";
-      if (key === "stop") {
-        current = null;
-        continue;
-      }
-      if (key === "holdsCertification") afterCertification = true;
-      (raw[key] ??= []).push(rest);
-      current = { key, block: !!label.block };
       continue;
     }
     if (!current) continue;
+    if (pair) {
+      if (!line.trim()) continue;
+      const parts = line.split(/\t+|\s{3,}/).map((p) => p.trim()).filter(Boolean);
+      raw[pair[0]]!.push(parts[0] ?? "");
+      if (parts.length > 1) raw[pair[1]]!.push(parts.slice(1).join(" "));
+      pair = null;
+      current = null;
+      continue;
+    }
     const lines = raw[current.key]!;
     // A prose box takes every line under its label; a one-line box the line below, when its own line was left empty.
     if (current.block || (lines.length === 1 && !lines[0].trim()) || (lines.length <= 2 && !lines.slice(0, -1).some(Boolean) && lines.length < 2)) lines.push(line);

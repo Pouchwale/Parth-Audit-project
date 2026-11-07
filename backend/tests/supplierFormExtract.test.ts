@@ -120,3 +120,114 @@ test("a text file is read end to end without the assistant, and what the file di
   assert.equal(r.missing.length, SUPPLIER_FORM_KEYS.length - 3);
   await assert.rejects(readSupplierForm(Buffer.from([0xff, 0xd8, 0xff, 0xe0]), "scan.jpg", { useAssistant: false }), /picture of the form/);
 });
+
+// THE COMPANY'S OWN FORM AS WORD PRINTS IT (REQUIREMENTS §200; the owner, 7-Nov-2026: "when user upload the pdf files then
+// make sure it will fetch perfectly whatever the field required"): the original F/PUR/01 .docx filled in Word and exported to
+// PDF puts a bullet before every label, its header on every page, the notes on lines of their own, two boxes on one line,
+// and the printed choices beside the one marked. Read from text shaped exactly as the server's reader saw that PDF.
+const AS_WORD_PRINTS = [
+  "SUPPLIER",
+  "REGISTRATION FORM",
+  "Document no. F/PUR/01",
+  "Rev. no. 00",
+  "Effective date 01.12.2021",
+  "Page no. 1 Of 3",
+  "GENERAL DETAILS – TO BE FILLED UP BY SUPPLIER",
+  "❑ SUPPLIER’S NAME : Shree Ambica Packaging Pvt. Ltd.",
+  "❑ TYPE OF CONCERN : Proprietary / Partnership / Private Limited / Limited",
+  "❑ ADDRESS (OFFICE) : 214, Sunrise Complex, Nr. Tulsi Circle,",
+  "Ring Road, Rajkot - 360 001, Gujarat",
+  "❑ ADDRESS (WORKS) :",
+  "Plot No. 48, GIDC Phase II, Lodhika,",
+  "Rajkot - 360 021, Gujarat",
+  "❑ CONTACT PERSON : Mr. Hiren Patel DESIGNATION : Sales Manager",
+  "❑ TELEPHONE NOS : 98250 12345, 0281 2461234",
+  "❑ E-MAIL ADDRESS : sales@ambicapack.in",
+  "❑ WEEKLY OFF / WORKING HOURS : Sunday / 9.00 am to 6.00 pm",
+  "❑ COMPANY ACTIVITIES : Trading X Manufacturing Services",
+  "500570517653000302450517653000",
+  "❑ NO. OF EMPLOYEES : Technical Non-Technical",
+  "Technical: 18 Non-Technical: 42",
+  "❑ YEAR OF COMMENCEMENT : 2009",
+  "RANGE OF PRODUCTS / SERVICES OFFERED",
+  "3 ply and 5 ply corrugated boxes, die-cut cartons, printed shippers",
+  "(Please attach a separate sheet if required)",
+  "SUPPLIER",
+  "REGISTRATION FORM",
+  "Document no. F/PUR/01",
+  "Rev. no. 00",
+  "Effective date 01.12.2021",
+  "Page no. 2 Of 3",
+  "and corrugated partitions in kraft and white top liner.",
+  "LIST OF MAJOR CUSTOMERS",
+  "Amul Dairy, Balaji Wafers, Jyoti CNC, Ajanta Pharma",
+  "(Attach separate sheet if required)",
+  "PARTICULARS OF PLANT MACHINERY & OTHER INFRASTRUCTURE (NOT APPLICABLE FOR TRADERS)",
+  "5 ply automatic corrugation line (1600 mm), 4 colour flexo printer slotter.",
+  "(Attach separate sheet if required)",
+  "DETAILS OF QUALITY CONTROL DEPARTMENT (PROVIDE DETAILS OF TESTING FACILITY, TEST METHODS)",
+  "In-house lab with bursting strength tester, box compression tester.",
+  "(Please attach a separate sheet if required)",
+  "DO YOU HOLD ISO 9001 / ISO 22000 / HACCP / FSSC / BRCGS CERTIFICATION: YES NO X",
+  "Please provide following documents along with this form.",
+  "1. Technical data sheet / Specification sheet",
+  "SUPPLIER",
+  "REGISTRATION FORM",
+  "Page no. 3 Of 3",
+  "INFORMATION FURNISHED BY :",
+  "NAME : Hiren Patel",
+  "DESIGNATION : Sales Manager",
+  "DATE : 04/11/2026",
+  "PLACE : Rajkot",
+  "SIGNATURE WITH COMPANY’S SEAL",
+  "____________________________________________________________________________________",
+  "INTERNAL OFFICE USE ONLY",
+  "Status of Supplier :  New  Established",
+  "ASSESSMENT STATUS :  APPROVED  REJECTED",
+].join("\n");
+
+test("the company's own form as Word prints it: bullets before the labels, the header on every page, two boxes on one line, the choices beside the one marked (§200)", () => {
+  const f = readSupplierFormByRules(AS_WORD_PRINTS);
+  assert.equal(f.supplierName, "Shree Ambica Packaging Pvt. Ltd.");
+  assert.equal(f.typeOfConcern, "Private Limited", "the choices left as printed: from the supplier's name");
+  assert.equal(f.addressOffice, "214, Sunrise Complex, Nr. Tulsi Circle,\nRing Road, Rajkot - 360 001, Gujarat");
+  assert.equal(f.addressWorks, "Plot No. 48, GIDC Phase II, Lodhika,\nRajkot - 360 021, Gujarat", "written under its label");
+  assert.deepEqual([f.contactPerson, f.contactDesignation], ["Mr. Hiren Patel", "Sales Manager"], "two boxes on one line, told apart");
+  assert.equal(f.telephoneNos, "98250 12345, 0281 2461234");
+  assert.equal(f.companyActivities, "Manufacturing", "the one marked with an X");
+  assert.deepEqual([f.employeesTechnical, f.employeesNonTechnical], ["18", "42"], "the paper's own words on the label's line, the figures under");
+  assert.equal(f.yearOfCommencement, "2009");
+  assert.equal(f.rangeOfProducts, "3 ply and 5 ply corrugated boxes, die-cut cartons, printed shippers\nand corrugated partitions in kraft and white top liner.", "a block running on past the page's header, the note left out");
+  assert.equal(f.majorCustomers, "Amul Dairy, Balaji Wafers, Jyoti CNC, Ajanta Pharma");
+  assert.equal(f.plantMachinery, "5 ply automatic corrugation line (1600 mm), 4 colour flexo printer slotter.");
+  assert.equal(f.qualityControlDept, "In-house lab with bursting strength tester, box compression tester.");
+  assert.equal(f.holdsCertification, "No", "the X beside NO");
+  assert.deepEqual([f.furnishedName, f.furnishedDesignation, f.furnishedDate, f.furnishedPlace], ["Hiren Patel", "Sales Manager", "2026-11-04", "Rajkot"]);
+  assert.equal(Object.keys(f).length, SUPPLIER_FORM_KEYS.length);
+  assert.ok(!JSON.stringify(f).includes("APPROVED") && !JSON.stringify(f).includes("Page no") && !JSON.stringify(f).includes("500570517653"));
+});
+
+test("the company's form sent back as it was gives nothing: the printed choices are no answer, nor the paper's notes (§200)", () => {
+  const f = readSupplierFormByRules(
+    [
+      "❑ SUPPLIER’S NAME :",
+      "❑ TYPE OF CONCERN : Proprietary / Partnership / Private Limited / Limited",
+      "❑ CONTACT PERSON : DESIGNATION :",
+      "❑ COMPANY ACTIVITIES : Trading Manufacturing Services",
+      "❑ NO. OF EMPLOYEES : Technical Non-Technical",
+      "RANGE OF PRODUCTS / SERVICES OFFERED",
+      "(Please attach a separate sheet if required)",
+      "DO YOU HOLD ISO 9001 / ISO 22000 / HACCP / FSSC / BRCGS CERTIFICATION: YES NO",
+      "INFORMATION FURNISHED BY :",
+      "NAME :",
+      "DATE :",
+    ].join("\n")
+  );
+  assert.deepEqual(f, {});
+});
+
+test("two boxes on one line, both written on the line under them, at the gap between; a choice marked after its word, or left alone (§200)", () => {
+  const f = readSupplierFormByRules(["CONTACT PERSON : DESIGNATION :", "Mr. Kiran Mehta\t\t\tPartner", "TYPE OF CONCERN : Proprietary / Partnership ✓ / Private Limited / Limited", "COMPANY ACTIVITIES : Trading", "DO YOU HOLD ISO 9001 CERTIFICATION: ☒ YES ☐ NO"].join("\n"));
+  assert.deepEqual([f.contactPerson, f.contactDesignation, f.typeOfConcern, f.companyActivities, f.holdsCertification], ["Mr. Kiran Mehta", "Partner", "Partnership", "Trading", "Yes"]);
+});
+

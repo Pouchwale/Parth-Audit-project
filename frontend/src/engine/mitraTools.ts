@@ -40,8 +40,23 @@ import { designSessionFor } from "./designSession";
 import { ensureRecordIndex, readSearchQuery, searchRecords } from "./recordSearch";
 import { snippetFor } from "./recordText";
 import { analyticIntent, buildEvidence } from "./historyDigest";
-import { describePerson, searchPeople } from "./hrMaster";
+import { applyFills, describePerson, searchPeople } from "./hrMaster";
 import { hrMasterVisible } from "./hrMasterAssistant";
+import {
+  addAllSuppliers,
+  allSuppliers,
+  describeSupplier,
+  isBlankLine,
+  lineForSupplier,
+  purchaseMasterHeld,
+  searchSuppliers,
+  supplierFill,
+  supplierLinkFor,
+  type SupplierLink,
+} from "./purchaseMasterLinks";
+import { SUPPLIER_FORM_KEYS, supplierFormFills } from "./supplierFormImport";
+import { blankLogRow } from "./recordDefaults";
+import { purchaseApi, type SupplierFormReadResult } from "../api/client";
 import { isDocumentIdVisible } from "./departmentScope";
 import { refusalForWords } from "./accessRefusal";
 import { ACCESS_LEVEL_CODE } from "./accessWords";
@@ -502,6 +517,7 @@ const objectSchema = (properties: Record<string, unknown>, required: string[] = 
 });
 const S = { type: "string" } as const;
 const I = { type: "integer" } as const;
+const BOOL = { type: "boolean" } as const;
 
 const NAVIGATE: MitraTool = {
   name: "navigate",
@@ -1175,6 +1191,202 @@ const HR_MASTER_LOOKUP: MitraTool = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// PURCHASE MASTER DATA AND THE SUPPLIER'S OWN FORM, BY WORD (REQUIREMENTS §200; the owner, 7-Nov-2026: "the data which
+// are fetching from master data should be fetch perfectly for all the document of that module ... in Pur-01 ... when
+// user upload the pdf files then make sure it will fetch perfectly whatever the field required ... and if even told to
+// ai assistant then it can also able to do it properly"). What the Fetch bar and the import card do by button
+// (components/records/SupplierFetch.tsx, SupplierFormImport.tsx), Mitra does when asked: the same engine
+// (engine/purchaseMasterLinks.ts, engine/supplierFormImport.ts, the server's reader), a box already written asked
+// about first, the same note in the record's history.
+
+const SUPPLIER_FORM_DOC = "pur-supplier-registration";
+
+/** The open record's supplier link with only the boxes its format still has (the Sheet Designer can take one off), and its layout. */
+function supplierLinkOf(tgt: { documentId: string; recordId: string }): { link: SupplierLink; layout: LogSheetLayout } | null {
+  const link = supplierLinkFor(tgt.documentId);
+  const layout = link ? getLogSheetLayoutForRecord(tgt.documentId, recordRepository.getById(tgt.recordId)) : undefined;
+  if (!link || !layout) return null;
+  const keys = new Set((link.where === "header" ? [...layout.headerFields, ...(layout.footerFields ?? [])] : layout.columns).map((f) => f.key));
+  return { link: { ...link, fields: link.fields.filter((f) => keys.has(f.key)) }, layout };
+}
+
+/** A box's label as it reads in a sentence: "SUPPLIER'S NAME", not "SUPPLIER'S NAME :" nor the paper's note after it. */
+const boxLabel = (layout: LogSheetLayout, key: string): string =>
+  ([...layout.headerFields, ...(layout.footerFields ?? []), ...layout.columns].find((f) => f.key === key)?.label ?? key)
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/[\s:–-]+$/, "")
+    .trim();
+
+interface SupplierTarget {
+  tgt: NonNullable<MitraToolContext["target"]>;
+  link: SupplierLink;
+  layout: LogSheetLayout;
+  data: LogSheetData;
+  title: string;
+}
+
+/** The open record, open for writing, that fetches from Purchase Master Data - or the refusal to give the model. */
+function supplierTarget(ctx: MitraToolContext): SupplierTarget | { refusal: MitraToolResult } {
+  const tgt = ctx.target;
+  if (!tgt) return { refusal: no(ctx.noTarget ?? "no record is open — open one first") };
+  const found = supplierLinkOf(tgt);
+  if (!found) return { refusal: no("this record does not fetch from Purchase Master Data: the Purchase formats and the QC incoming inspection records do") };
+  if (!purchaseMasterHeld()) return { refusal: no("Purchase Master Data is not open to this account") };
+  const stop = levelStops(tgt.documentId, stepOn(tgt), ctx);
+  if (stop) return { refusal: stop };
+  const title = tgt.title ?? documentRepository.getById(tgt.documentId)?.name ?? "this record";
+  if (!tgt.editable) return { refusal: no(`${title} is ${tgt.status}: open it for writing first (Edit), then ask again`) };
+  const data = tgt.getData() as LogSheetData | null;
+  if (!data || !Array.isArray(data.rows)) return { refusal: no(`${title} is not a log sheet`) };
+  return { tgt, ...found, data, title };
+}
+
+const PURCHASE_MASTER_LOOKUP: MitraTool = {
+  name: "purchase_master_lookup",
+  description: "Look up a supplier on Purchase Master Data by name or Vendor Code: up to 5 with product, category, contact and location.",
+  parameters: objectSchema({ query: S }, ["query"]),
+  run: (args) => {
+    const query = str(args.query);
+    if (!query) return no("query needed");
+    const suppliers = allSuppliers();
+    if (suppliers.length === 0) return no("Purchase Master Data has no supplier on it yet", { suppliers: [] });
+    const { exact, candidates } = searchSuppliers(query, suppliers, 5);
+    const list = candidates.map((s) => ({ vendorCode: s.vendorCode, name: s.supplierName, product: s.productService, category: s.category, contact: s.contactPerson, phone: s.contactNumber, location: s.location }));
+    if (list.length === 0) return no(`no supplier called “${query}” is on Purchase Master Data`, { suppliers: [] });
+    return ok({ suppliers: list, ...(exact ? { exact: describeSupplier(exact) } : {}) }, say("ai.step.suppliersFound", "Found {n} on Purchase Master Data", { n: list.length }));
+  },
+};
+
+const FETCH_SUPPLIER: MitraTool = {
+  name: "fetch_supplier_into_open_record",
+  description: "Supplier from Purchase Master Data onto the open record: supplier (name/Vendor Code) fills its boxes or a line; all adds every one; replace.",
+  parameters: objectSchema({ supplier: S, all: BOOL, replace: BOOL }),
+  writes: true,
+  run: async (args, ctx) => {
+    const at = supplierTarget(ctx);
+    if ("refusal" in at) return at.refusal;
+    const { tgt, link, layout, data, title } = at;
+    const suppliers = allSuppliers();
+    if (suppliers.length === 0) return no("Purchase Master Data has no supplier on it yet");
+    const note = noteOf(ctx);
+    const newLine = () => blankLogRow(layout);
+    if (bool(args.all)) {
+      if (link.where !== "rows") return no(`${title} takes one supplier; every supplier at once is for a register (F/PUR/03, F/PUR/05, F/PUR/06)`);
+      const { data: next, added, already } = addAllSuppliers(link, data, newLine, suppliers);
+      if (added === 0) return no(`every supplier of Purchase Master Data is already on ${title}`, { already });
+      tgt.commit(next, note);
+      return ok({ added, already }, say("ai.step.suppliersAdded", "Added {n} supplier(s) from Purchase Master Data to {title}", { n: added, title }));
+    }
+    const query = str(args.supplier);
+    if (!query) return no("supplier needed: a name or Vendor Code from Purchase Master Data (or all: true on a register)");
+    const { exact, candidates } = searchSuppliers(query, suppliers);
+    const supplier = exact ?? (candidates.length === 1 ? candidates[0] : null);
+    if (!supplier) {
+      return candidates.length > 0
+        ? no(`${candidates.length} lines of Purchase Master Data match “${query}” — which one?`, { candidates: candidates.slice(0, 5).map(describeSupplier) })
+        : no(`no supplier on Purchase Master Data has the name or Vendor Code “${query}”`);
+    }
+    const who = describeSupplier(supplier);
+    if (link.where === "rows") {
+      // On the register's first blank line, else a new one - as the bar's "Add line" does.
+      const blank = data.rows.findIndex((r) => isBlankLine(link, r));
+      const rows = [...data.rows];
+      if (blank >= 0) rows[blank] = lineForSupplier(link, supplier, rows[blank]);
+      else rows.push(lineForSupplier(link, supplier, newLine()));
+      tgt.commit({ ...data, rows }, note);
+      const line = blank >= 0 ? blank + 1 : rows.length;
+      return ok({ supplier: who, line }, say("ai.step.supplierLineWritten", "Line {line} of {title} written for {supplier}", { line, title, supplier: who }));
+    }
+    const { fills, conflicts } = supplierFill(link, supplier, data.header ?? {});
+    let writes = fills;
+    if (conflicts.length > 0) {
+      const boxes = conflicts.map((f) => boxLabel(layout, f.key)).join(", ");
+      const yes =
+        bool(args.replace) ||
+        (await ctx.confirm(
+          say("ai.confirm.replaceFromMaster", "{title} already has something else in {boxes}. Replace it with what Purchase Master Data has for {supplier}?", { title, boxes, supplier: supplier.supplierName }),
+          say("ai.confirm.yesReplace", "Yes, replace"),
+          say("ai.confirm.noKeep", "No, keep it")
+        ));
+      if (yes) writes = [...fills, ...conflicts];
+    }
+    const kept = conflicts.filter((c) => !writes.includes(c)).map((f) => boxLabel(layout, f.key));
+    if (writes.length === 0) {
+      return no(kept.length ? `the person kept ${title}'s own ${kept.join(", ")}` : `${title} already has ${supplier.supplierName}'s details`, {}, say("ai.step.leftAsWas", "Left as it was"));
+    }
+    tgt.commit({ ...data, header: applyFills(data.header ?? {}, writes) }, note);
+    return ok(
+      { supplier: who, filled: writes.map((f) => boxLabel(layout, f.key)), ...(kept.length ? { kept } : {}) },
+      say("ai.step.supplierFetched", "Filled {n} box(es) on {title} from Purchase Master Data", { n: writes.length, title })
+    );
+  },
+};
+
+const FILL_FROM_SUPPLIER_FORM: MitraTool = {
+  name: "fill_open_record_from_supplier_form",
+  description: "F/PUR/01 only: read the supplier's filled-in form from an attachment (attachmentId, or the one attached) onto the open record; replace.",
+  parameters: objectSchema({ attachmentId: S, replace: BOOL }),
+  writes: true,
+  run: async (args, ctx) => {
+    const at = supplierTarget(ctx);
+    if ("refusal" in at) return at.refusal;
+    const { tgt, layout, data, title } = at;
+    if (tgt.documentId !== SUPPLIER_FORM_DOC) return no(`only F/PUR/01, the Supplier Registration Form, is filled from the supplier's own form; ${title} fetches from Purchase Master Data instead`);
+    const list = ctx.attachments;
+    const id = str(args.attachmentId);
+    const ready = list.filter((x) => x.status === "ready");
+    const a = id
+      ? (list.find((x) => x.id === id) ?? list.find((x) => x.name.toLowerCase() === id.toLowerCase()) ?? (/^\d+$/.test(id) ? list[Number(id) - 1] : undefined))
+      : ready.length === 1
+        ? ready[0]
+        : ready[ready.length - 1];
+    if (!a) {
+      return no(list.length ? "which attachment is the supplier's form? none is read yet" : "attach the supplier's filled-in form first: a PDF with text, a Word file, or a photo of it", {
+        attachments: list.map((x) => ({ id: x.id, name: x.name, status: x.status, characters: x.characters })),
+      });
+    }
+    if (a.status === "reading") return no(`${a.name} is still being read — try again in a moment`);
+    if (a.status === "failed" || !a.text.trim()) return no(`${a.name} has no readable text${a.note ? `: ${a.note}` : ""} — a scanned picture needs a photo Mitra can read, or the details typed in`);
+    let read: SupplierFormReadResult;
+    try {
+      read = await purchaseApi.readSupplierFormText(a.text, a.name);
+    } catch (err) {
+      return no(`${a.name} could not be read as the form: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    const keys = SUPPLIER_FORM_KEYS.filter((k) => layout.headerFields.some((f) => f.key === k));
+    const { fills, conflicts } = supplierFormFills(read.fields, data.header ?? {}, keys);
+    let writes = fills;
+    if (conflicts.length > 0) {
+      const boxes = conflicts.map((f) => boxLabel(layout, f.key)).join(", ");
+      const yes =
+        bool(args.replace) ||
+        (await ctx.confirm(
+          say("ai.confirm.replaceFromForm", "{title} already has something else in {boxes}. Replace it with what {file} says?", { title, boxes, file: a.name }),
+          say("ai.confirm.yesReplace", "Yes, replace"),
+          say("ai.confirm.noKeep", "No, keep it")
+        ));
+      if (yes) writes = [...fills, ...conflicts];
+    }
+    const missing = (read.missing ?? []).slice(0, 22);
+    const kept = conflicts.filter((c) => !writes.includes(c)).map((f) => boxLabel(layout, f.key));
+    if (writes.length === 0) {
+      const why =
+        Object.keys(read.fields ?? {}).length === 0
+          ? `${a.name} gave none of the form's boxes${missing.length ? ` — not found: ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? "…" : ""}` : ""}`
+          : kept.length
+            ? `the person kept ${title}'s own ${kept.join(", ")}`
+            : `${title} already has what ${a.name} says`;
+      return no(why, { ...(missing.length ? { notInFile: missing } : {}) }, say("ai.step.leftAsWas", "Left as it was"));
+    }
+    tgt.commit({ ...data, header: applyFills(data.header ?? {}, writes) }, noteOf(ctx));
+    return ok(
+      { file: a.name, filled: writes.map((f) => boxLabel(layout, f.key)), ...(kept.length ? { kept } : {}), ...(missing.length ? { notInFile: missing } : {}) },
+      say("ai.step.formRead", "Filled {n} box(es) on {title} from {file}", { n: writes.length, title, file: a.name })
+    );
+  },
+};
+
 /** Every tool there is, for tests and for describing what Mitra can do. */
 export const ALL_TOOLS: readonly MitraTool[] = [
   NAVIGATE,
@@ -1195,6 +1407,9 @@ export const ALL_TOOLS: readonly MitraTool[] = [
   ADD_PHOTO,
   ASK_USER,
   HR_MASTER_LOOKUP,
+  PURCHASE_MASTER_LOOKUP,
+  FETCH_SUPPLIER,
+  FILL_FROM_SUPPLIER_FORM,
 ];
 
 /**
@@ -1211,12 +1426,18 @@ export function mitraTools(ctx: MitraToolContext): MitraTool[] {
     if (kind && canSampleFill(kind)) tools.push(FILL_WITH_SAMPLE);
     tools.push(RECORD_ACTION);
     if (ctx.attachments.length > 0 && photoListOf(safeData(tgt))) tools.push(ADD_PHOTO);
+    // A Purchase record, or a QC incoming record, fetches its supplier (§200); F/PUR/01 reads the supplier's own form attached.
+    if (supplierLinkFor(tgt.documentId) && purchaseMasterHeld()) {
+      tools.push(FETCH_SUPPLIER);
+      if (tgt.documentId === SUPPLIER_FORM_DOC && ctx.attachments.length > 0) tools.push(FILL_FROM_SUPPLIER_FORM);
+    }
   }
   if (ctx.runWidgetAction) tools.push(START_GUIDED_FILL);
   if (documentOnScreen(ctx)) tools.push(CHANGE_FORMAT);
   tools.push(SEARCH_RECORDS, LIST_RECORDS, GET_RECORD, HISTORY_FIGURES, TODAYS_FACTS);
   if (ctx.attachments.length > 0) tools.push(READ_ATTACHMENT);
   if (hrMasterVisible()) tools.push(HR_MASTER_LOOKUP);
+  if (purchaseMasterHeld()) tools.push(PURCHASE_MASTER_LOOKUP);
   tools.push(ASK_USER);
   return tools;
 }

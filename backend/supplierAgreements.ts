@@ -99,16 +99,20 @@ export function createDatabaseAgreementStore(db: () => Queryable = () => databas
 /** A stand-in for the unit tests: the same rules, in memory. */
 export function createMemoryAgreementStore(clock: () => Date = () => new Date()): AgreementStore & { rows: (AgreementFile & { bytes: Buffer })[] } {
   const rows: (AgreementFile & { bytes: Buffer })[] = [];
+  // Two files uploaded at the one moment the clock gives (a test's fixed clock; a real clock's tick): the later upload is
+  // the newer, not whichever id sorts higher - so each row remembers its turn.
+  const turn = new Map<string, number>();
   return {
     rows,
     async list(recordId) {
       return rows
         .filter((r) => r.recordId === recordId)
-        .sort((a, b) => (a.uploadedAt < b.uploadedAt ? 1 : a.uploadedAt > b.uploadedAt ? -1 : a.id < b.id ? 1 : -1))
+        .sort((a, b) => (a.uploadedAt < b.uploadedAt ? 1 : a.uploadedAt > b.uploadedAt ? -1 : (turn.get(b.id) ?? 0) - (turn.get(a.id) ?? 0)))
         .map(({ bytes: _b, ...file }) => file);
     },
     async add(file) {
       const row = { ...file, id: `agr-${randomUUID()}`, uploadedAt: clock().toISOString() };
+      turn.set(row.id, rows.length);
       rows.push(row);
       const { bytes: _b, ...out } = row;
       return out;

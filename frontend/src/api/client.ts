@@ -347,6 +347,13 @@ export const purchaseApi = {
       headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(file.name) },
       body: file,
     }),
+  /** The words of a file Mitra has already read - an attachment - read as the form (REQUIREMENTS §200): sent as plain text under the file's name. */
+  readSupplierFormText: (text: string, name: string) =>
+    request<SupplierFormReadResult>("/purchase/supplier-form/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(`${name.replace(/\.[^.]+$/, "") || "form"}.txt`) },
+      body: text,
+    }),
 };
 
 // THE SERVICE AGREEMENT / CERTIFICATE KEPT ON AN F/PUR/01 RECORD (backend/supplierAgreements.ts, REQUIREMENTS §192).
