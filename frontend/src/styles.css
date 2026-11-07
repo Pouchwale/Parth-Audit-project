@@ -1685,7 +1685,6 @@ body { top: 0 !important; }
 .register-grid tr.register-row.clickable { cursor: pointer; }
 .doc-table .register-grid tr.register-row.clickable:hover td { background: var(--color-primary-light); }
 .doc-table .register-grid tr.is-today td.date-cell { outline: 2px solid var(--color-primary); outline-offset: -2px; }
-.register-notes { margin-top: 8px; color: var(--color-text-muted); }
 .register-summary-title { background: #d9d9d9; border: 1px solid #2c3e50; border-bottom: none; font-weight: 700; font-size: 12px; padding: 6px 8px; margin-top: 16px; }
 .register-summary td { text-align: left; height: 30px; }
 .register-original { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }

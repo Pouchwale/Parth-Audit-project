@@ -5,7 +5,7 @@ import { wrappedHeight } from "./calibrationExcel";
 // 31-Oct-2026: "in hr/17 the excel and word both preview is not proper make that proper also"). The register on the page
 // (components/records/DailyRegisterSheet.tsx) is three A4 portrait pages, each under its header box (the company, the
 // title underlined, the FORMAT NO. / REV NO. / REV DATE / PAGE NO. band): page 1 the instructions and the ten check
-// points, numbered; page 2 the days 1-19; page 3 the days 20-31, the notes and the SUMMARY OF ACTIONS TAKEN. The grid's
+// points, numbered; page 2 the days 1-19; page 3 the days 20-31 and the SUMMARY OF ACTIONS TAKEN. The grid's
 // headings are shaded; DATE, TIME OF CHECKING and CHECKER stand down both heading rows and the CHECK POINTS heading
 // across the ten; a closed day is H O L I D A Y across the ten. The words and bound values are the page's, so a file
 // edited in Word or Excel reads back as every download does. A single day's record is not this page and downloads as before.
@@ -146,11 +146,11 @@ export function dailyPestRegister(blocks: ExportBlock[]): ExportBlock[] | null {
           continue;
         }
         // The ten check points after "Please mention the status ...", numbered as the page numbers them.
-        if (numbered > 0 && !b.strong && !t.startsWith("*")) {
+        if (numbered > 0 && !b.strong) {
           lines.push({ text: `${numbered++}.  ${t}`, bold: false, size: 18 });
           continue;
         }
-        lines.push({ text: t, bold: b.strong, size: t.startsWith("*") ? 15 : 18 });
+        lines.push({ text: t, bold: b.strong, size: 18 });
         if (b.strong && /^Please mention/i.test(t)) numbered = 1;
       } else if (isGrid(b)) {
         flush();

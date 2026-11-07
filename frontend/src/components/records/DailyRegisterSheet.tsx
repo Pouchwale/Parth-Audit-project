@@ -37,12 +37,6 @@ export const FHR17_INSTRUCTION_1 =
   "Please check the following points on a Daily basis for monitoring of Rodent / Pest infestation & report to Production supervisor / Pest control agency for further investigation & necessary actions.";
 export const FHR17_INSTRUCTION_2 = "Please mention the status as Yes / No against each check point except point no. 7";
 
-interface Note {
-  day: number;
-  no: number;
-  note: string;
-}
-
 interface CellView {
   text: string;
   title?: string;
@@ -66,8 +60,10 @@ function cellFor(r: RecordInstance<DailyPestMonitoringData> | undefined, cp: Dai
     return { text: raw == null ? "" : String(raw) };
   }
   if (cp.responseType === "number") return { text: raw == null ? "" : String(raw) };
+  // A note written against the point is the screen's tooltip and the day's record's own: the paper carries no mark for
+  // it and no list of them (the owner, 7-Nov-2026, of the list of notes that stood under page 3: "remove this line", §198).
   const text = raw == null ? "" : String(raw);
-  return { text: text + (ans?.note ? "*" : ""), title: ans?.note || undefined, flagged: isCheckpointFinding(cp, raw ?? null) };
+  return { text, title: ans?.note || undefined, flagged: isCheckpointFinding(cp, raw ?? null) };
 }
 
 export function DailyRegisterSheet({
@@ -144,16 +140,6 @@ export function DailyRegisterSheet({
         }
       : undefined;
   if (!doc) return null;
-
-  const notes: Note[] = [];
-  for (const r of records) {
-    if (r.data.isHoliday) continue;
-    for (const cp of checkpoints) {
-      const note = r.data.checkpoints[cp.no]?.note?.trim();
-      if (cp.responseType === "yesno-note" && note) notes.push({ day: Number(r.dueDate.slice(8, 10)), no: cp.no, note });
-    }
-  }
-  notes.sort((a, b) => a.day - b.day || a.no - b.no);
 
   const actions = records
     .flatMap((r) => r.data.summaryActions.map((a, index) => ({ ...a, fallbackDate: r.dueDate, recordId: r.id, index })))
@@ -264,15 +250,6 @@ export function DailyRegisterSheet({
       <section className="register-page">
         <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " pageLabel="3 Of 3" />
         {grid(20, 31)}
-        {notes.length > 0 && (
-          <div className="register-notes text-xs">
-            <strong>* Notes (check points 8 / 9):</strong>{" "}
-            {/* The notes themselves are what the checker wrote (REQUIREMENTS §58). */}
-            <span className="notranslate" translate="no">
-              {notes.map((n) => `${n.day}. — no. ${n.no}: ${n.note}`).join("; ")}
-            </span>
-          </div>
-        )}
         <div className="register-summary-title">SUMMARY OF ACTIONS TAKEN IF PEST OBSERVED</div>
         <div className="doc-table register-grid-wrap">
           <table className="register-grid register-summary">
@@ -313,7 +290,7 @@ export function DailyRegisterSheet({
       {onOpenDay && (
         <div className="text-xs text-faint mt-2 no-print">
           Click a date row to open that day's record. Date cell colour: green = Verified, blue = Submitted / Pending Verification, red = Rejected; a red check
-          point = a finding; "*" = a note (listed under page 3). None of that prints.
+          point = a finding; a note written against a point shows when its cell is pointed at. None of that prints.
         </div>
       )}
     </div>

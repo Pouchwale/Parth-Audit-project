@@ -40,7 +40,6 @@ const register: ExportBlock[] = [
   gridOf([18, 19]),
   ...head(3),
   gridOf([20]),
-  { kind: "text", text: "* Notes (check points 8 / 9): 16. — no. 8: post press", strong: false },
   { kind: "text", text: "SUMMARY OF ACTIONS TAKEN IF PEST OBSERVED", strong: true },
   { kind: "table", headerRows: 1, rows: [[{ text: "Date of observation" }, { text: "Description of Observation" }, { text: "Action Taken" }, { text: "Remarks" }], [{ text: "16-10-2026", date: "2026-10-16" }, { text: "TEST" }, { text: "" }, { text: "" }]] },
 ];

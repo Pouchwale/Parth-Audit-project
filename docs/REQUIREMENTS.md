@@ -11411,6 +11411,11 @@ module in excel or word then it should be look perfectly only in those formats a
   section up to FIT_OWN_OVER (1.25) pages tall is drawn just small enough to fit its paper, as F/HR/18's pages are
   (utils/print.ts fitDrawnSections); one taller flows on as before. The trends print one landscape sheet each, the
   signature on it; F/HR/18 and F/HR/17 as above.
+- NO NOTES LINE UNDER PAGE 3 (the owner, later the same morning, with "* Notes (check points 8 / 9): 6. — no. 8: Anilox
+  cleaning area ..." on the screen: "remove this line also ... make sure there is no single point of mistake any
+  where"): the line is gone from the screen, the print, Word and Excel, and with it the "*" that marked a noted cell. A
+  note written against a point stays the screen's tooltip on its cell and the day's record's own (§58 unchanged).
 - Proved: frontend/tests/registerHeadings.test.ts and printFill.test.ts (by source); locally, the register looked at on
-  the screen, printed (the three pages measured), its Word and Excel files opened and every heading's alignment read
-  (scratchpad check_headings.py), the trend pages and F/HR/18 printed and measured (scratchpad measure_route.py).
+  the screen, printed (the three pages measured), its Word and Excel files opened and every heading's alignment read,
+  no notes line and no "*" on any of them (scratchpad check_headings.py), the trend pages and F/HR/18 printed and
+  measured (scratchpad measure_route.py).

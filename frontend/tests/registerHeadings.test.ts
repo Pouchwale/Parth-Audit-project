@@ -25,6 +25,16 @@ test("a register's headings are centred by a rule that stands after the shared h
   assert.match(css.slice(fhr18, fhr18 + 400), /text-align: left;/);
 });
 
+test("the register carries no notes line under page 3 and no asterisk in a cell (the owner, 7-Nov-2026: 'remove this line also')", () => {
+  const sheet = read("frontend", "src", "components", "records", "DailyRegisterSheet.tsx");
+  assert.doesNotMatch(sheet, /register-notes|Notes \(check points|"\*"|interface Note\b/);
+  assert.match(sheet, /return \{ text, title: ans\?\.note \|\| undefined, flagged: isCheckpointFinding\(cp, raw \?\? null\) \};/, "a note stays the cell's tooltip");
+  const css = read("frontend", "src", "styles.css");
+  assert.doesNotMatch(css, /\.register-notes/);
+  const paper = read("frontend", "src", "utils", "dailyPestRegister.ts");
+  assert.doesNotMatch(paper, /startsWith\("\*"\)/, "nothing starting with * is expected on the page any more");
+});
+
 test("in Word and in Excel the CHECK POINTS heading is centred over the ten, as the other three", () => {
   const src = read("frontend", "src", "utils", "dailyPestRegister.ts");
   assert.match(src, /cell\(\{ text: text\(head\[1\]\)\.toUpperCase\(\) \}, 14, true, "center", "center", \{ \.\.\.shaded, colSpan: 10 \}\)/);
