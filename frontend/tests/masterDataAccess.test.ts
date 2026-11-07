@@ -92,12 +92,23 @@ test("the System menu's other pages: the super admin's alone; no staff account's
   for (const account of [{ role: "staff", email: "kapila.barad@gpp.local" }, { role: "staff", email: "vinay.bhojak@gpp.local" }, { role: "staff", email: "x@gmail.com", name: "Kapila Barad" }, { role: "staff", email: "chirag.parmar@gpp.local" }, null]) {
     assert.equal(mayOpenDepartmentsAccess(account), false, JSON.stringify(account));
   }
-  // The Employees tab (§179): everybody's who opens Master Data but Vinay Bhojak's.
-  for (const account of [{ role: "staff", email: "vinay.bhojak@gpp.local" }, { role: "staff", email: "vb@gmail.com", name: "Vinay Bhojak" }]) assert.equal(mayOpenEmployeesTab(account), false, JSON.stringify(account));
-  for (const account of [{ role: "admin", email: "admin@gpp.local" }, { role: "staff", email: "kapila.barad@gpp.local" }, { role: "staff", email: "dept-qc@example.com" }]) assert.equal(mayOpenEmployeesTab(account), true, JSON.stringify(account));
+  // The Employees tab (§179, §199): the super admin's and the testing accounts'; not Vinay Bhojak's, not Kapila Barad's.
+  for (const account of [
+    { role: "staff", email: "vinay.bhojak@gpp.local" },
+    { role: "staff", email: "vb@gmail.com", name: "Vinay Bhojak" },
+    { role: "staff", email: "kapila.barad@gpp.local" },
+    { role: "staff", email: "kapilabarad01@gmail.com", name: "Kapila Barad" },
+    { role: "staff", email: "x@gmail.com", name: "Kapila B Barad" },
+    null,
+  ]) {
+    assert.equal(mayOpenEmployeesTab(account), false, JSON.stringify(account));
+  }
+  for (const account of [{ role: "admin", email: "admin@gpp.local" }, { role: "admin", email: "superadmin05@gmail.com", name: "Superadmin" }, { role: "staff", email: "dept-qc@example.com" }]) {
+    assert.equal(mayOpenEmployeesTab(account), true, JSON.stringify(account));
+  }
   const page = read("frontend", "src", "pages", "MasterDataPage.tsx");
   assert.match(page, /TABS\.filter\(\(t\) => \(t\.key !== "departments" \|\| mayOpenDepartmentsAccess\(user\)\) && \(t\.key !== "employees" \|\| mayOpenEmployeesTab\(user\)\)\)\.map\(\(t\) => \(/);
-  assert.match(page, /useState<Tab>\(mayOpenEmployeesTab\(user\) \? "employees" : "chemicals"\)/, "Vinay lands on Chemicals, not on a tab he cannot see");
+  assert.match(page, /useState<Tab>\(mayOpenEmployeesTab\(user\) \? "employees" : "chemicals"\)/, "Vinay and Kapila land on Chemicals, not on a tab they cannot see");
   assert.equal(mayOpenSystemPages(null), false);
   assert.equal(mayOpenRoute(null, "/reports"), false);
   const sidebar = read("frontend", "src", "components", "layout", "Sidebar.tsx");

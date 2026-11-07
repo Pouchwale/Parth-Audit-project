@@ -74,9 +74,14 @@ export function isVinayBhojak(account: { email?: string | null; name?: string | 
   return words.includes("vinay") && words.includes("bhojak");
 }
 
-/** Whether Master Data's Employees tab is shown: to everybody who opens Master Data but Vinay Bhojak (§179). */
+/**
+ * Whether Master Data's Employees tab is shown: the super admin's and the testing accounts'. Taken off Vinay Bhojak's
+ * account first (the owner, 3-Nov-2026, §179), then off Kapila Barad's (the owner, 7-Nov-2026, with a picture of the tab:
+ * "remove employee from master data from kapila barad id", REQUIREMENTS §199) - so off every plant account that opens
+ * Master Data: the list of the plant's people, their roles and their addresses is the boss's to keep.
+ */
 export function mayOpenEmployeesTab(account: { role?: string | null; email?: string | null; name?: string | null } | null | undefined): boolean {
-  return !!account && (account.role === "admin" || !isVinayBhojak(account));
+  return !!account && (account.role === "admin" || isTestAccount(account.email));
 }
 
 /** Whether an account may be taken to an address: one of the System menu's other pages only by mayOpenSystemPages; any other address, yes. */

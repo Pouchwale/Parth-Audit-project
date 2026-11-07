@@ -11419,3 +11419,16 @@ module in excel or word then it should be look perfectly only in those formats a
   the screen, printed (the three pages measured), its Word and Excel files opened and every heading's alignment read,
   no notes line and no "*" on any of them (scratchpad check_headings.py), the trend pages and F/HR/18 printed and
   measured (scratchpad measure_route.py).
+
+## §199 Master Data's Employees tab taken off Kapila Barad's account (7-Nov-2026)
+
+The owner, 7-Nov-2026, with a picture of Master Data's Employees tab: "remove employee from master data from kapila
+barad id so do this fast".
+
+- THE EMPLOYEES TAB IS THE SUPER ADMIN'S AND THE TESTING ACCOUNTS' (engine/masterDataAccess.ts mayOpenEmployeesTab):
+  taken off Vinay Bhojak's account by §179, now off Kapila Barad's too - by her sign-ins and by her name, as §172 knows
+  her - so off every plant account that opens Master Data. Her Master Data opens on Chemicals, with PC IDs, Rodent
+  Stations, Areas, Documents / Formats, Holidays and Working Hours & Briefing as before (§172, §178).
+- Nothing else of hers changes: the forms that draw on the employee list still do.
+- Proved: frontend/tests/masterDataAccess.test.ts; locally, Kapila's and the super admin's Master Data tabs read
+  (scratchpad check_kapila.py).
