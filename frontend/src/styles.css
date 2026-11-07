@@ -1701,7 +1701,8 @@ body { top: 0 !important; }
 .fhr18-legend { margin-top: 8px; }
 .fhr18-legend td { text-align: left; padding: 3px 7px; font-size: 11.5px; }
 .fhr18-legend td.pc-id { width: 64px; font-weight: 600; white-space: nowrap; }
-.fhr18-grid td.pc-cell { font-weight: 700; text-align: left; vertical-align: top; width: 76px; white-space: nowrap; }
+/* The unit's number in the middle of its two lines (the owner, 7-Nov-2026, with the column on the screen: "keep this column in pc in center", §201). */
+.fhr18-grid td.pc-cell { font-weight: 700; text-align: center; vertical-align: middle; width: 76px; white-space: nowrap; }
 .fhr18-grid td.date-cell { text-align: center; font-weight: 500; width: auto; }
 .fhr18-grid td.count-cell { font-variant-numeric: tabular-nums; }
 .fhr18-grid td.name-cell { text-transform: capitalize; }
@@ -1728,7 +1729,11 @@ body { top: 0 !important; }
 .fhr18-visit-link { background: none; border: none; padding: 0; font: inherit; color: var(--color-primary); text-decoration: underline; cursor: pointer; }
 .fhr18-grid td.edit-cell { padding: 2px 3px; }
 .fhr18-grid .fhr18-input { width: 100%; min-width: 0; padding: 3px 5px; font-size: 12px; }
-.fhr18-grid input[type="number"].fhr18-input { text-align: center; }
+.fhr18-grid input[type="number"].fhr18-input { text-align: center; appearance: textfield; -moz-appearance: textfield; }
+/* The count box's spinner took room at its right and pushed its digits off the column's middle, out of line with the
+   lines under it written as words (the owner, 7-Nov-2026: "the numbers are not align proper"): no spinner, the digits in the middle. */
+.fhr18-grid input[type="number"].fhr18-input::-webkit-inner-spin-button,
+.fhr18-grid input[type="number"].fhr18-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .fhr18-grid input[type="date"].fhr18-input { min-width: 118px; }
 .register-grid tr.register-row.locked td { background: #f5f6f8; color: var(--color-text-muted); }
 
@@ -3636,9 +3641,10 @@ table.svc-paper {
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td:last-child, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td:last-child { border-right: 1px solid #000; }
   /* (one line between two PCs: the PC above draws it; the first PC of a page draws its own top) */
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-gap + tbody.fhr18-unit tr:first-child td, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-gap + tbody.fhr18-unit tr:first-child td { border-top: 1px solid #000; }
-  .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.pc-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.pc-cell { font-weight: 700; width: 63.7pt; border-right: 0; }
+  /* Printed too: the unit's number in the middle of its two lines, its count in the middle of its column (the owner, 7-Nov-2026, §201). */
+  .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.pc-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.pc-cell { font-weight: 700; width: 63.7pt; border-right: 0; text-align: center; vertical-align: middle; padding: 0; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr.register-row td.date-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr.register-row td.date-cell { text-align: left; font-weight: 400; }
-  .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.count-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.count-cell { text-align: left; }
+  .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.count-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.count-cell { text-align: center; padding-left: 0; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.name-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.name-cell { text-transform: none; }
 }
 /* F/HR/16 ON ONE PAGE, AS THE PAPER IS (REQUIREMENTS §118): the paper prints its eighteen areas on one landscape page; DCRS's sheet ran to two because

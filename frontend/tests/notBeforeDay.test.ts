@@ -75,6 +75,10 @@ test("the pages and F/HR/18's views read the one rule, and the record page says 
   const view = read("frontend", "src", "components", "records", "FlyCatcherRecordView.tsx");
   assert.match(view, /editable && !!r && isEditableStatus\(r\.status\) && !waitsUntil\(flyDoc, r\)/);
   assert.match(view, /\(line\.current \|\| \(isEditableStatus\(r\.status\) && !waitsUntil\(flyDoc, r\)\)\)/);
+  assert.match(view, /paperCount\(r && waitsUntil\(flyDoc, r\) \? null : o\?\.catchCountApprox\)/, "the record page's grid keeps a future visit's count blank too");
+  const css = read("frontend", "src", "styles.css");
+  assert.match(css, /\.fhr18-grid td\.pc-cell \{ font-weight: 700; text-align: center; vertical-align: middle;/, "the unit's number in the middle of its two lines");
+  assert.match(css, /fhr18-input::-webkit-inner-spin-button/, "the count box's spinner off, its digits in the middle");
   const strings = read("frontend", "src", "i18n", "strings.ts");
   assert.equal((strings.match(/"record\.waitsForDay":/g) ?? []).length, 2, "in English and in Gujarati");
 });

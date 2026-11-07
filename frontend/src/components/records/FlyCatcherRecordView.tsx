@@ -463,7 +463,10 @@ export function FlyCatcherRecordView({
         <td className="date-cell notranslate" translate="no">
           {o && r ? paperDate(r.dueDate) : ""}
         </td>
-        <td className="count-cell">{paperCount(o?.catchCountApprox)}</td>
+        {/* A visit after today keeps its count blank until the day, on the screen and on paper (REQUIREMENTS §201). */}
+        <td className="count-cell" title={r && waitsUntil(flyDoc, r) ? `Written from ${formatDisplayDate(r.dueDate)}` : undefined}>
+          {paperCount(r && waitsUntil(flyDoc, r) ? null : o?.catchCountApprox)}
+        </td>
         <td className="notranslate" translate="no">
           {tube(o?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED, above?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED)}
         </td>

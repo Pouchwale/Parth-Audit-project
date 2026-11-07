@@ -11507,6 +11507,13 @@ the assistant prepares a sheet only up to its day.)
   (engine/notificationPlan.ts), to whoever answers for the document. Proved again here for a visit nine days ahead.
 - A count written ahead before this rule (the visit of 16-11-2026 on the local run; the plant's, if any) stays in its
   record but is not shown on the register until the day; from the day the record opens and can be corrected.
+- AND ON THE RECORD PAGE'S OWN GRID (the owner, later the same day, with two pictures of F/HR/18: "from pc 02 it should
+  fill that from date ... when user is taking print"): the month's other visit, when it is after today, keeps its count
+  blank there too, on the screen and on the printout (components/records/FlyCatcherRecordView.tsx). With the same
+  pictures: the unit's number (PC-01 ...) stands in the middle of its two lines, on the screen and on paper ("keep this
+  column in pc in center"), and the count column's digits are in line - the number box's spinner, which pushed its
+  digits off the column's middle, is gone, and the printed counts stand in the middle of their column ("the numbers are
+  not align proper"; styles.css).
 - Proved: frontend/tests/notBeforeDay.test.ts (the rule for every schedule, demo and live, the pages and the views by
   source, Mitra's refusals, the plan's upcoming and due), and locally (scratchpad check_notbefore.py): the register's
   16-11-2026 line blank and locked, its record page read only with the notice and no Submit, the visit of 06-11-2026
