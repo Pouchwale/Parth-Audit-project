@@ -160,5 +160,6 @@ test("§194: a form's lines taller, its boxes, paragraphs and blocks set further
   assert.match(print, /if \(fillsPage\(doc\)\) letBlocksBreak\(doc, zoom, landscape\);/);
   assert.match(print, /stretch\(el, "breakInside", "auto"\);/);
   // The measure leaves out the 12 mm the measuring rules put under the document, which the print does not (§183).
-  assert.match(print, /const under = fills && part === doc \? parseFloat\(getComputedStyle\(doc\)\.paddingBottom\) \|\| 0 : 0;/);
+  // ...and the 12 mm foot a page of its own prints with (F/HR/17's register pages, §198).
+  assert.match(print, /const under = fills \? parseFloat\(getComputedStyle\(part\)\.paddingBottom\) \|\| 0 : 0;/);
 });

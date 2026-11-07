@@ -11376,3 +11376,41 @@ The owner, 6-Nov-2026, with a picture of the F/HR/17 register's title, "DAILY PE
   month is written"): the register's three pages read "DAILY PEST CONTROL MONITORING RECORD November 2026"
   (DocumentHeader `extraTitleSeparator`, a space here); every other register keeps its dash.
 - Proved: frontend/tests/registerMonth.test.ts (by source), and the register clicked through locally.
+
+## §198 A register's headings centred over their columns (7-Nov-2026)
+
+The owner, 7-Nov-2026, with a picture of the F/HR/17 register's heading band (DATE | CHECK POINTS NUMBERS AS PER ABOVE
+GUIDELINES, 1-10 | TIME OF CHECKING | CHECKER), every heading at the left of its box: "make this is in center like the
+all align towards left which is looking bad so much so do it fix and check other documents also which has this kind of
+similar problem"; and, standing from now on: "whenever you do any changes in any document make sure when user take
+print on physical A4 Size paper then it should cover whole page and if even user download any document from of any
+module in excel or word then it should be look perfectly only in those formats also".
+
+- THE FAULT: styles.css draws a register's headings centred (`.register-grid th`), but the shared `.doc-table th` rule,
+  later in the file at the same specificity, set them left - so F/HR/17's, F/HR/18's (on the screen) and the catch
+  trend's headings sat at the left of their boxes over cells written in the middle.
+- CENTRED (`.doc-table .register-grid th`, beside the rule that lets them wrap): on the screen and printed, as the paper's
+  (F/HR/17's pages 2 and 3). F/HR/17's SUMMARY OF ACTIONS headings keep the paper's left (`.doc-table .register-summary
+  th`); F/HR/18 printed keeps its Word original's (its print rules are its own); a trend's source column keeps its left.
+- IN WORD AND IN EXCEL, F/HR/17's CHECK POINTS heading is centred over the ten as DATE, TIME OF CHECKING and CHECKER
+  already were (utils/dailyPestRegister.ts; the Excel sheet is made from the same cells).
+- EVERY OTHER DOCUMENT swept (scratchpad sweep_headings.py: all 137 opened as the §183 check opens them, on the screen and
+  as printed, every heading drawn left over a column whose cells sit in the middle named): besides the registers above,
+  only F/MKT/05's DONE heading over its tick boxes (pages/CapaPage.tsx, centred now). The 84 log sheets' headings stand
+  left over cells written left, as they always have; the complaint acknowledgement's labels and F/HR/18's printed page
+  are their papers'. Not touched.
+- PRINTED ON A4, THE REGISTER FILLS ITS THREE PAGES. It is an HR register, so §194's fill is its too
+  (DailyRegisterSheet's own sheet now carries data-print-fill; the page had not). Measured, its days 1 to 19 and 20 to 31
+  stopped 24 mm short of the paper's foot: in the print each page of its own carries its own 12 mm foot, which the
+  stretch counted as content (utils/print.ts stretchPart `under`: a page section's padding left out as a one-page
+  sheet's is). The three pages reach 90%, 92% and 92% of the sheet (the paper's grid ends at 92%); page 1's words at
+  13.6 pt. The screen's tints - today's line, a day past the month's end, a locked line - print white (styles.css, the
+  print block).
+- A PAGE OF ITS OWN A LITTLE OVER ITS PAPER PRINTS WHOLE: the rodent and lizard catch trends' landscape page measured
+  1.09 pages, and "Report prepared by" printed alone on a second sheet (since before; found by the measure). A page
+  section up to FIT_OWN_OVER (1.25) pages tall is drawn just small enough to fit its paper, as F/HR/18's pages are
+  (utils/print.ts fitDrawnSections); one taller flows on as before. The trends print one landscape sheet each, the
+  signature on it; F/HR/18 and F/HR/17 as above.
+- Proved: frontend/tests/registerHeadings.test.ts and printFill.test.ts (by source); locally, the register looked at on
+  the screen, printed (the three pages measured), its Word and Excel files opened and every heading's alignment read
+  (scratchpad check_headings.py), the trend pages and F/HR/18 printed and measured (scratchpad measure_route.py).

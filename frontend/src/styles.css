@@ -1711,8 +1711,14 @@ body { top: 0 !important; }
 /* The printed forms' long column headings must wrap as they do on paper. The
    generic ".doc-table th { white-space: nowrap }" rule comes later in this
    file at equal specificity and was winning — which pushed F/HR/18's last
-   column (VERIFIED BY) off the right edge with the sidebar open. */
-.doc-table .register-grid th { white-space: normal; }
+   column (VERIFIED BY) off the right edge with the sidebar open.
+   A REGISTER'S HEADINGS STAND OVER THEIR COLUMNS (the owner, 7-Nov-2026, with F/HR/17's DATE | CHECK POINTS ... | TIME OF
+   CHECKING | CHECKER band: "make this is in center like the all align towards left which is looking bad", REQUIREMENTS
+   §198): the same ".doc-table th" rule's text-align: left was winning over ".register-grid th"'s centre, so every heading
+   sat at the left of its box over cells written in the middle - F/HR/17's and F/HR/18's registers, the catch trend's.
+   Centred, as the paper's (F/HR/17's pages 2 and 3; its SUMMARY's headings keep the paper's left, below). */
+.doc-table .register-grid th { white-space: normal; text-align: center; }
+.doc-table .register-summary th { text-align: left; }
 /* F/HR/18 — Add visit / Edit register for the chosen Month & Year (FlyCatcherRegisterSheet.tsx) */
 .fhr18-toolbar {
   display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap;
@@ -1880,6 +1886,9 @@ body { top: 0 !important; }
   .trend-table td.from-register { background: #fff !important; }
   .trend-chart .mark, .trend-chart .bar.total .mark { fill: #000 !important; }
   .doc-table .register-grid tr.is-today td.date-cell { outline: none; }
+  /* The screen's tints - today's line, a day past the month's end, a locked line - are the screen's: the paper's lines
+     print white (the owner, 7-Nov-2026, §198: the register printed on A4 "should cover whole page" and look the paper's). */
+  .doc-table .register-grid tr:is(.is-today, .beyond-month, .locked) td { background: #fff; }
 }
 
 /* ---- Original-style document header block ---- */

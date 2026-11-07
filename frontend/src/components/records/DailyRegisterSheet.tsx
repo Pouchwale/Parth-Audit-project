@@ -6,6 +6,7 @@ import { documentRepository } from "../../data/repositories/documentRepository";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { isCheckpointFinding } from "../../engine/checkpoints";
+import { printFillOf } from "../../engine/printFill";
 import { totalRodents } from "../../engine/rodentPattern";
 import { MONTH_NAMES, daysInMonth, formatDisplayDate, pad2, todayISO } from "../../utils/date";
 import { BIND_RECORD_ATTR } from "../../engine/roundTrip/bindPath";
@@ -238,7 +239,8 @@ export function DailyRegisterSheet({
   );
 
   return (
-    <div className="register-sheet" data-print-doc>
+    // An HR register: printed, each of its three pages fills its A4 sheet (§194's fill; the owner, 7-Nov-2026, §198).
+    <div className="register-sheet" data-print-doc data-print-fill={printFillOf(doc)}>
       <section className="register-page">
         {/* "DAILY PEST CONTROL MONITORING RECORD November 2026": no dash before the month (the owner, 6-Nov-2026, §197). */}
         <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " extraTitleEdit={monthEdit} pageLabel="1 Of 3" edit={headerEdit} />

@@ -446,19 +446,27 @@ const DRAWN_TO_PAPER = ".svc-paper, .fhr18-sheet, .fhr18-record";
 const FIT_DRAWN = ".fhr18-sheet, .fhr18-record";
 // (only a page that would run past its paper: one that fits prints at its own size, as the paper's PDF does)
 const FIT_DRAWN_TO = 0.985;
+// A PAGE OF DCRS'S OWN MAKE PRINTS WHOLE TOO (the owner, 7-Nov-2026, §198: a printout "should cover whole page" and no
+// more): the rodent and lizard catch trends' landscape page measured 1.09 pages - the chart, the table and the signature's
+// line fill it, and "Report prepared by" printed alone on a second sheet. A page of its own (PAGE_SECTIONS) up to
+// FIT_OWN_OVER pages tall is drawn just small enough to fit its paper, as F/HR/18's are; one taller flows on as before.
+const FIT_OWN_OVER = 1.25;
 
-/** F/HR/18's pages, each drawn small enough to print whole on its page (above). */
+/** F/HR/18's pages, and a page of its own a little over its paper, each drawn small enough to print whole (above). */
 function fitDrawnSections(doc: HTMLElement, zoom: number, landscape: boolean): void {
-  if (!(doc.matches(FIT_DRAWN) || doc.querySelector(FIT_DRAWN))) return;
+  const drawn = doc.matches(FIT_DRAWN) || doc.querySelector(FIT_DRAWN) !== null;
   withPrintRules(() => {
     const sections = pageSections(doc);
+    if (!drawn && sections.length === 0) return;
     const parts = sections.length ? sections : [doc];
+    // (a page already drawn bigger to fill its paper - FILLING EACH PAGE - is measured as drawn, and keeps that over the fit)
+    const own = (sec: HTMLElement) => (sec === doc ? 1 : Number(sec.style.zoom) || 1);
     // Every page drawn at the one size the tallest needs, so the pages of one record match as the paper's do.
-    const tallest = Math.max(0, ...parts.map((sec) => pagesAt(doc, zoom, landscape, sec)));
-    if (tallest <= FIT_DRAWN_TO) return;
-    const z = String(Math.floor((FIT_DRAWN_TO / tallest) * 1000) / 1000);
+    const tallest = Math.max(0, ...parts.map((sec) => pagesAt(doc, zoom * own(sec), landscape, sec)));
+    if (tallest <= FIT_DRAWN_TO || (!drawn && tallest > FIT_OWN_OVER)) return;
+    const z = Math.floor((FIT_DRAWN_TO / tallest) * 1000) / 1000;
     for (const sec of parts) {
-      sec.style.zoom = z;
+      sec.style.zoom = String(sec === doc ? z : Math.floor(own(sec) * z * 1000) / 1000);
       fitted.push(sec);
     }
   });
@@ -621,8 +629,9 @@ function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscap
   laidOutAt(doc, part, zoom, landscape, () => {
     // (a module that fills its page measures the sheet as it prints: the 12 mm the measure's rules put under the document
     // - which the print does not, the sheet's own foot carrying its 12 mm since §183 - left out, so a register is ruled
-    // and a form spread to where the paper's foot is, not 12 mm short of it)
-    const under = fills && part === doc ? parseFloat(getComputedStyle(doc).paddingBottom) || 0 : 0;
+    // and a form spread to where the paper's foot is, not 12 mm short of it; a page of its own (PAGE_SECTIONS) prints
+    // with its own 12 mm foot, left out the same - F/HR/17's days 1 to 19 stopped 24 mm short of the paper's foot, §198)
+    const under = fills ? parseFloat(getComputedStyle(part).paddingBottom) || 0 : 0;
     const share = () => ((part.getBoundingClientRect().height - under) * zoom) / pageH;
     // A register of a module that fills its page is ruled to the foot, its lines as they are (§194).
     if (fills && ruleToFoot(part, zoom, share)) return;

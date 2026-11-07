@@ -71,7 +71,8 @@ function grid(table: Table): Paper {
       height: 16,
       cells: [
         cell({ text: text(head[0]).toUpperCase() }, 14, true, "center", "center", { ...shaded, vMerge: "restart" }),
-        cell({ text: text(head[1]).toUpperCase() }, 14, true, "left", "center", { ...shaded, colSpan: 10 }),
+        // Centred over the ten, as the paper's and the page's (the owner, 7-Nov-2026, §198).
+        cell({ text: text(head[1]).toUpperCase() }, 14, true, "center", "center", { ...shaded, colSpan: 10 }),
         cell({ text: text(head[11]).toUpperCase() }, 14, true, "center", "center", { ...shaded, vMerge: "restart" }),
         cell({ text: text(head[12]).toUpperCase() }, 14, true, "center", "center", { ...shaded, vMerge: "restart" }),
       ],

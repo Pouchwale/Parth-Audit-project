@@ -667,7 +667,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
                 <tr>
                   <th style={{ width: 56 }}>Sr. No.</th>
                   <th>Activity</th>
-                  <th style={{ width: 70 }}>Done</th>
+                  {/* Over its ticks, which sit in the middle (the owner, 7-Nov-2026, REQUIREMENTS §198). */}
+                  <th style={{ width: 70, textAlign: "center" }}>Done</th>
                   <th style={{ width: 140 }}>Date</th>
                   <th>Comments</th>
                 </tr>
