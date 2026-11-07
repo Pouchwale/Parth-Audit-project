@@ -11,7 +11,8 @@ import { documentRepository } from "../../data/repositories/documentRepository";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { FLY_DOC_ID, addFlyCatcherVisit, newVisitProblem, suggestedVisitDate, visitsInMonth } from "../../engine/flyRegister";
-import { isEditableStatus, saveDraft } from "../../engine/recordLifecycle";
+import { isCorrectableStatus, isEditableStatus, reopenForCorrection, saveDraft } from "../../engine/recordLifecycle";
+import { mayDo } from "../../engine/departmentScope";
 import { waitsUntil } from "../../engine/notBeforeDay";
 import { useAppStore } from "../../store/AppStore";
 import { useT } from "../../i18n";
@@ -180,9 +181,9 @@ export function Fhr18GridHead({ host }: { host?: WordsHost } = {}) {
 }
 
 /** 1 -> "01", as the specimen writes a count. */
+/** A count as plain figures - 1, 2, 12 - not padded (the owner, 7-Nov-2026: "like 1, 2 and not 01, 02"). */
 function paperCount(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "";
-  return String(n).padStart(2, "0");
+  return n === null || n === undefined ? "" : String(n);
 }
 
 const DITTO = '"';
@@ -278,6 +279,10 @@ export function FlyCatcherRegisterSheet({
   const dataOf = (r: RecordInstance<FlyCatcherData>): FlyCatcherData => pending.current.get(r.id) ?? r.data;
 
   const updateEntry = (r: RecordInstance<FlyCatcherData>, pcId: string, patch: EntryPatch) => {
+    // A VISIT ALREADY SUBMITTED OR VERIFIED IS EDITED FROM THE REGISTER TOO (the owner, 7-Nov-2026: "even user has submitted
+    // but can also can edit"): reopened for correction as the first change lands - Edit's step (REQUIREMENTS §96), the
+    // register named as the reason in its history - to be submitted and verified again.
+    if (isCorrectableStatus(r.status) && !pending.current.has(r.id)) r = reopenForCorrection(r, user.current, "Corrected on the register") as RecordInstance<FlyCatcherData>;
     const base = dataOf(r);
     const entries = base.entries.some((e) => e.pcId === pcId)
       ? base.entries.map((e) => (e.pcId === pcId ? { ...e, ...patch } : e))
@@ -398,7 +403,8 @@ export function FlyCatcherRegisterSheet({
                 const e = row.entry;
                 // NOT BEFORE ITS DAY (REQUIREMENTS §201): a visit after today is locked, and its count stays blank until the day.
                 const waits = !!r && !!waitsUntil(doc, r);
-                const canEdit = editing && !!r && isEditableStatus(r.status) && !waits;
+                // ...and a visit submitted or verified, by whoever may correct one (§96).
+                const canEdit = editing && !!r && !waits && (isEditableStatus(r.status) || (isCorrectableStatus(r.status) && mayDo(FLY_DOC_ID, "correct")));
                 const locked = editing && !!r && !canEdit;
                 const above = i > 0 ? rows[i - 1].entry : undefined;
                 // THE TWO TUBE-LIGHT COLUMNS ARE FIXED ON THIS REGISTER (24-11-2025
@@ -433,7 +439,7 @@ export function FlyCatcherRegisterSheet({
                     onClick={clickable ? () => onOpenVisit!(r!) : undefined}
                     title={
                       r
-                        ? `${pc.id} — visit of ${formatDisplayDate(r.dueDate)} (${r.status})${clickable ? " · click to open" : locked ? " · locked: open the visit to correct it" : ""}`
+                        ? `${pc.id} — visit of ${formatDisplayDate(r.dueDate)} (${r.status})${clickable ? " · click to open" : locked ? (waits ? ` · written from ${formatDisplayDate(r.dueDate)}` : " · locked: open the visit to correct it") : ""}`
                         : undefined
                     }
                   >

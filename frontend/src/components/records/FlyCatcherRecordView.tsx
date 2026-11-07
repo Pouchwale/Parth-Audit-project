@@ -48,7 +48,8 @@ const MIN_LINES_PER_UNIT = 2;
 const DITTO = '"';
 const hasCount = (e: FlyCatcherEntry) => e.catchCountApprox !== null && e.catchCountApprox !== undefined;
 /** 1 -> "01", as the specimen writes a count. */
-const paperCount = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n).padStart(2, "0"));
+/** A count as plain figures - 1, 2, 12 - not padded (the owner, 7-Nov-2026: "like 1, 2 and not 01, 02"). */
+const paperCount = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
 // What is typed into the month's other visit is saved this long after the last keystroke, as on the register.
 const AUTOSAVE_MS = 700;
 // UNITS TO A PRINTED PAGE (the owner, 30-10-26): eight, as the register's first page holds PC-01 to PC-08. Each page

@@ -11514,6 +11514,13 @@ the assistant prepares a sheet only up to its day.)
   column in pc in center"), and the count column's digits are in line - the number box's spinner, which pushed its
   digits off the column's middle, is gone, and the printed counts stand in the middle of their column ("the numbers are
   not align proper"; styles.css).
+- AND (the owner, with two more pictures the same day: "come should be come like properly like 1, 2 and not 01, 02 and
+  make sure give edit option in it also and even user has submitted but can also can edit ... keep it center both date
+  also"): a count reads as plain figures - 1, 2, 12 - on the register, on a visit's page and on paper; the two tube-light
+  date boxes are centred while editing, in line with the lines written as words; and under Edit register a visit
+  already submitted or verified takes a change too - reopened for correction as the first change lands, by whoever may
+  correct one (§96), "Corrected on the register" in its history, its status In Progress until it is submitted and
+  verified again. A visit after today stays locked ("written from 16-11-2026").
 - Proved: frontend/tests/notBeforeDay.test.ts (the rule for every schedule, demo and live, the pages and the views by
   source, Mitra's refusals, the plan's upcoming and due), and locally (scratchpad check_notbefore.py): the register's
   16-11-2026 line blank and locked, its record page read only with the notice and no Submit, the visit of 06-11-2026

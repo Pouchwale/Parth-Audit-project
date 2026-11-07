@@ -225,7 +225,7 @@ test("F/HR/18: a visit's page shows the month's other visit on each unit's secon
     const rows = Array.from(unit.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g), (m) => m[1]);
     assert.equal(rows.length, 2, "two lines for the unit");
     assert.ok(rows[0].includes('data-field="count"'), "this visit (3-Aug) first, in date order, open for writing");
-    assert.deepEqual(cells(rows[1], "td").map((c) => c.replace(/&quot;/g, '"')), ["17-08-2026", "04", '"', '"', "Vijay", "Roshni"], "the 17-Aug visit, its date as the app writes one");
+    assert.deepEqual(cells(rows[1], "td").map((c) => c.replace(/&quot;/g, '"')), ["17-08-2026", "4", '"', '"', "Vijay", "Roshni"], "the 17-Aug visit, its date as the app writes one, its count as plain figures (§201)");
     assert.ok(!rows[1].includes("<input"), "the other visit is not typed in here");
     assert.equal(count(page, "data-bind="), 1 + 13 * 5, "only this visit's boxes are bound");
     assert.equal(count(page, "data-empty-line"), 0, "both lines written, both print");

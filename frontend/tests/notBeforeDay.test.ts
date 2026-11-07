@@ -70,7 +70,7 @@ test("the pages and F/HR/18's views read the one rule, and the record page says 
     assert.match(read("frontend", "src", "pages", file), /isEditableStatus\(record\.status\) && mayDo\(record\.documentId, "fill"\) && !waitsUntil\(/, file);
   }
   const sheet = read("frontend", "src", "components", "records", "FlyCatcherRegisterSheet.tsx");
-  assert.match(sheet, /const waits = !!r && !!waitsUntil\(doc, r\);\n\s+const canEdit = editing && !!r && isEditableStatus\(r\.status\) && !waits;/, "a future visit's line is locked on the register");
+  assert.match(sheet, /const waits = !!r && !!waitsUntil\(doc, r\);\n[^\n]*\n\s+const canEdit = editing && !!r && !waits && /, "a future visit's line is locked on the register");
   assert.match(sheet, /paperCount\(waits \? null : e\?\.catchCountApprox\)/, "...and its count stays blank until the day");
   const view = read("frontend", "src", "components", "records", "FlyCatcherRecordView.tsx");
   assert.match(view, /editable && !!r && isEditableStatus\(r\.status\) && !waitsUntil\(flyDoc, r\)/);
@@ -79,6 +79,12 @@ test("the pages and F/HR/18's views read the one rule, and the record page says 
   const css = read("frontend", "src", "styles.css");
   assert.match(css, /\.fhr18-grid td\.pc-cell \{ font-weight: 700; text-align: center; vertical-align: middle;/, "the unit's number in the middle of its two lines");
   assert.match(css, /fhr18-input::-webkit-inner-spin-button/, "the count box's spinner off, its digits in the middle");
+  // Counts as plain figures, the date boxes centred, a submitted visit edited from the register as a correction (§201, the owner's later pictures).
+  assert.match(sheet, /return n === null \|\| n === undefined \? "" : String\(n\);/, "1, 2 - not 01, 02");
+  assert.match(view, /\(n === null \|\| n === undefined \? "" : String\(n\)\)/);
+  assert.match(css, /input\[type="date"\]\.fhr18-input \{ min-width: 118px; text-align: center; \}/);
+  assert.match(sheet, /const canEdit = editing && !!r && !waits && \(isEditableStatus\(r\.status\) \|\| \(isCorrectableStatus\(r\.status\) && mayDo\(FLY_DOC_ID, "correct"\)\)\);/);
+  assert.match(sheet, /if \(isCorrectableStatus\(r\.status\) && !pending\.current\.has\(r\.id\)\) r = reopenForCorrection\(r, user\.current, "Corrected on the register"\)/);
   const strings = read("frontend", "src", "i18n", "strings.ts");
   assert.equal((strings.match(/"record\.waitsForDay":/g) ?? []).length, 2, "in English and in Gujarati");
 });

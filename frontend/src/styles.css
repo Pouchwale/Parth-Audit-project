@@ -1734,7 +1734,9 @@ body { top: 0 !important; }
    lines under it written as words (the owner, 7-Nov-2026: "the numbers are not align proper"): no spinner, the digits in the middle. */
 .fhr18-grid input[type="number"].fhr18-input::-webkit-inner-spin-button,
 .fhr18-grid input[type="number"].fhr18-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.fhr18-grid input[type="date"].fhr18-input { min-width: 118px; }
+/* The two tube-light dates in the middle of their boxes while editing, in line with the lines written as words (the owner, 7-Nov-2026: "keep it center both date also"). */
+.fhr18-grid input[type="date"].fhr18-input { min-width: 118px; text-align: center; }
+.fhr18-grid input[type="date"].fhr18-input::-webkit-datetime-edit { width: 100%; text-align: center; }
 .register-grid tr.register-row.locked td { background: #f5f6f8; color: var(--color-text-muted); }
 
 /* ---- CAPA Internal: Complaint Acknowledgement Report, QA-CAF-00 (components/records/ComplaintAckRecordView.tsx) ---- */
