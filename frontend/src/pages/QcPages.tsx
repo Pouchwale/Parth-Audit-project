@@ -97,11 +97,6 @@ export function QcOverviewPage() {
           </button>
         </div>
       </div>
-      <p className="text-muted mb-4">
-        {total} formats in {groups.length} groups, kept by {departments.join(" and ")} — each listed by its format number, and each opening on a page of its own with its
-        records on file{isDemo ? " (demo data)" : ""}. Everything here, the forms included, reads in the language chosen beside Today{"'"}s Briefing.
-      </p>
-
       <div className="pest-grid">
         {groups.map(({ group, rows }) => {
           const Icon = GROUP_ICONS[group.title] ?? FiCheckSquare;

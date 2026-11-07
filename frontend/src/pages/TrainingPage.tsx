@@ -90,7 +90,6 @@ export function TrainingListPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl mb-1">{t("training.title")}</h1>
-          <p className="text-muted">{doc.description}</p>
         </div>
         <button className="btn btn-primary" onClick={createNew}>
           <FiPlus size={14} /> New Training Record

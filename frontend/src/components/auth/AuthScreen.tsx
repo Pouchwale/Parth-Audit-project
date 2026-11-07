@@ -115,6 +115,7 @@ export function AuthScreen() {
       <div className="auth-hold" style={{ display: "contents" }} inert={holding} data-held={holding ? "1" : "0"}>
         <AuthLayout
           afterIntro
+          welcome
           mascot={
             <div className="auth-mascot" data-section="login-mascot">
               <MitraFace mood={feeling} eyes={eyes} look={look} size={68} />

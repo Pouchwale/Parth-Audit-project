@@ -88,11 +88,8 @@ export function ChemicalMasterPage() {
       </div>
       <DocumentHeader doc={doc} edit={headerEdit} />
       {headerPanel}
-      <p className="text-muted mt-3 mb-4 no-print">
-        {editing
-          ? "Editing — correct any cell that is wrong, then Save. Chemicals: one per line."
-          : "Source: Pesticide Application Chart. Selecting a Service Type in a Service Report auto-suggests the pest covered, chemicals and dilution ratio below — nothing here is invented; blank cells are marked TO BE CONFIRMED. Edit it here, or ask the assistant to."}
-      </p>
+      {/* Only while editing: a hint for the editor (no page information at the start, REQUIREMENTS §204). */}
+      {editing && <p className="text-muted mt-3 mb-4 no-print">Editing — correct any cell that is wrong, then Save. Chemicals: one per line.</p>}
       <div className="doc-table mt-4">
         <table>
           <thead>

@@ -139,6 +139,10 @@ function rodentCellFor(r: RecordInstance<DailyPestMonitoringData> | undefined): 
   return `${totalRodents(catches)} — ${catches.map((c) => `${c.trapBoxNo || "?"} ${c.location}`).join("; ")}`;
 }
 
+// NO LONGER DRAWN (REQUIREMENTS §204; the owner, 7-Nov-2026, of the Daily Report's head: "in every module there is no info i
+// want in starting of any module"): the format's number, frequency, people and source stood under every page's title.
+// NO LONGER DRAWN (REQUIREMENTS §204; the owner, 7-Nov-2026, of the Daily Report's head: "in every module there is no info i
+// want in starting of any module"): the format's number, frequency, people and source stood under every page's title.
 export function DocMeta({ doc }: { doc: DocumentDefinition }) {
   const info = getDocumentInfo(doc, masterRepository.get());
   // The paper this was read from, named in the chosen language (REQUIREMENTS §58).
@@ -256,12 +260,6 @@ export function PestControlOverviewPage() {
           <FiBookOpen size={13} /> {t("pest.allDocuments")}
         </button>
       </div>
-      <p className="text-muted mb-4">
-        The Daily Report, Gurudev Pest Control's service reports (Rat / Mice, Ants & Cockroaches, Fly) and the trend analyses drawn from them —{" "}
-        {MONTH_NAMES[month]} {year}
-        {isDemo ? " (demo data)" : ""}.
-      </p>
-
       <div className="pest-grid">
         {/* 1. Daily Report */}
         {dailyDoc && (
@@ -506,18 +504,12 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
       <div className="flex items-center justify-between mb-1 wrap gap-3">
         <div>
           <h1 className="text-2xl mb-1">{t("pest.dailyReportTitle")} — {t("nav.dailyPestMonitoring")}</h1>
-          {doc && <DocMeta doc={doc} />}
         </div>
         <div className="flex gap-2 wrap">
           <YearSelect value={year} onChange={setYear} />
           <MonthSelect value={month} onChange={setMonth} />
         </div>
       </div>
-      <p className="text-muted mb-4">
-        One record per day — the assistant prepares each one before you arrive; you review, correct anything only a person could know, and Submit. Shown below in
-        the company's own F/HR/17 layout: the three-page monthly register (instructions and check points; dates 1–19; dates 20–31 and the Summary of Actions).
-      </p>
-
       <div className="flex gap-3 wrap mb-4">
         <div className="stat-tile">
           <div className="stat-value">{stats.recorded}</div>
@@ -729,12 +721,9 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
       <div className="flex items-center justify-between mb-1 wrap gap-3">
         <div>
           <h1 className="text-2xl mb-1">Service Report — {service.title}</h1>
-          <DocMeta doc={doc} />
         </div>
         <YearSelect value={year} onChange={setYear} />
       </div>
-      <p className="text-muted mb-4">{doc.description}</p>
-
       <div className="flex gap-3 wrap mb-4">
         <div className="stat-tile">
           <div className="stat-value" style={{ fontSize: 18 }}>
@@ -983,17 +972,12 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
       <div className="flex items-center justify-between mb-1 wrap gap-3">
         <div>
           <h1 className="text-2xl mb-1">{t("pest.trendAnalysisTitle")} — {t("nav.flyCatcherInfestation")}</h1>
-          {doc && <DocMeta doc={doc} />}
         </div>
         <div className="flex gap-2 wrap">
           <YearSelect value={year} onChange={setYear} />
           <MonthSelect value={month} onChange={setMonth} />
         </div>
       </div>
-      <p className="text-muted mb-3">
-        Every fortnight the 13 fly catcher units are inspected and cleaned and the flies on each glue board counted (F/HR/18). Those counts, added up per unit and per month, are the
-        infestation trend — {flySeasonLabel(month)} in {MONTH_NAMES[month]}. Next inspection {next ? formatDisplayDate(next) : "—"}.
-      </p>
       <div className="flex gap-2 wrap mb-4">
         {mayDo(doc.id, "start") && (
           <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>

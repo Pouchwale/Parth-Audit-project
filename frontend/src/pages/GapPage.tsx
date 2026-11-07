@@ -119,7 +119,6 @@ export function GapListPage() {
           <div className="flex items-center justify-between mb-4 gap-3 wrap">
             <div>
               <h1 className="text-2xl mb-1">Internal — Inspection Findings</h1>
-              <p className="text-muted">{doc.description}</p>
             </div>
             <button className="btn btn-primary" onClick={createNew}>
               <FiPlus size={14} /> New Internal CAPA Record
@@ -179,10 +178,6 @@ export function GapListPage() {
         <div>
           {/* The page's own heading when the acknowledgements are all it shows (Marketing). */}
           {doc ? <h2 className="text-xl mb-1">Complaint Acknowledgement Reports</h2> : <h1 className="text-xl mb-1">Complaint Acknowledgement Reports</h1>}
-          <p className="text-muted text-sm">
-            Format {CAF_FORMAT_REF} — a customer complaint explained to the employee(s) involved: the complaint, what happened (with photos), root cause,
-            corrective and preventive action, and the employee's signed acknowledgement.
-          </p>
         </div>
         {canCreateAck && (
           <button className="btn btn-primary" data-action="new-complaint-ack" onClick={createAck}>

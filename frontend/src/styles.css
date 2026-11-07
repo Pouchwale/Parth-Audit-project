@@ -3095,6 +3095,37 @@ html.print-scoped .doc-table th.score-minus-head { white-space: normal; line-hei
 .auth-shell {
   min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
   background: radial-gradient(ellipse 80% 60% at 50% -12%, var(--auth-wash) 0%, transparent 62%), var(--canvas);
+  position: relative; overflow: hidden;
+}
+/* THE WELCOME BESIDE THE CARD (REQUIREMENTS §204): a drawn backdrop - a second wash low on the left and a faint dotted
+   grid - and, on a wide screen, the words of what stands behind the sign-in beside the card; above it, shorter, on a
+   phone. Nothing moves: the card, its title's entrance and the checks of them stay as they were. */
+.auth-stage {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 8% 100%, var(--auth-wash) 0%, transparent 60%),
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1.5px) 0 0 / 22px 22px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.9) 50%, rgba(0, 0, 0, 0.55) 100%);
+}
+.auth-frame { position: relative; display: flex; align-items: center; justify-content: center; gap: 56px; width: 100%; max-width: 1040px; }
+.auth-welcome { flex: 1 1 380px; max-width: 480px; color: var(--ink); }
+.auth-welcome-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-3); margin-bottom: 14px; }
+.auth-welcome-title { font-size: 34px; line-height: 1.12; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 14px; color: var(--auth-title-3); }
+.auth-welcome-words { font-size: 15px; line-height: 1.55; color: var(--ink-2); margin: 0 0 20px; }
+.auth-doors { list-style: none; margin: 0 0 22px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.auth-doors li { display: flex; align-items: flex-start; gap: 12px; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
+.auth-doors strong { color: var(--ink); font-weight: 700; }
+.auth-door-icon {
+  flex: none; width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--hairline); box-shadow: var(--shadow-sm); color: var(--auth-title-2); font-size: 14px;
+}
+.auth-welcome-day { font-size: 12.5px; font-weight: 600; color: var(--ink-3); padding-top: 14px; border-top: 1px solid var(--hairline); }
+@media (max-width: 959px) {
+  .auth-frame { flex-direction: column; gap: 22px; }
+  .auth-welcome { flex: none; max-width: 420px; width: 100%; text-align: center; }
+  .auth-welcome-title { font-size: 26px; }
+  .auth-doors, .auth-welcome-day { display: none; }
+  .auth-welcome-words { margin-bottom: 0; }
 }
 .auth-card {
   width: 100%; max-width: 420px; background: var(--surface); color: var(--ink); border: 1px solid var(--hairline);

@@ -73,10 +73,6 @@ export function HrOverviewPage() {
           </button>
         </div>
       </div>
-      <p className="text-muted mb-4">
-        Human Resources' own formats, F/HR/01 to F/HR/22, in their five groups — each opens on a page of its own with its records on file{isDemo ? " (demo data)" : ""}.
-      </p>
-
       <div className="pest-grid">
         {groups.map(({ section, rows }) => {
           const Icon = SECTION_ICONS[section];

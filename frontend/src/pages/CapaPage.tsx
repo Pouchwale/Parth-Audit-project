@@ -203,9 +203,6 @@ export function ComplaintListPage() {
       <div className="flex items-center justify-between mb-4 gap-3 wrap">
         <div>
           <h1 className="text-2xl mb-1">External — Customer Complaints</h1>
-          <p className="text-muted">
-            {doc.name.replace(/^CAPA — External: /, "")} · {doc.formatNo} (Rev {doc.revisionNo} / {formatDisplayDate(doc.revisionDate)})
-          </p>
         </div>
         <button className="btn btn-primary" onClick={createNew}>
           <FiPlus size={14} /> New Complaint

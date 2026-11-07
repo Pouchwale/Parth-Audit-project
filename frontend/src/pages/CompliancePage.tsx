@@ -42,11 +42,7 @@ export function ComplianceListPage() {
 
   return (
     <div>
-      <h1 className="text-2xl mb-1">{t("soc.title")}</h1>
-      <p className="text-muted mb-4">
-        Declarations of Compliance issued to customers. Each is valid for two years from the date of publication — the assistant reminds you 90 days
-        before a re-issue is due.
-      </p>
+      <h1 className="text-2xl mb-4">{t("soc.title")}</h1>
       <div className="doc-table">
         <table>
           <thead>

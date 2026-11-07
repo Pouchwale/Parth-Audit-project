@@ -11583,3 +11583,24 @@ submitted also and able to edit even after that".
   accessLevels.test.ts (a Write account's reopening taken by the server); locally, a Write account's Edit on a
   submitted record.
 
+## §204 No information at the start of a module page; the sign-in screen's welcome (7-Nov-2026)
+
+The owner, 7-Nov-2026, with a picture of the Daily Report's head ("Format F/HR/17 (Rev 00) · Every day · Roshni · Source:
+..." and the paragraph under it): "in every module there is no info i want in starting of any module like that in image";
+and "make login page very interesting and make it more engaging like something is very important opening after only".
+
+- NOTHING EXPLAINED AT THE START OF A MODULE PAGE: the page's title, its pickers and its buttons, then the work. Gone: the
+  format line under every document page's title (number, revision, frequency, who, source - pages/PestControlPages.tsx
+  DocMeta, no longer drawn; pages/DocumentRecordsPage.tsx), and the paragraphs that opened the Pest Control overview, the
+  Daily Report, the service report pages, the Fly Catcher trend, the HR and QC overviews, the internal and external
+  CAPA pages, the complaint acknowledgements, the training page, the compliance declarations, the licence and the
+  agreement pages, and the Chemical Master (its hint while editing stays, for the editor). The Master Data, Frequency
+  and Users & Access pages keep their one line of instruction: they are the administrator's tools, not a module.
+- THE SIGN-IN SCREEN'S WELCOME (components/auth/AuthLayout.tsx AuthWelcome; styles.css .auth-welcome): beside the card
+  on a wide screen, above it on a phone - "Everything the plant records, kept right.", what stands behind the sign-in
+  (today's briefing, every register and report, Mitra), "authorised people only", and the day. A drawn backdrop (a
+  second wash, a faint dotted grid); nothing that moves, so the opening (§85), the title's entrance, the cartoon (§122)
+  and the suites' checks of the card are exactly as before. The choose-your-password card stays bare.
+- Proved: frontend/tests/moduleIntro.test.ts (by source: no meta line or opening paragraph on those pages; the welcome's
+  parts; the form's ids untouched), the sign-in screen and the Daily Report looked at locally on a wide screen and a phone.
+

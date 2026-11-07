@@ -139,11 +139,13 @@ describe("the engine host, at each person's level", { timeout: 300_000 }, () => 
     assert.equal(gone.status, 200, JSON.stringify(gone.body).slice(0, 300));
   });
 
-  it("Write: verify and send back, but reopening for correction and deleting need Edit", async () => {
+  it("Write: verify, send back and reopen for correction (§203); deleting needs Edit", async () => {
+    // A record corrected after submitting is Write's since §203 (the owner, 7-Nov-2026): reopened, and put back here so the rest reads as before.
     const reopen = await host.change(VINAY, "action", { id: "rec-hr", action: "reopen", reason: "A typo" }, noLog);
-    assert.equal(reopen.status, 403);
-    assert.equal((reopen.body as Body).needed, "edit");
-    assert.match((reopen.body as Body).error, /^You have Write access to F\/HR\/17 Daily Pest Control Monitoring Record\. Correcting a signed-off record needs Edit access: ask the super admin for it\.$/);
+    assert.equal(reopen.status, 200, JSON.stringify(reopen.body).slice(0, 300));
+    assert.equal((reopen.body as Body).status, "In Progress");
+    const back = await host.change(VINAY, "action", { id: "rec-hr", action: "cancel_correction" }, noLog);
+    assert.equal(back.status, 200, JSON.stringify(back.body).slice(0, 300));
     const del = await host.change(VINAY, "action", { id: "rec-hr", action: "delete", reason: "x" }, noLog);
     assert.equal((del.body as Body).action, "delete");
     const verified = await host.change(VINAY, "action", { id: "rec-hr", action: "verify" }, noLog);

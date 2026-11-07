@@ -40,8 +40,7 @@ export function LicencePage() {
             <FiArrowLeft size={13} /> Document Library
           </button>
         </div>
-        <h1 className="text-2xl mb-1">{agreement.name}</h1>
-        <p className="text-muted mb-4">{agreement.description}</p>
+        <h1 className="text-2xl mb-4">{agreement.name}</h1>
         <ServiceAgreementReminder />
       </div>
     );
@@ -71,13 +70,7 @@ export function LicencePage() {
           and the pop-up that asks for it when the term is running out. */}
       <ServiceAgreementReminder />
 
-      <h1 className="text-2xl mb-1">{doc?.name ?? "Insecticide Licence — Gurudev Pesticides (Form III)"}</h1>
-      <p className="text-muted mb-4">
-        The Government of Gujarat licence held by <strong>Gurudev Pesticides</strong> — the pest control service provider (Gurudev Pest Control) whose technicians
-        file the Rat / Mice, Ants & Cockroaches and Fly Control service reports. Kept here <strong>exactly as supplied — nothing in it changed</strong>: the
-        original PDF is held as issued and opens from the button above; the pages below are that same file, page for page; the transcription under them is for
-        reading and search only.
-      </p>
+      <h1 className="text-2xl mb-4">{doc?.name ?? "Insecticide Licence — Gurudev Pesticides (Form III)"}</h1>
 
       <div className="card mb-4">
         <div className="card-header">

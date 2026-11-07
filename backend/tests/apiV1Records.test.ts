@@ -770,11 +770,11 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
       assert.ok(draft.status === 200 || draft.status === 201, JSON.stringify(draft.body).slice(0, 300));
       const written = await call(s, "POST", `/api/v1/records/${draft.body.record.recordId}/changes`, T.zala, { patch: { addItems: { rows: [{ time: "12:00", viscosity: 20.2 }] } } });
       assert.equal(written.status, 200, JSON.stringify(written.body).slice(0, 300));
-      // Write on a Verified record, with a reason: a correction is Edit's — refused in words.
-      const verified = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.zala, { patch: { itemEdits: [{ collection: "rows", match: { time: "10:00" }, set: { viscosity: 20.3 } }] }, reason: "misread" });
-      assert.equal(verified.status, 403, JSON.stringify(verified.body));
-      assert.equal(verified.body.code, "access-level");
-      assert.match(verified.body.error, /Edit/);
+      // Write on a Verified record, with a reason: a correction is Write's too since §203 (the owner, 7-Nov-2026) - asked as a
+      // dry run, so the record stands for the rest of this test.
+      const verified = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.zala, { patch: { itemEdits: [{ collection: "rows", match: { time: "10:00" }, set: { viscosity: 20.3 } }] }, reason: "misread", dryRun: true });
+      assert.equal(verified.status, 200, JSON.stringify(verified.body));
+      assert.equal(verified.body.willReopen, true);
     } finally {
       s.store.put("access", null);
     }

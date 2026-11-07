@@ -23,7 +23,7 @@ import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { CvImportDialog } from "../components/hr/CvImportDialog";
-import { DocMeta, nextDueDate } from "./PestControlPages";
+import { nextDueDate } from "./PestControlPages";
 import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
 import { printDocument } from "../utils/print";
@@ -266,7 +266,6 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
             {hr ? `HR Records · ${hr.section}` : `${doc.module}${doc.section ? ` · ${doc.section}` : ""}`}
           </div>
           <h1 className="text-2xl mb-1">{documentTextIn(doc.name, lang)}</h1>
-          <DocMeta doc={doc} />
         </div>
         <div className="flex gap-2 wrap">
           {/* A new joiner from their CV, onto F/HR/01 and the other HR formats
