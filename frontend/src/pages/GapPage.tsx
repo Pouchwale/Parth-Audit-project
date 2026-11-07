@@ -35,6 +35,7 @@ import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { COMPANY } from "../data/seed/masterData";
 import { FINDING_SOURCES, bindProps, gapBind } from "../engine/roundTrip/bindingsFor";
+import { waitsUntil } from "../engine/notBeforeDay";
 
 const GAP_DOC_ID = "gap-inspection";
 
@@ -246,7 +247,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   const doc = documentRepository.getById(GAP_DOC_ID);
 
   // Below Write on its document the record is read only (REQUIREMENTS §96, engine/departmentScope.ts).
-  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill");
+  // ...and not before the first day it covers (REQUIREMENTS §201, engine/notBeforeDay.ts).
+  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill") && !waitsUntil(doc, record);
   // Closing a finding is a follow-up to a report that has already been
   // filed, so it stays possible while the report awaits verification —
   // otherwise the only way to clear a long-done action would be to reject

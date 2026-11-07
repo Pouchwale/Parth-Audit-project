@@ -11477,3 +11477,37 @@ it properly."
   and "all", the form read through the reader, offered on Purchase records alone, refused on a record not open for
   writing), mitraTools.test.ts (the tool set); locally, the fetch on every Purchase document and a QC incoming record,
   and the import card on the filled PDF (17 boxes besides the 5 the fetch had written, those asked about).
+
+## §201 Not before its day: a record is written from the first day it covers, and the day is reminded (7-Nov-2026)
+
+The owner, 7-Nov-2026, with the F/HR/18 register on the screen showing a fly count against the visit of 16-11-2026 on
+the 7th: "make sure the third column which is files catch count approx is not filled before that particular date and
+user should get notification in reminder as well as notification and this applies to all the documents of every
+modules". (Where the count had come from: that visit's record held "Asked of Mitra" changes - a person had Mitra write
+counts on a visit nine days ahead. Nothing of DCRS's own fills a live record ahead: the schedule makes a blank sheet,
+the assistant prepares a sheet only up to its day.)
+
+- THE RULE (engine/notBeforeDay.ts writableFrom, waitsUntil): a live record may be written from the first day it covers
+  and not before - a day's record, a visit's, a weekly or an as-required one from its due date; a sheet covering a
+  month, a quarter, a half-year or a year from that period's first day, since it is filled as the period goes (a
+  year-long sheet from the first of its twelve months, §164's plan from a month before its year, madeAheadDays). A demo
+  record is a demo's sample data, filled through the year (§23): it never waits.
+- THE RECORD'S PAGE (pages/RecordPage.tsx; the CAPA, gap and training pages too): until that day the sheet is read only,
+  a notice above it says "This record is for 16-11-2026. It can be filled from that day, not before - the bell and the
+  phone will remind then", and Save and Submit are not offered (components/records/RecordActionBar.tsx); Print and the
+  downloads stay. On the day it opens for writing as before; late is still allowed, the paper waits to be filled.
+- F/HR/18'S REGISTER (components/records/FlyCatcherRegisterSheet.tsx, FlyCatcherRecordView.tsx): a visit after today
+  keeps its count blank on the screen and on paper until the day ("Written from 16-11-2026" when pointed at), and its
+  line is locked under Edit register; a record's view of the month's other visits locks them the same.
+- MITRA (engine/mitraTools.ts, the target's `notBefore`): edit_open_record, the sample and the guided fill, submit,
+  the supplier fetch and the form read refuse a record that waits, naming the day - "F/HR/18 of 16-11-2026 is for
+  16-11-2026: it can be filled from that day and not before - the bell and the phone will remind then".
+- THE REMINDER: as for every record, the bell lists the sheet ahead of its day and on it (engine/reminders.ts
+  upcoming / due), and the phone and the bell are told "upcoming" beforehand and "due" on the day
+  (engine/notificationPlan.ts), to whoever answers for the document. Proved again here for a visit nine days ahead.
+- A count written ahead before this rule (the visit of 16-11-2026 on the local run; the plant's, if any) stays in its
+  record but is not shown on the register until the day; from the day the record opens and can be corrected.
+- Proved: frontend/tests/notBeforeDay.test.ts (the rule for every schedule, demo and live, the pages and the views by
+  source, Mitra's refusals, the plan's upcoming and due), and locally (scratchpad check_notbefore.py): the register's
+  16-11-2026 line blank and locked, its record page read only with the notice and no Submit, the visit of 06-11-2026
+  still written.

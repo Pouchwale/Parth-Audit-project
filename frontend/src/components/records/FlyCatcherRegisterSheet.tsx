@@ -12,6 +12,7 @@ import { masterRepository } from "../../data/repositories/masterRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { FLY_DOC_ID, addFlyCatcherVisit, newVisitProblem, suggestedVisitDate, visitsInMonth } from "../../engine/flyRegister";
 import { isEditableStatus, saveDraft } from "../../engine/recordLifecycle";
+import { waitsUntil } from "../../engine/notBeforeDay";
 import { useAppStore } from "../../store/AppStore";
 import { useT } from "../../i18n";
 import { printDocument } from "../../utils/print";
@@ -395,7 +396,9 @@ export function FlyCatcherRegisterSheet({
               {rows.map((row, i) => {
                 const r = row.record;
                 const e = row.entry;
-                const canEdit = editing && !!r && isEditableStatus(r.status);
+                // NOT BEFORE ITS DAY (REQUIREMENTS §201): a visit after today is locked, and its count stays blank until the day.
+                const waits = !!r && !!waitsUntil(doc, r);
+                const canEdit = editing && !!r && isEditableStatus(r.status) && !waits;
                 const locked = editing && !!r && !canEdit;
                 const above = i > 0 ? rows[i - 1].entry : undefined;
                 // THE TWO TUBE-LIGHT COLUMNS ARE FIXED ON THIS REGISTER (24-11-2025
@@ -505,8 +508,8 @@ export function FlyCatcherRegisterSheet({
                       </>
                     ) : (
                       <>
-                        <td className="count-cell" {...bound("catchCountApprox")}>
-                          {paperCount(e?.catchCountApprox)}
+                        <td className="count-cell" {...bound("catchCountApprox")} title={waits && r ? `Written from ${formatDisplayDate(r.dueDate)}` : undefined}>
+                          {paperCount(waits ? null : e?.catchCountApprox)}
                         </td>
                         <td className="notranslate" translate="no" {...bound("tubeLightInstallDate")}>
                           {tube(e?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED, above?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED)}

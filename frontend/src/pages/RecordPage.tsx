@@ -62,6 +62,7 @@ import { logActivity } from "../utils/activityLog";
 import { recordLabel } from "../engine/recordHistory";
 import { documentLayoutIn, documentTextIn, isGujaratiDocument } from "../i18n/documentText";
 import { formatDisplayDate, formatDisplayDateTime, todayISO } from "../utils/date";
+import { waitsUntil } from "../engine/notBeforeDay";
 import { printDocument } from "../utils/print";
 import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
@@ -110,7 +111,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   // WHAT THIS PERSON MAY DO WITH IT (REQUIREMENTS §96): below Write the sheet is read only and only Print and the
   // downloads are offered; Edit is needed to correct a signed-off record or delete one (engine/departmentScope.ts).
   const mayFill = !!record && mayDo(record.documentId, "fill");
-  const editable = !!record && isEditableStatus(record.status) && mayFill;
+  // NOT BEFORE ITS DAY (REQUIREMENTS §201): a live record is read only until the first day it covers (engine/notBeforeDay.ts).
+  const waitsFor = record && doc ? waitsUntil(doc, record) : null;
+  const editable = !!record && isEditableStatus(record.status) && mayFill && !waitsFor;
   const countersign = !!record && mayFill && doc?.kind === "service-report" && COUNTERSIGN_STATUSES.includes(record.status);
   const canWrite = editable || countersign;
   // A page kept on a revision the format has since replaced (REQUIREMENTS §74):
@@ -383,6 +386,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           recordId: record.id,
           status: record.status,
           editable,
+          notBefore: waitsFor ?? undefined,
           currentData: assistantData,
           getData: () => latest.current.data,
           labels: displayLabels,
@@ -590,6 +594,13 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         </div>
       </div>
 
+      {/* NOT BEFORE ITS DAY (REQUIREMENTS §201): the sheet waits for the first day it covers, and says so. */}
+      {waitsFor && (
+        <div className="card mb-4 no-print" data-section="waits-for-day" role="status" style={{ borderColor: "var(--color-info)", background: "var(--color-info-bg)" }}>
+          <div className="card-pad text-sm">{t("record.waitsForDay", { date: formatDisplayDate(waitsFor) })}</div>
+        </div>
+      )}
+
       {/* The record moved on elsewhere and something done here was set aside (REQUIREMENTS §65). Gone with the next save. */}
       {notice && (
         <div className="card mb-4 no-print" data-record-notice role="status" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
@@ -698,6 +709,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         isDemo={record.isDemo}
         saveState={canWrite ? (dirty ? "saving" : "saved") : undefined}
         onSave={handleSave}
+        waitsFor={waitsFor ?? undefined}
         onSubmit={() => handleSubmit()}
         onVerify={() => handleVerify()}
         onReject={handleReject}

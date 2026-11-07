@@ -131,6 +131,13 @@ const stepOn = (tgt: { editable: boolean; status: string; correction?: boolean }
 
 const noteOf = (ctx: MitraToolContext): string => `Asked of ${ASSISTANT_NAME}: ${short(ctx.userWords.trim() || "(spoken)", 200)}`;
 
+/** NOT BEFORE ITS DAY (REQUIREMENTS §201): the open record waits for the first day it covers - said to the model, with the day. */
+function waitsRefusal(tgt: { notBefore?: string; title?: string; documentId: string }): MitraToolResult | null {
+  if (!tgt.notBefore) return null;
+  const title = tgt.title ?? documentRepository.getById(tgt.documentId)?.name ?? "this record";
+  return no(`${title} is for ${formatDisplayDate(tgt.notBefore)}: it can be filled from that day and not before - the bell and the phone will remind then`, { notBefore: tgt.notBefore });
+}
+
 // THE ROUTER'S OWN CHECK OF A ROUTE (store/router.tsx isValidAppRoute — the one
 // list of pages the app has). That module reads window.location the moment it
 // loads, which is a browser's to give: asked for only when a route is checked,
@@ -754,6 +761,8 @@ const EDIT_OPEN_RECORD: MitraTool = {
     if (!patch || Object.keys(patch).length === 0) return no("patch needed: an object of the fields to change");
     const stop = levelStops(tgt.documentId, stepOn(tgt), ctx);
     if (stop) return stop;
+    const waits = waitsRefusal(tgt);
+    if (waits) return waits;
     const before = tgt.getData();
     const record = recordRepository.getById(tgt.recordId);
     // The dry run first: what the patch would do, nothing written yet (§113).
@@ -813,6 +822,8 @@ const FILL_WITH_SAMPLE: MitraTool = {
   run: async (_args, ctx) => {
     const tgt = ctx.target;
     if (!tgt) return no("no record is open — open one first");
+    const waitsForDay = waitsRefusal(tgt);
+    if (waitsForDay) return waitsForDay;
     const doc = documentRepository.getById(tgt.documentId);
     const record = recordRepository.getById(tgt.recordId);
     if (!doc || !record) return no("the open record could not be read");
@@ -857,6 +868,10 @@ const START_GUIDED_FILL: MitraTool = {
     if (said && !doc) return no("unknown document — use find_documents first");
     const stop = levelStops(doc?.id ?? ctx.target?.documentId, "fill", ctx);
     if (stop) return stop;
+    if (!doc && ctx.target) {
+      const waits = waitsRefusal(ctx.target);
+      if (waits) return waits;
+    }
     const dateISO = str(args.dateISO) ? normDate(str(args.dateISO), ctx.today) : null;
     if (str(args.dateISO) && !dateISO) return no(`"${str(args.dateISO)}" is not a date — give YYYY-MM-DD`);
     ctx.runWidgetAction({ type: "startInterview", ...(doc ? { documentId: doc.id } : {}), ...(dateISO ? { dateISO } : {}) });
@@ -880,6 +895,10 @@ const RECORD_ACTION: MitraTool = {
     const needs: Partial<Record<string, DocumentAction>> = { submit: "submit", verify: "verify", cancel_correction: "fill", delete: "delete", approve: "verify", send_back: "send_back" };
     const step = needs[action];
     const stop = step ? levelStops(tgt.documentId, step, ctx) : null;
+    if (!stop && action === "submit") {
+      const waits = waitsRefusal(tgt);
+      if (waits) return waits;
+    }
     if (stop) return stop;
     const outcome = (r: { ok: boolean; errors: string[] }, did: string, couldNot: string): MitraToolResult =>
       r.ok ? ok({ done: action }, `${did} ${title}`) : no(r.errors.join(" ") || `could not ${couldNot} ${title}`, { errors: r.errors.slice(0, 5) });
@@ -1236,6 +1255,8 @@ function supplierTarget(ctx: MitraToolContext): SupplierTarget | { refusal: Mitr
   const stop = levelStops(tgt.documentId, stepOn(tgt), ctx);
   if (stop) return { refusal: stop };
   const title = tgt.title ?? documentRepository.getById(tgt.documentId)?.name ?? "this record";
+  const waits = waitsRefusal(tgt);
+  if (waits) return { refusal: waits };
   if (!tgt.editable) return { refusal: no(`${title} is ${tgt.status}: open it for writing first (Edit), then ask again`) };
   const data = tgt.getData() as LogSheetData | null;
   if (!data || !Array.isArray(data.rows)) return { refusal: no(`${title} is not a log sheet`) };

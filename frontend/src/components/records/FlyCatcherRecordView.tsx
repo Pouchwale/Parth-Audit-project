@@ -5,6 +5,8 @@ import type { DocumentDefinition, FlyCatcherData, FlyCatcherEntry, PCLocation, R
 import { DocumentHeader } from "../documents/DocumentHeader";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { isEditableStatus, recordHeaderDefaults, saveDraft } from "../../engine/recordLifecycle";
+import { documentRepository } from "../../data/repositories/documentRepository";
+import { waitsUntil } from "../../engine/notBeforeDay";
 import { formatEditFor } from "../../data/formatEdits";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
@@ -275,7 +277,9 @@ export function FlyCatcherRecordView({
     };
   }, [dirty, flush]);
   const dataOf = (r: RecordInstance<FlyCatcherData>): FlyCatcherData => pending.current.get(r.id) ?? r.data;
-  const otherEditable = (r: RecordInstance<FlyCatcherData> | undefined): boolean => editable && !!r && isEditableStatus(r.status);
+  // NOT BEFORE ITS DAY (REQUIREMENTS §201): another visit's line is written from that visit's day, not before.
+  const flyDoc = documentRepository.getById(record.documentId);
+  const otherEditable = (r: RecordInstance<FlyCatcherData> | undefined): boolean => editable && !!r && isEditableStatus(r.status) && !waitsUntil(flyDoc, r);
   const updateOther = (r: RecordInstance<FlyCatcherData>, pcId: string, patch: EntryPatch) => {
     const base = dataOf(r);
     const entries = base.entries.some((x) => x.pcId === pcId)
@@ -322,7 +326,7 @@ export function FlyCatcherRecordView({
       const r = line.record;
       if (!r) return null;
       const key = `${r.id}|${unitsKey}`;
-      const writable = (line.current || isEditableStatus(r.status)) && !autoFilled.current.has(key);
+      const writable = (line.current || (isEditableStatus(r.status) && !waitsUntil(flyDoc, r))) && !autoFilled.current.has(key);
       if (writable) autoFilled.current.add(key);
       const base = line.current ? record.data : r.data;
       return { line, r, writable, base, data: (writable ? withMasterUnits(base, units) : null) ?? base };

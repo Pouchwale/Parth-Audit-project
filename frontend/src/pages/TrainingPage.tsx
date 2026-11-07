@@ -39,6 +39,7 @@ import { PreparedBanner } from "../components/records/PreparedBanner";
 import { reprepareRecord } from "../engine/assistantPrepare";
 import { useT } from "../i18n";
 import { bindProps, trainingBind } from "../engine/roundTrip/bindingsFor";
+import { waitsUntil } from "../engine/notBeforeDay";
 
 const TRAINING_DOC_ID = "training-record";
 
@@ -154,7 +155,8 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
   const employees = masterRepository.get().employees;
 
   // Below Write on its document the record is read only (REQUIREMENTS §96, engine/departmentScope.ts).
-  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill");
+  // ...and not before the first day it covers (REQUIREMENTS §201, engine/notBeforeDay.ts).
+  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill") && !waitsUntil(documentRepository.getById(record.documentId), record);
 
   const current = () => (recordRepository.getById(recordId) as RecordInstance<TrainingRecordData> | undefined) ?? record;
 

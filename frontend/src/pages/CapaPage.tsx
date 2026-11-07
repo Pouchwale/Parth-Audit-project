@@ -43,6 +43,7 @@ import { DownloadDocumentButton } from "../components/common/DownloadDocumentBut
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { useT } from "../i18n";
 import { bindProps, checklistBind, type ChecklistHeaderKey } from "../engine/roundTrip/bindingsFor";
+import { waitsUntil } from "../engine/notBeforeDay";
 
 const GAP_DOC_ID = "gap-inspection";
 
@@ -297,7 +298,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
   const t = useT();
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
   // Below Write on its document the record is read only (REQUIREMENTS §96, engine/departmentScope.ts).
-  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill");
+  // ...and not before the first day it covers (REQUIREMENTS §201, engine/notBeforeDay.ts).
+  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill") && !waitsUntil(doc, record);
   const canApprove = !!record && ["Submitted", "Pending Verification"].includes(record.status);
 
   const current = () => (recordRepository.getById(recordId) as RecordInstance<ComplaintChecklistData> | undefined) ?? record;

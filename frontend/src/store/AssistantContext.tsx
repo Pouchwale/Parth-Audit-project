@@ -23,6 +23,8 @@ export interface AssistantTarget {
   status: RecordStatus;
   /** Can the data be changed right now, without reopening the record? */
   editable: boolean;
+  /** NOT BEFORE ITS DAY (REQUIREMENTS §201): the day the record waits for, YYYY-MM-DD, while it is read only for that reason. */
+  notBefore?: string;
   /** What the model is shown (a log sheet adds its `_layout`). */
   currentData: unknown;
   /** The record's live data, exactly as stored. */

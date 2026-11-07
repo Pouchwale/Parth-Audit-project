@@ -21,6 +21,7 @@ export function RecordActionBar({
   saveState,
   onSave,
   onSubmit,
+  waitsFor,
   onVerify,
   onReject,
   onResume,
@@ -46,6 +47,8 @@ export function RecordActionBar({
   saveState?: SaveState;
   onSave: () => void;
   onSubmit: () => void;
+  /** NOT BEFORE ITS DAY (REQUIREMENTS §201): the day the record waits for, while it does; Save and Submit are not offered until then. */
+  waitsFor?: string;
   onVerify: () => void;
   onReject: (reason: string) => void;
   onResume: () => void;
@@ -113,7 +116,8 @@ export function RecordActionBar({
             : null;
   const accessReason = stopped ? refusalFor(documentId, stopped, uiLang) : null;
 
-  const editable = editableStatuses.includes(status) && mayFill;
+  // ...and not before the first day the record covers (REQUIREMENTS §201): Save and Submit wait for it with the sheet.
+  const editable = (editableStatuses.includes(status) && mayFill) && !waitsFor;
 
   return (
     <>
