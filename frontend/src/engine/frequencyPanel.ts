@@ -1,5 +1,6 @@
 import type { DocumentDefinition, Frequency } from "../types";
 import { departmentOfDocument, PLANT_DEPARTMENTS } from "../data/seed/documentDepartments";
+import { isBossSignedIn, mayDo } from "./departmentScope";
 
 // THE FREQUENCY PANEL (REQUIREMENTS §163; the owner, 2-Nov-2026: "give the super admin a panel called Frequency in
 // which all the documents of all modules are listed, so the super admin can set the frequency of each and every
@@ -15,7 +16,18 @@ export interface FrequencyModule {
 }
 
 /** The order the frequencies are counted and offered in. */
-export const FREQUENCY_ORDER: readonly Frequency[] = ["Daily", "Weekly", "Fortnightly", "Monthly", "Quarterly", "Half-yearly", "Yearly", "As Required"];
+export const FREQUENCY_ORDER: readonly Frequency[] = ["Daily", "Weekly", "Fortnightly", "Monthly", "Quarterly", "Half-yearly", "Yearly", "As Required", "Custom"];
+
+/**
+ * THE DOCUMENTS WHOSE FREQUENCY THIS PERSON MAY SET (REQUIREMENTS §202; the owner, 7-Nov-2026: "give option in frequency
+ * so user can add manually frequency of all the document of which he is responsible"): every scheduled document for the
+ * super admin; for anybody else, the scheduled documents they may fill - the ones they answer for. The server keeps the
+ * same line (backend/storageRoutes.ts withStoredMaster).
+ */
+export function frequencyDocsFor(docs: readonly DocumentDefinition[], boss: boolean = isBossSignedIn()): DocumentDefinition[] {
+  const scheduled = docs.filter((d) => !d.isReferenceOnly);
+  return boss ? scheduled : scheduled.filter((d) => mayDo(d.id, "fill"));
+}
 
 /**
  * Every document that holds records, by module in the master list's order (System first, Dispatch last), each

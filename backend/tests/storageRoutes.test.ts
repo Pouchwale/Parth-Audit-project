@@ -16,7 +16,7 @@ import { after, before, describe, it } from "node:test";
 import express, { type NextFunction, type Request, type Response } from "express";
 import type { PublicUser } from "../auth.ts";
 import type { StoredItem, StoredItems, WriteResult } from "../db.ts";
-import { registerStorageRoutes, type AccessRulesWriter, type StorageStore } from "../storageRoutes.ts";
+import { registerStorageRoutes, withStoredMaster, type AccessRulesWriter, type StorageStore } from "../storageRoutes.ts";
 import { DOCS_JSON } from "./accessFixtures.ts";
 
 class MemoryStorage implements StorageStore {
@@ -440,3 +440,43 @@ describe("Master Data, the super admin's, Kapila Barad's and the testing account
     assert.equal(stored.workingHours, undefined);
   });
 });
+
+// A STAFF MEMBER'S OWN FREQUENCIES (REQUIREMENTS §202): a write of the master data by an account that may not open Master
+// Data takes the schedule overrides of the documents that account may fill - set, or taken off - and keeps everybody else's.
+describe("a staff member's frequencies (REQUIREMENTS §202)", () => {
+  it("withStoredMaster takes the overrides of the documents the person may fill and keeps everybody else's, the hours the super admin's", () => {
+    const stored = JSON.stringify({ workingHours: { open: "09:00" }, scheduleOverrides: { a: { frequency: "Daily" }, b: { frequency: "Weekly" } }, serviceTypeChemicals: [] });
+    const posted = JSON.stringify({ workingHours: { open: "08:00" }, scheduleOverrides: { a: { frequency: "Custom" }, b: { frequency: "Custom" }, c: { frequency: "Custom" } } });
+    const out = JSON.parse(withStoredMaster(posted, stored, new Set(["a", "c"])));
+    assert.deepEqual(out.scheduleOverrides, { a: { frequency: "Custom" }, b: { frequency: "Weekly" }, c: { frequency: "Custom" } });
+    assert.deepEqual(out.workingHours, { open: "09:00" });
+    const dropped = JSON.parse(withStoredMaster(JSON.stringify({ scheduleOverrides: {} }), stored, new Set(["a"])));
+    assert.deepEqual(dropped.scheduleOverrides, { b: { frequency: "Weekly" } }, "an override the person took off goes; another's stays");
+    assert.equal(withStoredMaster(posted, stored), stored, "with no document of theirs, nothing but the chemicals is taken, as before");
+  });
+});
+
+describe("a staff member's frequencies through the API (REQUIREMENTS §202)", () => {
+  let s: Server;
+  before(async () => (s = await start()));
+  after(() => s.close());
+  const custom = { schedule: { type: "custom", everyDays: 10, from: "2026-11-07" }, frequency: "Custom", since: "2026-11-07", by: "Ankur Raval" };
+  const MASTER = { workingHours: { start: "08:40", end: "18:20" }, employees: [{ id: "e-1", name: "Kapila Barad" }], scheduleOverrides: { "hr-competence": { frequency: "Yearly", since: "2026-10-01", by: "Super Admin" } } };
+
+  it("through the API: Ankur (QC) sets F-QC-30's frequency and not F/HR/01's; taken off again by him, the other stays", async () => {
+    s.store.put("master", MASTER);
+    const res = await put(s, "ankur", "master", { ...MASTER, workingHours: { start: "06:00", end: "06:30" }, scheduleOverrides: { "qc-viscosity": custom, "hr-competence": custom } });
+    assert.equal(res.status, 200);
+    let stored = s.store.value("master") as typeof MASTER & { scheduleOverrides: Record<string, unknown> };
+    assert.deepEqual(stored.scheduleOverrides["qc-viscosity"], custom, "his own document: set");
+    assert.deepEqual(stored.scheduleOverrides["hr-competence"], MASTER.scheduleOverrides["hr-competence"], "another department's: as stored");
+    assert.deepEqual(stored.workingHours, MASTER.workingHours, "the hours: the super admin's");
+    assert.deepEqual(stored.employees, MASTER.employees);
+    const back = await put(s, "ankur", "master", { ...MASTER, scheduleOverrides: {} });
+    assert.equal(back.status, 200);
+    stored = s.store.value("master") as typeof stored;
+    assert.equal(stored.scheduleOverrides["qc-viscosity"], undefined, "taken off by him");
+    assert.deepEqual(stored.scheduleOverrides["hr-competence"], MASTER.scheduleOverrides["hr-competence"]);
+  });
+});
+

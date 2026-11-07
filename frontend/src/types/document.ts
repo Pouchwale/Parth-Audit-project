@@ -72,4 +72,9 @@ export type ScheduleConfig =
   | { type: "quarterly"; anchorMonth: number; dayOfMonth: number } // anchorMonth 0-11, first quarter month
   | { type: "half-yearly"; anchorMonth: number; dayOfMonth: number } // anchorMonth 0-11, the first of its two months (REQUIREMENTS §163)
   | { type: "yearly"; month: number; dayOfMonth: number }
+  // A FREQUENCY OF THE PERSON'S OWN (REQUIREMENTS §202; the owner, 7-Nov-2026: "in frequency add customly also"): every so
+  // many days from a date, the chosen weekdays of every week, or the chosen days of every month.
+  | { type: "custom"; everyDays: number; from: string; weekdays?: undefined; daysOfMonth?: undefined }
+  | { type: "custom"; weekdays: number[]; everyDays?: undefined; daysOfMonth?: undefined }
+  | { type: "custom"; daysOfMonth: number[]; everyDays?: undefined; weekdays?: undefined }
   | { type: "as-required" };

@@ -137,17 +137,36 @@ function visibleLines(value: string, visible: (line: unknown) => boolean): strin
  * the Chemical Master's (serviceTypeChemicals, a pest-control document of its own). With nothing stored yet - a new
  * plant's first sync - what is posted is taken, the hours as the super admin's.
  */
-export function withStoredMaster(posted: string, stored: string | null): string {
+export function withStoredMaster(posted: string, stored: string | null, scheduleIds: ReadonlySet<string> = new Set()): string {
   if (!stored) return withStoredHours(posted, stored);
   try {
-    const theirs = JSON.parse(stored) as Record<string, unknown> | null;
-    if (!theirs || typeof theirs !== "object" || Array.isArray(theirs)) return withStoredHours(posted, stored);
-    const mine = JSON.parse(posted) as Record<string, unknown> | null;
-    if (!mine || typeof mine !== "object" || Array.isArray(mine) || !("serviceTypeChemicals" in mine)) return stored;
-    return JSON.stringify({ ...theirs, serviceTypeChemicals: mine.serviceTypeChemicals });
+    const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+    const theirs = JSON.parse(stored) as unknown;
+    if (!obj(theirs)) return withStoredHours(posted, stored);
+    const mine = JSON.parse(posted) as unknown;
+    if (!obj(mine) || (!("serviceTypeChemicals" in mine) && scheduleIds.size === 0)) return stored;
+    const out: Record<string, unknown> = { ...theirs };
+    if ("serviceTypeChemicals" in mine) out.serviceTypeChemicals = mine.serviceTypeChemicals;
+    // THE FREQUENCY OF THE DOCUMENTS THE PERSON ANSWERS FOR (REQUIREMENTS §202): their overrides taken - set or taken off - and
+    // everybody else's kept as stored.
+    if (scheduleIds.size > 0) {
+      const kept: Record<string, unknown> = obj(theirs.scheduleOverrides) ? { ...theirs.scheduleOverrides } : {};
+      const sent: Record<string, unknown> = obj(mine.scheduleOverrides) ? mine.scheduleOverrides : {};
+      for (const id of scheduleIds) {
+        if (id in sent) kept[id] = sent[id];
+        else delete kept[id];
+      }
+      out.scheduleOverrides = kept;
+    }
+    return JSON.stringify(out);
   } catch {
     return stored;
   }
+}
+
+/** THE DOCUMENTS WHOSE FREQUENCY THE PERSON MAY SET (REQUIREMENTS §202): the scheduled ones they may fill - the ones they answer for. */
+function frequencyIdsOf(view: { catalogue: { docs: { id: string; isReferenceOnly?: boolean }[] }; may: (documentId: string, action: "fill") => boolean }): Set<string> {
+  return new Set(view.catalogue.docs.filter((d) => !d.isReferenceOnly && view.may(d.id, "fill")).map((d) => d.id));
 }
 
 export function withStoredHours(posted: string, stored: string | null): string {
@@ -332,7 +351,8 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
         // AND MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS §134, the owner, 28-Oct-2026): an account that may not open it
         // (frontend/src/engine/masterDataAccess.ts) keeps every list as stored - only the Chemical Master's, a pest-control
         // document of its own, is theirs to change as before; a testing account's write is taken, the hours kept.
-        compose = mayOpenMasterData(user) ? (stored) => withStoredHours(posted, stored) : (stored) => withStoredMaster(posted, stored);
+        // ...and the frequency of the documents they answer for is theirs to set (REQUIREMENTS §202).
+        compose = mayOpenMasterData(user) ? (stored) => withStoredHours(posted, stored) : (stored) => withStoredMaster(posted, stored, frequencyIdsOf(view));
       }
       // THE ARCHIVED SHEETS STAY ARCHIVED (REQUIREMENTS §115): a browser whose old copy still holds blank sheets the
       // server moved to the archive writes everything but those. Looked for in what was posted first, so a browser

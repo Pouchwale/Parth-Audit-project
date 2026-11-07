@@ -6,7 +6,7 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { FrequencyPicker } from "../components/master/FrequencyPicker";
 import { scheduleLabel } from "../engine/frequencyEngine";
-import { frequencyCounts, frequencyModules, frequencySearch } from "../engine/frequencyPanel";
+import { frequencyCounts, frequencyDocsFor, frequencyModules, frequencySearch } from "../engine/frequencyPanel";
 import { removeOffScheduleShells } from "../engine/calendarMigration";
 import { documentTextIn } from "../i18n/documentText";
 import { useT } from "../i18n";
@@ -26,15 +26,17 @@ export function FrequencyPage() {
   const t = useT();
   const [query, setQuery] = useState("");
   const master = useMemo(() => masterRepository.get(), [version]);
-  const docs = useMemo(() => documentRepository.getRecordableUnscoped().filter((d) => !d.isReferenceOnly), [version]);
+  // THE DOCUMENTS WHOSE FREQUENCY THIS PERSON MAY SET (REQUIREMENTS §202): every one for the super admin; the ones they answer for otherwise.
+  const boss = user?.role === "admin";
+  const docs = useMemo(() => frequencyDocsFor(documentRepository.getRecordableUnscoped(), boss), [version, boss, user?.email]);
   const shown = useMemo(() => frequencySearch(docs, query), [docs, query]);
   const modules = useMemo(() => frequencyModules(shown), [shown]);
   const counts = useMemo(() => frequencyCounts(docs), [docs]);
 
-  if (user?.role !== "admin") {
+  if (!user || (!boss && docs.length === 0)) {
     return (
-      <div className="empty-state" data-state="frequency-admin-only">
-        The Frequency panel is the super admin&apos;s. <Link to="/dashboard">Back to the dashboard</Link>.
+      <div className="empty-state" data-state="frequency-none-mine">
+        Frequency is for the documents you answer for, and this account answers for none. <Link to="/dashboard">Back to the dashboard</Link>.
       </div>
     );
   }
@@ -44,7 +46,7 @@ export function FrequencyPage() {
       <div className="flex items-center justify-between mb-1 wrap gap-3">
         <div>
           <div className="text-xs text-muted mb-1" data-crumb>
-            System · Frequency
+            {boss ? "System · Frequency" : "Workspace · Frequency"}
           </div>
           <h1 className="text-2xl mb-1">
             <FiClock size={20} style={{ verticalAlign: -3 }} /> {t("nav.frequency")}
@@ -56,9 +58,10 @@ export function FrequencyPage() {
         </label>
       </div>
       <p className="text-sm text-muted mb-3">
-        How often each document falls due: choose, then Set. The change takes effect from today; the sheets already made stand as they are, and everybody who
-        answers for the document is told the working day before each new due date. &ldquo;As issued&rdquo; puts a document back to the frequency it was issued
-        with. The same setting is on Master Data&apos;s Documents tab.
+        {boss ? "How often each document falls due" : "How often each document you answer for falls due"}: choose, then Set. The change takes effect from today;
+        the sheets already made stand as they are, and everybody who answers for the document is told the working day before each new due date. &ldquo;As
+        issued&rdquo; puts a document back to the frequency it was issued with. &ldquo;Custom&rdquo; sets a frequency of your own: every so many days from a
+        date, chosen weekdays, or chosen days of the month.{boss ? " The same setting is on Master Data's Documents tab." : ""}
       </p>
       <div className="flex gap-2 wrap mb-3" data-section="frequency-counts">
         {counts.map((c) => (

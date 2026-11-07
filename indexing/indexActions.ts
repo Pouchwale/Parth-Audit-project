@@ -189,6 +189,8 @@ const KIND_OF: Record<Frequency, ScheduleConfig["type"]> = {
   "Half-yearly": "half-yearly",
   Yearly: "yearly",
   "As Required": "as-required",
+  // A frequency of the person's own (REQUIREMENTS §202).
+  Custom: "custom",
 };
 
 /** The schedule of a frequency, keeping what the format's current schedule shares with it (as Master Data's picker does). */
@@ -209,6 +211,9 @@ function scheduleFor(frequency: Frequency, now: ScheduleConfig): ScheduleConfig 
       return { type: "quarterly", anchorMonth: month % 3, dayOfMonth: day };
     case "half-yearly":
       return { type: "half-yearly", anchorMonth: month % 6, dayOfMonth: day };
+    case "custom":
+      // The word alone cannot say the days: a custom frequency is set on the Frequency panel (REQUIREMENTS §202); one already set stands.
+      return now;
     case "yearly":
       return { type: "yearly", month, dayOfMonth: day };
     default:

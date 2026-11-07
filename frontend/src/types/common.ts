@@ -9,7 +9,9 @@ export type Frequency =
   // Twice a year, six months apart (the owner, 2-Nov-2026, REQUIREMENTS §163).
   | "Half-yearly"
   | "Yearly"
-  | "As Required";
+  | "As Required"
+  // A frequency of the person's own: every so many days, chosen weekdays or chosen days of the month (REQUIREMENTS §202).
+  | "Custom";
 
 // Record lifecycle. See section 16 of docs/REQUIREMENTS.md.
 export type RecordStatus =

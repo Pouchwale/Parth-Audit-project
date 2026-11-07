@@ -11,6 +11,9 @@ import { SEED_DOCUMENTS } from "../../data/seed/documentDefinitions";
 // tab, beside each document: its frequency now, and the choices - every day, a weekday every week, the 1st and 3rd of a
 // weekday, a day of the month, quarterly, yearly, as required. Saved as Master Data's scheduleOverrides, from today
 // (DocumentDefinition.scheduleSince), after "Are you sure?" (§138). "As issued" drops the override.
+// AND A FREQUENCY OF THE PERSON'S OWN (REQUIREMENTS §202; the owner, 7-Nov-2026: "in frequency add customly also"):
+// Custom - every so many days from a date, the chosen weekdays of every week, or the chosen days of every month. The
+// Frequency panel offers the same picker to everybody for the documents they answer for (pages/FrequencyPage.tsx).
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -24,10 +27,49 @@ export const KINDS: { kind: Kind; label: string; frequency: Frequency }[] = [
   { kind: "half-yearly", label: "Every half year", frequency: "Half-yearly" },
   { kind: "yearly", label: "Every year", frequency: "Yearly" },
   { kind: "as-required", label: "As required", frequency: "As Required" },
+  { kind: "custom", label: "Custom…", frequency: "Custom" },
 ];
 
+/** The three ways a custom frequency can be said (§202). */
+export type CustomMode = "every" | "weekdays" | "days";
+export interface CustomChoice {
+  mode: CustomMode;
+  everyDays: number;
+  from: string;
+  weekdays: number[];
+  daysOfMonth: number[];
+}
+
+/** The custom choice a schedule holds, or the default one (every 10 days from today, Monday, the 1st). */
+export function customOf(now: ScheduleConfig, today: string = todayISO()): CustomChoice {
+  const base: CustomChoice = { mode: "every", everyDays: 10, from: today, weekdays: [1], daysOfMonth: [1] };
+  if (now.type !== "custom") return base;
+  if (now.everyDays !== undefined) return { ...base, mode: "every", everyDays: now.everyDays, from: now.from };
+  if (now.weekdays !== undefined) return { ...base, mode: "weekdays", weekdays: [...now.weekdays] };
+  return { ...base, mode: "days", daysOfMonth: [...now.daysOfMonth] };
+}
+
+/** The custom schedule the choice makes, or null while it says nothing (no weekday, no day, no count). */
+export function customSchedule(c: CustomChoice): ScheduleConfig | null {
+  if (c.mode === "every") {
+    const everyDays = Math.floor(c.everyDays);
+    return Number.isFinite(everyDays) && everyDays >= 1 && everyDays <= 366 && /^\d{4}-\d{2}-\d{2}$/.test(c.from) ? { type: "custom", everyDays, from: c.from } : null;
+  }
+  if (c.mode === "weekdays") {
+    const weekdays = [...new Set(c.weekdays.filter((w) => Number.isInteger(w) && w >= 0 && w <= 6))].sort((a, b) => a - b);
+    return weekdays.length ? { type: "custom", weekdays } : null;
+  }
+  const daysOfMonth = [...new Set(c.daysOfMonth.filter((d) => Number.isInteger(d) && d >= 1 && d <= 31))].sort((a, b) => a - b);
+  return daysOfMonth.length ? { type: "custom", daysOfMonth } : null;
+}
+
+/** "5, 15, 25" as the days it names, in order, each once. */
+export function parseDays(text: string): number[] {
+  return [...new Set((text.match(/\d{1,2}/g) ?? []).map(Number).filter((d) => d >= 1 && d <= 31))].sort((a, b) => a - b);
+}
+
 /** The schedule of this kind, keeping what the current one shares with it (its weekday, its day of the month). */
-export function scheduleOf(kind: Kind, now: ScheduleConfig, weekday: number, day: number, month: number): ScheduleConfig {
+export function scheduleOf(kind: Kind, now: ScheduleConfig, weekday: number, day: number, month: number, custom?: CustomChoice): ScheduleConfig {
   switch (kind) {
     case "daily":
       return { type: "daily" };
@@ -44,6 +86,9 @@ export function scheduleOf(kind: Kind, now: ScheduleConfig, weekday: number, day
       return { type: "half-yearly", anchorMonth: now.type === "half-yearly" ? now.anchorMonth : month % 6, dayOfMonth: day };
     case "yearly":
       return { type: "yearly", month, dayOfMonth: day };
+    case "custom":
+      // Nothing chosen yet: the current schedule stands (so nothing changed, nothing to set).
+      return customSchedule(custom ?? customOf(now)) ?? now;
     default:
       return { type: "as-required" };
   }
@@ -59,8 +104,11 @@ export function FrequencyPicker({ doc, override, onChange }: { doc: DocumentDefi
   const [weekday, setWeekday] = useState<number>("weekday" in now && typeof now.weekday === "number" ? now.weekday : 1);
   const [day, setDay] = useState<number>("dayOfMonth" in now && typeof now.dayOfMonth === "number" ? now.dayOfMonth : 1);
   const [month, setMonth] = useState<number>(now.type === "yearly" ? now.month : now.type === "quarterly" || now.type === "half-yearly" ? now.anchorMonth : 0);
-  const chosen = scheduleOf(kind, now, weekday, day, month);
-  const changed = !sameSchedule(chosen, now);
+  const [custom, setCustom] = useState<CustomChoice>(() => customOf(now));
+  const [daysText, setDaysText] = useState<string>(() => customOf(now).daysOfMonth.join(", "));
+  const chosen = scheduleOf(kind, now, weekday, day, month, custom);
+  const customSaid = kind !== "custom" || customSchedule(custom) !== null;
+  const changed = !sameSchedule(chosen, now) && customSaid;
   const number = doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo;
   const save = () => {
     const frequency = KINDS.find((k) => k.kind === kind)!.frequency;
@@ -71,6 +119,7 @@ export function FrequencyPicker({ doc, override, onChange }: { doc: DocumentDefi
     );
   };
   const back = () => sure.ask(`${number} falls due as issued again (${scheduleLabel({ ...doc, schedule: issuedOf(doc, override) })}). The sheets already made stand as they are.`, () => onChange(null));
+  const setCustomPart = (part: Partial<CustomChoice>) => setCustom((c) => ({ ...c, ...part }));
   return (
     <div className="flex items-center gap-1 wrap" data-section="frequency-picker">
       <select className="input input-sm" data-field="frequency-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)} aria-label={`How often ${number} falls due`}>
@@ -100,6 +149,63 @@ export function FrequencyPicker({ doc, override, onChange }: { doc: DocumentDefi
             </option>
           ))}
         </select>
+      )}
+      {kind === "custom" && (
+        <>
+          {/* The custom frequency's own words (§202): every so many days from a date, the weekdays, or the days of the month. */}
+          <select className="input input-sm" data-field="frequency-custom-mode" value={custom.mode} onChange={(e) => setCustomPart({ mode: e.target.value as CustomMode })} aria-label="Which kind of custom frequency">
+            <option value="every">Every … days</option>
+            <option value="weekdays">Chosen weekdays</option>
+            <option value="days">Chosen days of the month</option>
+          </select>
+          {custom.mode === "every" && (
+            <>
+              <span className="text-sm text-muted">every</span>
+              <input
+                className="input input-sm"
+                data-field="frequency-every-days"
+                type="number"
+                min={1}
+                max={366}
+                value={custom.everyDays}
+                onChange={(e) => setCustomPart({ everyDays: Math.min(366, Math.max(1, Number(e.target.value) || 1)) })}
+                style={{ width: 64 }}
+                aria-label="Every how many days"
+              />
+              <span className="text-sm text-muted">days from</span>
+              <input className="input input-sm" data-field="frequency-from" type="date" value={custom.from} onChange={(e) => setCustomPart({ from: e.target.value })} aria-label="From which date" />
+            </>
+          )}
+          {custom.mode === "weekdays" && (
+            <span className="flex items-center gap-1 wrap" data-field="frequency-weekdays" role="group" aria-label="On which weekdays">
+              {WEEKDAYS.map((w, i) => (
+                <label key={w} className="text-sm flex items-center gap-1" style={{ marginRight: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={custom.weekdays.includes(i)}
+                    onChange={(e) => setCustomPart({ weekdays: e.target.checked ? [...custom.weekdays, i] : custom.weekdays.filter((x) => x !== i) })}
+                    aria-label={w}
+                  />
+                  {w.slice(0, 3)}
+                </label>
+              ))}
+            </span>
+          )}
+          {custom.mode === "days" && (
+            <input
+              className="input input-sm"
+              data-field="frequency-days-of-month"
+              value={daysText}
+              placeholder="e.g. 5, 15, 25"
+              onChange={(e) => {
+                setDaysText(e.target.value);
+                setCustomPart({ daysOfMonth: parseDays(e.target.value) });
+              }}
+              style={{ width: 140 }}
+              aria-label="On which days of the month, separated by commas"
+            />
+          )}
+        </>
       )}
       {changed && (
         <button type="button" className="btn btn-primary btn-sm" data-action="frequency-save" onClick={save}>

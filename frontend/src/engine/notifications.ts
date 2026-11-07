@@ -62,6 +62,9 @@ export function periodDays(schedule: ScheduleConfig): number | null {
       return 182;
     case "yearly":
       return 365;
+    case "custom":
+      // A frequency of the person's own (REQUIREMENTS §202): its own count of days; a week for chosen weekdays; a month for chosen days.
+      return schedule.everyDays !== undefined ? Math.max(1, Math.floor(schedule.everyDays)) : schedule.weekdays !== undefined ? 7 : 30;
     case "as-required":
       return null;
   }

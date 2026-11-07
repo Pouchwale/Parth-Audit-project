@@ -66,6 +66,7 @@ import { useAuth } from "../../store/AuthContext";
 import { mayOpenMasterData, mayOpenSystemPages } from "../../engine/masterDataAccess";
 import { currentAddress } from "../../utils/moduleSlug";
 import { PURCHASE_DOCUMENT_IDS } from "../../engine/purchaseMaster";
+import { frequencyDocsFor } from "../../engine/frequencyPanel";
 
 interface NavItem {
   to: string;
@@ -629,6 +630,8 @@ export function Sidebar() {
   const { user } = useAuth();
   // Demo Mode only where the server has it (§65); Users & Access only for the
   // administrator, whose own it is (§66).
+  // THE FREQUENCY OF THE DOCUMENTS ONE ANSWERS FOR (REQUIREMENTS §202): on the workspace for anybody but the super admin, whose panel is System's.
+  const frequencyForMe = !!user && user.role !== "admin" && frequencyDocsFor(documentRepository.getRecordableUnscoped(), false).length > 0;
   const systemItems = useMemo(() => {
     const all = demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM;
     // Master Data is the super admin's, Kapila Barad's and the testing accounts' (engine/masterDataAccess.ts, the owner, 28-Oct-2026 and 3-Nov-2026).
@@ -726,7 +729,7 @@ export function Sidebar() {
         <nav className="app-nav">
           <div className="nav-section-label">{t("nav.workspace")}</div>
           {/* Ask Mitra only for a person who has Mitra: the super admin may switch it off for the staff (engine/features.ts, 2-Nov-2026). */}
-          <NavGroup items={assistantAvailable() ? NAV_MAIN : NAV_MAIN.filter((item) => item.to !== "/assistant")} path={path} />
+          <NavGroup items={[...(assistantAvailable() ? NAV_MAIN : NAV_MAIN.filter((item) => item.to !== "/assistant")), ...(frequencyForMe ? [FREQUENCY_ITEM] : [])]} path={path} />
 
           {/* The heading and its expand/collapse belong to the modules
               underneath, so a department with no module of its own is not

@@ -11511,3 +11511,34 @@ the assistant prepares a sheet only up to its day.)
   source, Mitra's refusals, the plan's upcoming and due), and locally (scratchpad check_notbefore.py): the register's
   16-11-2026 line blank and locked, its record page read only with the notice and no Submit, the visit of 06-11-2026
   still written.
+
+## §202 Frequency for everybody's own documents, and a custom frequency (7-Nov-2026)
+
+The owner, 7-Nov-2026: "give option in frequency so user can add manually frequency of all the document of which he is
+responsible and in frequency add customly also".
+
+- THE FREQUENCY PANEL IS EVERYBODY'S FOR THEIR OWN DOCUMENTS (pages/FrequencyPage.tsx, engine/frequencyPanel.ts
+  frequencyDocsFor): the super admin's panel lists every document as before (§163, under System); anybody else finds
+  Frequency on the workspace menu (components/layout/Sidebar.tsx) and the panel lists the scheduled documents they may
+  fill - the ones they answer for - by module, with the same picker, the same "Are you sure?", the same "As issued", the
+  same line in the activity log ("Set by Sandeep Parekh from 07-11-2026" under the frequency). An account that answers
+  for no document is told so. Master Data's Documents tab is unchanged.
+- THE SERVER KEEPS THE SAME LINE (backend/storageRoutes.ts withStoredMaster, frequencyIdsOf): a write of the master data
+  by an account that may not open Master Data takes the schedule overrides of the documents that account may fill - set,
+  or taken off - and keeps everybody else's as stored, the hours the super admin's (§84), the lists as before (§134).
+- A CUSTOM FREQUENCY (types/document.ts ScheduleConfig "custom"; types/common.ts "Custom"; components/master/
+  FrequencyPicker.tsx; engine/frequencyEngine.ts): the picker's last choice, "Custom…", in three ways - every so many
+  days from a date (1 to 366), the chosen weekdays of every week, or the chosen days of every month, typed as "5, 15,
+  25" (a day a month has not is left out). Due dates, the calendar, the schedule's blank sheets, the reminders and the
+  phone follow it like any other frequency: every-so-many-days has a period from one due day to the day before the
+  next, and its own count of days for the reminders' urgency (a week for chosen weekdays, a month for chosen days);
+  every custom frequency is told the working day before (§143). Labelled "Every 10 days from 07-11-2026", "Every Mon,
+  Thu", "Days 5, 15, 25 of each month"; counted last on the panel; "Custom" in the index map keeps what the panel set.
+  Not before its day (§201) holds: a custom record is written from its due date.
+- Proved: frontend/tests/frequencyPanel.test.ts (the three custom frequencies' due dates, periods, labels, reminders'
+  counts and heads-up; the picker's Custom; the documents a person may set, the page and the sidebar by source),
+  backend/tests/storageRoutes.test.ts (withStoredMaster, and through the API: Ankur sets F-QC-30's and not F/HR/01's,
+  takes it off again); locally (scratchpad check_frequency.py): Sandeep Parekh finds Frequency on his workspace, sees
+  his 17 HR documents, sets every 10 days on F/HR/01 and is named under it; the super admin's panel lists 132 with
+  Custom offered. (The local run's server still runs the code from before: the staff's override is kept only once the
+  server is restarted - on the plant, with §200's reader.)

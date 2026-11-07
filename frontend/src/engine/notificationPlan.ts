@@ -105,8 +105,14 @@ export interface PlanTraining {
 // the frequency rules (engine/notifications.ts, written in)
 
 /** How long a document's own period is, in days; null for as-required (engine/notifications.ts periodDays). */
-export function periodDays(schedule: { type: string }): number | null {
+/** The custom fields a schedule may carry (REQUIREMENTS §202), read where only the type was. */
+type ScheduleLike = { type: string; everyDays?: number; weekdays?: number[]; daysOfMonth?: number[] };
+const customPeriod = (s: ScheduleLike): number => (s.everyDays !== undefined ? Math.max(1, Math.floor(s.everyDays)) : s.weekdays !== undefined ? 7 : 30);
+
+export function periodDays(schedule: ScheduleLike): number | null {
   switch (schedule.type) {
+    case "custom":
+      return customPeriod(schedule);
     case "daily":
       return 1;
     case "weekly":
@@ -188,6 +194,7 @@ export function headsUpFrom(schedule: { type: string }, dueDate: string, isClose
   switch (schedule.type) {
     case "weekly":
     case "fortnightly":
+    case "custom":
       return workingDayBefore(dueDate, isClosedDay);
     case "monthly":
     case "quarterly":

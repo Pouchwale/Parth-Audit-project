@@ -3,6 +3,13 @@ import { addDays, daysInMonth, MONTH_NAMES, pad2 } from "../utils/date";
 
 const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+const utc = (iso: string): number => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+/** Whole days from one date to another (negative when the second is earlier). */
+const daysApart = (from: string, to: string): number => Math.round((utc(to) - utc(from)) / 86_400_000);
+
 /** A fortnightly schedule's first date in a month: its anchor day, or the month's first of its weekday (the second is 14 days on). */
 export function fortnightFirst(s: Extract<ScheduleConfig, { type: "fortnightly" }>, year: number, month: number): number {
   return s.weekday !== undefined ? 1 + ((s.weekday - new Date(year, month, 1).getDay() + 7) % 7) : s.anchorDayOfMonth;
@@ -61,6 +68,25 @@ export function dueDatesInMonth(doc: DocumentDefinition, year: number, month: nu
       if (month !== s.month) return [];
       const day = Math.min(s.dayOfMonth, dim);
       return [iso(day)];
+    }
+    case "custom": {
+      // A FREQUENCY OF THE PERSON'S OWN (REQUIREMENTS §202): every so many days from its first day; the chosen weekdays of
+      // every week; the chosen days of every month (a day the month has not is left out, as a monthly 31st is moved).
+      const out: string[] = [];
+      if (s.everyDays !== undefined) {
+        const every = Math.max(1, Math.floor(s.everyDays));
+        for (let d = 1; d <= dim; d++) {
+          const date = iso(d);
+          if (date < s.from) continue;
+          if (daysApart(s.from, date) % every === 0) out.push(date);
+        }
+      } else if (s.weekdays !== undefined) {
+        const chosen = new Set(s.weekdays);
+        for (let d = 1; d <= dim; d++) if (chosen.has(new Date(year, month, d).getDay())) out.push(iso(d));
+      } else {
+        for (const day of [...new Set(s.daysOfMonth)].sort((a, b) => a - b)) if (day >= 1 && day <= dim) out.push(iso(day));
+      }
+      return out;
     }
     case "as-required":
       return [];
@@ -136,6 +162,14 @@ export function schedulePeriodOf(doc: DocumentDefinition, dateISO: string): Sche
     }
     case "yearly":
       return { from: `${year}-01-01`, to: `${year}-12-31`, scheduled: iso(year, s.month, Math.min(s.dayOfMonth, daysInMonth(year, s.month))) };
+    case "custom": {
+      // Every so many days: from one due day to the day before the next. The chosen weekdays or days of the month: each
+      // day its own, as a daily document's (§202).
+      if (s.everyDays === undefined || dateISO < s.from) return null;
+      const every = Math.max(1, Math.floor(s.everyDays));
+      const from = addDays(dateISO, -(daysApart(s.from, dateISO) % every));
+      return { from, to: addDays(from, every - 1), scheduled: from };
+    }
     default:
       return null;
   }
@@ -158,6 +192,10 @@ export function scheduleLabel(doc: DocumentDefinition): string {
       return `Half-yearly (day ${s.dayOfMonth}, from ${MONTH_NAMES[s.anchorMonth].slice(0, 3)})`;
     case "yearly":
       return `Yearly (${s.dayOfMonth} ${MONTH_NAMES[s.month].slice(0, 3)})`;
+    case "custom":
+      if (s.everyDays !== undefined) return `Every ${s.everyDays} day${s.everyDays === 1 ? "" : "s"} from ${s.from.split("-").reverse().join("-")}`;
+      if (s.weekdays !== undefined) return `Every ${[...s.weekdays].sort((a, b) => a - b).map((w) => WEEKDAY_NAMES[w]?.slice(0, 3) ?? "?").join(", ")}`;
+      return `Day${s.daysOfMonth.length === 1 ? "" : "s"} ${[...s.daysOfMonth].sort((a, b) => a - b).join(", ")} of each month`;
     case "as-required":
       return "As Required (created manually)";
     default:

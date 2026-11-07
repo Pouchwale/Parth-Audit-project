@@ -176,6 +176,7 @@ const en = {
   "freq.Half-yearly": "Half-yearly",
   "freq.Yearly": "Yearly",
   "freq.As Required": "As Required",
+  "freq.Custom": "Custom",
 
   // ---- modules -----------------------------------------------------------
   "module.Human Resources": "Human Resources (HR)",
@@ -1069,6 +1070,7 @@ const gu: Record<StringKey, string> = {
   "freq.Half-yearly": "અર્ધવાર્ષિક",
   "freq.Yearly": "વાર્ષિક",
   "freq.As Required": "જરૂર મુજબ",
+  "freq.Custom": "કસ્ટમ",
 
   // ---- modules -----------------------------------------------------------
   "module.Human Resources": "માનવ સંસાધન (HR)",
