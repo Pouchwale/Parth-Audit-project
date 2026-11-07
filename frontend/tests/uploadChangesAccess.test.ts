@@ -57,10 +57,12 @@ test("a record the person only reads is locked for the upload, with the level as
   assert.equal(as(KAPILA, null, () => howToChange(open.id, () => null)).way, "edit");
 });
 
-test("a signed-off record is reopened by the upload only for somebody with Edit", () => {
+test("a signed-off record is reopened by the upload for somebody with Write as for Edit (§203); never for Read", () => {
   const verified = stored("hr-daily-cleaning", "Verified");
   assert.equal(as(KAPILA, null, () => howToChange(verified.id, () => null)).way, "reopen");
-  // Kapila Barad given Write (not Edit) on it: she may fill it, never correct a signed-off one.
+  // Kapila Barad given Write (not Edit) on it: she may fill it and, since §203, correct a signed-off one.
   const write = { version: 1, people: { "kapila.barad@gpp.local": { documents: { "hr-daily-cleaning": "write" } } }, responsibility: {} };
-  assert.deepEqual(as(KAPILA, write, () => howToChange(verified.id, () => null)), { way: "locked", via: "store", status: "Verified", why: "level" });
+  assert.deepEqual(as(KAPILA, write, () => howToChange(verified.id, () => null)), { way: "reopen", via: "store", status: "Verified" });
+  const read = { version: 1, people: { "kapila.barad@gpp.local": { documents: { "hr-daily-cleaning": "read" } } }, responsibility: {} };
+  assert.deepEqual(as(KAPILA, read, () => howToChange(verified.id, () => null)), { way: "locked", via: "store", status: "Verified", why: "level" });
 });

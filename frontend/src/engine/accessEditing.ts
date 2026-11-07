@@ -74,8 +74,9 @@ export function applyAccessChange(rules: AccessRules, change: AccessChange, docs
 // the words
 
 const CAN_READ = "see its documents and their records, and print or download them";
-const CAN_WRITE = "start and fill records, save drafts, submit them and verify them";
-const CAN_EDIT = "correct records that are already signed off, delete records, and change the format's printed words";
+const CAN_WRITE = "start and fill records, save drafts, submit them and verify them, and correct a record already submitted or signed off";
+// (correcting a record after submitting is Write's since REQUIREMENTS §203, 7-Nov-2026)
+const CAN_EDIT = "delete records and change the format's printed words";
 
 /** What a level lets a person do, as one sentence that follows "They will be able to" or says what they cannot. */
 export function levelConsequence(level: AccessLevel, place: string): string {

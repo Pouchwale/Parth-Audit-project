@@ -359,7 +359,7 @@ test("the person's level: Read refused, Write refused under correction, Edit on 
     setDepartmentScope(null);
     setAccessRules(null);
   }
-  // Vinay at Write on F/HR/01: a record under correction is Edit's.
+  // Vinay at Write on F/HR/01: a record under correction is Write's too, since §203 (the owner, 7-Nov-2026).
   setAccessScope({ email: "vinay.bhojak@gpp.local", role: "staff", departments: ["HR"] }, { version: 1, people: { "vinay.bhojak@gpp.local": { documents: { "hr-competence": "write" } } }, responsibility: {} });
   try {
     const hr = documentRepository.getAllUnscoped().find((d) => d.id === "hr-competence")!;
@@ -367,10 +367,8 @@ test("the person's level: Read refused, Write refused under correction, Edit on 
     const filled = await run(ctxOf({ target: draft.target, isDemo: false }), "edit_open_record", { patch: { remarks: "x" } });
     assert.ok(filled.ok || !/access/.test(filled.content), `Write fills a draft: ${filled.content}`);
     const correcting = fakeTarget(hr.kind, "hr-competence", createDefaultData(hr, today, masterRepository.get()), { correction: true });
-    const stopped = await run(ctxOf({ target: correcting.target, isDemo: false }), "edit_open_record", { patch: { remarks: "x" } });
-    assert.equal(stopped.ok, false);
-    assert.match(stopped.content, /Edit access/);
-    assert.equal(correcting.commits.length, 0);
+    const corrected = await run(ctxOf({ target: correcting.target, isDemo: false }), "edit_open_record", { patch: { remarks: "x" } });
+    assert.ok(corrected.ok || !/access/.test(corrected.content), `Write corrects too (§203): ${corrected.content}`);
   } finally {
     setDepartmentScope(null);
     setAccessRules(null);

@@ -63,7 +63,7 @@ test("every change is asked in plain words naming the person and the level, with
   const q = changeQuestion({ kind: "module", email: ANKUR, module: "QC", level: "edit" }, "Ankur Raval", "Quality Control", "read");
   assert.equal(q.title, "Give Ankur Raval Edit in Quality Control?");
   assert.match(q.body, /^They will be able to see its documents and their records/);
-  assert.match(q.body, /correct records that are already signed off, delete records/);
+  assert.match(q.body, /delete records and change the format/);
   assert.doesNotMatch(`${q.title} ${q.body}`, /\b(he|she|his|her|him)\b/i);
   const none = changeQuestion({ kind: "module", email: ANKUR, module: "PRD", level: "none" }, "Ankur Raval", "Production", "none");
   assert.equal(none.title, "Take away Ankur Raval's access in Production?");

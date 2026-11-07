@@ -339,7 +339,7 @@ describe("the records a person writes", () => {
     assert.deepEqual((JSON.parse(out.value) as { id: string; status: string }[]).find((r) => r.id === "hr-1")?.status, "Verified");
   });
 
-  it("Write: start, fill, submit, verify and send back; correct and delete need Edit", () => {
+  it("Write: start, fill, submit, verify, send back and correct after submitting (§203); delete needs Edit", () => {
     const rules = { version: 1, people: { "ankur.raval@gpp.local": { documents: { "qc-inspection-pouching": "write" } } }, responsibility: {} };
     const ankur = view("ankur", rules);
     assert.deepEqual(composeRecords(ankur, stored, [stepped(pouching, { status: "Pending Verification", submittedBy: "Ankur Raval" }, "submitted"), viscosity]).kept, []);
@@ -347,9 +347,8 @@ describe("the records a person writes", () => {
     const s2 = JSON.stringify([theirs, awaitingNow, viscosity]);
     assert.deepEqual(composeRecords(ankur, s2, [stepped(awaitingNow, { status: "Verified", verifiedBy: "Ankur Raval" }, "verified"), viscosity]).kept, [], "as today, whoever may fill may verify, even their own");
     assert.deepEqual(composeRecords(ankur, s2, [stepped(awaitingNow, { status: "Rejected", rejectionReason: "a reading is missing" }, "rejected"), viscosity]).kept, []);
-    const reopen = refusal(() => composeRecords(ankur, s2, [stepped(awaitingNow, { status: "In Progress", correction: { reason: "typo" } }, "reopened"), viscosity]));
-    assert.equal(reopen.body.error, "You have Write access to F/QC/37 Inspection Record - Pouching Process. Correcting a signed-off record needs Edit access: ask the super admin for it.");
-    assert.equal(reopen.body.action, "correct");
+    // A record corrected after submitting: Write's since §203 (the owner, 7-Nov-2026: "able to edit even after that").
+    assert.deepEqual(composeRecords(ankur, s2, [stepped(awaitingNow, { status: "In Progress", correction: { reason: "typo" } }, "reopened"), viscosity]).kept, []);
     // A record gone that somebody worked on: Edit's to remove. Without it, it stays as stored.
     const gone = composeRecords(ankur, s2, [viscosity]);
     assert.deepEqual(gone.kept, ["p-2"]);

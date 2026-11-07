@@ -22,7 +22,7 @@
 //       none   the document is not shown at all;
 //       read   see the document and its records, print and download them;
 //       write  also start and fill records, save drafts, submit them and verify them (as today, whoever may fill may verify);
-//       edit   also correct a record that is already signed off, delete a record, and change the format's printed words.
+//       edit   also delete a record, and change the format's printed words (correcting a signed-off record: Write's since §203).
 //     A level is set per module (department) and can be set again per document. The super admin is above all of it: every
 //     document at Edit, and the only one who can change this table.
 //
@@ -62,7 +62,11 @@ const NEEDS: Record<DocumentAction, AccessLevel> = {
   submit: "write",
   verify: "write",
   send_back: "write",
-  correct: "edit",
+  // CORRECTING A RECORD AFTER SUBMITTING IS WRITE'S (REQUIREMENTS §203; the owner, 7-Nov-2026: "give edit option even if
+  // user has submitted also and able to edit even after that"): whoever may fill a document may reopen one of its records
+  // once submitted, pending verification, verified or sent back - Edit's step before, with its reason and its history
+  // as before - to be submitted and verified again. Deleting, and the format's words, stay Edit's.
+  correct: "write",
   delete: "edit",
   format: "edit",
 };
@@ -74,8 +78,8 @@ export const levelNeeded = (action: DocumentAction): AccessLevel => NEEDS[action
 export const LEVEL_WORDS: Record<AccessLevel, { name: string; can: string }> = {
   none: { name: "No access", can: "does not see the document at all" },
   read: { name: "Read", can: "can see the document and its records, and print or download them" },
-  write: { name: "Write", can: "can also start and fill records, save drafts, submit them and verify them" },
-  edit: { name: "Edit", can: "can also correct records that are already signed off, delete records, and change the format's printed words" },
+  write: { name: "Write", can: "can also start and fill records, save drafts, submit them, verify them, and correct a record already submitted or signed off" },
+  edit: { name: "Edit", can: "can also delete records and change the format's printed words" },
 };
 
 /** The plant's ten modules (departments), in the order the pages list them. Equal to data/seed/documentDepartments.ts PLANT_DEPARTMENTS (the unit test holds them to it). */

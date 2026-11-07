@@ -292,7 +292,8 @@ test("the levels are cumulative and each decides the actions it should", () => {
   const allowed: Record<AccessLevel, DocumentAction[]> = {
     none: [],
     read: ["view"],
-    write: ["view", "start", "fill", "submit", "verify", "send_back"],
+    // ...and correcting a record after submitting, since §203 (the owner, 7-Nov-2026).
+    write: ["view", "start", "fill", "submit", "verify", "send_back", "correct"],
     edit: ACTIONS,
   };
   for (const level of Object.keys(allowed) as AccessLevel[]) {
@@ -302,7 +303,8 @@ test("the levels are cumulative and each decides the actions it should", () => {
   const access = buildAccess(docs, { people: { "ankur.raval@gpp.local": { documents: { "qc-bopp-film": "write" } } } });
   const me = account("Ankur");
   assert.ok(access.may(me, "qc-bopp-film", "submit"));
-  assert.ok(!access.may(me, "qc-bopp-film", "correct"));
+  assert.ok(access.may(me, "qc-bopp-film", "correct"), "Write corrects after submitting (§203)");
+  assert.ok(!access.may(me, "qc-bopp-film", "delete"), "deleting stays Edit's");
   assert.ok(access.may(me, "qc-viscosity", "correct"));
   assert.ok(access.may(me, "qc-inprocess-printing", "view"));
   assert.ok(!access.may(me, "qc-inprocess-printing", "start"));

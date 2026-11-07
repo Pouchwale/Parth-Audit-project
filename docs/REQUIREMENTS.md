@@ -6385,7 +6385,7 @@ not typed. The super admin can give any document to other people.
 | No access | the document is not shown at all |
 | Read | see the document and its records, print and download them |
 | Write | also start and fill records, save drafts, submit them, verify them and send them back |
-| Edit | also correct a record that is already signed off, delete a record, and change the format's printed words and layout |
+| Edit | also delete a record, and change the format's printed words and layout (correcting a record already signed off was Edit's until §203 made it Write's, 7-Nov-2026) |
 
 A person's level on a document, the first that applies: the super admin (Edit on everything); the person's own setting
 for that document; their own setting for its module; they answer for it (Edit); the module's default for them (Read on
@@ -11566,3 +11566,20 @@ responsible and in frequency add customly also".
   his 17 HR documents, sets every 10 days on F/HR/01 and is named under it; the super admin's panel lists 132 with
   Custom offered. (The local run's server still runs the code from before: the staff's override is kept only once the
   server is restarted - on the plant, with §200's reader.)
+
+## §203 Correcting a record after submitting is Write's (7-Nov-2026)
+
+The owner, 7-Nov-2026, after the F/HR/18 register took a change on a submitted visit: "give edit option even if user has
+submitted also and able to edit even after that".
+
+- WHOEVER MAY FILL A DOCUMENT MAY CORRECT ITS RECORDS (engine/accessRules.ts NEEDS.correct = "write"; the server reads
+  the same table, backend/accessLevels.ts): the Edit button on a record submitted, pending verification, verified or
+  sent back is offered at Write, not only at Edit, on every record page and the CAPA, gap and training pages; Mitra's
+  edit of such a record (§96, §113) and the F/HR/18 register's (§201) follow the same table. The correction is as
+  before: a reason, the record reopened In Progress with what it said kept in its history, submit and verify again.
+  Deleting a record and changing a format's printed words stay Edit's. The words of the levels say so (LEVEL_WORDS; the
+  Users & Access page and its questions).
+- Proved: frontend/tests/accessRules.test.ts (the table), accessEditing.test.ts (the words), backend/tests/
+  accessLevels.test.ts (a Write account's reopening taken by the server); locally, a Write account's Edit on a
+  submitted record.
+
