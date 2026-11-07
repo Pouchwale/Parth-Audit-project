@@ -152,7 +152,7 @@ test("the schema set stays small: under 9,000 characters with a record open, eve
   for (const n of ["get_open_record", "edit_open_record", "record_action", "fill_open_record_with_sample_data", "add_photo_to_open_record", "read_attachment", "change_format", "start_guided_fill"]) {
     assert.ok(!names.has(n), `${n} is not offered on a plain page`);
   }
-  for (const n of ["navigate", "find_documents", "open_document", "search_records", "list_records", "get_record", "history_figures", "todays_facts", "ask_user", "hr_master_lookup", "purchase_master_lookup"]) {
+  for (const n of ["navigate", "find_documents", "open_document", "search_records", "list_records", "get_record", "history_figures", "todays_facts", "ask_user", "hr_master_lookup", "purchase_master_lookup", "set_document_frequency"]) {
     assert.ok(names.has(n), `${n} is offered everywhere`);
   }
   // A format's own page offers the format change; the record's tools stay away.

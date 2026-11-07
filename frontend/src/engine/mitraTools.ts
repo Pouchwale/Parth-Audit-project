@@ -26,6 +26,7 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
 import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { hrPageForSlug } from "../data/seed/hrModule";
+import { SEED_DOCUMENTS } from "../data/seed/documentDefinitions";
 import { nextRevisionNo } from "../data/formatEdits";
 import { buildAssistantContext, matchDocuments } from "./assistantLocal";
 import { documentOpenRoute } from "./documentRoutes";
@@ -55,6 +56,12 @@ import {
   type SupplierLink,
 } from "./purchaseMasterLinks";
 import { SUPPLIER_FORM_KEYS, supplierFormFills } from "./supplierFormImport";
+import { frequencyDocsFor } from "./frequencyPanel";
+import { frequencyFromWords, kindOf } from "./frequencyChoice";
+import { scheduleLabel } from "./frequencyEngine";
+import { removeOffScheduleShells } from "./calendarMigration";
+import { isBossSignedIn } from "./departmentScope";
+import { logActivity } from "../utils/activityLog";
 import { blankLogRow } from "./recordDefaults";
 import { purchaseApi, type SupplierFormReadResult } from "../api/client";
 import { isDocumentIdVisible } from "./departmentScope";
@@ -1408,6 +1415,81 @@ const FILL_FROM_SUPPLIER_FORM: MitraTool = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// A DOCUMENT'S FREQUENCY, SET BY WORD (REQUIREMENTS §202; the owner, 7-Nov-2026: "from now user can tell for any module to
+// ai to set frequency so make sure even ai assistant can do that perfectly and fast"). What the Frequency panel does by
+// picker (pages/FrequencyPage.tsx), Mitra does when told - "set F/HR/01 to every 10 days", "make the fly catcher record
+// weekly on Thursday", "put F/QC/30 back as issued": the same documents (the ones the person may set, engine/
+// frequencyPanel.ts frequencyDocsFor), the same schedules (engine/frequencyChoice.ts), the same "Are you sure?", the same
+// write of Master Data's override, the same line in the activity log, the schedule's blank shells put right the same.
+
+/** The panel's own write: the override set or taken off, the off-schedule shells gone, the activity log told. */
+function writeFrequency(doc: DocumentDefinition, next: { schedule: DocumentDefinition["schedule"]; frequency: DocumentDefinition["frequency"]; since: string; by: string } | null): void {
+  const overrides = { ...(masterRepository.get().scheduleOverrides ?? {}) };
+  if (next) overrides[doc.id] = next;
+  else delete overrides[doc.id];
+  masterRepository.update({ scheduleOverrides: overrides });
+  removeOffScheduleShells();
+  logActivity("Frequency changed", formatAndName(doc), next ? `${scheduleLabel({ ...doc, schedule: next.schedule })}, from ${formatDisplayDate(next.since)}` : "back to the issued frequency", doc.id);
+}
+
+const SET_FREQUENCY: MitraTool = {
+  name: "set_document_frequency",
+  description: "Set a document's frequency: kind daily|weekly|fortnightly|monthly|quarterly|half-yearly|yearly|as-required|custom|issued, with details.",
+  parameters: objectSchema(
+    { document: S, kind: S, weekday: S, dayOfMonth: I, month: S, everyDays: I, from: S, weekdays: { type: "array", items: S }, daysOfMonth: { type: "array", items: I } },
+    ["document", "kind"]
+  ),
+  writes: true,
+  run: async (args, ctx) => {
+    const said = str(args.document);
+    const doc = said ? findDocument(said) : undefined;
+    if (!doc) return no(said ? `no one document is called “${said}” — use find_documents first` : "document needed: its id, number or name");
+    const title = formatAndName(doc);
+    if (doc.isReferenceOnly) return no(`${title} is kept as issued and never scheduled: it has no frequency to set`);
+    const boss = isBossSignedIn();
+    if (frequencyDocsFor([doc], boss).length === 0) {
+      return no(`${title}'s frequency is not this person's to set: the Frequency panel offers the documents they answer for`, {
+        theirs: frequencyDocsFor(documentRepository.getRecordableUnscoped(), boss).slice(0, 10).map((d) => d.id),
+      });
+    }
+    const nowWords = scheduleLabel(doc);
+    if (kindOf(args.kind) === "issued") {
+      if (!masterRepository.get().scheduleOverrides?.[doc.id]) return no(`${title} falls due as issued already: ${lowerFirst(nowWords)}`);
+      const issued = scheduleLabel({ ...doc, schedule: SEED_SCHEDULE_OF(doc.id) ?? doc.schedule });
+      const yes = await ctx.confirm(
+        say("ai.confirm.frequencyIssued", "{title} falls due as issued again ({words}). The sheets already made stand as they are. Set it?", { title, words: lowerFirst(issued) }),
+        say("ai.confirm.yesSet", "Yes, set it"),
+        say("ai.confirm.noLeave", "No, leave it")
+      );
+      if (!yes) return no("the person chose to leave the frequency as it is", {}, say("ai.step.leftAsWas", "Left as it was"));
+      writeFrequency(doc, null);
+      const after = scheduleLabel(documentRepository.getById(doc.id) ?? doc);
+      return ok({ document: doc.id, frequency: after, issued: true }, say("ai.step.frequencySet", "{title} falls due {words}", { title, words: lowerFirst(after) }));
+    }
+    const made = frequencyFromWords(args, doc.schedule, ctx.today);
+    if ("error" in made) return no(made.error, { now: nowWords });
+    if (JSON.stringify(made.schedule) === JSON.stringify(doc.schedule)) return no(`${title} falls due so already: ${lowerFirst(nowWords)}`);
+    const words = scheduleLabel({ ...doc, schedule: made.schedule });
+    const yes = await ctx.confirm(
+      say("ai.confirm.frequency", "{title} falls due {words} from today. The sheets already made stand as they are; everybody who answers for it is told the working day before each new due date. Set it?", {
+        title,
+        words: lowerFirst(words),
+      }),
+      say("ai.confirm.yesSet", "Yes, set it"),
+      say("ai.confirm.noLeave", "No, leave it")
+    );
+    if (!yes) return no("the person chose to leave the frequency as it is", {}, say("ai.step.leftAsWas", "Left as it was"));
+    writeFrequency(doc, { schedule: made.schedule, frequency: made.frequency, since: ctx.today, by: ctx.userName });
+    return ok({ document: doc.id, frequency: words, since: ctx.today, was: nowWords }, say("ai.step.frequencySet", "{title} falls due {words}", { title, words: lowerFirst(words) }));
+  },
+};
+
+/** The schedule a document was issued with (the seed's), which "issued" puts back. */
+function SEED_SCHEDULE_OF(id: string): DocumentDefinition["schedule"] | undefined {
+  return SEED_DOCUMENTS.find((d) => d.id === id)?.schedule;
+}
+
 /** Every tool there is, for tests and for describing what Mitra can do. */
 export const ALL_TOOLS: readonly MitraTool[] = [
   NAVIGATE,
@@ -1431,6 +1513,7 @@ export const ALL_TOOLS: readonly MitraTool[] = [
   PURCHASE_MASTER_LOOKUP,
   FETCH_SUPPLIER,
   FILL_FROM_SUPPLIER_FORM,
+  SET_FREQUENCY,
 ];
 
 /**
@@ -1459,6 +1542,8 @@ export function mitraTools(ctx: MitraToolContext): MitraTool[] {
   if (ctx.attachments.length > 0) tools.push(READ_ATTACHMENT);
   if (hrMasterVisible()) tools.push(HR_MASTER_LOOKUP);
   if (purchaseMasterHeld()) tools.push(PURCHASE_MASTER_LOOKUP);
+  // A document's frequency, for whoever has one to set (§202).
+  if (frequencyDocsFor(documentRepository.getRecordableUnscoped(), isBossSignedIn()).length > 0) tools.push(SET_FREQUENCY);
   tools.push(ASK_USER);
   return tools;
 }

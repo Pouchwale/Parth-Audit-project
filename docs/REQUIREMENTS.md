@@ -11535,7 +11535,17 @@ responsible and in frequency add customly also".
   every custom frequency is told the working day before (§143). Labelled "Every 10 days from 07-11-2026", "Every Mon,
   Thu", "Days 5, 15, 25 of each month"; counted last on the panel; "Custom" in the index map keeps what the panel set.
   Not before its day (§201) holds: a custom record is written from its due date.
-- Proved: frontend/tests/frequencyPanel.test.ts (the three custom frequencies' due dates, periods, labels, reminders'
+- BY WORD TO MITRA (the owner, later the same day: "from now user can tell for any module to ai to set frequency so make
+  sure even ai assistant can do that perfectly and fast"; engine/mitraTools.ts set_document_frequency, engine/
+  frequencyChoice.ts): "set F/HR/01 to every 10 days", "make the fly catcher record weekly on Thursday", "F/QC/30 twice a
+  year from April on the 10th", "put F/PUR/05 back as issued". The kind in the person's words (every week, twice a
+  month, half yearly, annual, as required, custom, as issued), a weekday or a month by name or number, the custom forms
+  as the panel's; the same documents as the panel offers (the super admin's all, otherwise the ones the person answers
+  for; a reference document refused), the same "Are you sure?" as two chips, the same override written with the person's
+  name and the day, the same line in the activity log, the schedule's blank shells put right. What is not understood is
+  said back, with the frequency as it stands. The picker and the tool read one engine (frequencyChoice.ts).
+- Proved: frontend/tests/frequencyAssistant.test.ts (the words, the tool's asks, writes, "issued", refusals; offered
+  wherever there is a document to set), frontend/tests/frequencyPanel.test.ts (the three custom frequencies' due dates, periods, labels, reminders'
   counts and heads-up; the picker's Custom; the documents a person may set, the page and the sidebar by source),
   backend/tests/storageRoutes.test.ts (withStoredMaster, and through the API: Ankur sets F-QC-30's and not F/HR/01's,
   takes it off again); locally (scratchpad check_frequency.py): Sandeep Parekh finds Frequency on his workspace, sees

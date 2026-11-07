@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import type { DocumentDefinition, Frequency, ScheduleConfig, ScheduleOverride } from "../../types";
+import type { DocumentDefinition, ScheduleConfig, ScheduleOverride } from "../../types";
 import { scheduleLabel } from "../../engine/frequencyEngine";
+import { KINDS, customOf, customSchedule, parseDays, scheduleOf, type CustomChoice, type CustomMode, type Kind } from "../../engine/frequencyChoice";
 import { todayISO } from "../../utils/date";
 import { useAuth } from "../../store/AuthContext";
 import { useSureFirst } from "../common/SureFirst";
@@ -13,86 +14,14 @@ import { SEED_DOCUMENTS } from "../../data/seed/documentDefinitions";
 // (DocumentDefinition.scheduleSince), after "Are you sure?" (§138). "As issued" drops the override.
 // AND A FREQUENCY OF THE PERSON'S OWN (REQUIREMENTS §202; the owner, 7-Nov-2026: "in frequency add customly also"):
 // Custom - every so many days from a date, the chosen weekdays of every week, or the chosen days of every month. The
-// Frequency panel offers the same picker to everybody for the documents they answer for (pages/FrequencyPage.tsx).
+// Frequency panel offers the same picker to everybody for the documents they answer for (pages/FrequencyPage.tsx), and
+// Mitra sets the same by word (engine/mitraTools.ts). The kinds and the schedules they make: engine/frequencyChoice.ts.
+
+export { KINDS, customOf, customSchedule, parseDays, scheduleOf };
+export type { CustomChoice, CustomMode, Kind };
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-export type Kind = ScheduleConfig["type"];
-export const KINDS: { kind: Kind; label: string; frequency: Frequency }[] = [
-  { kind: "daily", label: "Every day", frequency: "Daily" },
-  { kind: "weekly", label: "Every week", frequency: "Weekly" },
-  { kind: "fortnightly", label: "Twice a month (1st & 3rd of a weekday)", frequency: "Fortnightly" },
-  { kind: "monthly", label: "Every month", frequency: "Monthly" },
-  { kind: "quarterly", label: "Every quarter", frequency: "Quarterly" },
-  { kind: "half-yearly", label: "Every half year", frequency: "Half-yearly" },
-  { kind: "yearly", label: "Every year", frequency: "Yearly" },
-  { kind: "as-required", label: "As required", frequency: "As Required" },
-  { kind: "custom", label: "Custom…", frequency: "Custom" },
-];
-
-/** The three ways a custom frequency can be said (§202). */
-export type CustomMode = "every" | "weekdays" | "days";
-export interface CustomChoice {
-  mode: CustomMode;
-  everyDays: number;
-  from: string;
-  weekdays: number[];
-  daysOfMonth: number[];
-}
-
-/** The custom choice a schedule holds, or the default one (every 10 days from today, Monday, the 1st). */
-export function customOf(now: ScheduleConfig, today: string = todayISO()): CustomChoice {
-  const base: CustomChoice = { mode: "every", everyDays: 10, from: today, weekdays: [1], daysOfMonth: [1] };
-  if (now.type !== "custom") return base;
-  if (now.everyDays !== undefined) return { ...base, mode: "every", everyDays: now.everyDays, from: now.from };
-  if (now.weekdays !== undefined) return { ...base, mode: "weekdays", weekdays: [...now.weekdays] };
-  return { ...base, mode: "days", daysOfMonth: [...now.daysOfMonth] };
-}
-
-/** The custom schedule the choice makes, or null while it says nothing (no weekday, no day, no count). */
-export function customSchedule(c: CustomChoice): ScheduleConfig | null {
-  if (c.mode === "every") {
-    const everyDays = Math.floor(c.everyDays);
-    return Number.isFinite(everyDays) && everyDays >= 1 && everyDays <= 366 && /^\d{4}-\d{2}-\d{2}$/.test(c.from) ? { type: "custom", everyDays, from: c.from } : null;
-  }
-  if (c.mode === "weekdays") {
-    const weekdays = [...new Set(c.weekdays.filter((w) => Number.isInteger(w) && w >= 0 && w <= 6))].sort((a, b) => a - b);
-    return weekdays.length ? { type: "custom", weekdays } : null;
-  }
-  const daysOfMonth = [...new Set(c.daysOfMonth.filter((d) => Number.isInteger(d) && d >= 1 && d <= 31))].sort((a, b) => a - b);
-  return daysOfMonth.length ? { type: "custom", daysOfMonth } : null;
-}
-
-/** "5, 15, 25" as the days it names, in order, each once. */
-export function parseDays(text: string): number[] {
-  return [...new Set((text.match(/\d{1,2}/g) ?? []).map(Number).filter((d) => d >= 1 && d <= 31))].sort((a, b) => a - b);
-}
-
-/** The schedule of this kind, keeping what the current one shares with it (its weekday, its day of the month). */
-export function scheduleOf(kind: Kind, now: ScheduleConfig, weekday: number, day: number, month: number, custom?: CustomChoice): ScheduleConfig {
-  switch (kind) {
-    case "daily":
-      return { type: "daily" };
-    case "weekly":
-      return { type: "weekly", weekday };
-    case "fortnightly":
-      return { type: "fortnightly", weekday };
-    case "monthly":
-      return { type: "monthly", dayOfMonth: day };
-    case "quarterly":
-      return { type: "quarterly", anchorMonth: now.type === "quarterly" ? now.anchorMonth : month % 3, dayOfMonth: day };
-    case "half-yearly":
-      // Twice a year from the month chosen (January and July when none is), on the day chosen (REQUIREMENTS §163).
-      return { type: "half-yearly", anchorMonth: now.type === "half-yearly" ? now.anchorMonth : month % 6, dayOfMonth: day };
-    case "yearly":
-      return { type: "yearly", month, dayOfMonth: day };
-    case "custom":
-      // Nothing chosen yet: the current schedule stands (so nothing changed, nothing to set).
-      return customSchedule(custom ?? customOf(now)) ?? now;
-    default:
-      return { type: "as-required" };
-  }
-}
 
 const sameSchedule = (a: ScheduleConfig, b: ScheduleConfig): boolean => JSON.stringify(a) === JSON.stringify(b);
 
