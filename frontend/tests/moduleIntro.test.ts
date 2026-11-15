@@ -30,29 +30,16 @@ test("no module page draws the format line or an opening paragraph under its tit
   assert.match(chemical, /\{editing && <p className="text-muted mt-3 mb-4 no-print">Editing/, "the editor's hint stays, while editing");
 });
 
-test("the sign-in screen's welcome stands beside the card with its words, its doors and the day; the card and the form are as they were", () => {
+test("the sign-in screen's welcome is gone again (§205, 15-Nov-2026); the card, the form and the backdrop are as they were", () => {
   const layout = read("frontend", "src", "components", "auth", "AuthLayout.tsx");
-  assert.match(layout, /<aside className="auth-welcome" data-section="auth-welcome"/);
-  assert.match(layout, /Everything the plant records, kept right\./);
-  assert.match(layout, /Authorised people only/);
-  assert.match(layout, /title: "Today's briefing"/);
-  assert.match(layout, /title: "Every register and report"/);
-  assert.match(layout, /title: "Mitra"/);
-  assert.match(layout, /toLocaleDateString\("en-IN", \{ weekday: "long", day: "numeric", month: "long", year: "numeric" \}\)/);
+  assert.doesNotMatch(layout, /auth-welcome|AuthWelcome|Everything the plant records/);
   assert.match(layout, /<div className="auth-stage" aria-hidden="true" \/>/);
-  assert.match(layout, /\{welcome && <AuthWelcome \/>\}\n\s+<div className="auth-card">/, "the card right after the welcome, unchanged inside");
-  assert.match(layout, /<div className="title">Digital Controlled Record System<\/div>/, "the wordmark as before");
+  assert.match(layout, /<div className="title">Digital Controlled Record System<\/div>/);
   const screen = read("frontend", "src", "components", "auth", "AuthScreen.tsx");
-  assert.match(screen, /<AuthLayout\n\s+afterIntro\n\s+welcome\n/, "the sign-in screen asks for it");
-  const main = read("frontend", "src", "main.tsx");
-  assert.doesNotMatch(main, /<AuthLayout[^>]*welcome/, "the choose-your-password card stays bare");
+  assert.doesNotMatch(screen, /\n\s+welcome\n/);
   const form = read("frontend", "src", "components", "auth", "LoginForm.tsx");
   assert.match(form, /id="login-email"/);
   assert.match(form, /id="login-password"/);
-  assert.match(form, /"Log In"/);
   const css = read("frontend", "src", "styles.css");
-  assert.match(css, /\n\.auth-welcome \{ flex: 1 1 380px; max-width: 480px;/);
-  assert.match(css, /\n\.auth-stage \{\n\s+position: absolute; inset: 0; pointer-events: none;/);
-  assert.doesNotMatch(css.slice(css.indexOf(".auth-stage {"), css.indexOf(".auth-welcome-day")), /animation/, "nothing moves on the welcome");
-  assert.match(css, /@media \(max-width: 959px\) \{\n\s+\.auth-frame \{ flex-direction: column;/, "above the card on a phone");
+  assert.doesNotMatch(css, /\.auth-welcome|\.auth-doors/);
 });

@@ -11604,3 +11604,10 @@ and "make login page very interesting and make it more engaging like something i
 - Proved: frontend/tests/moduleIntro.test.ts (by source: no meta line or opening paragraph on those pages; the welcome's
   parts; the form's ids untouched), the sign-in screen and the Daily Report looked at locally on a wide screen and a phone.
 
+## §205 The sign-in screen's welcome taken off again (15-Nov-2026)
+
+The owner, 15-Nov-2026, with a picture of §204's welcome ("Everything the plant records, kept right." and the three
+doors): "remove this which is on login page". The welcome is gone from beside and above the card (components/auth/
+AuthLayout.tsx, AuthScreen.tsx, styles.css); the card, the form, the opening, the cartoon and the drawn backdrop behind
+the card are as they were. Proved: frontend/tests/moduleIntro.test.ts; the sign-in screen looked at locally.
+
