@@ -11787,3 +11787,20 @@ date which is 26/09/2026 and Calibration due date is 25/09/2027 in qc-17 for bot
   the Super Admin's name. The 300 mm sheet of 17-10-2026 already held the new dates. All three checked on the server.
 - Proved: frontend/tests/qcCertificateDates.test.ts, qcRuler300.test.ts, qcCarryForward.test.ts, qcFormats14Oct.test.ts.
 
+## §216 A frequency set appears at once and reminds on its days, on the bell and by email (15-Nov-2026)
+
+The owner, 15-Nov-2026: "everytime user set frequency of any document then according to that it will appear and remind
+user through notification and email both".
+
+- Every place a frequency is set (the Frequency page, Master Data, Mitra) now runs one step after the override is
+  written (engine/frequencyApplied.ts applyFrequencyChange): the old schedule's blank sheets for days the new one does
+  not name go (§130), the new schedule's sheets for this month and the days ahead are made at once rather than at the
+  next day's start, and open sheets are dated by the new frequency (§208). The calendar and the bell show them at once.
+- The server's reminder run (every 5 minutes on working days, backend/notificationJobs.ts) works out the new schedule's
+  sheets itself when Master Data changes (the engine host's start-up), and tells the people who answer for each sheet:
+  a heads-up before, on the day, and late after. The bell, the phone and the email read that one ledger.
+- Email: Gmail is set up on the plant PC and the server allows it; the reminders go to everyone with an email address on
+  the Notifications page once the super admin's switch there is on (three a day at most: 08:30, 15:30, 17:45).
+- Proved: frontend/tests/frequencyReminds.test.ts (a document set to a weekday from today: its sheet made at once, told
+  on its day and as late the day after, never about a day it does not name), frequencyAssistant.test.ts.
+

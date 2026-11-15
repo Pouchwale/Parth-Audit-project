@@ -146,6 +146,7 @@ test("the tool is offered wherever the person has a document to set, and the ser
   const root = process.env.DCRS_REPO_ROOT ?? process.cwd();
   const tools = readFileSync(path.join(root, "frontend", "src", "engine", "mitraTools.ts"), "utf8");
   assert.match(tools, /if \(frequencyDocsFor\(documentRepository\.getRecordableUnscoped\(\), isBossSignedIn\(\)\)\.length > 0\) tools\.push\(SET_FREQUENCY\);/);
-  assert.match(tools, /removeOffScheduleShells\(\);/, "the schedule's blank shells follow, as on the panel");
+  assert.match(tools, /applyFrequencyChange\(\);/, "the schedule's sheets follow at once, as on the panel (§216)");
+  for (const page of ["FrequencyPage.tsx", "MasterDataPage.tsx"]) assert.match(readFileSync(path.join(root, "frontend", "src", "pages", page), "utf8"), /applyFrequencyChange\(\);/, page);
   assert.match(tools, /logActivity\("Frequency changed"/, "the same line in the activity log");
 });

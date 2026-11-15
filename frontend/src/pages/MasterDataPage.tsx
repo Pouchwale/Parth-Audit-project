@@ -10,7 +10,7 @@ import { pressable } from "../utils/pressable";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { scheduleLabel } from "../engine/frequencyEngine";
 import { FrequencyPicker } from "../components/master/FrequencyPicker";
-import { datedByFrequency, removeOffScheduleShells } from "../engine/calendarMigration";
+import { applyFrequencyChange } from "../engine/frequencyApplied";
 import { resolveResponsibleEmployees } from "../engine/documentInfo";
 import { weeklyOffDay, WEEKDAY_LONG } from "../engine/holidays";
 import type { AdjustmentDay, CompanyHoliday, Employee } from "../types";
@@ -295,9 +295,8 @@ export function MasterDataPage() {
                               if (next) overrides[d.id] = next;
                               else delete overrides[d.id];
                               masterRepository.update({ scheduleOverrides: overrides });
-                              // The schedule's blank shells for days the new frequency does not name go now, as at start-up (§130).
-                              removeOffScheduleShells();
-                            datedByFrequency();
+                              // The old schedule's blank shells go, the new one's sheets are made now and open ones dated by it (§130, §208, §216).
+                              applyFrequencyChange();
                               logActivity("Frequency changed", `${d.formatNo.startsWith("TO BE") ? "" : `${d.formatNo} `}${d.name}`, next ? `${scheduleLabel({ ...d, schedule: next.schedule })}, from ${formatDisplayDate(next.since)}` : "back to the issued frequency", d.id);
                               bump();
                             }}
