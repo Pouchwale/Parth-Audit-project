@@ -120,8 +120,15 @@ export function saveHeaderBlock(record: RecordInstance, next: RecordHeaderBlock,
  * required rather than by a schedule), with a line in its history; the printed header's date follows unless one was typed
  * over on the header (§86). Another record of the document already on that day: nothing is changed, and the answer says so.
  */
-export function changeRecordDate(record: RecordInstance, dateISO: string, periodKey: string, actorName: string): { record: RecordInstance; refused?: string } {
-  if (!isEditableStatus(record.status) || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO) || dateISO === record.dueDate) return { record };
+export function changeRecordDate(
+  record: RecordInstance,
+  dateISO: string,
+  periodKey: string,
+  actorName: string,
+  // A signed record too, for the people who may change a date at any time (REQUIREMENTS §213, engine/departmentScope.ts).
+  opts: { anyStatus?: boolean } = {}
+): { record: RecordInstance; refused?: string } {
+  if ((!isEditableStatus(record.status) && !opts.anyStatus) || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO) || dateISO === record.dueDate) return { record };
   const taken = recordRepository
     .queryUnscoped({ documentId: record.documentId, isDemo: !!record.isDemo })
     .find((r) => r.id !== record.id && (r.dueDate === dateISO || (r.periodKey !== undefined && r.periodKey === periodKey)));

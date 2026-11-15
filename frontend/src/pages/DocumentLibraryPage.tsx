@@ -9,7 +9,8 @@ import { requestDesign } from "../engine/designSession";
 import { getDocumentInfo } from "../engine/documentInfo";
 import { formatDisplayDate, formatDisplayDateTime, todayISO } from "../utils/date";
 import { useAppStore } from "../store/AppStore";
-import { createRecordForDocument, deletionLog } from "../engine/recordCrud";
+import { deletionLog } from "../engine/recordCrud";
+import { newRecordFromButton, noteOnOpen } from "../engine/newRecord";
 import type { DocumentDefinition } from "../types";
 import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
@@ -73,7 +74,9 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
   // covers today, since a controlled register must not hold two sheets for one
   // day (engine/recordCrud.ts).
   const startRecord = (doc: DocumentDefinition) => {
-    const { record } = createRecordForDocument(doc, { dateISO: todayISO(), isDemo });
+    // New record: this period's record first, then the next one's (REQUIREMENTS §211, engine/newRecord.ts).
+    const { record, notice } = newRecordFromButton(doc, isDemo, todayISO());
+    noteOnOpen(record.id, notice);
     bump();
     // Opened where the module's own pages open it (engine/reminders.ts).
     navigate(routeForRecord(doc, record.id));

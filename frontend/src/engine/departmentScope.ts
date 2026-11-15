@@ -193,6 +193,22 @@ function unknownDocumentLevel(documentId: string, formatNo: string | undefined, 
   return code ? b.access.moduleLevel(person!, code) : "none";
 }
 
+/**
+ * CHANGE A RECORD'S DATE AT ANY TIME (REQUIREMENTS §213; the owner, 15-Nov-2026: "Superadmin, kapila barad, vinay
+ * bhojak, chirag parmer id has all rights in all there responsible documents so they can change any date and anything",
+ * and, asked: even after it is submitted or verified). The super admin on every document; Kapila Barad, Vinay Bhojak and
+ * Chirag Parmar on every document they hold at Edit - submitted, verified, or waiting for its day. Everyone else changes
+ * the date while the record is being filled, as before (§136). The change is a line of the record's history.
+ */
+const REDATE_ANY_TIME = new Set(["kapilabarad", "vinaybhojak", "chiragparmar"]);
+const signInName = (email: string): string => canonicalEmail(email).split("@")[0].replace(/[._-]/g, "").replace(/\d+$/, "");
+
+export function mayRedateAnyTime(documentId: string | undefined): boolean {
+  if (!person || !documentId) return false;
+  if (person.role === "admin") return true;
+  return REDATE_ANY_TIME.has(signInName(person.email)) && documentLevel(documentId) === "edit";
+}
+
 /** May the signed-in person do this to the document? */
 export function mayDo(documentId: string | undefined, action: DocumentAction): boolean {
   return atLeast(documentLevel(documentId), levelNeeded(action));

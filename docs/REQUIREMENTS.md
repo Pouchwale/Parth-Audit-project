@@ -11720,3 +11720,46 @@ The owner, 15-Nov-2026: "remove this the button called supplied pdf".
 - The old e2e scripts' supplied-original checks (tests/e2e_*_module.py, e2e_qc_formats.py) no longer apply.
 - Proved: frontend/tests/noSuppliedOriginal.test.ts, and in the browser: no such button on any document page.
 
+## §211 New record: this period's record first, then the next (15-Nov-2026)
+
+The owner, 15-Nov-2026: "if user will click on new record then it should be open but it will tell user that this year
+record is not filled then only he can fill next year record"; asked what New does once this year's is filled: "Start next
+year's record".
+
+- New record (the document page, the Document Library, the search; engine/newRecord.ts) on a document with a frequency
+  opens the record of the period today falls in while it is not filled (not submitted, sent back, or reopened for
+  correction), with a note on the record page: "This year's record (dated 25-09-2026) is not filled yet. Fill it and
+  submit it first: next year's record can be started only after that." The words follow the frequency (this month's,
+  this week's, today's ...).
+- Once it is filled, New starts the next period's record, dated by the frequency (§208), and says so. It waits for its
+  time like any other (§201). Pressed again, New opens that one: never a third.
+- An as-required document starts a record every time, as before. Mitra and the other ways of starting a record for a
+  chosen day are unchanged.
+- Proved: frontend/tests/newRecordNextPeriod.test.ts, and in the browser on F/QC/17.
+
+## §212 Remarks on F/QC/17, never printed (15-Nov-2026)
+
+The owner, 15-Nov-2026: "add remark button", and asked where: "for F-QC-17 do this and make sure it will not print when
+user click on print original-style record".
+
+- Both F/QC/17 sheets (600 mm and 300 mm) have a Remarks box under the form, with an "Add remark" button for whoever may
+  fill the document, on any record, signed or not. A remark keeps who wrote it and when, can be taken away, and each is a
+  line of the record's history (engine/recordRemarks.ts, components/records/RecordRemarks.tsx).
+- Kept beside the record's data (RecordInstance.remarks), outside the part that prints and marked no-print: the
+  original-style print, the Word and Excel downloads and the form's checks never see it.
+- Proved: frontend/tests/remarksAndRedate.test.ts, and in the browser: added, kept after a reload, hidden in print.
+
+## §213 Four people may change any record's date at any time (15-Nov-2026)
+
+The owner, 15-Nov-2026: "Superadmin, kapila barad, vinay bhojak, chirag parmer id has all rights in all there responsible
+documents so they can change any date and anything"; asked, even after a record is submitted or verified: "Yes, any time".
+
+- On live their levels were already the highest: the super admin everything, Kapila Barad Edit on every module, Vinay
+  Bhojak Edit on HR, Chirag Parmar Edit on Purchase. Edit lets them fill, submit, verify, correct, delete and change the
+  format's words.
+- New: they change the date of any record of a document they hold at Edit at any time - submitted, verified, or waiting
+  for its day (engine/departmentScope.ts mayRedateAnyTime). The record keeps its status; the change is a line of its
+  history. Everyone else changes the date while the record is being filled, as before (§136).
+- A date a person typed over is never put back by the frequency at start-up (§208's datedByFrequency skips it).
+- Proved: frontend/tests/remarksAndRedate.test.ts, and in the browser as the super admin on a submitted F/QC/17 record.
+

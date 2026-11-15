@@ -16,7 +16,7 @@ import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
 import { searchPeople } from "../engine/hrMaster";
 import { hrMasterVisible } from "../engine/hrMasterAssistant";
 import type { HrMasterPerson } from "../types";
-import { createRecordForDocument } from "../engine/recordCrud";
+import { newRecordFromButton, noteOnOpen } from "../engine/newRecord";
 import { todayISO } from "../utils/date";
 import type { DocumentDefinition, RecordInstance } from "../types";
 import { useT } from "../i18n";
@@ -178,7 +178,9 @@ export function SearchPage() {
 
   // New record is a button, so a record is only ever started when asked for.
   const startRecord = (doc: DocumentDefinition) => {
-    const { record } = createRecordForDocument(doc, { dateISO: todayISO(), isDemo });
+    // New record: this period's record first, then the next one's (REQUIREMENTS §211, engine/newRecord.ts).
+    const { record, notice } = newRecordFromButton(doc, isDemo, todayISO());
+    noteOnOpen(record.id, notice);
     bump();
     navigate(routeForRecord(doc, record.id));
   };

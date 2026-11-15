@@ -14,7 +14,8 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { hrPageForDocument } from "../data/seed/hrModule";
 import { useEnsureMonth } from "../utils/useEnsureMonth";
-import { createRecordForDocument, recordCoveringDate } from "../engine/recordCrud";
+import { recordCoveringDate } from "../engine/recordCrud";
+import { newRecordFromButton, noteOnOpen } from "../engine/newRecord";
 import { createDefaultData } from "../engine/recordDefaults";
 import { routeForRecord } from "../engine/reminders";
 import { hrMasterLinkFor } from "../engine/hrMaster";
@@ -239,7 +240,9 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   const detailsTitle = hr?.labelTitle ?? "Details";
 
   const startRecord = () => {
-    const { record } = createRecordForDocument(doc, { dateISO: today, isDemo });
+    // New record: this period's record first, then the next one's (REQUIREMENTS §211, engine/newRecord.ts).
+    const { record, notice } = newRecordFromButton(doc, isDemo, today);
+    noteOnOpen(record.id, notice);
     bump();
     navigate(routeForRecord(doc, record.id));
   };

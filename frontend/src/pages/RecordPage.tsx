@@ -44,7 +44,10 @@ import { ServiceAgreementRecordView } from "../components/records/ServiceAgreeme
 import { PestResponsibilitiesRecordView } from "../components/records/PestResponsibilitiesRecordView";
 import { PreparedBanner } from "../components/records/PreparedBanner";
 import { RecordActionBar } from "../components/records/RecordActionBar";
-import { mayDo } from "../engine/departmentScope";
+import { mayDo, mayRedateAnyTime } from "../engine/departmentScope";
+import { forgetNoteOnOpen, peekNoteOnOpen } from "../engine/newRecord";
+import { addRemark, removeRemark, takesRemarks } from "../engine/recordRemarks";
+import { RecordRemarks } from "../components/records/RecordRemarks";
 import { periodKeyFor } from "../engine/recordGenerator";
 import { NOMINAL_FILL_NOTE, SCALE_DAY_NOTE, fillScaleLinesDue, nominalFillOnOpen } from "../engine/nominalFill";
 import { firstWeekDate } from "../engine/calibrationWeeks";
@@ -99,6 +102,11 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
   // Said once when a change made elsewhere took the place of what was on screen.
   const [notice, setNotice] = useState<string | null>(null);
+  // What New record said about the record it opened (REQUIREMENTS §211): kept for the visit, whatever saves.
+  const [openedNotice] = useState<string | null>(() => peekNoteOnOpen(recordId));
+  useEffect(() => {
+    forgetNoteOnOpen(recordId);
+  }, [recordId]);
   // Deleted with this page's own button: on its way to the calendar, nothing to adopt or save.
   const removedHere = useRef(false);
 
@@ -120,6 +128,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   // read with its own revision's layout, and never reopened for correction —
   // a correction would be written on a revision nobody fills in any more.
   const superseded = supersededRevisionOf(record);
+  // The date typed over: while the record is filled in, or at any time for the people the owner named (REQUIREMENTS §213).
+  const redateAnyTime = !!record && !superseded && mayRedateAnyTime(record.documentId);
+  const mayRedate = !superseded && (editable || redateAnyTime);
   const labels = doc ? fieldLabels(doc.kind, doc.id, record) : {};
   // What the ASSISTANT calls each box: the words on screen. What goes into the
   // record's history is `labels` above, the words the form was issued in, so
@@ -238,7 +249,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       const stored = flush();
       if (!stored || !doc) return;
       const asRequired = doc.schedule?.type === "as-required";
-      const { record: updated, refused } = changeRecordDate(stored, dateISO, asRequired || !stored.periodKey ? periodKeyFor(doc, dateISO) : stored.periodKey, currentUser);
+      const { record: updated, refused } = changeRecordDate(stored, dateISO, asRequired || !stored.periodKey ? periodKeyFor(doc, dateISO) : stored.periodKey, currentUser, {
+        anyStatus: mayRedateAnyTime(stored.documentId),
+      });
       if (refused) setNotice(refused);
       else if (updated !== stored) persistLocal(updated);
     },
@@ -573,7 +586,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         <span />
         <div className="flex items-center gap-2">
           {/* The day the sheet is for, typed over here while the record can be written on (REQUIREMENTS §136). */}
-          {editable && !superseded ? (
+          {mayRedate ? (
             <label className="text-sm flex items-center gap-1" data-field="record-date">
               <span className="text-muted">{t("record.dated")}</span>
               <input type="date" className="input input-sm" style={{ width: 150 }} value={record.dueDate} onChange={(e) => changeDate(e.target.value)} aria-label={t("record.dated")} />
@@ -590,6 +603,13 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           <StatusBadge status={record.status} overdue={overdue} />
         </div>
       </div>
+
+      {/* NEW RECORD'S WORD (REQUIREMENTS §211): this period's record first, or the next period's started. */}
+      {openedNotice && (
+        <div className="card mb-4 no-print" data-section="new-record-notice" role="status" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
+          <div className="card-pad text-sm">{openedNotice}</div>
+        </div>
+      )}
 
       {/* NOT BEFORE ITS DAY (REQUIREMENTS §201): the sheet waits for the first day it covers, and says so. */}
       {waitsFor && (
@@ -670,6 +690,21 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         <PestResponsibilitiesRecordView doc={doc} record={{ ...record, data: data as PestResponsibilitiesData }} editable={editable} onChange={handleChange} />
       )}
       </div>
+      {/* F/QC/17's remarks, under the form and never printed (REQUIREMENTS §212). */}
+      {takesRemarks(doc.id) && (
+        <RecordRemarks
+          record={record}
+          mayWrite={mayFill && !superseded}
+          onAdd={(text) => {
+            const stored = flush();
+            if (stored) persistLocal(addRemark(stored, text, currentUser));
+          }}
+          onRemove={(id) => {
+            const stored = flush();
+            if (stored) persistLocal(removeRemark(stored, id, currentUser));
+          }}
+        />
+      )}
       {doc.kind === "training-record" && (
         <div className="empty-state">
           Training records open in the Training module.{" "}

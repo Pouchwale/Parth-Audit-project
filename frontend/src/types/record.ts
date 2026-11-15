@@ -53,6 +53,16 @@ export interface RecordInstance<TData = unknown> {
   // beside `data`, never in it, so validation, the assistant's fill and patch,
   // and the downloaded file's boxes never mistake it for a box of the form.
   headerBlock?: RecordHeaderBlock;
+  // REMARKS (REQUIREMENTS §212): words added on the record page beside the form, never printed (engine/recordRemarks.ts).
+  remarks?: RecordRemark[];
+}
+
+/** One remark on a record: what was written, by whom, when. */
+export interface RecordRemark {
+  id: string;
+  text: string;
+  by: string;
+  at: string;
 }
 
 /** What a record's header block says where it differs from what it would print (REQUIREMENTS §86). */
