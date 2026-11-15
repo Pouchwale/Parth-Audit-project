@@ -11,7 +11,10 @@ const OTHER_MIN = 0.85;
 const PAPER = "[data-paper-form], [data-paper-left], .soc-sheet, .svc-paper";
 const floorOf = (el: HTMLElement): number => (el.closest(PAPER) ? MIN : OTHER_MIN);
 // (a locked standard - F/QC/12's weights since 30-Oct-2026 - is words in a span, not a box: fitted all the same, or "100.000gm" is cut to "100.000gr")
-const BOXES = "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='file']), select, .print-box-text, .cell-text[data-locked]";
+// (and a date read only - a sheet waiting for its day, a signed one: written as its date box would be, on one line at the
+// box's size, the owner, 15-Nov-2026, REQUIREMENTS §217: F/QC/12's December sheet showed "13-12-" over "2026" in big type)
+const BOXES = "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='file']), select, .print-box-text, .cell-text[data-locked], .cell-text.cell-date";
+const isDateWords = (el: HTMLElement): boolean => el.classList.contains("cell-date") && el.classList.contains("cell-text");
 
 const base = new WeakMap<HTMLElement, number>();
 const lastValue = new WeakMap<HTMLElement, string>();
@@ -43,6 +46,8 @@ function wordsAt(el: HTMLElement, cs: CSSStyleDeclaration, size: number): number
     if (el.type === "time") return pen.measureText("00:00 AM").width * 1.35 + pad + 4;
     return pen.measureText(el.value).width + pad + 2;
   }
+  // A date read only is sized as its date box would be, so a sheet reads the same whether it can be written on or not.
+  if (isDateWords(el)) return pen.measureText("00-00-0000").width * 1.35 + pad + 4;
   if (el instanceof HTMLSelectElement) {
     const shown = el.selectedIndex >= 0 ? (el.options[el.selectedIndex]?.text ?? "") : "";
     return pen.measureText(shown).width + pad + 18; // (the arrow)

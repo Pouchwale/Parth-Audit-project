@@ -19,7 +19,7 @@ import {
   rejectRecord,
   resumeAfterRejection,
 } from "../engine/recordLifecycle";
-import { logRecordStarted, withEditHistory } from "../engine/recordHistory";
+import { logRecordStarted } from "../engine/recordHistory";
 import { printFillOf } from "../engine/printFill";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { mayDo } from "../engine/departmentScope";
@@ -35,8 +35,6 @@ import { DownloadDocumentButton } from "../components/common/DownloadDocumentBut
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { ProviderLetterhead } from "../components/documents/ProviderLetterhead";
-import { PreparedBanner } from "../components/records/PreparedBanner";
-import { reprepareRecord } from "../engine/assistantPrepare";
 import { useT } from "../i18n";
 import { bindProps, trainingBind } from "../engine/roundTrip/bindingsFor";
 import { waitsUntil } from "../engine/notBeforeDay";
@@ -306,28 +304,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
 
       <ErrorList errors={errors} heading={errorsFor === "verify" ? t("record.fixBeforeVerify") : t("record.fixBeforeSubmit")} />
 
-      {record.prepared && (
-        <PreparedBanner
-          prepared={record.prepared}
-          status={record.status}
-          onReprepare={
-            editable
-              ? () => {
-                  const before = current() ?? record;
-                  const refreshed = reprepareRecord(record.id) as RecordInstance<TrainingRecordData> | undefined;
-                  if (!refreshed) return;
-                  // Record exactly what the fresh fill changed.
-                  const logged = withEditHistory({ ...refreshed, data: before.data, history: before.history }, refreshed.data, "Assistant", {
-                    action: "assistant-edit",
-                    note: t("record.filledAgain"),
-                  });
-                  setRecord(recordRepository.upsert(logged as RecordInstance) as RecordInstance<TrainingRecordData>);
-                  bump();
-                }
-              : undefined
-          }
-        />
-      )}
+      {/* No "Your assistant has filled this in" message (the owner, 15-Nov-2026, REQUIREMENTS §218). */}
 
       {/* The document itself — the part that prints (utils/print.ts) — and whose
           values a downloaded file binds to this record (REQUIREMENTS §81). */}

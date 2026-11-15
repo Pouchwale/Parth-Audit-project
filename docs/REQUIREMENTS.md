@@ -11804,3 +11804,23 @@ user through notification and email both".
 - Proved: frontend/tests/frequencyReminds.test.ts (a document set to a weekday from today: its sheet made at once, told
   on its day and as late the day after, never about a day it does not name), frequencyAssistant.test.ts.
 
+## §217 A date read only looks as its date box does (15-Nov-2026)
+
+The owner, 15-Nov-2026, with F/QC/12's December sheet ("13-12-" over "2026", large) beside the November one (one line,
+small): "i want like that only which you can see in second image every time".
+
+- A sheet that cannot be written on yet (waiting for its day, §201) or any more (signed) shows its dates as words, not
+  date boxes. On a paper form on a laptop those words wrapped at the paper's 11 pt. Now a date read only stays on one
+  line and is made smaller to fit its cell exactly as its date box is (utils/fitText.ts sizes it as a date box;
+  styles.css keeps it on one line) - on the screen and in print. Every paper form's dates, not F/QC/12's only.
+- Proved in the browser at a laptop's width: the read-only sheet's dates one line at 10-10.6 px against the date box's
+  10.5 px; the signed 2024 F/QC/12 sheet printed to PDF fills its landscape A4 page with every date on one line.
+
+## §218 No "Your assistant has filled this in" message (15-Nov-2026)
+
+The owner, 15-Nov-2026, with the message "Your assistant has filled this in as far as it is known: the readings are yours
+to enter ...": "remove that kind of messages from everywhere".
+
+- The message (components/records/PreparedBanner.tsx, now deleted) is no longer drawn on any record page or training
+  record, and its "Fill again" button with it. What the assistant fills is still written in the sheet and in its history.
+

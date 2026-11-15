@@ -19,10 +19,8 @@ import {
   verifyRecord,
   type HeaderDefaults,
 } from "../engine/recordLifecycle";
-import { withEditHistory } from "../engine/recordHistory";
 import { printFillOf } from "../engine/printFill";
 import { fieldLabels } from "../engine/recordPatch";
-import { reprepareRecord } from "../engine/assistantPrepare";
 import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import type {
   ComplaintAckData,
@@ -42,7 +40,6 @@ import { LogSheetRecordView } from "../components/records/LogSheetRecordView";
 import { ComplaintAckRecordView } from "../components/records/ComplaintAckRecordView";
 import { ServiceAgreementRecordView } from "../components/records/ServiceAgreementRecordView";
 import { PestResponsibilitiesRecordView } from "../components/records/PestResponsibilitiesRecordView";
-import { PreparedBanner } from "../components/records/PreparedBanner";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { mayDo, mayRedateAnyTime } from "../engine/departmentScope";
 import { forgetNoteOnOpen, peekNoteOnOpen } from "../engine/newRecord";
@@ -560,21 +557,6 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     back(`/document/${stored.documentId}`);
   };
 
-  // "Fill again" replaces the form with a fresh fill from the assistant; the
-  // history records exactly what that changed.
-  const handleReprepare = () => {
-    const before = flush();
-    if (!before || !isEditableStatus(before.status)) return void movedOn(before);
-    const refreshed = reprepareRecord(record.id);
-    if (!refreshed) return;
-    const logged = withEditHistory({ ...refreshed, data: before.data, history: before.history }, refreshed.data, "Assistant", {
-      action: "assistant-edit",
-      note: t("record.filledAgain"),
-      labels,
-    });
-    persistLocal(recordRepository.upsert(logged));
-  };
-
   actions.current = { submit: handleSubmit, verify: handleVerify, cancelCorrection: handleCancelCorrection, remove: handleDelete };
 
   const overdue = record.dueDate < todayISO() && ["Scheduled", "Due", "In Progress"].includes(record.status);
@@ -627,7 +609,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
       {record.correction && <CorrectionBanner correction={record.correction} onCancel={canWrite ? handleCancelCorrection : undefined} />}
 
-      {record.prepared && <PreparedBanner prepared={record.prepared} status={record.status} onReprepare={editable && !superseded ? handleReprepare : undefined} mayWrite={mayFill} />}
+      {/* No "Your assistant has filled this in" message (the owner, 15-Nov-2026, REQUIREMENTS §218): the sheet is shown as it is. */}
 
       {record.status === "Rejected" && record.rejectionReason && (
         <div className="card mb-4" style={{ borderColor: "var(--color-danger)", background: "var(--color-danger-bg)" }}>

@@ -3431,6 +3431,8 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .paper-sheet[data-paper-form] .doc-table table.log-sheet tr:hover td { background: transparent; }
   .paper-sheet[data-paper-form] .doc-table table.log-sheet td .pf-text,
   .paper-sheet[data-paper-form] .doc-table table.log-sheet td .cell-text { display: block; min-width: 0; color: #000; font-size: var(--pf-fs); font-weight: 400; line-height: var(--pf-lh); white-space: pre-wrap; }
+  /* A date read only stays on one line, made smaller to fit as its date box is (REQUIREMENTS §217, utils/fitText.ts). */
+  .paper-sheet[data-paper-form] .doc-table table.log-sheet td .cell-text.cell-date { white-space: nowrap; overflow: hidden; }
   .paper-sheet[data-paper-form] .doc-table table.log-sheet td .pf-par { display: block; min-height: var(--pf-lh); margin-bottom: var(--pf-par); }
   .paper-sheet[data-paper-form] .doc-table table.log-sheet td .pf-par:last-child { margin-bottom: 0; }
   .paper-sheet[data-paper-form] .doc-table table.log-sheet td .pf-bold { font-weight: 700; }
