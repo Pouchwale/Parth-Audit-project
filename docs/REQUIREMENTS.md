@@ -11824,3 +11824,13 @@ to enter ...": "remove that kind of messages from everywhere".
 - The message (components/records/PreparedBanner.tsx, now deleted) is no longer drawn on any record page or training
   record, and its "Fill again" button with it. What the assistant fills is still written in the sheet and in its history.
 
+## §219 F/QC/11's "Calibration Date:-" without the "I." (15-Nov-2026)
+
+The owner, 15-Nov-2026, with "I. Calibration Date:- 21-09-2026": "in qc-11 remove this i. which come before calibration
+date".
+
+- F/QC/11 (GSM cutting plates) prints "Calibration Date:-" where the paper prints "I. Calibration Date:-": on the screen, in
+  the original-style print and in the Word and Excel downloads (all read the layout's printedLabel). Its dates and its
+  "Due Date:-" are unchanged.
+- Proved: frontend/tests/qcCertificateDates.test.ts, qcPaperFindings.test.ts, qcPaperFormats.test.ts.
+

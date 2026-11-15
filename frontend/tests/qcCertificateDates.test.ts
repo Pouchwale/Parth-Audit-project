@@ -81,7 +81,7 @@ test("the dates the owner gave, as the formats hold them", () => {
   assert.deepEqual(MASTER_CERTIFICATE, { date: "2026-09-21", due: "2027-09-20" }, "F/QC/17's master scale: 21-09-2026, due 20-09-2027 (28-Oct-2026)");
   for (const id of [RULER_600_ID, RULER_300_ID]) assert.deepEqual(box(id, "masterCalibrationReportNo").autoFill, { default: "CAL/LPI/GP-26/27", formerDefaults: ["CAL/LPI/GP-23/23"], yearsOf: { prefix: "CAL/LPI/GP-", date: "masterCalibrationDate", due: "masterCalibrationDueDate" } }, `${id}: the report number from the certificate's years, editable (30-10-2026)`);
   // F/QC/11's I. Calibration Date:- / Due Date:- row: taken away on 28-Oct-2026, back on the owner's word of 30-Oct-2026 (§147).
-  assert.deepEqual(layoutOf(GSM).headerFields.filter((f) => f.key === "calibrationDate" || f.key === "dueDate").map((f) => f.printedLabel), ["I. Calibration Date:-", "Due Date:-"]);
+  assert.deepEqual(layoutOf(GSM).headerFields.filter((f) => f.key === "calibrationDate" || f.key === "dueDate").map((f) => f.printedLabel), ["Calibration Date:-", "Due Date:-"], "without the paper's \"I.\" (§219)");
 });
 
 test("a new sheet with nothing before it starts with them: F/QC/12, F/QC/11 and both F/QC/17 pages", () => {

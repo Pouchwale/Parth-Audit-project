@@ -47,7 +47,7 @@ function over(label: string, value: Cell | undefined): Cell {
   return { text: `${lead}${v.text}`, ...(v.parts ? { parts: [{ text: lead }, ...v.parts] } : {}) };
 }
 
-/** A cell holding its words and then its value on the same line (F/QC/11's "I. Calibration Date:-  21-09-26"). */
+/** A cell holding its words and then its value on the same line (F/QC/11's "Calibration Date:-  21-09-26", the paper's "I." left off, §219). */
 function beside(label: string, value: Cell | undefined): Cell {
   const v = value ?? { text: "" };
   const lead = label ? `${label}  ` : "";
@@ -126,7 +126,7 @@ export function gsmPlateWord(blocks: ExportBlock[]): ExportBlock[] | null {
       cells: pairs.slice(r * 3, r * 3 + 3).map(([label, value], i) => cell(over(label, value), 20, false, "center", "center", r === 0 ? TIMES : ARIAL, { colSpan: boxSpans[i] })),
     });
   }
-  // The paper's space, then "I. Calibration Date:-" two columns wide and "Due Date:-" at the right, each its words then its
+  // The paper's space, then "Calibration Date:-" (the paper's "I." left off, §219) two columns wide and "Due Date:-" at the right, each its words then its
   // value on one line at the left (the row back on the owner's word of 30-Oct-2026, REQUIREMENTS §147).
   // (The page puts Due Date in its third column, so an empty place stands before it: only the boxes with words count.)
   const row = pairs.slice(6).filter(([label]) => label.trim());

@@ -523,7 +523,7 @@ test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them
       // The calibration certificate's dates the owner gave (27-Oct-2026): 21-09-2026, due 20-09-2027, editable; the paper's
       // "I. Calibration Date:-" / "Due Date:-" row taken away on 28-Oct-2026 and back on 30-Oct-2026 (§147).
       ["Calibration Expiry:", "2027-09-20"],
-      ["I. Calibration Date:-", "2026-09-21"],
+      ["Calibration Date:-", "2026-09-21"],
       ["Due Date:-", "2027-09-20"],
     ]
   );
@@ -536,7 +536,7 @@ test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them
   assert.deepEqual(layout.notesBelow, [`PROCEDURE: ${CALIBRATION_PROCEDURE}`]);
   const html = await sheet(GSM, createDefaultData(docOf(GSM), DAY, master) as LogSheetData);
   assert.deepEqual(headings(html), ["Index", "No. 54", "No. 55", "No. 56", "No. 57", "20 x 20cm", "Deviation", "10 x 10cm", "Deviation", "5 x 5cm", "Deviation", "2.5 x 2.5cm", "Deviation"]);
-  assert.ok(text(html).includes("I. Calibration Date:-") && text(html).includes("Due Date:-"), "the row back (§147)");
+  assert.ok(text(html).includes("Calibration Date:-") && !text(html).includes("I. Calibration") && text(html).includes("Due Date:-"), "the row back (§147), without the paper's \"I.\" (§219)");
   assert.match(html, /class="grid sheet-boxes-paper"/, "three boxes to a line, as the paper");
 });
 

@@ -290,10 +290,11 @@ const gsmPlate: LogSheetLayout = {
     { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 120, autoFill: { carryForward: true } },
     // THE CERTIFICATE'S DATES ON EVERY NEW SHEET (CALIBRATION_CERTIFICATE, the owner, 27-Oct-2026): Calibration Expiry and
     // Due Date 20-09-27, I. Calibration Date 21-09-26, each editable and kept when a later one is written (autoFill.newest).
-    // The paper prints "I. Calibration Date:-" over the grid; its name stays "Calibration Date". The row was taken away on
+    // The paper prints "I. Calibration Date:-" over the grid; DCRS prints "Calibration Date:-", without the "I." (the owner,
+    // 15-Nov-2026, REQUIREMENTS §219: "remove this i. which come before calibration date"); its name stays "Calibration Date". The row was taken away on
     // 28-Oct-2026 and is back on the owner's word of 30-Oct-2026 (REQUIREMENTS §147): what a sheet held in it shows again.
     { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true, default: CALIBRATION_CERTIFICATE.due, newest: true } },
-    { key: "calibrationDate", label: "Calibration Date", printedLabel: "I. Calibration Date:-", type: "date", width: 150, autoFill: { default: CALIBRATION_CERTIFICATE.date, newest: true } },
+    { key: "calibrationDate", label: "Calibration Date", printedLabel: "Calibration Date:-", type: "date", width: 150, autoFill: { default: CALIBRATION_CERTIFICATE.date, newest: true } },
     // "Due Date:-" at the right of the line, where the paper prints it (paperColumn).
     { key: "dueDate", label: "Due Date", printedLabel: "Due Date:-", type: "date", width: 150, paperColumn: 3, autoFill: { default: CALIBRATION_CERTIFICATE.due, newest: true } },
   ],

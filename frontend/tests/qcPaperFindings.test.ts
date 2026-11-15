@@ -171,13 +171,13 @@ test("both calibration records carry the paper's own box words, F/QC/11's Due Da
   // The owner, 28-Oct-2026: "remove whole that row because in upper side ... there is already calibration expiry date".
   assert.deepEqual(
     layoutOf(GSM).headerFields.map((f) => f.printedLabel),
-    ["Device ID No:", "Location:", "Department:", "Manufacturer:", "Serial No:", "Calibration Expiry:", "I. Calibration Date:-", "Due Date:-"]
+    ["Device ID No:", "Location:", "Department:", "Manufacturer:", "Serial No:", "Calibration Expiry:", "Calibration Date:-", "Due Date:-"]
   );
   const html = await sheet(GSM, withComputedCells(GSM, autoFillRecord(docOf(GSM), DAY, master, undefined)!.data as LogSheetData));
   // The row back (the owner, 30-Oct-2026, §147): the Due Date at the right of its line, where the paper prints it.
   assert.equal(layoutOf(GSM).headerFields.find((f) => f.key === "dueDate")!.paperColumn, 3);
   assert.match(html, /<div class="field" data-paper-column="3"><label>Due Date:-<\/label>/);
-  assert.ok(text(html).includes("I. Calibration Date:-"));
+  assert.ok(text(html).includes("Calibration Date:-") && !text(html).includes("I. Calibration"), "without the \"I.\" (§219)");
   const rows = bodyRows(html);
   assert.equal(rows.length, 6);
   // Tasted-1 to 4: Index and the eight cells; Pass/Fail and Sign.: Index and one cell under each plate.
