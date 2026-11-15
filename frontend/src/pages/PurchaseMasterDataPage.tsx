@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiDownload, FiFileText, FiInfo, FiLock, FiPlus, FiPrinter, FiTrash2, FiUpload } from "react-icons/fi";
+import { FiAlertTriangle, FiCheckCircle, FiDownload, FiFileText, FiInfo, FiLock, FiPlus, FiPrinter, FiTrash2, FiUpload, FiBookOpen } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { purchaseMasterRepository } from "../data/repositories/purchaseMasterRepository";
@@ -531,7 +531,7 @@ export function PurchaseMasterDataPage() {
             <FiPrinter size={12} /> Print
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate("/library/purchase")}>
-            <FiArrowLeft size={12} /> All Purchase documents
+            <FiBookOpen size={12} /> All Purchase documents
           </button>
         </div>
       </div>

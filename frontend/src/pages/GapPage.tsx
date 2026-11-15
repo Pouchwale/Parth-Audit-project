@@ -111,9 +111,6 @@ export function GapListPage() {
 
   return (
     <div>
-      <button className="btn btn-ghost btn-sm mb-3" onClick={() => navigate("/gap")}>
-        <FiArrowLeft size={13} /> CAPA
-      </button>
       {doc && (
         <>
           <div className="flex items-center justify-between mb-4 gap-3 wrap">
@@ -320,9 +317,6 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
     return (
       <div className="empty-state">
         <h2 className="text-xl mb-2">CAPA record not found</h2>
-        <button className="btn btn-secondary" onClick={() => navigate("/gap/internal")}>
-          <FiArrowLeft size={13} /> Back
-        </button>
       </div>
     );
   }
@@ -423,9 +417,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>
       <div className="flex items-center justify-between mb-3 no-print">
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate("/gap/internal")}>
-          <FiArrowLeft size={13} /> Back to internal findings
-        </button>
+        {/* One Back button, the top bar's (REQUIREMENTS §207). */}
+        <span />
         <div className="flex items-center gap-2">
           {record.isDemo && <DemoTag />}
           <StatusBadge status={record.status} />

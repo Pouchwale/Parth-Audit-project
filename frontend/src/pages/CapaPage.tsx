@@ -197,9 +197,6 @@ export function ComplaintListPage() {
 
   return (
     <div>
-      <button className="btn btn-ghost btn-sm mb-3" onClick={() => navigate("/gap")}>
-        <FiArrowLeft size={13} /> CAPA
-      </button>
       <div className="flex items-center justify-between mb-4 gap-3 wrap">
         <div>
           <h1 className="text-2xl mb-1">External — Customer Complaints</h1>
@@ -494,9 +491,6 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
     return (
       <div className="empty-state">
         <h2 className="text-xl mb-2">Complaint checklist not found</h2>
-        <button className="btn btn-secondary" onClick={() => navigate("/gap/external")}>
-          <FiArrowLeft size={13} /> Back
-        </button>
       </div>
     );
   }
@@ -557,9 +551,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>
       <div className="flex items-center justify-between mb-3 no-print">
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate("/gap/external")}>
-          <FiArrowLeft size={13} /> Back to complaints
-        </button>
+        {/* One Back button, the top bar's (REQUIREMENTS §207). */}
+        <span />
         <div className="flex items-center gap-2">
           {record.isDemo && <DemoTag />}
           <StatusBadge status={record.status} />

@@ -882,7 +882,8 @@ const hygieneReport: LogSheetLayout = {
   ],
   headerFields: [{ key: "monthYear", label: "Month & Year", type: "text", width: 160 }],
   columns: [fixedText("parameter", "Date", 50), ...HYGIENE_CHECKS.map(({ key, label }) => yesNo(key, label, 84)), text("observation", "Observation", 160), text("correctiveAction", "Corrective Action(s)", 160), text("checkedBy", "Checked by", 120)],
-  rowMode: { kind: "fixedRows", rows: Array.from({ length: 31 }, (_, i) => ({ parameter: String(i + 1) })) },
+  // One line per day of the month: no line is added or taken off (REQUIREMENTS §207).
+  rowMode: { kind: "fixedRows", openLines: false, rows: Array.from({ length: 31 }, (_, i) => ({ parameter: String(i + 1) })) },
   referenceTables: [
     {
       title: "Form-22 Daily Personal Hygiene Report — problems found per month (as supplied with F/HR/20)",

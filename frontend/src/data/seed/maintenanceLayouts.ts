@@ -603,7 +603,8 @@ const DAILY_HEALTH: LogSheetLayout = {
     { key: "backTechnicianSign", label: "Maintenance Technician Sign", type: "text", width: 160, group: MNT04_BACK_SIDE, autoFill: { fresh: true } },
     { key: "backOperatorSign", label: "Machine Operator Sign", type: "text", width: 160, group: MNT04_BACK_SIDE, autoFill: { fresh: true } },
   ],
-  rowMode: { kind: "fixedRows", rows: Array.from({ length: 31 }, (_, i) => ({ date: String(i + 1) })) },
+  // One line per day of the month: no line is added or taken off (REQUIREMENTS §207).
+  rowMode: { kind: "fixedRows", openLines: false, rows: Array.from({ length: 31 }, (_, i) => ({ date: String(i + 1) })) },
   // The front's own sentence and the box that was the only place for those
   // details before the back was supplied (§74). It stays: records may already
   // hold what was written in it.

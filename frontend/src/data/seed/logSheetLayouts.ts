@@ -542,6 +542,19 @@ Object.assign(LOG_SHEET_LAYOUTS, MKT_LAYOUTS);
 // records, supplied 06-Oct-2026 with the company's own originals (the two lamination records are above).
 Object.assign(LOG_SHEET_LAYOUTS, PRODUCTION_LAYOUTS);
 
+// EVERY FORM THAT PRINTS ITS LINES TAKES ADD ROW (REQUIREMENTS §207; the owner, 15-Nov-2026, with F/MKT/02's attributes:
+// "add add row button in those documents which have row like this"): §158 opened the HR forms' printed lines; now every
+// such form's are open (rowMode.openLines) - the person adds a line, or takes one off, on the record - unless the layout
+// says `openLines: false`: a register of one line per day of the month (F/HR/21's hygiene report, F/MNT/04), where a
+// 32nd day has no place. The format is unchanged: the next record starts from its printed lines again.
+function openPrintedLines(layout: LogSheetLayout | undefined): void {
+  if (layout && layout.rowMode.kind === "fixedRows" && layout.rowMode.openLines === undefined) layout.rowMode.openLines = true;
+}
+for (const layout of Object.values(LOG_SHEET_LAYOUTS)) {
+  openPrintedLines(layout);
+  for (const old of Object.values(layout.supersededRevisions ?? {})) openPrintedLines(old.layout);
+}
+
 // The layout as it stands now: the plant's own change to the format where
 // there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout
 // otherwise. `getIssuedLogSheetLayout` is the paper's own transcription.
@@ -549,7 +562,13 @@ Object.assign(LOG_SHEET_LAYOUTS, PRODUCTION_LAYOUTS);
 // `asOf` (a signed record's submission), or now. The same object as before while no range is changed.
 export function getLogSheetLayout(documentId: string, asOf?: string): LogSheetLayout | undefined {
   const edited = formatEditFor(documentId)?.layout;
-  return withIndexRanges(documentId, edited ? printedLinesOnce(asThePaper(edited)) : LOG_SHEET_LAYOUTS[documentId], asOf);
+  const layout = edited ? printedLinesOnce(asThePaper(edited)) : LOG_SHEET_LAYOUTS[documentId];
+  // A format the plant changed keeps the issued form's word on its lines (§207): open, or one line per day.
+  if (edited && layout && layout.rowMode.kind === "fixedRows" && layout.rowMode.openLines === undefined) {
+    const issued = LOG_SHEET_LAYOUTS[documentId]?.rowMode;
+    layout.rowMode.openLines = issued?.kind === "fixedRows" ? issued.openLines !== false : true;
+  }
+  return withIndexRanges(documentId, layout, asOf);
 }
 
 // THE PAPER'S OWN SHAPE IN A FORMAT EDITED BEFORE §111 TOO (REQUIREMENTS §111). A format the

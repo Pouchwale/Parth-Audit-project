@@ -39,9 +39,6 @@ export function DayViewPage({ date }: { date?: string }) {
       {/* A real step back when the day was opened from the calendar — the month
           you were looking at, and the calendar's own Back still leads to where
           you were before it — and the calendar itself otherwise. */}
-      <button className="btn btn-ghost btn-sm mb-3" onClick={() => backTo("/calendar")}>
-        <FiArrowLeft size={13} /> Back to Calendar
-      </button>
       <h1 className="text-2xl mb-1">
         {formatDisplayDate(dateISO)} <span className="text-muted text-lg">· {day.weekday}</span>
       </h1>

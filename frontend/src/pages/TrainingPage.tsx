@@ -225,9 +225,6 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
     return (
       <div className="empty-state">
         <h2 className="text-xl mb-2">Training record not found</h2>
-        <button className="btn btn-secondary" onClick={() => navigate("/training")}>
-          <FiArrowLeft size={13} /> Back
-        </button>
       </div>
     );
   }
@@ -296,9 +293,8 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>
       <div className="flex items-center justify-between mb-3 no-print">
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate("/training")}>
-          <FiArrowLeft size={13} /> Back to Training list
-        </button>
+        {/* One Back button, the top bar's (REQUIREMENTS §207). */}
+        <span />
         <div className="flex items-center gap-2">
           {record.isDemo && <DemoTag />}
           <StatusBadge status={record.status} />

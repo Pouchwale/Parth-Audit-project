@@ -36,9 +36,8 @@ export function LicencePage() {
     return (
       <div className="licence-page" data-section="agreement-only">
         <div className="flex items-center justify-between mb-3 no-print wrap gap-2">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/library/${moduleSlug(agreement.module)}`)}>
-            <FiArrowLeft size={13} /> Document Library
-          </button>
+          {/* One Back button, the top bar's (REQUIREMENTS §207). */}
+          <span />
         </div>
         <h1 className="text-2xl mb-4">{agreement.name}</h1>
         <ServiceAgreementReminder />
@@ -49,9 +48,8 @@ export function LicencePage() {
   return (
     <div className="licence-page">
       <div className="flex items-center justify-between mb-3 no-print wrap gap-2">
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate("/pest-control")}>
-          <FiArrowLeft size={13} /> Back to Pest Control
-        </button>
+        {/* One Back button, the top bar's (REQUIREMENTS §207). */}
+        <span />
         <div className="flex items-center gap-2 wrap">
           <span className="badge badge-Verified">On file · issued {formatDisplayDate(L.dateOfIssue)}</span>
           <a className="btn btn-secondary btn-sm" href={L.originalPdf} target="_blank" rel="noopener noreferrer">

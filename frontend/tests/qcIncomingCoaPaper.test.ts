@@ -108,7 +108,8 @@ const between = (html: string, from: string, to: string) => {
   const b = html.indexOf(to, a);
   return html.slice(a, b < 0 ? undefined : b);
 };
-const headings = (html: string) => Array.from(between(html, "<thead", "</thead>").matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g), (m) => text(m[1]).trim());
+// (the screen's "remove the line" column, off the paper and out of the files, is not one of the paper's headings - §207)
+const headings = (html: string) => Array.from(between(html, "<thead", "</thead>").matchAll(/<th(?![^>]*pf-remove)[^>]*>([\s\S]*?)<\/th>/g), (m) => text(m[1]).trim());
 const boxLabels = (html: string) => Array.from(html.matchAll(/<div class="field[^"]*"[^>]*><label>([\s\S]*?)<\/label>/g), (m) => text(m[1]).replace(/\s*\*\s*$/, "").trim());
 const decoded = (s: string) => s.replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"');
 /** A cell's words as the page shows them: its text, then what each box in it holds (value="..."). */

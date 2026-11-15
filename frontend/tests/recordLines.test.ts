@@ -296,7 +296,8 @@ describe("the brief's own cases (§2.3), each a loss before", () => {
   it("a time-slot sheet, a printed-rows sheet and a single-line sheet refuse add and remove in the registry's words, and clear a line instead", () => {
     for (const [id, kind] of [
       ["qc-viscosity", "timeSlots"],
-      ["qc-inspection-pouching", "fixedRows"],
+      // (a printed-lines form that stays closed since §207: one line per day of the month)
+      ["hr-hygiene-report", "fixedRows"],
       ["qc-temperature", "single"],
     ] as const) {
       const doc = docOf(id);

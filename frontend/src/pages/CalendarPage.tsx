@@ -69,9 +69,6 @@ export function CalendarPage({ year, month }: { year?: number; month?: number })
     <div>
       {/* Back to the page the calendar was opened from — the Dashboard when it
           was opened straight from its address (store/router.tsx, REQUIREMENTS §48). */}
-      <button className="btn btn-ghost btn-sm mb-3 no-print" data-action="back" onClick={() => back()}>
-        <FiArrowLeft size={13} /> {t("common.back")}
-      </button>
       {/* calendar-head and calendar-scroll: on a phone the pickers go under the words, and the month
           scrolls sideways in a box of its own, its weekdays over their days (styles.css, AREA 3). */}
       <div className="flex items-center justify-between mb-4 calendar-head">

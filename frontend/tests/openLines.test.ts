@@ -44,8 +44,11 @@ describe("the HR forms' printed lines are open (REQUIREMENTS §158)", () => {
       // "Clear the line" blanks what a person writes, never a printed topic: the printed columns stay out of writable.
       for (const c of layout.columns) if (c.fixed) assert.ok(!rule.writable.includes(c.key), `${id}: the printed column ${c.key} is not cleared with the line`);
     }
-    // A QC inspection record still prints its parameters as the format's own.
-    assert.equal(logRowsRule(getLogSheetLayout("qc-inspection-pouching")!).canAdd, false);
+    // Since §207 every form that prints its lines opens them, the QC inspection records too; a register of one line per
+    // day of the month stays as printed.
+    assert.equal(logRowsRule(getLogSheetLayout("qc-inspection-pouching")!).canAdd, true);
+    assert.equal(logRowsRule(getLogSheetLayout("mkt-feedback-analysis")!).canAdd, true, "F/MKT/02's attributes, the owner's own picture");
+    for (const id of ["hr-hygiene-report", "mnt-daily-health"]) assert.equal(logRowsRule(getLogSheetLayout(id)!).canAdd, false, `${id}: one line per day of the month`);
   });
 
   it("a fresh induction record carries the five topics and the form's two spare lines, each knowing its printed line", () => {

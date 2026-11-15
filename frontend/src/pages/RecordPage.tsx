@@ -437,9 +437,6 @@ export function RecordPage({ recordId }: { recordId?: string }) {
             {notice}
           </p>
         )}
-        <button className="btn btn-secondary" onClick={() => navigate("/calendar")}>
-          <FiArrowLeft size={13} /> Back to Calendar
-        </button>
       </div>
     );
   }
@@ -571,9 +568,8 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>
       <div className="flex items-center justify-between mb-3 no-print">
-        <button className="btn btn-ghost btn-sm" onClick={() => window.history.back()}>
-          <FiArrowLeft size={13} /> Back
-        </button>
+        {/* ONE BACK BUTTON, THE TOP BAR'S (REQUIREMENTS §207; the owner, 15-Nov-2026: "i don't want two back buttons"). */}
+        <span />
         <div className="flex items-center gap-2">
           {/* The day the sheet is for, typed over here while the record can be written on (REQUIREMENTS §136). */}
           {editable && !superseded ? (

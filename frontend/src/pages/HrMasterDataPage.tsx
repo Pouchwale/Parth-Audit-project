@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiDownload, FiInfo, FiPlus, FiPrinter, FiTrash2, FiUpload, FiUserCheck, FiUsers } from "react-icons/fi";
+import { FiAlertTriangle, FiCheckCircle, FiDownload, FiInfo, FiPlus, FiPrinter, FiTrash2, FiUpload, FiUserCheck, FiUsers, FiBookOpen } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
@@ -247,7 +247,7 @@ export function HrMasterDataPage() {
             <FiPrinter size={12} /> Print
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate("/hr")}>
-            <FiArrowLeft size={12} /> All HR records
+            <FiBookOpen size={12} /> All HR records
           </button>
         </div>
       </div>

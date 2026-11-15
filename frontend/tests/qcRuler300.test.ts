@@ -146,8 +146,13 @@ test("F/QC/17 is two documents, the 600 mm scale's and the 300 mm scale's: one f
 
 test("both layouts come from one definition and differ only in the two starting values, the six points and the page each is shown against", () => {
   for (const scale of RULER_SCALES) {
-    assert.deepEqual(QC_RULER_VERIFICATION_LAYOUTS[scale.documentId], rulerVerificationLayout(scale), `${scale.documentId} is what the one function builds`);
-    assert.deepEqual(getLogSheetLayout(scale.documentId), rulerVerificationLayout(scale), `${scale.documentId} is registered as built`);
+    const fresh = rulerVerificationLayout(scale);
+    const registered = QC_RULER_VERIFICATION_LAYOUTS[scale.documentId];
+    assert.deepEqual({ ...registered, rowMode: { ...registered.rowMode, openLines: undefined } }, { ...fresh, rowMode: { ...fresh.rowMode, openLines: undefined } }, `${scale.documentId} is what the one function builds`);
+    // Registered as built, its printed lines open (§207).
+    const built = rulerVerificationLayout(scale);
+    const opened = built.rowMode.kind === "fixedRows" ? { ...built, rowMode: { ...built.rowMode, openLines: true } } : built;
+    assert.deepEqual(getLogSheetLayout(scale.documentId), opened, `${scale.documentId} is registered as built`);
   }
   assert.equal(rulerScaleOf(RULER_300_ID)?.serialNo, "GP-3/MS/42");
   assert.equal(rulerScaleOf(RULER_300_ID)?.range, "0-300 mm");

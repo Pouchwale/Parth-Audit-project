@@ -177,7 +177,8 @@ function firstLineCells(html: string): string[] {
   const grid = html.slice(html.indexOf("compact log-sheet"));
   const body = grid.slice(grid.indexOf("<tbody"));
   const line = body.slice(body.indexOf("<tr"), body.indexOf("</tr>"));
-  return line.split("<td").slice(1);
+  // (the screen's "remove the line" cell is not the paper's - §207)
+  return line.split("<td").slice(1).filter((c) => !/^[^>]*pf-remove/.test(c));
 }
 
 test("F/QC/01 with a column added draws five columns on its paper, none of them 0 mm, the paper's width in all", async () => {

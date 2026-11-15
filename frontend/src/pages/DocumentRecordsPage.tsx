@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiDatabase, FiEdit3, FiExternalLink, FiImage, FiPlus, FiPrinter, FiUpload } from "react-icons/fi";
+import { FiArrowRight, FiDatabase, FiEdit3, FiExternalLink, FiImage, FiPlus, FiPrinter, FiUpload, FiBookOpen } from "react-icons/fi";
 import { FormatEditor } from "../components/documents/FormatEditor";
 import { SheetDesigner } from "../components/documents/SheetDesigner";
 import { canDesignGrid } from "../engine/formatOps";
@@ -301,7 +301,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
             </button>
           )}
           <button className="btn btn-secondary btn-sm" onClick={() => navigate(hr ? "/hr" : `/library/${moduleSlug(doc.module)}`)}>
-            <FiArrowLeft size={12} /> {hr ? "All HR records" : "Document Library"}
+            <FiBookOpen size={12} /> {hr ? "All HR records" : "Document Library"}
           </button>
         </div>
       </div>

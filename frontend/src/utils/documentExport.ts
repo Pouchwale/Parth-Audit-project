@@ -229,7 +229,7 @@ export type ExportBlock =
   | { kind: "fields"; pairs: [string, Cell][]; perLine?: number }
   | { kind: "table"; rows: Cell[][]; headerRows: number; bindTable?: ExportTableBinding; band?: true };
 
-const SKIP = "button, .btn, .no-print, datalist, script, style, svg, template, noscript, [hidden], [aria-hidden='true'], input[type='file'], input[type='hidden']";
+const SKIP = "button, .btn, .no-print, .pf-remove, datalist, script, style, svg, template, noscript, [hidden], [aria-hidden='true'], input[type='file'], input[type='hidden']";
 
 /**
  * The element's computed style when it is in the file (undefined for a

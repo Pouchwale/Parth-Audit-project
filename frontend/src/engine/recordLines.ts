@@ -246,7 +246,10 @@ export function printedLineOf(layout: LogSheetLayout, row: Record<string, unknow
   const mode = layout.rowMode;
   if (mode.kind !== "fixedRows") return undefined;
   if (!mode.openLines || !row) return mode.rows[index];
-  const printed = layout.columns.filter((c: LogColumn) => c.fixed).map((c) => c.key);
+  // The printed columns this line holds: a record written before a printed column was added (F/QC/13's own સ.નં, §102)
+  // has no key for it, so it is matched on the rest - and read by its place when it holds none (§207).
+  const printed = layout.columns.filter((c: LogColumn) => c.fixed && c.key in row).map((c) => c.key);
+  if (printed.length === 0) return mode.rows[index];
   // A record made before the sheet numbered its lines holds "1. I can freely speak up…" (F/HR/20, §102): the
   // number is the line's place, not its words, so it is left out of the match.
   const words = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim().replace(/^\d{1,3}[.)]?\s+/, ""));

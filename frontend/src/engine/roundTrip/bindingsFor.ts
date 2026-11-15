@@ -63,6 +63,7 @@ import type {
 import type { ComplianceStatement } from "../../data/seed/complianceStatements";
 import { isQuantityLine } from "../serviceMaterials";
 import { withoutLineNumber } from "../lineNumbers";
+import { printedLineOf } from "../recordLines";
 
 /** One bound value: where it lives in the record's data, what kind of value it is, what a person calls it. */
 export interface Bound {
@@ -235,7 +236,8 @@ export function logSheetBindings(layout: LogSheetLayout, data: LogSheetData): Bo
   if (layout.columns.length === 0) return out;
   const mode = layout.rowMode;
   data.rows.forEach((row, i) => {
-    const fixedRow = mode.kind === "fixedRows" ? mode.rows[i] : undefined;
+    // By its words on a form whose lines are open (§158, §207): a line taken off does not shift the rest.
+    const fixedRow = mode.kind === "fixedRows" ? printedLineOf(layout, row, i) : undefined;
     const name = logRowName(row, layout.columns);
     for (const c of layout.columns) {
       const b = logCellBind(row, i, effectiveColumn(c, fixedRow), name);

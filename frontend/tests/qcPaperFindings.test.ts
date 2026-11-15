@@ -92,7 +92,8 @@ const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "
 const bodyRows = (html: string) => {
   const a = html.indexOf("<tbody");
   const b = html.indexOf("</tbody>", a);
-  return Array.from(html.slice(a, b).matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g), (m) => Array.from(m[2].matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/g), (c) => ({ attrs: c[1], html: c[2] })));
+  // (the screen's "remove the line" cell is not the paper's - §207)
+  return Array.from(html.slice(a, b).matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g), (m) => Array.from(m[2].matchAll(/<td(?![^>]*pf-remove)([^>]*)>([\s\S]*?)<\/td>/g), (c) => ({ attrs: c[1], html: c[2] })));
 };
 const hrNames = () => new Set(hrMasterRepository.all().flatMap((p) => [p.fullName, ...(p.aliases ?? [])])) /* the sheet's other spellings count: "Kapila Barad" is the staff sheet's "Kapila B Barad" (REQUIREMENTS §169) */;
 

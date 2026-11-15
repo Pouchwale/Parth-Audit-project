@@ -11637,3 +11637,30 @@ see those id's in production where everything is running perfectly."
 - Proved: frontend/tests/mitraEveryDocument.test.ts, backend/tests/testAccounts.test.ts (the refusal, the deletion's
   limits, the script's local-only guard and its finally); the script run locally.
 
+## §207 One Back button; Add row on every form that prints its lines (15-Nov-2026)
+
+The owner, 15-Nov-2026, with pictures of F/MKT/02's record page (two Back buttons) and its attributes table: "i don't
+want two back buttons so make sure there is always one back universal also add add row button in those documents which
+have row like this".
+
+- ONE BACK BUTTON, THE TOP BAR'S (components/layout/Topbar.tsx, shown on every page but the home page with nothing behind
+  it). Every page's own back button is gone: the record page's, the calendar's, the day view's, the CAPA and complaint
+  pages', the internal findings', the compliance statements', the training pages', the licence and agreement pages',
+  and the "not found" screens'. The three buttons that open a list ("All HR records", "Document Library", "All Purchase
+  documents") stay, with a book for their icon instead of a back arrow.
+- ADD ROW ON EVERY FORM THAT PRINTS ITS LINES (data/seed/logSheetLayouts.ts openPrintedLines): §158 opened the HR forms';
+  now every such form's lines are open - F/MKT/02's attributes, the QC inspection records' parameters, the COAs, the
+  maintenance, purchase, system and dispatch checklists - Add Row under the grid and the bin beside each line, Mitra's
+  "add a row" and "take this line off" too; the record keeps at least one line; the format is unchanged, so the next
+  record starts from its printed lines again. A register of one line per day of the month stays as printed (F/HR/21's
+  hygiene report, F/MNT/04: `openLines: false`).
+- A LINE IS KNOWN BY ITS WORDS on such a form (§158 printedLineOf), now also in the downloads' bindings and the out-of-band
+  count (engine/roundTrip/bindingsFor.ts, printedBands.ts), so a line taken off shifts nothing; a record written before
+  a printed column was added is matched on the columns it holds, and by its place when it holds none (F/QC/13's own
+  સ.નં). The bin column is the screen's alone: off the paper (§189) and now out of Word and Excel too
+  (utils/documentExport.ts SKIP).
+- Proved: frontend/tests/openLines.test.ts, recordLines.test.ts and the paper tests (the bin column not the paper's);
+  locally, F/MKT/02 and F/QC/01 took Add Row, the line kept after a reload and printed without the buttons, the hygiene
+  report offered none, one Back on the page; tests/verify_with_test_account.py (11 of 11, the account deleted);
+  tests/check_all_documents.py on ten of the opened forms (Word, Excel and print as before).
+

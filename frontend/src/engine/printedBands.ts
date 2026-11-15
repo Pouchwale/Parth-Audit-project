@@ -1,4 +1,5 @@
 import type { LogColumn, LogHeaderField, LogSheetData, LogSheetLayout, LogSheetRow } from "../types";
+import { printedLineOf } from "./recordLines";
 
 // A TOLERANCE OR A SPECIFICATION THE PAPER PRINTS DRIVES THE HIGHLIGHT (REQUIREMENTS §111, rule 2 of the owner's
 // 13-Oct-2026 brief: "if there is a acceptance tolerance above ... in the record so it will already [be written] in
@@ -151,7 +152,7 @@ export function outOfBandCount(layout: LogSheetLayout, data: LogSheetData): numb
   const printed = layout.rowMode.kind === "fixedRows" ? layout.rowMode.rows : undefined;
   let n = 0;
   data.rows.forEach((row, i) => {
-    for (const col of layout.columns) if (judge(row, col, printed?.[i])) n += 1;
+    for (const col of layout.columns) if (judge(row, col, printed ? printedLineOf(layout, row, i) : undefined)) n += 1;
   });
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) if (boxOutOfBand(f, data.header)) n += 1;
   return n;
