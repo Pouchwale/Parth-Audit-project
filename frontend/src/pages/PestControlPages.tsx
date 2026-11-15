@@ -28,7 +28,7 @@ import { FlyCatcherTrendReport, LizardTrendReport, RodentTrendReport } from "./R
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
-import { DailyRegisterSheet, FHR17_ORIGINAL_PAGES } from "../components/records/DailyRegisterSheet";
+import { DailyRegisterSheet } from "../components/records/DailyRegisterSheet";
 import { FlyCatcherRegisterSheet } from "../components/records/FlyCatcherRegisterSheet";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { useHeaderEditing } from "../components/documents/HeaderEditing";
@@ -467,7 +467,6 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
   // The register (the company's own F/HR/17 layout) is the default; the
   // status list is the app-side view of the same records.
   const [view, setView] = useState<"register" | "list">("register");
-  const [showOriginal, setShowOriginal] = useState(false);
   const today = todayISO();
   useEnsureMonth(year, month);
 
@@ -560,23 +559,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
             {t("pest.statusListView")}
           </div>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={() => setShowOriginal((s) => !s)}>
-          {showOriginal ? t("pest.hideOriginal") : t("pest.showOriginal")}
-        </button>
       </div>
-
-      {showOriginal && (
-        <div className="card mb-3 no-print">
-          <div className="card-pad">
-            <div className="text-xs text-muted mb-2">"Daily pest control monitoring record .pdf" — the three printed pages this register reproduces, shown unaltered.</div>
-            <div className="register-original">
-              {FHR17_ORIGINAL_PAGES.map((src, i) => (
-                <img key={src} src={src} alt={`F/HR/17 blank format, page ${i + 1} of 3`} />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ...its month changed from its title too (REQUIREMENTS §197): the page's pickers above follow. */}
       {view === "register" && (

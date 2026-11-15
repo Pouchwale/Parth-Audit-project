@@ -403,7 +403,6 @@ const en = {
   "nav.strSharpMetalObjects": "Sharp Metal Objects Issuance & Return",
   // The picture the plant supplied, shown unaltered beside the form it was
   // built from (REQUIREMENTS §71). Only on a document that has one.
-  "doc.showOriginal": "Show the supplied original",
 
   // ---- when Mitra could not reach its model (REQUIREMENTS §72) -----------
   // Said ON the answer, so nobody has to wonder which of the two replied.
@@ -422,7 +421,6 @@ const en = {
   "ai.cite.open": "Open",
   "ai.offline.noAnswer": "I cannot reach Mitra just now, and this is not something I can answer from the records on this machine. Please try again when the connection is back.",
   "ai.offline.noFill": "Filling a record in needs Mitra, and I cannot reach it just now. Your work on this record is saved — type into the form, or try again when the connection is back.",
-  "doc.hideOriginal": "Hide the supplied original",
   "nav.statementsOfCompliance": "Statements of Compliance",
   // The company name alone — the modules are in the panel underneath (REQUIREMENTS §65) —
   // as the owner gave it on 02-Oct-2026 (data/seed/masterData.ts COMPANY.shortName).
@@ -604,8 +602,6 @@ const en = {
   "pest.addVisit": "Add visit",
   "pest.editRegister": "Edit register",
   "pest.doneEditing": "Done editing",
-  "pest.showOriginal": "Show the original blank format (as supplied)",
-  "pest.hideOriginal": "Hide the original blank format (as supplied)",
   "pest.service": "Service",
   "pest.lastVisit": "Last visit",
   "pest.nextDue": "Next due",
@@ -1284,7 +1280,6 @@ const gu: Record<StringKey, string> = {
   "nav.strIncomingMaterialVehicle": "આવતા મટીરિયલનું વાહન અને સ્થિતિ",
   "nav.strSharpToolControl": "ધારદાર ઓજાર નિયંત્રણ",
   "nav.strSharpMetalObjects": "ધારદાર ધાતુ વસ્તુઓ ઇશ્યૂ અને પરત",
-  "doc.showOriginal": "મળેલું મૂળ બતાવો",
 
   "ai.offline.offline": "ઇન્ટરનેટ વગર જવાબ આપ્યું — આ સિસ્ટમના પોતાના રેકોર્ડ માંથી; મિત્ર સાથે સંપર્ક થર્યો નહીં.",
   "ai.offline.failed": "મિત્રે અત્યારે જવાબ ન આપ્યું, અેટલે આ જવાબ આ સિસ્ટમના પોતાના રેકોર્ડ માંથી આવ્યો છે.",
@@ -1297,7 +1292,6 @@ const gu: Record<StringKey, string> = {
   "ai.cite.open": "ખોલો",
   "ai.offline.noAnswer": "અત્યારે મિત્ર સાથે સંપર્ક થતો નથી, અને આ પ્રશ્નનો જવાબ આ મશીન પરના રેકોર્ડમાં નથી. કનેક્શન પાછું આવે ટ્યારે ફરી પ્રયાસ કરો.",
   "ai.offline.noFill": "રેકોર્ડ ભરવા માટે મિત્ર જરૂરી છે, અને અત્યારે સંપર્ક થતો નથી. આ રેકોર્ડ પરનું તમારું કામ સાચવાઈ ગયું છે — ફોર્મમાં સીધું લખો, અથવા કનેક્શન પાછું આવે ટ્યારે ફરી પ્રયાસ કરો.",
-  "doc.hideOriginal": "મળેલું મૂળ છુપાવો",
   "nav.statementsOfCompliance": "અનુપાલન નિવેદનો",
   // The registered name is never translated (REQUIREMENTS §58): the same Latin name as in English.
   "nav.brandSubtitle": "Gujarat Print Pack Publications Pvt Ltd",
@@ -1477,8 +1471,6 @@ const gu: Record<StringKey, string> = {
   "pest.addVisit": "મુલાકાત ઉમેરો",
   "pest.editRegister": "રજિસ્ટરમાં સુધારો કરો",
   "pest.doneEditing": "સુધારો પૂર્ણ",
-  "pest.showOriginal": "મૂળ કોરું ફોર્મેટ બતાવો (જેમ મળ્યું તેમ)",
-  "pest.hideOriginal": "મૂળ કોરું ફોર્મેટ છુપાવો (જેમ મળ્યું તેમ)",
   "pest.service": "સેવા",
   "pest.lastVisit": "છેલ્લી મુલાકાત",
   "pest.nextDue": "હવે પછી બાકી",

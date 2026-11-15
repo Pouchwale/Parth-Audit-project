@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiArrowRight, FiDatabase, FiEdit3, FiExternalLink, FiImage, FiPlus, FiPrinter, FiUpload, FiBookOpen } from "react-icons/fi";
+import { FiArrowRight, FiDatabase, FiEdit3, FiExternalLink, FiPlus, FiPrinter, FiUpload, FiBookOpen } from "react-icons/fi";
 import { FormatEditor } from "../components/documents/FormatEditor";
 import { SheetDesigner } from "../components/documents/SheetDesigner";
 import { canDesignGrid } from "../engine/formatOps";
@@ -175,9 +175,6 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   const t = useT();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cvOpen, setCvOpen] = useState(false);
-  // Closed to begin with: a picture of a form is the heaviest thing on the
-  // page, and nothing is fetched until it is asked for (REQUIREMENTS §65).
-  const [showOriginal, setShowOriginal] = useState(false);
   // Opening a format's page is a line of the activity log (REQUIREMENTS §62).
   React.useEffect(() => {
     const d = documentRepository.getById(docId);
@@ -310,49 +307,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
       {/* Why New record or Edit format is not here, for a person whose level stops it (REQUIREMENTS §96). */}
       <AccessReason documentId={doc.id} action={doc.isReferenceOnly ? "format" : "start"} className="mb-4" />
 
-      {/* THE SUPPLIED ORIGINAL, SHOWN AS IT IS (REQUIREMENTS §71). Only on a
-          format whose layout names one, so every other document page is
-          exactly as it was. F/STR/01 was supplied as a photograph of the
-          rubber stamp itself rather than as a document, and a form built from
-          a picture is only honestly reproduced if the picture can be put
-          beside it and compared — including the spellings cut into the stamp,
-          which are kept rather than corrected. */}
-      {(layout?.originalPages?.length ?? 0) > 0 && (
-        <div className="mb-4 no-print">
-          <button
-            className="btn btn-secondary btn-sm"
-            data-action="show-supplied-original"
-            aria-expanded={showOriginal}
-            onClick={() => setShowOriginal((v) => !v)}
-          >
-            <FiImage size={12} /> {showOriginal ? t("doc.hideOriginal") : t("doc.showOriginal")}
-          </button>
-          {showOriginal && (
-            <div className="card mt-2" data-section="supplied-original">
-              <div className="card-pad">
-                <div className="text-xs text-muted mb-2">{doc.sourceFile} — shown unaltered.</div>
-                <div className="register-original">
-                  {(layout?.originalPages ?? []).map((page, i, all) => {
-                    const src = typeof page === "string" ? page : page.src;
-                    const alt = `${doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo} as supplied${all.length > 1 ? `, page ${i + 1} of ${all.length}` : ""}`;
-                    // A page that carries its own caption says which page it
-                    // is — the current revision or the one it replaced, the
-                    // blank form or a filled one (REQUIREMENTS §74) — under the
-                    // picture itself, so the two can never be confused.
-                    if (typeof page === "string") return <img key={src} src={src} loading="lazy" alt={alt} />;
-                    return (
-                      <figure key={src} style={{ margin: 0 }} data-original-page={i + 1}>
-                        <img src={src} loading="lazy" alt={`${alt} — ${page.caption}`} />
-                        <figcaption className="text-xs text-muted mt-1">{page.caption}</figcaption>
-                      </figure>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* No button for the supplied original (the owner, 15-Nov-2026, REQUIREMENTS §210): the page is the format and its records. */}
       {cvOpen && <CvImportDialog onClose={() => setCvOpen(false)} />}
 
       {designing ? (

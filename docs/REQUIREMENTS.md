@@ -11709,3 +11709,14 @@ where he is it previous and not on record calendar".
 - Proved: frontend/tests/deleteGoesBack.test.ts (by source), and locally: a record opened from its document's page,
   deleted, lands back on that page, and the top bar's Back goes on from there.
 
+## §210 No "Show the supplied original" button (15-Nov-2026)
+
+The owner, 15-Nov-2026: "remove this the button called supplied pdf".
+
+- The document page's "Show the supplied original" button (§71) and the Daily Pest Control register's "Show the original
+  blank format (as supplied)" button are gone, with the pictures they opened. The supplied files stay on disk
+  (frontend/public/source) and in each layout's originalPages, for the tests that compare a form with its paper.
+- The licence page's "Open the original PDF" stays: that PDF is the licence itself, not a picture of a blank format.
+- The old e2e scripts' supplied-original checks (tests/e2e_*_module.py, e2e_qc_formats.py) no longer apply.
+- Proved: frontend/tests/noSuppliedOriginal.test.ts, and in the browser: no such button on any document page.
+
