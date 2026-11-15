@@ -6,7 +6,7 @@ import { ensureSeeded as ensureRecordsSeeded, recordRepository } from "./reposit
 import { RETIRED_DOCUMENT_IDS } from "./seed/documentDefinitions";
 import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
 import { prepareDueRecords } from "../engine/assistantPrepare";
-import { alignRecordsToWorkingCalendar, removeOffScheduleShells } from "../engine/calendarMigration";
+import { alignRecordsToWorkingCalendar, datedByFrequency, removeOffScheduleShells } from "../engine/calendarMigration";
 import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
 import { alignTubeLightDates } from "../engine/tubeLightMigration";
 import { pinSchedulesWrittenOnRev00 } from "../engine/pmSchedule";
@@ -90,6 +90,8 @@ export function bootstrap(): void {
   // A changed schedule's sheets (the owner, 28-Oct-2026: F/QC/11 every Tuesday, F/QC/12 every Sunday, F/HR/18 the 1st and
   // 3rd Monday): the old schedule's untouched sheets from today on go, before the month's generation makes the new ones.
   removeOffScheduleShells();
+  // ...and an open sheet dated by its frequency, not the day New was pressed (REQUIREMENTS §208).
+  datedByFrequency();
   // The calibration certificate's dates (§129) in the sheets still open, each with a line in its history.
   alignCertificateDates();
   // F/QC/17's new starting boxes (30-10-26) in the sheets created before, still open, each with a line in its history.

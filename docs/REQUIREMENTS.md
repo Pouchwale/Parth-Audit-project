@@ -11664,3 +11664,33 @@ have row like this".
   report offered none, one Back on the page; tests/verify_with_test_account.py (11 of 11, the account deleted);
   tests/check_all_documents.py on ten of the opened forms (Word, Excel and print as before).
 
+## §208 A record dated by its frequency, on every document (15-Nov-2026)
+
+The owner, 15-Nov-2026, with F/QC/17's records listed under 31-10-2026, 20-10-2026, 17-10-2026 and 16-10-2026 while its
+frequency was every 24 September: "when user set frequency then the document will come according to screen not by
+default ... if user set every Tuesday then it should be must repeat every tuesday ... this applies to all documents of
+every modules ... make sure user should get the notification on system and even on mail".
+
+- WHY THE DATES WERE WRONG: the schedule's own sheets were made on the frequency's days, but New - on the page, the
+  library, Mitra, the phone - opened or started the period's sheet DATED THE DAY IT WAS PRESSED (F/QC/17's 2026 sheet,
+  started 31-10-2026). The 16-, 17- and 20-10-2026 sheets were made while F/QC/17 was still "as required" (before
+  30-10-2026) and are records of their own.
+- NEW IS DATED BY THE FREQUENCY (engine/recordCrud.ts createRecordForDocument): a scheduled document's sheet is dated its
+  period's own day - every Tuesday's on its Tuesday, a yearly one on its day of the year - moved off a closed day as the
+  schedule's sheets are (engine/holidays.ts nextWorkingDay: 24-09-2026, a Thursday off, is 25-09-2026; the week of
+  9-11-2026's Tuesday, in the Diwali holidays, is 14-11-2026). A daily or as-required record is the day's own, as before.
+  A record started while the document was "as required" is no period's sheet once a frequency is set: New starts the
+  period's own beside it (as §117 did for F/QC/17 alone). A custom frequency of chosen weekdays or days of the month has
+  a period too - from one chosen day to the day before the next - so New between them opens the last chosen day's sheet.
+- AN OPEN SHEET ALREADY DATED THE OLD WAY IS RE-DATED (engine/calendarMigration.ts datedByFrequency, at every start and
+  when a frequency is set by the panel, Master Data or Mitra): Scheduled, Due or In Progress, not under correction, its
+  key a day its frequency names - dated that day, "Dated ... by its frequency (was ...)" in its history. A signed sheet
+  keeps its date; a sheet of a frequency since changed is left as it is. On the local copy: one sheet re-dated, of 411.
+- THE NOTIFICATIONS follow the records' dates (engine/notificationPlan.ts, run by the plant's server every few minutes:
+  874 notifications for 16 people on 15-11-2026), so they now come on the frequency's days. The EMAILS are switched off
+  on the plant's Notifications page ("emails off (switched off on the Notifications page)" in its log): the super admin
+  switches them on there; no phone is registered for the phone's notifications.
+- Proved: frontend/tests/periodSheet.test.ts (a yearly sheet dated its 1 December), frequencyPanel.test.ts (the custom
+  weekdays' period); locally F/MKT/01 set to every Tuesday and New pressed on Sunday 15-11-2026 (the week's sheet,
+  14-11-2026), F/QC/17's New dated 25-09-2026; tests/verify_with_test_account.py 11 of 11, the account deleted.
+

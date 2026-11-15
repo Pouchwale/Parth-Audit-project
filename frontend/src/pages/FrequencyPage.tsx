@@ -7,7 +7,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { FrequencyPicker } from "../components/master/FrequencyPicker";
 import { scheduleLabel } from "../engine/frequencyEngine";
 import { frequencyCounts, frequencyDocsFor, frequencyModules, frequencySearch } from "../engine/frequencyPanel";
-import { removeOffScheduleShells } from "../engine/calendarMigration";
+import { datedByFrequency, removeOffScheduleShells } from "../engine/calendarMigration";
 import { documentTextIn } from "../i18n/documentText";
 import { useT } from "../i18n";
 import { logActivity } from "../utils/activityLog";
@@ -125,6 +125,7 @@ export function FrequencyPage() {
                             masterRepository.update({ scheduleOverrides: overrides });
                             // The schedule's blank shells for days the new frequency does not name go now, as at start-up (§130).
                             removeOffScheduleShells();
+                            datedByFrequency();
                             logActivity(
                               "Frequency changed",
                               `${d.formatNo.startsWith("TO BE") ? "" : `${d.formatNo} `}${d.name}`,

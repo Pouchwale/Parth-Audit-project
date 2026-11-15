@@ -143,7 +143,7 @@ test("New on a yearly document opens the year's sheet, a verified one included, 
   const started = createRecordForDocument(approved, { dateISO: "2026-10-07" });
   assert.equal(started.existed, false);
   assert.equal(started.record.periodKey, "pur-approved-suppliers:2026-12-01", "filed under the year's own key");
-  assert.equal(started.record.dueDate, "2026-10-07", "dated the day it was started");
+  assert.equal(started.record.dueDate, "2026-12-01", "dated by its frequency, the year's 1 December, not the day it was started (§208)");
   assert.equal(createRecordForDocument(approved, { dateISO: "2026-11-15" }).record.id, started.record.id, "November: the same year's sheet");
   generate([approved.id], [2026, 11]);
   assert.equal(filedBetween(approved.id, "2026-01-01", "2026-12-31").length, 1, "December comes, and the schedule makes no second 2026 sheet");

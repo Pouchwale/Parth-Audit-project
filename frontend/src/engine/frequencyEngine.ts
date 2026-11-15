@@ -163,12 +163,22 @@ export function schedulePeriodOf(doc: DocumentDefinition, dateISO: string): Sche
     case "yearly":
       return { from: `${year}-01-01`, to: `${year}-12-31`, scheduled: iso(year, s.month, Math.min(s.dayOfMonth, daysInMonth(year, s.month))) };
     case "custom": {
-      // Every so many days: from one due day to the day before the next. The chosen weekdays or days of the month: each
-      // day its own, as a daily document's (§202).
-      if (s.everyDays === undefined || dateISO < s.from) return null;
-      const every = Math.max(1, Math.floor(s.everyDays));
-      const from = addDays(dateISO, -(daysApart(s.from, dateISO) % every));
-      return { from, to: addDays(from, every - 1), scheduled: from };
+      // Every so many days: from one due day to the day before the next (§202).
+      if (s.everyDays !== undefined) {
+        if (dateISO < s.from) return null;
+        const every = Math.max(1, Math.floor(s.everyDays));
+        const from = addDays(dateISO, -(daysApart(s.from, dateISO) % every));
+        return { from, to: addDays(from, every - 1), scheduled: from };
+      }
+      // The chosen weekdays or days of the month: from one chosen day to the day before the next (REQUIREMENTS §208) -
+      // so New on a day between them opens the last chosen day's sheet, never one of a day the frequency does not name.
+      const named = (iso: string): boolean => dueDatesInMonth(doc, Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1).includes(iso);
+      let from = dateISO;
+      for (let i = 0; i < 62 && !named(from); i++) from = addDays(from, -1);
+      if (!named(from)) return null;
+      let next = addDays(from, 1);
+      for (let i = 0; i < 62 && !named(next); i++) next = addDays(next, 1);
+      return { from, to: addDays(next, -1), scheduled: from };
     }
     default:
       return null;

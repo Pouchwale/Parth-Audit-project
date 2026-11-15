@@ -5,6 +5,9 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { dayInfo, effectiveDueDatesInMonth, isCompanyHoliday, nextWorkingDay } from "./holidays";
 import { compareISO, todayISO } from "../utils/date";
 import { mayWriteRecordsOf } from "./departmentScope";
+import { schedulePeriodOf } from "./frequencyEngine";
+import { appendHistory, makeEntry } from "./recordHistory";
+import { formatDisplayDate } from "../utils/date";
 
 // ALIGN EXISTING RECORDS WITH THE WORKING CALENDAR. Runs at every boot
 // (idempotent). Records created before the calendar existed — or before an
@@ -94,6 +97,33 @@ export function alignRecordsToWorkingCalendar(): CalendarAlignment {
   if (updates.length) recordRepository.upsertMany(updates);
   const removed = removeIds.length ? recordRepository.removeIds(removeIds) : 0;
   return { moved: updates.length - remarked, removed, remarked };
+}
+
+/**
+ * AN OPEN SHEET DATED BY ITS FREQUENCY (REQUIREMENTS §208): a scheduled document's sheet that New started before §208 was
+ * dated the day it was pressed (F/QC/17's 2026 sheet "31-10-2026", its frequency every 24 September). A sheet still
+ * open (Scheduled, Due, In Progress, not under correction) whose key names a day its frequency names is dated that day,
+ * moved off a closed day as the schedule's sheets are, with a line in its history. A signed sheet keeps its date, and a
+ * sheet of a frequency since changed (its key names no day the frequency does) is left as it is. Runs at every start
+ * and when a frequency is set: nothing to do, nothing written.
+ */
+export function datedByFrequency(): number {
+  const master = masterRepository.get();
+  const docs = new Map(documentRepository.getAllUnscoped().map((d) => [d.id, d] as const));
+  const updates: RecordInstance[] = [];
+  for (const r of recordRepository.getAll()) {
+    const doc = docs.get(r.documentId);
+    if (!doc || doc.isReferenceOnly || doc.kind === "training-record") continue;
+    if (doc.schedule.type === "as-required" || doc.schedule.type === "daily") continue;
+    if (!["Scheduled", "Due", "In Progress"].includes(r.status) || r.correction || !mayWriteRecordsOf(doc.id)) continue;
+    const keyed = /^[^:]*:(\d{4}-\d{2}-\d{2})$/.exec(r.periodKey ?? "")?.[1];
+    if (!keyed || schedulePeriodOf(doc, keyed)?.scheduled !== keyed) continue;
+    const due = nextWorkingDay(keyed, master);
+    if (r.dueDate === due) continue;
+    updates.push(appendHistory({ ...r, dueDate: due }, makeEntry("edited", "System", { note: `Dated ${formatDisplayDate(due)} by its frequency (was ${formatDisplayDate(r.dueDate)}).` })));
+  }
+  for (const u of updates) recordRepository.upsert(u);
+  return updates.length;
 }
 
 /**

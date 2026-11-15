@@ -59,7 +59,7 @@ import { SUPPLIER_FORM_KEYS, supplierFormFills } from "./supplierFormImport";
 import { frequencyDocsFor } from "./frequencyPanel";
 import { frequencyFromWords, kindOf } from "./frequencyChoice";
 import { scheduleLabel } from "./frequencyEngine";
-import { removeOffScheduleShells } from "./calendarMigration";
+import { datedByFrequency, removeOffScheduleShells } from "./calendarMigration";
 import { isBossSignedIn } from "./departmentScope";
 import { logActivity } from "../utils/activityLog";
 import { blankLogRow } from "./recordDefaults";
@@ -1430,6 +1430,7 @@ function writeFrequency(doc: DocumentDefinition, next: { schedule: DocumentDefin
   else delete overrides[doc.id];
   masterRepository.update({ scheduleOverrides: overrides });
   removeOffScheduleShells();
+  datedByFrequency();
   logActivity("Frequency changed", formatAndName(doc), next ? `${scheduleLabel({ ...doc, schedule: next.schedule })}, from ${formatDisplayDate(next.since)}` : "back to the issued frequency", doc.id);
 }
 

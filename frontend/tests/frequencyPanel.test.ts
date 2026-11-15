@@ -101,7 +101,8 @@ describe("a custom frequency, and the Frequency panel for everybody's own docume
     assert.deepEqual(dueDatesInMonth(monThu, 2026, 10), ["2026-11-02", "2026-11-05", "2026-11-09", "2026-11-12", "2026-11-16", "2026-11-19", "2026-11-23", "2026-11-26", "2026-11-30"]);
     assert.deepEqual(dueDatesInMonth(days, 2026, 1), ["2026-02-05", "2026-02-15"], "February has no 31st");
     assert.deepEqual(dueDatesInMonth(days, 2026, 0), ["2026-01-05", "2026-01-15", "2026-01-31"]);
-    assert.equal(schedulePeriodOf(monThu, "2026-11-19"), null, "each day its own");
+    assert.deepEqual(schedulePeriodOf(monThu, "2026-11-19"), { from: "2026-11-19", to: "2026-11-22", scheduled: "2026-11-19" }, "from one chosen day to the day before the next (§208)");
+    assert.deepEqual(schedulePeriodOf(monThu, "2026-11-21"), { from: "2026-11-19", to: "2026-11-22", scheduled: "2026-11-19" }, "a Saturday is Thursday's");
   });
 
   it("is labelled in its own words, has a period of its own for the reminders, and is told the working day before", () => {

@@ -9,6 +9,7 @@ import { startRegisterFromMaster, supplierLinkFor } from "./purchaseMasterLinks"
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
+import { nextWorkingDay } from "./holidays";
 import { periodKeyFor } from "./recordGenerator";
 import { historyOf, logRecordStarted } from "./recordHistory";
 import { readJSON, writeJSON } from "../data/storageAdapter";
@@ -114,6 +115,9 @@ export function recordCoveringDate(doc: DocumentDefinition, dateISO: string, isD
   const sinceOnly = isRulerVerification(doc.id) && doc.scheduleSince ? doc.scheduleSince : null;
   const inPeriod = records.filter((r) => {
     if (sinceOnly && compareISO(String(r.createdAt ?? "").slice(0, 10), sinceOnly) < 0) return false;
+    // A record started while the document was "as required" (its key "<doc>:<date>:<p…>") is no period's sheet once a
+    // frequency is set (REQUIREMENTS §208): New starts the period's own, dated by the frequency, beside it.
+    if (/^[^:]*:\d{4}-\d{2}-\d{2}:/.test(r.periodKey ?? "")) return false;
     const filed = filedFor(r);
     return compareISO(filed, period.from) >= 0 && compareISO(filed, period.to) <= 0;
   });
@@ -145,20 +149,24 @@ export function createRecordForDocument(
   doc: DocumentDefinition,
   opts: { dateISO?: string; isDemo?: boolean } = {}
 ): { record: RecordInstance; existed: boolean } {
-  const dueDate = opts.dateISO ?? todayISO();
+  const asked = opts.dateISO ?? todayISO();
   const isDemo = !!opts.isDemo;
   // Only a SCHEDULED document has one sheet per period. An as-required one —
   // a complaint, an inspection report, an acknowledgement — can be started as
   // often as things happen, two on one day included; returning the morning's
   // complaint for the afternoon's would file the second under the first.
   const asRequired = doc.schedule.type === "as-required";
-  const already = recordCoveringDate(doc, dueDate, isDemo);
+  const already = recordCoveringDate(doc, asked, isDemo);
   if (already) return { record: startedIfUntouched(doc, already), existed: true };
   // A period with no sheet yet (its date came before the system went live, or
   // its month has not been made yet): the sheet started now is the period's
   // own, under the schedule's key, so the schedule never makes a second one
-  // beside it. It is dated the day it was started, as a hand-made record always was.
-  const period = asRequired ? null : periodFor(doc, dueDate);
+  // beside it. DATED BY THE FREQUENCY (REQUIREMENTS §208; the owner, 15-Nov-2026, of F/QC/17 set to every 24 September
+  // and its sheet listed under 31-10-2026: "once user set frequency it will appear according to that way on the
+  // screen"): the period's own day - every Tuesday's sheet on its Tuesday - moved off a closed day as the schedule's
+  // sheets are (engine/holidays.ts), not the day New was pressed. A daily or as-required record is the day's own.
+  const period = asRequired ? null : periodFor(doc, asked);
+  const dueDate = period ? nextWorkingDay(period.scheduled, masterRepository.get()) : asked;
   const periodKey = periodKeyFor(doc, period ? period.scheduled : dueDate);
   const now = new Date().toISOString();
   const record: RecordInstance = {
