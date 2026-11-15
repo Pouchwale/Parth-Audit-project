@@ -11686,6 +11686,9 @@ every modules ... make sure user should get the notification on system and even 
   when a frequency is set by the panel, Master Data or Mitra): Scheduled, Due or In Progress, not under correction, its
   key a day its frequency names - dated that day, "Dated ... by its frequency (was ...)" in its history. A signed sheet
   keeps its date; a sheet of a frequency since changed is left as it is. On the local copy: one sheet re-dated, of 411.
+  A SHEET REOPENED FOR CORRECTION IS RE-DATED TOO (the owner, the same day, with the live page still showing F/QC/17's
+  2026 sheet under 31-10-2026: it had been verified and reopened with Edit, which the first rule passed over).
+  Proved: frontend/tests/datedByFrequency.test.ts (the plant's own case).
 - THE NOTIFICATIONS follow the records' dates (engine/notificationPlan.ts, run by the plant's server every few minutes:
   874 notifications for 16 people on 15-11-2026), so they now come on the frequency's days. The EMAILS are switched off
   on the plant's Notifications page ("emails off (switched off on the Notifications page)" in its log): the super admin

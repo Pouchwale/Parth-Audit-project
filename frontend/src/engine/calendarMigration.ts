@@ -102,7 +102,8 @@ export function alignRecordsToWorkingCalendar(): CalendarAlignment {
 /**
  * AN OPEN SHEET DATED BY ITS FREQUENCY (REQUIREMENTS §208): a scheduled document's sheet that New started before §208 was
  * dated the day it was pressed (F/QC/17's 2026 sheet "31-10-2026", its frequency every 24 September). A sheet still
- * open (Scheduled, Due, In Progress, not under correction) whose key names a day its frequency names is dated that day,
+ * open (Scheduled, Due, In Progress - a sheet reopened for correction too, as the plant's F/QC/17 2026 sheet was on
+ * 15-Nov-2026) whose key names a day its frequency names is dated that day,
  * moved off a closed day as the schedule's sheets are, with a line in its history. A signed sheet keeps its date, and a
  * sheet of a frequency since changed (its key names no day the frequency does) is left as it is. Runs at every start
  * and when a frequency is set: nothing to do, nothing written.
@@ -115,7 +116,7 @@ export function datedByFrequency(): number {
     const doc = docs.get(r.documentId);
     if (!doc || doc.isReferenceOnly || doc.kind === "training-record") continue;
     if (doc.schedule.type === "as-required" || doc.schedule.type === "daily") continue;
-    if (!["Scheduled", "Due", "In Progress"].includes(r.status) || r.correction || !mayWriteRecordsOf(doc.id)) continue;
+    if (!["Scheduled", "Due", "In Progress"].includes(r.status) || !mayWriteRecordsOf(doc.id)) continue;
     const keyed = /^[^:]*:(\d{4}-\d{2}-\d{2})$/.exec(r.periodKey ?? "")?.[1];
     if (!keyed || schedulePeriodOf(doc, keyed)?.scheduled !== keyed) continue;
     const due = nextWorkingDay(keyed, master);
