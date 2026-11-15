@@ -293,8 +293,8 @@ test("F/QC/17: a sample verification is today's, never the page of 2024; a Live 
   assert.deepEqual(
     Object.fromEntries(Object.entries(known.header).filter(([, v]) => String(v ?? "") !== "")),
     // The certificates' dates the owner gave, the instruments', not observed: the master's 21-09-2026 and 20-09-2027
-    // (28-Oct-2026), the ruler's 23-09-2026 and 22-09-2027 (27-Oct-2026).
-    { masterMake: "Kristeel", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", masterCalibrationDate: "2026-09-21", masterCalibrationDueDate: "2027-09-20", calibrationDate: "2026-09-23", calibrationDueDate: "2027-09-22", acceptableTolerance: "+ / - 1 mm", masterCalibrationReportNo: "CAL/LPI/GP-26/27", range: "0-600 mm", leastCount: "1 mm" }
+    // (28-Oct-2026), the ruler's 26-09-2026 and 25-09-2027 (15-Nov-2026).
+    { masterMake: "Kristeel", masterSerialNo: "QC-44", masterRange: "0 - 600 mm", masterLeastCount: "1 mm", masterCalibrationDate: "2026-09-21", masterCalibrationDueDate: "2027-09-20", calibrationDate: "2026-09-26", calibrationDueDate: "2027-09-25", acceptableTolerance: "+ / - 1 mm", masterCalibrationReportNo: "CAL/LPI/GP-26/27", range: "0-600 mm", leastCount: "1 mm" }
   );
   assert.ok(known.rows.every((r) => (r.observed === null || r.observed === "") && r.status === "" && r.performedBy === "" && r.difference === ""));
 });

@@ -8,7 +8,7 @@
 // held to it:
 //   * a new F/QC/12 and a new F/QC/11 start with Calibration Expiry 20-09-2027 (F/QC/11's I. Calibration Date / Due Date
 //     row is taken away); a new F/QC/17 of either scale with the master's Calibration date 21-09-2026 and due date
-//     20-09-2027 and the ruler's 23-09-2026 and 22-09-2027 - every one an editable date box, nothing observed;
+//     20-09-2027 and the ruler's 26-09-2026 and 25-09-2027 (15-Nov-2026) - every one an editable date box, nothing observed;
 //   * a sheet keeps the later of the last sheet's date and these: the pages of 2024 on file never bring theirs back, a
 //     later certificate written carries on, an earlier one written is not carried over the certificate's;
 //   * the 600 mm page reads GP-3/MS/36, 0-600mm, 100 to 500 mm and 490 mm; a sheet written on a former page's 50 to
@@ -54,7 +54,7 @@ const box = (id: string, key: string) => layoutOf(id).headerFields.find((f) => f
 
 test("the dates the owner gave, as the formats hold them", () => {
   assert.deepEqual(CALIBRATION_CERTIFICATE, { date: "2026-09-21", due: "2027-09-20" }, "F/QC/11 and F/QC/12: 21-09-2026, due 20-09-2027");
-  assert.deepEqual(RULER_CERTIFICATE, { date: "2026-09-23", due: "2027-09-22" }, "F/QC/17's ruler: 23-09-2026, due 22-09-2027");
+  assert.deepEqual(RULER_CERTIFICATE, { date: "2026-09-26", due: "2027-09-25" }, "F/QC/17's ruler: 26-09-2026, due 25-09-2027 (the owner, 15-Nov-2026)");
   const boxes: [string, string, string][] = [
     [SCALE, "calibrationExpiry", "2027-09-20"],
     [GSM, "calibrationExpiry", "2027-09-20"],
@@ -64,10 +64,10 @@ test("the dates the owner gave, as the formats hold them", () => {
     [RULER_600_ID, "masterCalibrationDueDate", "2027-09-20"],
     [RULER_300_ID, "masterCalibrationDate", "2026-09-21"],
     [RULER_300_ID, "masterCalibrationDueDate", "2027-09-20"],
-    [RULER_600_ID, "calibrationDate", "2026-09-23"],
-    [RULER_600_ID, "calibrationDueDate", "2027-09-22"],
-    [RULER_300_ID, "calibrationDate", "2026-09-23"],
-    [RULER_300_ID, "calibrationDueDate", "2027-09-22"],
+    [RULER_600_ID, "calibrationDate", "2026-09-26"],
+    [RULER_600_ID, "calibrationDueDate", "2027-09-25"],
+    [RULER_300_ID, "calibrationDate", "2026-09-26"],
+    [RULER_300_ID, "calibrationDueDate", "2027-09-25"],
   ];
   for (const [id, key, date] of boxes) {
     const f = box(id, key);
@@ -93,7 +93,7 @@ test("a new sheet with nothing before it starts with them: F/QC/12, F/QC/11 and 
   assert.deepEqual([gsm.header.calibrationDate, gsm.header.dueDate], ["2026-09-21", "2027-09-20"], "the row back (§147)");
   for (const id of [RULER_600_ID, RULER_300_ID]) {
     const ruler = data(createRecordForDocument(doc(id), { dateISO: "2026-10-28" }).record);
-    assert.deepEqual([ruler.header.calibrationDate, ruler.header.calibrationDueDate], ["2026-09-23", "2027-09-22"], id);
+    assert.deepEqual([ruler.header.calibrationDate, ruler.header.calibrationDueDate], ["2026-09-26", "2027-09-25"], id);
     assert.deepEqual([ruler.header.masterCalibrationDate, ruler.header.masterCalibrationDueDate], ["2026-09-21", "2027-09-20"], `${id}: the master scale's certificate`);
     assert.equal(ruler.header.masterCalibrationReportNo, "CAL/LPI/GP-26/27", `${id}: its report number's start`);
   }

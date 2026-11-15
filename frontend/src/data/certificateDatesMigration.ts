@@ -21,7 +21,7 @@ import { mayWriteRecordsOf } from "../engine/departmentScope";
 import { columnKind } from "../engine/observations";
 
 /** What each changed sheet's history says. */
-export const CERTIFICATE_NOTE = "The calibration certificates' dates the owner gave (27 and 28-Oct-2026) written in where the sheet held an earlier date (REQUIREMENTS §129, §132)";
+export const CERTIFICATE_NOTE = "The calibration certificates' dates the owner gave (27 and 28-Oct-2026; F/QC/17's ruler 15-Nov-2026) written in where the sheet held an earlier date (REQUIREMENTS §129, §132, §215)";
 /** ...and when a box the sheet was made without (F/QC/11's row, taken away 28 to 30-Oct-2026) holds them now. */
 export const ROW_BACK_NOTE = "The certificate's dates written in the I. Calibration Date / Due Date row, which this sheet was made without while the row was taken away (28 to 30-Oct-2026; back on the owner's word, REQUIREMENTS §147)";
 /** ...and when its lines are the page's own again. */

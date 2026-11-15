@@ -113,8 +113,8 @@ test("a new F/QC/17 is written as the previous one was: every box and line carri
   // Make and Serial number are written by hand on every sheet; Range and Least count carry what was written (the owner, 30-10-2026).
   assert.deepEqual([h.make, h.serialNo, h.range, h.leastCount], ["", "", "1 to 300", "0.001"]);
   assert.equal(h.masterMake, "Kristeel", "the old spelling gives way to the new");
-  assert.equal(h.calibrationDate, "2026-09-23", "the ruler's calibration date: the owner's 23-09-2026 (27-Oct-2026), the later of the last sheet's and that");
-  assert.equal(h.calibrationDueDate, "2027-09-22", "carried, for the person to change");
+  assert.equal(h.calibrationDate, "2026-09-26", "the ruler's calibration date: the owner's 26-09-2026 (15-Nov-2026), the later of the last sheet's and that");
+  assert.equal(h.calibrationDueDate, "2027-09-25", "the later of the last sheet's and the owner's 25-09-2027, for the person to change");
   assert.equal(h.acceptableTolerance, "+ / - 1 mm", "the paper's printed box stays the paper's");
   assert.deepEqual(data(next).rows.map((r) => r.masterReading), ["100 mm", "200 mm", "300 mm", "400 mm", "500 mm", "600 mm"], "the 600 mm master's own readings, carried");
   assert.deepEqual(data(next).rows.map((r) => r.observed), [100, 200, 300, 400, 500, 600]);

@@ -11774,3 +11774,16 @@ are bold and fix the others format line also this Pest control service report".
   reads the widths). The sheet's size and its A4 fit are unchanged.
 - Proved: frontend/tests/serviceReportBoldLines.test.ts, and printed to PDF: one line weight throughout.
 
+## §215 F/QC/17's ruler calibrated 26-09-2026, due 25-09-2027 (15-Nov-2026)
+
+The owner, 15-Nov-2026, with the "Measuring Scale (Ruler) under calibration details" table: "add this date in Calibration
+date which is 26/09/2026 and Calibration due date is 25/09/2027 in qc-17 for both 300mm and 600 mm".
+
+- Every new sheet of both scales starts with Calibration date 26-09-2026 and Calibration due date 25-09-2027
+  (RULER_CERTIFICATE), editable; a sheet keeps the later of the last sheet's dates and these (autoFill.newest, §129).
+- The plant's records, 15-Nov-2026: the 600 mm 2026 sheet held 23-09-2026 / 22-09-2027 and was raised at start-up by the
+  certificate dates' step (data/certificateDatesMigration.ts, a line in its history). The 300 mm 2026 sheet held
+  29-09-2026 / 28-09-2027, later dates that step never lowers, and was typed over on the record as the owner said, in
+  the Super Admin's name. The 300 mm sheet of 17-10-2026 already held the new dates. All three checked on the server.
+- Proved: frontend/tests/qcCertificateDates.test.ts, qcRuler300.test.ts, qcCarryForward.test.ts, qcFormats14Oct.test.ts.
+

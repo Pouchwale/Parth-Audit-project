@@ -202,9 +202,9 @@ test("both layouts come from one definition and differ only in the two starting 
     assert.ok(l.headerFields.every((f) => f.printed === undefined && !f.computed), `${id}: every box is the person's to write over`);
     assert.ok(l.columns.filter((c) => c.key !== "difference").every((c) => !c.fixed && !c.computed), `${id}: every cell but the worked-out Difference is editable`);
     assert.equal(l.headerFields.find((f) => f.key === "acceptableTolerance")?.autoFill?.default, "+ / - 1 mm");
-    // The ruler's certificate dates the owner gave (27-Oct-2026): 23-09-2026 and 22-09-2027, editable, the later date kept.
-    assert.deepEqual(l.headerFields.find((f) => f.key === "calibrationDate")?.autoFill, { default: "2026-09-23", newest: true }, id);
-    assert.deepEqual(l.headerFields.find((f) => f.key === "calibrationDueDate")?.autoFill, { default: "2027-09-22", newest: true }, id);
+    // The ruler's certificate dates the owner gave (15-Nov-2026): 26-09-2026 and 25-09-2027, editable, the later date kept.
+    assert.deepEqual(l.headerFields.find((f) => f.key === "calibrationDate")?.autoFill, { default: "2026-09-26", newest: true }, id);
+    assert.deepEqual(l.headerFields.find((f) => f.key === "calibrationDueDate")?.autoFill, { default: "2027-09-25", newest: true }, id);
     // The master scale's the owner gave (28-Oct-2026): 21-09-2026 and 20-09-2027, the same.
     assert.deepEqual(l.headerFields.find((f) => f.key === "masterCalibrationDate")?.autoFill, { default: "2026-09-21", newest: true }, id);
     assert.deepEqual(l.headerFields.find((f) => f.key === "masterCalibrationDueDate")?.autoFill, { default: "2027-09-20", newest: true }, id);
@@ -254,8 +254,8 @@ test("a new record starts as its paper's blank with its standards: the master's 
     leastCount: "1 mm",
     masterCalibrationDate: "2026-09-21",
     masterCalibrationDueDate: "2027-09-20",
-    calibrationDate: "2026-09-23",
-    calibrationDueDate: "2027-09-22",
+    calibrationDate: "2026-09-26",
+    calibrationDueDate: "2027-09-25",
     acceptableTolerance: "+ / - 1 mm",
   };
   const written = (d: LogSheetData) => Object.fromEntries(Object.entries(d.header).filter(([, v]) => String(v ?? "") !== ""));
@@ -296,7 +296,7 @@ test("a new record is written as the last record OF ITS OWN document: the two ne
   assert.equal(data(next300).header.masterCalibrationReportNo, "CAL/300");
   assert.equal(data(next300).header.serialNo, "", "the ruler's first four boxes are written fresh on every sheet (30-10-2026)");
   assert.equal(data(next300).header.make, "");
-  assert.equal(data(next300).header.calibrationDate, "2026-09-23", "the ruler's certificate date (27-Oct-2026), not the day");
+  assert.equal(data(next300).header.calibrationDate, "2026-09-26", "the ruler's certificate date (15-Nov-2026), not the day");
   assert.deepEqual(data(next300).rows.map((r) => r.observed), [50, 101, 150, 200, 250, 290], "the 300 mm record's own readings");
   assert.equal(data(next300).rows[1].difference, "1.0", "worked out again");
   assert.equal(data(next300).rows[0].performedBy, "", "this year's tester, never last year's (the owner, 31-Oct-2026)");

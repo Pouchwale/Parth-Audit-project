@@ -29,16 +29,17 @@ import type { LogHeaderField, LogSheetLayout } from "../../types";
 // 600 mm- Copy.pdf"): the scale under calibration is Ajanta GP-3/MS/36, 0-600mm, and its six points are 100, 200,
 // 300, 400, 500 and 490 mm - the last exactly as the page prints it, though it stands beside an observed 590 and a
 // Difference of 0.0 (the owner chose it, 28-Oct-2026: "490 mm, exactly as printed"; 590 from 27-Oct until then). The
-// ruler's Calibration date and Calibration due date start every new sheet of both scales as 23-09-26 and 22-09-27
+// ruler's Calibration date and Calibration due date start every new sheet of both scales as 26-09-26 and 25-09-27 (15-Nov-2026; 23-09-26 and 22-09-27 before)
 // (RULER_CERTIFICATE), the master scale's as 21-09-26 and 20-09-27 (MASTER_CERTIFICATE), each editable.
 
 /**
  * THE RULER'S CALIBRATION, ON EVERY NEW SHEET (the owner, 27-Oct-2026: "measuring scale (ruler) under calibration details
  * are two date called calibration date and calibration due date which is 23-9-26 and calibration due date is 22-9-27"):
  * editable, and a sheet keeps the later of the last sheet's date and these (autoFill.newest). Until then the Calibration
- * date was the day the record is for.
+ * date was the day the record is for. The owner, 15-Nov-2026 (REQUIREMENTS §215): "add this date in Calibration date which
+ * is 26/09/2026 and Calibration due date is 25/09/2027 in qc-17 for both 300mm and 600 mm".
  */
-export const RULER_CERTIFICATE = { date: "2026-09-23", due: "2027-09-22" } as const;
+export const RULER_CERTIFICATE = { date: "2026-09-26", due: "2027-09-25" } as const;
 
 /**
  * THE MASTER SCALE'S CERTIFICATE, ON EVERY NEW SHEET (the owner, 28-Oct-2026, the upper table "Master Measuring Scale
@@ -209,7 +210,7 @@ function rulerBoxes(scale: RulerScale): LogHeaderField[] {
     // 0-600 mm or 0-300 mm, and 1 mm, editable (the owner, 30-10-26); the 600 mm page's former "0-600mm" gives way to it.
     { key: "range", label: "Range", type: "text", autoFill: { default: rulerRangeOf(scale), ...(scale.range !== rulerRangeOf(scale) ? { formerDefaults: [scale.range] } : {}) } },
     { key: "leastCount", label: "Least count", type: "text", autoFill: { default: RULER_LEAST_COUNT } },
-    // 23-09-26 and 22-09-27 on every new sheet, editable (RULER_CERTIFICATE, the owner, 27-Oct-2026).
+    // 26-09-26 and 25-09-27 on every new sheet, editable (RULER_CERTIFICATE, the owner, 15-Nov-2026; 23-09-26 and 22-09-27 from 27-Oct-2026).
     { key: "calibrationDate", label: "Calibration date", type: "date", required: true, autoFill: { default: RULER_CERTIFICATE.date, newest: true } },
     { key: "calibrationDueDate", label: "Calibration due date", type: "date", required: true, autoFill: { default: RULER_CERTIFICATE.due, newest: true } },
     // "Accetable" is the paper's own spelling; the paper's "+ / - 1 mm" starts the box and judges every Difference
