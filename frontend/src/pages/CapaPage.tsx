@@ -53,7 +53,7 @@ const GAP_DOC_ID = "gap-inspection";
 export function CapaHomePage() {
   const t = useT();
   const { mode, version } = useAppStore();
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const isDemo = mode === "demo";
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stats = useMemo(() => {
@@ -161,7 +161,7 @@ function progressOf(data: ComplaintChecklistData): { answered: number; total: nu
 
 export function ComplaintListPage() {
   const { mode, bump } = useAppStore();
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const isDemo = mode === "demo";
   const records = recordRepository.query({ documentId: COMPLAINT_DOC_ID, isDemo }) as RecordInstance<ComplaintChecklistData>[];
   const doc = documentRepository.getById(COMPLAINT_DOC_ID);
@@ -282,7 +282,7 @@ export function approvalSignoff(was: ChecklistSignoff, approver: string, today: 
 
 export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
   const { currentUser, bump } = useAppStore();
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const [record, setRecord] = useState<RecordInstance<ComplaintChecklistData> | undefined>(
     () => recordRepository.getById(recordId) as RecordInstance<ComplaintChecklistData> | undefined
   );
@@ -461,7 +461,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
           remove: (reason: string) => {
             deleteRecordWithTrail(record, currentUser, reason);
             bump();
-            navigate("/gap/external");
+            // Deleted: back where the person was before the record (REQUIREMENTS §209), its list only when there is nothing behind.
+            back("/gap/external");
           },
           print: () => printDocument(),
           checklist: {
@@ -829,7 +830,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
         onDelete={(reason) => {
           deleteRecordWithTrail(record, currentUser, reason);
           bump();
-          navigate("/gap/external");
+          // Deleted: back where the person was before the record (REQUIREMENTS §209), its list only when there is nothing behind.
+          back("/gap/external");
         }}
       />
     </div>

@@ -11697,3 +11697,15 @@ every modules ... make sure user should get the notification on system and even 
   weekdays' period); locally F/MKT/01 set to every Tuesday and New pressed on Sunday 15-11-2026 (the week's sheet,
   14-11-2026), F/QC/17's New dated 25-09-2026; tests/verify_with_test_account.py 11 of 11, the account deleted.
 
+## §209 After a record is deleted, back where the person was (15-Nov-2026)
+
+The owner, 15-Nov-2026: "when user delete any document in any module and when click on back button so it should be back
+where he is it previous and not on record calendar".
+
+- A record deleted - on its page, on the complaint checklist, the internal CAPA or the training record, or by Mitra
+  ("delete this record", which presses the page's own Delete) - takes the person back to the page they came from (the
+  router's back, store/router.tsx), the document's records page or its list only when the record was opened straight
+  from its address. Never the Record Calendar. The deleted record's page is not left behind them to come back to.
+- Proved: frontend/tests/deleteGoesBack.test.ts (by source), and locally: a record opened from its document's page,
+  deleted, lands back on that page, and the top bar's Back goes on from there.
+

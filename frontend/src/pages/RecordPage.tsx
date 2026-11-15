@@ -89,7 +89,7 @@ const changedElsewhere = (now: RecordInstance, typingSetAside: boolean): string 
 const DELETED_ELSEWHERE = "This record was deleted while it was open here. The deletion is recorded in Document Library → Records deleted.";
 
 export function RecordPage({ recordId }: { recordId?: string }) {
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const { currentUser, bump, lang, version } = useAppStore();
   const t = useT();
   const [record, setRecord] = useState<RecordInstance | undefined>(() => (recordId ? recordRepository.getById(recordId) : undefined));
@@ -543,7 +543,8 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     removedHere.current = true;
     deleteRecordWithTrail(stored, currentUser, reason);
     bump();
-    navigate("/calendar");
+    // Deleted: back where the person was before the record (REQUIREMENTS §209), its list only when there is nothing behind.
+    back(`/document/${stored.documentId}`);
   };
 
   // "Fill again" replaces the form with a fresh fill from the assistant; the

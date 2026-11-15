@@ -46,7 +46,7 @@ const TRAINING_DOC_ID = "training-record";
 export function TrainingListPage() {
   const t = useT();
   const { mode, bump } = useAppStore();
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const isDemo = mode === "demo";
   const records = recordRepository.query({ documentId: TRAINING_DOC_ID, isDemo }) as RecordInstance<TrainingRecordData>[];
   const doc = documentRepository.getById(TRAINING_DOC_ID);
@@ -143,7 +143,7 @@ export function TrainingListPage() {
 
 export function TrainingRecordPage({ recordId }: { recordId: string }) {
   const { currentUser, bump } = useAppStore();
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const t = useT();
   const [record, setRecord] = useState<RecordInstance<TrainingRecordData> | undefined>(
     () => recordRepository.getById(recordId) as RecordInstance<TrainingRecordData> | undefined
@@ -285,7 +285,8 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
   const handleDelete = (reason: string) => {
     deleteRecordWithTrail(record, currentUser, reason);
     bump();
-    navigate("/training");
+    // Deleted: back where the person was before the record (REQUIREMENTS §209), its list only when there is nothing behind.
+    back("/training");
   };
 
   actions.current = { submit: handleSubmit, verify: handleVerify, cancelCorrection: handleCancelCorrection, remove: handleDelete };

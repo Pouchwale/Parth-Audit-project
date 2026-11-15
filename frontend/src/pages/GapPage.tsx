@@ -41,7 +41,7 @@ const GAP_DOC_ID = "gap-inspection";
 
 export function GapListPage() {
   const { mode, bump } = useAppStore();
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const isDemo = mode === "demo";
   refreshGapFindingStatuses(isDemo);
   const records = recordRepository.query({ documentId: GAP_DOC_ID, isDemo }) as RecordInstance<GapInspectionData>[];
@@ -229,7 +229,7 @@ export function GapListPage() {
 
 export function GapRecordPage({ recordId }: { recordId: string }) {
   const { currentUser, bump } = useAppStore();
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const t = useT();
   const [record, setRecord] = useState<RecordInstance<GapInspectionData> | undefined>(
     () => recordRepository.getById(recordId) as RecordInstance<GapInspectionData> | undefined
@@ -409,7 +409,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   const handleDelete = (reason: string) => {
     deleteRecordWithTrail(current() ?? record, currentUser, reason);
     bump();
-    navigate("/gap/internal");
+    // Deleted: back where the person was before the record (REQUIREMENTS §209), its list only when there is nothing behind.
+    back("/gap/internal");
   };
 
   actions.current = { submit: handleSubmit, verify: handleVerify, cancelCorrection: handleCancelCorrection, remove: handleDelete };
