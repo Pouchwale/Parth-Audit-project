@@ -11763,3 +11763,14 @@ documents so they can change any date and anything"; asked, even after a record 
 - A date a person typed over is never put back by the frequency at start-up (§208's datedByFrequency skips it).
 - Proved: frontend/tests/remarksAndRedate.test.ts, and in the browser as the super admin on a submitted F/QC/17 record.
 
+## §214 Every line of the Pest Control Service Report bold (15-Nov-2026)
+
+The owner, 15-Nov-2026, with the rodent report's thin area lines beside its bold frame: "make sure whole format is line
+are bold and fix the others format line also this Pest control service report".
+
+- The three service reports (rodent, general, fly) are one sheet (table.svc-paper). Every rule it draws is now 2px: the
+  frame, the bands, the area lines, the merged cells and the signature lines. Before, the frame was 2px and the cells 1px.
+- The original-style print is bold throughout, and the Excel download draws every line medium (utils/documentExport.ts
+  reads the widths). The sheet's size and its A4 fit are unchanged.
+- Proved: frontend/tests/serviceReportBoldLines.test.ts, and printed to PDF: one line weight throughout.
+
