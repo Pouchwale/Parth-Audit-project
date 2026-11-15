@@ -21,6 +21,8 @@ import {
   activitySummary,
   listAllUsers,
   deleteTestAccounts,
+  deleteTestAccount,
+  isTestSignIn,
   listUsers,
   markSignedIn,
   openDatabase,
@@ -384,6 +386,9 @@ app.get("/api/health", (_req: Request, res: Response): void => {
   res.json({ ok: true, at: new Date().toISOString() });
 });
 
+/** A test copy's server (npm run dev:local, the test runs: ALLOW_SAMPLE_FILL=1) - its database thrown away after the run - not the plant's (REQUIREMENTS §206). */
+const TEST_SERVER = process.env.ALLOW_SAMPLE_FILL === "1";
+
 app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> => {
   // ACCOUNTS ARE MADE BY THE ADMINISTRATOR (REQUIREMENTS §66). Refused here,
   // whatever is sent and whoever sends it — an empty users table included, so a
@@ -391,6 +396,10 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   if (!ALLOW_SIGNUP) {
     logActivity(req, null, "Sign-up refused", typeof (req.body ?? {}).email === "string" ? String((req.body ?? {}).email).slice(0, MAX_EMAIL_LENGTH) : "", "Accounts are created by the administrator (ALLOW_SIGNUP is not set)");
     res.status(403).json({ error: "Accounts are created by the administrator. Ask them for yours." });
+    return;
+  }
+  if (typeof (req.body ?? {}).email === "string" && isTestSignIn(String(req.body.email)) && !TEST_SERVER) {
+    res.status(403).json({ error: "Test accounts (name@example.com) are made on a test copy only, never on the plant.", code: "test-account-on-plant" });
     return;
   }
   if (isSignupThrottled(req.ip ?? "unknown")) {
@@ -562,6 +571,12 @@ app.post("/api/users", requireAdmin, async (req: Request, res: Response): Promis
   // Normalised exactly as signing in normalises it, so the same person cannot be
   // given two accounts by typing their address in different case.
   const normalizedEmail = email.trim().toLowerCase();
+  // NO TEST ACCOUNT ON THE PLANT (REQUIREMENTS §206): name@example.com is made on a test copy only (ALLOW_SAMPLE_FILL=1 -
+  // npm run dev:local, the test runs), never on the plant's server.
+  if (isTestSignIn(normalizedEmail) && !TEST_SERVER) {
+    res.status(403).json({ error: "Test accounts (name@example.com) are made on a test copy only, never on the plant.", code: "test-account-on-plant" });
+    return;
+  }
   const holder = await getUserByEmail(normalizedEmail);
   if (holder) {
     // A removed account keeps its sign-in (REQUIREMENTS §110): it is brought back rather than made twice.
@@ -588,6 +603,21 @@ app.post("/api/users", requireAdmin, async (req: Request, res: Response): Promis
   // The password is never written down — not here, not in the log.
   logActivity(req, (req as AuthedRequest).user, "Account created by the administrator", `${made.name} <${made.email}>`, made.departments.length ? `Departments: ${made.departments.join(", ")}` : "Every department");
   res.status(201).json({ user: { ...made, createdAt: row.created_at, mustChangePassword: false, active: true, lastSignIn: null } });
+});
+
+// A TEST ACCOUNT DELETED WHEN ITS CHECK IS DONE (REQUIREMENTS §206): gone altogether - not switched off as Remove does -
+// with its sessions and its own settings; only a test sign-in (name@example.com), on any server, so one could never stay.
+app.post("/api/users/:id/delete-test-account", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const outcome = await deleteTestAccount(String(req.params.id ?? ""));
+  if (outcome === "deleted") {
+    logActivity(req, (req as AuthedRequest).user, "Test account deleted", String(req.params.id ?? ""), "Deleted when its check was done (REQUIREMENTS §206)");
+    res.json({ deleted: true });
+    return;
+  }
+  const status = outcome === "not-found" ? 404 : 409;
+  const error =
+    outcome === "not-found" ? "There is no such account." : outcome === "not-a-test-account" ? "Only a test account (name@example.com) is deleted this way." : "The last super admin is never deleted.";
+  res.status(status).json({ error, code: outcome });
 });
 
 // A PASSWORD THE PERSON HAS FORGOTTEN. The administrator gives them another
@@ -1647,8 +1677,8 @@ await settleFirstPasswords({ accounts: listAllUsers, verify: verifyPassword, set
 
 // NO TEST ACCOUNT IN THE PLANT'S DATABASE (REQUIREMENTS §141, the owner, 29-Oct-2026): the early test runs' accounts
 // (name@example.com) are deleted at start-up. A test server (ALLOW_SAMPLE_FILL=1, scripts/run-e2e.ts) keeps its own:
-// its database is thrown away after the run.
-if (process.env.ALLOW_SAMPLE_FILL !== "1") {
+// its database is thrown away after the run. And none is made on the plant at all (§206: POST /api/users, sign-up).
+if (!TEST_SERVER) {
   const gone = await deleteTestAccounts();
   if (gone.length) console.log(`Deleted ${gone.length} test account(s) (name@example.com) left in this database by early test runs.`);
 }

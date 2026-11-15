@@ -811,6 +811,36 @@ export async function deleteTestAccounts(): Promise<string[]> {
   }
 }
 
+/**
+ * ONE TEST ACCOUNT DELETED, THE MOMENT ITS CHECK IS DONE (REQUIREMENTS §206; the owner, 15-Nov-2026: "everytime you should
+ * create a testing id which will check whether the changes has been made or not and after checking it should delete ...
+ * i don't want to see those id's in production"): as deleteTestAccounts does at start-up, for this one account - only a
+ * test sign-in (name@example.com), never the last super admin. Answers whether it was deleted.
+ */
+export async function deleteTestAccount(id: string): Promise<"deleted" | "not-found" | "not-a-test-account" | "last-super-admin"> {
+  const client = await database().connect();
+  try {
+    await client.query("BEGIN");
+    await lockAccounts(client);
+    const { rows } = await client.query<{ id: string; email: string }>("SELECT id, email FROM users WHERE id = $1", [id]);
+    const row = rows[0];
+    const outcome = !row ? "not-found" : !isTestSignIn(row.email) ? "not-a-test-account" : !(await anotherSuperAdmin(client, [id])) ? "last-super-admin" : "deleted";
+    if (outcome !== "deleted") {
+      await client.query("ROLLBACK");
+      return outcome;
+    }
+    await client.query("DELETE FROM app_storage WHERE scope = $1", [id]);
+    await client.query("DELETE FROM users WHERE id = $1", [id]);
+    await client.query("COMMIT");
+    return "deleted";
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 /** Whether the plant still has a super admin who can sign in once these accounts are gone. */
 async function anotherSuperAdmin(client: pg.PoolClient, leaving: readonly string[]): Promise<boolean> {
   const { rowCount } = await client.query("SELECT 1 FROM users WHERE role = 'admin' AND active AND removed_at IS NULL AND NOT (id = ANY($1::text[])) LIMIT 1", [leaving]);

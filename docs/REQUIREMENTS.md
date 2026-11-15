@@ -11611,3 +11611,29 @@ doors): "remove this which is on login page". The welcome is gone from beside an
 AuthLayout.tsx, AuthScreen.tsx, styles.css); the card, the form, the opening, the cartoon and the drawn backdrop behind
 the card are as they were. Proved: frontend/tests/moduleIntro.test.ts; the sign-in screen looked at locally.
 
+## §206 Mitra on every document; every change checked with a test account that is then deleted (15-Nov-2026)
+
+The owner, 15-Nov-2026: "now i want that user should use this software and ai assistant can do work on every document
+easily according to user query and make sure that everytime you should create a testing id which will check whether the
+changes has been made or not and after checking it should delete and if everything is fine then only and i don't want to
+see those id's in production where everything is running perfectly."
+
+- MITRA ON EVERY DOCUMENT, PROVED: for each of the 132 documents that hold records, in every module, a new record is made
+  as the app makes one, handed to Mitra as its page hands it over, read with get_open_record and changed with
+  edit_open_record in a person's words - a header box, a line of a register (a sheet that prints its own lines: its first
+  line filled in, as Mitra rightly refuses to add one), a service report's line, a fly catcher unit - and the change is
+  saved with "Asked of Mitra" in the history (frontend/tests/mitraEveryDocument.test.ts: 132 of 132). Any document that
+  stops taking her work fails the suite, by name.
+- EVERY CHANGE CHECKED WITH A TEST ACCOUNT, THEN THE ACCOUNT DELETED (tests/verify_with_test_account.py): on the local
+  test copy alone (npm run dev:local; the script refuses any other address), the super admin makes verify-<time>@example.com;
+  it signs in, starts a record of one document of every module (the next document of the module when one has no box of
+  words), types words into its boxes, reloads, and finds them kept; then - in a finally, so even when a check fails - the
+  super admin DELETES the account (POST /api/users/:id/delete-test-account, backend/db.ts deleteTestAccount: gone with its
+  sessions and settings, only a name@example.com account, never the last super admin) and its sign-in is refused. Exit
+  status 0 only when every check passed and the account is gone. First run: 11 of 11 modules, account gone.
+- NEVER ON THE PLANT (backend/index.ts TEST_SERVER = ALLOW_SAMPLE_FILL=1, set by the test copies only): the plant's server
+  refuses to make a name@example.com account - by the super admin (POST /api/users) or by sign-up - and still deletes any
+  at start-up (§141). The plant's Users list therefore never shows one.
+- Proved: frontend/tests/mitraEveryDocument.test.ts, backend/tests/testAccounts.test.ts (the refusal, the deletion's
+  limits, the script's local-only guard and its finally); the script run locally.
+
