@@ -29,6 +29,7 @@ export interface NoiseCandidate {
   prepared?: { at?: string } | null;
   submittedAt?: string | null;
   updatedAt?: string;
+  periodKey?: string;
 }
 
 /** ISO dates compare as text. */
@@ -36,6 +37,9 @@ const before = (a: string, b: string): boolean => a < b;
 
 export function isPreLaunchNoise(r: NoiseCandidate, liveStartDate: string | null | undefined): boolean {
   if (!liveStartDate || r.isDemo) return false;
+  // F/QC/17's twenty records of a year ("#07" after the date, REQUIREMENTS §220) are the owner's own asking, made for the
+  // year the system went live in: never leftovers, whatever their date.
+  if (typeof r.periodKey === "string" && /#\d+$/.test(r.periodKey)) return false;
   if (typeof r.dueDate !== "string" || !before(r.dueDate, liveStartDate)) return false;
   if (r.status === "Due" || r.status === "Scheduled") return true;
   if (r.status === "In Progress" && r.prepared && typeof r.prepared.at === "string" && !r.submittedAt) {

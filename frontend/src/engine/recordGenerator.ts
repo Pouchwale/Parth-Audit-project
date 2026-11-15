@@ -8,6 +8,9 @@ import { createDefaultData } from "./recordDefaults";
 import { generateId } from "../utils/id";
 import { compareISO, todayISO } from "../utils/date";
 import { mayWriteRecordsOf } from "./departmentScope";
+import { schedulePeriodOf } from "./frequencyEngine";
+import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
+import { rulerSlotsFor } from "./rulerSlots";
 
 /**
  * A SHEET FILLED THROUGH THE YEAR AND DUE AT ITS END (REQUIREMENTS §86, §164): F/HR/16,
@@ -88,6 +91,12 @@ export function ensureRecordsGeneratedForMonth(
       // (Fortnightly/monthly/… obligations are never dropped — `due` has
       // already been moved to the next working day for them.)
       if (holiday && doc.kind !== "daily-pest-monitoring") continue;
+      // F/QC/17: the year's twenty records, 01 to 20, each its ruler's (REQUIREMENTS §220, engine/rulerSlots.ts).
+      if (isRulerVerification(doc.id)) {
+        const period = schedulePeriodOf(doc, scheduled);
+        if (period) created.push(...rulerSlotsFor(doc, period, !!opts.isDemo));
+        continue;
+      }
       if (existing.has(`${doc.id}|${periodKeyFor(doc, scheduled)}`)) continue;
       // A year-long sheet already on file for these twelve months - the 2026-27 training calendar, filed on 1 April
       // before the format fell due at the year's end (§164) - is the year's sheet: never a second one beside it.

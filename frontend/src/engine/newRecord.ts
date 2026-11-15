@@ -1,5 +1,7 @@
 import type { DocumentDefinition, RecordInstance, ScheduleConfig } from "../types";
 import { createRecordForDocument, recordCoveringDate } from "./recordCrud";
+import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
+import { slotOf } from "./rulerSlots";
 import { schedulePeriodOf } from "./frequencyEngine";
 import { addDays, formatDisplayDate, todayISO } from "../utils/date";
 
@@ -49,6 +51,17 @@ export interface NewRecordResult {
 /** What the New record button does (the document page, the library, the search). */
 export function newRecordFromButton(doc: DocumentDefinition, isDemo: boolean, today: string = todayISO()): NewRecordResult {
   if (doc.schedule.type === "as-required" || doc.kind === "training-record") return createRecordForDocument(doc, { dateISO: today, isDemo });
+  // F/QC/17: the first of the year's twenty not filled, else the next number (REQUIREMENTS §220).
+  if (isRulerVerification(doc.id)) {
+    const made = createRecordForDocument(doc, { dateISO: today, isDemo });
+    const no = String(slotOf(made.record) ?? "").padStart(2, "0");
+    return {
+      ...made,
+      notice: made.existed
+        ? `This year's records are not all filled yet: this is record ${no}, the next one to fill. A new record is added once all of this year's are filled.`
+        : `All of this year's records are filled, so record ${no} is added.`,
+    };
+  }
   const words = periodWords(doc.schedule);
   let day = today;
   let filled: RecordInstance | null = null;

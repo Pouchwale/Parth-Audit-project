@@ -308,7 +308,7 @@ test("a new F/QC/17 sheet after one with the old values: Kristeel, the page's Ra
   const first = createRecordForDocument(d, { dateISO: "2026-10-20" }).record;
   recordRepository.upsert({ ...first, status: "In Progress", data: { ...data(first), header: { ...data(first).header, masterMake: "Kristeen", masterCalibrationReportNo: "CAL/LPI/GP-23/23", make: "Ajanta" } } });
   const next = data(createRecordForDocument(d, { dateISO: "2027-09-24" }).record).header;
-  assert.deepEqual([next.masterMake, next.masterCalibrationReportNo, next.range, next.leastCount, next.make, next.serialNo], ["Kristeel", "CAL/LPI/GP-26/27", "0-300 mm", "1 mm", "", ""]);
+  assert.deepEqual([next.masterMake, next.masterCalibrationReportNo, next.range, next.leastCount, next.make, next.serialNo], ["Kristeel", "CAL/LPI/GP-26/27", "0-300 mm", "1 mm", "", "01"], "the Serial number its number in the year (§220)");
   clear(d.id);
 });
 

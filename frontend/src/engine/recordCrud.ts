@@ -9,6 +9,7 @@ import { startRegisterFromMaster, supplierLinkFor } from "./purchaseMasterLinks"
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
+import { nextRulerRecord, rulerRecordShown } from "./rulerSlots";
 import { nextWorkingDay } from "./holidays";
 import { periodKeyFor } from "./recordGenerator";
 import { historyOf, logRecordStarted } from "./recordHistory";
@@ -102,6 +103,8 @@ function filedFor(record: RecordInstance): string {
  */
 export function recordCoveringDate(doc: DocumentDefinition, dateISO: string, isDemo: boolean): RecordInstance | undefined {
   if (doc.schedule.type === "as-required") return undefined;
+  // F/QC/17: twenty records a year, the first not filled shown (REQUIREMENTS §220, engine/rulerSlots.ts).
+  if (isRulerVerification(doc.id)) return rulerRecordShown(doc, dateISO, isDemo);
   const records = recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[];
   const period = periodFor(doc, dateISO);
   if (!period) {
@@ -156,6 +159,12 @@ export function createRecordForDocument(
   // often as things happen, two on one day included; returning the morning's
   // complaint for the afternoon's would file the second under the first.
   const asRequired = doc.schedule.type === "as-required";
+  // F/QC/17: the first of the year's twenty not filled, else the next number (REQUIREMENTS §220, engine/rulerSlots.ts).
+  const ruler = nextRulerRecord(doc, asked, isDemo);
+  if (ruler) {
+    if (!ruler.existed) logRecordStarted(ruler.record);
+    return ruler;
+  }
   const already = recordCoveringDate(doc, asked, isDemo);
   if (already) return { record: startedIfUntouched(doc, already), existed: true };
   // A period with no sheet yet (its date came before the system went live, or

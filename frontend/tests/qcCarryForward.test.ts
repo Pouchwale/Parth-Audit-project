@@ -83,7 +83,9 @@ test("a new F/QC/17 is written as the previous one was: every box and line carri
   const master = masterRepository.get();
   recordRepository.query({ documentId: d.id }).forEach((r) => recordRepository.remove(r.id));
   const first = createRecordForDocument(d, { dateISO: "2026-09-23" }).record;
-  assert.equal(hasWriting(layoutOf(d.id), data(first), createDefaultData(d, "2026-09-23", master) as LogSheetData), false, "a sheet nobody wrote on carries nothing");
+  const blankFirst = createDefaultData(d, "2026-09-23", master) as LogSheetData;
+  // (its Serial number written as its number in the year, 01 - REQUIREMENTS §220)
+  assert.equal(hasWriting(layoutOf(d.id), data(first), { ...blankFirst, header: { ...blankFirst.header, serialNo: "01" } }), false, "a sheet nobody wrote on carries nothing");
   const filled: LogSheetData = {
     header: {
       ...data(first).header,
@@ -111,7 +113,8 @@ test("a new F/QC/17 is written as the previous one was: every box and line carri
   assert.equal(h.masterCalibrationReportNo, "CAL/LPI/GP-25/23");
   // The ruler's Make, Serial number, Range and Least count are written by hand on every sheet (the owner, 30-10-2026).
   // Make and Serial number are written by hand on every sheet; Range and Least count carry what was written (the owner, 30-10-2026).
-  assert.deepEqual([h.make, h.serialNo, h.range, h.leastCount], ["", "", "1 to 300", "0.001"]);
+  // ...the Serial number its number in the year (the owner, 15-Nov-2026, REQUIREMENTS §220).
+  assert.deepEqual([h.make, h.serialNo, h.range, h.leastCount], ["", "01", "1 to 300", "0.001"]);
   assert.equal(h.masterMake, "Kristeel", "the old spelling gives way to the new");
   assert.equal(h.calibrationDate, "2026-09-26", "the ruler's calibration date: the owner's 26-09-2026 (15-Nov-2026), the later of the last sheet's and that");
   assert.equal(h.calibrationDueDate, "2027-09-25", "the later of the last sheet's and the owner's 25-09-2027, for the person to change");

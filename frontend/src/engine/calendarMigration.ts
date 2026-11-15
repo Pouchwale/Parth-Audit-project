@@ -117,7 +117,8 @@ export function datedByFrequency(): number {
     if (!doc || doc.isReferenceOnly || doc.kind === "training-record") continue;
     if (doc.schedule.type === "as-required" || doc.schedule.type === "daily") continue;
     if (!["Scheduled", "Due", "In Progress"].includes(r.status) || !mayWriteRecordsOf(doc.id)) continue;
-    const keyed = /^[^:]*:(\d{4}-\d{2}-\d{2})$/.exec(r.periodKey ?? "")?.[1];
+    // (F/QC/17's twenty a year carry their number after the date, "#07", REQUIREMENTS §220.)
+    const keyed = /^[^:]*:(\d{4}-\d{2}-\d{2})(?:#\d+)?$/.exec(r.periodKey ?? "")?.[1];
     if (!keyed || schedulePeriodOf(doc, keyed)?.scheduled !== keyed) continue;
     // A date a person typed over on the record is theirs (REQUIREMENTS §213): never put back by the frequency.
     if ((r.history ?? []).some((h) => h.by !== "System" && (h.changes ?? []).some((c) => c.field === "dueDate"))) continue;

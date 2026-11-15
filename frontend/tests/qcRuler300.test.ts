@@ -288,13 +288,13 @@ test("a new record is written as the last record OF ITS OWN document: the two ne
   const first300 = createRecordForDocument(d300, { dateISO: "2026-09-24" }).record;
   assert.equal(data(first300).header.make, "", "the person writes it - nothing of the other document's");
   assert.equal(data(first300).header.masterCalibrationReportNo, "CAL/LPI/GP-26/27", "the standing start, not the other document's CAL/600");
-  assert.equal(data(first300).header.serialNo, "");
+  assert.equal(data(first300).header.serialNo, "01", "its number in the year, not the other document's (§220)");
   assert.equal(data(first300).rows[0].performedBy, "");
   fill(first300, { make: "Ajanta", serialNo: "GP-3/MS/42", range: "0-300 mm", masterCalibrationReportNo: "CAL/300" }, [50, 101, 150, 200, 250, 290], "Kapila Barad");
   // The next of each is the last of its own, dated the new day.
   const next300 = createRecordForDocument(d300, { dateISO: "2027-09-24" }).record;
   assert.equal(data(next300).header.masterCalibrationReportNo, "CAL/300");
-  assert.equal(data(next300).header.serialNo, "", "the ruler's first four boxes are written fresh on every sheet (30-10-2026)");
+  assert.equal(data(next300).header.serialNo, "01", "never the last sheet's: its number in the year (30-10-2026; §220)");
   assert.equal(data(next300).header.make, "");
   assert.equal(data(next300).header.calibrationDate, "2026-09-26", "the ruler's certificate date (15-Nov-2026), not the day");
   assert.deepEqual(data(next300).rows.map((r) => r.observed), [50, 101, 150, 200, 250, 290], "the 300 mm record's own readings");
@@ -303,7 +303,7 @@ test("a new record is written as the last record OF ITS OWN document: the two ne
   assert.equal(data(next300).header.acceptableTolerance, "+ / - 1 mm");
   const next600 = createRecordForDocument(d600, { dateISO: "2027-09-24" }).record;
   assert.equal(data(next600).header.masterCalibrationReportNo, "CAL/600");
-  assert.equal(data(next600).header.serialNo, "", "written fresh, as on the 300 mm page");
+  assert.equal(data(next600).header.serialNo, "01", "never the last sheet's: its number in the year, as on the 300 mm page (§220)");
   assert.deepEqual(data(next600).rows.map((r) => r.observed), [100, 200, 300, 400, 500, 490]);
   assert.equal(data(next600).rows[0].performedBy, "", "this year's tester, never last year's (the owner, 31-Oct-2026)");
   assert.ok(data(next300).rows.every((r, i) => r.id !== data(first300).rows[i].id), "its own lines");

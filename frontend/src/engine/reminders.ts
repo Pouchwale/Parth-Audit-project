@@ -4,6 +4,8 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { ensureRecordsGeneratedForMonth } from "./recordGenerator";
+import { ensureRulerSlots } from "./rulerSlots";
+import { deleteRecordWithTrail } from "./recordCrud";
 import { resolveResponsibleEmployees } from "./documentInfo";
 import { isCompanyHoliday } from "./holidays";
 import { addDays, compareISO, fromISODate, todayISO } from "../utils/date";
@@ -73,6 +75,9 @@ export function routeForRecord(doc: DocumentDefinition | undefined, recordId: st
 // already do for their own generation) and then read the result via
 // computeReminders, which stays a pure read over the repositories.
 /** Returns how many records it had to make, so a caller can redraw only when there is something new (REQUIREMENTS §65). */
+/** Why F/QC/17's empty record for a later year goes (the owner's word, 15-Nov-2026). */
+export const RULER_MADE_AHEAD = "Made ahead for a later year by New record, before F/QC/17 held twenty records a year; nothing written on it (REQUIREMENTS §220).";
+
 export function ensureNearTermRecordsGenerated(isDemo: boolean): number {
   const now = new Date();
   let made = ensureRecordsGeneratedForMonth(now.getFullYear(), now.getMonth(), { isDemo }).length;
@@ -80,6 +85,8 @@ export function ensureNearTermRecordsGenerated(isDemo: boolean): number {
   if (horizon.getFullYear() !== now.getFullYear() || horizon.getMonth() !== now.getMonth()) {
     made += ensureRecordsGeneratedForMonth(horizon.getFullYear(), horizon.getMonth(), { isDemo }).length;
   }
+  // F/QC/17's twenty records of the year today falls in, for each scale (REQUIREMENTS §220).
+  if (!isDemo) made += ensureRulerSlots(todayISO(), (r) => deleteRecordWithTrail(r, "System", RULER_MADE_AHEAD));
   // A sheet made ahead of its time (DocumentDefinition.madeAheadDays, REQUIREMENTS §164): the training plan calendar
   // is drawn up a month before its April, so March already holds the coming year's plan.
   for (const doc of documentRepository.getRecordableUnscoped()) {

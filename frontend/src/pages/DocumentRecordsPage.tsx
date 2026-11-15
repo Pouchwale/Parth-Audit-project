@@ -16,6 +16,8 @@ import { hrPageForDocument } from "../data/seed/hrModule";
 import { useEnsureMonth } from "../utils/useEnsureMonth";
 import { recordCoveringDate } from "../engine/recordCrud";
 import { newRecordFromButton, noteOnOpen } from "../engine/newRecord";
+import { slotOf } from "../engine/rulerSlots";
+import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { createDefaultData } from "../engine/recordDefaults";
 import { routeForRecord } from "../engine/reminders";
 import { hrMasterLinkFor } from "../engine/hrMaster";
@@ -54,6 +56,8 @@ import { AccessReason } from "../components/common/AccessReason";
 // so there the button opens the Edit format dialog as before (§62).
 
 const DONE = new Set(["Submitted", "Pending Verification", "Verified"]);
+/** F/QC/17's records of one day by their number, 01 first (REQUIREMENTS §220); 0 for any other. */
+const rulerOrder = (a: RecordInstance, b: RecordInstance): number => (slotOf(a) ?? 0) - (slotOf(b) ?? 0);
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 const shownValue = (v: unknown): string => {
@@ -64,6 +68,8 @@ const shownValue = (v: unknown): string => {
 /** What tells this record from the format's other records: its position, period, trainee… */
 function describeRecord(doc: DocumentDefinition, record: RecordInstance, lang: Language): string {
   const header = (record.data as LogSheetData | undefined)?.header ?? {};
+  // F/QC/17: the ruler's Serial number, in its own column (REQUIREMENTS §220).
+  if (isRulerVerification(doc.id)) return String(header.serialNo ?? "").trim();
   const hr = hrPageForDocument(doc.id);
   if (hr?.labelKey && shownValue(header[hr.labelKey])) return shownValue(header[hr.labelKey]);
   // Read with the boxes of the revision the record was filled on (REQUIREMENTS §74).
@@ -210,7 +216,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   // Newest first; of two on one day, the one started last (REQUIREMENTS §93).
   const records = (recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[])
     .slice()
-    .sort((a, b) => compareISO(b.dueDate, a.dueDate) || (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+    .sort((a, b) => compareISO(b.dueDate, a.dueDate) || rulerOrder(a, b) || (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
   // WHAT IS SHOWN BELOW THE TABLE (REQUIREMENTS §93): the record New opens —
   // today's sheet, or the sheet of the week, month or year today is in — then
   // the latest one not dated ahead. The month's sheets are made ahead of their
@@ -237,7 +243,8 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   const preview = shown ?? blank;
   const next = doc.schedule.type === "as-required" ? null : nextDueDate(doc, today);
   const done = records.filter((r) => DONE.has(r.status)).length;
-  const detailsTitle = hr?.labelTitle ?? "Details";
+  // F/QC/17: Serial number in place of Details (the owner, 15-Nov-2026, REQUIREMENTS §220).
+  const detailsTitle = isRulerVerification(doc.id) ? "Serial number" : hr?.labelTitle ?? "Details";
 
   const startRecord = () => {
     // New record: this period's record first, then the next one's (REQUIREMENTS §211, engine/newRecord.ts).

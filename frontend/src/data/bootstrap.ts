@@ -5,6 +5,9 @@ import { ensureSeeded as ensurePurchaseMasterSeeded } from "./repositories/purch
 import { ensureSeeded as ensureRecordsSeeded, recordRepository } from "./repositories/recordRepository";
 import { RETIRED_DOCUMENT_IDS } from "./seed/documentDefinitions";
 import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
+import { ensureRulerSlots } from "../engine/rulerSlots";
+import { deleteRecordWithTrail } from "../engine/recordCrud";
+import { RULER_MADE_AHEAD } from "../engine/reminders";
 import { prepareDueRecords } from "../engine/assistantPrepare";
 import { alignRecordsToWorkingCalendar, datedByFrequency, removeOffScheduleShells } from "../engine/calendarMigration";
 import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
@@ -104,6 +107,8 @@ export function bootstrap(): void {
   gmpYesOnOpenSheets();
 
   const today = new Date(todayISO());
+  // F/QC/17's twenty records of this year for each scale, its records of the time before filed (REQUIREMENTS §220).
+  ensureRulerSlots(todayISO(), (r) => deleteRecordWithTrail(r, "System", RULER_MADE_AHEAD));
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });
   prepareDueRecords();
 }

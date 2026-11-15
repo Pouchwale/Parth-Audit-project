@@ -11834,3 +11834,30 @@ date".
   "Due Date:-" are unchanged.
 - Proved: frontend/tests/qcCertificateDates.test.ts, qcPaperFindings.test.ts, qcPaperFormats.test.ts.
 
+## §220 F/QC/17: twenty records a year for each scale, listed by Serial number (15-Nov-2026)
+
+The owner, 15-Nov-2026, with F/QC/17's records list: "remove detail from this page and add serial number and every year it
+the system should automatically generate atleast 20 for each both 300 mm and 600 mm ... 20 for 300mm and 20 for 600 mm
+and next year also same". Asked: Serial number prefilled 01 to 20; the rulers filed under later years moved into 2026 and
+the empty 2029 record deleted; New adds a 21st once all of the year's are filled.
+
+- Each scale's year (24 September to 23 September) holds twenty records, 01 to 20, keyed "<doc>:<year's date>#NN", each
+  with its Serial number written as NN (editable), dated by the frequency, written as the last written sheet was (§117).
+  They are made for the year today falls in at every start for whoever may fill F/QC/17, and each later year's as its
+  September comes (engine/rulerSlots.ts, engine/recordGenerator.ts).
+- New record (and Mitra, and any start of an F/QC/17 record) opens the first of the year's records not filled, and says
+  so; once all are filled it adds the next number, 21, 22 ... (§211's next-year rule is for documents of one record a
+  period).
+- The document's page lists them by date, then by number, with "Serial number" in place of Details.
+- Records of before: one keyed without a number is filed as the number its Serial number says, else the first free one;
+  one made ahead under a later year by New and dated back into the year it was made in is filed in that year; one made
+  ahead for a later year with nothing written (no Make, no Serial number) is deleted, with its line in the deletion log.
+  The plant's 600 mm rulers 02, 03 (under 2027) and 04 (under 2028) are records 02, 03, 04 of 2026; the empty 2029
+  record is deleted.
+- The numbered records are never "blank sheets from before go-live" (engine/preLaunchNoise.ts, shared with the server's
+  archive): 2026's are dated 25-09-2026, before the plant went live on 14-10-2026, and stay. The reminders count from the
+  go-live day, so 2026's records are on the list to fill without flooding the bell as overdue; from 2027 they remind as
+  every record does.
+- Proved: frontend/tests/rulerSlots.test.ts (the plant's case, built on the year today falls in), newRecordNextPeriod,
+  morningPrepareMerge, qcCarryForward, qcRuler300, qcCertificateDates; and in the browser: 20 on each page, New opening 01.
+
