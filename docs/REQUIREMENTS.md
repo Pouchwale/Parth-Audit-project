@@ -11947,3 +11947,13 @@ deleted rows and now he want to undo that or he will get generated"; and "HR-18 
 - Proved: frontend/tests/printedLinesBack.test.ts (the plant's history: the lines back in their places, line 2's
   20 x 21cm and 5%, Sign.'s names), scheduleChange28Oct.test.ts (F/HR/18's Mondays).
 
+## §226 F/QC/11's records listed by Serial number (16-Nov-2026)
+
+The owner, 16-Nov-2026, with F/QC/11's records list (each line "Device ID No: 1-54, 2-55, 3-56, 4-57"): "here also remove
+detail from screen and instead of that add serial number"; asked: a running number, 1, 2, 3 in date order.
+
+- F/QC/11's page lists its records with "Serial number" in place of Details: 1 for the oldest record, then on in date
+  order (the record on file of 31-12-2024 is 1), a new record continuing the count; the record shown below the list is
+  headed "On file - Serial number N · its date" (pages/DocumentRecordsPage.tsx RUNNING_NUMBER_DOCS).
+- Proved: frontend/tests/gsmSerialNumber.test.ts, and on the plant's page.
+

@@ -66,7 +66,22 @@ const shownValue = (v: unknown): string => {
 };
 
 /** What tells this record from the format's other records: its position, period, trainee… */
-function describeRecord(doc: DocumentDefinition, record: RecordInstance, lang: Language): string {
+/**
+ * THE RECORDS NUMBERED IN PLACE OF DETAILS (REQUIREMENTS §226; the owner, 16-Nov-2026, of F/QC/11's list: "remove detail
+ * from screen and instead of that add serial number"; asked: a running number, 1, 2, 3 in date order). The oldest record
+ * is 1; a new one continues the count.
+ */
+const RUNNING_NUMBER_DOCS: ReadonlySet<string> = new Set(["qc-gsm-plate-calibration"]);
+
+/** Each record's running number, oldest first, for a document numbered so; null for any other. */
+function runningNumbers(doc: DocumentDefinition, records: RecordInstance[]): Map<string, string> | null {
+  if (!RUNNING_NUMBER_DOCS.has(doc.id)) return null;
+  const oldestFirst = records.slice().sort((a, b) => compareISO(a.dueDate, b.dueDate) || (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
+  return new Map(oldestFirst.map((r, i) => [r.id, String(i + 1)] as const));
+}
+
+function describeRecord(doc: DocumentDefinition, record: RecordInstance, lang: Language, numbers?: Map<string, string> | null): string {
+  if (numbers) return numbers.get(record.id) ?? "";
   const header = (record.data as LogSheetData | undefined)?.header ?? {};
   // F/QC/17: the ruler's Serial number, in its own column (REQUIREMENTS §220).
   if (isRulerVerification(doc.id)) return String(header.serialNo ?? "").trim();
@@ -110,10 +125,12 @@ function RecordLines({
   selectedId,
   onSelect,
   onOpen,
+  numbers,
 }: {
   doc: DocumentDefinition;
   records: RecordInstance[];
   lang: Language;
+  numbers?: Map<string, string> | null;
   selectedId?: string;
   onSelect: (id: string) => void;
   onOpen: (id: string) => void;
@@ -131,7 +148,7 @@ function RecordLines({
         >
           <td className="font-semibold">{formatDisplayDate(r.dueDate)}</td>
           <td className="text-sm" translate="no">
-            {describeRecord(doc, r, lang) || <span className="text-faint">—</span>}
+            {describeRecord(doc, r, lang, numbers) || <span className="text-faint">—</span>}
           </td>
           <td className="text-sm">{linesFilled(doc, r)}</td>
           <td>
@@ -244,7 +261,8 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   const next = doc.schedule.type === "as-required" ? null : nextDueDate(doc, today);
   const done = records.filter((r) => DONE.has(r.status)).length;
   // F/QC/17: Serial number in place of Details (the owner, 15-Nov-2026, REQUIREMENTS §220).
-  const detailsTitle = isRulerVerification(doc.id) ? "Serial number" : hr?.labelTitle ?? "Details";
+  const numbers = runningNumbers(doc, records);
+  const detailsTitle = isRulerVerification(doc.id) || numbers ? "Serial number" : hr?.labelTitle ?? "Details";
 
   const startRecord = () => {
     // New record: this period's record first, then the next one's (REQUIREMENTS §211, engine/newRecord.ts).
@@ -384,6 +402,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
                   doc={doc}
                   records={records}
                   lang={lang}
+                  numbers={numbers}
                   selectedId={shown?.id}
                   onSelect={setSelectedId}
                   onOpen={(id) => navigate(routeForRecord(doc, id))}
@@ -396,7 +415,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
           {layout && preview && (
             <div className="mt-5" data-section="document-preview" data-record={preview.id}>
               <div className="flex items-center justify-between wrap gap-2 mb-2">
-                <h2 className="text-lg">{shown ? `On file — ${describeRecord(doc, shown, lang) || formatDisplayDate(shown.dueDate)}` : "Blank format — nothing on file yet"}</h2>
+                <h2 className="text-lg">{shown ? `On file — ${numbers ? `Serial number ${numbers.get(shown.id) ?? ""} · ${formatDisplayDate(shown.dueDate)}` : describeRecord(doc, shown, lang) || formatDisplayDate(shown.dueDate)}` : "Blank format — nothing on file yet"}</h2>
                 <div className="flex items-center gap-2 wrap">
                   {shown && <StatusBadge status={shown.status} />}
                   {shown ? (
