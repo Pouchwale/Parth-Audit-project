@@ -12184,3 +12184,24 @@ other units hold.
   Kapila Barad moved them (02-11 to 16-11, 16-11 to 16-12, the second verified); left as she dated them.
 - Proved: frontend/tests/flyNames.test.ts, and in the browser: Vijay and Roshni typed on PC-01's 16-11-2026 line written on
   all thirteen units' lines, every box's words centred.
+
+## §238 F/HR/18 month by month: the visit list, New and Month & Year the chosen month's; November's visits back on Mondays (16-Nov-2026)
+
+The owner, 16-Nov-2026, with F/HR/18's visit list (16-12, 16-11, 17-10, 03-10 together), the register's PC-01 line of
+16-12-2026 with an empty second line, and a visit's "Month & Year Nov-26": "add like month year wise so user click on new
+then new format will open and if goes in old from current month then see old record also ... make there date there field
+is come ... when month and year change then according to that it will come". Asked of the two visits Kapila Barad had
+moved by hand (02-11 to 16-11, 16-11 to 16-12): "Put both back on Mondays".
+
+- The visit list is the month and year chosen above it, as the register is: November 2026 its visits, an earlier month its
+  old ones, a later month its own (pages/PestControlPages.tsx). The month chosen has its visits made - a later month's
+  too - so its register's lines carry their dates (07-12 and 21-12 for December).
+- New record opens the chosen month: this month, the fortnight's inspection, as before; another month, its first visit
+  still open (else its first), made where it has none.
+- A visit's Month & Year is its own month's (engine/flyMonthYear.ts): a visit dated into another month takes it, as do the
+  visits on file at start, where the box holds a month DCRS wrote ("Nov-26"); words a person wrote there stay.
+- November 2026's two visits back on their Mondays, with what was written on them and a line in each one's history
+  (data/flyVisitsMigration.ts): the 16-11 one to 02-11, the 16-12 one (verified, Meet Patel) to 16-11. December has its
+  own 07-12 and 21-12.
+- Proved: frontend/tests/flyMonthWise.test.ts, and in the browser: the list November's, December's (07-12, 21-12), October's;
+  December's register lines dated; New with December chosen opening 07-12, headed Dec-26.

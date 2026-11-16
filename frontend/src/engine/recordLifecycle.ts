@@ -1,4 +1,5 @@
-import type { DocumentDefinition, FieldChange, RecordHeaderBlock, RecordInstance, RecordStatus, DailyPestMonitoringData } from "../types";
+import type { DocumentDefinition, FieldChange, FlyCatcherData, RecordHeaderBlock, RecordInstance, RecordStatus, DailyPestMonitoringData } from "../types";
+import { withVisitMonthYear } from "./flyMonthYear";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { validateForSubmit, validateForVerify, ValidationResult } from "./validation";
 import { withSuggestionsConfirmed } from "./rodentCatches";
@@ -135,7 +136,10 @@ export function changeRecordDate(
   if (taken) return { record, refused: `There is already a record of this document dated ${formatDisplayDate(dateISO)}: open that one, or choose another day.` };
   const changes: FieldChange[] = [{ field: "dueDate", label: "Dated", before: formatDisplayDate(record.dueDate), after: formatDisplayDate(dateISO) }];
   const nextStatus = record.status === "Due" || record.status === "Scheduled" ? "In Progress" : record.status;
-  const updated = appendHistory({ ...record, dueDate: dateISO, periodKey, status: nextStatus }, makeEntry("edited", actorName, { changes }));
+  // F/HR/18: a visit dated into another month is headed with that month (REQUIREMENTS §238).
+  const monthed = record.documentId === "fly-catcher" ? withVisitMonthYear(record.data as FlyCatcherData, dateISO) : null;
+  if (monthed) changes.push(...diffRecordData(record.data, monthed));
+  const updated = appendHistory({ ...record, dueDate: dateISO, periodKey, status: nextStatus, ...(monthed ? { data: monthed } : {}) }, makeEntry("edited", actorName, { changes }));
   return { record: recordRepository.upsert(updated) };
 }
 

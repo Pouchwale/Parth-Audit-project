@@ -19,6 +19,7 @@ import { alignPapersOnFile } from "./paperOnFileMigration";
 import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
 import { alignCertificateDates, weekDatesOnSheets } from "./certificateDatesMigration";
 import { serialNumbersOnSheets } from "./serialNumbersMigration";
+import { flyMonthYearsFollowDates, flyVisitsBackOnMondays } from "./flyVisitsMigration";
 import { serviceReportsOnSaturdays, serviceVisitsOnSaturdays } from "./serviceSaturdaysMigration";
 import { auditedYesOnOpenSheets } from "./purchaseAuditMigration";
 import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
@@ -108,6 +109,9 @@ export function bootstrap(): void {
   weekDatesOnSheets();
   // F/QC/11's and F/QC/12's Serial No, the record's running number (REQUIREMENTS §233).
   serialNumbersOnSheets();
+  // F/HR/18: November 2026's two visits back on their Mondays, and each visit headed with its own month (REQUIREMENTS §238).
+  flyVisitsBackOnMondays();
+  flyMonthYearsFollowDates();
   // F/PUR/02's sheets still open: every audit point AUDITED Yes, the NC table from the points rated NC (REQUIREMENTS §229).
   auditedYesOnOpenSheets();
   // F/QC/17's new starting boxes (30-10-26) in the sheets created before, still open, each with a line in its history.

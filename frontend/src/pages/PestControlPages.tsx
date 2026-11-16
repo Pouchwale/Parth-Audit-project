@@ -34,6 +34,7 @@ import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { useHeaderEditing } from "../components/documents/HeaderEditing";
 import { useT } from "../i18n";
 import { MONTH_NAMES, WEEKDAY_NAMES, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
+import { isEditableStatus } from "../engine/recordLifecycle";
 import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, MasterData, PestResponsibilitiesData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
 import { mayDo } from "../engine/departmentScope";
 import { printFillOf } from "../engine/printFill";
@@ -953,6 +954,8 @@ export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number })
   const [view, setView] = useState<"register" | "list">("register");
   const today = todayISO();
   useEnsureMonth(now.getFullYear(), now.getMonth());
+  // The month chosen above has its visits - an earlier one's, this one's, a later one's (REQUIREMENTS §238).
+  useEnsureMonth(year, month, [FLY_DOC_ID]);
 
   const doc = documentRepository.getById(FLY_DOC_ID);
   // The register, the trend and the visit list here are all F/HR/18, Human
@@ -961,14 +964,24 @@ export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number })
   // than shown thirteen empty fly catcher units and a trend of nothing
   // (REQUIREMENTS §40).
   if (!doc) return <NotYourDepartment documentId={FLY_DOC_ID} what="register" />;
-  const records = (recordRepository.query({ documentId: FLY_DOC_ID, isDemo, fromDate: `${year}-01-01`, toDate: `${year}-12-31` }) as RecordInstance<FlyCatcherData>[])
+  // THE VISIT LIST IS THE MONTH'S (REQUIREMENTS §238; the owner, 16-Nov-2026: "add like month year wise ... if goes in old
+  // from current month then see old record also"): the visits of the month and year chosen above, as the register is.
+  const monthFrom = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const monthTo = `${year}-${String(month + 1).padStart(2, "0")}-${String(new Date(Date.UTC(year, month + 1, 0)).getUTCDate()).padStart(2, "0")}`;
+  const monthLabel = `${MONTH_NAMES[month]} ${year}`;
+  const records = (recordRepository.query({ documentId: FLY_DOC_ID, isDemo, fromDate: monthFrom, toDate: monthTo }) as RecordInstance<FlyCatcherData>[])
     .slice()
     .sort((a, b) => compareISO(b.dueDate, a.dueDate));
   const next = doc ? nextDueDate(doc, today) : null;
   const latest = latestRecord<FlyCatcherData>(FLY_DOC_ID, isDemo, today);
-  // Start on the register's own page (REQUIREMENTS §93): the fortnight's inspection, as New does everywhere.
+  // Start on the register's own page (REQUIREMENTS §93): the fortnight's inspection, as New does everywhere -
+  // ...in the month chosen above (REQUIREMENTS §238): this month, the fortnight's inspection; another month, its first
+  // visit still open (else its first), made where the month has none.
   const startRecord = () => {
-    const { record } = createRecordForDocument(doc, { dateISO: today, isDemo });
+    const thisMonth = today.slice(0, 7) === monthFrom.slice(0, 7);
+    const inMonth = records.slice().reverse();
+    const opened = thisMonth ? null : (inMonth.find((r) => isEditableStatus(r.status)) ?? inMonth[0]);
+    const record = opened ?? createRecordForDocument(doc, { dateISO: thisMonth ? today : monthFrom, isDemo }).record;
     bump();
     navigate(routeForRecord(doc, record.id));
   };
@@ -1033,10 +1046,10 @@ export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number })
       // the list (REQUIREMENTS §38).
       <div className="register-sheet" data-print-doc data-print-fill={printFillOf(doc)} data-format-id={doc?.id}>
         <section className="register-page">
-          {doc && <DocumentHeader doc={doc} extraTitle={`INSPECTION & CLEANING RECORDS ${year}`} edit={flyHeader.edit} />}
+          {doc && <DocumentHeader doc={doc} extraTitle={`INSPECTION & CLEANING RECORDS ${monthLabel.toUpperCase()}`} edit={flyHeader.edit} />}
           {flyHeader.panel}
           <h3 className="text-lg no-print" style={{ marginTop: 10 }}>
-            <FiActivity size={14} style={{ verticalAlign: -2 }} /> Inspection & cleaning records — {year}
+            <FiActivity size={14} style={{ verticalAlign: -2 }} /> Inspection & cleaning records — {monthLabel}
           </h3>
         <div className="doc-table" style={{ border: "none" }}>
           <table>
@@ -1055,7 +1068,7 @@ export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number })
               {records.length === 0 && (
                 <tr>
                   <td colSpan={7} className="text-muted text-center" style={{ padding: 24 }}>
-                    No fly catcher inspections recorded in {year}{isDemo ? " (demo)" : ""} yet — inspections fall on the 1st and 3rd Monday of each month.
+                    No fly catcher inspections in {monthLabel}{isDemo ? " (demo)" : ""} — inspections fall on the 1st and 3rd Monday of each month. Choose another month above.
                   </td>
                 </tr>
               )}
