@@ -1,5 +1,6 @@
 import type { LogSheetData, LogSheetRow } from "../types";
 import { FIXED_TESTED_VALUES, GSM_MEASURED, GSM_PLATES, STANDARD_WEIGHTS } from "../data/seed/qcCalibrationLayouts";
+import { isGsmTestLine } from "./gsmLines";
 import { RULER_300_ID, RULER_600_ID } from "../data/seed/qcRulerVerificationLayouts";
 import { formulaTestedValue } from "./calibration";
 
@@ -265,7 +266,8 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
     const next: LogSheetRow = { ...row };
     for (const plate of GSM_PLATES) {
       // A size or a Pass a person wrote is kept: only a blank cell takes the plant's usual (§136).
-      if (GSM_MEASURED.includes(line) && !String(row[plate.key] ?? "").trim()) next[plate.key] = plate.size;
+      // A test line added under the paper's four (Tasted-5, 6 …, REQUIREMENTS §233) is measured the same way.
+      if ((GSM_MEASURED.includes(line) || isGsmTestLine(line)) && !String(row[plate.key] ?? "").trim()) next[plate.key] = plate.size;
       else if (line === "Pass/Fail" && !String(row[plate.key] ?? "").trim()) next[plate.key] = "Pass";
       else if (line === "Sign." && name && !String(row[plate.key] ?? "").trim()) next[plate.key] = name;
     }

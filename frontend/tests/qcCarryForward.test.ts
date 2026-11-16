@@ -199,7 +199,7 @@ test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what wa
   const carried = carriedFrom(layoutOf(gsm.id), data(recordRepository.getById(sep.id)!), createDefaultData(gsm, "2026-10-31", master) as LogSheetData, "2026-10-31");
   assert.equal(carried.header.deviceIdNo, "typed over", "the person's own words, carried for the person to change (§117)");
   assert.equal(carried.header.location, "LAB", "a box nobody changed keeps the paper's words");
-  assert.equal(carried.header.serialNo, "50");
+  assert.equal(carried.header.serialNo, "", "the Serial No is each record's own running number, never the last sheet's (§233)");
   assert.equal(carried.header.calibrationExpiry, "2027-10-31", "a later certificate's date written carries on");
   assert.equal(carried.header.calibrationDate, "2026-10-31", "the new sheet's own date, never the last one's (§223)");
   assert.equal(carried.header.dueDate, "2026-11-07", "the next week's, never the last sheet's 31-10-2026 (§223)");
@@ -224,7 +224,7 @@ test("F/QC/12: the boxes above the grid are the format's fixed values on every n
   });
   const week2 = createRecordForDocument(weight, { dateISO: "2026-12-02" }).record;
   assert.equal(data(week2).header.manufacturer, "Force Strain Sensors Pvt Ltd", "what the person wrote over a fixed box carries (§117)");
-  assert.equal(data(week2).header.serialNo, "06", "the serial written carries");
+  assert.equal(data(week2).header.serialNo, "", "the Serial No is each record's own running number, never the last sheet's (§233)");
   assert.equal(data(week2).header.location, "Laboratory", "a box left blank starts from the format's fixed value again");
   recordRepository.query({ documentId: weight.id }).forEach((r) => recordRepository.remove(r.id));
 });

@@ -112,9 +112,9 @@ test("F/QC/11's Serial No is the paper's blank box on the page on file, and no n
     const sample = autoFillRecord(docOf(GSM), DAY, master, prior)!.data as LogSheetData;
     assert.equal(sample.header.serialNo, "", `sample ${prior ? "after the page on file" : "from the form"}`);
   }
-  // A real serial number written on the last sheet is still carried: it is the plates' own.
+  // Since §233 the Serial No is each record's own running number (data/serialNumbersMigration.ts): never carried.
   const written = record(GSM, { ...stored.data, header: { ...stored.data.header, serialNo: "GEC-0457" } }, { dueDate: "2026-09-14" });
-  assert.equal((prepareKnownParts(docOf(GSM), DAY, master, written)!.data as LogSheetData).header.serialNo, "GEC-0457");
+  assert.equal((prepareKnownParts(docOf(GSM), DAY, master, written)!.data as LogSheetData).header.serialNo, "");
 });
 
 test("the page on file stored with DCRS's TO BE CONFIRMED takes the paper's blank Serial No at start-up, once, with a line in its history", () => {

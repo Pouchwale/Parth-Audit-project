@@ -12079,3 +12079,44 @@ from system".
   restored whole; a file deleted forever; a supplier's folder emptied; a folder restored after its folder went, into the
   root; a month-old thing gone by itself), and in the browser: "Are you sure?" with Cancel and Yes, the Trash with "30 days
   left", restore, delete forever, a supplier's folder emptied and its file restored.
+
+## §233 F/QC/11's rows added or deleted anywhere; F/QC/11's and F/QC/12's Serial number (16-Nov-2026)
+
+The owner, 16-Nov-2026, with F/QC/11's grid, its box row and F/QC/12's records list: "in qc-11 add add row button like
+user can add new row or delete also in between anywhere and in second image serial number should also able to come and in
+qc-12 remove details from third image and add serial number". Asked: the test rows numbered again with Pass/Fail and Sign.
+at the foot; the Serial No box the record's running number, editable; F/QC/12's list numbered 1, 2, 3 as F/QC/11's (§226).
+
+- F/QC/11's rows are open (rowMode.openLines): beside each row a "+" puts a test row in under it and the bin takes it off;
+  Add Row puts one under the last test row. The test rows are numbered Tasted-1, 2, 3, 4, 5 … down the page, Pass/Fail and
+  Sign. stay at the foot, one cell a plate wherever rows put in have moved them; a row put in has the four plates' sizes
+  written in it, its Deviation worked out as the others', its Index DCRS's, not typed (engine/gsmLines.ts).
+- Printed, and in the Word and Excel downloads, the grid stays as tall as the paper's six lines, shared among all the rows:
+  one A4 landscape page with eight test rows as with four.
+- F/QC/12's records list shows Serial number in place of Details: 1 the oldest record, then 2, 3 in date order, as F/QC/11's
+  (engine/runningNumbers.ts; 01, 02 in its month or year since §234); "On file" says the record's number and date.
+- The "Serial No:" box on F/QC/11's and F/QC/12's sheets holds the record's running number: an empty box takes it (at
+  start, when the records list changes, and when a sheet is opened); the number DCRS wrote follows the list on a sheet still
+  open when a record dated earlier comes in; a number a person writes there stays. A new sheet no longer carries the last
+  sheet's Serial No (data/serialNumbersMigration.ts, a line in the sheet's history).
+- Proved: frontend/tests/gsmRowsAndSerials.test.ts, and in the browser: a row put in under 2 and on Pass/Fail, two taken off,
+  the rows numbered again; the Serial No box 2 and 3 as the list; F/QC/12's list headed Serial number; the sheet with eight
+  test rows printed on one A4 page; its Word and Excel files opened in Office.
+
+## §234 Serial numbers 01, 02, 03, 04 in their month; F/QC/11's line over Index thin (16-Nov-2026)
+
+The owner, 16-Nov-2026, with F/QC/11's grid heading: "So in serial number if there are 4 document a month means each per
+week also in qc-11 and there is image in which line is bold so also serial number is number wise 01, 02, 03, 04 and it
+should be same for document also. and this should applies to all where serial number is present". Asked: F/QC/12 (a sheet
+a month) 01 to 12 through the year; the bold line a normal thin one.
+
+- A record's Serial number is two figures and counts again in its period (engine/runningNumbers.ts): F/QC/11, a sheet a
+  week, 01, 02, 03, 04 (05 in a month of five Tuesdays) in each month; F/QC/12, a sheet a month, 01 to 12 in each year -
+  as F/QC/17's rulers are 01 to 20 in each year (§220). The records list, "On file" and the sheet's Serial No box say the
+  same number.
+- The number DCRS wrote in a Serial No box follows the list on every sheet, signed off or not (the 1, 2, 3 of §233 became
+  01, 02, 03), with a line in its history; a number a person wrote there stays (data/serialNumbersMigration.ts).
+- F/QC/11's line over Index / No. 54 was drawn twice - the Calibration Date row's bottom rule and the heading's top rule -
+  and stood twice as thick as the others; the heading's is no longer drawn there, on screen and in print (styles.css).
+- Proved: frontend/tests/gsmRowsAndSerials.test.ts, and in the browser: F/QC/11's list and its sheet's Serial No 01; the
+  printed page's line over Index as thin as the rest, still one A4 page.

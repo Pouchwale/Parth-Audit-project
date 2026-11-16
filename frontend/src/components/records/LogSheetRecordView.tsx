@@ -59,6 +59,7 @@ import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { logRowsRule, missingPrintedLines, newRow, printedLineOf, withPrintedLinesBack } from "../../engine/recordLines";
+import { GSM_DOC, gsmLineInserted, gsmLinesInOrder, isGsmTestLine } from "../../engine/gsmLines";
 import { followHeader } from "../../engine/headerFollowers";
 import { registerFills } from "../../engine/hrMasterRegisters";
 import { READINGS_TO_CONFIRM, nominalFillAdded, settleScaleLines } from "../../engine/nominalFill";
@@ -182,6 +183,7 @@ export function LogSheetRecordView({
     fillFromSupplier: (rowId: string | null, value: string) => void;
     fillFromTraining: (value: string) => void;
     removeRow: (rowId: string) => void;
+    insertRow: (afterId: string) => void;
     setHeadingWords: (key: string, words: string) => void;
   } | null>(null);
   const onCell = React.useCallback((rowId: string, key: string, value: string | number | null) => handlers.current?.setCell(rowId, key, value), []);
@@ -193,6 +195,7 @@ export function LogSheetRecordView({
   const onSupplierBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromSupplier(rowId, value), []);
   const onTrainingBlur = React.useCallback((_rowId: string | null, value: string) => handlers.current?.fillFromTraining(value), []);
   const onRemoveRow = React.useCallback((rowId: string) => handlers.current?.removeRow(rowId), []);
+  const onInsertRow = React.useCallback((afterId: string) => handlers.current?.insertRow(afterId), []);
   // Before the early return below: a hook called only on some renders breaks
   // React ("rendered fewer hooks than expected") the moment this component is
   // reused for a document without a layout.
@@ -350,11 +353,22 @@ export function LogSheetRecordView({
   // The line is the one registry's (engine/recordLines.ts, §113): the same line Mitra's "add a row" and its patch build.
   // F/QC/12's line is the exception (§140): filled as the sheet is on opening, in the name of the person who adds it;
   // its date is the line above's Next Due Date (§145, the chain in the computed cells).
-  const addRow = () => save({ ...data, rows: [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser)] });
-  const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
+  // F/QC/11 (REQUIREMENTS §233): a test line put in where it is asked for - Add Row's under the last test line - the test
+  // lines numbered again and Pass/Fail and Sign. at the foot (engine/gsmLines.ts); a line taken off renumbers them too.
+  const gsm = doc.id === GSM_DOC;
+  const addRow = () =>
+    save({ ...data, rows: gsm ? gsmLineInserted(data.rows, newRow(layout, data.rows, generateId("row"))) : [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser)] });
+  const insertRow = (afterId: string) => save({ ...data, rows: gsmLineInserted(data.rows, newRow(layout, data.rows, generateId("row")), afterId) });
+  const removeRow = (rowId: string) => {
+    const rows = data.rows.filter((r) => r.id !== rowId);
+    save({ ...data, rows: gsm ? gsmLinesInOrder(rows) : rows });
+  };
   // Printed lines removed by mistake, brought back in their places with what they held (REQUIREMENTS §225).
   const missingLines = editable ? missingPrintedLines(layout, data.rows).length : 0;
-  const bringLinesBack = () => save({ ...data, rows: withPrintedLinesBack(layout, data.rows, record.history) });
+  const bringLinesBack = () => {
+    const rows = withPrintedLinesBack(layout, data.rows, record.history);
+    save({ ...data, rows: gsm ? gsmLinesInOrder(rows) : rows });
+  };
   const linesBackButton = missingLines > 0 && (
     <button className="btn btn-secondary btn-sm mt-2 no-print" data-action="restore-lines" onClick={bringLinesBack} style={{ marginLeft: 8 }}>
       <FiRotateCcw size={13} /> Bring back removed lines ({missingLines})
@@ -468,7 +482,7 @@ export function LogSheetRecordView({
   // box's label above or below the grid are typed over where they stand (EditableWords, asked first), the format's until then.
   const headingWords = (key: string, own: string): string => data.words?.headings?.[key] ?? own;
   const setHeadingWords = (key: string, words: string) => save({ ...data, words: { ...data.words, headings: { ...data.words?.headings, [key]: words } } });
-  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, fillFromSupplier, fillFromTraining, removeRow, setHeadingWords };
+  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, fillFromSupplier, fillFromTraining, removeRow, insertRow, setHeadingWords };
 
   // One box above the grid: a person's or a machine's box offers the people or the machines it can be filled from.
   // `inTable`: a cell of the paper's table of boxes (boxTable, REQUIREMENTS §111), headed by the table's words.
@@ -537,11 +551,15 @@ export function LogSheetRecordView({
   // A line of the calibration grid: F/QC/12's entries take two lines each (the first, then its Deviation % line).
   // A line beyond the paper's measured ones (F/QC/12's fifth entry, added on the screen) is as tall as the paper's last
   // (the owner, 28-Oct-2026: an added line drawn with no height at all).
+  // F/QC/11 with lines put in (REQUIREMENTS §233): the grid as tall as the paper's six lines, shared among all of them, so
+  // the page stays one A4 page.
   const calLine = (i: number, second = false): number | undefined => {
     if (!cal) return undefined;
+    const squeeze = !lines.second && data.rows.length > cal.grid.lines.length ? cal.grid.lines.length / data.rows.length : 1;
     const n = cal.grid.lines.length;
     const at = lines.second ? 2 * i + (second ? 1 : 0) : i;
-    return cal.grid.lines[at < n ? at : Math.max(0, lines.second ? n - 2 + (second ? 1 : 0) : n - 1)];
+    const mm = cal.grid.lines[at < n ? at : Math.max(0, lines.second ? n - 2 + (second ? 1 : 0) : n - 1)];
+    return squeeze < 1 ? Math.round(mm * squeeze * 100) / 100 : mm;
   };
   const lcWidth = lc ? lc.cols.reduce((a, b) => a + b, 0) : 0;
   // The grid's columns and rows in the paper's millimetres, on either paper form: the columns as the paper measures them
@@ -573,13 +591,28 @@ export function LogSheetRecordView({
   const linesRule = logRowsRule(layout);
   const canAddRows = editable && linesRule.canAdd;
   const canRemoveRows = editable && linesRule.canRemove && data.rows.length > linesRule.minLines;
+  // A line put in between the others, by the "+" beside each (F/QC/11, REQUIREMENTS §233).
+  const canInsertRows = canAddRows && doc.id === GSM_DOC;
+  const rowTools = canRemoveRows || canInsertRows;
   // Every reading outside the band its paper prints: a column's, a tolerance box's, a line's specification, a box
   // against its tolerance (engine/printedBands.ts, REQUIREMENTS §111 rule 2). The judge is made again only when a
   // tolerance box changes, so a keystroke elsewhere redraws no line of the grid.
   const judge = judgeFor(layout, data.header);
   const outOfBand = outOfBandCount(layout, data);
-  // F/QC/11's Pass/Fail and Sign. lines: one cell a plate (groupCellLines).
+  // F/QC/11's Pass/Fail and Sign. lines: one cell a plate (groupCellLines) - the printed lines they are, wherever lines
+  // put in or taken off have moved them (REQUIREMENTS §233).
   const groupCells = layout.groupCellLines;
+  const printedAt = (row: LogSheetRow, i: number): number => {
+    const mode = layout.rowMode;
+    if (mode.kind !== "fixedRows") return i;
+    const printed = printedLineOf(layout, row, i);
+    return printed ? mode.rows.indexOf(printed) : -1;
+  };
+  // An F/QC/11 test line put in (5, 6 …) shows its Index as the printed ones do: DCRS numbers it, nobody types it (§233).
+  const printedRow = (row: LogSheetRow, i: number): Record<string, string | number | null> | undefined => {
+    const printed = printedLineOf(layout, row, i);
+    return doc.id === GSM_DOC && printed && Object.keys(printed).length === 0 && isGsmTestLine(row.parameter) ? { parameter: String(row.parameter) } : printed;
+  };
   // F/QC/18's "On Glass surface" line under DRYING TEST: its Sr. No. and parameter merged with the line above (part 6).
   const joined = continuationsOf(layout, data.rows);
   const joinedLines = new Set(joined.keys());
@@ -1237,7 +1270,7 @@ export function LogSheetRecordView({
                   )}
                 </React.Fragment>
               ))}
-              {canRemoveRows && <th className="pf-remove" style={{ width: 36 }} rowSpan={headRows}></th>}
+              {rowTools && <th className="pf-remove" style={{ width: canInsertRows ? 64 : 36 }} rowSpan={headRows}></th>}
             </tr>
             {headRows === 2 && (
               <tr style={paperRowStyle(cal?.grid.head[1] ?? rep?.grid.head[1])}>
@@ -1263,7 +1296,7 @@ export function LogSheetRecordView({
               {/* A blank line where the paper leaves one between its processes (gapBetweenRuns, REQUIREMENTS §111). */}
               {gaps.has(i) && (
                 <tr className="log-gap-line" aria-hidden="true" data-gap-line="">
-                  <td colSpan={lines.first.length + (numbered ? 1 : 0) + (canRemoveRows ? 1 : 0)} />
+                  <td colSpan={lines.first.length + (numbered ? 1 : 0) + (rowTools ? 1 : 0)} />
                 </tr>
               )}
               <SheetRow
@@ -1273,9 +1306,9 @@ export function LogSheetRecordView({
                 columns={lines.first}
                 issuedColumns={issuedFirst}
                 second={lines.second}
-                fixedRow={printedLineOf(layout, row, i)}
+                fixedRow={printedRow(row, i)}
                 judge={judge}
-                groupCells={groupCells?.includes(i)}
+                groupCells={groupCells?.includes(printedAt(row, i))}
                 numbered={numbered}
                 srNo={numbered ? srNoText(layout, i, recordDate, joinedLines) : undefined}
                 spanDown={pf ? undefined : joined.get(i + 1)}
@@ -1290,6 +1323,7 @@ export function LogSheetRecordView({
                 lineMerges={layout.lineMerges}
                 linked={rowLinks?.get(row.id)}
                 canRemove={canRemoveRows}
+                tools={rowTools}
                 height={gridRowHeight(i + 1)}
                 height2={calLine(i, true)}
                 unwritten={someWritten && !writtenIn(row)}
@@ -1300,6 +1334,7 @@ export function LogSheetRecordView({
                 onMachineBlur={onMachineBlur}
                 onSupplierBlur={onSupplierBlur}
                 onRemove={onRemoveRow}
+                onInsert={canInsertRows ? onInsertRow : undefined}
               />
               </React.Fragment>
             ))}
@@ -2219,6 +2254,7 @@ const SheetRow = React.memo(function SheetRow({
   lineMerges,
   linked,
   canRemove,
+  tools,
   height,
   height2,
   unwritten,
@@ -2229,6 +2265,7 @@ const SheetRow = React.memo(function SheetRow({
   onMachineBlur,
   onSupplierBlur,
   onRemove,
+  onInsert,
 }: {
   row: LogSheetRow;
   index: number;
@@ -2267,6 +2304,8 @@ const SheetRow = React.memo(function SheetRow({
   /** The line's cells read from another document (REQUIREMENTS §82), by column key; never stored on the line. */
   linked?: RowLinks;
   canRemove: boolean;
+  /** The line's tools cell is drawn (a bin, a "+"), as the heading's. */
+  tools?: boolean;
   /** The height the paper gives this line (qcIncomingGeometry.ts), in millimetres. */
   height?: number;
   /** The height the paper gives the entry's second line (F/QC/12's Deviation % line, qcCalibrationGeometry.ts). */
@@ -2282,6 +2321,8 @@ const SheetRow = React.memo(function SheetRow({
   onMachineBlur: (rowId: string | null, value: string) => void;
   onSupplierBlur: (rowId: string | null, value: string) => void;
   onRemove: (rowId: string) => void;
+  /** A line put in under this one (F/QC/11, REQUIREMENTS §233). */
+  onInsert?: (afterId: string) => void;
 }) {
   // What the line is called in a downloaded file's list of boxes: its time slot, its parameter (REQUIREMENTS §81).
   const rowName = logRowName(row, columns);
@@ -2365,11 +2406,18 @@ const SheetRow = React.memo(function SheetRow({
           </td>
         );
       })}
-      {canRemove && (
+      {(tools ?? canRemove) && (
         <td className="pf-remove" rowSpan={lineSpan}>
-          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => onRemove(row.id)} title="Remove row">
-            <FiTrash2 size={13} />
-          </button>
+          {onInsert && (
+            <button className="btn btn-ghost btn-sm btn-icon" data-action="insert-row" onClick={() => onInsert(row.id)} title="Add a row below" aria-label="Add a row below">
+              <FiPlus size={13} />
+            </button>
+          )}
+          {canRemove && (
+            <button className="btn btn-ghost btn-sm btn-icon" data-action="remove-row" onClick={() => onRemove(row.id)} title="Remove row" aria-label="Remove row">
+              <FiTrash2 size={13} />
+            </button>
+          )}
         </td>
       )}
     </tr>

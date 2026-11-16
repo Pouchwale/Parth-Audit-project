@@ -184,7 +184,9 @@ const weightScale: LogSheetLayout = {
     { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 140, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.location } },
     { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.department } },
     { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.manufacturer } },
-    { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 110, autoFill: { carryForward: true } },
+    // THE RECORD'S RUNNING NUMBER (the owner, 16-Nov-2026, REQUIREMENTS §233): 1, 2, 3 as the records list numbers them,
+    // written by data/serialNumbersMigration.ts, editable - never the last sheet's.
+    { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 110, autoFill: { carryForward: false } },
     // The certificate's due date, 20-09-27, on every new sheet (CALIBRATION_CERTIFICATE, the owner, 27-Oct-2026).
     { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true, default: CALIBRATION_CERTIFICATE.due, newest: true } },
     { key: "minReadingCapacity", label: "Minimum Reading Capacity", printedLabel: "Minimum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true, default: WEIGHT_SCALE_FIXED_BOXES.minReadingCapacity } },
@@ -289,7 +291,9 @@ const gsmPlate: LogSheetLayout = {
     { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 120, autoFill: { default: GSM_PRINTED.location, carryForward: true } },
     { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { default: GSM_PRINTED.department, carryForward: true } },
     { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { default: GSM_PRINTED.manufacturer, carryForward: true } },
-    { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 120, autoFill: { carryForward: true } },
+    // THE RECORD'S RUNNING NUMBER (the owner, 16-Nov-2026, REQUIREMENTS §233): 1, 2, 3 as the records list numbers them,
+    // written by data/serialNumbersMigration.ts, editable - never the last sheet's.
+    { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 120, autoFill: { carryForward: false } },
     // THE CERTIFICATE'S DATES ON EVERY NEW SHEET (CALIBRATION_CERTIFICATE, the owner, 27-Oct-2026): Calibration Expiry and
     // Due Date 20-09-27, I. Calibration Date 21-09-26, each editable and kept when a later one is written (autoFill.newest).
     // The paper prints "I. Calibration Date:-" over the grid; DCRS prints "Calibration Date:-", without the "I." (the owner,
@@ -304,7 +308,10 @@ const gsmPlate: LogSheetLayout = {
     { key: "dueDate", label: "Due Date", printedLabel: "Due Date:-", type: "date", width: 150, paperColumn: 3, autoFill: { afterRecordDate: 7 } },
   ],
   columns: gsmColumns,
-  rowMode: { kind: "fixedRows", rows: GSM_ROWS.map((parameter) => ({ parameter })) },
+  // The paper's six lines, OPEN (the owner, 16-Nov-2026, REQUIREMENTS §233: "add new row or delete also in between
+  // anywhere"): a test line put in or taken off anywhere, the test lines numbered again, Pass/Fail and Sign. at the foot
+  // (engine/gsmLines.ts).
+  rowMode: { kind: "fixedRows", openLines: true, rows: GSM_ROWS.map((parameter) => ({ parameter })) },
   // A new month's sheet is written as the last one was — every box, editable (§117)...
   carryForwardAll: true,
   // ...but not its lines (the owner, 30-Oct-2026): each month's sheet starts from the plates' sizes and Pass, and its

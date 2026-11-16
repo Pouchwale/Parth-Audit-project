@@ -154,13 +154,16 @@ export function gsmPlateWord(blocks: ExportBlock[]): ExportBlock[] | null {
     height: (geo.grid.head[1] ?? geo.grid.head[0]) * PT,
     cells: [cell({ text: "" }, 28, false, "left", "top", TIMES, { colSpan: g[0], vMerge: "continue" }), ...Array.from({ length: cols - 1 }, (_, k) => cell(head1[k + 1], 24, false, "center", "top", TIMES, { colSpan: g[k + 1] }))],
   });
-  grid.rows.slice(grid.headerRows || 2).forEach((r, li) => {
+  // Lines put in (REQUIREMENTS §233): the grid as tall as the paper's six lines, shared among all of them - one A4 page.
+  const body = grid.rows.slice(grid.headerRows || 2);
+  const squeeze = body.length > geo.grid.lines.length ? geo.grid.lines.length / body.length : 1;
+  body.forEach((r, li) => {
     // Pass/Fail and Sign.: one cell under each plate, across its size and Deviation.
     const grouped = /^(Pass\/Fail|Sign\.?)$/i.test(text(r[0]));
     const cells: PaperCellSpec[] = [cell(r[0], 24, false, "right", "top", TIMES, { colSpan: g[0] })];
     if (grouped) for (let c = 1; c < cols; c += 2) cells.push(cell(r[c], 24, false, "center", "center", TIMES, { colSpan: g[c] + (g[c + 1] ?? 0) }));
     else for (let c = 1; c < cols; c++) cells.push(cell(r[c], 24, false, "center", "center", TIMES, { colSpan: g[c] }));
-    rows.push({ height: (geo.grid.lines[li] ?? 9.5) * PT, cells });
+    rows.push({ height: (geo.grid.lines[Math.min(li, geo.grid.lines.length - 1)] ?? 9.5) * squeeze * PT, cells });
   });
   const out: ExportBlock[] = [{ kind: "paper", widths: widthsMm.map((w) => Math.round(w * PT * 100) / 100), rows, spaceAfter: 12 }];
   // The PROCEDURE under the grid: its first word in bold, as the page prints it.

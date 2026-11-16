@@ -18,6 +18,7 @@ import { alignSeededLineNumbers } from "./lineNumbersMigration";
 import { alignPapersOnFile } from "./paperOnFileMigration";
 import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
 import { alignCertificateDates, weekDatesOnSheets } from "./certificateDatesMigration";
+import { serialNumbersOnSheets } from "./serialNumbersMigration";
 import { serviceReportsOnSaturdays, serviceVisitsOnSaturdays } from "./serviceSaturdaysMigration";
 import { auditedYesOnOpenSheets } from "./purchaseAuditMigration";
 import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
@@ -104,6 +105,8 @@ export function bootstrap(): void {
   alignCertificateDates();
   // F/QC/11's Calibration Date and Due Date, the week's own (REQUIREMENTS §223).
   weekDatesOnSheets();
+  // F/QC/11's and F/QC/12's Serial No, the record's running number (REQUIREMENTS §233).
+  serialNumbersOnSheets();
   // F/PUR/02's sheets still open: every audit point AUDITED Yes, the NC table from the points rated NC (REQUIREMENTS §229).
   auditedYesOnOpenSheets();
   // F/QC/17's new starting boxes (30-10-26) in the sheets created before, still open, each with a line in its history.

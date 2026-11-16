@@ -3932,6 +3932,9 @@ table.svc-paper {
   .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td span { font-size: inherit; font-weight: inherit; color: inherit; }
   .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td .input { text-align: center; text-indent: 0; font-family: inherit; font-size: inherit; color: #000; }
   .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet td .cell-text { display: block; font-size: inherit; line-height: inherit; color: #000; }
+  /* F/QC/11: its grid stands right under the Calibration Date / Due Date row (gapAbove 0), whose rule is the grid's top one -
+     the heading's own top rule drawn as well made the line under that row twice as thick (the owner, 16-Nov-2026, §234). */
+  .paper-sheet[data-sheet="qc-gsm-plate-calibration"] .paper-body > .card + .doc-table table.log-sheet > thead > tr:first-child > th { border-top-width: 0; }
   .paper-sheet[data-paper-form="calib"] .doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: solid; }
   /* F/QC/11: Times New Roman 12 pt, the headings centred, "Index" larger at the left over the two heading rows; the line's
      name at the right of its cell (Tasted-1, 2 ... Sign.). */

@@ -47,6 +47,7 @@ import { addRemark, removeRemark, takesRemarks } from "../engine/recordRemarks";
 import { RecordRemarks } from "../components/records/RecordRemarks";
 import { periodKeyFor } from "../engine/recordGenerator";
 import { NOMINAL_FILL_NOTE, SCALE_DAY_NOTE, fillScaleLinesDue, nominalFillOnOpen } from "../engine/nominalFill";
+import { SERIAL_NUMBER_NOTE, withSerialNumber } from "../data/serialNumbersMigration";
 import { firstWeekDate } from "../engine/calibrationWeeks";
 import { DAILY_PEST_CHECKER, DAILY_PEST_FILL_NOTE, dailyPestFillOnOpen, dailyPestRoundTime } from "../engine/dailyPestFill";
 import { SERVICE_QTY_FILL_NOTE, serviceQtyFillOnOpen } from "../engine/serviceMaterials";
@@ -267,8 +268,10 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     // F/QC/12: a week whose date has come is filled, with nobody's name on it (the server's morning prepare does the same).
     const base = (filled ?? record.data) as LogSheetData | undefined;
     const onTheDay = doc.id === "qc-weight-scale-calibration" && base ? fillScaleLinesDue(withComputedCells(doc.id, base), todayISO()) : null;
-    const out = onTheDay ?? filled;
-    if (out) persistLocal(saveDraft(record, withComputedCells(doc.id, out), currentUser, { note: onTheDay ? SCALE_DAY_NOTE : NOMINAL_FILL_NOTE }));
+    // F/QC/11 and F/QC/12: the Serial No box the record's running number, as the records list shows it (REQUIREMENTS §233).
+    const numbered = withSerialNumber(record, (onTheDay ?? filled ?? record.data) as LogSheetData | undefined);
+    const out = numbered ?? onTheDay ?? filled;
+    if (out) persistLocal(saveDraft(record, withComputedCells(doc.id, out), currentUser, { note: onTheDay ? SCALE_DAY_NOTE : filled ? NOMINAL_FILL_NOTE : SERIAL_NUMBER_NOTE }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.id, editable, superseded]);
   // F/HR/17 answered as the plant's usual day when a person opens it (REQUIREMENTS §149, engine/dailyPestFill.ts): the

@@ -38,6 +38,8 @@ import { logActivity } from "../utils/activityLog";
 import { useProgressiveCount } from "../utils/useProgressive";
 import type { Language } from "../i18n/strings";
 import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types";
+import { runningNumbers as numberedRecords } from "../engine/runningNumbers";
+import { serialNumbersOnSheets } from "../data/serialNumbersMigration";
 import { mayDo } from "../engine/departmentScope";
 import { AccessReason } from "../components/common/AccessReason";
 
@@ -68,18 +70,11 @@ const shownValue = (v: unknown): string => {
 
 /** What tells this record from the format's other records: its position, period, trainee… */
 /**
- * THE RECORDS NUMBERED IN PLACE OF DETAILS (REQUIREMENTS §226; the owner, 16-Nov-2026, of F/QC/11's list: "remove detail
- * from screen and instead of that add serial number"; asked: a running number, 1, 2, 3 in date order). The oldest record
- * is 1; a new one continues the count.
+ * THE RECORDS NUMBERED IN PLACE OF DETAILS (REQUIREMENTS §226, §233; the owner, 16-Nov-2026, of F/QC/11's list and then
+ * F/QC/12's: "remove detail from screen and instead of that add serial number"; asked: a running number, 1, 2, 3 in
+ * date order). The oldest record is 1; a new one continues the count (engine/runningNumbers.ts).
  */
-const RUNNING_NUMBER_DOCS: ReadonlySet<string> = new Set(["qc-gsm-plate-calibration"]);
-
-/** Each record's running number, oldest first, for a document numbered so; null for any other. */
-function runningNumbers(doc: DocumentDefinition, records: RecordInstance[]): Map<string, string> | null {
-  if (!RUNNING_NUMBER_DOCS.has(doc.id)) return null;
-  const oldestFirst = records.slice().sort((a, b) => compareISO(a.dueDate, b.dueDate) || (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
-  return new Map(oldestFirst.map((r, i) => [r.id, String(i + 1)] as const));
-}
+const runningNumbers = (doc: DocumentDefinition, records: RecordInstance[]): Map<string, string> | null => numberedRecords(doc.id, records);
 
 function describeRecord(doc: DocumentDefinition, record: RecordInstance, lang: Language, numbers?: Map<string, string> | null): string {
   if (numbers) return numbers.get(record.id) ?? "";
@@ -223,6 +218,11 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   // saved anywhere in the app.
   const thisMonth = new Date();
   useEnsureMonth(thisMonth.getFullYear(), thisMonth.getMonth(), [docId]);
+  // F/QC/11 and F/QC/12: each sheet's Serial No box holds the record's running number shown below (REQUIREMENTS §233),
+  // a new record's too - written when the list changes, only where the box needs it.
+  React.useEffect(() => {
+    if (serialNumbersOnSheets(docId) > 0) bump();
+  }, [docId, version, bump]);
 
   const doc = documentRepository.getById(docId);
   // Another department's document is refused by name, not reported missing

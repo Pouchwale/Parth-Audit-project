@@ -158,6 +158,11 @@ export interface LogSheetData {
    * its text at the foot, each line the format's until a person types over it on the record. The format keeps its own.
    */
   words?: SheetWords;
+  /**
+   * The Serial No DCRS wrote in the sheet's box: the record's running number (F/QC/11, F/QC/12, REQUIREMENTS §233). While
+   * the box still holds it, the box follows the list's number; a number a person writes there instead stays.
+   */
+  autoSerialNo?: string;
 }
 
 /** A record's own wording of its paper's paragraphs, line by line (an empty place keeps the format's line). */
