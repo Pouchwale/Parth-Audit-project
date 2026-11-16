@@ -17,7 +17,7 @@ import { alignCompanyName } from "./companyNameMigration";
 import { alignSeededLineNumbers } from "./lineNumbersMigration";
 import { alignPapersOnFile } from "./paperOnFileMigration";
 import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
-import { alignCertificateDates } from "./certificateDatesMigration";
+import { alignCertificateDates, weekDatesOnSheets } from "./certificateDatesMigration";
 import { serviceReportsOnSaturdays, serviceVisitsOnSaturdays } from "./serviceSaturdaysMigration";
 import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
 import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
@@ -101,6 +101,8 @@ export function bootstrap(): void {
   datedByFrequency();
   // The calibration certificate's dates (§129) in the sheets still open, each with a line in its history.
   alignCertificateDates();
+  // F/QC/11's Calibration Date and Due Date, the week's own (REQUIREMENTS §223).
+  weekDatesOnSheets();
   // F/QC/17's new starting boxes (30-10-26) in the sheets created before, still open, each with a line in its history.
   alignRulerBoxes();
   // ...and round 2 (30-10-26): Range, Least count, Kristeel and the report number from the certificate's years.

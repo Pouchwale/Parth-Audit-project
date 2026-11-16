@@ -20,7 +20,7 @@ import { settingsRepository } from "../src/data/repositories/settingsRepository"
 import { dueDatesInMonth, scheduleLabel } from "../src/engine/frequencyEngine";
 import { ensureRecordsGeneratedForMonth, periodKeyFor } from "../src/engine/recordGenerator";
 import { removeOffScheduleShells } from "../src/engine/calendarMigration";
-import { alignCertificateDates, CERTIFICATE_NOTE } from "../src/data/certificateDatesMigration";
+import { alignCertificateDates, CERTIFICATE_NOTE, weekDatesOnSheets } from "../src/data/certificateDatesMigration";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { suggestedVisitDate } from "../src/engine/flyRegister";
 
@@ -117,7 +117,9 @@ test("the sheets still open take the certificate's dates where they held earlier
   assert.equal(header(draft).calibrationExpiry, "2027-09-20", "the later of what it held and the certificate's");
   // F/QC/11's I. Calibration Date / Due Date row, back since 30-Oct-2026 (§147): the later of what it held and the
   // certificate's - its 31-10-2026 kept, its blank Due Date the certificate's 20-09-2027.
-  assert.deepEqual([header(draft).calibrationDate, header(draft).dueDate], ["2026-10-31", "2027-09-20"]);
+  // ...and since 16-Nov-2026 (§223) the week's own: the 31-10-2026 a person wrote kept, the blank Due Date the next week's.
+  assert.equal(weekDatesOnSheets(), 1);
+  assert.deepEqual([header(draft).calibrationDate, header(draft).dueDate], ["2026-10-31", "2026-11-10"]);
   assert.ok(recordRepository.getById(due)!.history?.some((e) => e.note === CERTIFICATE_NOTE), "a line in its history");
   assert.equal(header(later).calibrationExpiry, "2028-09-19", "a later date written is kept");
   assert.equal(header(handedIn).calibrationExpiry, "2024-08-27", "a sheet handed in is the person's as handed in");

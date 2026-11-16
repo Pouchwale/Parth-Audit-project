@@ -159,7 +159,8 @@ function logSheetObservations(doc: DocumentDefinition, d: LogSheetData, dueDate:
       // A calibration certificate's date (autoFill.newest, the owner, 27-Oct-2026) is the instrument's, not observed: the later
       // of the last sheet's and the date the format starts with.
       const latest = [String(p.header?.[f.key] ?? ""), String(f.autoFill?.default ?? "")].sort().pop();
-      const allowed = f.autoFill?.dueDate ? dueDate : typeof f.printed === "string" ? f.printed : f.autoFill?.newest ? latest : p.header?.[f.key];
+      // (the record's own date, n days on - F/QC/11's week and the next, §223 - is the record's, as its date is)
+      const allowed = f.autoFill?.afterRecordDate !== undefined ? addDays(dueDate, f.autoFill.afterRecordDate) : f.autoFill?.dueDate ? dueDate : typeof f.printed === "string" ? f.printed : f.autoFill?.newest ? latest : p.header?.[f.key];
       // The format's own starting value where the last sheet left the box empty or held a value the box started with
       // before (autoFill.formerDefaults), and a number made of the sheet's certificate years (autoFill.yearsOf): the
       // format's, not observed (F/QC/17, the owner, 30-10-2026).

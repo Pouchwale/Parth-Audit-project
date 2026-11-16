@@ -11896,3 +11896,23 @@ Seperate so in trend Anlaysis trend analysis of fly catcher only present".
 - Proved: frontend/tests/flyCatcherTrendAlone.test.ts, and in the browser: the trend page with only its report, the
   register page with its two tabs and its buttons.
 
+## §223 F/QC/11 every Tuesday, each sheet's Calibration Date and Due Date its week's (16-Nov-2026)
+
+The owner, 16-Nov-2026, with F/QC/11's "Calibration Date:- 21-09-2026 ... Due Date:- 20-09-2027": "weekly frequency of
+this document which will repeat Tuesday ... on user screen it will come of whole month ... date will come according not
+this". Asked: Tuesday; the Calibration Date the week's and the Due Date the next week's; every Tuesday of a month, five
+when it has five.
+
+- F/QC/11 stays every Tuesday (§130): a month's sheets are all made at its start, four or five, each on the calendar and
+  on the document's page.
+- Its Calibration Date is the sheet's own date and its Due Date the next Tuesday (autoFill.afterRecordDate 0 and 7, a new
+  rule for a box that is the record's date n days on: engine/recordDefaults.ts, engine/carryForward.ts, the demo's
+  engine/autoFill.ts), each editable. The certificate's 21-09-2026 and 20-09-2027 are no longer written there
+  (Calibration Expiry keeps the certificate's 20-09-2027).
+- The sheets already made: on one still open, a box empty or holding the certificate's date takes the week's; on one
+  handed in or signed off, only a box the sheet was made without (§147); a date a person wrote stays - one line in the
+  history (data/certificateDatesMigration.ts weekDatesOnSheets, at every start). The plant's November sheets, the 3rd,
+  10th, 17th and 24th, read 03-11-2026 / 10-11-2026 and so on.
+- Proved: frontend/tests/gsmWeeklyDates.test.ts (December 2026's five Tuesdays, January 2027's four, each with its two
+  dates), qcCertificateDates, qcCarryForward, qcPaperFormats, scheduleChange28Oct, truthfulPrepare.
+

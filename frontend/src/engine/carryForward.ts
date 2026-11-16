@@ -2,7 +2,7 @@ import type { LogSheetData, LogSheetLayout, LogSheetRow, RecordInstance } from "
 import { recordRepository } from "../data/repositories/recordRepository";
 import { blankLogRow } from "./recordDefaults";
 import { boxKind, columnKind, isPlaceholder } from "./observations";
-import { compareISO } from "../utils/date";
+import { addDays, compareISO } from "../utils/date";
 import { generateId } from "../utils/id";
 
 // THE NEW SHEET IS WRITTEN AS THE LAST ONE WAS (REQUIREMENTS §117). The owner, 16-Oct-2026, on F/QC/17:
@@ -65,6 +65,11 @@ export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blan
   const header: Record<string, string> = { ...blank.header };
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
     if (typeof f.printed === "string") continue;
+    // The record's own date, n days on (F/QC/11's week and the next, REQUIREMENTS §223): the new sheet's, never the last one's.
+    if (f.autoFill?.afterRecordDate !== undefined) {
+      header[f.key] = addDays(dueDate, f.autoFill.afterRecordDate);
+      continue;
+    }
     const kind = boxKind(f, layout);
     if (kind === "date") {
       header[f.key] = dueDate;

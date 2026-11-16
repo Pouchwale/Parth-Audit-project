@@ -10,7 +10,7 @@ import type {
   ServiceReportData,
   TrainingRecordData,
 } from "../types";
-import { formatMonthYearShort, fromISODate } from "../utils/date";
+import { addDays, formatMonthYearShort, fromISODate } from "../utils/date";
 import { fixedMaterialForServiceArea } from "./serviceMaterials";
 import { dayInfo, isCompanyHoliday } from "./holidays";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
@@ -150,6 +150,8 @@ export function createDefaultData(
           // A box whose value the paper prints is written with it (REQUIREMENTS §111).
           if (typeof f.printed === "string") header[f.key] = f.printed;
           else if (f.autoFill?.financialYear) header[f.key] = calendarPeriod(dueDateISO);
+          // The record's own date, n days on (F/QC/11's week and the next, REQUIREMENTS §223).
+          else if (f.autoFill?.afterRecordDate !== undefined) header[f.key] = addDays(dueDateISO, f.autoFill.afterRecordDate);
           else header[f.key] = isDecisionField(f.key) || boxKind(f, layout) !== "standing" ? "" : (f.autoFill?.default ?? "");
         }
         rows = emptyLogRows(doc.id);

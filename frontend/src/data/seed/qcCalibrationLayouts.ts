@@ -294,9 +294,12 @@ const gsmPlate: LogSheetLayout = {
     // 15-Nov-2026, REQUIREMENTS §219: "remove this i. which come before calibration date"); its name stays "Calibration Date". The row was taken away on
     // 28-Oct-2026 and is back on the owner's word of 30-Oct-2026 (REQUIREMENTS §147): what a sheet held in it shows again.
     { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true, default: CALIBRATION_CERTIFICATE.due, newest: true } },
-    { key: "calibrationDate", label: "Calibration Date", printedLabel: "Calibration Date:-", type: "date", width: 150, autoFill: { default: CALIBRATION_CERTIFICATE.date, newest: true } },
+    // THE WEEK'S OWN DATES (the owner, 16-Nov-2026, REQUIREMENTS §223: F/QC/11 every Tuesday, "date will come according not
+    // this"): Calibration Date the record's date, Due Date the next Tuesday, each editable - the certificate's 21-09-26 and
+    // 20-09-27 until then.
+    { key: "calibrationDate", label: "Calibration Date", printedLabel: "Calibration Date:-", type: "date", width: 150, autoFill: { afterRecordDate: 0 } },
     // "Due Date:-" at the right of the line, where the paper prints it (paperColumn).
-    { key: "dueDate", label: "Due Date", printedLabel: "Due Date:-", type: "date", width: 150, paperColumn: 3, autoFill: { default: CALIBRATION_CERTIFICATE.due, newest: true } },
+    { key: "dueDate", label: "Due Date", printedLabel: "Due Date:-", type: "date", width: 150, paperColumn: 3, autoFill: { afterRecordDate: 7 } },
   ],
   columns: gsmColumns,
   rowMode: { kind: "fixedRows", rows: GSM_ROWS.map((parameter) => ({ parameter })) },

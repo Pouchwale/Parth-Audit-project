@@ -160,9 +160,9 @@ test("the page on file is a previous sheet: a new F/QC/12 starts as the last wee
   const gsm = doc("qc-gsm-plate-calibration");
   const gsmStart = startingData(gsm, "2026-10-31", false) as LogSheetData;
   assert.equal(gsmStart.header.calibrationExpiry, "2027-09-20", "the certificate's due date the owner gave (27-Oct-2026), later than the page's 22.09.2025");
-  // The page's I. Calibration Date / Due Date row (taken away 28-Oct-2026, back 30-Oct-2026, §147): the certificate's dates.
-  assert.equal(gsmStart.header.calibrationDate, "2026-09-21", "the certificate's calibration date the owner gave, later than the page's 31.12.2024");
-  assert.equal(gsmStart.header.dueDate, "2027-09-20");
+  // The page's Calibration Date / Due Date row: the sheet's own date and the next week's (the owner, 16-Nov-2026, §223).
+  assert.equal(gsmStart.header.calibrationDate, "2026-10-31", "the sheet's own date, not the page's 31.12.2024");
+  assert.equal(gsmStart.header.dueDate, "2026-11-07", "the next week's");
   assert.equal(startingData(weight, "2026-10-14", false) && (startingData(weight, "2026-10-14", false) as LogSheetData).header.calibrationExpiry, "2027-09-20", "F/QC/12: the owner's 20-09-2027, not the page's 27.08.2024");
   assert.equal(gsmStart.rows.find((r) => r.parameter === "Sign.")?.p54, "", "the page's signer is not this month's: the opener signs on opening (30-Oct-2026)");
 });
@@ -201,8 +201,8 @@ test("F/QC/12 and F/QC/11 carry the same way; F/QC/11's four boxes carry what wa
   assert.equal(carried.header.location, "LAB", "a box nobody changed keeps the paper's words");
   assert.equal(carried.header.serialNo, "50");
   assert.equal(carried.header.calibrationExpiry, "2027-10-31", "a later certificate's date written carries on");
-  assert.equal(carried.header.calibrationDate, "2026-09-21", "the certificate's calibration date the owner gave (27-Oct-2026), the row back (§147)");
-  assert.equal(carried.header.dueDate, "2027-09-20", "the later of the 31-10-2026 written and the certificate's 20-09-2027");
+  assert.equal(carried.header.calibrationDate, "2026-10-31", "the new sheet's own date, never the last one's (§223)");
+  assert.equal(carried.header.dueDate, "2026-11-07", "the next week's, never the last sheet's 31-10-2026 (§223)");
   assert.equal(carried.rows.find((r) => r.parameter === "Sign.")?.p54, "", "last month's signer is not carried (30-Oct-2026)");
   assert.deepEqual(carried.rows.map((r) => r.parameter), ["Tasted-1", "2", "3", "4", "Pass/Fail", "Sign."], "the paper's own lines");
   recordRepository.query({ documentId: gsm.id }).forEach((r) => recordRepository.remove(r.id));

@@ -19,6 +19,7 @@
 //     Tuesday 27-Oct-2026: F/QC/12's Wednesday sheet), is written as the last one was then (§117).
 // Run: npm run test:unit -- qcCertificateDates
 import test from "node:test";
+import { addDays } from "../src/utils/date";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -30,7 +31,7 @@ import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { CALIBRATION_CERTIFICATE } from "../src/data/seed/qcCalibrationLayouts";
 import { SEED_GSM_PLATE_CALIBRATION, SEED_WEIGHT_SCALE_CALIBRATION } from "../src/data/seed/qcCalibrationRecords";
 import { MASTER_CERTIFICATE, RULER_300_ID, RULER_600_ID, RULER_CERTIFICATE, rulerScaleOf } from "../src/data/seed/qcRulerVerificationLayouts";
-import { alignCertificateDates, PAGE_LINES_NOTE, ROW_BACK_NOTE } from "../src/data/certificateDatesMigration";
+import { alignCertificateDates, PAGE_LINES_NOTE, weekDatesOnSheets, WEEK_DATES_NOTE } from "../src/data/certificateDatesMigration";
 import { alignRulerBoxes, alignRulerBoxesRound2, RULER_BOXES_NOTE } from "../src/data/rulerBoxesMigration";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { createRecordForDocument, startingData } from "../src/engine/recordCrud";
@@ -58,8 +59,6 @@ test("the dates the owner gave, as the formats hold them", () => {
   const boxes: [string, string, string][] = [
     [SCALE, "calibrationExpiry", "2027-09-20"],
     [GSM, "calibrationExpiry", "2027-09-20"],
-    [GSM, "calibrationDate", "2026-09-21"],
-    [GSM, "dueDate", "2027-09-20"],
     [RULER_600_ID, "masterCalibrationDate", "2026-09-21"],
     [RULER_600_ID, "masterCalibrationDueDate", "2027-09-20"],
     [RULER_300_ID, "masterCalibrationDate", "2026-09-21"],
@@ -90,7 +89,9 @@ test("a new sheet with nothing before it starts with them: F/QC/12, F/QC/11 and 
   assert.equal(scale.header.calibrationExpiry, "2027-09-20");
   const gsm = data(createRecordForDocument(doc(GSM), { dateISO: "2026-11-01" }).record);
   assert.equal(gsm.header.calibrationExpiry, "2027-09-20");
-  assert.deepEqual([gsm.header.calibrationDate, gsm.header.dueDate], ["2026-09-21", "2027-09-20"], "the row back (§147)");
+  const gsmRec = createRecordForDocument(doc(GSM), { dateISO: "2026-11-01" }).record;
+  assert.deepEqual([gsm.header.calibrationDate, gsm.header.dueDate], [gsmRec.dueDate, addDays(gsmRec.dueDate, 7)], "the row: the week's date and the next week's (§223)");
+  assert.deepEqual(layoutOf(GSM).headerFields.filter((f) => f.key === "calibrationDate" || f.key === "dueDate").map((f) => f.autoFill), [{ afterRecordDate: 0 }, { afterRecordDate: 7 }]);
   for (const id of [RULER_600_ID, RULER_300_ID]) {
     const ruler = data(createRecordForDocument(doc(id), { dateISO: "2026-10-28" }).record);
     assert.deepEqual([ruler.header.calibrationDate, ruler.header.calibrationDueDate], ["2026-09-26", "2027-09-25"], id);
@@ -110,7 +111,7 @@ test("from the pages of 2024 on file, the certificate's dates and not the pages'
   assert.equal(scale.header.deviceIdNo, "QC-76", "the rest of the page carried as before (§117)");
   const gsm = startingData(doc(GSM), "2026-11-01", false) as LogSheetData;
   assert.equal(gsm.header.calibrationExpiry, "2027-09-20", "not the page's 22.09.2025");
-  assert.deepEqual([gsm.header.calibrationDate, gsm.header.dueDate], ["2026-09-21", "2027-09-20"], "nor its 31.12.2024");
+  assert.deepEqual([gsm.header.calibrationDate, gsm.header.dueDate], ["2026-11-01", "2026-11-08"], "nor its 31.12.2024: the sheet's own date and the next week's (§223)");
   clear(SCALE);
   // The next certificate, written on a sheet: a new sheet carries it, the later date.
   const week = createRecordForDocument(doc(SCALE), { dateISO: "2027-09-22" }).record;
@@ -331,11 +332,12 @@ test("F/QC/11 sheets made while the I. Calibration Date / Due Date row was taken
   made("gsm-handed-in-without", "Pending Verification", true);
   made("gsm-open-without", "In Progress", true);
   made("gsm-verified-blank", "Verified", false, { calibrationDate: "", dueDate: "" });
-  assert.equal(alignCertificateDates(), 3, "the three made without the row");
+  // Since §223 the row holds the week's own dates: the sheet's date and the next week's.
+  assert.equal(weekDatesOnSheets(), 3, "the three made without the row");
   const h = (id: string) => data(recordRepository.getById(id)!).header;
   for (const id of ["gsm-verified-without", "gsm-handed-in-without", "gsm-open-without"]) {
-    assert.deepEqual([h(id).calibrationDate, h(id).dueDate], ["2026-09-21", "2027-09-20"], id);
-    assert.ok(recordRepository.getById(id)!.history?.some((e) => e.note === ROW_BACK_NOTE), `${id}: a line in its history`);
+    assert.deepEqual([h(id).calibrationDate, h(id).dueDate], ["2026-10-29", "2026-11-05"], id);
+    assert.ok(recordRepository.getById(id)!.history?.some((e) => e.note === WEEK_DATES_NOTE), `${id}: a line in its history`);
   }
   assert.deepEqual([h("gsm-verified-blank").calibrationDate, h("gsm-verified-blank").dueDate], ["", ""], "a verified sheet that held the boxes stays as verified");
   assert.equal(alignCertificateDates(), 0, "nothing to do the next time");

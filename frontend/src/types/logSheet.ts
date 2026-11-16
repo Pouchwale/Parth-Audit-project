@@ -40,6 +40,8 @@ export interface LogHeaderField {
     sign?: boolean;
     dueDate?: boolean;
     newest?: boolean;
+    /** The record's own date, `n` days on (F/QC/11's weekly Calibration Date 0, Due Date 7: the owner, 16-Nov-2026, REQUIREMENTS §223). */
+    afterRecordDate?: number;
     /** The twelve months the sheet covers, from its due date: "01.04.2027 ~ 31.03.2028" (F/HR/09, engine/trainingCalendar.ts). */
     financialYear?: boolean;
     formerDefaults?: string[];

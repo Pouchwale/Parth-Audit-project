@@ -859,6 +859,8 @@ function fillLogSheet(
     // A calibration certificate's date (autoFill.newest: the plant's current one, the owner's of 27-Oct-2026) is the
     // Live sheets'; a Demo year keeps its own simulated calibration, dated by its sheets (calibrationSample, the ruler's
     // sample) - the certificate's dates would stand after the earlier months' sheets.
+    // The record's own date, n days on (F/QC/11's week and the next, REQUIREMENTS §223).
+    else if (f.autoFill?.afterRecordDate !== undefined) header[f.key] = addDays(dueDate, f.autoFill.afterRecordDate);
     else if (f.autoFill?.newest) header[f.key] = f.key === "calibrationDate" ? dueDate : f.autoFill.carryForward ? (prev ?? specimen) : "";
     // "Date of Inspection", "Date :" — the day the record is for, not the day the last one was.
     else if (f.autoFill?.dueDate) header[f.key] = dueDate;

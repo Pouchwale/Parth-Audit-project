@@ -523,8 +523,9 @@ test("F/QC/11 GSM cutting plate: the paper's boxes and the words that start them
       // The calibration certificate's dates the owner gave (27-Oct-2026): 21-09-2026, due 20-09-2027, editable; the paper's
       // "I. Calibration Date:-" / "Due Date:-" row taken away on 28-Oct-2026 and back on 30-Oct-2026 (§147).
       ["Calibration Expiry:", "2027-09-20"],
-      ["Calibration Date:-", "2026-09-21"],
-      ["Due Date:-", "2027-09-20"],
+      // ...and since 16-Nov-2026 the row is the week's own (§223): no fixed date, the record's date and the next week's.
+      ["Calibration Date:-", null],
+      ["Due Date:-", null],
     ]
   );
   assert.deepEqual(

@@ -19,6 +19,7 @@ import { getLogSheetLayout } from "./seed/logSheetLayouts";
 import { appendHistory, diffRecordData, historyOf, makeEntry } from "../engine/recordHistory";
 import { mayWriteRecordsOf } from "../engine/departmentScope";
 import { columnKind } from "../engine/observations";
+import { addDays } from "../utils/date";
 
 /** What each changed sheet's history says. */
 export const CERTIFICATE_NOTE = "The calibration certificates' dates the owner gave (27 and 28-Oct-2026; F/QC/17's ruler 15-Nov-2026) written in where the sheet held an earlier date (REQUIREMENTS §129, §132, §215)";
@@ -81,4 +82,45 @@ function pageLinesAgain(layout: LogSheetLayout, rows: LogSheetData["rows"] | und
     })
   );
   return written ? null : rows.map((row, i) => ({ ...row, ...mode.rows[i] }));
+}
+
+/** What each sheet's history says when its dates are the week's (REQUIREMENTS §223). */
+export const WEEK_DATES_NOTE = "Calibration Date and Due Date written as the week's: the sheet's own date and the next week's (the owner, 16-Nov-2026, REQUIREMENTS §223)";
+/** The certificate's dates F/QC/11's row held before §223: a box holding one of them takes the week's. */
+const CERTIFICATE_DAYS = new Set(["2026-09-21", "2027-09-20"]);
+
+/**
+ * F/QC/11'S CALIBRATION DATE AND DUE DATE, THE WEEK'S OWN (the owner, 16-Nov-2026, REQUIREMENTS §223: every Tuesday, "date
+ * will come according not this" - the certificate's 21-09-2026 and 20-09-2027). A box of the record's own date n days on
+ * (autoFill.afterRecordDate) takes it: on a sheet still open, where the box is empty or holds the certificate's date; on a
+ * sheet handed in or signed off, only where the sheet was made without the box (the row taken away 28 to 30-Oct-2026,
+ * §147). A date a person wrote stays. One line in the history; run at every start, nothing to do, nothing written.
+ */
+export function weekDatesOnSheets(): number {
+  const updates: RecordInstance[] = [];
+  for (const r of recordRepository.snapshot()) {
+    if (r.isDemo || !/^\d{4}-\d{2}-\d{2}$/.test(r.dueDate)) continue;
+    const layout = getLogSheetLayout(r.documentId);
+    const boxes = layout?.headerFields.filter((f) => f.autoFill?.afterRecordDate !== undefined) ?? [];
+    if (boxes.length === 0 || !mayWriteRecordsOf(r.documentId)) continue;
+    const d = r.data as LogSheetData | undefined;
+    if (!d?.header) continue;
+    const open = OPEN.has(r.status) && !r.correction;
+    let header: Record<string, string> | null = null;
+    for (const f of boxes) {
+      const want = addDays(r.dueDate, f.autoFill!.afterRecordDate!);
+      const absent = !(f.key in d.header);
+      const have = String(d.header[f.key] ?? "").trim();
+      if (have === want) continue;
+      if (!absent && !(open && (have === "" || CERTIFICATE_DAYS.has(have)))) continue;
+      header = header ?? { ...d.header };
+      header[f.key] = want;
+    }
+    if (!header) continue;
+    const data: LogSheetData = { ...d, header };
+    const entry = appendHistory({ ...r, history: [] }, makeEntry("edited", "System", { changes: diffRecordData(r.data, data), note: WEEK_DATES_NOTE })).history![0];
+    updates.push({ ...r, data, history: [...historyOf(r), entry] });
+  }
+  if (updates.length) recordRepository.upsertMany(updates);
+  return updates.length;
 }
