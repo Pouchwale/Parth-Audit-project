@@ -11868,14 +11868,17 @@ means twice a month and on saturday so every month it should be by default two r
 three service record".
 
 - Rodent, General (ants and cockroaches) and Fly: fortnightly on the month's 1st and 3rd Saturday, fourteen days apart,
-  exactly two a month, from 15-11-2026 (scheduleSince); the 4th and 18th before. Each month's two are made by the
+  exactly two a month, from November 2026 (scheduleSince 01-11-2026; the owner, 16-Nov-2026, "check for this month which
+  is november 2026": the 7th and the 21st); the 4th and 18th before. Each month's two are made by the
   schedule at the month's start (and seen ahead on the calendar), on every page that lists them.
 - The Super Admin had set General and Fly to the 1st and 3rd Sunday on 15-11-2026 (Master Data's override). A frequency set
   on one of the three on or before 15-11-2026 is taken off at start, with a line in the activity log, by whoever may set
   it (data/serviceSaturdaysMigration.ts), so all three follow the Saturdays; one set after that day is the plant's newer
   word and stays. The old schedule's untouched sheets from
   today on go (§130); every visit already written on stays.
-- November 2026: the 21st is the Saturday from 15-11 on; the visits already on file stay beside it.
+- November 2026: the 7th and the 21st. Each report's open visit filed on the 4th (New under the old schedule; nothing
+  handed in) is moved to the 7th with what is written on it and a line in its history (data/serviceSaturdaysMigration.ts
+  serviceVisitsOnSaturdays); a visit handed in or signed off stays where it is.
 - Proved: frontend/tests/serviceReportSaturdays.test.ts (two Saturdays in every month of 2027 for each; December 2026's
   5th and 19th made for all three), periodSheet.test.ts, scheduleChange28Oct.test.ts.
 

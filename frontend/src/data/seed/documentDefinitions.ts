@@ -147,7 +147,8 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     // month and on saturday so every month ... two records ... for all three service record", REQUIREMENTS §221); the
     // 4th and 18th until then.
     schedule: { type: "fortnightly", weekday: 6 },
-    scheduleSince: "2026-11-15",
+    // From November 2026 (the owner, 16-Nov-2026: "check for this month which is november 2026" - the 7th and the 21st).
+    scheduleSince: "2026-11-01",
     variantKey: "Rodent Control Service",
   },
   {
@@ -169,7 +170,8 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     // month and on saturday so every month ... two records ... for all three service record", REQUIREMENTS §221); the
     // 4th and 18th until then.
     schedule: { type: "fortnightly", weekday: 6 },
-    scheduleSince: "2026-11-15",
+    // From November 2026 (the owner, 16-Nov-2026: "check for this month which is november 2026" - the 7th and the 21st).
+    scheduleSince: "2026-11-01",
     variantKey: "General Pest Control Services",
   },
   {
@@ -191,7 +193,8 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     // month and on saturday so every month ... two records ... for all three service record", REQUIREMENTS §221); the
     // 4th and 18th until then.
     schedule: { type: "fortnightly", weekday: 6 },
-    scheduleSince: "2026-11-15",
+    // From November 2026 (the owner, 16-Nov-2026: "check for this month which is november 2026" - the 7th and the 21st).
+    scheduleSince: "2026-11-01",
     variantKey: "Fly Control Services",
   },
   {
