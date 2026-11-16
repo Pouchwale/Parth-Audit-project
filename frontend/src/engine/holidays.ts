@@ -85,6 +85,29 @@ export function nextWorkingDay(dateISO: string, master: MasterData, maxLookahead
   return d;
 }
 
+// Last working day on or before `dateISO` (bounded as nextWorkingDay is).
+export function previousWorkingDay(dateISO: string, master: MasterData, maxLookback = 14): string {
+  let d = dateISO;
+  for (let i = 0; i < maxLookback; i++) {
+    if (!isCompanyHoliday(d, master)) return d;
+    d = addDays(d, -1);
+  }
+  return d;
+}
+
+/**
+ * THE DAY A SCHEDULED SHEET IS DUE, IN ITS OWN MONTH (REQUIREMENTS §236): the next working day when the plant is closed on
+ * the day the schedule names - unless that is next month's: a month-end sheet (F/HR/15 and F/HR/22 on the 31st) whose day
+ * is the Thursday off, 31-12-2026, is due on the last working day before it, 30-12, and is December's sheet, listed under
+ * December, never January's.
+ */
+export function workingDueDate(scheduled: string, master: MasterData): string {
+  const next = nextWorkingDay(scheduled, master);
+  if (next.slice(0, 7) === scheduled.slice(0, 7)) return next;
+  const before = previousWorkingDay(scheduled, master);
+  return before.slice(0, 7) === scheduled.slice(0, 7) ? before : next;
+}
+
 export function nextWeeklyOff(fromISO: string, master: MasterData): string {
   let d = fromISO;
   for (let i = 0; i < 14; i++) {
@@ -96,7 +119,7 @@ export function nextWeeklyOff(fromISO: string, master: MasterData): string {
 
 export interface EffectiveDueDate {
   scheduled: string; // the date the schedule names (periodKey is derived from this — stable)
-  due: string; // the date the record is actually due (moved to the next working day when closed)
+  due: string; // the date the record is actually due (moved to the next working day when closed, kept in its month: workingDueDate)
   shifted: boolean;
   holiday: boolean; // daily schedules only: the scheduled day itself is a closed day
 }
@@ -111,7 +134,7 @@ export function effectiveDueDatesInMonth(doc: DocumentDefinition, year: number, 
     return scheduled.map((d) => ({ scheduled: d, due: d, shifted: false, holiday: isCompanyHoliday(d, master) }));
   }
   return scheduled.map((d) => {
-    const due = nextWorkingDay(d, master);
+    const due = workingDueDate(d, master);
     return { scheduled: d, due, shifted: due !== d, holiday: false };
   });
 }

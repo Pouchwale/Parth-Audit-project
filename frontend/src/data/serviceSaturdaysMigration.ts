@@ -6,7 +6,7 @@ import { logActivity } from "../utils/activityLog";
 import { recordRepository } from "./repositories/recordRepository";
 import { mayWriteRecordsOf } from "../engine/departmentScope";
 import { schedulePeriodOf } from "../engine/frequencyEngine";
-import { nextWorkingDay } from "../engine/holidays";
+import { workingDueDate } from "../engine/holidays";
 import { appendHistory, makeEntry } from "../engine/recordHistory";
 import { compareISO, formatDisplayDate } from "../utils/date";
 import type { RecordInstance } from "../types";
@@ -60,7 +60,7 @@ export function serviceVisitsOnSaturdays(): number {
       const key = `${id}:${period.scheduled}`;
       if (keys.has(key)) continue;
       keys.add(key);
-      const due = nextWorkingDay(period.scheduled, masterRepository.get());
+      const due = workingDueDate(period.scheduled, masterRepository.get());
       moved.push(appendHistory({ ...r, periodKey: key, dueDate: due }, makeEntry("edited", "System", { note: `Moved to ${formatDisplayDate(due)}, the fortnight's Saturday (was ${formatDisplayDate(r.dueDate)}; the 1st and 3rd Saturday, REQUIREMENTS §221).` })));
     }
   }

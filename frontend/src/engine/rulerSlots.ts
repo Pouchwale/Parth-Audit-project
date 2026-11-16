@@ -8,7 +8,7 @@ import { carriedFrom, previousWrittenRecord } from "./carryForward";
 import { withComputedCells } from "./computedCells";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
-import { nextWorkingDay } from "./holidays";
+import { workingDueDate } from "./holidays";
 import { mayDo, mayWriteRecordsOf } from "./departmentScope";
 import { appendHistory, makeEntry } from "./recordHistory";
 import { generateId } from "../utils/id";
@@ -54,7 +54,7 @@ function yearRecords(doc: DocumentDefinition, period: SchedulePeriod, isDemo: bo
 /** A record for place `n` of the year: the blank sheet, its Serial number NN, dated by the frequency. */
 function slotRecord(doc: DocumentDefinition, period: SchedulePeriod, n: number, isDemo: boolean, status: RecordInstance["status"]): RecordInstance {
   const master = masterRepository.get();
-  const due = nextWorkingDay(period.scheduled, master);
+  const due = workingDueDate(period.scheduled, master);
   // Written as the last written sheet was, as every new F/QC/17 is (engine/recordCrud.ts startingData, §117): the master's
   // boxes and the lines carried, the ruler's own boxes (Make, Serial number) the person's - here its number.
   const blank = createDefaultData(doc, due, master) as LogSheetData;

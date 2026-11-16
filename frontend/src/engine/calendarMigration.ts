@@ -2,7 +2,7 @@ import type { DailyPestMonitoringData, RecordInstance } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
-import { dayInfo, effectiveDueDatesInMonth, isCompanyHoliday, nextWorkingDay } from "./holidays";
+import { dayInfo, effectiveDueDatesInMonth, isCompanyHoliday, nextWorkingDay, workingDueDate } from "./holidays";
 import { compareISO, todayISO } from "../utils/date";
 import { mayWriteRecordsOf } from "./departmentScope";
 import { schedulePeriodOf } from "./frequencyEngine";
@@ -122,7 +122,7 @@ export function datedByFrequency(): number {
     if (!keyed || schedulePeriodOf(doc, keyed)?.scheduled !== keyed) continue;
     // A date a person typed over on the record is theirs (REQUIREMENTS §213): never put back by the frequency.
     if ((r.history ?? []).some((h) => h.by !== "System" && (h.changes ?? []).some((c) => c.field === "dueDate"))) continue;
-    const due = nextWorkingDay(keyed, master);
+    const due = workingDueDate(keyed, master);
     if (r.dueDate === due) continue;
     updates.push(appendHistory({ ...r, dueDate: due }, makeEntry("edited", "System", { note: `Dated ${formatDisplayDate(due)} by its frequency (was ${formatDisplayDate(r.dueDate)}).` })));
   }

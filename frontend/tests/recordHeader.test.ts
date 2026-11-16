@@ -205,7 +205,8 @@ test("F/HR/16 is filed from the year's first day and due at its end; a yearly fo
   const sheet = recordRepository.query({ documentId: "hr-monthly-cleaning", isDemo: false }) as RecordInstance[];
   const thisYear = sheet.filter((r) => r.periodKey === `hr-monthly-cleaning:${year}-12-31`);
   assert.equal(thisYear.length, 1, "this year's sheet is on file now, whichever month it is");
-  assert.ok(thisYear[0].dueDate >= `${year}-12-31`, "due at the year's end (or the first working day after it)");
+  // Due at the year's end - on a closed 31 December, the last working day before it, in its own year (REQUIREMENTS §236).
+  assert.ok(thisYear[0].dueDate >= `${year}-12-24` && thisYear[0].dueDate <= `${year}-12-31`, "due at the year's end, in its own year");
   assert.ok(made.every((r) => r.documentId !== "hr-competence" || r.dueDate.slice(5, 7) === String(month + 1).padStart(2, "0")), "F/HR/01 is filed in its own month only");
   assert.equal(ensureRecordsGeneratedForMonth(year, month, { documentIds: ["hr-monthly-cleaning"] }).length, 0, "never twice");
 });

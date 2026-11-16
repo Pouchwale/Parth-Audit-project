@@ -10,7 +10,7 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
 import { nextRulerRecord, rulerRecordShown } from "./rulerSlots";
-import { nextWorkingDay } from "./holidays";
+import { workingDueDate } from "./holidays";
 import { periodKeyFor } from "./recordGenerator";
 import { historyOf, logRecordStarted } from "./recordHistory";
 import { readJSON, writeJSON } from "../data/storageAdapter";
@@ -175,7 +175,7 @@ export function createRecordForDocument(
   // screen"): the period's own day - every Tuesday's sheet on its Tuesday - moved off a closed day as the schedule's
   // sheets are (engine/holidays.ts), not the day New was pressed. A daily or as-required record is the day's own.
   const period = asRequired ? null : periodFor(doc, asked);
-  const dueDate = period ? nextWorkingDay(period.scheduled, masterRepository.get()) : asked;
+  const dueDate = period ? workingDueDate(period.scheduled, masterRepository.get()) : asked;
   const periodKey = periodKeyFor(doc, period ? period.scheduled : dueDate);
   const now = new Date().toISOString();
   const record: RecordInstance = {
