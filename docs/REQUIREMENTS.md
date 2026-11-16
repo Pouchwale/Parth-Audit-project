@@ -12055,3 +12055,27 @@ also user can create any folder Customly instead of predefined suppliers like it
   uploaded into it, renamed, moved into a supplier's folder, found by search; an ISO certificate in a supplier's folder
   read into the master and F/PUR/01 (on the server); the empty folder deleted.
 
+## §232 The Purchase Drive's Trash: delete anything, "Are you sure?", kept 30 days (16-Nov-2026)
+
+The owner, 16-Nov-2026: "add delete option also over there so user can delete any file or any folder he want but the
+message will come that are you sure and in trash it should present it for 30 days after that it will delete automatically
+from system".
+
+- Any file or folder is deleted from the Purchase Drive, after an "Are you sure?" box (Cancel keeps it): a folder people
+  made with everything in it, however deep (no longer only when empty); a supplier's folder - which comes from Purchase
+  Master Data, so it stays - has everything in it deleted, each thing on its own. The "Suppliers" folder is never deleted.
+- What is deleted goes to the Trash (the "Trash" button on the drive, with how many things wait there;
+  /purchase/drive/trash): its name, what was in a folder, the folder it came from, who deleted it and when, the days left.
+  Each is restored - back where it was, or (that folder gone for good) to its supplier's folder or the drive's root - or
+  deleted forever after a second "Are you sure?"; "Empty the Trash" deletes all of it forever.
+- After 30 days in the Trash a thing is deleted for good by the server itself: when the Trash is opened, a minute after the
+  server starts, and every six hours.
+- What a file wrote into the records (§230) stays when it is deleted, and is not written again when it is restored.
+- The server (backend/supplierDrive.ts): a deleted file or folder is marked (trashed_at, trashed_by, trash_group,
+  trash_root on supplier_drive_files and supplier_drive_folders), out of every listing, the search and the folder choices;
+  routes GET /api/purchase/drive/trash, POST /api/purchase/drive/trash/:group/restore, DELETE /api/purchase/drive/trash/:group,
+  DELETE /api/purchase/drive/trash. Reading the Trash takes Purchase Master Data; restoring and deleting take writing Purchase.
+- Proved: backend/tests/supplierDrive.test.ts (a folder with a folder and files deleted, out of listings and search,
+  restored whole; a file deleted forever; a supplier's folder emptied; a folder restored after its folder went, into the
+  root; a month-old thing gone by itself), and in the browser: "Are you sure?" with Cancel and Yes, the Trash with "30 days
+  left", restore, delete forever, a supplier's folder emptied and its file restored.

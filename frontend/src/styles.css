@@ -4384,6 +4384,7 @@ html.print-measure [data-page-part="purchase-master-print"] table td :is(.input,
 .drive-grid .drive-folder .drive-actions { position: absolute; right: 6px; bottom: 4px; }
 .drive-grid .drive-folder:not(:has(.drive-actions)) { padding-bottom: 10px; }
 @media (hover: none) { .drive-actions { opacity: 1; } }
+.drive-actions.drive-actions-wide { opacity: 1; gap: 6px; } /* the Trash: Restore and Delete forever always shown (§232) */
 .drive-empty { border: 2px dashed var(--color-border); border-radius: 12px; padding: 36px 16px; text-align: center; color: var(--color-text-muted, #6b7280); }
 .drive-empty.is-over, .drive-dragging .drive-empty { border-color: var(--color-primary); }
 .drive-drop-hint { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--color-primary); color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; z-index: 50; pointer-events: none; }

@@ -438,7 +438,26 @@ export const driveApi = {
   updateFolder: (folderId: string, patch: { name?: string; parentId?: string }) =>
     request<{ folder: SupplierDriveFolder }>(`/purchase/drive/folders/${encodeURIComponent(folderId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }),
   removeFolder: (folderId: string) => request<{ ok: true }>(`/purchase/drive/folders/${encodeURIComponent(folderId)}`, { method: "DELETE" }),
+  /** The Trash (§232): what was deleted, kept `days` days, then deleted for good by the server. */
+  trash: () => request<{ items: DriveTrashItem[]; days: number }>(`/purchase/drive/trash`),
+  restore: (group: string) => request<{ ok: true }>(`/purchase/drive/trash/${encodeURIComponent(group)}/restore`, { method: "POST" }),
+  deleteForever: (group: string) => request<{ ok: true }>(`/purchase/drive/trash/${encodeURIComponent(group)}`, { method: "DELETE" }),
+  emptyTrash: () => request<{ ok: true; deleted: number }>(`/purchase/drive/trash`, { method: "DELETE" }),
 };
+
+/** One thing in the Purchase Drive's Trash: a file, or a folder with what was in it (§232). */
+export interface DriveTrashItem {
+  group: string;
+  kind: "file" | "folder";
+  id: string;
+  name: string;
+  /** The folder it was in. */
+  from: string;
+  files: number;
+  folders: number;
+  trashedAt: string;
+  trashedBy: string;
+}
 
 /** A folder people made in the Purchase Drive (§231). */
 export interface SupplierDriveFolder {

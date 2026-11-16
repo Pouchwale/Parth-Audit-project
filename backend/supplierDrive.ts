@@ -5,7 +5,7 @@
 //
 // FOLDERS. The drive's root holds "Suppliers" - a folder for each supplier of Purchase Master Data, "supplier:<id>", made
 // from the master as it stands (never stored) - and the folders people make (stored here: a name, the folder it is in),
-// as deep as they like, inside a supplier's folder too. A folder people made is renamed, moved and deleted (when empty).
+// as deep as they like, inside a supplier's folder too. A folder people made is renamed, moved and deleted (to the Trash, with what is in it).
 //
 // FILES. A file is kept in PostgreSQL in its folder, with the kind of document it is (the six F/PUR/03 documents, the
 // service agreement, the audit report, or another) and the supplier it belongs to - the supplier whose folder it is in,
@@ -23,11 +23,20 @@
 //   POST   /api/purchase/drive/:supplierId                     the same, into the supplier's own folder (§230)
 //   GET    /api/purchase/drive/file/:fileId                    the file itself
 //   PATCH  /api/purchase/drive/file/:fileId                    renamed or moved ({ name, folderId, supplierId, supplierName })
-//   DELETE /api/purchase/drive/file/:fileId                    the file taken out of the drive
+//   DELETE /api/purchase/drive/file/:fileId                    the file moved to the Trash
 //   GET    /api/purchase/drive/folders                         the folders people made
 //   POST   /api/purchase/drive/folders                         a folder made ({ name, parentId })
 //   PATCH  /api/purchase/drive/folders/:folderId               renamed or moved ({ name, parentId })
-//   DELETE /api/purchase/drive/folders/:folderId               deleted, when nothing is in it
+//   DELETE /api/purchase/drive/folders/:folderId               moved to the Trash with all in it (a supplier's: emptied)
+//   GET    /api/purchase/drive/trash                           what is in the Trash (30 days, then deleted for good)
+//   POST   /api/purchase/drive/trash/:group/restore            put back where it was
+//   DELETE /api/purchase/drive/trash/:group                    deleted forever
+//   DELETE /api/purchase/drive/trash                           the Trash emptied
+//
+// THE TRASH (§232; the owner: "user can delete any file or any folder he want but the message will come that are you
+// sure and in trash it should present it for 30 days after that it will delete automatically from system"). A deleted
+// file or folder is only marked (trashed_at), out of every listing; restored, it goes back where it was; after
+// TRASH_DAYS it is deleted for good - when the Trash is opened, and by the server every six hours.
 
 import express, { type Express, type Request, type RequestHandler, type Response } from "express";
 import { randomUUID } from "node:crypto";
@@ -74,7 +83,33 @@ export const DRIVE_SCHEMA = `
     created_by TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+  ALTER TABLE supplier_drive_files ADD COLUMN IF NOT EXISTS trashed_at TIMESTAMPTZ;
+  ALTER TABLE supplier_drive_files ADD COLUMN IF NOT EXISTS trashed_by TEXT NOT NULL DEFAULT '';
+  ALTER TABLE supplier_drive_files ADD COLUMN IF NOT EXISTS trash_group TEXT NOT NULL DEFAULT '';
+  ALTER TABLE supplier_drive_files ADD COLUMN IF NOT EXISTS trash_root BOOLEAN NOT NULL DEFAULT false;
+  ALTER TABLE supplier_drive_folders ADD COLUMN IF NOT EXISTS trashed_at TIMESTAMPTZ;
+  ALTER TABLE supplier_drive_folders ADD COLUMN IF NOT EXISTS trashed_by TEXT NOT NULL DEFAULT '';
+  ALTER TABLE supplier_drive_folders ADD COLUMN IF NOT EXISTS trash_group TEXT NOT NULL DEFAULT '';
+  ALTER TABLE supplier_drive_folders ADD COLUMN IF NOT EXISTS trash_root BOOLEAN NOT NULL DEFAULT false;
 `;
+
+/** How long a deleted file or folder stays in the Trash before it is deleted for good (REQUIREMENTS §232). */
+export const TRASH_DAYS = 30;
+
+/** One thing in the Trash as it was deleted: a file, or a folder with what was in it. */
+export interface TrashItem {
+  group: string;
+  kind: "file" | "folder";
+  id: string;
+  name: string;
+  /** The folder it was in. */
+  from: string;
+  /** For a folder: the files and folders deleted with it. */
+  files: number;
+  folders: number;
+  trashedAt: string;
+  trashedBy: string;
+}
 registerSchema(DRIVE_SCHEMA);
 
 export interface DriveFile {
@@ -111,6 +146,14 @@ export interface DriveStore {
   removeFolder(id: string): Promise<boolean>;
   /** Files directly in the folder (any folder: one people made or a supplier's). */
   countIn(folderId: string): Promise<number>;
+  /** Files and folders put in the Trash together, as one group; the root is what was deleted (§232). */
+  trash(group: string, by: string, when: Date, rootId: string, fileIds: string[], folderIds: string[]): Promise<void>;
+  /** What is in the Trash: what was deleted, newest first. */
+  trashed(): Promise<TrashItem[]>;
+  /** A group taken back out of the Trash; its roots, to be put back where they were (or the root when that is gone). */
+  restore(group: string): Promise<{ kind: "file" | "folder"; id: string; parentId: string; supplierId: string }[]>;
+  /** Deleted for good: a group, or everything put in the Trash before a time, or the whole Trash. */
+  purge(where: { group?: string; before?: Date }): Promise<number>;
 }
 
 interface Queryable {
@@ -138,14 +181,14 @@ export function createDatabaseDriveStore(db: () => Queryable = () => database() 
   return {
     async list(where) {
       if (where.q) {
-        const { rows } = await db().query(`SELECT ${COLUMNS} FROM supplier_drive_files WHERE name ILIKE $1 OR supplier_name ILIKE $1 ORDER BY uploaded_at DESC LIMIT 200`, [`%${where.q.replace(/[%_\\]/g, "\\$&")}%`]);
+        const { rows } = await db().query(`SELECT ${COLUMNS} FROM supplier_drive_files WHERE (name ILIKE $1 OR supplier_name ILIKE $1) AND trashed_at IS NULL ORDER BY uploaded_at DESC LIMIT 200`, [`%${where.q.replace(/[%_\\]/g, "\\$&")}%`]);
         return rows.map(rowFile);
       }
       if (where.supplierId) {
-        const { rows } = await db().query(`SELECT ${COLUMNS} FROM supplier_drive_files WHERE supplier_id = $1 ORDER BY uploaded_at DESC, id DESC`, [where.supplierId]);
+        const { rows } = await db().query(`SELECT ${COLUMNS} FROM supplier_drive_files WHERE supplier_id = $1 AND trashed_at IS NULL ORDER BY uploaded_at DESC, id DESC`, [where.supplierId]);
         return rows.map(rowFile);
       }
-      const { rows } = await db().query(`SELECT ${COLUMNS} FROM supplier_drive_files WHERE folder_id = $1 ORDER BY uploaded_at DESC, id DESC`, [where.folderId ?? ROOT]);
+      const { rows } = await db().query(`SELECT ${COLUMNS} FROM supplier_drive_files WHERE folder_id = $1 AND trashed_at IS NULL ORDER BY uploaded_at DESC, id DESC`, [where.folderId ?? ROOT]);
       return rows.map(rowFile);
     },
     async add(file) {
@@ -157,7 +200,7 @@ export function createDatabaseDriveStore(db: () => Queryable = () => database() 
       return rowFile(rows[0]);
     },
     async get(id) {
-      const { rows } = await db().query(`SELECT ${COLUMNS}, bytes FROM supplier_drive_files WHERE id = $1`, [id]);
+      const { rows } = await db().query(`SELECT ${COLUMNS}, bytes FROM supplier_drive_files WHERE id = $1 AND trashed_at IS NULL`, [id]);
       if (rows.length === 0) return null;
       const bytes = rows[0].bytes;
       return { ...rowFile(rows[0]), bytes: Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes as Uint8Array) };
@@ -175,7 +218,7 @@ export function createDatabaseDriveStore(db: () => Queryable = () => database() 
       if (changes.supplierName !== undefined) put("supplier_name", changes.supplierName);
       if (sets.length === 0) return (await this.get(id)) as DriveFile | null;
       params.push(id);
-      const { rows } = await db().query(`UPDATE supplier_drive_files SET ${sets.join(", ")} WHERE id = $${params.length} RETURNING ${COLUMNS}`, params);
+      const { rows } = await db().query(`UPDATE supplier_drive_files SET ${sets.join(", ")} WHERE id = $${params.length} AND trashed_at IS NULL RETURNING ${COLUMNS}`, params);
       return rows[0] ? rowFile(rows[0]) : null;
     },
     async remove(id) {
@@ -183,7 +226,7 @@ export function createDatabaseDriveStore(db: () => Queryable = () => database() 
       return (rowCount ?? 0) > 0;
     },
     async folders() {
-      const { rows } = await db().query("SELECT id, parent_id, name, created_by, created_at FROM supplier_drive_folders ORDER BY lower(name), id");
+      const { rows } = await db().query("SELECT id, parent_id, name, created_by, created_at FROM supplier_drive_folders WHERE trashed_at IS NULL ORDER BY lower(name), id");
       return rows.map(rowFolder);
     },
     async addFolder(folder) {
@@ -193,7 +236,7 @@ export function createDatabaseDriveStore(db: () => Queryable = () => database() 
     },
     async updateFolder(id, changes) {
       const { rows } = await db().query(
-        "UPDATE supplier_drive_folders SET name = COALESCE($2, name), parent_id = COALESCE($3, parent_id) WHERE id = $1 RETURNING id, parent_id, name, created_by, created_at",
+        "UPDATE supplier_drive_folders SET name = COALESCE($2, name), parent_id = COALESCE($3, parent_id) WHERE id = $1 AND trashed_at IS NULL RETURNING id, parent_id, name, created_by, created_at",
         [id, changes.name ?? null, changes.parentId ?? null]
       );
       return rows[0] ? rowFolder(rows[0]) : null;
@@ -203,38 +246,96 @@ export function createDatabaseDriveStore(db: () => Queryable = () => database() 
       return (rowCount ?? 0) > 0;
     },
     async countIn(folderId) {
-      const { rows } = await db().query("SELECT count(*)::int AS n FROM supplier_drive_files WHERE folder_id = $1", [folderId]);
+      const { rows } = await db().query("SELECT count(*)::int AS n FROM supplier_drive_files WHERE folder_id = $1 AND trashed_at IS NULL", [folderId]);
       return Number(rows[0]?.n ?? 0);
+    },
+    async trash(group, by, when, rootId, fileIds, folderIds) {
+      if (fileIds.length > 0)
+        await db().query("UPDATE supplier_drive_files SET trashed_at = $2, trashed_by = $3, trash_group = $4, trash_root = (id = $5) WHERE id = ANY($1) AND trashed_at IS NULL", [fileIds, when, by, group, rootId]);
+      if (folderIds.length > 0)
+        await db().query("UPDATE supplier_drive_folders SET trashed_at = $2, trashed_by = $3, trash_group = $4, trash_root = (id = $5) WHERE id = ANY($1) AND trashed_at IS NULL", [folderIds, when, by, group, rootId]);
+    },
+    async trashed() {
+      const files = await db().query("SELECT id, name, folder_id, trash_group, trashed_at, trashed_by FROM supplier_drive_files WHERE trashed_at IS NOT NULL AND trash_root");
+      const folders = await db().query(
+        `SELECT d.id, d.name, d.parent_id, d.trash_group, d.trashed_at, d.trashed_by,
+           (SELECT count(*) FROM supplier_drive_files x WHERE x.trash_group = d.trash_group AND x.trashed_at IS NOT NULL)::int AS files,
+           (SELECT count(*) FROM supplier_drive_folders y WHERE y.trash_group = d.trash_group AND y.trashed_at IS NOT NULL AND y.id <> d.id)::int AS folders
+         FROM supplier_drive_folders d WHERE d.trashed_at IS NOT NULL AND d.trash_root`
+      );
+      const item = (kind: "file" | "folder", r: Record<string, unknown>, from: unknown): TrashItem => ({
+        group: String(r.trash_group),
+        kind,
+        id: String(r.id),
+        name: String(r.name),
+        from: String(from ?? ""),
+        files: Number(r.files ?? 0),
+        folders: Number(r.folders ?? 0),
+        trashedAt: at(r.trashed_at),
+        trashedBy: String(r.trashed_by ?? ""),
+      });
+      return [...files.rows.map((r) => item("file", r, r.folder_id)), ...folders.rows.map((r) => item("folder", r, r.parent_id))].sort((a, b) => b.trashedAt.localeCompare(a.trashedAt));
+    },
+    async restore(group) {
+      const files = await db().query("SELECT id, folder_id, supplier_id FROM supplier_drive_files WHERE trash_group = $1 AND trashed_at IS NOT NULL AND trash_root", [group]);
+      const folders = await db().query("SELECT id, parent_id FROM supplier_drive_folders WHERE trash_group = $1 AND trashed_at IS NOT NULL AND trash_root", [group]);
+      await db().query("UPDATE supplier_drive_files SET trashed_at = NULL, trashed_by = '', trash_group = '', trash_root = false WHERE trash_group = $1 AND trashed_at IS NOT NULL", [group]);
+      await db().query("UPDATE supplier_drive_folders SET trashed_at = NULL, trashed_by = '', trash_group = '', trash_root = false WHERE trash_group = $1 AND trashed_at IS NOT NULL", [group]);
+      return [
+        ...files.rows.map((r) => ({ kind: "file" as const, id: String(r.id), parentId: String(r.folder_id ?? ""), supplierId: String(r.supplier_id ?? "") })),
+        ...folders.rows.map((r) => ({ kind: "folder" as const, id: String(r.id), parentId: String(r.parent_id ?? ""), supplierId: "" })),
+      ];
+    },
+    async purge(where) {
+      const params = [where.group ?? null, where.before ?? null];
+      const cond = "trashed_at IS NOT NULL AND ($1::text IS NULL OR trash_group = $1) AND ($2::timestamptz IS NULL OR trashed_at < $2)";
+      const a = await db().query(`DELETE FROM supplier_drive_files WHERE ${cond}`, params);
+      const b = await db().query(`DELETE FROM supplier_drive_folders WHERE ${cond}`, params);
+      return (a.rowCount ?? 0) + (b.rowCount ?? 0);
     },
   };
 }
 
+/** What the Trash keeps on a file or a folder (§232). */
+interface Trashed {
+  trashedAt: string | null;
+  trashedBy: string;
+  trashGroup: string;
+  trashRoot: boolean;
+}
+type MemoryFile = DriveFile & { bytes: Buffer } & Trashed;
+type MemoryFolder = DriveFolder & Trashed;
+const NOT_TRASHED: Trashed = { trashedAt: null, trashedBy: "", trashGroup: "", trashRoot: false };
+
 /** A stand-in for the unit tests: the same rules, in memory. */
-export function createMemoryDriveStore(clock: () => Date = () => new Date()): DriveStore & { rows: (DriveFile & { bytes: Buffer })[]; folderRows: DriveFolder[] } {
-  const rows: (DriveFile & { bytes: Buffer })[] = [];
-  const folderRows: DriveFolder[] = [];
-  const strip = ({ bytes: _b, ...file }: DriveFile & { bytes: Buffer }): DriveFile => file;
+export function createMemoryDriveStore(clock: () => Date = () => new Date()): DriveStore & { rows: MemoryFile[]; folderRows: MemoryFolder[] } {
+  const rows: MemoryFile[] = [];
+  const folderRows: MemoryFolder[] = [];
+  const strip = ({ bytes: _b, trashedAt: _t, trashedBy: _w, trashGroup: _g, trashRoot: _r, ...file }: MemoryFile): DriveFile => file;
+  const stripFolder = ({ trashedAt: _t, trashedBy: _w, trashGroup: _g, trashRoot: _r, ...folder }: MemoryFolder): DriveFolder => folder;
+  const live = (r: Trashed): boolean => r.trashedAt === null;
   return {
     rows,
     folderRows,
     async list(where) {
       const q = where.q?.toLowerCase();
       return rows
+        .filter(live)
         .filter((r) => (q ? r.name.toLowerCase().includes(q) || r.supplierName.toLowerCase().includes(q) : where.supplierId ? r.supplierId === where.supplierId : r.folderId === (where.folderId ?? ROOT)))
-        .slice()
         .reverse()
         .map(strip);
     },
     async add(file) {
-      const row = { ...file, id: `drv-${randomUUID()}`, uploadedAt: clock().toISOString() };
+      const row: MemoryFile = { ...file, id: `drv-${randomUUID()}`, uploadedAt: clock().toISOString(), ...NOT_TRASHED };
       rows.push(row);
       return strip(row);
     },
     async get(id) {
-      return rows.find((r) => r.id === id) ?? null;
+      const row = rows.find((r) => r.id === id && live(r));
+      return row ? { ...strip(row), bytes: row.bytes } : null;
     },
     async update(id, changes) {
-      const row = rows.find((r) => r.id === id);
+      const row = rows.find((r) => r.id === id && live(r));
       if (!row) return null;
       Object.assign(row, Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined)));
       return strip(row);
@@ -246,19 +347,22 @@ export function createMemoryDriveStore(clock: () => Date = () => new Date()): Dr
       return true;
     },
     async folders() {
-      return folderRows.slice().sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      return folderRows
+        .filter(live)
+        .map(stripFolder)
+        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
     },
     async addFolder(folder) {
-      const row = { ...folder, id: `fld-${randomUUID()}`, createdAt: clock().toISOString() };
+      const row: MemoryFolder = { ...folder, id: `fld-${randomUUID()}`, createdAt: clock().toISOString(), ...NOT_TRASHED };
       folderRows.push(row);
-      return row;
+      return stripFolder(row);
     },
     async updateFolder(id, changes) {
-      const row = folderRows.find((f) => f.id === id);
+      const row = folderRows.find((f) => f.id === id && live(f));
       if (!row) return null;
       if (changes.name !== undefined) row.name = changes.name;
       if (changes.parentId !== undefined) row.parentId = changes.parentId;
-      return row;
+      return stripFolder(row);
     },
     async removeFolder(id) {
       const i = folderRows.findIndex((f) => f.id === id);
@@ -267,7 +371,46 @@ export function createMemoryDriveStore(clock: () => Date = () => new Date()): Dr
       return true;
     },
     async countIn(folderId) {
-      return rows.filter((r) => r.folderId === folderId).length;
+      return rows.filter((r) => live(r) && r.folderId === folderId).length;
+    },
+    async trash(group, by, when, rootId, fileIds, folderIds) {
+      const mark = (r: Trashed & { id: string }) => Object.assign(r, { trashedAt: when.toISOString(), trashedBy: by, trashGroup: group, trashRoot: r.id === rootId });
+      rows.filter((r) => live(r) && fileIds.includes(r.id)).forEach(mark);
+      folderRows.filter((f) => live(f) && folderIds.includes(f.id)).forEach(mark);
+    },
+    async trashed() {
+      const inGroup = (g: string): [number, number] => [rows.filter((r) => !live(r) && r.trashGroup === g).length, folderRows.filter((f) => !live(f) && f.trashGroup === g).length];
+      const items: TrashItem[] = [
+        ...rows.filter((r) => !live(r) && r.trashRoot).map((r) => ({ group: r.trashGroup, kind: "file" as const, id: r.id, name: r.name, from: r.folderId, files: 0, folders: 0, trashedAt: r.trashedAt ?? "", trashedBy: r.trashedBy })),
+        ...folderRows
+          .filter((f) => !live(f) && f.trashRoot)
+          .map((f) => {
+            const [files, folders] = inGroup(f.trashGroup);
+            return { group: f.trashGroup, kind: "folder" as const, id: f.id, name: f.name, from: f.parentId, files, folders: folders - 1, trashedAt: f.trashedAt ?? "", trashedBy: f.trashedBy };
+          }),
+      ];
+      return items.sort((a, b) => b.trashedAt.localeCompare(a.trashedAt));
+    },
+    async restore(group) {
+      const roots = [
+        ...rows.filter((r) => !live(r) && r.trashGroup === group && r.trashRoot).map((r) => ({ kind: "file" as const, id: r.id, parentId: r.folderId, supplierId: r.supplierId })),
+        ...folderRows.filter((f) => !live(f) && f.trashGroup === group && f.trashRoot).map((f) => ({ kind: "folder" as const, id: f.id, parentId: f.parentId, supplierId: "" })),
+      ];
+      for (const r of [...rows, ...folderRows]) if (!live(r) && r.trashGroup === group) Object.assign(r, NOT_TRASHED);
+      return roots;
+    },
+    async purge(where) {
+      const gone = (r: Trashed) => !live(r) && (where.group === undefined || r.trashGroup === where.group) && (where.before === undefined || (r.trashedAt ?? "") < where.before.toISOString());
+      let n = 0;
+      for (const list of [rows, folderRows] as Trashed[][]) {
+        for (let i = list.length - 1; i >= 0; i--) {
+          if (gone(list[i])) {
+            list.splice(i, 1);
+            n++;
+          }
+        }
+      }
+      return n;
     },
   };
 }
@@ -421,6 +564,24 @@ export function registerDriveRoutes(app: Express, deps: DriveRoutesDeps): void {
     id === ROOT || id === SUPPLIERS || SUPPLIER_FOLDER_RE.test(id) || (ID_RE.test(id) && (await store.folders()).some((f) => f.id === id));
   const json = express.json({ limit: "32kb" });
 
+  // ---- the Trash's helpers (§232) ----
+
+  const trashFile = (fileId: string, by: string): Promise<void> => store.trash(`trash-${randomUUID()}`, by, new Date(), fileId, [fileId], []);
+  /** A folder, every folder inside it however deep, and the files in them, into the Trash as one group. */
+  const trashFolder = async (folderId: string, folders: DriveFolder[], by: string): Promise<{ files: number; subfolders: number }> => {
+    const ids = [folderId];
+    for (let i = 0; i < ids.length; i++) for (const f of folders) if (f.parentId === ids[i] && !ids.includes(f.id)) ids.push(f.id);
+    const fileIds = (await Promise.all(ids.map((id) => store.list({ folderId: id })))).flat().map((f) => f.id);
+    await store.trash(`trash-${randomUUID()}`, by, new Date(), folderId, fileIds, ids);
+    return { files: fileIds.length, subfolders: ids.length - 1 };
+  };
+  /** What has been in the Trash for 30 days, deleted for good. */
+  const purgeOld = (): Promise<number> => store.purge({ before: new Date(Date.now() - TRASH_DAYS * 24 * 60 * 60 * 1000) });
+  // On its own too: a minute after start, then every six hours.
+  const sweep = () => void purgeOld().catch(() => undefined);
+  setTimeout(sweep, 60_000).unref?.();
+  setInterval(sweep, 6 * 60 * 60 * 1000).unref?.();
+
   // ---- files ----
 
   app.get("/api/purchase/drive", requireAuth, async (req: Request, res: Response): Promise<void> => {
@@ -561,21 +722,37 @@ export function registerDriveRoutes(app: Express, deps: DriveRoutesDeps): void {
     res.json({ folder: saved });
   });
 
+  // A folder deleted goes to the Trash with everything in it (§232). A supplier's folder comes from Master Data, so it
+  // stays: what is in it goes to the Trash, each thing on its own, to be restored on its own.
   app.delete("/api/purchase/drive/folders/:folderId", requireAuth, async (req: Request, res: Response): Promise<void> => {
     if (!(await allowed(req, res, true))) return;
     const id = String(req.params.folderId ?? "");
+    const user = (req as AuthedRequest).user;
     const folders = await store.folders();
+    if (SUPPLIER_FOLDER_RE.test(id)) {
+      const files = await store.list({ folderId: id });
+      const inside = folders.filter((f) => f.parentId === id);
+      if (files.length === 0 && inside.length === 0) {
+        res.status(400).json({ error: "This supplier's folder is already empty." });
+        return;
+      }
+      for (const f of inside) await trashFolder(f.id, folders, user.name);
+      for (const f of files) await trashFile(f.id, user.name);
+      logActivity(req, user, "Purchase Drive folder emptied into the Trash", id, `${files.length} file(s), ${inside.length} folder(s)`, "PUR");
+      res.json({ ok: true, trashed: files.length + inside.length });
+      return;
+    }
+    if (id === ROOT || id === SUPPLIERS) {
+      res.status(400).json({ error: "The Suppliers folder holds each supplier of Master Data; it can't be deleted." });
+      return;
+    }
     const folder = folders.find((f) => f.id === id);
     if (!folder) {
       res.status(404).json({ error: "No such folder." });
       return;
     }
-    if (folders.some((f) => f.parentId === id) || (await store.countIn(id)) > 0) {
-      res.status(409).json({ error: `"${folder.name}" is not empty: move or delete what is in it first.` });
-      return;
-    }
-    await store.removeFolder(id);
-    logActivity(req, (req as AuthedRequest).user, "Purchase Drive folder deleted", folder.name, "", "PUR");
+    const { files, subfolders } = await trashFolder(id, folders, user.name);
+    logActivity(req, user, "Purchase Drive folder moved to the Trash", folder.name, `with ${files} file(s), ${subfolders} folder(s)`, "PUR");
     res.json({ ok: true });
   });
 
@@ -635,12 +812,59 @@ export function registerDriveRoutes(app: Express, deps: DriveRoutesDeps): void {
     if (!(await allowed(req, res, true))) return;
     const fileId = String(req.params.fileId ?? "");
     const file = ID_RE.test(fileId) ? await store.get(fileId) : null;
-    if (!file || !(await store.remove(fileId))) {
+    if (!file) {
       res.status(404).json({ error: "No such file in the drive." });
       return;
     }
-    logActivity(req, (req as AuthedRequest).user, "Purchase Drive file removed", file.supplierName || file.folderId || "Purchase Drive", `${file.docType}: ${file.name}`, "PUR");
+    const user = (req as AuthedRequest).user;
+    await trashFile(fileId, user.name);
+    logActivity(req, user, "Purchase Drive file moved to the Trash", file.supplierName || file.folderId || "Purchase Drive", `${file.docType}: ${file.name}`, "PUR");
     res.json({ ok: true });
+  });
+
+  // ---- the Trash (§232) ----
+
+  app.get("/api/purchase/drive/trash", requireAuth, async (req: Request, res: Response): Promise<void> => {
+    if (!(await allowed(req, res, false))) return;
+    await purgeOld();
+    res.json({ items: await store.trashed(), days: TRASH_DAYS });
+  });
+
+  app.post("/api/purchase/drive/trash/:group/restore", requireAuth, async (req: Request, res: Response): Promise<void> => {
+    if (!(await allowed(req, res, true))) return;
+    const group = String(req.params.group ?? "");
+    const roots = ID_RE.test(group) ? await store.restore(group) : [];
+    if (roots.length === 0) {
+      res.status(404).json({ error: "That is no longer in the Trash." });
+      return;
+    }
+    // Back where it was; when that folder is gone, to the supplier's own folder or the drive's root.
+    for (const r of roots) {
+      if (await folderExists(r.parentId)) continue;
+      if (r.kind === "file") await store.update(r.id, { folderId: r.supplierId ? supplierFolder(r.supplierId) : ROOT });
+      else await store.updateFolder(r.id, { parentId: ROOT });
+    }
+    logActivity(req, (req as AuthedRequest).user, "Purchase Drive restored from the Trash", group, roots.map((r) => r.id).join(", "), "PUR");
+    res.json({ ok: true });
+  });
+
+  app.delete("/api/purchase/drive/trash/:group", requireAuth, async (req: Request, res: Response): Promise<void> => {
+    if (!(await allowed(req, res, true))) return;
+    const group = String(req.params.group ?? "");
+    const n = ID_RE.test(group) ? await store.purge({ group }) : 0;
+    if (n === 0) {
+      res.status(404).json({ error: "That is no longer in the Trash." });
+      return;
+    }
+    logActivity(req, (req as AuthedRequest).user, "Purchase Drive deleted forever", group, `${n} item(s)`, "PUR");
+    res.json({ ok: true, deleted: n });
+  });
+
+  app.delete("/api/purchase/drive/trash", requireAuth, async (req: Request, res: Response): Promise<void> => {
+    if (!(await allowed(req, res, true))) return;
+    const n = await store.purge({});
+    logActivity(req, (req as AuthedRequest).user, "Purchase Drive Trash emptied", "Trash", `${n} item(s)`, "PUR");
+    res.json({ ok: true, deleted: n });
   });
 
   // ---- a supplier's own folder (§230) ----

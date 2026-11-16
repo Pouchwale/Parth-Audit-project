@@ -17,6 +17,7 @@ const PEOPLE: Record<string, PublicUser & { rights: { read: boolean; write: bool
   anil: { id: "u-anil", email: "anil@gpp.local", name: "Anil Ravad", role: "staff", departments: ["PRD"], rights: { read: false, write: false } } as never,
 };
 
+const store = createMemoryDriveStore();
 let base = "";
 let close: () => Promise<void> = async () => undefined;
 const lines: string[] = [];
@@ -32,7 +33,7 @@ before(async () => {
   };
   registerDriveRoutes(app, {
     requireAuth,
-    store: createMemoryDriveStore(),
+    store,
     may: async (user) => PEOPLE[user.id.replace("u-", "")].rights,
     readForm: async (_bytes, name) => {
       formsRead.push(name);
@@ -117,7 +118,7 @@ test("only who holds Purchase Master Data reads, only who writes Purchase upload
 const call = (person: string, method: string, path: string, body?: unknown) =>
   fetch(`${base}${path}`, { method, headers: as(person, { "Content-Type": "application/json" }), body: body === undefined ? undefined : JSON.stringify(body) });
 
-test("Google Drive's way (§231): folders made anywhere - the root, a supplier's, inside another - renamed, moved, deleted when empty; files uploaded into them, renamed, moved, found", async () => {
+test("Google Drive's way (§231): folders made anywhere - the root, a supplier's, inside another - renamed, moved, deleted; files uploaded into them, renamed, moved, found", async () => {
   const made = (await (await call("chirag", "POST", "/api/purchase/drive/folders", { name: "Certificates 2026", parentId: "" })).json()) as { folder: { id: string; parentId: string; createdBy: string } };
   assert.deepEqual([made.folder.parentId, made.folder.createdBy], ["", "Chirag Parmar"]);
   assert.equal((await call("chirag", "POST", "/api/purchase/drive/folders", { name: "certificates 2026", parentId: "" })).status, 409, "no two folders of one name in one place");
@@ -152,9 +153,92 @@ test("Google Drive's way (§231): folders made anywhere - the root, a supplier's
   const folderRenamed = (await (await call("chirag", "PATCH", `/api/purchase/drive/folders/${inner.folder.id}`, { name: "ISO certificates" })).json()) as { folder: { name: string } };
   assert.equal(folderRenamed.folder.name, "ISO certificates");
 
-  // Deleted when empty, refused while not.
-  assert.equal((await call("chirag", "DELETE", `/api/purchase/drive/folders/${made.folder.id}`)).status, 409, "a folder with something in it stays");
+  // An empty folder deleted (to the Trash).
   assert.equal((await call("chirag", "DELETE", `/api/purchase/drive/folders/${inner.folder.id}`)).status, 200, "an empty one goes");
   const folders = (await (await fetch(`${base}/api/purchase/drive/folders`, { headers: as("kapila") })).json()) as { folders: { name: string }[] };
   assert.deepEqual(folders.folders.map((f) => f.name).sort(), ["Audits", "Certificates 2026"]);
+});
+
+type Trash = { items: { group: string; kind: string; name: string; from: string; files: number; folders: number; trashedBy: string }[]; days: number };
+const trash = async (): Promise<Trash> => (await (await fetch(`${base}/api/purchase/drive/trash`, { headers: as("kapila") })).json()) as Trash;
+const names = async (folderId: string): Promise<string[]> =>
+  ((await (await fetch(`${base}/api/purchase/drive?folder=${encodeURIComponent(folderId)}`, { headers: as("kapila") })).json()) as { files: { name: string }[] }).files.map((f) => f.name);
+const folderNames = async (): Promise<string[]> => ((await (await fetch(`${base}/api/purchase/drive/folders`, { headers: as("kapila") })).json()) as { folders: { name: string }[] }).folders.map((f) => f.name).sort();
+
+test("the Trash (§232): a folder deleted with all in it, restored where it was; a file deleted forever; a supplier's folder emptied; gone by itself after 30 days", async () => {
+  // Emptied of what earlier tests left.
+  await call("chirag", "DELETE", "/api/purchase/drive/trash");
+  const put = (folderId: string, supplierId: string, name: string) =>
+    fetch(`${base}/api/purchase/drive/upload`, {
+      method: "POST",
+      headers: as("chirag", { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(name), "X-Folder-Id": folderId, "X-Doc-Type": "other", "X-Supplier-Id": supplierId }),
+      body: PDF,
+    }).then(async (r) => ((await r.json()) as { file: { id: string } }).file);
+  const top = (await (await call("chirag", "POST", "/api/purchase/drive/folders", { name: "Old quotes", parentId: "" })).json()) as { folder: { id: string } };
+  const sub = (await (await call("chirag", "POST", "/api/purchase/drive/folders", { name: "2025", parentId: top.folder.id })).json()) as { folder: { id: string } };
+  await put(top.folder.id, "", "Quote A.pdf");
+  await put(sub.folder.id, "", "Quote B.pdf");
+
+  // A folder that is not empty goes, with everything in it, as one thing in the Trash.
+  assert.equal((await call("kapila", "DELETE", `/api/purchase/drive/folders/${top.folder.id}`)).status, 403, "only who writes Purchase deletes");
+  assert.equal((await call("chirag", "DELETE", `/api/purchase/drive/folders/${top.folder.id}`)).status, 200);
+  assert.ok(!(await folderNames()).includes("Old quotes") && !(await folderNames()).includes("2025"), "out of the drive, the folder inside it too");
+  assert.deepEqual(await names(sub.folder.id), [], "its files out of every listing");
+  const found = (await (await fetch(`${base}/api/purchase/drive?q=quote`, { headers: as("kapila") })).json()) as { files: unknown[] };
+  assert.equal(found.files.length, 0, "and out of search");
+  let t = await trash();
+  assert.equal(t.days, 30);
+  assert.deepEqual(
+    t.items.map((i) => [i.kind, i.name, i.from, i.files, i.folders, i.trashedBy]),
+    [["folder", "Old quotes", "", 2, 1, "Chirag Parmar"]]
+  );
+
+  // Restored: back where it was, with what was in it.
+  assert.equal((await call("chirag", "POST", `/api/purchase/drive/trash/${t.items[0].group}/restore`)).status, 200);
+  assert.ok((await folderNames()).includes("Old quotes") && (await folderNames()).includes("2025"));
+  assert.deepEqual(await names(sub.folder.id), ["Quote B.pdf"]);
+  assert.equal((await trash()).items.length, 0);
+
+  // A file deleted, then deleted forever.
+  const loose = await put("", "", "Scrap.pdf");
+  assert.equal((await call("chirag", "DELETE", `/api/purchase/drive/file/${loose.id}`)).status, 200);
+  t = await trash();
+  assert.deepEqual(t.items.map((i) => [i.kind, i.name]), [["file", "Scrap.pdf"]]);
+  assert.equal((await call("chirag", "POST", `/api/purchase/drive/trash/${t.items[0].group}/restore`)).status, 200);
+  assert.ok((await names("")).includes("Scrap.pdf"), "a restored file is back in its folder");
+  await call("chirag", "DELETE", `/api/purchase/drive/file/${loose.id}`);
+  t = await trash();
+  assert.equal((await call("chirag", "DELETE", `/api/purchase/drive/trash/${t.items[0].group}`)).status, 200);
+  assert.equal((await trash()).items.length, 0);
+  assert.ok(!store.rows.some((r) => r.id === loose.id), "deleted forever: gone from the store");
+  assert.equal((await call("chirag", "POST", `/api/purchase/drive/trash/${t.items[0].group}/restore`)).status, 404);
+
+  // A supplier's folder stays (Master Data's); what is in it goes, each on its own.
+  const inSupplier = (await (await call("chirag", "POST", "/api/purchase/drive/folders", { name: "Visits", parentId: "supplier:pms-9" })).json()) as { folder: { id: string } };
+  await put("supplier:pms-9", "pms-9", "Letter.pdf");
+  assert.equal((await call("chirag", "DELETE", "/api/purchase/drive/folders/supplier%3Apms-9")).status, 200);
+  assert.deepEqual(await names("supplier:pms-9"), []);
+  assert.ok(!(await folderNames()).includes("Visits"));
+  assert.deepEqual((await trash()).items.map((i) => i.name).sort(), ["Letter.pdf", "Visits"]);
+  assert.equal((await call("chirag", "DELETE", "/api/purchase/drive/folders/supplier%3Apms-9")).status, 400, "nothing left in it");
+  assert.equal((await call("chirag", "DELETE", "/api/purchase/drive/folders/suppliers")).status, 400, "the Suppliers folder is never deleted");
+
+  // A folder restored after the folder it was in went for good: put in the drive's root.
+  const visits = (await trash()).items.find((i) => i.name === "Visits")!;
+  void inSupplier;
+  const box = (await (await call("chirag", "POST", "/api/purchase/drive/folders", { name: "Box", parentId: "" })).json()) as { folder: { id: string } };
+  const inBox = (await (await call("chirag", "POST", "/api/purchase/drive/folders", { name: "Inside box", parentId: box.folder.id })).json()) as { folder: { id: string } };
+  await call("chirag", "DELETE", `/api/purchase/drive/folders/${inBox.folder.id}`);
+  await call("chirag", "DELETE", `/api/purchase/drive/folders/${box.folder.id}`);
+  const items = (await trash()).items;
+  await call("chirag", "DELETE", `/api/purchase/drive/trash/${items.find((i) => i.name === "Box")!.group}`);
+  await call("chirag", "POST", `/api/purchase/drive/trash/${items.find((i) => i.name === "Inside box")!.group}/restore`);
+  const back = ((await (await fetch(`${base}/api/purchase/drive/folders`, { headers: as("kapila") })).json()) as { folders: { name: string; parentId: string }[] }).folders.find((f) => f.name === "Inside box");
+  assert.equal(back?.parentId, "", "its folder gone: in the root");
+
+  // Thirty days on, deleted for good by itself.
+  const letter = store.rows.find((r) => r.name === "Letter.pdf")!;
+  letter.trashedAt = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+  assert.deepEqual((await trash()).items.map((i) => i.name), [visits.name], "a month in the Trash: gone");
+  assert.ok(!store.rows.some((r) => r.name === "Letter.pdf"));
 });
