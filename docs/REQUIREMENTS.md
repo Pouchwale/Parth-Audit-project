@@ -12205,3 +12205,20 @@ moved by hand (02-11 to 16-11, 16-11 to 16-12): "Put both back on Mondays".
   own 07-12 and 21-12.
 - Proved: frontend/tests/flyMonthWise.test.ts, and in the browser: the list November's, December's (07-12, 21-12), October's;
   December's register lines dated; New with December chosen opening 07-12, headed Dec-26.
+
+## §239 The trend charts: every year side by side, month by month, a trend line across (16-Nov-2026)
+
+The owner, 16-Nov-2026, with the company's own Flies, Lizard and Rodent trend charts (2024 in blue beside 2025 in red under
+JAN to DEC, the figure over each bar, a straight trend line across): "in trend analysis do make sure it will show with all
+year which are present in that like it will show bars in each month".
+
+- The chart under each of the three trend reports - Rodent Catch, Lizard Catch, Flies Catch (Fly Catcher Infestation) -
+  draws every year of the table above that has a figure, side by side in each month, JAN to DEC: the earlier year blue
+  (#9999FF), the next red (#C0504D), then green, orange, teal, purple; each bar outlined, its figure over it, a 0 too; a
+  month not yet reported has no bar. A key under the months names the years (components/reports/CatchTrendSheet.tsx).
+- The black trend line is the least-squares line of the latest year reported in all twelve months (2024 on the 2024 / 2025
+  pages - 21.6 in January down to 17.5 in December on the flies' page, as the company's chart), else the year chosen; drawn
+  across JAN to DEC.
+- The Total stays in the table's own column; the chart has no Total bar. Printed, each year keeps its colour.
+- Proved: frontend/tests/trendYears.test.ts (tests/e2e_trend_reports.py follows), and in the browser: the three charts with
+  their years and the flies' page printed on one page.

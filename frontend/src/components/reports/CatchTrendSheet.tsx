@@ -13,8 +13,8 @@ import { TREND_PREPARED_BY } from "../../data/seed/trendReports";
 //     Total, a month left blank until it has happened. Source, Unit and Target
 //     Pest are printed per ROW, which is what lets the flies report carry its
 //     reported "Gramms" years and a board-counted "Number" year on one page;
-//   * below it, a bar chart of one year — JAN..DEC and Total, y axis "Number or
-//     Quantity Trapped", x axis "Months";
+//   * below it, a bar chart of every year in the table side by side, JAN..DEC, a
+//     trend line across (§239), y axis "Number or Quantity Trapped", x axis "Months";
 //   * a "Report prepared by" signature line at the foot, blank to be signed,
 //     as on every page of the company's file.
 //
@@ -57,46 +57,71 @@ function axisFor(max: number): { top: number; step: number } {
 
 const fmtTick = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
+/**
+ * THE YEARS SIDE BY SIDE, MONTH BY MONTH (REQUIREMENTS §239; the owner, 16-Nov-2026, with the company's own trend charts -
+ * 2024 in blue beside 2025 in red under JAN to DEC, each bar's figure over it, a trend line across: "in trend analysis do
+ * make sure it will show with all year which are present in that like it will show bars in each month"). Every year of
+ * the table above with a figure in it has its bar in every month it was reported (a 0 too, its figure on the baseline);
+ * a month not yet reported has none. The black line is the trend of `trendYear` - the latest year reported in full -
+ * fitted over the months it was reported, drawn across JAN to DEC as the company's chart draws it.
+ */
+const SERIES_FILL = ["#9999FF", "#C0504D", "#9BBB59", "#F79646", "#4BACC6", "#8064A2"];
+
 export function CatchTrendChart({
-  row,
+  rows,
+  trendYear,
   yAxisLabel,
   xAxisLabel = "Months",
   unitWord,
 }: {
-  row: TrendRow;
+  rows: TrendRow[];
+  /** The year whose trend line is drawn. */
+  trendYear: number;
   yAxisLabel: string;
   xAxisLabel?: string;
   unitWord: string;
 }) {
-  const total = rowTotal(row.months);
-  // A row reported by weight says grams in its tooltip, not the report's
-  // default word — the flies report carries both kinds of year.
-  const word = row.unit && /gram/i.test(row.unit) ? "gramms" : unitWord;
-  const bars = [
-    ...RODENT_REPORT_MONTHS.map((label, i) => ({ label, value: row.months[i] })),
-    { label: "Total", value: total },
-  ];
-  const max = Math.max(0, ...bars.map((b) => b.value ?? 0));
+  const series = rows
+    .filter((r) => r.months.some((m) => m !== null))
+    .slice()
+    .sort((a, b) => a.year - b.year);
+  const max = Math.max(0, ...series.flatMap((r) => r.months.map((m) => m ?? 0)));
   const { top, step } = axisFor(max);
 
   // Geometry (SVG user units; the SVG scales to its container).
   const W = 820;
-  const H = 300;
+  const H = 320;
   const left = 66;
   const right = 16;
-  const topPad = 22;
-  const bottom = 58;
+  const topPad = 26;
+  const bottom = 64;
   const plotW = W - left - right;
   const plotH = H - topPad - bottom;
-  const slot = plotW / bars.length;
-  const barW = Math.min(30, slot * 0.46);
+  const slot = plotW / RODENT_REPORT_MONTHS.length;
+  const n = Math.max(1, series.length);
+  const barW = Math.min(30, (slot * 0.72) / n);
   const y = (v: number) => topPad + plotH - (v / top) * plotH;
   const ticks: number[] = [];
   for (let v = 0; v <= top + 1e-9; v += step) ticks.push(Math.round(v * 100) / 100);
+  const centre = (i: number) => left + slot * i + slot / 2;
+
+  // The trend: a straight line fitted (least squares) over the months the year was reported.
+  const trendRow = series.find((r) => r.year === trendYear) ?? series[series.length - 1];
+  const pts = trendRow ? trendRow.months.map((m, i) => [i, m] as const).filter((p): p is readonly [number, number] => p[1] !== null) : [];
+  let trend: { a: number; b: number } | null = null;
+  if (pts.length >= 2) {
+    const mx = pts.reduce((s2, p) => s2 + p[0], 0) / pts.length;
+    const my = pts.reduce((s2, p) => s2 + p[1], 0) / pts.length;
+    const sxx = pts.reduce((s2, p) => s2 + (p[0] - mx) ** 2, 0);
+    const b = sxx ? pts.reduce((s2, p) => s2 + (p[0] - mx) * (p[1] - my), 0) / sxx : 0;
+    trend = { a: my - b * mx, b };
+  }
+  const clampY = (v: number) => y(Math.max(0, Math.min(top, v)));
+  const word = (r: TrendRow) => (r.unit && /gram/i.test(r.unit) ? "gramms" : unitWord);
 
   return (
-    <div className="trend-chart">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${yAxisLabel} by month, ${row.year}${total !== null ? `, total ${total}` : ""}`}>
+    <div className="trend-chart" data-chart-years={series.map((r) => r.year).join(",")}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${yAxisLabel} by month, ${series.map((r) => r.year).join(" and ") || "no year reported yet"}`}>
         {/* y axis + ticks */}
         <line x1={left} y1={topPad} x2={left} y2={topPad + plotH} className="axis" />
         {ticks.map((t) => (
@@ -109,43 +134,66 @@ export function CatchTrendChart({
         ))}
         {/* baseline */}
         <line x1={left} y1={topPad + plotH} x2={W - right} y2={topPad + plotH} className="axis" />
-        {bars.map((b, i) => {
-          const cx = left + slot * i + slot / 2;
-          const has = b.value !== null;
-          const v = b.value ?? 0;
-          const h = Math.max(0, topPad + plotH - y(v));
-          const r = Math.min(3, h / 2);
-          const x0 = cx - barW / 2;
-          const yTop = topPad + plotH - h;
-          // Rounded top, square foot on the baseline.
-          const path =
-            h > 0
-              ? `M${x0},${topPad + plotH} L${x0},${yTop + r} Q${x0},${yTop} ${x0 + r},${yTop} L${x0 + barW - r},${yTop} Q${x0 + barW},${yTop} ${x0 + barW},${yTop + r} L${x0 + barW},${topPad + plotH} Z`
-              : "";
-          return (
-            <g key={b.label} className={`bar${b.label === "Total" ? " total" : ""}`}>
-              {/* generous, invisible hit target for the tooltip */}
-              <rect x={cx - slot / 2} y={topPad} width={slot} height={plotH} className="hit">
-                <title>{has ? `${b.label} ${row.year}: ${v} ${word}` : `${b.label} ${row.year}: not yet recorded`}</title>
-              </rect>
-              {path && <path d={path} className="mark" />}
-              {has && (
-                <text x={cx} y={yTop - 6} className="value" textAnchor="middle">
-                  {v}
-                </text>
-              )}
-              <text x={cx} y={topPad + plotH + 18} className="cat" textAnchor="middle">
-                {b.label}
-              </text>
-            </g>
-          );
-        })}
-        <text x={left + plotW / 2} y={H - 10} className="axis-title" textAnchor="middle">
+        {RODENT_REPORT_MONTHS.map((label, i) => (
+          <g key={label} className="month" data-month={i}>
+            {series.map((r, k) => {
+              const v = r.months[i];
+              const x0 = centre(i) - (n * barW) / 2 + k * barW;
+              const has = v !== null && v !== undefined;
+              const h = has ? Math.max(0, topPad + plotH - y(v)) : 0;
+              const yTop = topPad + plotH - h;
+              return (
+                <g key={r.year} className="bar" data-year={r.year} data-series={k}>
+                  <rect x={x0} y={topPad} width={barW} height={plotH} className="hit">
+                    <title>{has ? `${label} ${r.year}: ${v} ${word(r)}` : `${label} ${r.year}: not yet reported`}</title>
+                  </rect>
+                  {has && h > 0 && <rect x={x0} y={yTop} width={barW} height={h} className={`mark series-${k}`} style={{ fill: SERIES_FILL[k % SERIES_FILL.length] }} />}
+                  {has && (
+                    <text x={x0 + barW / 2} y={yTop - 5} className="value" textAnchor="middle">
+                      {v}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+            <text x={centre(i)} y={topPad + plotH + 18} className="cat" textAnchor="middle">
+              {label}
+            </text>
+          </g>
+        ))}
+        {trend && trendRow && (
+          <line x1={centre(0)} y1={clampY(trend.a)} x2={centre(11)} y2={clampY(trend.a + trend.b * 11)} className="trend-line" data-trend-year={trendRow.year}>
+            <title>{`Trend of ${trendRow.year}`}</title>
+          </line>
+        )}
+        <text x={left + plotW / 2} y={H - 26} className="axis-title" textAnchor="middle">
           {xAxisLabel}
         </text>
         <text transform={`translate(16 ${topPad + plotH / 2}) rotate(-90)`} className="axis-title" textAnchor="middle">
           {yAxisLabel}
         </text>
+        {/* Which colour is which year, under the months. */}
+        <g className="legend">
+          {series.map((r, k) => {
+            const lx = left + plotW / 2 - (series.length * 70) / 2 + k * 70 + (trend ? -40 : 0);
+            return (
+              <g key={r.year}>
+                <rect x={lx} y={H - 14} width={11} height={11} className={`mark series-${k}`} style={{ fill: SERIES_FILL[k % SERIES_FILL.length] }} />
+                <text x={lx + 16} y={H - 5} className="tick">
+                  {r.year}
+                </text>
+              </g>
+            );
+          })}
+          {trend && trendRow && (
+            <g>
+              <line x1={left + plotW / 2 + (series.length * 70) / 2 - 30} y1={H - 8} x2={left + plotW / 2 + (series.length * 70) / 2 - 8} y2={H - 8} className="trend-line" />
+              <text x={left + plotW / 2 + (series.length * 70) / 2 - 3} y={H - 5} className="tick">
+                Trend {trendRow.year}
+              </text>
+            </g>
+          )}
+        </g>
       </svg>
     </div>
   );
@@ -242,7 +290,9 @@ export function CatchTrendSheet({
             </tbody>
           </table>
         </div>
-        <CatchTrendChart row={chartRow} yAxisLabel={yAxisLabel} unitWord={unitWord} />
+        {/* The trend line is the latest year reported in full - all twelve months - as on the company's charts (2024's
+            line on the 2024 / 2025 pages); else the year chosen (§239). */}
+        <CatchTrendChart rows={rows} trendYear={rows.filter((r) => r.months.every((m) => m !== null)).map((r) => r.year).sort((x, z) => z - x)[0] ?? drawnYear} yAxisLabel={yAxisLabel} unitWord={unitWord} />
         {/* The signature line every page of the company's file carries. Left
             blank on purpose: the system does not sign a report for anybody
             (REQUIREMENTS §41). */}

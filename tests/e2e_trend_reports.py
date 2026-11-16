@@ -155,8 +155,10 @@ def sheet_row(page, year):
     )
 
 
-def bar_values(page):
-    return page.eval_on_selector_all(".trend-chart .bar .value", "els => els.map((e) => e.textContent.trim())")
+def bar_values(page, year=None):
+    """The figures over the bars - of one year's bars when asked (every year is drawn side by side, REQUIREMENTS §239)."""
+    sel = f".trend-chart .bar[data-year='{year}'] .value" if year else ".trend-chart .bar .value"
+    return page.eval_on_selector_all(sel, "els => els.map((e) => e.textContent.trim())")
 
 
 with sync_playwright() as p:
@@ -226,15 +228,18 @@ with sync_playwright() as p:
         drawn = page.get_attribute(".trend-sheet", "data-chart-year")
         check(f"{name}: the sheet says which year the chart draws", bool(drawn and drawn.isdigit()), drawn)
         check(f"{name}: the chart is an inline SVG, not a picture", page.locator(".trend-chart svg").count() == 1 and page.locator(".trend-chart img").count() == 0)
-        check(f"{name}: a bar for every month and one for the Total", page.locator(".trend-chart .bar").count() == 13)
-        drawn_row = sheet_row(page, drawn)
-        if drawn_row:
-            expected = [c for c in drawn_row["months"] if c != ""] + ([drawn_row["total"]] if drawn_row["total"] != "" else [])
-            check(
-                f"{name}: the bars carry that year's own figures, and no bar for an empty month",
-                bar_values(page) == expected,
-                {"bars": bar_values(page), "row": expected, "year": drawn},
-            )
+        # Every year with figures side by side, twelve month places each (§239): no Total bar.
+        drawn_years = (page.get_attribute(".trend-chart", "data-chart-years") or "").split(",")
+        check(f"{name}: every year with figures drawn, month by month", page.locator(".trend-chart .bar").count() == 12 * len([y for y in drawn_years if y]), drawn_years)
+        for y in [y for y in drawn_years if y]:
+            yr = sheet_row(page, y)
+            if yr:
+                expected = [c for c in yr["months"] if c != ""]
+                check(
+                    f"{name} {y}: its bars carry its own figures, and no bar for an empty month",
+                    bar_values(page, y) == expected,
+                    {"bars": bar_values(page, y), "row": expected, "year": y},
+                )
 
         years = page.eval_on_selector_all(".trend-table tbody tr[data-year]", "els => els.map((e) => e.dataset.year)")
         check(f"{name}: one row per year, none repeated", len(years) == len(set(years)), years)
@@ -253,11 +258,11 @@ with sync_playwright() as p:
             page.select_option("select[data-select='year']", "2024")
             page.wait_for_timeout(900)
             check(f"{name}: picking 2024 draws 2024", page.get_attribute(".trend-sheet", "data-chart-year") == "2024", page.get_attribute(".trend-sheet", "data-chart-year"))
-            want = [c for c in rep["rows"]["2024"][3] if c != ""] + ([rep["rows"]["2024"][4]] if rep["rows"]["2024"][4] != "" else [])
+            want = [c for c in rep["rows"]["2024"][3] if c != ""]
             check(
-                f"{name}: and the bars are the 2024 figures off the paper report",
-                bar_values(page) == want,
-                {"bars": bar_values(page), "on paper": want},
+                f"{name}: and the 2024 bars are the 2024 figures off the paper report",
+                bar_values(page, "2024") == want,
+                {"bars": bar_values(page, "2024"), "on paper": want},
             )
 
     # ==================================================================

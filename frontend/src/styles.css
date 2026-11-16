@@ -1884,17 +1884,20 @@ body { top: 0 !important; }
 .trend-signature { margin-top: 18px; padding: 0 6px 4px; }
 .trend-signature .sig-line { display: block; width: 220px; border-top: 1px solid #2c3e50; }
 .trend-signature .sig-label { display: block; width: 220px; text-align: center; font-size: 11px; font-weight: 600; padding-top: 3px; color: var(--color-text); }
-.trend-chart .mark { fill: #333a40; }
+.trend-chart .mark { fill: #333a40; stroke: #000; stroke-width: 0.6; }
 .trend-chart .bar.total .mark { fill: #2C3E50; }
 .trend-chart .hit { fill: transparent; }
-.trend-chart .bar:hover .mark { fill: var(--color-primary); }
+.trend-chart .bar:hover .mark { opacity: 0.8; }
+/* The trend of the year chosen, a thin black line as the company's chart draws it (§239). */
+.trend-chart .trend-line { stroke: #000; stroke-width: 1.2; }
 
 @media print {
   .register-page { border: none; padding: 0; margin-top: 0; break-after: page; }
   .register-page:last-of-type { break-after: auto; }
   .register-grid td.date-cell, .register-grid td.flagged { background: #fff !important; color: #000 !important; }
   .trend-table td.from-register { background: #fff !important; }
-  .trend-chart .mark, .trend-chart .bar.total .mark { fill: #000 !important; }
+  /* Each year keeps its colour on paper too: the years told apart as on the company's chart (§239). */
+  .trend-chart .bar.total .mark { fill: #000 !important; }
   .doc-table .register-grid tr.is-today td.date-cell { outline: none; }
   /* The screen's tints - today's line, a day past the month's end, a locked line - are the screen's: the paper's lines
      print white (the owner, 7-Nov-2026, §198: the register printed on A4 "should cover whole page" and look the paper's). */
