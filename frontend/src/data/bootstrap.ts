@@ -19,6 +19,7 @@ import { alignPapersOnFile } from "./paperOnFileMigration";
 import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
 import { alignCertificateDates, weekDatesOnSheets } from "./certificateDatesMigration";
 import { serviceReportsOnSaturdays, serviceVisitsOnSaturdays } from "./serviceSaturdaysMigration";
+import { auditedYesOnOpenSheets } from "./purchaseAuditMigration";
 import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
 import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
@@ -103,6 +104,8 @@ export function bootstrap(): void {
   alignCertificateDates();
   // F/QC/11's Calibration Date and Due Date, the week's own (REQUIREMENTS §223).
   weekDatesOnSheets();
+  // F/PUR/02's sheets still open: every audit point AUDITED Yes, the NC table from the points rated NC (REQUIREMENTS §229).
+  auditedYesOnOpenSheets();
   // F/QC/17's new starting boxes (30-10-26) in the sheets created before, still open, each with a line in its history.
   alignRulerBoxes();
   // ...and round 2 (30-10-26): Range, Least count, Kristeel and the report number from the certificate's years.

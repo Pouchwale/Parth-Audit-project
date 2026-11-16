@@ -380,6 +380,40 @@ export const agreementsApi = {
   fileUrl: (recordId: string, fileId: string) => `/api/purchase/agreements/${encodeURIComponent(recordId)}/${encodeURIComponent(fileId)}`,
 };
 
+// THE SUPPLIERS' DRIVE IN PURCHASE MASTER DATA (backend/supplierDrive.ts, REQUIREMENTS §230).
+export type SupplierDriveType = "srf" | "tdsSpecs" | "msds" | "foodGradeDeclaration" | "traceability" | "isoCertificate" | "serviceAgreement" | "auditReport" | "other";
+export interface SupplierDriveFile {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  docType: SupplierDriveType;
+  name: string;
+  mime: string;
+  size: number;
+  validUpto: string;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+export interface SupplierDriveRead {
+  form?: SupplierFormReadResult;
+  validUpto?: string;
+  audit?: { supplier?: string; contacts?: string; dateOfVisit?: string; visitNo?: string; auditors?: string; scopeOfAudit?: string; productSupplied?: string; overallStatus?: string };
+  note?: string;
+}
+
+export const driveApi = {
+  list: (supplierId?: string) => request<{ files: SupplierDriveFile[] }>(`/purchase/drive${supplierId ? `?supplier=${encodeURIComponent(supplierId)}` : ""}`),
+  upload: (supplierId: string, supplierName: string, docType: SupplierDriveType, file: File) =>
+    request<{ file: SupplierDriveFile; read: SupplierDriveRead }>(`/purchase/drive/${encodeURIComponent(supplierId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-Doc-Type": docType, "X-Supplier-Name": encodeURIComponent(supplierName) },
+      body: file,
+    }),
+  remove: (fileId: string) => request<{ ok: true }>(`/purchase/drive/file/${encodeURIComponent(fileId)}`, { method: "DELETE" }),
+  /** Where the file itself is read from (the session's cookie goes with it). */
+  fileUrl: (fileId: string) => `/api/purchase/drive/file/${encodeURIComponent(fileId)}`,
+};
+
 // ESCALATION TO THE SUPER ADMIN AND THE WEEKLY DIGEST (REQUIREMENTS §75),
 // worked out on the server from the records in PostgreSQL (backend/escalation.ts,
 // on the rule engine/latenessCore.ts shares with the Performance Scorecard) and

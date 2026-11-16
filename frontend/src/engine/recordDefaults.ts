@@ -1,3 +1,4 @@
+import { AUDIT_DOC, withAuditedYes } from "./purchaseAuditNc";
 import type {
   DailyPestMonitoringData,
   DocumentDefinition,
@@ -155,6 +156,8 @@ export function createDefaultData(
           else header[f.key] = isDecisionField(f.key) || boxKind(f, layout) !== "standing" ? "" : (f.autoFill?.default ?? "");
         }
         rows = emptyLogRows(doc.id);
+        // F/PUR/02: every audit point AUDITED Yes on a new sheet (REQUIREMENTS §229).
+        if (doc.id === AUDIT_DOC) rows = withAuditedYes(rows);
       }
       const data: LogSheetData = { header, rows };
       return data;

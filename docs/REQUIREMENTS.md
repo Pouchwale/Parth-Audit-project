@@ -11986,3 +11986,49 @@ taking print so do and check for other document also of QC, HR and Purchase modu
   The rest already filled their page and are unchanged (F/QC/12 97 %, F/QC/13 99 %, F/QC/06 97 % ...).
 - Proved: frontend/tests/printFill.test.ts, and the 84 printouts measured before and after.
 
+## §229 F/PUR/02: every audit point AUDITED Yes; the NC table filled from the points rated NC, drawn as the paper's table (16-Nov-2026)
+
+The owner, 16-Nov-2026: "in pur-02 in that all answer will be yes and when user select NC in C/NC/NA (Section 1) / RATING
+(Sections 2 to 8) so that also it should also fill ... NC-1, NC-2, NC-3 should be like side by side and not down"; asked:
+"in down below Section, Details of observations / NC, and Response evidence received from supplier / on-site verification
+for all three NC-1, NC-2, NC-3"; the paper's table.
+
+- A new F/PUR/02's audit points are all AUDITED Yes (the shaded "EXTERNAL LABORATORY - IF USED" sub-heading blank), each
+  the person's to change; the sheets still open (one reopened for correction too) take Yes where the box was blank, at
+  start, with a line in the history
+  (data/purchaseAuditMigration.ts).
+- The audit points rated NC fill the observations / NC table, in their order, three at most: NC 1, NC 2, NC 3 each take
+  the point's No. as Section, its words as Details of observations / NC, and its COMMENTS as Response evidence. A box the
+  table filled follows its point (comments typed, NC taken off); a box a person wrote in is never written over
+  (engine/purchaseAuditNc.ts, in the computed cells; what it filled is remembered under ncAuto, no line of the history).
+- The NC table is drawn as the paper's table: one line per NC, Section | Details | Response | Date of closure across;
+  Overall Status and Sign: a line of their own below.
+- Proved: frontend/tests/purchaseAuditNc.test.ts, and in the browser: Yes on every point, NC on 1.2 filling NC 1.
+
+## §230 The suppliers' drive in Purchase Master Data, read into the Purchase records (16-Nov-2026)
+
+The owner, 16-Nov-2026: "purchase module in which master data you need to create drive in which user will upload his
+document ... then system will fetch the data from there in pdf and master data"; asked: one folder per supplier; an SRF
+fills the master and F/PUR/01, the files tick F/PUR/03's document columns, a certificate's or agreement's valid-upto date
+fills F/PUR/01, F/PUR/03's re-approval due date and the two months' warning, an audit report fills F/PUR/02.
+
+- Purchase Master Data shows "Suppliers' drive": a supplier chosen, the kind of document (SRF, TDS / Specs, MSDS, Food grade
+  declaration, Traceability, ISO certificate, Service agreement, Supplier audit report, Other), the file uploaded into that
+  supplier's folder (PDF, Word, Excel or a picture, 10 MB), listed with its valid-upto date and who uploaded it, opened and
+  removed (components/purchase/SupplierDrive.tsx; kept in PostgreSQL, backend/supplierDrive.ts; read by whoever holds
+  Purchase Master Data, uploaded and removed by whoever writes Purchase).
+- Read as it is uploaded (backend/supplierDrive.ts): an SRF by F/PUR/01's reader (§191); an ISO certificate or a service
+  agreement for the date written after "valid until / upto / expiry / validity"; an audit report for F/PUR/02's header
+  (supplier, contacts, date of visit, visit no., auditors, scope, product supplied) and its Overall Status. A picture is
+  kept unread.
+- Written (engine/supplierDrive.ts), each a line of the record's history naming the file: Purchase Master Data - the file's
+  document column YES, the Re-approval Due date (a later date only), an SRF's contact, telephone, products and address in
+  boxes left blank; F/PUR/01 - the supplier's open registration form (one started when the supplier has none), its blank
+  boxes from the SRF and the master, its SERVICE AGREEMENT / CERTIFICATE VALID UPTO (the two months' warning, §192); a
+  signed one is never changed (the drive says to reopen it); F/PUR/02 - the supplier's open audit report (one started when
+  none is open), its blank header boxes; F/PUR/03 - the supplier's line on the open list, its document cell and re-approval
+  date as the master now has them.
+- Proved: backend/tests/supplierDrive.test.ts, frontend/tests/supplierDriveApply.test.ts, and in the browser: an ISO
+  certificate (valid upto 14-06-2028), an MSDS and an audit report uploaded for a supplier - the master, F/PUR/01 and F/PUR/02
+  written, the folder listing the three, a file opening.
+

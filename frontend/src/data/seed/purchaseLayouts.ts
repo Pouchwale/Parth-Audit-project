@@ -313,8 +313,15 @@ const SUMMARY_PROMPTS: [string, string][] = [
 ];
 
 /** The observations / NC table's four printed column headings, per printed line. */
+// Drawn as the paper's table (the owner, 16-Nov-2026, REQUIREMENTS §229): one line per NC, its four boxes across, under
+// the paper's four headings; filled from the audit points rated NC (engine/purchaseAuditNc.ts).
+const NC_TABLE: NonNullable<LogHeaderField["boxTable"]> = {
+  corner: "",
+  columns: ["Section", "Details of observations / NC", "Response evidence received from supplier / on-site verification", "Date of closure"],
+  rows: ["NC 1", "NC 2", "NC 3"],
+};
 const NC_TABLE_FIELDS: LogHeaderField[] = [1, 2, 3].flatMap((line) => [
-  { key: `nc${line}Section`, label: `NC ${line} — Section`, type: "text" as const, width: 120 },
+  { key: `nc${line}Section`, label: `NC ${line} — Section`, type: "text" as const, width: 120, ...(line === 1 ? { boxTable: NC_TABLE } : {}) },
   paragraph(`nc${line}Details`, `NC ${line} — Details of observations / NC`),
   paragraph(`nc${line}Response`, `NC ${line} — Response evidence received from supplier / on-site verification`),
   { key: `nc${line}Closure`, label: `NC ${line} — Date of closure`, type: "date" as const, width: 150 },
@@ -362,7 +369,8 @@ const supplierAuditReport: LogSheetLayout = {
   footerFields: [
     ...SUMMARY_PROMPTS.map(([key, label]) => paragraph(key, label)),
     ...NC_TABLE_FIELDS,
-    { key: "overallStatus", label: "Overall Status - Approved / Rejected", type: "select", options: ["Approved", "Rejected"] },
+    // (a line of its own after the NC table, with the Sign: §229)
+    { key: "overallStatus", label: "Overall Status - Approved / Rejected", type: "select", options: ["Approved", "Rejected"], boxesPerLine: 2 },
     { key: "sign", label: "Sign: -", type: "text", autoFill: { sign: true } },
   ],
   // What the specimen carries is what CAN be known before the visit: who is

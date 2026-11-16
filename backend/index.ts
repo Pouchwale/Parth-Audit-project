@@ -53,6 +53,7 @@ import { speakFailure, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VOICE_PR
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 import { readSupplierForm, SUPPLIER_FORM_MAX_BYTES } from "./supplierFormExtract.ts";
 import { createDatabaseAgreementStore, registerAgreementRoutes } from "./supplierAgreements.ts";
+import { createDatabaseDriveStore, registerDriveRoutes } from "./supplierDrive.ts";
 import { holdsPurchaseMaster, writesPurchaseMaster } from "./accessLevels.ts";
 import { accessViewOf } from "./accessStore.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
@@ -1515,6 +1516,25 @@ registerAgreementRoutes(app, {
   may: async (user) => {
     const view = await accessViewOf(user);
     return { read: holdsPurchaseMaster(view), write: writesPurchaseMaster(view) };
+  },
+});
+
+// THE SUPPLIERS' DRIVE IN PURCHASE MASTER DATA (REQUIREMENTS §230, backend/supplierDrive.ts): a folder per supplier, each
+// file read as it is uploaded (an SRF by F/PUR/01's reader, a certificate or agreement for its valid-upto date, an audit
+// report for F/PUR/02's header); read by whoever holds Purchase Master Data, uploaded and removed by whoever writes Purchase.
+registerDriveRoutes(app, {
+  requireAuth,
+  logActivity,
+  store: createDatabaseDriveStore(),
+  may: async (user) => {
+    const view = await accessViewOf(user);
+    return { read: holdsPurchaseMaster(view), write: writesPurchaseMaster(view) };
+  },
+  readForm: async (bytes, name, user) => {
+    const mitra = await assistantAllowedFor(user);
+    const useAssistant = mitra && process.env.CV_READ_WITH_ASSISTANT !== "0" && aiConfigured() && !isAssistantThrottled(user.id);
+    if (useAssistant) recordAssistantCall(user.id);
+    return readSupplierForm(bytes, name, { useAssistant });
   },
 });
 

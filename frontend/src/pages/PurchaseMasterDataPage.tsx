@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FiAlertTriangle, FiCheckCircle, FiDownload, FiFileText, FiInfo, FiLock, FiPlus, FiPrinter, FiTrash2, FiUpload, FiBookOpen } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
+import { SupplierDrive } from "../components/purchase/SupplierDrive";
 import { useRouter } from "../store/router";
 import { purchaseMasterRepository } from "../data/repositories/purchaseMasterRepository";
 import { COMPANY } from "../data/seed/masterData";
@@ -551,6 +552,9 @@ export function PurchaseMasterDataPage() {
           </div>
         </div>
       )}
+
+      {/* The suppliers' drive: a folder per supplier, read into the Purchase records (REQUIREMENTS §230). */}
+      <SupplierDrive canEdit={canEdit} actor={currentUser || ACTOR} onChanged={bump} />
 
       <div className="flex gap-3 wrap mb-4">
         <div className="stat-tile">

@@ -1,4 +1,5 @@
 import { typedKeys } from "./typedCells";
+import { withAuditNcTable } from "./purchaseAuditNc";
 import { withAuditRisk } from "./auditRisk";
 import { withMarketingCalc } from "./marketingCalc";
 import { withCalibration } from "./calibration";
@@ -44,7 +45,7 @@ function computedNow<T>(documentId: string | undefined, data: T, before?: unknow
   // what the chain had written from it.
   const chained = withNextDueChain(documentId, data, before);
   // The HR registers' dates as the app writes dates, 05-07-2024, whatever spelling a line carried over from the paper (§183).
-  const out = withRegisterDates(documentId, withPrintedBoxes(documentId, withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, chained)))))));
+  const out = withRegisterDates(documentId, withPrintedBoxes(documentId, withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withAuditNcTable(documentId, withPurchaseRatings(documentId, chained))))))));
   return withTypedCellsKept(data, out);
 }
 
