@@ -11861,3 +11861,21 @@ the empty 2029 record deleted; New adds a 21st once all of the year's are filled
 - Proved: frontend/tests/rulerSlots.test.ts (the plant's case, built on the year today falls in), newRecordNextPeriod,
   morningPrepareMerge, qcCarryForward, qcRuler300, qcCertificateDates; and in the browser: 20 on each page, New opening 01.
 
+## §221 The three Pest Control Service Reports twice a month, on the 1st and 3rd Saturday (15-Nov-2026)
+
+The owner, 15-Nov-2026, with the Ants & Cockroaches visit register showing one visit: "it has a frequency of 15 day which
+means twice a month and on saturday so every month it should be by default two records should come on screen for all
+three service record".
+
+- Rodent, General (ants and cockroaches) and Fly: fortnightly on the month's 1st and 3rd Saturday, fourteen days apart,
+  exactly two a month, from 15-11-2026 (scheduleSince); the 4th and 18th before. Each month's two are made by the
+  schedule at the month's start (and seen ahead on the calendar), on every page that lists them.
+- The Super Admin had set General and Fly to the 1st and 3rd Sunday on 15-11-2026 (Master Data's override). A frequency set
+  on one of the three on or before 15-11-2026 is taken off at start, with a line in the activity log, by whoever may set
+  it (data/serviceSaturdaysMigration.ts), so all three follow the Saturdays; one set after that day is the plant's newer
+  word and stays. The old schedule's untouched sheets from
+  today on go (§130); every visit already written on stays.
+- November 2026: the 21st is the Saturday from 15-11 on; the visits already on file stay beside it.
+- Proved: frontend/tests/serviceReportSaturdays.test.ts (two Saturdays in every month of 2027 for each; December 2026's
+  5th and 19th made for all three), periodSheet.test.ts, scheduleChange28Oct.test.ts.
+

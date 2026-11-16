@@ -63,11 +63,12 @@ test("the week, the fortnight, the month, the quarter and the year a date falls 
   assert.deepEqual(schedulePeriodOf(weekly, "2026-11-01"), { from: "2026-10-26", to: "2026-11-01", scheduled: "2026-10-27" }, "a week across two months");
   // F/QC/12, a sheet a month since November 2026 (the owner, 29-Oct-2026, §145): the month holds its 1st.
   assert.deepEqual(schedulePeriodOf(doc("qc-weight-scale-calibration"), "2026-11-17"), { from: "2026-11-01", to: "2026-11-30", scheduled: "2026-11-01" });
-  // The pest service visits, the 4th and the 18th; the fly catcher, the 3rd and the 17th.
+  // The pest service visits, the 1st and 3rd Saturday since 15-Nov-2026 (§221; the 4th and the 18th before): October 2026's
+  // are the 3rd and the 17th.
   const visits = doc("service-report-rodent");
-  assert.deepEqual(schedulePeriodOf(visits, "2026-10-02"), { from: "2026-10-01", to: "2026-10-17", scheduled: "2026-10-04" });
-  assert.deepEqual(schedulePeriodOf(visits, "2026-10-17"), { from: "2026-10-01", to: "2026-10-17", scheduled: "2026-10-04" });
-  assert.deepEqual(schedulePeriodOf(visits, "2026-10-18"), { from: "2026-10-18", to: "2026-10-31", scheduled: "2026-10-18" });
+  assert.deepEqual(schedulePeriodOf(visits, "2026-10-02"), { from: "2026-10-01", to: "2026-10-16", scheduled: "2026-10-03" });
+  assert.deepEqual(schedulePeriodOf(visits, "2026-10-16"), { from: "2026-10-01", to: "2026-10-16", scheduled: "2026-10-03" });
+  assert.deepEqual(schedulePeriodOf(visits, "2026-10-17"), { from: "2026-10-17", to: "2026-10-31", scheduled: "2026-10-17" });
   // F/HR/18 the 1st and 3rd Monday since 28-Oct-2026 (the owner): October 2026's are the 5th and the 19th.
   assert.deepEqual(schedulePeriodOf(doc("fly-catcher"), "2026-10-17"), { from: "2026-10-01", to: "2026-10-18", scheduled: "2026-10-05" });
   assert.deepEqual(schedulePeriodOf(doc("fly-catcher"), "2026-10-19"), { from: "2026-10-19", to: "2026-10-31", scheduled: "2026-10-19" });
@@ -152,12 +153,13 @@ test("New on a yearly document opens the year's sheet, a verified one included, 
 
 test("New on a fortnightly visit report opens the fortnight's visit", () => {
   const rodent = doc("service-report-rodent");
-  generate([rodent.id], [2026, 9]);
-  const fourth = recordsOf(rodent.id).find((r) => r.periodKey === "service-report-rodent:2026-10-04");
-  const eighteenth = recordsOf(rodent.id).find((r) => r.periodKey === "service-report-rodent:2026-10-18");
-  assert.ok(fourth && eighteenth, "the schedule made both October visits");
-  assert.equal(createRecordForDocument(rodent, { dateISO: "2026-10-10" }).record.id, fourth!.id);
-  assert.equal(createRecordForDocument(rodent, { dateISO: "2026-10-20" }).record.id, eighteenth!.id);
+  // December 2026's two Saturdays, the 5th and the 19th (§221).
+  generate([rodent.id], [2026, 11]);
+  const fourth = recordsOf(rodent.id).find((r) => r.periodKey === "service-report-rodent:2026-12-05");
+  const eighteenth = recordsOf(rodent.id).find((r) => r.periodKey === "service-report-rodent:2026-12-19");
+  assert.ok(fourth && eighteenth, "the schedule made both December visits");
+  assert.equal(createRecordForDocument(rodent, { dateISO: "2026-12-10" }).record.id, fourth!.id);
+  assert.equal(createRecordForDocument(rodent, { dateISO: "2026-12-20" }).record.id, eighteenth!.id);
 });
 
 test("an as-required document starts a new sheet every time; a daily one opens the day's; the training record is one per training", () => {

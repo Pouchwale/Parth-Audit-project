@@ -143,7 +143,11 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     description:
       "Gurudev Pest Control's fortnightly Rodent Control Service report (Rat, Mice & Bandicoots): glue boards — bromadiolone cake at Offline punching & QC Inspection — across 16 fixed areas, quantity used, remarks, technician and customer signatures.",
     sourceFile: "Service Report-April 2026.xls (1st & 2nd Service sheets)",
-    schedule: { type: "fortnightly", anchorDayOfMonth: 4 },
+    // Twice a month, the 1st and 3rd Saturday (the owner, 15-Nov-2026: "it has a frequency of 15 day which means twice a
+    // month and on saturday so every month ... two records ... for all three service record", REQUIREMENTS §221); the
+    // 4th and 18th until then.
+    schedule: { type: "fortnightly", weekday: 6 },
+    scheduleSince: "2026-11-15",
     variantKey: "Rodent Control Service",
   },
   {
@@ -161,7 +165,11 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     description:
       "Gurudev Pest Control's fortnightly General Pest Control Services report (Red & Black Ants, Cockroaches): Deltamethrin 2.5% SC spraying across 9 fixed areas, quantity used, remarks, technician and customer signatures.",
     sourceFile: "Service Report-April 2026.xls (1st & 2nd Service sheets)",
-    schedule: { type: "fortnightly", anchorDayOfMonth: 4 },
+    // Twice a month, the 1st and 3rd Saturday (the owner, 15-Nov-2026: "it has a frequency of 15 day which means twice a
+    // month and on saturday so every month ... two records ... for all three service record", REQUIREMENTS §221); the
+    // 4th and 18th until then.
+    schedule: { type: "fortnightly", weekday: 6 },
+    scheduleSince: "2026-11-15",
     variantKey: "General Pest Control Services",
   },
   {
@@ -179,7 +187,11 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     description:
       "Gurudev Pest Control's fortnightly Fly Control Services report (House Fly): Beta-Cyfluthrin 2.45% SC spraying across 9 fixed areas, quantity used, remarks, technician and customer signatures.",
     sourceFile: "Service Report-April 2026.xls (1st & 2nd Service sheets)",
-    schedule: { type: "fortnightly", anchorDayOfMonth: 4 },
+    // Twice a month, the 1st and 3rd Saturday (the owner, 15-Nov-2026: "it has a frequency of 15 day which means twice a
+    // month and on saturday so every month ... two records ... for all three service record", REQUIREMENTS §221); the
+    // 4th and 18th until then.
+    schedule: { type: "fortnightly", weekday: 6 },
+    scheduleSince: "2026-11-15",
     variantKey: "Fly Control Services",
   },
   {

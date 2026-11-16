@@ -18,6 +18,7 @@ import { alignSeededLineNumbers } from "./lineNumbersMigration";
 import { alignPapersOnFile } from "./paperOnFileMigration";
 import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
 import { alignCertificateDates } from "./certificateDatesMigration";
+import { serviceReportsOnSaturdays } from "./serviceSaturdaysMigration";
 import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
 import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
@@ -92,6 +93,8 @@ export function bootstrap(): void {
   alignSeededPlaceholders();
   // A changed schedule's sheets (the owner, 28-Oct-2026: F/QC/11 every Tuesday, F/QC/12 every Sunday, F/HR/18 the 1st and
   // 3rd Monday): the old schedule's untouched sheets from today on go, before the month's generation makes the new ones.
+  // The three service reports on their 1st and 3rd Saturday: an earlier frequency set on them taken off (REQUIREMENTS §221).
+  serviceReportsOnSaturdays();
   removeOffScheduleShells();
   // ...and an open sheet dated by its frequency, not the day New was pressed (REQUIREMENTS §208).
   datedByFrequency();

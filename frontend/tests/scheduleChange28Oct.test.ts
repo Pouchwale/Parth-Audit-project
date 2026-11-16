@@ -57,8 +57,8 @@ test("the schedules: F/QC/11 every Tuesday, F/QC/12 a sheet a month (every Sunda
   assert.equal(scheduleLabel(doc(FLY)), "1st & 3rd Monday of each month");
   assert.equal(scheduleLabel(doc(GSM)), "Every Tue");
   assert.equal(scheduleLabel(doc(SCALE)), "Day 1 of each month");
-  // Another fortnightly document keeps its days of the month.
-  assert.equal(scheduleLabel(doc("service-report-rodent")), "Day 4 & 18 of each month");
+  // The pest service reports, the 1st and 3rd Saturday since 15-Nov-2026 (§221).
+  for (const id of ["service-report-rodent", "service-report-general", "service-report-fly"]) assert.equal(scheduleLabel(doc(id)), "1st & 3rd Saturday of each month", id);
   for (const id of [GSM, FLY]) assert.equal(doc(id).scheduleSince, "2026-10-28", id);
   assert.equal(doc(SCALE).scheduleSince, "2026-11-01", "the monthly sheet from November 2026");
 });
@@ -92,7 +92,7 @@ test("the old schedule's untouched sheets from today on go; a sheet a person wro
   assert.deepEqual(live(FLY).map((r) => r.dueDate), ["2026-11-02"]);
   assert.equal(removeOffScheduleShells(today), 0, "nothing to do the next time");
   // A document whose schedule did not change is never looked at.
-  const other = shell("service-report-rodent", "2026-11-05");
+  const other = shell("mnt-glass-breakage", "2026-11-05");
   assert.equal(removeOffScheduleShells(today), 0);
   recordRepository.remove(other.id);
   clear(SCALE, FLY);
