@@ -551,11 +551,13 @@ export function LogSheetRecordView({
   // A line of the calibration grid: F/QC/12's entries take two lines each (the first, then its Deviation % line).
   // A line beyond the paper's measured ones (F/QC/12's fifth entry, added on the screen) is as tall as the paper's last
   // (the owner, 28-Oct-2026: an added line drawn with no height at all).
-  // F/QC/11 with lines put in (REQUIREMENTS §233): the grid as tall as the paper's six lines, shared among all of them, so
-  // the page stays one A4 page.
+  // F/QC/11 with lines put in (REQUIREMENTS §233), F/QC/12 with a fifth week (§235): the grid as tall as the paper's lines,
+  // shared among all of them, so the page stays one A4 page.
   const calLine = (i: number, second = false): number | undefined => {
     if (!cal) return undefined;
-    const squeeze = !lines.second && data.rows.length > cal.grid.lines.length ? cal.grid.lines.length / data.rows.length : 1;
+    // F/QC/12's five weeks (§235) the same: as tall as the paper's four entries of two lines.
+    const onPaper = lines.second ? cal.grid.lines.length / 2 : cal.grid.lines.length;
+    const squeeze = data.rows.length > onPaper ? onPaper / data.rows.length : 1;
     const n = cal.grid.lines.length;
     const at = lines.second ? 2 * i + (second ? 1 : 0) : i;
     const mm = cal.grid.lines[at < n ? at : Math.max(0, lines.second ? n - 2 + (second ? 1 : 0) : n - 1)];

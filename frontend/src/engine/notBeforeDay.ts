@@ -17,7 +17,14 @@ import { addDays, compareISO, todayISO } from "../utils/date";
 // but for the dates, so every page and every tool reads the one rule.
 
 type Schedule = DocumentDefinition["schedule"];
-type Doc = Pick<DocumentDefinition, "schedule" | "yearLong" | "madeAheadDays">;
+type Doc = Pick<DocumentDefinition, "schedule" | "yearLong" | "madeAheadDays"> & { id?: string };
+
+/**
+ * F/QC/12, A SHEET A MONTH OF A LINE A WEEK (REQUIREMENTS §235): a week belongs to the month holding most of its seven days
+ * (engine/scaleWeeks.ts), so a month's first week may start up to three days before the 1st - December 2026's on 29-11 -
+ * and the sheet opens with it.
+ */
+const WEEK_LINES_EARLY: Readonly<Record<string, number>> = { "qc-weight-scale-calibration": 3 };
 
 const first = (year: number, month1: number): string => `${year}-${String(month1).padStart(2, "0")}-01`;
 
@@ -53,6 +60,7 @@ export function writableFrom(doc: Doc | null | undefined, record: Pick<RecordIns
   else if (s?.type === "half-yearly") from = periodFirst(due, 6, s.anchorMonth);
   else if (s?.type === "yearly") from = doc?.yearLong ? yearLongStart(due) : periodFirst(due, 12, s.month);
   if (doc?.madeAheadDays) from = addDays(from, -doc.madeAheadDays);
+  else if (s?.type === "monthly" && doc?.id && WEEK_LINES_EARLY[doc.id]) from = addDays(from, -WEEK_LINES_EARLY[doc.id]);
   return compareISO(from, due) < 0 ? from : due;
 }
 

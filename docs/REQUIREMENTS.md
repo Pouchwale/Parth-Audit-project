@@ -12120,3 +12120,29 @@ a month) 01 to 12 through the year; the bold line a normal thin one.
   and stood twice as thick as the others; the heading's is no longer drawn there, on screen and in print (styles.css).
 - Proved: frontend/tests/gsmRowsAndSerials.test.ts, and in the browser: F/QC/11's list and its sheet's Serial No 01; the
   printed page's line over Index as thin as the rest, still one A4 page.
+
+## §235 F/QC/12: a line a week, four or five a month, each month from the last one's Next Due Date (16-Nov-2026)
+
+The owner, 16-Nov-2026, with November's F/QC/12 (01-11, 08-11, 15-11, 22-11, Next Due Date 29-11): "every row has denotes
+1 week ... this month has ended in four week and some months has five week also ... when december month will start then
+it should start with 29-11-2026 and like wise". Asked: a week that runs into the next month is the sheet's of the month
+that holds most of its seven days.
+
+- A sheet's first line starts on the last Next Due Date of the sheet before (engine/calibrationWeeks.ts, as since
+  30-Oct-2026), each line below a week on (engine/nextDueChain.ts). The sheet has a line for each week, from that first
+  date, whose middle day (the 4th of seven) is in the sheet's month (engine/scaleWeeks.ts): November 2026 01-11 to 22-11
+  (four), December 29-11 to 27-12 (five, Next Due Date 03-01), January 2027 03-01 to 24-01 (four), February 31-01 to
+  21-02 (four), March 28-02 to 28-03 (five).
+- The lines are fitted when a sheet is opened, and at start on every open Live sheet (data/scaleWeeksMigration.ts, a
+  line in its history): a fifth added as Add Row adds one (the fixed weights, the date following on), a blank fifth taken
+  off; a line with a reading on it is never taken off. A first date that is not the month's own (a sheet of long ago, a
+  date mistyped) leaves the lines as they are.
+- A sheet nobody has read a weight on starts on the last sheet's Next Due Date: one dated otherwise - December 2026's,
+  opened on 15-11 and dated 13-12 before November had its last week - is dated again from it (29-11), its lines following
+  on; a sheet with a reading on it keeps its dates.
+- A month's sheet opens with its first week: F/QC/12's is written from three days before the 1st (engine/notBeforeDay.ts),
+  so December's on 29-11.
+- Printed, and in the Excel download, five weeks stand in the height of the paper's four: one A4 page, the PROCEDURE clear
+  of the format number at the foot.
+- Proved: frontend/tests/scaleWeeks.test.ts, and in the browser: a sheet of five weeks printed on one A4 page, its Excel
+  file opened in Office.

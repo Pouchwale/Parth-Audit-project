@@ -23,6 +23,7 @@ import { serviceReportsOnSaturdays, serviceVisitsOnSaturdays } from "./serviceSa
 import { auditedYesOnOpenSheets } from "./purchaseAuditMigration";
 import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
 import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
+import { scaleWeeksOnOpenSheets } from "./scaleWeeksMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
@@ -115,6 +116,8 @@ export function bootstrap(): void {
   alignRulerBoxesRound2();
   // F/QC/12's fixed weights on every line of the sheets still open (§146), each with a line in its history.
   standardWeightsOnOpenSheets();
+  // ...and a line for each week of its month, four or five (REQUIREMENTS §235).
+  scaleWeeksOnOpenSheets();
   // F/HR/19's every point at Yes on the untouched sheets already made (§170), each with a line in its history.
   gmpYesOnOpenSheets();
 

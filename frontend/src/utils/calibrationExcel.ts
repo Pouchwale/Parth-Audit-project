@@ -116,11 +116,14 @@ export function weightScaleExcelPage(blocks: ExportBlock[]): ExportBlock[] | nul
   const headCells = grid.rows[0].map((c) => cell(c, 22, true, "center", "top"));
   const headH = Math.max(mm(geo.grid.head[0] ?? 12.8), ...grid.rows[0].map((c, i) => wrappedHeight(text(c), widthsPt[i], 22)));
   gridRows.push({ height: headH, cells: headCells });
-  grid.rows.slice(Math.max(1, grid.headerRows)).forEach((r, li) => {
+  // A fifth week (REQUIREMENTS §235): the grid as tall as the paper's four entries, shared among them - one A4 page.
+  const body = grid.rows.slice(Math.max(1, grid.headerRows));
+  const squeeze = body.length > geo.grid.lines.length ? geo.grid.lines.length / body.length : 1;
+  body.forEach((r, li) => {
     const row = Array.from({ length: cols }, (_, i) => r[i] ?? { text: "" });
     const deviation = /^Deviation/i.test(text(row[0]));
     const cells = row.map((c, i) => (deviation && i === 0 ? cell(c, 16, false, "left", "center") : cell(c, 22, false, "center", "top")));
-    const h = Math.max(mm(geo.grid.lines[li] ?? 8.35), ...row.map((c, i) => wrappedHeight(text(c), widthsPt[i], deviation && i === 0 ? 16 : 22)));
+    const h = Math.max(mm((geo.grid.lines[Math.min(li, geo.grid.lines.length - 1)] ?? 8.35) * squeeze), ...row.map((c, i) => wrappedHeight(text(c), widthsPt[i], deviation && i === 0 ? 16 : 22)));
     gridRows.push({ height: Math.round(h * 4) / 4, cells });
   });
   out.push({ kind: "paper", widths: widthsPt, rows: gridRows, spaceAfter: mm(geo.notes.gapAbove) });
