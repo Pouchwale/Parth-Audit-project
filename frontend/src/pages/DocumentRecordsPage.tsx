@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { FiArrowRight, FiDatabase, FiEdit3, FiExternalLink, FiPlus, FiPrinter, FiUpload, FiBookOpen } from "react-icons/fi";
 import { FormatEditor } from "../components/documents/FormatEditor";
+import { MonthBar, inPeriod, type RecordsPeriod } from "../components/common/MonthBar";
 import { SheetDesigner } from "../components/documents/SheetDesigner";
 import { canDesignGrid } from "../engine/formatOps";
 import { printFillOf } from "../engine/printFill";
@@ -31,7 +32,7 @@ import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
-import { compareISO, formatDisplayDate, todayISO } from "../utils/date";
+import { compareISO, formatDisplayDate, MONTH_NAMES, todayISO } from "../utils/date";
 import { documentLayoutIn, documentTextIn } from "../i18n/documentText";
 import { logActivity } from "../utils/activityLog";
 import { useProgressiveCount } from "../utils/useProgressive";
@@ -198,6 +199,16 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   const today = todayISO();
   const t = useT();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The month the list is for (REQUIREMENTS §227): this month, or every month for a document filled once a quarter or less.
+  const [period, setPeriodState] = useState<RecordsPeriod>(() => {
+    const t = todayISO();
+    const kind = documentRepository.getById(docId)?.schedule.type;
+    return { year: Number(t.slice(0, 4)), month: kind === "yearly" || kind === "half-yearly" || kind === "quarterly" ? "all" : Number(t.slice(5, 7)) - 1 };
+  });
+  const setPeriod = (p: RecordsPeriod) => {
+    setPeriodState(p);
+    setSelectedId(null);
+  };
   const [cvOpen, setCvOpen] = useState(false);
   // Opening a format's page is a line of the activity log (REQUIREMENTS §62).
   React.useEffect(() => {
@@ -238,11 +249,14 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   // today's sheet, or the sheet of the week, month or year today is in — then
   // the latest one not dated ahead. The month's sheets are made ahead of their
   // days, so "the newest" was a blank sheet for the 31st, not the record just started.
+  // ...of the month chosen above the list (REQUIREMENTS §227): its records only; this month's shows the record New opens.
+  const listed = records.filter((r) => inPeriod(r.dueDate, period));
+  const covering = recordCoveringDate(doc, today, isDemo);
   const shown =
-    records.find((r) => r.id === selectedId) ??
-    recordCoveringDate(doc, today, isDemo) ??
-    records.find((r) => compareISO(r.dueDate, today) <= 0) ??
-    records[0];
+    listed.find((r) => r.id === selectedId) ??
+    (covering && inPeriod(covering.dueDate, period) ? covering : undefined) ??
+    listed.find((r) => compareISO(r.dueDate, today) <= 0) ??
+    listed[0];
   const blank: RecordInstance<LogSheetData> | undefined =
     !shown && layout
       ? {
@@ -377,6 +391,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
             </div>
           </div>
 
+          <MonthBar value={period} onChange={setPeriod} years={Array.from(new Set(records.map((r) => Number(r.dueDate.slice(0, 4))).filter((y) => y > 2000)))} today={today} />
           <div className="doc-table">
             <table className="compact" data-table="document-records">
               <thead>
@@ -398,9 +413,16 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
                     </td>
                   </tr>
                 )}
+                {records.length > 0 && listed.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="text-muted text-center" style={{ padding: 20 }} data-state="month-empty">
+                      No record dated in {period.month === "all" ? "any month" : `${MONTH_NAMES[period.month]} ${period.year}`} — choose another month, or All months.
+                    </td>
+                  </tr>
+                )}
                 <RecordLines
                   doc={doc}
-                  records={records}
+                  records={listed}
                   lang={lang}
                   numbers={numbers}
                   selectedId={shown?.id}
@@ -410,12 +432,12 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
               </tbody>
             </table>
           </div>
-          {records.length > 1 && <div className="text-xs text-muted mt-2">Click a line to show that record below; Open takes it to its own page to fill in, submit or verify.</div>}
+          {listed.length > 1 && <div className="text-xs text-muted mt-2">Click a line to show that record below; Open takes it to its own page to fill in, submit or verify.</div>}
 
           {layout && preview && (
             <div className="mt-5" data-section="document-preview" data-record={preview.id}>
               <div className="flex items-center justify-between wrap gap-2 mb-2">
-                <h2 className="text-lg">{shown ? `On file — ${numbers ? `Serial number ${numbers.get(shown.id) ?? ""} · ${formatDisplayDate(shown.dueDate)}` : describeRecord(doc, shown, lang) || formatDisplayDate(shown.dueDate)}` : "Blank format — nothing on file yet"}</h2>
+                <h2 className="text-lg">{shown ? `On file — ${numbers ? `Serial number ${numbers.get(shown.id) ?? ""} · ${formatDisplayDate(shown.dueDate)}` : describeRecord(doc, shown, lang) || formatDisplayDate(shown.dueDate)}` : records.length > 0 && period.month !== "all" ? `Blank format — nothing dated in ${MONTH_NAMES[period.month]} ${period.year}` : "Blank format — nothing on file yet"}</h2>
                 <div className="flex items-center gap-2 wrap">
                   {shown && <StatusBadge status={shown.status} />}
                   {shown ? (

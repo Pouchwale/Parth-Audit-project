@@ -70,4 +70,34 @@ export const CALIBRATION_GEOMETRY: Record<string, CalibrationGeometry> = {
   },
 };
 
-export const calibrationGeometryFor = (documentId: string): CalibrationGeometry | undefined => CALIBRATION_GEOMETRY[documentId];
+/**
+ * A PAPER OF ANOTHER SIZE, FITTED TO A4 (REQUIREMENTS §228; the owner, 16-Nov-2026, of F/QC/11's printout: "in A4 size page
+ * it is not covering fully and not aligned properly when taking print"). F/QC/11's paper is a Letter page: drawn at its own
+ * measures it stood 7.6 mm from A4's left edge and 27 mm from its right, and ended 157 mm down a 210 mm page. Fitted, it is
+ * as wide as F/QC/12's sheet (286.86 mm), centred, and its boxes and grid stand taller to bring the PROCEDURE near the
+ * format number at the foot - its words at their size. The paper's own measures stay above, as read off it.
+ */
+const A4_LANDSCAPE_WIDTH = 297;
+const FITTED_TO_A4: Record<string, { width: number; taller: number }> = {
+  "qc-gsm-plate-calibration": { width: 286.86, taller: 1.25 },
+};
+
+function fittedToA4(g: CalibrationGeometry, fit: { width: number; taller: number }): CalibrationGeometry {
+  const sx = fit.width / g.width;
+  const across = (xs: number[]) => xs.map((x) => Math.round(x * sx * 100) / 100);
+  const down = (ys: number[]) => ys.map((y) => Math.round(y * fit.taller * 100) / 100);
+  return {
+    ...g,
+    left: Math.round(((A4_LANDSCAPE_WIDTH - fit.width) / 2) * 100) / 100,
+    width: fit.width,
+    gridWidth: Math.round(g.gridWidth * sx * 100) / 100,
+    boxes: { ...g.boxes, cols: across(g.boxes.cols), rows: down(g.boxes.rows) },
+    grid: { ...g.grid, cols: across(g.grid.cols), head: down(g.grid.head), lines: down(g.grid.lines) },
+  };
+}
+
+export const calibrationGeometryFor = (documentId: string): CalibrationGeometry | undefined => {
+  const g = CALIBRATION_GEOMETRY[documentId];
+  const fit = FITTED_TO_A4[documentId];
+  return g && fit ? fittedToA4(g, fit) : g;
+};

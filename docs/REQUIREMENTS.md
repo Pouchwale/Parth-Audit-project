@@ -11957,3 +11957,32 @@ detail from screen and instead of that add serial number"; asked: a running numb
   headed "On file - Serial number N · its date" (pages/DocumentRecordsPage.tsx RUNNING_NUMBER_DOCS).
 - Proved: frontend/tests/gsmSerialNumber.test.ts, and on the plant's page.
 
+## §227 A month to switch to on every document's records (16-Nov-2026)
+
+The owner, 16-Nov-2026, with F/QC/11's page: "add month like wise add button of month in all modules in which user can
+easily switch month whenever they want to see old or new or current record".
+
+- Every document's own page (every module, the HR formats' pages too) lists its records for a month chosen above the list
+  (components/common/MonthBar.tsx): Previous, the month (or "All months"), the year, Next, and "This month" back. It
+  starts on this month; a yearly, half-yearly or quarterly document starts on All months. The record shown below the list
+  is the chosen month's; a month with nothing in it says so and names the month.
+- The tiles above (records on file, latest, next due, signed) count every record, whatever the month.
+- Proved: frontend/tests/recordsMonthBar.test.ts, and in the browser: F/QC/11 November's two, October's none, All months'
+  three; F/QC/17 on All months with its twenty; F/HR/15's page with the bar.
+
+## §228 F/QC/11 fitted to A4; the QC, HR and Purchase papers drawn short of their page fill it (16-Nov-2026)
+
+The owner, 16-Nov-2026, with F/QC/11's printout: "in A4 size page it is not covering fully and not aligned properly when
+taking print so do and check for other document also of QC, HR and Purchase modules".
+
+- F/QC/11's paper is a Letter page: drawn at its own measures it stood 7.6 mm from A4's left edge and 27 mm from its
+  right and ended 157 mm down the page. It is now fitted to A4 (data/seed/qcCalibrationGeometry.ts FITTED_TO_A4): as
+  wide as F/QC/12's sheet (286.86 mm), centred, its boxes and grid a quarter taller - on the screen, in print and in the
+  Word and Excel downloads alike. Measured: 98 % of the page's width, the PROCEDURE near the format number at the foot.
+- Every QC, HR and Purchase document was printed and measured (84). The papers drawn to their own measures that ended
+  short of the page - the two Gujarati line clearances 48 % and 52 %, F/QC/08 62 %, F/QC/25 64 %, the two F-QC-14 56 %
+  and 72 %, F-QC-40.B 72 % - now have their lines drawn taller in print, up to 16 mm, to 81-84 %, never onto a second
+  page; their empty spacer lines stay their height; nothing is added to the paper (utils/print.ts, PAPER_ROW_MAX_MM).
+  The rest already filled their page and are unchanged (F/QC/12 97 %, F/QC/13 99 %, F/QC/06 97 % ...).
+- Proved: frontend/tests/printFill.test.ts, and the 84 printouts measured before and after.
+

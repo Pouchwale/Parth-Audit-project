@@ -318,6 +318,8 @@ const FILL_SCALE = 1.3;
 const PAGE_SECTIONS = "section.register-page";
 const STRETCH_TO = 0.92;
 const ROW_MAX_MM = 11;
+// A paper's own drawing short of its page: its lines drawn up to this tall (§228).
+const PAPER_ROW_MAX_MM = 16;
 const ITEM_MAX_MM = 14;
 // A form a little too wide for a portrait page stays portrait, slightly smaller.
 const PORTRAIT_SCALE = 0.9;
@@ -610,6 +612,13 @@ function stretchToPages(docs: Element[]): void {
     withPrintRules(() => {
       for (const d of docs) {
         const doc = d as HTMLElement;
+        // A QC, HR or Purchase paper drawn short of its page (REQUIREMENTS §228; the owner, 16-Nov-2026: "in A4 size page it
+        // is not covering fully ... check for other document also of QC, HR and Purchase modules"): its lines drawn taller,
+        // to STRETCH_TO at most - no ruled lines added, nothing spread, never onto a second page.
+        if (fillsPage(doc) && !isFramed(doc) && [PAPER_FORM, "[data-paper-left]"].some((s) => doc.matches(s) || doc.querySelector(s) !== null)) {
+          stretchPart(doc, doc, Number(doc.style.zoom) || 1, landscape, PAPER_ROW_MAX_MM);
+          continue;
+        }
         if (!grows(doc) || ownLeftMargin(doc) !== null || isFramed(doc)) continue;
         const zoom = Number(doc.style.zoom) || 1;
         if (fillsPage(doc)) letBlocksBreak(doc, zoom, landscape);
@@ -623,9 +632,10 @@ function stretchToPages(docs: Element[]): void {
   }
 }
 
-function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscape: boolean): void {
+function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscape: boolean, paperRowMax?: number): void {
   const pageH = (landscape ? 210 : 297) * PX_PER_MM;
-  const fills = fillsPage(doc);
+  // (a paper's drawing: its lines only, taller - never a ruled line added nor its blocks spread, §228)
+  const fills = paperRowMax === undefined && fillsPage(doc);
   laidOutAt(doc, part, zoom, landscape, () => {
     // (a module that fills its page measures the sheet as it prints: the 12 mm the measure's rules put under the document
     // - which the print does not, the sheet's own foot carrying its 12 mm since §183 - left out, so a register is ruled
@@ -640,11 +650,13 @@ function stretchPart(doc: HTMLElement, part: HTMLElement, zoom: number, landscap
     // What the page still has, in the sheet's own pixels (before its zoom).
     let room = ((STRETCH_TO - before) * pageH) / zoom;
     const from = stretched.length;
-    const rows = linesOf(part);
+    // (a paper's empty spacer line between its groups - one cell across, nothing in it - stays the paper's height, §228)
+    const spacer = (tr: HTMLElement) => tr instanceof HTMLTableRowElement && tr.cells.length === 1 && !tr.textContent?.trim() && !tr.querySelector("input, select, textarea");
+    const rows = paperRowMax === undefined ? linesOf(part) : linesOf(part).filter((tr) => !spacer(tr) && !tr.classList.contains("log-gap-line"));
     if (rows.length > 0) {
       // Every line shorter than `line` is drawn `line` high: the one height that takes up the room, a ruled line's at most.
       const heights = rows.map((r) => r.getBoundingClientRect().height);
-      const most = ((fills ? PAGE_ROW_MAX_MM : ROW_MAX_MM) * PX_PER_MM) / zoom;
+      const most = ((paperRowMax ?? (fills ? PAGE_ROW_MAX_MM : ROW_MAX_MM)) * PX_PER_MM) / zoom;
       const grow = (t: number) => heights.reduce((sum, h) => sum + Math.max(0, t - h), 0);
       let line = Math.min(...heights);
       if (most > line) {

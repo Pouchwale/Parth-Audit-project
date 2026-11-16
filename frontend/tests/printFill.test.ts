@@ -3,6 +3,7 @@
 // of DCRS's own make bigger, and a printout holds the lines written and no others (§126, 25-Oct-2026); the layout half
 // is proved in a browser (tests/e2e_print_fill.py) - here, the rules that keep it safe, read from the source.
 import test from "node:test";
+import { calibrationGeometryFor } from "../src/data/seed/qcCalibrationGeometry";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -148,7 +149,7 @@ test("§194: a form's lines taller, its boxes, paragraphs and blocks set further
   assert.match(print, /const PAGE_BOX_MAX_MM = 12;/);
   assert.match(print, /const PAGE_PARA_MAX_MM = 6;/);
   assert.match(print, /const PAGE_BLOCK_MAX_MM = 10;/);
-  assert.match(print, /const most = \(\(fills \? PAGE_ROW_MAX_MM : ROW_MAX_MM\) \* PX_PER_MM\) \/ zoom;/);
+  assert.match(print, /const most = \(\(paperRowMax \?\? \(fills \? PAGE_ROW_MAX_MM : ROW_MAX_MM\)\) \* PX_PER_MM\) \/ zoom;/);
   assert.match(print, /if \(fills\) spreadToPage\(part, zoom, share, pageH\);/);
   assert.match(print, /take\("\.field", "paddingBottom", PAGE_BOX_MAX_MM, \(el\) => !el\.parentElement\?\.closest\("\.field"\)\);/);
   assert.match(print, /take\("p", "paddingBottom", PAGE_PARA_MAX_MM, \(el\) => !el\.closest\("\.field, li"\)\);/);
@@ -162,4 +163,17 @@ test("§194: a form's lines taller, its boxes, paragraphs and blocks set further
   // The measure leaves out the 12 mm the measuring rules put under the document, which the print does not (§183).
   // ...and the 12 mm foot a page of its own prints with (F/HR/17's register pages, §198).
   assert.match(print, /const under = fills \? parseFloat\(getComputedStyle\(part\)\.paddingBottom\) \|\| 0 : 0;/);
+});
+
+test("§228: a QC, HR or Purchase paper drawn short of its page has its lines drawn taller in print, its spacer lines kept; F/QC/11 fitted to A4", () => {
+  const print = readFileSync(path.join(root, "frontend", "src", "utils", "print.ts"), "utf8").replace(/\r\n/g, "\n");
+  assert.match(print, /stretchPart\(doc, doc, Number\(doc\.style\.zoom\) \|\| 1, landscape, PAPER_ROW_MAX_MM\);/);
+  assert.match(print, /const PAPER_ROW_MAX_MM = 16;/);
+  assert.match(print, /const fills = paperRowMax === undefined && fillsPage\(doc\);/, "no ruled lines added to a paper, nothing spread");
+  assert.match(print, /tr\.cells\.length === 1 && !tr\.textContent\?\.trim\(\)/, "a paper's empty spacer line stays its height");
+  const geo = calibrationGeometryFor("qc-gsm-plate-calibration")!;
+  assert.equal(geo.width, 286.86, "F/QC/11 as wide as F/QC/12's sheet");
+  assert.equal(geo.left, 5.07, "centred on A4 landscape");
+  assert.ok(Math.abs(geo.boxes.cols.reduce((a, b) => a + b, 0) - 286.86) < 0.1 && Math.abs(geo.grid.cols.reduce((a, b) => a + b, 0) - geo.gridWidth) < 0.1, "its boxes and grid across the width");
+  assert.ok(geo.grid.lines[0] > 11, "its lines taller");
 });
