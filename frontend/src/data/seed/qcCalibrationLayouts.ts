@@ -232,7 +232,9 @@ export const GSM_MEASURED = ["Tasted-1", "2", "3", "4"];
 const gsmColumns: LogColumn[] = [{ key: "parameter", label: "Index", type: "text", fixed: true, width: 90 }];
 for (const plate of GSM_PLATES) {
   gsmColumns.push({ key: plate.key, label: plate.size, type: "text", width: 130, group: plate.no });
-  gsmColumns.push({ key: `${plate.key}dev`, label: "Deviation", type: "text", width: 90, computed: true, group: plate.no });
+  // Worked out from the size written beside it, and the person's to type over (the owner, 16-Nov-2026, REQUIREMENTS §224:
+  // "make sure everything in editable"): the typed figure stands until the cell is emptied (engine/typedCells.ts).
+  gsmColumns.push({ key: `${plate.key}dev`, label: "Deviation", type: "text", width: 90, computed: true, typable: true, group: plate.no });
 }
 
 /** The supplied page: every plate measured at its own size, deviation 0%, all Pass, signed Rashmi. */

@@ -1,3 +1,4 @@
+import { typedKeys } from "./typedCells";
 import { withAuditRisk } from "./auditRisk";
 import { withMarketingCalc } from "./marketingCalc";
 import { withCalibration } from "./calibration";
@@ -43,5 +44,32 @@ function computedNow<T>(documentId: string | undefined, data: T, before?: unknow
   // what the chain had written from it.
   const chained = withNextDueChain(documentId, data, before);
   // The HR registers' dates as the app writes dates, 05-07-2024, whatever spelling a line carried over from the paper (§183).
-  return withRegisterDates(documentId, withPrintedBoxes(documentId, withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, chained)))))));
+  const out = withRegisterDates(documentId, withPrintedBoxes(documentId, withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, chained)))))));
+  return withTypedCellsKept(data, out);
+}
+
+/**
+ * A WORKED-OUT CELL A PERSON TYPED OVER STANDS (REQUIREMENTS §188, every document since §224; the owner, 16-Nov-2026, of
+ * F/QC/11's Deviation: "make sure everything in editable"): whatever the working-out wrote, a cell the line marks typed
+ * (engine/typedCells.ts) keeps the figure the person typed, until they empty it.
+ */
+function withTypedCellsKept<T>(input: T, out: T): T {
+  const rowsIn = (input as { rows?: Record<string, unknown>[] } | null)?.rows;
+  const rowsOut = (out as { rows?: Record<string, unknown>[] } | null)?.rows;
+  if (!Array.isArray(rowsIn) || !Array.isArray(rowsOut)) return out;
+  let changed = false;
+  const rows = rowsOut.map((row, i) => {
+    const source = (row && typeof row.id === "string" ? rowsIn.find((r) => r?.id === row.id) : undefined) ?? rowsIn[i];
+    const keys = typedKeys(source as Parameters<typeof typedKeys>[0]);
+    if (keys.length === 0 || !source) return row;
+    let next = row;
+    for (const k of keys) {
+      if (next[k] === source[k]) continue;
+      next = next === row ? { ...row } : next;
+      next[k] = source[k];
+      changed = true;
+    }
+    return next;
+  });
+  return changed ? ({ ...(out as object), rows } as T) : out;
 }

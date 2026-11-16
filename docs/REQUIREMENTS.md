@@ -11916,3 +11916,17 @@ when it has five.
 - Proved: frontend/tests/gsmWeeklyDates.test.ts (December 2026's five Tuesdays, January 2027's four, each with its two
   dates), qcCertificateDates, qcCarryForward, qcPaperFormats, scheduleChange28Oct, truthfulPrepare.
 
+## §224 F/QC/11: every cell of the grid editable, the Deviation too (16-Nov-2026)
+
+The owner, 16-Nov-2026, with F/QC/11's grid filled on opening (the sizes, the Deviations, Pass and the signer): "this
+data is already filled in format by default by make sure everything in editable also".
+
+- The four plates' sizes, Pass/Fail and Sign. were already the person's to change. The four Deviation columns, worked out
+  from the size beside them, are now typable as well (LogColumn.typable, §188): a figure typed over stands, marked,
+  until the cell is emptied, when it is worked out again.
+- Every working-out now keeps a cell a person typed over, on every document (engine/computedCells.ts
+  withTypedCellsKept): before, only the Purchase ratings did, and a typed Deviation went back to 0% on the next save.
+- The Index column (Tasted-1, 2, 3, 4, Pass/Fail, Sign.) is the format's printed words, changed with Edit format.
+- Proved: frontend/tests/gsmEditable.test.ts, and in the browser: every size, Deviation, Pass/Fail and Sign. cell a box,
+  a Deviation typed 7% kept after a reload.
+
