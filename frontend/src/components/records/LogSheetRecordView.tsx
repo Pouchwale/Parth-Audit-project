@@ -1,6 +1,6 @@
 import React from "react";
 import { unitized } from "../../engine/calibration";
-import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
+import { FiAlertTriangle, FiPlus, FiRotateCcw, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetLayout, LogSheetRow, RecordInstance, ReferenceTable, SheetPhoto } from "../../types";
 import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHeader";
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
@@ -58,7 +58,7 @@ import { imageFileToDataUrl } from "../../utils/image";
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
-import { logRowsRule, newRow, printedLineOf } from "../../engine/recordLines";
+import { logRowsRule, missingPrintedLines, newRow, printedLineOf, withPrintedLinesBack } from "../../engine/recordLines";
 import { followHeader } from "../../engine/headerFollowers";
 import { registerFills } from "../../engine/hrMasterRegisters";
 import { READINGS_TO_CONFIRM, nominalFillAdded, settleScaleLines } from "../../engine/nominalFill";
@@ -352,6 +352,14 @@ export function LogSheetRecordView({
   // its date is the line above's Next Due Date (§145, the chain in the computed cells).
   const addRow = () => save({ ...data, rows: [...data.rows, nominalFillAdded(doc.id, data, newRow(layout, data.rows, generateId("row")), currentUser)] });
   const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
+  // Printed lines removed by mistake, brought back in their places with what they held (REQUIREMENTS §225).
+  const missingLines = editable ? missingPrintedLines(layout, data.rows).length : 0;
+  const bringLinesBack = () => save({ ...data, rows: withPrintedLinesBack(layout, data.rows, record.history) });
+  const linesBackButton = missingLines > 0 && (
+    <button className="btn btn-secondary btn-sm mt-2 no-print" data-action="restore-lines" onClick={bringLinesBack} style={{ marginLeft: 8 }}>
+      <FiRotateCcw size={13} /> Bring back removed lines ({missingLines})
+    </button>
+  );
 
   // HR formats that name a person fetch them from HR Master Data (REQUIREMENTS
   // §53): the bar above the form, and a name box left holding a name — or a GP3
@@ -945,6 +953,7 @@ export function LogSheetRecordView({
               <FiPlus size={13} /> Add Row
             </button>
           )}
+          {linesBackButton}
         </div>
         <div className="paper-foot">
           <PaperTablePart part="foot" parts={ptParts} />
@@ -1346,6 +1355,7 @@ export function LogSheetRecordView({
           <FiPlus size={13} /> Add Row
         </button>
       )}
+      {hasGrid && linesBackButton}
       {/* The paper's own text below the grid, word for word (REQUIREMENTS §111): F/QC/11's and F/QC/12's PROCEDURE —
           a foot line (below), unless a photograph or a chart follows it. */}
       {!footHoldsNotes && notesBelow}

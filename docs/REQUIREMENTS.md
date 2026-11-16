@@ -11930,3 +11930,20 @@ data is already filled in format by default by make sure everything in editable 
 - Proved: frontend/tests/gsmEditable.test.ts, and in the browser: every size, Deviation, Pass/Fail and Sign. cell a box,
   a Deviation typed 7% kept after a reload.
 
+## §225 Printed lines removed by mistake, brought back; F/HR/18 on the 1st and 3rd Monday (16-Nov-2026)
+
+The owner, 16-Nov-2026, with the plant's F/QC/11 sheet of 10-11-2026 left with Pass/Fail alone: "by mistakely user has
+deleted rows and now he want to undo that or he will get generated"; and "HR-18 ... should repat twice a month in gap of
+15 day every first monday and third monday".
+
+- On a sheet whose format prints its lines (fixedRows), a sheet that can be written on and misses printed lines shows
+  "Bring back removed lines (N)" beside Add Row. It puts each missing printed line back in its printed place, with the
+  words it held when it was removed - read from the record's history where they map onto the sheet's columns one for
+  one (every column, or the columns a person writes) - else as the format prints it; lines a person added stay, after
+  the printed ones; the change is a line of the history (engine/recordLines.ts withPrintedLinesBack).
+- The plant's F/QC/11 of 10-11-2026: brought back on the owner's word, 2, 3, 4 and Sign. with what they held.
+- F/HR/18 was already twice a month on the 1st and 3rd Monday (§130, since 28-10-2026), fourteen days apart: November
+  2026's are the 2nd and the 16th, both on the plant's register; nothing overrides it.
+- Proved: frontend/tests/printedLinesBack.test.ts (the plant's history: the lines back in their places, line 2's
+  20 x 21cm and 5%, Sign.'s names), scheduleChange28Oct.test.ts (F/HR/18's Mondays).
+

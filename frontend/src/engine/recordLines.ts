@@ -341,3 +341,66 @@ export function lineWords(rule: LineRule | undefined, line: unknown, limit = 120
   if (!words) return "(blank)";
   return words.length > limit ? `${words.slice(0, limit - 1)}…` : words;
 }
+
+// ---------------------------------------------------------------------------
+// PRINTED LINES REMOVED BY MISTAKE, BROUGHT BACK (REQUIREMENTS §225; the owner, 16-Nov-2026, of an F/QC/11 sheet left with
+// Pass/Fail alone: "by mistakely user has deleted rows and now he want to undo that or he will get generated"). On a sheet
+// whose format prints its lines (fixedRows), the printed lines no row holds are put back in their printed places - with
+// the words the line held when it was removed, read from the record's history where they map onto the sheet's columns
+// one for one, else as the format prints the line. Lines a person added stay, after the printed ones.
+
+type HistoryChange = { label: string; before: string; after: string };
+type HistoryLike = { changes?: HistoryChange[] }[] | undefined;
+
+const printedWords = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim().replace(/^\d{1,3}[.)]?\s+/, ""));
+
+/** The printed lines (by their place in the format) that no row of the sheet holds. */
+export function missingPrintedLines(layout: LogSheetLayout, rows: LogSheetRow[]): number[] {
+  const mode = layout.rowMode;
+  if (mode.kind !== "fixedRows") return [];
+  const keys = layout.columns.filter((c) => c.fixed).map((c) => c.key);
+  if (keys.length === 0) return [];
+  const holds = (p: Record<string, unknown>, r: Record<string, unknown>) => keys.every((k) => printedWords(p[k]) === printedWords(r[k]));
+  return mode.rows.map((p, i) => (rows.some((r) => holds(p, r as Record<string, unknown>)) ? -1 : i)).filter((i) => i >= 0);
+}
+
+/** The words a printed line held when it was last removed, mapped onto the sheet's columns; null when they do not map. */
+function removedWords(layout: LogSheetLayout, printed: Record<string, unknown>, history: HistoryLike): Record<string, string> | null {
+  const first = layout.columns.find((c) => c.fixed)?.key;
+  const name = first ? printedWords(printed[first]) : "";
+  if (!name) return null;
+  const changes = (history ?? []).flatMap((h) => h.changes ?? []).filter((c) => c.after === "(row removed)" && c.label.includes(`(${name})`));
+  const last = changes[changes.length - 1];
+  if (!last || last.before.endsWith("…") || last.before === "(blank)") return null;
+  const parts = last.before.split(", ");
+  for (const cols of [layout.columns, layout.columns.filter((c) => !c.computed || c.fixed)]) {
+    if (parts.length !== cols.length || printedWords(parts[0]) !== name) continue;
+    return Object.fromEntries(cols.map((c, i) => [c.key, parts[i]]));
+  }
+  return null;
+}
+
+/** The sheet's rows with its missing printed lines put back in their places; the same rows when none is missing. */
+export function withPrintedLinesBack(layout: LogSheetLayout, rows: LogSheetRow[], history: HistoryLike, makeId: () => string = () => generateId("row")): LogSheetRow[] {
+  const mode = layout.rowMode;
+  const missing = new Set(missingPrintedLines(layout, rows));
+  if (mode.kind !== "fixedRows" || missing.size === 0) return rows;
+  const keys = layout.columns.filter((c) => c.fixed).map((c) => c.key);
+  const holds = (p: Record<string, unknown>, r: Record<string, unknown>) => keys.every((k) => printedWords(p[k]) === printedWords(r[k]));
+  const used = new Set<LogSheetRow>();
+  const out: LogSheetRow[] = [];
+  mode.rows.forEach((p, i) => {
+    if (missing.has(i)) {
+      const words = removedWords(layout, p, history) ?? {};
+      out.push({ ...blankLogRow(layout), ...p, ...words, id: makeId() } as LogSheetRow);
+      return;
+    }
+    const r = rows.find((x) => !used.has(x) && holds(p, x as Record<string, unknown>));
+    if (r) {
+      used.add(r);
+      out.push(r);
+    }
+  });
+  for (const r of rows) if (!used.has(r)) out.push(r);
+  return out;
+}
