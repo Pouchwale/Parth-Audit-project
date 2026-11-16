@@ -4363,6 +4363,32 @@ html.print-measure [data-page-part="purchase-master-print"] table td :is(.input,
   td[data-typed] .input { background: var(--color-warning-bg); border-color: var(--color-warning); font-weight: 700; }
 }
 
+/* THE PURCHASE DRIVE (REQUIREMENTS §231, pages/PurchaseDrivePage.tsx): folders and files as tiles or a list, as Google Drive draws them. */
+.drive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.drive-list { display: flex; flex-direction: column; gap: 4px; }
+.drive-item { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface, #fff); min-width: 0; }
+.drive-grid .drive-file { flex-direction: column; align-items: flex-start; padding-bottom: 38px; }
+.drive-folder { cursor: pointer; }
+.drive-folder:hover, .drive-file:hover { border-color: var(--color-primary); background: var(--color-primary-bg, rgba(127, 29, 29, 0.04)); }
+.drive-icon { color: var(--color-text-muted, #6b7280); flex: none; display: inline-flex; }
+.drive-folder .drive-icon { color: #c9a227; }
+.drive-name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; color: inherit; text-decoration: none; }
+.drive-grid .drive-file .drive-name { white-space: normal; word-break: break-word; }
+.drive-facts { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.drive-list .drive-facts { margin-left: auto; }
+.drive-actions { display: inline-flex; gap: 2px; opacity: 0.35; transition: opacity 0.12s; margin-left: auto; flex: none; }
+.drive-item:hover .drive-actions, .drive-actions:focus-within { opacity: 1; }
+.drive-grid .drive-file .drive-actions { position: absolute; right: 6px; bottom: 6px; }
+/* (a folder's Rename / Move / Delete along its foot too: the tile's body always opens the folder) */
+.drive-grid .drive-folder { padding-bottom: 34px; }
+.drive-grid .drive-folder .drive-actions { position: absolute; right: 6px; bottom: 4px; }
+.drive-grid .drive-folder:not(:has(.drive-actions)) { padding-bottom: 10px; }
+@media (hover: none) { .drive-actions { opacity: 1; } }
+.drive-empty { border: 2px dashed var(--color-border); border-radius: 12px; padding: 36px 16px; text-align: center; color: var(--color-text-muted, #6b7280); }
+.drive-empty.is-over, .drive-dragging .drive-empty { border-color: var(--color-primary); }
+.drive-drop-hint { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--color-primary); color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; z-index: 50; pointer-events: none; }
+.drive-search { display: inline-flex; align-items: center; gap: 6px; }
+
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,

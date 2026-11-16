@@ -12032,3 +12032,26 @@ fills F/PUR/01, F/PUR/03's re-approval due date and the two months' warning, an 
   certificate (valid upto 14-06-2028), an MSDS and an audit report uploaded for a supplier - the master, F/PUR/01 and F/PUR/02
   written, the folder listing the three, a file opening.
 
+## §231 The Purchase Drive: a page of its own, folders made anywhere, as Google Drive (16-Nov-2026)
+
+The owner, 16-Nov-2026, with the drive's card on Purchase Master Data: "create Seperate page for it in master data only and
+also user can create any folder Customly instead of predefined suppliers like it should be like google drive replica type".
+
+- Purchase Drive is its own page, /purchase/drive (a folder after it: /purchase/drive/<folder>), in the Purchase menu under
+  Purchase Master Data and opened from its "Purchase Drive" button; the card on Master Data is gone
+  (pages/PurchaseDrivePage.tsx).
+- As Google Drive: the way down from the drive's root (breadcrumbs); the folder's folders, then its files, as tiles or a
+  list; "New folder" anywhere; a folder people made renamed, moved (never into itself) and deleted when empty; files
+  uploaded by the button (several at once) or dropped onto the page, opened, renamed, moved to any folder, deleted; the
+  whole drive searched by a file's name or its supplier's.
+- The root holds "Suppliers" - a folder for each supplier of Purchase Master Data, made from the master - and the folders
+  people make, in the root or inside a supplier's. A file in a supplier's folder, however deep, is that supplier's: it is
+  uploaded as the kind of document chosen and read into the master and the supplier's F/PUR/01, F/PUR/02 and F/PUR/03 as
+  §230 says; a file anywhere else is kept as it is.
+- The server (backend/supplierDrive.ts): the folders people make are stored (supplier_drive_folders), each file in its
+  folder (supplier_drive_files.folder_id, the §230 files put in their supplier's folder at start); routes for the folders
+  (list, make, rename / move, delete when empty), a file's rename / move, a folder's files, and the search.
+- Proved: backend/tests/supplierDrive.test.ts, frontend/tests/driveTree.test.ts, and in the browser: a folder made, a file
+  uploaded into it, renamed, moved into a supplier's folder, found by search; an ISO certificate in a supplier's folder
+  read into the master and F/PUR/01 (on the server); the empty folder deleted.
+

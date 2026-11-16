@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiAlertTriangle, FiCheckCircle, FiDownload, FiFileText, FiInfo, FiLock, FiPlus, FiPrinter, FiTrash2, FiUpload, FiBookOpen } from "react-icons/fi";
+import { FiAlertTriangle, FiCheckCircle, FiDownload, FiFileText, FiFolder, FiInfo, FiLock, FiPlus, FiPrinter, FiTrash2, FiUpload, FiBookOpen } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
-import { SupplierDrive } from "../components/purchase/SupplierDrive";
 import { useRouter } from "../store/router";
 import { purchaseMasterRepository } from "../data/repositories/purchaseMasterRepository";
 import { COMPANY } from "../data/seed/masterData";
@@ -531,6 +530,10 @@ export function PurchaseMasterDataPage() {
           <button className="btn btn-secondary btn-sm" data-action="purchase-master-print" onClick={() => printDocument(sheetRef.current)}>
             <FiPrinter size={12} /> Print
           </button>
+          {/* The Purchase Drive, a page of its own (REQUIREMENTS §231). */}
+          <button className="btn btn-secondary btn-sm" data-action="open-purchase-drive" onClick={() => navigate("/purchase/drive")}>
+            <FiFolder size={12} /> Purchase Drive
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate("/library/purchase")}>
             <FiBookOpen size={12} /> All Purchase documents
           </button>
@@ -552,9 +555,6 @@ export function PurchaseMasterDataPage() {
           </div>
         </div>
       )}
-
-      {/* The suppliers' drive: a folder per supplier, read into the Purchase records (REQUIREMENTS §230). */}
-      <SupplierDrive canEdit={canEdit} actor={currentUser || ACTOR} onChanged={bump} />
 
       <div className="flex gap-3 wrap mb-4">
         <div className="stat-tile">

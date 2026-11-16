@@ -104,7 +104,7 @@ test("uploaded into the supplier's folder with its kind, an SRF read by F/PUR/01
   assert.deepEqual(Buffer.from(await got.arrayBuffer()), PDF);
   assert.equal((await fetch(`${base}/api/purchase/drive/file/${one.file.id}`, { method: "DELETE", headers: as("chirag") })).status, 200);
   assert.equal((await fetch(`${base}/api/purchase/drive/file/${one.file.id}`, { headers: as("kapila") })).status, 404);
-  assert.ok(lines.some((l) => /Chirag Parmar: Supplier document uploaded Shree Labels Pvt Ltd srf: Shree SRF\.pdf/.test(l)));
+  assert.ok(lines.some((l) => /Chirag Parmar: Purchase Drive file uploaded Shree Labels Pvt Ltd srf: Shree SRF\.pdf/.test(l)));
 });
 
 test("only who holds Purchase Master Data reads, only who writes Purchase uploads and removes; a text file is not kept", async () => {
@@ -112,4 +112,49 @@ test("only who holds Purchase Master Data reads, only who writes Purchase upload
   assert.equal((await fetch(`${base}/api/purchase/drive`, { headers: as("anil") })).status, 403);
   assert.equal((await upload("chirag", "pms-1", Buffer.from("just words"), "notes.txt", "other")).status, 422);
   assert.equal((await upload("chirag", "bad id!", PDF, "x.pdf", "srf")).status, 400);
+});
+
+const call = (person: string, method: string, path: string, body?: unknown) =>
+  fetch(`${base}${path}`, { method, headers: as(person, { "Content-Type": "application/json" }), body: body === undefined ? undefined : JSON.stringify(body) });
+
+test("Google Drive's way (§231): folders made anywhere - the root, a supplier's, inside another - renamed, moved, deleted when empty; files uploaded into them, renamed, moved, found", async () => {
+  const made = (await (await call("chirag", "POST", "/api/purchase/drive/folders", { name: "Certificates 2026", parentId: "" })).json()) as { folder: { id: string; parentId: string; createdBy: string } };
+  assert.deepEqual([made.folder.parentId, made.folder.createdBy], ["", "Chirag Parmar"]);
+  assert.equal((await call("chirag", "POST", "/api/purchase/drive/folders", { name: "certificates 2026", parentId: "" })).status, 409, "no two folders of one name in one place");
+  const inSupplier = (await (await call("chirag", "POST", "/api/purchase/drive/folders", { name: "Audits", parentId: "supplier:pms-1" })).json()) as { folder: { id: string } };
+  const inner = (await (await call("chirag", "POST", "/api/purchase/drive/folders", { name: "ISO", parentId: made.folder.id })).json()) as { folder: { id: string } };
+  assert.equal((await call("chirag", "POST", "/api/purchase/drive/folders", { name: "Lost", parentId: "fld-nowhere" })).status, 400);
+  assert.equal((await call("kapila", "POST", "/api/purchase/drive/folders", { name: "Mine", parentId: "" })).status, 403, "reading Purchase is not changing it");
+
+  // A file into a folder people made: kept, not read (no supplier); into a supplier's folder made inside theirs: read.
+  const up = (folderId: string, supplierId: string, name: string, docType: string) =>
+    fetch(`${base}/api/purchase/drive/upload`, {
+      method: "POST",
+      headers: as("chirag", { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(name), "X-Folder-Id": folderId, "X-Doc-Type": docType, "X-Supplier-Id": supplierId, "X-Supplier-Name": supplierId ? "Shree Labels Pvt Ltd" : "" }),
+      body: PDF,
+    });
+  const loose = (await (await up(inner.folder.id, "", "Plant licence.pdf", "other")).json()) as { file: { id: string; folderId: string; supplierId: string }; read: Record<string, unknown> };
+  assert.deepEqual([loose.file.folderId, loose.file.supplierId], [inner.folder.id, ""]);
+  assert.deepEqual(loose.read, {}, "nothing read for a file that is nobody's supplier document");
+  const audit = (await (await up(inSupplier.folder.id, "pms-1", "Audit Oct.pdf", "srf")).json()) as { file: { supplierId: string } };
+  assert.equal(audit.file.supplierId, "pms-1", "a supplier's, however deep its folder");
+  assert.equal((await up("fld-nowhere", "", "x.pdf", "other")).status, 400);
+
+  const inInner = (await (await fetch(`${base}/api/purchase/drive?folder=${inner.folder.id}`, { headers: as("kapila") })).json()) as { files: { name: string }[] };
+  assert.deepEqual(inInner.files.map((f) => f.name), ["Plant licence.pdf"]);
+  const found = (await (await fetch(`${base}/api/purchase/drive?q=licence`, { headers: as("kapila") })).json()) as { files: { name: string }[] };
+  assert.deepEqual(found.files.map((f) => f.name), ["Plant licence.pdf"], "found by its name, wherever it is");
+
+  // Renamed and moved.
+  const renamed = (await (await call("chirag", "PATCH", `/api/purchase/drive/file/${loose.file.id}`, { name: "Factory licence 2026.pdf", folderId: made.folder.id })).json()) as { file: { name: string; folderId: string } };
+  assert.deepEqual([renamed.file.name, renamed.file.folderId], ["Factory licence 2026.pdf", made.folder.id]);
+  assert.equal((await call("chirag", "PATCH", `/api/purchase/drive/folders/${made.folder.id}`, { parentId: inner.folder.id })).status, 400, "never into a folder inside itself");
+  const folderRenamed = (await (await call("chirag", "PATCH", `/api/purchase/drive/folders/${inner.folder.id}`, { name: "ISO certificates" })).json()) as { folder: { name: string } };
+  assert.equal(folderRenamed.folder.name, "ISO certificates");
+
+  // Deleted when empty, refused while not.
+  assert.equal((await call("chirag", "DELETE", `/api/purchase/drive/folders/${made.folder.id}`)).status, 409, "a folder with something in it stays");
+  assert.equal((await call("chirag", "DELETE", `/api/purchase/drive/folders/${inner.folder.id}`)).status, 200, "an empty one goes");
+  const folders = (await (await fetch(`${base}/api/purchase/drive/folders`, { headers: as("kapila") })).json()) as { folders: { name: string }[] };
+  assert.deepEqual(folders.folders.map((f) => f.name).sort(), ["Audits", "Certificates 2026"]);
 });

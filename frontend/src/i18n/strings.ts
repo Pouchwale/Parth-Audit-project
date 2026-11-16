@@ -321,6 +321,7 @@ const en = {
   "nav.purchaseDocs": "Purchase Documents",
   // Purchase Master Data — the List of Approved Suppliers with their ratings (REQUIREMENTS §186).
   "nav.purchaseMasterData": "Purchase Master Data",
+  "nav.purchaseDrive": "Purchase Drive",
   // Dispatch (REQUIREMENTS §70).
   "nav.dispatchDocs": "Dispatch Documents",
   "nav.dispTransporterAgreement": "Transporter Agreement",
@@ -1205,6 +1206,7 @@ const gu: Record<StringKey, string> = {
   "nav.purServiceAgreement": "પેસ્ટ કંટ્રોલ સેવા કરાર",
   "nav.purchaseDocs": "ખરીદી દસ્તાવેજો",
   "nav.purchaseMasterData": "ખરીદી માસ્ટર ડેટા",
+  "nav.purchaseDrive": "ખરીદી ડ્રાઇવ",
   "nav.dispatchDocs": "ડિસ્પેચ દસ્તાવેજો",
   "nav.dispTransporterAgreement": "ટ્રાન્સપોર્ટર કરાર",
   "nav.dispInspection": "ડિસ્પેચ નિરીક્ષણ",

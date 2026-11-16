@@ -384,6 +384,8 @@ export const agreementsApi = {
 export type SupplierDriveType = "srf" | "tdsSpecs" | "msds" | "foodGradeDeclaration" | "traceability" | "isoCertificate" | "serviceAgreement" | "auditReport" | "other";
 export interface SupplierDriveFile {
   id: string;
+  /** "" the drive's root, "supplier:<id>" a supplier's folder, else a folder people made (§231). */
+  folderId: string;
   supplierId: string;
   supplierName: string;
   docType: SupplierDriveType;
@@ -412,7 +414,40 @@ export const driveApi = {
   remove: (fileId: string) => request<{ ok: true }>(`/purchase/drive/file/${encodeURIComponent(fileId)}`, { method: "DELETE" }),
   /** Where the file itself is read from (the session's cookie goes with it). */
   fileUrl: (fileId: string) => `/api/purchase/drive/file/${encodeURIComponent(fileId)}`,
+  // THE PURCHASE DRIVE'S FOLDERS (§231): the files of a folder, found by name; a file uploaded into any folder, renamed, moved.
+  inFolder: (folderId: string) => request<{ files: SupplierDriveFile[] }>(`/purchase/drive?folder=${encodeURIComponent(folderId)}`),
+  search: (q: string) => request<{ files: SupplierDriveFile[] }>(`/purchase/drive?q=${encodeURIComponent(q)}`),
+  uploadTo: (p: { folderId: string; supplierId: string; supplierName: string; docType: SupplierDriveType; file: File }) =>
+    request<{ file: SupplierDriveFile; read: SupplierDriveRead }>(`/purchase/drive/upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-File-Name": encodeURIComponent(p.file.name),
+        "X-Folder-Id": encodeURIComponent(p.folderId),
+        "X-Doc-Type": p.docType,
+        "X-Supplier-Id": encodeURIComponent(p.supplierId),
+        "X-Supplier-Name": encodeURIComponent(p.supplierName),
+      },
+      body: p.file,
+    }),
+  updateFile: (fileId: string, patch: { name?: string; folderId?: string; supplierId?: string; supplierName?: string }) =>
+    request<{ file: SupplierDriveFile }>(`/purchase/drive/file/${encodeURIComponent(fileId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }),
+  folders: () => request<{ folders: SupplierDriveFolder[] }>(`/purchase/drive/folders`),
+  createFolder: (name: string, parentId: string) =>
+    request<{ folder: SupplierDriveFolder }>(`/purchase/drive/folders`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, parentId }) }),
+  updateFolder: (folderId: string, patch: { name?: string; parentId?: string }) =>
+    request<{ folder: SupplierDriveFolder }>(`/purchase/drive/folders/${encodeURIComponent(folderId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }),
+  removeFolder: (folderId: string) => request<{ ok: true }>(`/purchase/drive/folders/${encodeURIComponent(folderId)}`, { method: "DELETE" }),
 };
+
+/** A folder people made in the Purchase Drive (§231). */
+export interface SupplierDriveFolder {
+  id: string;
+  parentId: string;
+  name: string;
+  createdBy: string;
+  createdAt: string;
+}
 
 // ESCALATION TO THE SUPER ADMIN AND THE WEEKLY DIGEST (REQUIREMENTS §75),
 // worked out on the server from the records in PostgreSQL (backend/escalation.ts,

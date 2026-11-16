@@ -38,6 +38,7 @@ import {
 } from "./pages/PestControlPages";
 import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
 import { HrMasterDataPage } from "./pages/HrMasterDataPage";
+import { PurchaseDrivePage } from "./pages/PurchaseDrivePage";
 import { PurchaseMasterDataPage } from "./pages/PurchaseMasterDataPage";
 import { QcOverviewPage } from "./pages/QcPages";
 import { UsersPage } from "./pages/UsersPage";
@@ -213,7 +214,10 @@ function RouteSwitch() {
       return <QcOverviewPage />;
     case "purchase":
       // Purchase Master Data — the List of Approved Suppliers with each supplier's rating (REQUIREMENTS §186).
-      return rest[0] === "master-data" ? <PurchaseMasterDataPage /> : <NotFoundPage />;
+      if (rest[0] === "master-data") return <PurchaseMasterDataPage />;
+      // The Purchase Drive, a folder in it after it (REQUIREMENTS §231).
+      if (rest[0] === "drive") return <PurchaseDrivePage key={rest.join("/")} folderId={rest[1] ? decodeURIComponent(rest[1]) : undefined} />;
+      return <NotFoundPage />;
     case "document":
       // Any other log sheet's own page — where "Open Document" lands.
       return rest[0] ? <DocumentRecordsPage key={rest[0]} docId={rest[0]} /> : <NotFoundPage />;

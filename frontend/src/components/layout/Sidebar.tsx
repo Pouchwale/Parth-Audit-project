@@ -4,6 +4,7 @@ import {
   FiBookOpen,
   FiCalendar,
   FiDatabase,
+  FiFolder,
   FiBarChart2,
   FiAlertCircle,
   FiAward,
@@ -313,6 +314,8 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     // The List of Approved Suppliers with each supplier's rating — Purchase's master sheet, as HR Master Data leads the
     // HR module (REQUIREMENTS §186).
     { to: "/purchase/master-data", labelKey: "nav.purchaseMasterData", icon: FiDatabase },
+    // ...and its drive, a folder per supplier and any folder people make (REQUIREMENTS §231).
+    { to: "/purchase/drive", labelKey: "nav.purchaseDrive", icon: FiFolder },
     { headingKey: "nav.purSupplierApproval" },
     { to: "/document/pur-supplier-registration", labelKey: "nav.purSupplierRegistration", icon: FiUserPlus },
     { to: "/document/pur-supplier-audit-report", labelKey: "nav.purSupplierAudit", icon: FiClipboard },
@@ -466,6 +469,7 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/document/pur-service-provider-performance": ["pur-service-provider-performance"],
   // Purchase Master Data serves every one of them, so it is shown when any Purchase document is the viewer's (§186).
   "/purchase/master-data": PURCHASE_DOCUMENT_IDS,
+  "/purchase/drive": PURCHASE_DOCUMENT_IDS,
   // Store and Dispatch (REQUIREMENTS §71, §70) — missing until §74, so their
   // links showed to anybody who could see the module at all.
   "/document/str-incoming-material-vehicle": ["str-incoming-material-vehicle"],
