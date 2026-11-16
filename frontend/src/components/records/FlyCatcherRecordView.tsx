@@ -1,4 +1,5 @@
 import { PrintedWordsAt } from "./PrintedWordsAt";
+import { withFirstUnitNames } from "../../engine/flyNames";
 import type { PrintedWords } from "../../types";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentDefinition, FlyCatcherData, FlyCatcherEntry, PCLocation, RecordInstance } from "../../types";
@@ -228,10 +229,19 @@ export function FlyCatcherRecordView({
   // The units drawn: the visit's own — while it is a draft, as Master Data now lists them (added or deleted since it was started).
   const shown = (editable ? withMasterUnits(data, pcLocations) : null) ?? data;
 
+  // PC-01's Cleaning Done By and Verified By are the visit's: written on every unit's line (REQUIREMENTS §237).
+  const unitIds = master.pcLocations.map((pc) => pc.id);
+  const blankLine = (pcId: string) => ({ pcId, catchCountApprox: null, tubeLightInstallDate: null, tubeLightDueDate: null, cleaningDoneBy: "", verifiedBy: "" });
   const updateEntry = (pcId: string, patch: EntryPatch) => {
     onChange({
       ...shown,
-      entries: shown.entries.map((e) => (e.pcId === pcId ? { ...e, ...patch } : e)),
+      entries: withFirstUnitNames(
+        shown.entries.map((e) => (e.pcId === pcId ? { ...e, ...patch } : e)),
+        pcId,
+        patch,
+        unitIds,
+        blankLine
+      ),
     });
   };
 
@@ -286,7 +296,7 @@ export function FlyCatcherRecordView({
     const entries = base.entries.some((x) => x.pcId === pcId)
       ? base.entries.map((x) => (x.pcId === pcId ? { ...x, ...patch } : x))
       : [...base.entries, { pcId, catchCountApprox: null, tubeLightInstallDate: null, tubeLightDueDate: null, cleaningDoneBy: "", verifiedBy: "", ...patch }];
-    pending.current.set(r.id, { ...base, entries });
+    pending.current.set(r.id, { ...base, entries: withFirstUnitNames(entries, pcId, patch, unitIds, blankLine) });
     setDirty(true);
     setKeystrokes((n) => n + 1);
   };

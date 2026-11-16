@@ -12165,3 +12165,22 @@ records are there so according to there frequency it should generate for next da
   January, December none; F/HR/16's year-long sheet the same. It now stays in its own month: the last working day before
   it when the next one is next month's (engine/holidays.ts workingDueDate), wherever a sheet's due date is worked out - the
   generator, New record, the dating by frequency, the service reports, F/QC/17's twenty.
+
+## §237 F/HR/18: PC-01's names on every unit; the boxes' words in the middle; twice a month on Mondays (16-Nov-2026)
+
+The owner, 16-Nov-2026, with the Fly Catcher register: "if user fill first row which is PC-01 then all other PC's also with
+same name for both dates ... also there is alignment problem so make sure it should in middle"; asked, of the visits'
+dates: "twice a month monday wise just but twice a month every month of every year"; of the names: always over what the
+other units hold.
+
+- The Cleaning Done By and the Verified By typed on PC-01's line of a visit are written on every unit's line of that visit
+  (PC-02 to PC-13), over what they held - on the register (/pest/fly-catcher) and on the visit's own page, for the visit
+  and the month's other one (engine/flyNames.ts). A name typed on another unit's line is that line's; the counts and the
+  tube-light dates stay each unit's.
+- What is typed in the register's boxes - the names, the count, the dates - stands in the middle of its box, as the written
+  lines' words do (styles.css).
+- The visits: twice a month on Mondays, the 1st and the 3rd, every month of every year - the schedule F/HR/18 has had
+  since 28-Oct-2026, made by the generator month after month (§236). The plant's November and December visits stand where
+  Kapila Barad moved them (02-11 to 16-11, 16-11 to 16-12, the second verified); left as she dated them.
+- Proved: frontend/tests/flyNames.test.ts, and in the browser: Vijay and Roshni typed on PC-01's 16-11-2026 line written on
+  all thirteen units' lines, every box's words centred.

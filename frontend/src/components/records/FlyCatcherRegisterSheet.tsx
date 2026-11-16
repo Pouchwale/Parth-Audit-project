@@ -1,4 +1,5 @@
 import { PrintedWordsAt } from "./PrintedWordsAt";
+import { withFirstUnitNames } from "../../engine/flyNames";
 import type { PrintedWords } from "../../types";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -197,6 +198,7 @@ interface VisitRow {
 
 type EntryPatch = Partial<Omit<FlyCatcherEntry, "pcId">>;
 
+
 export function FlyCatcherRegisterSheet({
   year,
   month,
@@ -301,7 +303,16 @@ export function FlyCatcherRegisterSheet({
             ...patch,
           },
         ];
-    pending.current.set(r.id, { ...base, entries });
+    // PC-01's Cleaning Done By and Verified By are the visit's: written on every unit's line (REQUIREMENTS §237).
+    const named = withFirstUnitNames(entries, pcId, patch, pcLocations.map((pc) => pc.id), (id) => ({
+      pcId: id,
+      catchCountApprox: null,
+      tubeLightInstallDate: TUBE_LIGHT_INSTALLED,
+      tubeLightDueDate: TUBE_LIGHT_DUE,
+      cleaningDoneBy: "",
+      verifiedBy: "",
+    }));
+    pending.current.set(r.id, { ...base, entries: named });
     setDirty(true);
     setKeystrokes((n) => n + 1);
   };

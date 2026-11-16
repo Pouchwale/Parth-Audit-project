@@ -1729,6 +1729,10 @@ body { top: 0 !important; }
 .fhr18-visit-link { background: none; border: none; padding: 0; font: inherit; color: var(--color-primary); text-decoration: underline; cursor: pointer; }
 .fhr18-grid td.edit-cell { padding: 2px 3px; }
 .fhr18-grid .fhr18-input { width: 100%; min-width: 0; padding: 3px 5px; font-size: 12px; }
+/* F/HR/18: what is typed stands in the middle of its box, as the written lines' words stand in the middle of theirs -
+   the names, the count, the dates (the owner, 16-Nov-2026, REQUIREMENTS §237). */
+.fhr18-grid .fhr18-input { text-align: center; }
+.fhr18-grid input[type="date"].fhr18-input::-webkit-datetime-edit-fields-wrapper { display: flex; justify-content: center; width: 100%; }
 .fhr18-grid input[type="number"].fhr18-input { text-align: center; appearance: textfield; -moz-appearance: textfield; }
 /* The count box's spinner took room at its right and pushed its digits off the column's middle, out of line with the
    lines under it written as words (the owner, 7-Nov-2026: "the numbers are not align proper"): no spinner, the digits in the middle. */
