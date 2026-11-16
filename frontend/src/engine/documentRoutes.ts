@@ -33,7 +33,8 @@ export function documentOpenRoute(doc: Pick<DocumentDefinition, "id" | "kind">):
     case "daily-pest-monitoring":
       return "/pest/daily";
     case "fly-catcher":
-      return "/pest/trend/fly-catcher";
+      // Its register's own page; the trend is Trend Analysis's (REQUIREMENTS §222).
+      return "/pest/fly-catcher";
     case "service-report":
       return `/pest/service/${doc.id.replace(/^service-report-/, "")}`;
     default: {

@@ -260,6 +260,9 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/pest/service/rodent", labelKey: "nav.ratMice", icon: FiTruck },
     { to: "/pest/service/general", labelKey: "nav.antsCockroaches", icon: FiTruck },
     { to: "/pest/service/fly", labelKey: "nav.flyControl", icon: FiTruck },
+    // The F/HR/18 register, apart from its trend (REQUIREMENTS §222).
+    { headingKey: "nav.inspectionRegister" },
+    { to: "/pest/fly-catcher", labelKey: "nav.flyCatcherRegister", icon: FiClipboard },
     { headingKey: "nav.trendAnalysis" },
     { to: "/pest/trend/rodent", labelKey: "nav.rodentTrend", icon: FiTrendingUp },
     { to: "/pest/trend/lizard", labelKey: "nav.lizardTrend", icon: FiTrendingUp },
@@ -438,6 +441,7 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   // provider's own report, transcribed (REQUIREMENTS §41).
   "/pest/trend/lizard": ["daily-pest-monitoring"],
   "/pest/trend/fly-catcher": ["fly-catcher"],
+  "/pest/fly-catcher": ["fly-catcher"],
   "/training": ["training-record"],
   "/chemical-master": ["chemical-master"],
   "/licence": ["gurudev-insecticide-licence"],

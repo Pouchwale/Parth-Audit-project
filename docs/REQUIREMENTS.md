@@ -11882,3 +11882,17 @@ three service record".
 - Proved: frontend/tests/serviceReportSaturdays.test.ts (two Saturdays in every month of 2027 for each; December 2026's
   5th and 19th made for all three), periodSheet.test.ts, scheduleChange28Oct.test.ts.
 
+## §222 The fly catcher trend alone on Trend Analysis; the F/HR/18 register its own page (16-Nov-2026)
+
+The owner, 16-Nov-2026, with Trend Analysis > Fly Catcher Infestation opening on the F/HR/18 register: "keep this
+Seperate so in trend Anlaysis trend analysis of fly catcher only present".
+
+- Trend Analysis > Fly Catcher Infestation (/pest/trend/fly-catcher) shows the month and year and the Flies Catch Report
+  and Trend Analysis, nothing else.
+- The F/HR/18 Fly Catcher Inspection & Cleaning Record is a page of its own, /pest/fly-catcher, in the Pest Control menu
+  under "Inspection Register": its register (Add visit, Edit register, the downloads, Print register), its visit list,
+  New record, the latest inspection, and the links to the Fly Control service reports and the Daily Report. The Document
+  Library, the search and every link to F/HR/18 open it there (engine/documentRoutes.ts).
+- Proved: frontend/tests/flyCatcherTrendAlone.test.ts, and in the browser: the trend page with only its report, the
+  register page with its two tabs and its buttons.
+

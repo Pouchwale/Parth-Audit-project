@@ -654,7 +654,7 @@ export function FlyCatcherTrendReport({ isDemo, year, month }: { isDemo: boolean
             yAxisLabel={FLIES_TREND_REPORT.yAxisLabel}
             unitWord={FLIES_TREND_REPORT.unitWord}
             registerName="Fortnightly Fly Catcher Inspection &amp; Cleaning Records (F/HR/18)"
-            footnote="The company reports this one by weight — gramms of flies collected out of the electric fly killers each month, as the service provider reports them. A year taken from the fortnightly F/HR/18 board counts says so in its own Source and Unit; the two are never converted into one another. The per-unit breakdown below is the F/HR/18 register."
+            footnote="The company reports this one by weight — gramms of flies collected out of the electric fly killers each month, as the service provider reports them. A year taken from the fortnightly F/HR/18 board counts says so in its own Source and Unit; the two are never converted into one another. The per-unit counts are in the F/HR/18 register, under Pest Control > Inspection Register."
           />
         </div>
       </div>

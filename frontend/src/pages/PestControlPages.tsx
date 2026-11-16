@@ -902,8 +902,43 @@ export function LizardTrendPage({ year: initialYear }: { year?: number }) {
 
 // ---------------------------------------------------------------------------
 // 3c. Trend Analysis — Fly Catcher Infestation — /pest/trend/fly-catcher[/{year}]
+//
+// THE TREND ALONE (REQUIREMENTS §222; the owner, 16-Nov-2026: "keep this Seperate so in trend Anlaysis trend analysis of fly
+// catcher only present"): the month and year, and the trend of the flies caught. The F/HR/18 register and its visit list
+// are a page of their own, /pest/fly-catcher (FlyCatcherRegisterPage below), under Inspection Register in the menu.
 
 export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
+  const { mode } = useAppStore();
+  const t = useT();
+  const isDemo = mode === "demo";
+  const now = new Date();
+  const [year, setYear] = useState(initialYear ?? now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  useEnsureMonth(now.getFullYear(), now.getMonth());
+  const doc = documentRepository.getById(FLY_DOC_ID);
+  // The trend reads F/HR/18, Human Resources' own register: outside it, told whose register it is (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={FLY_DOC_ID} what="register" />;
+  return (
+    <div className={isDemo ? "demo-watermark" : ""} data-page="fly-catcher-trend">
+      <div className="flex items-center justify-between mb-3 wrap gap-3">
+        <div>
+          <h1 className="text-2xl mb-1">{t("pest.trendAnalysisTitle")} — {t("nav.flyCatcherInfestation")}</h1>
+        </div>
+        <div className="flex gap-2 wrap">
+          <YearSelect value={year} onChange={setYear} />
+          <MonthSelect value={month} onChange={setMonth} />
+        </div>
+      </div>
+      <FlyCatcherTrendReport isDemo={isDemo} year={year} month={month} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 3d. The F/HR/18 register — /pest/fly-catcher[/{year}] (REQUIREMENTS §222): the Fly Catcher Inspection & Cleaning Record,
+// its register (the company's own layout) and the year's visit list, with New record and the latest inspection.
+
+export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number }) {
   // The year's list keeps the F/HR/18 header block, typed over where it stands (REQUIREMENTS §86).
   const flyHeader = useHeaderEditing({ doc: documentRepository.getById(FLY_DOC_ID) });
   const { mode, bump } = useAppStore();
@@ -914,9 +949,8 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
   const [year, setYear] = useState(initialYear ?? now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   // The register (the company's own F/HR/18 layout) is the default, as on the
-  // Daily Report page; the trend and the visit list are views of the same
-  // records.
-  const [view, setView] = useState<"register" | "trend" | "list">("register");
+  // Daily Report page; the visit list is a view of the same records. The trend is its own page (§222).
+  const [view, setView] = useState<"register" | "list">("register");
   const today = todayISO();
   useEnsureMonth(now.getFullYear(), now.getMonth());
 
@@ -954,7 +988,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
     <div className={isDemo ? "demo-watermark" : ""}>
       <div className="flex items-center justify-between mb-1 wrap gap-3">
         <div>
-          <h1 className="text-2xl mb-1">{t("pest.trendAnalysisTitle")} — {t("nav.flyCatcherInfestation")}</h1>
+          <h1 className="text-2xl mb-1">{t("nav.flyCatcherRegister")}</h1>
         </div>
         <div className="flex gap-2 wrap">
           <YearSelect value={year} onChange={setYear} />
@@ -985,9 +1019,6 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
           <div className={`pill-tab ${view === "register" ? "active" : ""}`} data-view="register" {...pressable(() => setView("register"), view === "register")}>
             {t("pest.fhr18RegisterView")}
           </div>
-          <div className={`pill-tab ${view === "trend" ? "active" : ""}`} data-view="trend" {...pressable(() => setView("trend"), view === "trend")}>
-            {t("pest.trendView")}
-          </div>
           <div className={`pill-tab ${view === "list" ? "active" : ""}`} data-view="list" {...pressable(() => setView("list"), view === "list")}>
             {t("pest.visitListView")}
           </div>
@@ -996,8 +1027,6 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
 
       {/* The Month & Year chosen above: Add visit / Edit register / Print sit on the register itself. */}
       {view === "register" && <FlyCatcherRegisterSheet year={year} month={month} isDemo={isDemo} onOpenVisit={(r) => navigate(`/record/${r.id}`)} allowEdit />}
-
-      {view === "trend" && <FlyCatcherTrendReport isDemo={isDemo} year={year} month={month} />}
 
       {view === "list" && (
       // The year's inspections as a document: the F/HR/18 header block, then
