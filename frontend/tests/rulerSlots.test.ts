@@ -119,3 +119,18 @@ test("next year's twenty are made as its September comes", () => {
   for (const id of [RULER_600_ID, RULER_300_ID]) assert.equal(yearOf(id, next.scheduled).length, RULER_SLOTS, `${id}: twenty next year too`);
   for (const id of [RULER_600_ID, RULER_300_ID]) clear(id);
 });
+
+test("a record New adds is dated the day it is made, and stays so; one added before is dated the day it was added (§248)", () => {
+  const doc = documentRepository.getByIdUnscoped(RULER_600_ID)!;
+  const year = schedulePeriodOf(doc, today)!;
+  ensureRulerSlots(today);
+  const added = newRecordFromButton(doc, false, today).record;
+  assert.equal(added.dueDate, today, "dated today: in this month's list");
+  assert.ok((slotOf(added) ?? 0) > RULER_SLOTS);
+  // One added before §248, dated as the twenty: put on the day it was made at the start.
+  const old = recordRepository.upsert({ ...added, id: "old-added", periodKey: added.periodKey.replace(/#\d+$/, "#99"), dueDate: nextWorkingDay(year.scheduled, masterRepository.get()), createdAt: `${today}T05:00:00.000Z` });
+  ensureRulerSlots(today);
+  assert.equal(recordRepository.getById(old.id)!.dueDate, today);
+  assert.equal(recordRepository.getById(added.id)!.dueDate, today, "and kept: the frequency does not date it back");
+  for (const id of [RULER_600_ID, RULER_300_ID]) clear(id);
+});

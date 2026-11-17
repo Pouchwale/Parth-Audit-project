@@ -12341,3 +12341,19 @@ all 79 documents she answers for: she was found answering for none of them but t
 300 mm ruler, nothing due this month). Now the address the rules hold for the same name, dots in it or not, is the one
 used (engine/departmentScope.ts scoreAnswerRule) - Kapila Barad is scored on her documents of every module, and Vinay
 Bhojak, Sandeep Parekh and the others the same way. Proved: frontend/tests/scorePlantAddresses.test.ts.
+
+## §248 Next month's records on a document's page; F/QC/17's added records in the month they are made (17-Nov-2026)
+
+The owner, 17-Nov-2026: "in qc-11 and qc-12 when i have clicked on next month then documents has not coming so do it and
+qc-17 is also not generating".
+
+- A document's records page makes the records of the month its bar is on - a later month, or an earlier one since the
+  plant went live - by the frequency, as that month's own morning would (pages/DocumentRecordsPage.tsx): F/QC/11's
+  December its five Tuesdays, 01-12 to 29-12, numbered 01 to 05; January 2027 its four; F/QC/12's December and January
+  their sheets. Until §248 only this month's were made, and a later month showed none.
+- F/QC/17: a record New adds (21, 22 ...) is dated the day it is made - in that month's list - not 24-09, the year's twenty's
+  date, where November's list did not show it (engine/rulerSlots.ts); its number is still its year's. The dating by
+  frequency leaves it so (engine/calendarMigration.ts). The plant's records added before §248 are dated the day they were
+  added, at the start, with a line in each one's history.
+- Proved: frontend/tests/rulerSlots.test.ts, trendMonthsAndLists.test.ts, and in the browser: Next on F/QC/11 and F/QC/12
+  showing December's and January's records; New on F/QC/17 in November's list.

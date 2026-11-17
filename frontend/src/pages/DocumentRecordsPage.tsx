@@ -218,6 +218,10 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   // saved anywhere in the app.
   const thisMonth = new Date();
   useEnsureMonth(thisMonth.getFullYear(), thisMonth.getMonth(), [docId]);
+  // ...and the month the bar is on, an earlier or a later one (REQUIREMENTS §248; the owner, 17-Nov-2026: "in qc-11 and qc-12
+  // when i have clicked on next month then documents has not coming"): its records made by the frequency, as the month's
+  // own morning would make them - December's Tuesdays for F/QC/11, its sheet for F/QC/12.
+  useEnsureMonth(period.year, period.month === "all" ? thisMonth.getMonth() : period.month, [docId]);
   // F/QC/11 and F/QC/12: each sheet's Serial No box holds the record's running number shown below (REQUIREMENTS §233),
   // a new record's too - written when the list changes, only where the box needs it.
   React.useEffect(() => {

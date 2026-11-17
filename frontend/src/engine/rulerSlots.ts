@@ -59,10 +59,11 @@ function yearRecords(doc: DocumentDefinition, period: SchedulePeriod, isDemo: bo
     .sort((a, b) => (slotOf(a) ?? 0) - (slotOf(b) ?? 0));
 }
 
-/** A record for place `n` of the year: the blank sheet, its Serial number NN, dated by the frequency. */
-function slotRecord(doc: DocumentDefinition, period: SchedulePeriod, n: number, isDemo: boolean, status: RecordInstance["status"]): RecordInstance {
+/** A record for place `n` of the year: the blank sheet, its Serial number NN, dated by the frequency - or `on`, the day
+ * New made it (§248). */
+function slotRecord(doc: DocumentDefinition, period: SchedulePeriod, n: number, isDemo: boolean, status: RecordInstance["status"], on?: string): RecordInstance {
   const master = masterRepository.get();
-  const due = workingDueDate(period.scheduled, master);
+  const due = on ?? workingDueDate(period.scheduled, master);
   // Written as the last written sheet was, as every new F/QC/17 is (engine/recordCrud.ts startingData, §117): the master's
   // boxes and the lines carried, the ruler's own boxes (Make, Serial number) the person's - here its number.
   const blank = createDefaultData(doc, due, master) as LogSheetData;
@@ -153,6 +154,14 @@ export function ensureRulerSlots(today: string = todayISO(), deleteOld?: (r: Rec
     for (const r of removed) (deleteOld ?? ((x: RecordInstance) => recordRepository.removeIds([x.id])))(r);
     const period = schedulePeriodOf(doc, today);
     if (!period) continue;
+    // A record New added before §248, dated as the twenty are with nothing written on it: dated the day it was made.
+    for (const r of yearRecords(doc, period, false)) {
+      const n = slotOf(r) ?? 0;
+      const made = String(r.createdAt).slice(0, 10);
+      if (n <= RULER_SLOTS || r.dueDate !== workingDueDate(period.scheduled, masterRepository.get()) || made === r.dueDate) continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(made) || compareISO(made, period.from) < 0 || compareISO(made, period.to) > 0) continue;
+      recordRepository.upsert(appendHistory({ ...r, dueDate: made }, makeEntry("edited", "System", { note: `Dated ${made.split("-").reverse().join("-")}, the day it was added (REQUIREMENTS §248).` })));
+    }
     const slots = rulerSlotsFor(doc, period, false);
     if (slots.length) recordRepository.upsertMany(slots);
     made += slots.length;
@@ -168,7 +177,10 @@ export function nextRulerRecord(doc: DocumentDefinition, dateISO: string, isDemo
   const year = yearRecords(doc, period, isDemo);
   // (after the year's last number, and after any deleted one: a number is never given twice)
   const n = Math.max(0, ...year.map((r) => slotOf(r) ?? 0), ...deletedSlots(doc, period, isDemo)) + 1;
-  return { record: recordRepository.upsert(slotRecord(doc, period, n, isDemo, "In Progress")), existed: false };
+  // DATED THE DAY NEW MADE IT (REQUIREMENTS §248; the owner, 17-Nov-2026: "qc-17 is also not generating"): a record added
+  // on 17-11-2026 was dated as the year's twenty are, 24-09-2026, and November's list did not show it. Dated `dateISO`,
+  // the day it is made, it is in the month it was made in; its number is still its year's.
+  return { record: recordRepository.upsert(slotRecord(doc, period, n, isDemo, "In Progress", dateISO)), existed: false };
 }
 
 /** The record of a scale's year shown first (read only): the first not filled, else the last. */

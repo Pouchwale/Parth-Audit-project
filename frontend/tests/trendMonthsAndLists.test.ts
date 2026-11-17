@@ -50,3 +50,8 @@ test("F/HR/17's register has the month's own days, not a line more: page 3 the 2
   assert.match(sheet, /\{grid\(20, dim\)\}/);
   assert.ok(!/grid\(20, 31\)/.test(sheet), "never a 31st line in a month of thirty days");
 });
+
+test("a document's records page makes the records of the month its bar is on, an earlier or a later one (§248)", () => {
+  assert.match(src("pages/DocumentRecordsPage.tsx"), /useEnsureMonth\(period\.year, period\.month === "all" \? thisMonth\.getMonth\(\) : period\.month, \[docId\]\);/);
+  assert.match(src("engine/calendarMigration.ts"), /if \(slot && Number\(slot\[1\]\) > 20\) continue;/);
+});
