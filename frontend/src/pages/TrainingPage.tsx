@@ -35,7 +35,6 @@ import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
-import { ProviderLetterhead } from "../components/documents/ProviderLetterhead";
 import { useT } from "../i18n";
 import { bindProps, trainingBind } from "../engine/roundTrip/bindingsFor";
 import { waitsUntil } from "../engine/notBeforeDay";
@@ -314,13 +313,9 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
       {/* The document itself — the part that prints (utils/print.ts) — and whose
           values a downloaded file binds to this record (REQUIREMENTS §81). */}
       <div data-print-doc data-print-fill={printFillOf(doc)} data-bind-record={record.id} data-format-id={TRAINING_DOC_ID} data-format-asof={formulaTimeOf(record)}>
-      {/* The training is run and issued by Gurudev Pest Control, so the record
-          carries their printed letterhead ("Letter head.pdf") — and nothing else
-          above the form: the department asked for the title and the Format No. /
-          Rev No. / Date row to come off this document (12-Sep-2026). */}
-      <div className="doc-header notranslate" translate="no">
-        <ProviderLetterhead />
-      </div>
+      {/* NO HEADER (the owner, 17-Nov-2026, REQUIREMENTS §251: "in training record remove header from Pest Control
+          Awareness Training Program (annual) record"): Gurudev Pest Control's letterhead is off the record - on the page,
+          on paper and in the Word file. The title and the Format No. / Rev No. / Date row came off it on 12-Sep-2026. */}
 
       {/* The three written boxes share the row's room, and a programme's name and its reference wrap in theirs: read whole (the owner, 22-Oct-2026). */}
       <div className="card mt-4">

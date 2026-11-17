@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import type { ServiceTypeChemical } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
-import { DocumentHeader } from "../components/documents/DocumentHeader";
-import { useHeaderEditing } from "../components/documents/HeaderEditing";
 import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useAppStore } from "../store/AppStore";
@@ -15,6 +13,9 @@ import { bindProps, chemicalBind } from "../engine/roundTrip/bindingsFor";
 
 const CHEMICAL_DOC_ID = "chemical-master";
 
+/** The chart's one heading (§251). */
+export const CHEMICAL_TITLE = "Pesticide Application Chart (Chemical Master)";
+
 export function ChemicalMasterPage() {
   const { bump } = useAppStore();
   // Not asserted: the repository answers for the logged-in user's own
@@ -22,7 +23,6 @@ export function ChemicalMasterPage() {
   // (engine/departmentScope.ts).
   const doc = documentRepository.getById(CHEMICAL_DOC_ID);
   // The chart's header block, typed over where it stands (REQUIREMENTS §86): the format's own cells.
-  const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({ doc });
   // The chart being corrected, while Edit is on; null otherwise. Its rows are
   // master data, so a correction is saved there (masterRepository).
   const [draft, setDraft] = useState<ServiceTypeChemical[] | null>(null);
@@ -86,8 +86,12 @@ export function ChemicalMasterPage() {
           download={<DownloadDocumentButton doc={doc} />}
         />
       </div>
-      <DocumentHeader doc={doc} edit={headerEdit} />
-      {headerPanel}
+      {/* THE TITLE ALONE, NO HEADER (the owner, 17-Nov-2026, REQUIREMENTS §251: "in chemical master remove header and it
+          should only written there with title:- Pesticide Application Chart (Chemical Master)"): no company name, no
+          Format No. / Rev No. - on the page, on paper and in the Word and Excel files. */}
+      <div className="doc-header title-only notranslate" translate="no" data-section="chemical-title">
+        <div className="doc-title">{CHEMICAL_TITLE}</div>
+      </div>
       {/* Only while editing: a hint for the editor (no page information at the start, REQUIREMENTS §204). */}
       {editing && <p className="text-muted mt-3 mb-4 no-print">Editing — correct any cell that is wrong, then Save. Chemicals: one per line.</p>}
       <div className="doc-table mt-4">

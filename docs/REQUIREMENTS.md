@@ -12383,3 +12383,24 @@ Flies - shows the year its page is on (this year, as it opens) and the two years
 its chart and its CSV: 2024, 2025, 2026 this year; 2025, 2026, 2027 when 2027 comes. A year of the three with no figures
 yet has its row, blank, worded as the nearest year's (components/reports/CatchTrendSheet.tsx threeYears,
 pages/ReportsPage.tsx). Proved: frontend/tests/trendYears.test.ts, and in the browser on all three pages.
+
+## §251 Any year at any time; the Chemical Master's title alone; no letterhead on the training record (17-Nov-2026)
+
+The owner, 17-Nov-2026: "so i want to change year than i can do it any time for for all three pest control service record
+and previous year store in system ... and in chemical master remove header and it should only written there with title:-
+Pesticide Application Chart (Chemical Master). and in training record remove header from Pest Control Awareness Training
+Program (annual) record".
+
+- The three service reports (Rat / Mice, Ants & Cockroaches, Fly): the year box lists the last five years, next year and
+  every year a visit is stored in, and it can be changed with "All months" on too - "All months" there is every month of
+  the year chosen, and the register's title says the year (VISIT REGISTER 2025). Other lists keep "All months" as every
+  year (components/common/MonthBar.tsx allInYear, yearRange; pages/PestControlPages.tsx).
+- The three trend reports: the year box lists the last five years and this one (it listed only the year either side); a
+  year chosen shows itself and the two before it (§250). Every year's visits and figures stay stored.
+- Pesticide Application Chart (Chemical Master): no header block - no company name, no Format No. / Rev No. - only the
+  title "Pesticide Application Chart (Chemical Master)", on the page, on paper and in the Excel file
+  (pages/ChemicalMasterPage.tsx). The Word file is the company's own chart, titled as on its paper.
+- Pest Control Training Record (Pest Control Awareness Training Program (annual)): Gurudev Pest Control's letterhead is off
+  the record - on the page, on paper, in Word and Excel (pages/TrainingPage.tsx).
+- Proved: frontend/tests/yearsAndHeaders.test.ts, monthBarEverywhere.test.ts; in the browser on the local copy; the Word and
+  Excel downloads opened in Word and Excel.

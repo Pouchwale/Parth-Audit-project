@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MonthBar, inPeriod, periodOf, periodWords, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
+import { MonthBar, inPeriod, periodOf, periodWords, yearRange, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
 import { FiActivity, FiArrowRight, FiAward, FiBookOpen, FiCalendar, FiClipboard, FiDroplet, FiFileText, FiPlus, FiPrinter, FiTrendingUp, FiTruck } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { documentTextIn } from "../i18n/documentText";
@@ -108,9 +108,12 @@ function latestRecord<T>(docId: string, isDemo: boolean, uptoISO: string): Recor
 // (data/selectors.ts keeps years up to this one), so offering it only produced
 // an empty table row and a bare chart captioned "the chart shows 2027"
 // (REQUIREMENTS §39). The year after this one is therefore not offered.
+// ANY YEAR, ANY TIME (the owner, 17-Nov-2026, REQUIREMENTS §251: "i want to change year than i can do it any time ... and
+// previous year store in system"): the last five years and this one, and any earlier year the page is on - not only the
+// year either side. Each year's figures stay stored; a year chosen shows itself and the two before it (§250).
 function YearSelect({ value, onChange }: { value: number; onChange: (y: number) => void }) {
   const thisYear = new Date().getFullYear();
-  const years = [value - 1, value, value + 1].filter((y) => y <= thisYear);
+  const years = yearRange(Math.min(thisYear - 5, value), thisYear);
   return (
     <select className="input input-sm" style={{ width: 90 }} data-select="year" value={value} onChange={(e) => onChange(Number(e.target.value))}>
       {years.map((y) => (
@@ -678,11 +681,12 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
   }
 
   const allVisits = recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance<ServiceReportData>[];
+  // "All months" is every month of the year chosen (§251), so a year can be changed at any time and its visits read.
   const records = allVisits
-    .filter((r) => inPeriod(r.dueDate, period))
+    .filter((r) => inPeriod(r.dueDate, period) && (period.month !== "all" || r.dueDate.startsWith(`${period.year}-`)))
     .slice()
     .sort((a, b) => compareISO(b.dueDate, a.dueDate));
-  const shownWhen = period.month === "all" ? "all months" : periodWords(period);
+  const shownWhen = period.month === "all" ? `all months of ${period.year}` : periodWords(period);
   const areas = master.areas.filter((a) => a.context === `service-report:${doc.variantKey}`);
   const materials = Array.from(new Set(areas.map((a) => fixedMaterialForServiceArea(doc.variantKey, a.name, a).materialName).filter(Boolean)));
   const next = nextDueDate(doc, today);
@@ -711,7 +715,15 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
           <h1 className="text-2xl mb-1">Service Report — {service.title}</h1>
         </div>
       </div>
-      <MonthBar value={period} onChange={setPeriod} years={yearsOf(allVisits.map((r) => r.dueDate))} today={today} />
+      {/* ANY YEAR, ANY TIME (the owner, 17-Nov-2026, REQUIREMENTS §251): the last five years, next year, and every year a
+          visit is stored in; the year can be changed with "All months" on too. Earlier years' visits stay stored. */}
+      <MonthBar
+        value={period}
+        onChange={setPeriod}
+        years={[...yearRange(now.getFullYear() - 5, now.getFullYear() + 1), ...yearsOf(allVisits.map((r) => r.dueDate))]}
+        today={today}
+        allInYear
+      />
       <div className="flex gap-3 wrap mb-4">
         <div className="stat-tile">
           <div className="stat-value" style={{ fontSize: 18 }}>
@@ -762,7 +774,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
           so it carries the document's header block (REQUIREMENTS §38). */}
       <div className="register-sheet" data-print-doc data-print-fill={printFillOf(doc)} data-format-id={doc?.id}>
         <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${period.month === "all" ? "" : shownWhen.toUpperCase()}`.trim()} edit={visitHeader.edit} />
+        <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${period.month === "all" ? period.year : shownWhen.toUpperCase()}`} edit={visitHeader.edit} />
         {visitHeader.panel}
         {/* data-table: a stable hook, since this page now also carries the
             company-format sheets, which are tables too. */}

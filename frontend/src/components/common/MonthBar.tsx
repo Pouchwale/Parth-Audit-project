@@ -18,6 +18,7 @@ export function MonthBar({
   years,
   today,
   allowAll = true,
+  allInYear = false,
 }: {
   value: RecordsPeriod;
   onChange: (p: RecordsPeriod) => void;
@@ -25,6 +26,9 @@ export function MonthBar({
   today: string;
   /** False on a register drawn a month at a time (F/HR/17, F/HR/18): no "All months". */
   allowAll?: boolean;
+  /** "All months" is every month of the year chosen, and the year can be changed with it (the three pest control service
+   *  reports, §251); elsewhere it is every month of every year, and the year waits for a month. */
+  allInYear?: boolean;
 }) {
   const thisYear = Number(today.slice(0, 4));
   const thisMonth = Number(today.slice(5, 7)) - 1;
@@ -62,7 +66,7 @@ export function MonthBar({
         data-field="records-year"
         aria-label="Year"
         value={value.year}
-        disabled={value.month === "all"}
+        disabled={value.month === "all" && !allInYear}
         onChange={(e) => onChange({ year: Number(e.target.value), month: value.month })}
       >
         {yearList.map((y) => (
@@ -85,6 +89,9 @@ export function MonthBar({
 
 /** This month of `today`'s year, or every month. */
 export const periodOf = (today: string, month: "this" | "all" = "this"): RecordsPeriod => ({ year: Number(today.slice(0, 4)), month: month === "all" ? "all" : Number(today.slice(5, 7)) - 1 });
+
+/** Every year from `from` to `to`, oldest first. */
+export const yearRange = (from: number, to: number): number[] => Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i);
 
 /** The years a list's dates fall in, for the bar's year list. */
 export const yearsOf = (dates: string[]): number[] => Array.from(new Set(dates.map((d) => Number(String(d).slice(0, 4))).filter((y) => y > 2000)));
