@@ -1,4 +1,5 @@
 import { formulaTimeOf } from "../../../indexing/formulaRuntime";
+import { MonthBar, inPeriod, periodOf, periodWords, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
 import React, { useMemo, useState } from "react";
 import { FiArrowLeft, FiArrowRight, FiPlus, FiZap, FiUsers, FiSearch } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
@@ -161,6 +162,8 @@ function progressOf(data: ComplaintChecklistData): { answered: number; total: nu
 
 export function ComplaintListPage() {
   const { mode, bump } = useAppStore();
+  // The month the complaints are listed for (REQUIREMENTS §240): every month first - none is left out of sight - or one.
+  const [period, setPeriod] = useState<RecordsPeriod>(() => periodOf(todayISO(), "all"));
   const { navigate, back } = useRouter();
   const isDemo = mode === "demo";
   const records = recordRepository.query({ documentId: COMPLAINT_DOC_ID, isDemo }) as RecordInstance<ComplaintChecklistData>[];
@@ -205,6 +208,7 @@ export function ComplaintListPage() {
           <FiPlus size={14} /> New Complaint
         </button>
       </div>
+      <MonthBar value={period} onChange={setPeriod} years={yearsOf(records.map((r) => r.dueDate))} today={todayISO()} />
 
       <div className="doc-table">
         <table>
@@ -220,14 +224,17 @@ export function ComplaintListPage() {
             </tr>
           </thead>
           <tbody>
-            {records.length === 0 && (
+            {records.filter((r) => inPeriod(r.dueDate, period)).length === 0 && (
               <tr>
                 <td colSpan={7} className="text-muted text-center" style={{ padding: 24 }}>
-                  No customer complaints logged yet. "New Complaint" opens a fresh checklist and the assistant starts asking.
+                  {records.length === 0
+                    ? `No customer complaints logged yet. "New Complaint" opens a fresh checklist and the assistant starts asking.`
+                    : `No customer complaint in ${periodWords(period)} — choose another month, or All months.`}
                 </td>
               </tr>
             )}
             {records
+              .filter((r) => inPeriod(r.dueDate, period))
               .slice()
               .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
               .map((r) => {

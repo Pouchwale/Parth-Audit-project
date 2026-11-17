@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { MonthBar, inPeriod, periodOf, periodWords, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
 import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import { FiPlus, FiTrash2, FiArrowLeft } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
@@ -44,6 +45,8 @@ const TRAINING_DOC_ID = "training-record";
 export function TrainingListPage() {
   const t = useT();
   const { mode, bump } = useAppStore();
+  // The month the trainings are listed for (REQUIREMENTS §240): every month first, or one - by the training's date.
+  const [period, setPeriod] = useState<RecordsPeriod>(() => periodOf(todayISO(), "all"));
   const { navigate, back } = useRouter();
   const isDemo = mode === "demo";
   const records = recordRepository.query({ documentId: TRAINING_DOC_ID, isDemo }) as RecordInstance<TrainingRecordData>[];
@@ -93,6 +96,7 @@ export function TrainingListPage() {
           <FiPlus size={14} /> New Training Record
         </button>
       </div>
+      <MonthBar value={period} onChange={setPeriod} years={yearsOf(records.map((r) => r.data.trainingDate || r.dueDate))} today={todayISO()} />
       <div className="doc-table">
         <table>
           <thead>
@@ -106,14 +110,15 @@ export function TrainingListPage() {
             </tr>
           </thead>
           <tbody>
-            {records.length === 0 && (
+            {records.filter((r) => inPeriod(r.data.trainingDate || r.dueDate, period)).length === 0 && (
               <tr>
                 <td colSpan={6} className="text-muted text-center" style={{ padding: 24 }}>
-                  No training records yet.
+                  {records.length === 0 ? "No training records yet." : `No training in ${periodWords(period)} — choose another month, or All months.`}
                 </td>
               </tr>
             )}
             {records
+              .filter((r) => inPeriod(r.data.trainingDate || r.dueDate, period))
               .slice()
               .sort((a, b) => (a.data.trainingDate < b.data.trainingDate ? 1 : -1))
               .map((r) => (

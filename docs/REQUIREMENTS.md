@@ -12222,3 +12222,25 @@ year which are present in that like it will show bars in each month".
 - The Total stays in the table's own column; the chart has no Total bar. Printed, each year keeps its colour.
 - Proved: frontend/tests/trendYears.test.ts (tests/e2e_trend_reports.py follows), and in the browser: the three charts with
   their years and the flies' page printed on one page.
+
+## §240 The month bar on every list of records of every module (17-Nov-2026)
+
+The owner, 16-Nov-2026, with the documents' month bar (Month, Previous, All months, the year, Next, This month, §227): "in
+all pest control service record i want like this which i have given in some qc document like wise i want for each and
+every document of all modules".
+
+- Every document's records page had it (§227: every QC, HR, Purchase, Store, Dispatch, Maintenance, System, Marketing and
+  Production document, HR's own pages included). Now the lists kept on pages of their own have it too
+  (components/common/MonthBar.tsx):
+  - the three pest control service reports (Rat / Mice, Ants & Cockroaches, Fly Control): this month's visits first, any
+    month or every month by the bar, the month's visits made - a later month's too (05-12 and 19-12 in December); the
+    visit register's title, the completed count and the empty line name the month; the empty line says the visits'
+    days as they are, the 1st and 3rd Saturday (§221), no longer "the 4th and 18th";
+  - F/HR/17's daily register and F/HR/18's register and visit list: the bar in place of the year and month pickers, a
+    month at a time (no "All months": the register is a month's page);
+  - the customer complaints (F/MKT/05), the internal CAPA records and the complaint acknowledgements, the training
+    records: every month first - nothing open is out of sight - or one month, by each one's own date (inspection date,
+    report date, training date).
+- The trend reports keep their year: each is a year's report, not a list of records.
+- Proved: frontend/tests/monthBarEverywhere.test.ts, and in the browser: the bar on every one of these lists, Previous and
+  Next moving the month, the lists following.

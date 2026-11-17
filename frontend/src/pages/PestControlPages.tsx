@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { MonthBar, inPeriod, periodOf, periodWords, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
 import { FiActivity, FiArrowRight, FiAward, FiBookOpen, FiCalendar, FiClipboard, FiDroplet, FiFileText, FiPlus, FiPrinter, FiTrendingUp, FiTruck } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { documentTextIn } from "../i18n/documentText";
@@ -463,8 +464,10 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
   const now = new Date();
-  const [year, setYear] = useState(initialYear ?? now.getFullYear());
-  const [month, setMonth] = useState(initialMonth ?? now.getMonth());
+  // The month the register is for: the bar of every records list (REQUIREMENTS §240), a month at a time.
+  const [period, setPeriod] = useState<RecordsPeriod>({ year: initialYear ?? now.getFullYear(), month: initialMonth ?? now.getMonth() });
+  const year = period.year;
+  const month = period.month === "all" ? now.getMonth() : period.month;
   // The register (the company's own F/HR/17 layout) is the default; the
   // status list is the app-side view of the same records.
   const [view, setView] = useState<"register" | "list">("register");
@@ -505,11 +508,8 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
         <div>
           <h1 className="text-2xl mb-1">{t("pest.dailyReportTitle")} — {t("nav.dailyPestMonitoring")}</h1>
         </div>
-        <div className="flex gap-2 wrap">
-          <YearSelect value={year} onChange={setYear} />
-          <MonthSelect value={month} onChange={setMonth} />
-        </div>
       </div>
+      <MonthBar value={{ year, month }} onChange={setPeriod} years={[year - 1, year, year + 1]} today={today} allowAll={false} />
       <div className="flex gap-3 wrap mb-4">
         <div className="stat-tile">
           <div className="stat-value">{stats.recorded}</div>
@@ -570,10 +570,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
           isDemo={isDemo}
           onOpenDay={(r) => navigate(`/record/${r.id}`)}
           headerEditable
-          onMonthChange={(y, m) => {
-            setYear(y);
-            setMonth(m);
-          }}
+          onMonthChange={(y, m) => setPeriod({ year: y, month: m })}
         />
       )}
 
@@ -646,9 +643,13 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
   const now = new Date();
-  const [year, setYear] = useState(initialYear ?? now.getFullYear());
   const today = todayISO();
+  // THE MONTH THE VISITS ARE LISTED FOR (REQUIREMENTS §240): this month first; any month, or every month, by the bar.
+  const [period, setPeriod] = useState<RecordsPeriod>(() => (initialYear && initialYear !== now.getFullYear() ? { year: initialYear, month: "all" } : periodOf(today)));
+  const year = period.month === "all" ? now.getFullYear() : period.year;
   useEnsureMonth(now.getFullYear(), now.getMonth());
+  // The month chosen has its visits, a later month's too.
+  useEnsureMonth(period.year, period.month === "all" ? now.getMonth() : period.month, PEST_SERVICES[slug] ? [PEST_SERVICES[slug].docId] : []);
 
   const service = PEST_SERVICES[slug];
   const doc = service ? documentRepository.getById(service.docId) : undefined;
@@ -676,9 +677,12 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
     );
   }
 
-  const records = (recordRepository.query({ documentId: doc.id, isDemo, fromDate: `${year}-01-01`, toDate: `${year}-12-31` }) as RecordInstance<ServiceReportData>[])
+  const allVisits = recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance<ServiceReportData>[];
+  const records = allVisits
+    .filter((r) => inPeriod(r.dueDate, period))
     .slice()
     .sort((a, b) => compareISO(b.dueDate, a.dueDate));
+  const shownWhen = period.month === "all" ? "all months" : periodWords(period);
   const areas = master.areas.filter((a) => a.context === `service-report:${doc.variantKey}`);
   const materials = Array.from(new Set(areas.map((a) => fixedMaterialForServiceArea(doc.variantKey, a.name, a).materialName).filter(Boolean)));
   const next = nextDueDate(doc, today);
@@ -706,8 +710,8 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
         <div>
           <h1 className="text-2xl mb-1">Service Report — {service.title}</h1>
         </div>
-        <YearSelect value={year} onChange={setYear} />
       </div>
+      <MonthBar value={period} onChange={setPeriod} years={yearsOf(allVisits.map((r) => r.dueDate))} today={today} />
       <div className="flex gap-3 wrap mb-4">
         <div className="stat-tile">
           <div className="stat-value" style={{ fontSize: 18 }}>
@@ -723,7 +727,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
         </div>
         <div className="stat-tile">
           <div className="stat-value">{completed}</div>
-          <div className="stat-label">{t("pest.visitsCompleted", { year })}</div>
+          <div className="stat-label">{t("pest.visitsCompleted", { year: shownWhen })}</div>
         </div>
         <div className="stat-tile">
           <div className="stat-value" style={{ fontSize: 15, lineHeight: 1.3 }}>
@@ -758,7 +762,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
           so it carries the document's header block (REQUIREMENTS §38). */}
       <div className="register-sheet" data-print-doc data-print-fill={printFillOf(doc)} data-format-id={doc?.id}>
         <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${year}`} edit={visitHeader.edit} />
+        <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${period.month === "all" ? "" : shownWhen.toUpperCase()}`.trim()} edit={visitHeader.edit} />
         {visitHeader.panel}
         {/* data-table: a stable hook, since this page now also carries the
             company-format sheets, which are tables too. */}
@@ -780,7 +784,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
             {records.length === 0 && (
               <tr>
                 <td colSpan={8} className="text-muted text-center" style={{ padding: 24 }}>
-                  No {service.title} visits recorded in {year}{isDemo ? " (demo)" : ""} yet — visits are scheduled on the 4th and 18th of each month.
+                  No {service.title} visits in {shownWhen}{isDemo ? " (demo)" : ""} — visits are on the 1st and 3rd Saturday of each month. Choose another month above.
                 </td>
               </tr>
             )}
@@ -947,8 +951,10 @@ export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number })
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
   const now = new Date();
-  const [year, setYear] = useState(initialYear ?? now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
+  // The month the register and the visit list are for: the bar of every records list (REQUIREMENTS §240), a month at a time.
+  const [period, setPeriod] = useState<RecordsPeriod>({ year: initialYear ?? now.getFullYear(), month: now.getMonth() });
+  const year = period.year;
+  const month = period.month === "all" ? now.getMonth() : period.month;
   // The register (the company's own F/HR/18 layout) is the default, as on the
   // Daily Report page; the visit list is a view of the same records. The trend is its own page (§222).
   const [view, setView] = useState<"register" | "list">("register");
@@ -1003,11 +1009,8 @@ export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number })
         <div>
           <h1 className="text-2xl mb-1">{t("nav.flyCatcherRegister")}</h1>
         </div>
-        <div className="flex gap-2 wrap">
-          <YearSelect value={year} onChange={setYear} />
-          <MonthSelect value={month} onChange={setMonth} />
-        </div>
       </div>
+      <MonthBar value={{ year, month }} onChange={setPeriod} years={[year - 1, year, year + 1]} today={today} allowAll={false} />
       <div className="flex gap-2 wrap mb-4">
         {mayDo(doc.id, "start") && (
           <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>

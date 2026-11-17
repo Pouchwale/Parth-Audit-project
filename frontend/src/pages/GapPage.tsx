@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { MonthBar, inPeriod, periodOf, periodWords, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
 import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import { FiPlus, FiTrash2, FiArrowLeft } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
@@ -41,6 +42,8 @@ const GAP_DOC_ID = "gap-inspection";
 
 export function GapListPage() {
   const { mode, bump } = useAppStore();
+  // The month the records are listed for (REQUIREMENTS §240): every month first, or one - by each one's own date.
+  const [period, setPeriod] = useState<RecordsPeriod>(() => periodOf(todayISO(), "all"));
   const { navigate, back } = useRouter();
   const isDemo = mode === "demo";
   refreshGapFindingStatuses(isDemo);
@@ -81,6 +84,11 @@ export function GapListPage() {
   // acknowledgements below are theirs: Marketing's own format opens on this
   // page, so Marketing is shown it, and starts one here, without QA's register (§93).
   if (!doc && !canCreateAck) return <NotYourDepartment documentId={GAP_DOC_ID} what="register" />;
+  const gapDate = (r: RecordInstance<GapInspectionData>) => r.data.inspectionDate || r.dueDate;
+  const ackDate = (r: RecordInstance<ComplaintAckData>) => r.data.reportDate || r.dueDate;
+  const shownGaps = records.filter((r) => inPeriod(gapDate(r), period));
+  const shownAcks = acks.filter((r) => inPeriod(ackDate(r), period));
+  const monthBar = <MonthBar value={period} onChange={setPeriod} years={yearsOf([...records.map(gapDate), ...acks.map(ackDate)])} today={todayISO()} />;
 
   const createNew = () => {
     const now = new Date().toISOString();
@@ -121,6 +129,7 @@ export function GapListPage() {
               <FiPlus size={14} /> New Internal CAPA Record
             </button>
           </div>
+          {monthBar}
 
           <div className="doc-table">
             <table>
@@ -135,14 +144,14 @@ export function GapListPage() {
                 </tr>
               </thead>
               <tbody>
-                {records.length === 0 && (
+                {shownGaps.length === 0 && (
                   <tr>
                     <td colSpan={6} className="text-muted text-center" style={{ padding: 24 }}>
-                      No CAPA records recorded yet.
+                      {records.length === 0 ? "No CAPA records recorded yet." : `No CAPA record in ${periodWords(period)} — choose another month, or All months.`}
                     </td>
                   </tr>
                 )}
-                {records
+                {shownGaps
                   .slice()
                   .sort((a, b) => (a.data.inspectionDate < b.data.inspectionDate ? 1 : -1))
                   .map((r) => {
@@ -182,6 +191,7 @@ export function GapListPage() {
           </button>
         )}
       </div>
+      {!doc && monthBar}
       <div className="doc-table">
         <table data-table="complaint-ack">
           <thead>
@@ -196,14 +206,14 @@ export function GapListPage() {
             </tr>
           </thead>
           <tbody>
-            {acks.length === 0 && (
+            {shownAcks.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-muted text-center" style={{ padding: 24 }}>
-                  No complaint acknowledgements yet.
+                  {acks.length === 0 ? "No complaint acknowledgements yet." : `No complaint acknowledgement in ${periodWords(period)} — choose another month, or All months.`}
                 </td>
               </tr>
             )}
-            {acks.map((r) => (
+            {shownAcks.map((r) => (
               <tr key={r.id} className="card-clickable" onClick={() => navigate(`/record/${r.id}`)}>
                 <td>{r.data.reportDate ? formatDisplayDate(r.data.reportDate) : "—"}</td>
                 <td>

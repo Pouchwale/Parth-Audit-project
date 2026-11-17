@@ -32,5 +32,5 @@ test("the daily register offers its month and year in the title's place, and the
   assert.match(sheet, /<DocumentHeader doc=\{doc\} extraTitle=\{monthLabel\} extraTitleSeparator=" " extraTitleEdit=\{monthEdit\} pageLabel="1 Of 3" edit=\{headerEdit\} \/>/, "the first page's header takes the click; the other two repeat the month");
   assert.equal((sheet.match(/extraTitleSeparator=" "/g) ?? []).length, 3, "no dash before the month on any of the three pages");
   const pest = read("frontend", "src", "pages", "PestControlPages.tsx");
-  assert.match(pest, /onMonthChange=\{\(y, m\) => \{\n {12}setYear\(y\);\n {12}setMonth\(m\);\n {10}\}\}/, "the page's own year and month, which its pickers show too");
+  assert.match(pest, /onMonthChange=\{\(y, m\) => setPeriod\(\{ year: y, month: m \}\)\}/, "the page's own month, which its month bar shows too (§240)");
 });
