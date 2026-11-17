@@ -20,7 +20,7 @@ import { followHeader } from "./headerFollowers";
 import { resolveResponsibleEmployees } from "./documentInfo";
 import { USUAL_SERVICE_QTY, fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "./serviceMaterials";
 import { describeRodentEvent, rodentEventFor, totalRodents } from "./rodentPattern";
-import { flyCatchFor, flySeasonLabel, tubeLightCycle } from "./flyPattern";
+import { flyCatchFor, flySeasonLabel, tubeLightCycle, tubeLightPairOn } from "./flyPattern";
 import {
   checkpointFindingsFor,
   excursionRemarkFor,
@@ -271,7 +271,7 @@ function fillFlyCatcher(
   const verifier = master.employees.find((e) => e.id === "emp-checker-1")?.name ?? "Roshni";
   let missingDates = 0;
   const expiring: string[] = [];
-  const cycle = tubeLightCycle();
+  const cycle = tubeLightCycle(dueDate);
   // Catch counts follow the seasonal fly pattern per unit (engine/flyPattern.ts,
   // calibrated to the August-26 specimen) so the Fly Catcher Infestation
   // trend has a real shape — not a uniform random number per box.
@@ -281,8 +281,10 @@ function fillFlyCatcher(
     // two fixed dates — every one of the thirteen units installed 24-11-2025
     // and due 23-11-2026, the tubes being changed together
     // (engine/flyPattern.ts, REQUIREMENTS §44).
-    const install = prev?.tubeLightInstallDate ?? cycle.installed;
-    const due = prev?.tubeLightDueDate ?? cycle.due;
+    // ...a year on for each due date this visit is on or after (§253).
+    const pair = tubeLightPairOn(prev?.tubeLightInstallDate ?? cycle.installed, prev?.tubeLightInstallDate ? prev?.tubeLightDueDate : cycle.due, dueDate);
+    const install = pair.install;
+    const due = pair.due;
     if (!prev?.tubeLightInstallDate || !prev?.tubeLightDueDate) missingDates += 1;
     // Tubes carried forward past their due date haven't been changed yet —
     // which is exactly what check point 10 on F/HR/17 asks about.

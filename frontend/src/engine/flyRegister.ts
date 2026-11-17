@@ -7,6 +7,7 @@ import { createDefaultData } from "./recordDefaults";
 import { periodKeyFor } from "./recordGenerator";
 import { appendHistory, makeEntry, withEditHistory } from "./recordHistory";
 import { MONTH_NAMES, compareISO, daysInMonth, formatDisplayDate, pad2 } from "../utils/date";
+import { tubeLightPairOn } from "./flyPattern";
 import { generateId } from "../utils/id";
 
 // THE F/HR/18 REGISTER, MONTH BY MONTH. The register for a Month & Year is the
@@ -88,10 +89,12 @@ export function addFlyCatcherVisit(dateISO: string, isDemo: boolean, by: string)
       // fixed pair: an older record written before those dates were pre-filled
       // can hold nulls, and carrying those forward would print two empty cells
       // on a sheet whose dates the department has stated (REQUIREMENTS §44).
+      // ...a year on for each due date this visit is on or after (§253).
+      const pair = tubeLightPairOn(p.tubeLightInstallDate || e.tubeLightInstallDate, p.tubeLightInstallDate ? p.tubeLightDueDate || null : e.tubeLightDueDate, dateISO);
       return {
         ...e,
-        tubeLightInstallDate: p.tubeLightInstallDate || e.tubeLightInstallDate,
-        tubeLightDueDate: p.tubeLightDueDate || e.tubeLightDueDate,
+        tubeLightInstallDate: pair.install,
+        tubeLightDueDate: pair.due,
         cleaningDoneBy: p.cleaningDoneBy ?? "",
         verifiedBy: p.verifiedBy ?? "",
       };

@@ -25,7 +25,7 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { calendarPeriod } from "./trainingCalendar";
 import { COMPANY } from "../data/seed/masterData";
 import { termEnd } from "./serviceAgreement";
-import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "./flyPattern";
+import { tubeLightCycle } from "./flyPattern";
 import { boxKind } from "./observations";
 
 // Builds the AUTOMATIC / STATIC part of a new record shell (section 11 & 26):
@@ -67,8 +67,9 @@ export function createDefaultData(
         entries: master.pcLocations.map((pc) => ({
           pcId: pc.id,
           catchCountApprox: null,
-          tubeLightInstallDate: TUBE_LIGHT_INSTALLED,
-          tubeLightDueDate: TUBE_LIGHT_DUE,
+          // ...a year on for each due date the visit is on or after (§253): 23-11-2026 / 22-11-2027 from 23-11-2026.
+          tubeLightInstallDate: tubeLightCycle(dueDateISO).installed,
+          tubeLightDueDate: tubeLightCycle(dueDateISO).due,
           cleaningDoneBy: "",
           verifiedBy: "",
         })),

@@ -12418,3 +12418,22 @@ trend reports and the same rule for the three service reports.
 - pages/PestControlPages.tsx (YearSelect `stored`, the service reports' MonthBar years). Proved:
   frontend/tests/yearsAndHeaders.test.ts, monthBarEverywhere.test.ts; in the browser on the local copy, 2027 chosen on all
   three trend reports.
+
+## §253 F/HR/18: the tube light changed every year on its due date (17-Nov-2026)
+
+The owner, 17-Nov-2026: "in hr-18 DUE DATE FOR TUBE LIGHT REPLACEMENT is 23-11-2026 so after that new date in DATE OF TUBE
+LIGHT INSTALLATION ... like wise it will repeat every year ... DATE OF TUBE LIGHT INSTALLATION and ... REPLACEMENT has only
+one year frequency" - and, asked, "23-11-2026 -> 22-11-2027", from the "first visit on/after due date".
+
+- On a visit on or after a unit's tube light due date, the installation date is that due date and the new due date a year
+  less a day after it: 24-11-2025 / 23-11-2026 on the visits before 23-11-2026; 23-11-2026 / 22-11-2027 from the first
+  visit on or after it (07-12-2026 on the plant); 22-11-2027 / 21-11-2028 a year later, and so on every year. A date typed
+  by hand rolls on the same way from its own due date (engine/flyPattern.ts tubeLightPairOn, tubeLightCycle,
+  withTubeLightsOn; the §44 rule that nothing derives a third date is withdrawn).
+- Every place a visit gets its dates: a new visit (engine/recordDefaults.ts), the next visit carried from the last
+  (engine/autoFill.ts, knownParts.ts, flyRegister.ts), a draft visit when the record opens
+  (components/records/FlyCatcherRecordView.tsx), every draft visit at start-up (engine/tubeLightMigration.ts, noted in the
+  record's history by System), and the register's blank lines (FlyCatcherRegisterSheet.tsx). A submitted or verified
+  visit keeps the dates it was signed with.
+- Proved: frontend/tests/tubeLightYears.test.ts; on the local copy and on the plant, December 2026 and January 2027 read
+  23-11-2026 / 22-11-2027 and November 2026 24-11-2025 / 23-11-2026.

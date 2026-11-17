@@ -2,7 +2,7 @@ import type { FlyCatcherData, RecordInstance } from "../types";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { historyOf, withEditHistory } from "./recordHistory";
 import { isEditableStatus } from "./recordLifecycle";
-import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "./flyPattern";
+import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED, tubeLightPairOn } from "./flyPattern";
 
 // FLY CATCHER TUBE-LIGHT DATES COME INTO LINE WITH THE REGISTER. Runs at every
 // boot (idempotent).
@@ -33,6 +33,8 @@ import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "./flyPattern";
 export const TUBE_LIGHT_NOTE =
   "Tube light dates brought into line with the F/HR/18 register: installed 24-11-2025, replacement due 23-11-2026 on every unit, as the department states them. The dates replaced were computed by an earlier version of this system, not entered by a person.";
 
+export const TUBE_LIGHT_YEAR_NOTE = "A visit on or after a tube light's due date carries the next year's pair: installed on that due date, due a year less a day later (REQUIREMENTS §253).";
+
 /** A date the withdrawn annual-December cycle could have written. */
 const fromOldCycle = (iso: string | null | undefined, monthDay: string): boolean =>
   typeof iso === "string" && iso.length === 10 && iso.slice(5) === monthDay;
@@ -48,8 +50,12 @@ export function alignTubeLightDates(): number {
     if (!Array.isArray(data?.entries) || data.entries.length === 0) continue;
     let changed = false;
     const entries = data.entries.map((e) => {
-      const install = fromOldCycle(e.tubeLightInstallDate, "12-24") ? TUBE_LIGHT_INSTALLED : e.tubeLightInstallDate;
-      const due = fromOldCycle(e.tubeLightDueDate, "12-23") ? TUBE_LIGHT_DUE : e.tubeLightDueDate;
+      const fixedInstall = fromOldCycle(e.tubeLightInstallDate, "12-24") ? TUBE_LIGHT_INSTALLED : e.tubeLightInstallDate;
+      const fixedDue = fromOldCycle(e.tubeLightDueDate, "12-23") ? TUBE_LIGHT_DUE : e.tubeLightDueDate;
+      // A draft visit on or after its tube light's due date carries the next year's pair (§253).
+      const rolled = fixedInstall ? tubeLightPairOn(fixedInstall, fixedDue, r.dueDate) : { install: fixedInstall, due: fixedDue };
+      const install = rolled.install;
+      const due = rolled.due;
       if (install === e.tubeLightInstallDate && due === e.tubeLightDueDate) return e;
       changed = true;
       return { ...e, tubeLightInstallDate: install, tubeLightDueDate: due };
@@ -58,7 +64,7 @@ export function alignTubeLightDates(): number {
     // Keep the timeline the history panel showed before (e.g. "prepared by the
     // assistant", derived from the stamps) ahead of this entry.
     const base = r.history?.length ? r : { ...r, history: historyOf(r) };
-    updates.push(withEditHistory(base, { ...data, entries }, "System", { note: TUBE_LIGHT_NOTE }));
+    updates.push(withEditHistory(base, { ...data, entries }, "System", { note: `${TUBE_LIGHT_NOTE} ${TUBE_LIGHT_YEAR_NOTE}` }));
   }
   if (updates.length) recordRepository.upsertMany(updates);
   return updates.length;

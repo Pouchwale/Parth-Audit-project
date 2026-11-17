@@ -20,7 +20,7 @@ import { useT } from "../../i18n";
 import { printDocument } from "../../utils/print";
 import { DownloadDocumentButton } from "../common/DownloadDocumentButton";
 import { MONTH_NAMES, daysInMonth, formatDisplayDate, pad2, todayISO } from "../../utils/date";
-import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "../../engine/flyPattern";
+import { tubeLightCycle } from "../../engine/flyPattern";
 import { BIND_RECORD_ATTR } from "../../engine/roundTrip/bindPath";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 
@@ -296,8 +296,8 @@ export function FlyCatcherRegisterSheet({
           {
             pcId,
             catchCountApprox: null,
-            tubeLightInstallDate: TUBE_LIGHT_INSTALLED,
-            tubeLightDueDate: TUBE_LIGHT_DUE,
+            tubeLightInstallDate: tubeLightCycle(r.dueDate).installed,
+            tubeLightDueDate: tubeLightCycle(r.dueDate).due,
             cleaningDoneBy: "",
             verifiedBy: "",
             ...patch,
@@ -307,8 +307,8 @@ export function FlyCatcherRegisterSheet({
     const named = withFirstUnitNames(entries, pcId, patch, pcLocations.map((pc) => pc.id), (id) => ({
       pcId: id,
       catchCountApprox: null,
-      tubeLightInstallDate: TUBE_LIGHT_INSTALLED,
-      tubeLightDueDate: TUBE_LIGHT_DUE,
+      tubeLightInstallDate: tubeLightCycle(r.dueDate).installed,
+      tubeLightDueDate: tubeLightCycle(r.dueDate).due,
       cleaningDoneBy: "",
       verifiedBy: "",
     }));
@@ -485,7 +485,7 @@ export function FlyCatcherRegisterSheet({
                             data-field="installed"
                             {...bound("tubeLightInstallDate")}
                             aria-label={`${label} — date of tube light installation`}
-                            value={e?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED}
+                            value={e?.tubeLightInstallDate ?? tubeLightCycle(r?.dueDate).installed}
                             onChange={(ev) => updateEntry(r!, pc.id, { tubeLightInstallDate: ev.target.value || null })}
                           />
                         </td>
@@ -496,7 +496,7 @@ export function FlyCatcherRegisterSheet({
                             data-field="due"
                             {...bound("tubeLightDueDate")}
                             aria-label={`${label} — due date for tube light replacement`}
-                            value={e?.tubeLightDueDate ?? TUBE_LIGHT_DUE}
+                            value={e?.tubeLightDueDate ?? tubeLightCycle(r?.dueDate).due}
                             onChange={(ev) => updateEntry(r!, pc.id, { tubeLightDueDate: ev.target.value || null })}
                           />
                         </td>
@@ -529,10 +529,10 @@ export function FlyCatcherRegisterSheet({
                           {paperCount(waits ? null : e?.catchCountApprox)}
                         </td>
                         <td className="notranslate" translate="no" {...bound("tubeLightInstallDate")}>
-                          {tube(e?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED, above?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED)}
+                          {tube(e?.tubeLightInstallDate ?? tubeLightCycle(r?.dueDate).installed, above?.tubeLightInstallDate ?? tubeLightCycle(r?.dueDate).installed)}
                         </td>
                         <td className="notranslate" translate="no" {...bound("tubeLightDueDate")}>
-                          {tube(e?.tubeLightDueDate ?? TUBE_LIGHT_DUE, above?.tubeLightDueDate ?? TUBE_LIGHT_DUE)}
+                          {tube(e?.tubeLightDueDate ?? tubeLightCycle(r?.dueDate).due, above?.tubeLightDueDate ?? tubeLightCycle(r?.dueDate).due)}
                         </td>
                         {/* The names signed read exactly as they were written, in
                             either language (REQUIREMENTS §58). */}

@@ -51,9 +51,61 @@ export function flyCatchFor(pcId: string, dateISO: string): number {
 export const TUBE_LIGHT_INSTALLED = "2025-11-24";
 export const TUBE_LIGHT_DUE = "2026-11-23";
 
-/** The register's tube-light dates. Takes no date: they do not vary. */
-export function tubeLightCycle(): { installed: string; due: string } {
-  return { installed: TUBE_LIGHT_INSTALLED, due: TUBE_LIGHT_DUE };
+/**
+ * THE DUE DATE FOLLOWS THE INSTALLATION DATE (the owner, 30-10-26): a year less a day after it, as the register's own
+ * pair reads - installed 24-11-2025, due 23-11-2026. Null for a date that is not a whole yyyy-mm-dd.
+ */
+export function tubeLightDueFor(installISO: string | null | undefined): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(installISO ?? "");
+  if (!m) return null;
+  const d = new Date(Date.UTC(Number(m[1]) + 1, Number(m[2]) - 1, Number(m[3])));
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * THE TUBE LIGHT CHANGED EVERY YEAR ON ITS DUE DATE (the owner, 17-Nov-2026, REQUIREMENTS §253: "DUE DATE FOR TUBE LIGHT
+ * REPLACEMENT is 23-11-2026 so after that new date ... like wise it will repeat every year"; asked, "23-11-2026 -> 22-11-2027"
+ * from the "first visit on/after due date"): on a visit on or after the due date, the installation date is that due date
+ * and the new due date a year less a day after it - 24-11-2025 / 23-11-2026, then 23-11-2026 / 22-11-2027, then
+ * 22-11-2027 / 21-11-2028 - as many years on as the visit is. A visit before the due date keeps the pair it has.
+ */
+export function tubeLightPairOn(
+  installISO: string | null | undefined,
+  dueISO: string | null | undefined,
+  visitISO: string
+): { install: string | null; due: string | null } {
+  let install = installISO ?? null;
+  let due = dueISO ?? tubeLightDueFor(install);
+  if (!install || !due || !/^\d{4}-\d{2}-\d{2}$/.test(due) || !/^\d{4}-\d{2}-\d{2}$/.test(visitISO)) return { install, due };
+  for (let guard = 0; visitISO >= due && guard < 200; guard++) {
+    const next = tubeLightDueFor(due);
+    if (!next) break;
+    install = due;
+    due = next;
+  }
+  return { install, due };
+}
+
+/** The register's tube-light dates on a visit's day: the stated pair (24-11-2025 / 23-11-2026), a year on for each due date passed (§253). */
+export function tubeLightCycle(visitISO?: string): { installed: string; due: string } {
+  if (!visitISO) return { installed: TUBE_LIGHT_INSTALLED, due: TUBE_LIGHT_DUE };
+  const p = tubeLightPairOn(TUBE_LIGHT_INSTALLED, TUBE_LIGHT_DUE, visitISO);
+  return { installed: p.install ?? TUBE_LIGHT_INSTALLED, due: p.due ?? TUBE_LIGHT_DUE };
+}
+
+/** A visit's lines with each unit's tube-light pair brought to the visit's day (tubeLightPairOn); null when nothing changes. */
+export function withTubeLightsOn<T extends { entries: { tubeLightInstallDate: string | null; tubeLightDueDate: string | null }[] }>(data: T, visitISO: string): T | null {
+  if (!Array.isArray(data?.entries)) return null;
+  let changed = false;
+  const entries = data.entries.map((e) => {
+    if (!e.tubeLightInstallDate) return e;
+    const p = tubeLightPairOn(e.tubeLightInstallDate, e.tubeLightDueDate, visitISO);
+    if (p.install === e.tubeLightInstallDate && p.due === e.tubeLightDueDate) return e;
+    changed = true;
+    return { ...e, tubeLightInstallDate: p.install, tubeLightDueDate: p.due };
+  });
+  return changed ? { ...data, entries } : null;
 }
 
 export function flySeasonLabel(month: number): string {

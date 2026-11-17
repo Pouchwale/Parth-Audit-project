@@ -16,7 +16,7 @@ import { makeRng } from "../../utils/random";
 import { formatDisplayDate } from "../../utils/date";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 import { visitsInMonth } from "../../engine/flyRegister";
-import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "../../engine/flyPattern";
+import { tubeLightCycle, tubeLightDueFor, withTubeLightsOn } from "../../engine/flyPattern";
 import { FHR18_PAPER_CELLS, FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate } from "./FlyCatcherRegisterSheet";
 
 // A FLY CATCHER VISIT ON ITS OWN PAGE, LAID OUT AS F/HR/18 PRINTS — the
@@ -131,17 +131,8 @@ export function withMasterUnits(data: FlyCatcherData, pcLocations: readonly PCLo
   };
 }
 
-/**
- * THE DUE DATE FOLLOWS THE INSTALLATION DATE (the owner, 30-10-26): a year less a day after it, as the register's own
- * pair reads — installed 24-11-2025, due 23-11-2026. Null for a date that is not a whole yyyy-mm-dd.
- */
-export function tubeLightDueFor(installISO: string | null | undefined): string | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(installISO ?? "");
-  if (!m) return null;
-  const d = new Date(Date.UTC(Number(m[1]) + 1, Number(m[2]) - 1, Number(m[3])));
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
+// The due date follows the installation date, a year less a day (engine/flyPattern.ts).
+export { tubeLightDueFor };
 
 /** What typing an installation date writes: the date, and the due date that follows from it (left as it was when cleared). */
 const installPatch = (value: string): EntryPatch => {
@@ -346,7 +337,9 @@ export function FlyCatcherRecordView({
     items.forEach((it, j) => {
       if (!it?.writable) return;
       const led = first && it !== first ? clearDatesUnderBlankFirst(it.data, first.data) : it.data;
-      const carried = carryDatesDown(led, items.slice(0, j).flatMap((x) => (x ? [x.data] : [])));
+      const down = carryDatesDown(led, items.slice(0, j).flatMap((x) => (x ? [x.data] : [])));
+      // The tube light changed on its due date, every year (§253): a visit on or after it carries the next pair.
+      const carried = withTubeLightsOn(down, it.r.dueDate) ?? down;
       it.data = withAutoCounts(carried, it.r.dueDate) ?? carried;
     });
     let changed = false;
@@ -357,7 +350,7 @@ export function FlyCatcherRecordView({
       const stored = (it.line.current ? (recordRepository.getById(it.r.id) as RecordInstance<FlyCatcherData> | undefined) : undefined) ?? it.r;
       saveDraft(stored, it.data, user.current, {
         action: "assistant-edit",
-        note: "Fly catcher units as in Master Data (added or deleted), tube light dates following the first line, and flies catch counts filled in automatically where a tube light installation date is (2 to 4 for June-August, else 0 to 2)",
+        note: "Fly catcher units as in Master Data (added or deleted), tube light dates following the first line and a year on from each due date passed, and flies catch counts filled in automatically where a tube light installation date is (2 to 4 for June-August, else 0 to 2)",
       });
       changed = true;
     }
@@ -479,10 +472,10 @@ export function FlyCatcherRecordView({
           {paperCount(r && waitsUntil(flyDoc, r) ? null : o?.catchCountApprox)}
         </td>
         <td className="notranslate" translate="no">
-          {tube(o?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED, above?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED)}
+          {tube(o?.tubeLightInstallDate ?? tubeLightCycle(r?.dueDate).installed, above?.tubeLightInstallDate ?? tubeLightCycle(lines[i - 1]?.record?.dueDate ?? r?.dueDate).installed)}
         </td>
         <td className="notranslate" translate="no">
-          {tube(o?.tubeLightDueDate ?? TUBE_LIGHT_DUE, above?.tubeLightDueDate ?? TUBE_LIGHT_DUE)}
+          {tube(o?.tubeLightDueDate ?? tubeLightCycle(r?.dueDate).due, above?.tubeLightDueDate ?? tubeLightCycle(lines[i - 1]?.record?.dueDate ?? r?.dueDate).due)}
         </td>
         {/* The names signed read exactly as they were written, in either language (REQUIREMENTS §58). */}
         <td className="name-cell notranslate" translate="no">

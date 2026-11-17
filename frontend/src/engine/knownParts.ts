@@ -19,6 +19,7 @@ import { withComputedCells } from "./computedCells";
 import { supersededRevisionOf, validateForSubmit } from "./validation";
 import { boxKind, CARRIED_FIGURES, columnKind, isPlaceholder, LIST_COLUMNS } from "./observations";
 import { compareISO, formatDisplayDate } from "../utils/date";
+import { tubeLightPairOn } from "./flyPattern";
 import { generateId } from "../utils/id";
 
 // THE ONE RULE FOR PREPARING A LIVE RECORD (REQUIREMENTS §98, decided 8-Oct-2026).
@@ -174,8 +175,10 @@ function flyCatcher(doc: DocumentDefinition, dueDate: string, master: MasterData
   // or the register's own two dates. The catch counts and who cleaned and verified are the visit's.
   const entries = base.entries.map((e) => {
     const p = prior?.data.entries.find((x) => x.pcId === e.pcId);
-    const install = p?.tubeLightInstallDate || e.tubeLightInstallDate;
-    const due = p?.tubeLightDueDate || e.tubeLightDueDate;
+    // ...a year on for each due date this visit is on or after (§253).
+    const pair = tubeLightPairOn(p?.tubeLightInstallDate || e.tubeLightInstallDate, p?.tubeLightInstallDate ? p?.tubeLightDueDate || null : e.tubeLightDueDate, dueDate);
+    const install = pair.install;
+    const due = pair.due;
     if (due && compareISO(due, dueDate) <= 0) expiring.push(e.pcId);
     return { ...e, tubeLightInstallDate: install, tubeLightDueDate: due };
   });
