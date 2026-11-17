@@ -13,6 +13,7 @@ import { ensureSeeded as ensureRecordsSeeded, recordRepository } from "../src/da
 import { RULER_300_ID, RULER_600_ID } from "../src/data/seed/qcRulerVerificationLayouts";
 import { ensureRulerSlots, RULER_SLOTS, slotOf } from "../src/engine/rulerSlots";
 import { newRecordFromButton } from "../src/engine/newRecord";
+import { deleteRecordWithTrail } from "../src/engine/recordCrud";
 import { ensureRecordsGeneratedForMonth } from "../src/engine/recordGenerator";
 import { schedulePeriodOf } from "../src/engine/frequencyEngine";
 import { nextWorkingDay } from "../src/engine/holidays";
@@ -84,18 +85,30 @@ test("each scale's year holds twenty records, Serial number 01 to 20, dated by t
   assert.equal(ensureRulerSlots(today), 0, "nothing to do a second time");
 });
 
-test("New record opens the first of the year not filled; once all are filled it adds 21", () => {
+test("New record adds the year's next number every time - 21, 22, 23 ... as many as wanted, whatever is still to fill (§245)", () => {
   const doc = documentRepository.getByIdUnscoped(RULER_300_ID)!;
   const year = schedulePeriodOf(doc, today)!;
   const first = newRecordFromButton(doc, false, today);
-  assert.equal(slotOf(first.record), 1);
-  assert.match(String(first.notice), /this is record 01, the next one to fill/);
-  for (const r of yearOf(RULER_300_ID, year.scheduled)) recordRepository.upsert({ ...r, status: "Verified" });
-  const added = newRecordFromButton(doc, false, today);
-  assert.equal(slotOf(added.record), 21);
-  assert.equal(header(added.record).serialNo, "21");
-  assert.match(String(added.notice), /All of this year's records are filled, so record 21 is added/);
-  assert.equal(newRecordFromButton(doc, false, today).record.id, added.record.id, "21 again until it is filled");
+  assert.equal(slotOf(first.record), 21, "the twenty are still to fill: a new record all the same");
+  assert.equal(header(first.record).serialNo, "21");
+  assert.match(String(first.notice), /Record 21 added to this year's records/);
+  const more = Array.from({ length: 30 }, () => newRecordFromButton(doc, false, today).record);
+  assert.deepEqual(more.map((r) => slotOf(r)), Array.from({ length: 30 }, (_, i) => 22 + i), "no limit: 22 to 51");
+  assert.equal(yearOf(RULER_300_ID, year.scheduled).length, 51);
+});
+
+test("a record deleted is never made again: the start does not put a deleted place back, and its number is not given twice (§245)", () => {
+  const doc = documentRepository.getByIdUnscoped(RULER_300_ID)!;
+  const year = schedulePeriodOf(doc, today)!;
+  const r07 = yearOf(RULER_300_ID, year.scheduled).find((r) => slotOf(r) === 7)!;
+  deleteRecordWithTrail(r07, "Kapila Barad", "made by mistake");
+  assert.ok(!yearOf(RULER_300_ID, year.scheduled).some((r) => slotOf(r) === 7));
+  ensureRulerSlots(today);
+  assert.ok(!yearOf(RULER_300_ID, year.scheduled).some((r) => slotOf(r) === 7), "07 not made again at the start");
+  const last = yearOf(RULER_300_ID, year.scheduled).sort((a, b) => (slotOf(b) ?? 0) - (slotOf(a) ?? 0))[0];
+  deleteRecordWithTrail(last, "Kapila Barad", "one too many");
+  const next = newRecordFromButton(doc, false, today).record;
+  assert.equal(slotOf(next), (slotOf(last) ?? 0) + 1, "the deleted last number is not given again");
 });
 
 test("next year's twenty are made as its September comes", () => {

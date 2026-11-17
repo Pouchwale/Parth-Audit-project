@@ -12294,3 +12294,20 @@ The owner, 17-Nov-2026, with November's page 3 - a blank line after the 30th: "a
 this record i want only one month all days not one extra row any thing like that". Page 3 runs from the 20th to the
 month's last day - the 30th in November, the 31st in December, the 28th or 29th in February; pages 1 and 2 as before
 (components/records/DailyRegisterSheet.tsx). Printed, still three pages, each filling its sheet.
+
+## §245 F/QC/17: as many records a year as the person wants, any of them deleted (17-Nov-2026)
+
+The owner, 17-Nov-2026: "in qc-17 user can create or delete any records in same and there is no limit of creating record
+for both 300mm and 600mm user can able to create 50, 100 or whatever records he wants in same year".
+
+- New record on either scale makes the year's next number every time it is pressed - 21, 22 … 50, 100 - whatever of the
+  year's twenty are still to fill; it says "Record NN added to this year's records" (engine/rulerSlots.ts
+  nextRulerRecord, engine/newRecord.ts). Until §245 New opened the first of the twenty not filled, and added a number only
+  once all were.
+- Any record is deleted as any record is - from its own page, whatever its status, by whoever has Edit on F/QC/17 (Kapila
+  Barad, Vinay Bhojak, Chirag Parmar, the Super Admin, §213; others as Users & Access gives them), a reason in the
+  deletion log. The log now keeps the record's key, so a numbered place deleted is never made again at the start - the
+  twenty are made once a year, never put back - and its number is never given twice (engine/recordCrud.ts).
+- The twenty, 01 to 20, are still made for each scale as each year comes (§220).
+- Proved: frontend/tests/rulerSlots.test.ts (51 records in a year; 07 deleted and not made again; the last number deleted
+  and not given again), and in the browser: New twice - 21, 22 - and 22 deleted.

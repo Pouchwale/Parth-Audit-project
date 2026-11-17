@@ -57,9 +57,8 @@ export function newRecordFromButton(doc: DocumentDefinition, isDemo: boolean, to
     const no = String(slotOf(made.record) ?? "").padStart(2, "0");
     return {
       ...made,
-      notice: made.existed
-        ? `This year's records are not all filled yet: this is record ${no}, the next one to fill. A new record is added once all of this year's are filled.`
-        : `All of this year's records are filled, so record ${no} is added.`,
+      // A new record every time New is pressed, as many as the person wants (REQUIREMENTS §245).
+      notice: `Record ${no} added to this year's records.`,
     };
   }
   const words = periodWords(doc.schedule);

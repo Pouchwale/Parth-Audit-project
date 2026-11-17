@@ -12,6 +12,7 @@ import { workingDueDate } from "./holidays";
 import { mayDo, mayWriteRecordsOf } from "./departmentScope";
 import { appendHistory, makeEntry } from "./recordHistory";
 import { generateId } from "../utils/id";
+import { readJSON } from "../data/storageAdapter";
 import { compareISO, todayISO } from "../utils/date";
 
 // F/QC/17: TWENTY RULERS A YEAR, EACH ITS OWN RECORD (REQUIREMENTS §220; the owner, 15-Nov-2026: "every year it the
@@ -26,6 +27,13 @@ import { compareISO, todayISO } from "../utils/date";
 // adds the next number, 21, 22 ... A record of the time before - one sheet a year, keyed without a number - is filed as
 // the number its Serial number says, else the first free one; one made ahead under a later year by New and dated back
 // into this one is filed in this one; one made ahead, still for a later year and with nothing written, is deleted.
+//
+// AS MANY AS THE PERSON WANTS, ANY OF THEM DELETED (REQUIREMENTS §245; the owner, 17-Nov-2026: "in qc-17 user can create or
+// delete any records in same and there is no limit of creating record for both 300mm and 600mm user can able to create
+// 50, 100 or whatever records he wants in same year"). New record makes the year's next number every time it is
+// pressed - 21, 22 … 50, 100 - whatever of the twenty are still to fill; any record is deleted as any record is (Edit
+// access, a reason in the deletion log), and a numbered place deleted is never made again: the twenty are made once a
+// year, never put back.
 
 export const RULER_SLOTS = 20;
 
@@ -75,11 +83,25 @@ function slotRecord(doc: DocumentDefinition, period: SchedulePeriod, n: number, 
   };
 }
 
-/** The twenty records of the year a period names, those missing made (the generator's call, a September as it comes). */
+/** The numbered places of a year somebody deleted (the deletion log, engine/recordCrud.ts): never made again (§245). */
+function deletedSlots(doc: DocumentDefinition, period: SchedulePeriod, isDemo: boolean): Set<number> {
+  const log = readJSON<{ documentId?: string; periodKey?: string; isDemo?: boolean }[]>("deletions", []);
+  const out = new Set<number>();
+  for (const d of log) {
+    if (d.documentId !== doc.id || !!d.isDemo !== isDemo || !d.periodKey || yearDateOf({ periodKey: d.periodKey }) !== period.scheduled) continue;
+    const n = slotOf({ periodKey: d.periodKey });
+    if (n !== null) out.add(n);
+  }
+  return out;
+}
+
+/** The twenty records of the year a period names, those missing made (the generator's call, a September as it comes) - but
+ * never one somebody deleted (§245). */
 export function rulerSlotsFor(doc: DocumentDefinition, period: SchedulePeriod, isDemo: boolean): RecordInstance[] {
   const taken = new Set(yearRecords(doc, period, isDemo).map((r) => slotOf(r)));
+  const deleted = deletedSlots(doc, period, isDemo);
   const made: RecordInstance[] = [];
-  for (let n = 1; n <= RULER_SLOTS; n++) if (!taken.has(n)) made.push(slotRecord(doc, period, n, isDemo, "Due"));
+  for (let n = 1; n <= RULER_SLOTS; n++) if (!taken.has(n) && !deleted.has(n)) made.push(slotRecord(doc, period, n, isDemo, "Due"));
   return made;
 }
 
@@ -138,15 +160,14 @@ export function ensureRulerSlots(today: string = todayISO(), deleteOld?: (r: Rec
   return made;
 }
 
-/** The record F/QC/17's New opens on `dateISO`: the first of its year not filled, else the next number, made now. */
+/** The record F/QC/17's New makes on `dateISO`: the year's next number, every time it is pressed - no limit (§245). */
 export function nextRulerRecord(doc: DocumentDefinition, dateISO: string, isDemo: boolean): { record: RecordInstance; existed: boolean } | null {
   if (!isRulerVerification(doc.id) || doc.schedule.type === "as-required") return null;
   const period = schedulePeriodOf(doc, dateISO);
   if (!period) return null;
   const year = yearRecords(doc, period, isDemo);
-  const open = year.find((r) => !isFilled(r));
-  if (open) return { record: open, existed: true };
-  const n = Math.max(0, ...year.map((r) => slotOf(r) ?? 0)) + 1;
+  // (after the year's last number, and after any deleted one: a number is never given twice)
+  const n = Math.max(0, ...year.map((r) => slotOf(r) ?? 0), ...deletedSlots(doc, period, isDemo)) + 1;
   return { record: recordRepository.upsert(slotRecord(doc, period, n, isDemo, "In Progress")), existed: false };
 }
 

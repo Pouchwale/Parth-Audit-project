@@ -52,6 +52,8 @@ export interface DeletionEntry {
   reason: string;
   /** How many history entries the record carried when it was removed. */
   historyEntries: number;
+  /** The record's period key: F/QC/17's numbered place ("…#07") is never made again once deleted (REQUIREMENTS §245). */
+  periodKey?: string;
 }
 
 const DELETIONS_KEY = "deletions";
@@ -232,6 +234,7 @@ export function deleteRecordWithTrail(record: RecordInstance, actorName: string,
     deletedAt: new Date().toISOString(),
     reason: reason.trim(),
     historyEntries: historyOf(record).length,
+    ...(record.periodKey ? { periodKey: record.periodKey } : {}),
   };
   const log = [entry, ...readJSON<DeletionEntry[]>(DELETIONS_KEY, [])].slice(0, MAX_DELETIONS_KEPT);
   writeJSON(DELETIONS_KEY, log);
