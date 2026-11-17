@@ -30,7 +30,7 @@ test("the bar: a month, or every month where a list may show them all; a registe
 test("every list of records has it: the documents' pages, the service reports, F/HR/17, F/HR/18, complaints, CAPA and acknowledgements, training", () => {
   assert.match(src("pages/DocumentRecordsPage.tsx"), /<MonthBar value=\{period\}/);
   const pest = src("pages/PestControlPages.tsx");
-  assert.match(pest, /<MonthBar\s+value=\{period\}\s+onChange=\{setPeriod\}\s+years=\{\[\.\.\.yearRange\([^\n]*yearsOf\(allVisits\.map/, "the three service reports (any year, §251)");
+  assert.match(pest, /<MonthBar\s+value=\{period\}\s+onChange=\{setPeriod\}\s+years=\{\[now\.getFullYear\(\) \+ 1, \.\.\.yearsOf\(allVisits\.map/, "the three service reports (§251, §252)");
   assert.equal((pest.match(/allowAll=\{false\}/g) ?? []).length, 2, "F/HR/17 and F/HR/18, a month at a time");
   assert.match(pest, /visits are on the 1st and 3rd Saturday of each month/, "the service visits' days as they are (§221)");
   assert.ok(!/<YearSelect value=\{year\} onChange=\{setYear\} \/>\s*<MonthSelect/.test(pest.slice(pest.indexOf("export function DailyMonitoringListPage"), pest.indexOf("export function ServiceReportListPage"))));

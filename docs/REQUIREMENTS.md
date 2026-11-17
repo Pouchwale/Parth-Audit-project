@@ -12404,3 +12404,17 @@ Program (annual) record".
   the record - on the page, on paper, in Word and Excel (pages/TrainingPage.tsx).
 - Proved: frontend/tests/yearsAndHeaders.test.ts, monthBarEverywhere.test.ts; in the browser on the local copy; the Word and
   Excel downloads opened in Word and Excel.
+
+## §252 The year box: the years stored, this year and next year (17-Nov-2026)
+
+The owner, 17-Nov-2026, with the Fly Catcher Infestation year box: "so it can show new year also which is blank by default
+for all three pest control service record. and not old year also" - and, asked, "Stored years + next year" for the three
+trend reports and the same rule for the three service reports.
+
+- The three trend reports (Rodent, Lizard, Flies): the year box lists the years the report has figures for (2024, 2025,
+  2026), this year and next year (2027) - not a year with nothing in it (2021-2023 are gone, §251 changed). Next year is
+  blank until its figures come; chosen, it shows 2025, 2026, 2027 (§250). Each new year adds itself.
+- The three service reports: the year box lists the years a visit is stored in, this year and next year.
+- pages/PestControlPages.tsx (YearSelect `stored`, the service reports' MonthBar years). Proved:
+  frontend/tests/yearsAndHeaders.test.ts, monthBarEverywhere.test.ts; in the browser on the local copy, 2027 chosen on all
+  three trend reports.

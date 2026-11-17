@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MonthBar, inPeriod, periodOf, periodWords, yearRange, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
+import { MonthBar, inPeriod, periodOf, periodWords, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
 import { FiActivity, FiArrowRight, FiAward, FiBookOpen, FiCalendar, FiClipboard, FiDroplet, FiFileText, FiPlus, FiPrinter, FiTrendingUp, FiTruck } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { documentTextIn } from "../i18n/documentText";
@@ -24,7 +24,7 @@ import { createRecordForDocument } from "../engine/recordCrud";
 import { routeForRecord } from "../engine/reminders";
 import { PR_DOC_ID, newPestResponsibilitiesData } from "../data/seed/pestResponsibilities";
 import { generateId } from "../utils/id";
-import { fliesInMonth, flyStatsForYear, rodentStatsForYear, rodentsInMonth } from "../data/selectors";
+import { fliesInMonth, flyStatsForYear, flyTrendRows, lizardTrendRows, rodentStatsForYear, rodentTrendRows, rodentsInMonth } from "../data/selectors";
 import { FlyCatcherTrendReport, LizardTrendReport, RodentTrendReport } from "./ReportsPage";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -108,12 +108,12 @@ function latestRecord<T>(docId: string, isDemo: boolean, uptoISO: string): Recor
 // (data/selectors.ts keeps years up to this one), so offering it only produced
 // an empty table row and a bare chart captioned "the chart shows 2027"
 // (REQUIREMENTS §39). The year after this one is therefore not offered.
-// ANY YEAR, ANY TIME (the owner, 17-Nov-2026, REQUIREMENTS §251: "i want to change year than i can do it any time ... and
-// previous year store in system"): the last five years and this one, and any earlier year the page is on - not only the
-// year either side. Each year's figures stay stored; a year chosen shows itself and the two before it (§250).
-function YearSelect({ value, onChange }: { value: number; onChange: (y: number) => void }) {
+// ANY YEAR, ANY TIME (the owner, 17-Nov-2026, REQUIREMENTS §251, §252: "so it can show new year also which is blank by
+// default ... and not old year also"): the years the report has figures stored for, this year, and next year - blank until
+// its figures come - not a year with nothing in it. A year chosen shows itself and the two before it (§250).
+function YearSelect({ value, onChange, stored }: { value: number; onChange: (y: number) => void; stored: number[] }) {
   const thisYear = new Date().getFullYear();
-  const years = yearRange(Math.min(thisYear - 5, value), thisYear);
+  const years = Array.from(new Set([...stored, thisYear, thisYear + 1, value])).sort((a, b) => a - b);
   return (
     <select className="input input-sm" style={{ width: 90 }} data-select="year" value={value} onChange={(e) => onChange(Number(e.target.value))}>
       {years.map((y) => (
@@ -715,12 +715,12 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
           <h1 className="text-2xl mb-1">Service Report — {service.title}</h1>
         </div>
       </div>
-      {/* ANY YEAR, ANY TIME (the owner, 17-Nov-2026, REQUIREMENTS §251): the last five years, next year, and every year a
-          visit is stored in; the year can be changed with "All months" on too. Earlier years' visits stay stored. */}
+      {/* ANY YEAR, ANY TIME (the owner, 17-Nov-2026, REQUIREMENTS §251, §252): every year a visit is stored in, this year
+          and next year - not a year with nothing in it; the year can be changed with "All months" on too. */}
       <MonthBar
         value={period}
         onChange={setPeriod}
-        years={[...yearRange(now.getFullYear() - 5, now.getFullYear() + 1), ...yearsOf(allVisits.map((r) => r.dueDate))]}
+        years={[now.getFullYear() + 1, ...yearsOf(allVisits.map((r) => r.dueDate))]}
         today={today}
         allInYear
       />
@@ -861,7 +861,7 @@ export function RodentTrendPage({ year: initialYear }: { year?: number }) {
             Counted from checkpoint 7 of the Daily Report ({doc?.formatNo}) — trap box, location and number of rodents on each day's record.
           </div>
         </div>
-        <YearSelect value={year} onChange={setYear} />
+        <YearSelect value={year} onChange={setYear} stored={rodentTrendRows(isDemo).map((r) => r.year)} />
       </div>
       <div className="flex gap-2 wrap mb-4 mt-3">
         <button className="btn btn-secondary btn-sm" onClick={() => navigate("/pest/daily")}>
@@ -902,7 +902,7 @@ export function LizardTrendPage({ year: initialYear }: { year?: number }) {
             glue boards in the same Roda-boxes as the rodents, which {doc?.formatNo} has no column for.
           </div>
         </div>
-        <YearSelect value={year} onChange={setYear} />
+        <YearSelect value={year} onChange={setYear} stored={lizardTrendRows(isDemo).map((r) => r.year)} />
       </div>
       <div className="flex gap-2 wrap mb-4 mt-3">
         <button className="btn btn-secondary btn-sm" onClick={() => navigate("/pest/trend/rodent")}>
@@ -942,7 +942,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
           <h1 className="text-2xl mb-1">{t("pest.trendAnalysisTitle")} — {t("nav.flyCatcherInfestation")}</h1>
         </div>
         <div className="flex gap-2 wrap">
-          <YearSelect value={year} onChange={setYear} />
+          <YearSelect value={year} onChange={setYear} stored={flyTrendRows(isDemo).map((r) => r.year)} />
           <MonthSelect value={month} onChange={setMonth} />
         </div>
       </div>

@@ -20,10 +20,11 @@ test("the year can be changed at any time: offered with All months on, every yea
   assert.match(elsewhere, /disabled=""/, "other lists keep All months as every year");
   const pest = src("pages/PestControlPages.tsx");
   const service = pest.slice(pest.indexOf("export function ServiceReportListPage"), pest.indexOf("export function RodentTrendPage"));
-  assert.match(service, /years=\{\[\.\.\.yearRange\(now\.getFullYear\(\) - 5, now\.getFullYear\(\) \+ 1\), \.\.\.yearsOf\(/);
+  assert.match(service, /years=\{\[now\.getFullYear\(\) \+ 1, \.\.\.yearsOf\(allVisits\.map/, "next year and the years with visits stored (§252)");
   assert.match(service, /allInYear/);
   assert.match(service, /r\.dueDate\.startsWith\(`\$\{period\.year\}-`\)/, "All months: that year's visits");
-  assert.match(pest, /const years = yearRange\(Math\.min\(thisYear - 5, value\), thisYear\);/, "the trend reports: any of the last five years");
+  assert.match(pest, /const years = Array\.from\(new Set\(\[\.\.\.stored, thisYear, thisYear \+ 1, value\]\)\)/, "the trend reports: stored years, this year, next year (§252)");
+  for (const rows of ["rodentTrendRows", "lizardTrendRows", "flyTrendRows"]) assert.match(pest, new RegExp(`stored=\\{${rows}\\(isDemo\\)\\.map\\(\\(r\\) => r\\.year\\)\\}`), rows);
 });
 
 test("the Chemical Master is headed by its title alone; the training record has no letterhead", () => {
