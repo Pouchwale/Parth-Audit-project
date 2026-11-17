@@ -318,7 +318,7 @@ export function PestControlOverviewPage() {
             <span className="badge badge-Due">Fortnightly</span>
           </div>
           <div className="card-pad" style={{ paddingTop: 8 }}>
-            <div className="text-sm text-muted mb-2">Gurudev Pest Control's visit reports — 4th & 18th of each month, one per service.</div>
+            <div className="text-sm text-muted mb-2">Gurudev Pest Control's visit reports — the 1st and 3rd Saturday of each month, one per service.</div>
             <div className="doc-table">
               <table className="compact">
                 <thead>
@@ -584,7 +584,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
         {doc && <DocumentHeader doc={doc} extraTitle={`STATUS LIST — ${MONTH_NAMES[month].toUpperCase()} ${year}`} edit={dailyHeader.edit} />}
         {dailyHeader.panel}
         <div className="doc-table" style={{ border: "none" }}>
-        <table>
+        <table className="records-list">
           <thead>
             <tr>
               <th>Date</th>
@@ -767,7 +767,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
         {/* data-table: a stable hook, since this page now also carries the
             company-format sheets, which are tables too. */}
         <div className="doc-table" style={{ border: "none" }}>
-        <table data-table="visits">
+        <table className="records-list" data-table="visits">
           <thead>
             <tr>
               <th>Service date</th>
@@ -943,7 +943,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
 // 3d. The F/HR/18 register — /pest/fly-catcher[/{year}] (REQUIREMENTS §222): the Fly Catcher Inspection & Cleaning Record,
 // its register (the company's own layout) and the year's visit list, with New record and the latest inspection.
 
-export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number }) {
+export function FlyCatcherRegisterPage({ year: initialYear, month: initialMonth }: { year?: number; month?: number }) {
   // The year's list keeps the F/HR/18 header block, typed over where it stands (REQUIREMENTS §86).
   const flyHeader = useHeaderEditing({ doc: documentRepository.getById(FLY_DOC_ID) });
   const { mode, bump } = useAppStore();
@@ -952,7 +952,7 @@ export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number })
   const isDemo = mode === "demo";
   const now = new Date();
   // The month the register and the visit list are for: the bar of every records list (REQUIREMENTS §240), a month at a time.
-  const [period, setPeriod] = useState<RecordsPeriod>({ year: initialYear ?? now.getFullYear(), month: now.getMonth() });
+  const [period, setPeriod] = useState<RecordsPeriod>({ year: initialYear ?? now.getFullYear(), month: initialMonth ?? now.getMonth() });
   const year = period.year;
   const month = period.month === "all" ? now.getMonth() : period.month;
   // The register (the company's own F/HR/18 layout) is the default, as on the
@@ -1055,7 +1055,7 @@ export function FlyCatcherRegisterPage({ year: initialYear }: { year?: number })
             <FiActivity size={14} style={{ verticalAlign: -2 }} /> Inspection & cleaning records — {monthLabel}
           </h3>
         <div className="doc-table" style={{ border: "none" }}>
-          <table>
+          <table className="records-list">
             <thead>
               <tr>
                 <th>Service date</th>

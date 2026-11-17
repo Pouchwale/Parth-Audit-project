@@ -393,7 +393,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
 
           <MonthBar value={period} onChange={setPeriod} years={Array.from(new Set(records.map((r) => Number(r.dueDate.slice(0, 4))).filter((y) => y > 2000)))} today={today} />
           <div className="doc-table">
-            <table className="compact" data-table="document-records">
+            <table className="compact records-list" data-table="document-records">
               <thead>
                 <tr>
                   <th>Dated</th>

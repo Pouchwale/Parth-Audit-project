@@ -874,6 +874,12 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   .app-sidebar.is-closed { width: var(--sidebar-w); }
   .app-sidebar.is-open { transform: none; visibility: visible; }
 }
+/* EVERY LIST OF RECORDS LINED UP (REQUIREMENTS §242; the owner, 17-Nov-2026, of a document's list - Serial number, Lines
+   filled, Status, Submitted by, Verified by: "they are not align properly and this applies to all kind of documents and all
+   modules"; asked: centred): each heading and what is under it centred in its column, Open at the right. */
+.doc-table table.records-list th, .doc-table table.records-list td, table.records-list th, table.records-list td { text-align: center; }
+.doc-table table.records-list td:last-child:has(> .btn), .doc-table table.records-list th:last-child:empty { text-align: right; }
+
 @media (prefers-reduced-motion: reduce) {
   .app-sidebar, .nav-module-chevron, .sidebar-toggle { transition: none; }
   .nav-module-body, .sidebar-backdrop { animation: none; }
@@ -1671,8 +1677,18 @@ body { top: 0 !important; }
 /* ---- F/HR/17 monthly register, printed layout (components/records/DailyRegisterSheet.tsx) ---- */
 .register-page { background: #fff; border: 1.5px solid #2c3e50; border-radius: 2px; padding: 14px 16px 18px; margin-top: 16px; }
 .register-page .doc-header { border-width: 1.5px; }
-.register-instructions p { font-size: 13px; margin: 12px 0 6px; line-height: 1.5; }
-.register-checkpoints { margin: 8px 0 0 22px; padding: 0; font-size: 13px; line-height: 1.7; }
+.register-instructions p { font-size: 13px; margin: 0 0 6px; line-height: 1.5; }
+.register-instructions p:last-child { margin-bottom: 0; }
+/* F/HR/17's first page ruled as a form (§243): the instructions boxed, the check points a table across the page. */
+.register-instruction-box { border: 1.5px solid #2c3e50; padding: 10px 12px; margin: 12px 0 10px; background: #fff; }
+.register-checkpoints { width: 100%; font-size: 13px; }
+.register-checkpoints th.cp-no, .register-checkpoints td.cp-no { width: 70px; text-align: center; font-weight: 700; }
+.register-checkpoints th.cp-text, .register-checkpoints td.cp-text { text-align: left; line-height: 1.5; }
+.register-checkpoints td { padding: 9px 10px; vertical-align: middle; }
+@media print {
+  .register-instruction-box { border-color: #000; }
+  .register-checkpoints td { padding: 4.2mm 3mm; }
+}
 .register-grid { border-collapse: collapse; width: 100%; font-size: 12px; }
 .register-grid td.date-cell { font-weight: 700; text-align: right; width: 44px; white-space: nowrap; }
 .register-grid td.holiday-cell { letter-spacing: 0.4em; font-weight: 700; color: var(--color-text-muted); }
@@ -1873,6 +1889,10 @@ body { top: 0 !important; }
 .trend-key.from-register { background: #e4f0f5; }
 .trend-key { display: inline-block; width: 12px; height: 12px; border: 1px solid #2c3e50; vertical-align: -2px; margin-right: 4px; }
 .trend-chart { margin-top: 14px; border: 1px solid #2c3e50; padding: 6px 8px 0; background: #fff; }
+/* A month of the trend opens the register it is counted from (§242). */
+.trend-table td.open-month { cursor: pointer; }
+.trend-table td.open-month:hover, .trend-table td.open-month:focus-visible { background: var(--color-primary-light); text-decoration: underline; outline: none; }
+.trend-chart .bar.open-month .hit { cursor: pointer; }
 .trend-chart svg { display: block; width: 100%; height: auto; }
 .trend-chart .axis { stroke: #2c3e50; stroke-width: 1; }
 .trend-chart .tick, .trend-chart .cat { font-size: 11px; fill: var(--color-text-muted); }
@@ -1898,6 +1918,12 @@ body { top: 0 !important; }
   .trend-table td.from-register { background: #fff !important; }
   /* Each year keeps its colour on paper too: the years told apart as on the company's chart (§239). */
   .trend-chart .bar.total .mark { fill: #000 !important; }
+  /* THE CHART A HEIGHT OF ITS OWN ON PAPER (§241): drawn to its width, a chart under a table of three years ran the
+     sheet to 222 mm of a 210 mm page - "Report prepared by" alone on a second sheet - and drawing the page smaller to fit
+     did not shorten it (the chart drawn smaller grew as wide again, and as tall). A height of its own, the drawing
+     centred in it, and the page fits - smaller where a longer table needs it (utils/print.ts). */
+  .trend-sheet .trend-chart svg { width: 100%; height: 92mm; }
+  .trend-sheet .trend-signature { break-inside: avoid; break-before: avoid; }
   .doc-table .register-grid tr.is-today td.date-cell { outline: none; }
   /* The screen's tints - today's line, a day past the month's end, a locked line - are the screen's: the paper's lines
      print white (the owner, 7-Nov-2026, §198: the register printed on A4 "should cover whole page" and look the paper's). */

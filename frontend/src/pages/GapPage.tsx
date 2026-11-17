@@ -132,7 +132,7 @@ export function GapListPage() {
           {monthBar}
 
           <div className="doc-table">
-            <table>
+            <table className="records-list">
               <thead>
                 <tr>
                   <th>Inspection Date</th>
@@ -193,7 +193,7 @@ export function GapListPage() {
       </div>
       {!doc && monthBar}
       <div className="doc-table">
-        <table data-table="complaint-ack">
+        <table className="records-list" data-table="complaint-ack">
           <thead>
             <tr>
               <th>Date</th>

@@ -12244,3 +12244,53 @@ every document of all modules".
 - The trend reports keep their year: each is a year's report, not a list of records.
 - Proved: frontend/tests/monthBarEverywhere.test.ts, and in the browser: the bar on every one of these lists, Previous and
   Next moving the month, the lists following.
+
+## §241 Every printout on whole A4 pages: the trend reports' "Report prepared by" back on their page (17-Nov-2026)
+
+The owner, 17-Nov-2026, with the Flies Catch Report printed on two sheets - "Report prepared by" alone on the second:
+"check all other document also and make sure when user take print on A4 size paper no line should cut or not this kind
+of mistake print happens in any document".
+
+- The trend reports (Rodent, Lizard, Flies; the Reports page's trend tabs too): with three years in the table (2026's row
+  from F/HR/18) the sheet ran to 222 mm of the 210 mm landscape page. The print draws a page a little over its paper
+  smaller to fit (utils/print.ts, §198) - but the chart was drawn to its width, so drawn smaller it was laid out as wide
+  again, and as tall: the page did not shorten. Printed, the chart now has a height of its own, 92 mm, the drawing
+  centred in it; the page fits one sheet, smaller still where a longer table needs it, and the signature line keeps
+  with the chart (styles.css).
+- Every document of every module printed as a person prints it - by its Print button, and by Ctrl+P - all 137, and every
+  page of its own (the service reports, F/HR/17, F/HR/18, the three trends, the complaints, CAPA and training lists),
+  each page's words counted. One more found and put right: F/HR/17's day, headed "1 of 1", printed its "Summary of
+  Actions Taken" alone on a second sheet. A one-page sheet of DCRS's own make a little over its paper (up to a quarter of
+  a page) is now drawn just small enough to print whole, as a page of its own already was (utils/print.ts
+  fitDrawnSections). The insecticide licence's two sheets are its two scanned pages, each whole. A table's line is never
+  parted across two sheets (tr break-inside: avoid).
+
+## §242 A trend's month opens its register; every list of records centred (17-Nov-2026)
+
+The owner, 17-Nov-2026, with the Flies trend's table and a document's list of records: "when user click on any month of any
+year then that report should open and this applies to all three trend analysis. also ... they are not align properly and
+this applies to all kind of documents and all modules"; asked: the register it is counted from; centred.
+
+- A month of the Rodent, Lizard or Flies trend - its cell in any year's row, or its bars - opens the register the trend is
+  counted from, at that month of that year: Rodent and Lizard F/HR/17's daily register (/pest/daily/{year}/{month}), Flies
+  F/HR/18's register (/pest/fly-catcher/{year}/{month}, the month now part of its address). The cell says so when pointed
+  at; the Reports page's trend tabs the same (components/reports/CatchTrendSheet.tsx).
+- Every list of records - every document's records page of every module, the service reports' visits, F/HR/17's and
+  F/HR/18's lists, the customer complaints, the CAPA records and acknowledgements, the training records - has each heading
+  and what is under it centred in its column, Open at the right (styles.css .records-list).
+- The pest control overview's line on the service visits says their days as they are, the 1st and 3rd Saturday.
+
+## §243 F/HR/17's first page a ruled form, not a question paper (17-Nov-2026)
+
+The owner, 17-Nov-2026, with F/HR/17's first page printed: "when take print physically on A4 size paper then it is looking
+like question paper so do fix it". The page under the header block was two lines and a numbered list. Now the two lines of
+instructions stand in a ruled box and the ten check points in a ruled table across the page - Sr. No. and Check Point -
+as the register's own pages after it are ruled, its lines tall enough to fill the sheet; three pages still
+(components/records/DailyRegisterSheet.tsx, styles.css).
+
+## §244 F/HR/17's register: the month's own days, not a line more (17-Nov-2026)
+
+The owner, 17-Nov-2026, with November's page 3 - a blank line after the 30th: "after 30 there is new month so make sure in
+this record i want only one month all days not one extra row any thing like that". Page 3 runs from the 20th to the
+month's last day - the 30th in November, the 31st in December, the 28th or 29th in February; pages 1 and 2 as before
+(components/records/DailyRegisterSheet.tsx). Printed, still three pages, each filling its sheet.

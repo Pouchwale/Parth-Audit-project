@@ -454,12 +454,19 @@ const FIT_DRAWN_TO = 0.985;
 // FIT_OWN_OVER pages tall is drawn just small enough to fit its paper, as F/HR/18's are; one taller flows on as before.
 const FIT_OWN_OVER = 1.25;
 
-/** F/HR/18's pages, and a page of its own a little over its paper, each drawn small enough to print whole (above). */
-function fitDrawnSections(doc: HTMLElement, zoom: number, landscape: boolean): void {
+/**
+ * F/HR/18's pages, and a page of its own a little over its paper, each drawn small enough to print whole (above) - and,
+ * since §241, A ONE-PAGE SHEET OF DCRS'S OWN MAKE a little over its paper too (the owner, 17-Nov-2026: "make sure when
+ * user take print on A4 size paper ... not this kind of mistake print happens in any document"): F/HR/17's day, headed
+ * "1 of 1", printed its "Summary of Actions Taken" alone on a second sheet. Returns the sheet's zoom: the one it was
+ * given, or that one drawn smaller to fit.
+ */
+function fitDrawnSections(doc: HTMLElement, zoom: number, landscape: boolean): number {
   const drawn = doc.matches(FIT_DRAWN) || doc.querySelector(FIT_DRAWN) !== null;
+  let docZoom = zoom;
   withPrintRules(() => {
     const sections = pageSections(doc);
-    if (!drawn && sections.length === 0) return;
+    if (!drawn && sections.length === 0 && !ownMake(doc)) return;
     const parts = sections.length ? sections : [doc];
     // (a page already drawn bigger to fill its paper - FILLING EACH PAGE - is measured as drawn, and keeps that over the fit)
     const own = (sec: HTMLElement) => (sec === doc ? 1 : Number(sec.style.zoom) || 1);
@@ -468,10 +475,16 @@ function fitDrawnSections(doc: HTMLElement, zoom: number, landscape: boolean): v
     if (tallest <= FIT_DRAWN_TO || (!drawn && tallest > FIT_OWN_OVER)) return;
     const z = Math.floor((FIT_DRAWN_TO / tallest) * 1000) / 1000;
     for (const sec of parts) {
-      sec.style.zoom = String(sec === doc ? z : Math.floor(own(sec) * z * 1000) / 1000);
+      // (the sheet itself: its zoom over the one it was given, set by the caller - which would set it after this)
+      if (sec === doc) {
+        docZoom = Math.floor(zoom * z * 1000) / 1000;
+        continue;
+      }
+      sec.style.zoom = String(Math.floor(own(sec) * z * 1000) / 1000);
       fitted.push(sec);
     }
   });
+  return docZoom;
 }
 
 /** Whether `doc` is a sheet of DCRS's own make: not a paper form, not a sheet that names its paper, not one drawn in
@@ -564,8 +577,8 @@ function measureAndFit(docs: Element[]): void {
       if (sections.length > 1) fillSections(doc, sections, zoom, room, landscape);
       else zoom = fillPage(doc, zoom, width, room, landscape);
     }
-    // F/HR/18: no page of it runs past its paper.
-    fitDrawnSections(doc, zoom, landscape);
+    // F/HR/18: no page of it runs past its paper; nor a one-page sheet of DCRS's own a little over its paper (§241).
+    zoom = fitDrawnSections(doc, zoom, landscape);
     if (zoom === 1) continue;
     doc.style.zoom = String(zoom);
     // A framed page is as tall as the paper (styles.css): the zoom shrinks its millimetres, so it says by how much.

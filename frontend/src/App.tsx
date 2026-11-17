@@ -168,7 +168,7 @@ function RouteSwitch() {
       if (rest[0] === "trend" && rest[1] === "lizard") return <LizardTrendPage key={rest.join("/")} year={yearParam(rest[2])} />;
       if (rest[0] === "trend" && rest[1] === "fly-catcher") return <FlyCatcherTrendPage key={rest.join("/")} year={yearParam(rest[2])} />;
       // The F/HR/18 register on a page of its own; the trend page shows the trend alone (REQUIREMENTS §222).
-      if (rest[0] === "fly-catcher") return <FlyCatcherRegisterPage key={rest.join("/")} year={yearParam(rest[1])} />;
+      if (rest[0] === "fly-catcher") return <FlyCatcherRegisterPage key={rest.join("/")} year={yearParam(rest[1])} month={month0Param(rest[2])} />;
       return <NotFoundPage />;
     case "hr":
       // HR Records — the Human Resources module's own formats (sixteen, and the two cleaning records of §86): the

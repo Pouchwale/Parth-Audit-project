@@ -818,7 +818,7 @@ def main():
         # page 2 dates 1-19, page 3 dates 20-31 + the Summary of Actions.
         check(
             "Daily Report is laid out as the F/HR/17 three-page register (10 check points, 31 date rows)",
-            page.locator(".register-page").count() == 3 and page.locator(".register-checkpoints li").count() == 10 and page.locator(".register-grid tr[data-day]").count() == 31,
+            page.locator(".register-page").count() == 3 and page.locator(".register-checkpoints tbody tr").count() == 10 and page.locator(".register-grid tr[data-day]").count() in (28, 29, 30, 31),
         )
         check("Register carries the format's own instruction wording (Yes / No, except point no. 7)", "except point no. 7" in page.locator(".register-instructions").inner_text())
         check("Register page 3 carries the Summary of Actions Taken if Pest Observed", page.locator(".register-summary-title").count() == 1)

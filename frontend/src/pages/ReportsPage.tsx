@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "../store/router";
 import { FiDownload, FiPrinter } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { recordRepository } from "../data/repositories/recordRepository";
@@ -439,6 +440,8 @@ function withReportHeader(row: TrendYearRow, meta: TrendReportMeta): TrendRow {
 }
 
 export function RodentTrendReport({ isDemo, year }: { isDemo: boolean; year: number }) {
+  // A month clicked opens the F/HR/17 register it is counted from, that month of that year (REQUIREMENTS §242).
+  const { navigate } = useRouter();
   const stats = rodentStatsForYear(year, isDemo);
   // Source / Unit / Target Pest come from the transcription of the company's own
   // page (data/seed/trendReports.ts) so the three sheets cannot drift apart; a
@@ -477,6 +480,7 @@ export function RodentTrendReport({ isDemo, year }: { isDemo: boolean; year: num
             yAxisLabel={RODENT_TREND_REPORT.yAxisLabel}
             unitWord={RODENT_TREND_REPORT.unitWord}
             registerName="Daily Pest Control Monitoring Records (F/HR/17, check point 7)"
+            openMonth={(y, m) => navigate(`/pest/daily/${y}/${m}`)}
           />
         </div>
       </div>
@@ -572,6 +576,7 @@ export function RodentTrendReport({ isDemo, year }: { isDemo: boolean; year: num
 // digital register to add up and nothing on this sheet is tinted
 // (data/selectors.ts, lizardTrendRows — REQUIREMENTS §41).
 export function LizardTrendReport({ isDemo, year }: { isDemo: boolean; year: number }) {
+  const { navigate } = useRouter();
   const rows: TrendRow[] = lizardTrendRows(isDemo).map((r) => withReportHeader(r, LIZARD_TREND_REPORT));
   const exportCSV = () => {
     downloadCSV(
@@ -605,6 +610,7 @@ export function LizardTrendReport({ isDemo, year }: { isDemo: boolean; year: num
           yAxisLabel={LIZARD_TREND_REPORT.yAxisLabel}
           unitWord={LIZARD_TREND_REPORT.unitWord}
           registerName="Daily Pest Control Monitoring Records (F/HR/17)"
+          openMonth={(y, m) => navigate(`/pest/daily/${y}/${m}`)}
           footnote={
             isDemo
               ? "The years headed “Trapped on Glue boards in Roda-boxes” are the service provider's own monthly report, transcribed: the lizards come off the same glue boards as the rodents, but F/HR/17 has no column for them, so the system adds nothing up here and tints nothing. A year the provider has not reported yet is headed “Seasonal pattern” and follows the plant's own season — more in the rains and in winter than in the dry summer — until the provider's figures are entered."
@@ -617,6 +623,8 @@ export function LizardTrendReport({ isDemo, year }: { isDemo: boolean; year: num
 }
 
 export function FlyCatcherTrendReport({ isDemo, year, month }: { isDemo: boolean; year: number; month: number }) {
+  // A month clicked opens the F/HR/18 register it is counted from, that month of that year (REQUIREMENTS §242).
+  const { navigate } = useRouter();
   const stats = flyStatsForYear(year, isDemo);
   const rows: TrendRow[] = flyTrendRows(isDemo).map((r) => withReportHeader(r, FLIES_TREND_REPORT));
   const monthUnits = stats.byUnit.map((u) => ({ label: u.pcId, value: u.months[month] }));
@@ -654,6 +662,7 @@ export function FlyCatcherTrendReport({ isDemo, year, month }: { isDemo: boolean
             yAxisLabel={FLIES_TREND_REPORT.yAxisLabel}
             unitWord={FLIES_TREND_REPORT.unitWord}
             registerName="Fortnightly Fly Catcher Inspection &amp; Cleaning Records (F/HR/18)"
+            openMonth={(y, m) => navigate(`/pest/fly-catcher/${y}/${m}`)}
             footnote="The company reports this one by weight — gramms of flies collected out of the electric fly killers each month, as the service provider reports them. A year taken from the fortnightly F/HR/18 board counts says so in its own Source and Unit; the two are never converted into one another. The per-unit counts are in the F/HR/18 register, under Pest Control > Inspection Register."
           />
         </div>

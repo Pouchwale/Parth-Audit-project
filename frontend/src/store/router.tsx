@@ -301,7 +301,8 @@ export function isValidAppRoute(path: string): boolean {
       if (area === "service") return !!slug && PEST_SERVICE_SLUGS.has(slug) && (rest.length === 2 || (rest.length === 3 && YEAR_RE.test(year)));
       if (area === "trend") return !!slug && PEST_TREND_SLUGS.has(slug) && (rest.length === 2 || (rest.length === 3 && YEAR_RE.test(year)));
       // The F/HR/18 register's own page (REQUIREMENTS §222), a year after it if asked.
-      if (area === "fly-catcher") return rest.length === 1 || (rest.length === 2 && YEAR_RE.test(slug));
+      // ...and a month of that year (a trend's month opens it, REQUIREMENTS §242).
+      if (area === "fly-catcher") return rest.length === 1 || (rest.length === 2 && YEAR_RE.test(slug)) || (rest.length === 3 && YEAR_RE.test(slug) && MONTH0_RE.test(year));
       void month;
       return false;
     }

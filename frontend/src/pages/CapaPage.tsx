@@ -211,7 +211,7 @@ export function ComplaintListPage() {
       <MonthBar value={period} onChange={setPeriod} years={yearsOf(records.map((r) => r.dueDate))} today={todayISO()} />
 
       <div className="doc-table">
-        <table>
+        <table className="records-list">
           <thead>
             <tr>
               <th>Complaint No.</th>

@@ -73,7 +73,10 @@ export function CatchTrendChart({
   yAxisLabel,
   xAxisLabel = "Months",
   unitWord,
+  openMonth,
 }: {
+  /** A bar clicked opens its month's register (§242). */
+  openMonth?: (year: number, month: number) => void;
   rows: TrendRow[];
   /** The year whose trend line is drawn. */
   trendYear: number;
@@ -143,7 +146,7 @@ export function CatchTrendChart({
               const h = has ? Math.max(0, topPad + plotH - y(v)) : 0;
               const yTop = topPad + plotH - h;
               return (
-                <g key={r.year} className="bar" data-year={r.year} data-series={k}>
+                <g key={r.year} className={`bar${openMonth ? " open-month" : ""}`} data-year={r.year} data-series={k} onClick={openMonth ? () => openMonth(r.year, i) : undefined}>
                   <rect x={x0} y={topPad} width={barW} height={plotH} className="hit">
                     <title>{has ? `${label} ${r.year}: ${v} ${word(r)}` : `${label} ${r.year}: not yet reported`}</title>
                   </rect>
@@ -208,6 +211,7 @@ export function CatchTrendSheet({
   unitWord,
   registerName,
   footnote,
+  openMonth,
 }: {
   companyName: string;
   title: string;
@@ -217,6 +221,8 @@ export function CatchTrendSheet({
   unitWord: string;
   /** What the tinted cells were added up from, for the screen-only key. */
   registerName: string;
+  /** A month clicked - its cell, or its bars - opens the register it is counted from, that month of that year (§242). */
+  openMonth?: (year: number, month: number) => void;
   footnote?: string;
 }) {
   // The year asked for, else the most recent year there are figures for. A year
@@ -279,7 +285,25 @@ export function CatchTrendSheet({
                     </td>
                     <td className="year-cell">{r.year}</td>
                     {r.months.map((m, i) => (
-                      <td key={i} data-month={i} className={r.fromRegister[i] ? "from-register" : ""}>
+                      <td
+                        key={i}
+                        data-month={i}
+                        className={`${r.fromRegister[i] ? "from-register" : ""}${openMonth ? " open-month" : ""}`.trim()}
+                        {...(openMonth
+                          ? {
+                              role: "button",
+                              tabIndex: 0,
+                              title: `Open ${RODENT_REPORT_MONTHS[i]} ${r.year} in the ${registerName}`,
+                              onClick: () => openMonth(r.year, i),
+                              onKeyDown: (e: React.KeyboardEvent) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  openMonth(r.year, i);
+                                }
+                              },
+                            }
+                          : {})}
+                      >
                         {m ?? ""}
                       </td>
                     ))}
@@ -292,7 +316,7 @@ export function CatchTrendSheet({
         </div>
         {/* The trend line is the latest year reported in full - all twelve months - as on the company's charts (2024's
             line on the 2024 / 2025 pages); else the year chosen (§239). */}
-        <CatchTrendChart rows={rows} trendYear={rows.filter((r) => r.months.every((m) => m !== null)).map((r) => r.year).sort((x, z) => z - x)[0] ?? drawnYear} yAxisLabel={yAxisLabel} unitWord={unitWord} />
+        <CatchTrendChart openMonth={openMonth} rows={rows} trendYear={rows.filter((r) => r.months.every((m) => m !== null)).map((r) => r.year).sort((x, z) => z - x)[0] ?? drawnYear} yAxisLabel={yAxisLabel} unitWord={unitWord} />
         {/* The signature line every page of the company's file carries. Left
             blank on purpose: the system does not sign a report for anybody
             (REQUIREMENTS §41). */}

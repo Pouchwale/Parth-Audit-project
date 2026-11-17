@@ -231,14 +231,32 @@ export function DailyRegisterSheet({
         {/* "DAILY PEST CONTROL MONITORING RECORD November 2026": no dash before the month (the owner, 6-Nov-2026, §197). */}
         <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " extraTitleEdit={monthEdit} pageLabel="1 Of 3" edit={headerEdit} />
         {headerPanel}
+        {/* THE FIRST PAGE A FORM, NOT A QUESTION PAPER (REQUIREMENTS §243; the owner, 17-Nov-2026, of the printed page: "it
+            is looking like question paper"): the instructions in a ruled box, the ten check points a ruled table across
+            the page - Sr. No. and Check Point - as the register's own pages after it are ruled. */}
         <div className="register-instructions">
-          <p>{FHR17_INSTRUCTION_1}</p>
-          <p className="font-semibold">{FHR17_INSTRUCTION_2}</p>
-          <ol className="register-checkpoints">
-            {checkpoints.map((cp) => (
-              <li key={cp.no}>{cp.text}</li>
-            ))}
-          </ol>
+          <div className="register-instruction-box">
+            <p>{FHR17_INSTRUCTION_1}</p>
+            <p className="font-semibold">{FHR17_INSTRUCTION_2}</p>
+          </div>
+          <div className="doc-table register-grid-wrap">
+            <table className="register-grid register-checkpoints">
+              <thead>
+                <tr>
+                  <th className="cp-no">Sr. No.</th>
+                  <th className="cp-text">Check Point</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checkpoints.map((cp) => (
+                  <tr key={cp.no} data-checkpoint={cp.no}>
+                    <td className="cp-no">{cp.no}</td>
+                    <td className="cp-text">{cp.text}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -249,7 +267,10 @@ export function DailyRegisterSheet({
 
       <section className="register-page">
         <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " pageLabel="3 Of 3" />
-        {grid(20, 31)}
+        {/* THE MONTH'S OWN DAYS, NOT A LINE MORE (REQUIREMENTS §244; the owner, 17-Nov-2026, of November's page 3 with a blank
+            line after the 30th: "after 30 there is new month so make sure in this record i want only one month all days not
+            one extra row"): the 20th to the month's last day - the 30th, the 31st, February's 28th or 29th. */}
+        {grid(20, dim)}
         <div className="register-summary-title">SUMMARY OF ACTIONS TAKEN IF PEST OBSERVED</div>
         <div className="doc-table register-grid-wrap">
           <table className="register-grid register-summary">

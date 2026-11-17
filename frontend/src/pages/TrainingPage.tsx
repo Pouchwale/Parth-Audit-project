@@ -98,7 +98,7 @@ export function TrainingListPage() {
       </div>
       <MonthBar value={period} onChange={setPeriod} years={yearsOf(records.map((r) => r.data.trainingDate || r.dueDate))} today={todayISO()} />
       <div className="doc-table">
-        <table>
+        <table className="records-list">
           <thead>
             <tr>
               <th>Date</th>

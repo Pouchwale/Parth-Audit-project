@@ -39,3 +39,11 @@ test("the sheet draws every year's bars and the trend of the latest year reporte
   assert.match(html, /data-chart-years="2024,2025"/);
   assert.match(html, /data-trend-year="2024"/, "2024, the year reported in all twelve months");
 });
+
+test("printed, the chart has a height of its own, so the trend page fits one A4 page with its signature (§241)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const path = await import("node:path");
+  const css = readFileSync(path.join(process.env.DCRS_REPO_ROOT ?? process.cwd(), "frontend", "src", "styles.css"), "utf8");
+  assert.match(css, /\.trend-sheet \.trend-chart svg \{ width: 100%; height: 92mm; \}/);
+  assert.match(css, /\.trend-sheet \.trend-signature \{ break-inside: avoid; break-before: avoid; \}/);
+});
