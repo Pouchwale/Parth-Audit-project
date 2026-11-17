@@ -12374,3 +12374,12 @@ which you have to remove".
 - The three trend charts - Rodent, Lizard, Flies - have no trend line, and their key no "Trend …": the years' bars and
   the key of the years alone (components/reports/CatchTrendSheet.tsx, §239 changed).
 - Proved: frontend/tests/notificationPlan.test.ts, trendYears.test.ts.
+
+## §250 The trend reports: the year and the two before it (17-Nov-2026)
+
+The owner, 17-Nov-2026: "in trend analysis after year change for example this 2026 year so after two months it will 2027 so
+trend analysis will come like current year and previous two year". Each of the three trend reports - Rodent, Lizard,
+Flies - shows the year its page is on (this year, as it opens) and the two years before it, oldest first, in its table,
+its chart and its CSV: 2024, 2025, 2026 this year; 2025, 2026, 2027 when 2027 comes. A year of the three with no figures
+yet has its row, blank, worded as the nearest year's (components/reports/CatchTrendSheet.tsx threeYears,
+pages/ReportsPage.tsx). Proved: frontend/tests/trendYears.test.ts, and in the browser on all three pages.

@@ -20,7 +20,7 @@ import {
 import { totalRodents } from "../engine/rodentPattern";
 import { FLY_REPORT_SOURCE, RODENT_HISTORY_SOURCE, RODENT_REPORT_MONTHS } from "../data/seed/pestPattern";
 import { COMPANY } from "../data/seed/masterData";
-import { CatchTrendSheet, rowTotal, type TrendRow } from "../components/reports/CatchTrendSheet";
+import { CatchTrendSheet, rowTotal, threeYears, type TrendRow } from "../components/reports/CatchTrendSheet";
 import { MONTH_NAMES, daysInMonth, pad2, formatDisplayDate } from "../utils/date";
 import { toCSV, downloadCSV } from "../utils/csv";
 import { pressable } from "../utils/pressable";
@@ -446,7 +446,8 @@ export function RodentTrendReport({ isDemo, year }: { isDemo: boolean; year: num
   // Source / Unit / Target Pest come from the transcription of the company's own
   // page (data/seed/trendReports.ts) so the three sheets cannot drift apart; a
   // row that carries its own wording keeps it (REQUIREMENTS §41).
-  const rows: TrendRow[] = rodentTrendRows(isDemo).map((r) => withReportHeader(r, RODENT_TREND_REPORT));
+  // The year chosen and the two before it (REQUIREMENTS §250).
+  const rows: TrendRow[] = threeYears(rodentTrendRows(isDemo).map((r) => withReportHeader(r, RODENT_TREND_REPORT)), year);
   const exportCSV = () => {
     downloadCSV(
       `rodent-catch-report-and-trend-analysis.csv`,
@@ -577,7 +578,8 @@ export function RodentTrendReport({ isDemo, year }: { isDemo: boolean; year: num
 // (data/selectors.ts, lizardTrendRows — REQUIREMENTS §41).
 export function LizardTrendReport({ isDemo, year }: { isDemo: boolean; year: number }) {
   const { navigate } = useRouter();
-  const rows: TrendRow[] = lizardTrendRows(isDemo).map((r) => withReportHeader(r, LIZARD_TREND_REPORT));
+  // The year chosen and the two before it (REQUIREMENTS §250).
+  const rows: TrendRow[] = threeYears(lizardTrendRows(isDemo).map((r) => withReportHeader(r, LIZARD_TREND_REPORT)), year);
   const exportCSV = () => {
     downloadCSV(
       `lizard-catch-report-and-trend-analysis.csv`,
@@ -626,7 +628,8 @@ export function FlyCatcherTrendReport({ isDemo, year, month }: { isDemo: boolean
   // A month clicked opens the F/HR/18 register it is counted from, that month of that year (REQUIREMENTS §242).
   const { navigate } = useRouter();
   const stats = flyStatsForYear(year, isDemo);
-  const rows: TrendRow[] = flyTrendRows(isDemo).map((r) => withReportHeader(r, FLIES_TREND_REPORT));
+  // The year chosen and the two before it (REQUIREMENTS §250).
+  const rows: TrendRow[] = threeYears(flyTrendRows(isDemo).map((r) => withReportHeader(r, FLIES_TREND_REPORT)), year);
   const monthUnits = stats.byUnit.map((u) => ({ label: u.pcId, value: u.months[month] }));
   const monthTotal = stats.months[month];
   const exportCSV = () => {

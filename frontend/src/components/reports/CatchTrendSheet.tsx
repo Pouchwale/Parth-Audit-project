@@ -34,6 +34,26 @@ export interface TrendRow {
   fromRegister: boolean[];
 }
 
+/**
+ * THE YEAR AND THE TWO BEFORE IT (REQUIREMENTS §250; the owner, 17-Nov-2026: "in trend analysis after year change for example
+ * this 2026 year so after two months it will 2027 so trend analysis will come like current year and previous two year"):
+ * a trend report's rows for `year` and the two years before it, oldest first - 2024, 2025, 2026 this year; 2025, 2026,
+ * 2027 when 2027 comes. A year of the three with no row yet has one, blank, worded as the nearest year's.
+ */
+export function threeYears(rows: readonly TrendRow[], year: number): TrendRow[] {
+  const out: TrendRow[] = [];
+  for (let y = year - 2; y <= year; y++) {
+    const own = rows.find((r) => r.year === y);
+    if (own) {
+      out.push(own);
+      continue;
+    }
+    const near = rows.slice().sort((a, b) => Math.abs(a.year - y) - Math.abs(b.year - y))[0];
+    out.push({ source: near?.source ?? "", unit: near?.unit ?? "", targetPest: near?.targetPest ?? "", year: y, months: Array(12).fill(null), fromRegister: Array(12).fill(false) });
+  }
+  return out;
+}
+
 // The company prints the Total only once the year is complete: every 2024 row
 // on its trend pages carries one, every part-reported 2025 row leaves it blank.
 // So a year still being reported shows no total here either (REQUIREMENTS §41).

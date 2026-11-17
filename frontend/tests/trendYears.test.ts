@@ -3,9 +3,11 @@
 // each month"). Run: npm run test:unit -- trendYears
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server.edge";
-import { CatchTrendChart, CatchTrendSheet, type TrendRow } from "../src/components/reports/CatchTrendSheet";
+import { CatchTrendChart, CatchTrendSheet, threeYears, type TrendRow } from "../src/components/reports/CatchTrendSheet";
 
 const row = (year: number, months: (number | null)[]): TrendRow => ({ source: "Collected in EFKs", unit: "Gramms", targetPest: "Flies", year, months, fromRegister: Array(12).fill(false) });
 const FLIES_2024 = row(2024, [30, 22, 22, 16, 15, 17, 15, 13, 22, 24, 22, 17]);
@@ -43,4 +45,15 @@ test("printed, the chart has a height of its own, so the trend page fits one A4 
   const css = readFileSync(path.join(process.env.DCRS_REPO_ROOT ?? process.cwd(), "frontend", "src", "styles.css"), "utf8");
   assert.match(css, /\.trend-sheet \.trend-chart svg \{ width: 100%; height: 92mm; \}/);
   assert.match(css, /\.trend-sheet \.trend-signature \{ break-inside: avoid; break-before: avoid; \}/);
+});
+
+test("a trend report shows the year chosen and the two before it: 2024-2026 this year, 2025-2027 when 2027 comes (§250)", () => {
+  const rows = [row(2023, Array(12).fill(5)), FLIES_2024, FLIES_2025, row(2026, [...Array(10).fill(null), 84, 29])];
+  assert.deepEqual(threeYears(rows, 2026).map((r) => r.year), [2024, 2025, 2026]);
+  const next = threeYears(rows, 2027);
+  assert.deepEqual(next.map((r) => r.year), [2025, 2026, 2027], "2027: 2024 drops off");
+  assert.ok(next[2].months.every((m) => m === null), "2027 not reported yet: its row blank");
+  assert.equal(next[2].source, "Collected in EFKs", "worded as the nearest year");
+  const reports = readFileSync(join(process.env.DCRS_REPO_ROOT ?? process.cwd(), "frontend", "src", "pages", "ReportsPage.tsx"), "utf8");
+  assert.equal((reports.match(/threeYears\((rodent|lizard|fly)TrendRows\(isDemo\)/g) ?? []).length, 3, "all three reports");
 });
