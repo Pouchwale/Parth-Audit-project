@@ -289,9 +289,21 @@ export function scoreAnswerRule(): AnswerRule | null {
   const b = current();
   if (!b) return null;
   const { access, describedEmails } = b;
+  // THE PLANT'S OWN ADDRESS FOR A PERSON KNOWN BY NAME (REQUIREMENTS §247; the owner, 17-Nov-2026: "for kapila barad i
+  // can't see score of it"): the list of people the scores are drawn for gives no addresses, so a person is known by the
+  // owner's twelve names - "kapila.barad@gpp.local" - while the plant's Users & Access names her "kapilabarad@gpp.local"
+  // for all 79 of her documents: she was found answering for none of them. The address the rules hold for the same name,
+  // dots in it or not, is the one used.
+  const dotless = (e: string): string => {
+    const [local, domain] = e.split("@");
+    return `${local.replace(/\./g, "")}@${domain ?? ""}`;
+  };
+  const heldAs = new Map<string, string>();
+  for (const e of describedEmails) if (!heldAs.has(dotless(e)) || !DEFAULT_PEOPLE.some((p) => p.email === e)) heldAs.set(dotless(e), e);
   const emailOf = (p: Person): string | null => {
     const given = typeof p.email === "string" && p.email.includes("@") ? canonicalEmail(p.email) : null;
-    return given ?? EMAIL_BY_NAME.get(sameName(p.name)) ?? null;
+    const byName = EMAIL_BY_NAME.get(sameName(p.name));
+    return given ?? (byName ? (heldAs.get(dotless(byName)) ?? byName) : null);
   };
   const cache = new Map<string, boolean>();
   return (p, doc) => {

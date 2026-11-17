@@ -87,6 +87,9 @@ export interface PaperCell {
   pw?: true;
   /** Its words stand on its middle, free to run over its edges as a spreadsheet's do, the row keeping the paper's height. */
   ov?: true;
+  /** The words of a row of a table of boxes the record keeps its own rows in (engine/boxRows.ts, §246): the row's box, its table. */
+  rowKey?: string;
+  rowTable?: string;
 }
 
 export interface PaperRow {
@@ -1523,6 +1526,11 @@ export function paperTableFits(
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
 export const paperTableFor = (documentId: string): PaperTable | undefined => QC_PAPER_TABLES[documentId];
+
+/** The paper as the page draws it now, with the record's own rows (§246): what the download is cut from. */
+const SHOWN_PAPER = new Map<string, PaperTable>();
+export const setShownPaperTable = (documentId: string, form: PaperTable): void => void SHOWN_PAPER.set(documentId, form);
+export const shownPaperTable = (documentId: string): PaperTable | undefined => SHOWN_PAPER.get(documentId) ?? QC_PAPER_TABLES[documentId];
 
 /** The margin a paper printed to fill the A4 page keeps at its left and top (PaperTable.fillA4): every document's 12 mm. */
 export const A4_MARGIN_MM = 12;

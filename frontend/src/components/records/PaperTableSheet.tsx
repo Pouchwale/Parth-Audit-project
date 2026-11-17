@@ -58,6 +58,11 @@ export interface PaperTableParts {
   removeLine?: (line: number) => void;
   /** What a box of the record holds: its words where the paper prints them again, or where the print shows them as words. */
   value?: (key: string) => string;
+  /** The words of a row of a table of boxes the record keeps its own rows in (§246): typed over where it can be written. */
+  rowWords?: (table: string, key: string, words: string) => React.ReactNode;
+  /** A row put in under this one, and this one taken off (§246); undefined where the record cannot be written. */
+  addRow?: (table: string, after: string) => void;
+  removeRow?: (table: string, key: string) => void;
 }
 
 /** Words whose lines the paper underlines (PaperCell.ul, F-QC-14's specifications): each such line in its own underlined span. */
@@ -288,7 +293,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
                     ))}
                 </span>
               );
-            } else if (text) body = <span className="pt-words">{withUnderlinedLines(text, c.ul, (line) => withHeaderWords(line, words, edit, !!c.caps))}</span>;
+            } else if (c.rowKey && c.rowTable && parts.rowWords) body = <span className="pt-words">{parts.rowWords(c.rowTable, c.rowKey, text)}</span>;
+            else if (text) body = <span className="pt-words">{withUnderlinedLines(text, c.ul, (line) => withHeaderWords(line, words, edit, !!c.caps))}</span>;
           }
           cells.push(
             <td
@@ -303,6 +309,17 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               data-pt-col={c.col}
               data-pt-blank={c.t === "" && !c.box && !c.col && !c.sentence && !c.img && !c.at && !c.num && c.lab === undefined ? "" : undefined}
             >
+              {/* A row of a table of boxes: a row put in under it, and it taken off - outside the paper's table, never printed (§246). */}
+              {ci === 0 && c.rowKey && c.rowTable && parts.addRow && (
+                <span className="pt-rowtools no-print">
+                  <button type="button" className="btn btn-ghost btn-sm btn-icon" data-action="box-row-add" title="Add a row below" aria-label="Add a row below" onClick={() => parts.addRow?.(c.rowTable!, c.rowKey!)}>
+                    +
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm btn-icon" data-action="box-row-remove" title="Remove this row" aria-label="Remove this row" onClick={() => parts.removeRow?.(c.rowTable!, c.rowKey!)}>
+                    ×
+                  </button>
+                </span>
+              )}
               {/* The screen's bin on a register's line, outside the paper's table; never printed. */}
               {ci === 0 && row.line !== undefined && !row.pad && parts.removeLine && form.lines && (
                 <button

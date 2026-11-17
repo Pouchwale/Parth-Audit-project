@@ -163,6 +163,11 @@ export interface LogSheetData {
    * the box still holds it, the box follows the list's number; a number a person writes there instead stays.
    */
   autoSerialNo?: string;
+  /**
+   * A table of boxes' rows as this record has them (REQUIREMENTS §246, engine/boxRows.ts): by the table's first box, the
+   * boxes in the record's order - the format's and the person's own ("extra-…") - a row taken off left out.
+   */
+  boxRows?: Record<string, string[]>;
 }
 
 /** A record's own wording of its paper's paragraphs, line by line (an empty place keeps the format's line). */

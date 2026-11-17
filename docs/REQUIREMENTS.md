@@ -12311,3 +12311,33 @@ for both 300mm and 600mm user can able to create 50, 100 or whatever records he 
 - The twenty, 01 to 20, are still made for each scale as each year comes (§220).
 - Proved: frontend/tests/rulerSlots.test.ts (51 records in a year; 07 deleted and not made again; the last number deleted
   and not given again), and in the browser: New twice - 21, 22 - and 22 deleted.
+
+## §246 F/QC/17's two tables of boxes: both sides the person's, rows put in and taken off (17-Nov-2026)
+
+The owner, 17-Nov-2026, with F/QC/17's "Master Measuring Scale (Ruler) Details" and "Measuring Scale (Ruler) under
+calibration details": "so this for both 300mm and 600mm so in that user can edit both left and right side and add and
+delete any row he want".
+
+- On both scales' sheets, each row of the two tables has its words on the left typed over where it stands (that record's
+  own words, asked about first as every printed word is, §138; a new row's words, there being none, kept as typed) and its
+  box on the right as before.
+- A "+" beside each row puts a row in under it - its words and its box the person's - and a "×" takes the row off, a row
+  of the format's too; at least one row stays. Beside the paper's table, never printed (engine/boxRows.ts,
+  components/records/PaperTableSheet.tsx).
+- The record keeps its tables' rows (data.boxRows, by the table's first box); a row taken off is not asked for on Submit,
+  even where the format makes it required (engine/validation.ts). The print, the PDF and the Excel and Word downloads are
+  the record's rows (utils/paperTableExport.ts cut from the page's own paper). A new sheet carries the last one's rows,
+  their words and its added boxes (engine/carryForward.ts).
+- Proved: frontend/tests/boxRows.test.ts, and in the browser: "Make" made "Brand", "Model = SR-600-X" put in under Serial
+  number, Calibration report number taken off - kept after reloading, printed on one page without the buttons, and in
+  the Excel download opened in Office.
+
+## §247 Kapila Barad's score: the plant's own address for a person known by name (17-Nov-2026)
+
+The owner, 17-Nov-2026, with the dashboard's line "Kapila Barad · Quality Control · No record fell due": "for kapila barad
+i can't see score of it So do it". The people the scores are drawn for carry no address, so a person was known by the
+owner's twelve names - "kapila.barad@gpp.local" - while the plant's Users & Access names her "kapilabarad@gpp.local" for
+all 79 documents she answers for: she was found answering for none of them but the one the plant's list leaves out (the
+300 mm ruler, nothing due this month). Now the address the rules hold for the same name, dots in it or not, is the one
+used (engine/departmentScope.ts scoreAnswerRule) - Kapila Barad is scored on her documents of every module, and Vinay
+Bhojak, Sandeep Parekh and the others the same way. Proved: frontend/tests/scorePlantAddresses.test.ts.

@@ -3808,6 +3808,13 @@ table.svc-paper {
 .pt-table td.pt-c.pt-padc { visibility: hidden; }
 .pt-table .pt-bin { position: absolute; left: -30px; top: 50%; transform: translateY(-50%); min-width: 24px; padding: 0 4px; line-height: 1; }
 .paper-sheet[data-paper-form="table"]:has(.pt-bin) { padding-left: 34px; }
+/* A table of boxes' row put in or taken off (§246): + and × outside the paper's table, at its left; never printed. */
+.pt-table .pt-rowtools { position: absolute; left: -58px; top: 50%; transform: translateY(-50%); display: inline-flex; gap: 2px; }
+.pt-table .pt-rowtools .btn { min-width: 24px; padding: 0 4px; line-height: 1; }
+.paper-sheet[data-paper-form="table"]:has(.pt-rowtools) { padding-left: 62px; }
+/* A row put in, its words not given yet: room to click, and what to do, on the screen only. */
+.pt-table .editable-words:empty { display: inline-block; min-width: 40mm; }
+@media screen { .pt-table .editable-words:empty::before { content: "Type the row's words"; color: var(--color-text-faint, #9aa3ad); } }
 .pt-table .pt-words { display: block; }
 /* The paper's degree sign: a small raised ring after the figure. */
 .pt-table .pt-ring { display: inline-block; width: calc(1.3 * var(--u)); height: calc(1.3 * var(--u)); margin-left: calc(0.9 * var(--u)); border: calc(0.75px / var(--print-zoom, 1)) solid #000; border-radius: 50%; vertical-align: calc(1.6 * var(--u)); box-sizing: border-box; }

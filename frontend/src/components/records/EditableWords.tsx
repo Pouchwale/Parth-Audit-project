@@ -80,6 +80,12 @@ export function EditableWords({
         onBlur={(e) => {
           const next = wordsIn(e.currentTarget);
           if (next.trim() === shown.trim()) return again();
+          // Words given where there were none - a row the person put in a table of boxes (§246) - change nothing printed:
+          // kept as typed, not asked about.
+          if (!shown.trim() && !format) {
+            onChange(next);
+            return again();
+          }
           // Asked first (REQUIREMENTS §138); what was typed stays on the screen while the question is open.
           sure.ask(
             format

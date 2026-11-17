@@ -1,4 +1,6 @@
 import React from "react";
+import { EXTRA_BOX, isExtraBox, listTables, rowWords, shownRows, withRecordBoxRows, withRowAdded, withRowRemoved } from "../../engine/boxRows";
+import { setShownPaperTable } from "../../data/seed/qcPaperTables";
 import { unitized } from "../../engine/calibration";
 import { FiAlertTriangle, FiPlus, FiRotateCcw, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetLayout, LogSheetRow, RecordInstance, ReferenceTable, SheetPhoto } from "../../types";
@@ -541,7 +543,9 @@ export function LogSheetRecordView({
   // §117 round 2) is drawn as that table, row by row, in the paper's millimetres (components/records/PaperTableSheet.tsx).
   // (only while the paper still fits the format: one the plant has edited since is drawn as every grid is)
   const ptForm = !frame && !lc ? paperTableFor(layout.documentId) : undefined;
-  const pt = ptForm && paperTableFits(ptForm, layout) ? ptForm : undefined;
+  // ...its tables of boxes with the record's own rows (§246, engine/boxRows.ts).
+  const pt = ptForm && paperTableFits(ptForm, layout) ? withRecordBoxRows(ptForm, layout, data) : undefined;
+  if (pt) setShownPaperTable(layout.documentId, pt);
   // THE TWO INTERNAL CALIBRATION RECORDS ON THEIR PAPERS' MEASURES (F/QC/11, F/QC/12; data/seed/qcCalibrationGeometry.ts,
   // §117 round 2): the sheet as it is drawn (its boxes, its grid, its PROCEDURE), in the paper's millimetres; the number
   // printed alone at the foot of the page.
@@ -810,6 +814,11 @@ export function LogSheetRecordView({
       return fi >= 0 ? { field: layout.footerFields![fi], index: fi, footer: true } : null;
     };
     const paperBox = (key: string, cell: PaperCell): React.ReactNode => {
+      // A row the person put in a table of boxes (§246): a box of their own, its words the row's.
+      if (isExtraBox(key)) {
+        const t = listTables(layout).find((x) => shownRows(data, x).includes(key));
+        return headerBox({ key, label: t ? rowWords(data, t, key) || "Added row" : "Added row", type: "text" }, -1, true);
+      }
       const at = fieldAt(key);
       if (!at) return null;
       // A box written inside the paper's sentence (the retest date) is drawn by the sentence; its words are the cell's.
@@ -896,6 +905,24 @@ export function LogSheetRecordView({
       box: paperBox,
       gridCell: paperGridCell,
       value: (key: string) => String(data.header?.[key] ?? ""),
+      // A table of boxes' rows the record's own (§246): its words typed over, a row put in or taken off.
+      rowWords: (table: string, key: string, words: string) => (
+        <EditableWords shown={words} editable={editable} onChange={(w) => setHeadingWords(`label:${key}`, w)} label={`The words of the row ${words || "(new)"}`}>
+          {words}
+        </EditableWords>
+      ),
+      addRow: editable
+        ? (table: string, after: string) => {
+            const t = listTables(layout).find((x) => x.first === table);
+            if (t) save(withRowAdded(data, t, after, `${EXTRA_BOX}${generateId("box")}`));
+          }
+        : undefined,
+      removeRow: editable
+        ? (table: string, key: string) => {
+            const t = listTables(layout).find((x) => x.first === table);
+            if (t && shownRows(data, t).length > 1) save(withRowRemoved(data, t, key));
+          }
+        : undefined,
     };
     // Where the paper stands on its printed page, and how much bigger it is drawn there (PaperTable.fillA4: F/QC/17; and
     // every paper of a document that fills its page, REQUIREMENTS §194 - the QC papers).

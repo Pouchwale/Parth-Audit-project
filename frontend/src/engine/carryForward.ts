@@ -1,4 +1,5 @@
 import type { LogSheetData, LogSheetLayout, LogSheetRow, RecordInstance } from "../types";
+import { carriedBoxRows } from "./boxRows";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { blankLogRow } from "./recordDefaults";
 import { boxKind, columnKind, isPlaceholder } from "./observations";
@@ -62,6 +63,11 @@ export function previousWrittenRecord(documentId: string, beforeISO: string, isD
  * previous sheet's entries over it, dated `dueDate`. The computed cells are left for computedCells.ts.
  */
 export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blank: LogSheetData, dueDate: string): LogSheetData {
+  // ...and the last sheet's tables of boxes as it had them: its rows, their words, its added boxes (§246, engine/boxRows.ts).
+  return carriedBoxRows(layout, previous, carriedSheet(layout, previous, blank, dueDate));
+}
+
+function carriedSheet(layout: LogSheetLayout, previous: LogSheetData, blank: LogSheetData, dueDate: string): LogSheetData {
   const header: Record<string, string> = { ...blank.header };
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
     if (typeof f.printed === "string") continue;

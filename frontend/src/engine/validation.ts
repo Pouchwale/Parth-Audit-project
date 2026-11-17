@@ -14,6 +14,7 @@ import type {
   ServiceReportData,
   TrainingRecordData,
 } from "../types";
+import { hiddenBoxes } from "./boxRows";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { withoutLineNumber } from "./lineNumbers";
@@ -230,10 +231,12 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       // Checked against the layout the record was filled on (REQUIREMENTS §74).
       const layout = getLogSheetLayoutForRecord(doc.id, record);
       if (!layout) break;
+      const hidden = hiddenBoxes(layout, d);
       for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
         // A box the paper prints its value in is never asked for (REQUIREMENTS §111): nobody writes it.
         if (typeof f.printed === "string") continue;
-        if (f.required && !(d.header?.[f.key] ?? "").toString().trim()) errors.push(`${f.label} is required.`);
+        // (a row the record has taken off its table of boxes is not asked for, §246)
+        if (f.required && !hidden.has(f.key) && !(d.header?.[f.key] ?? "").toString().trim()) errors.push(`${f.label} is required.`);
       }
       if (layout.footerFields?.some((f) => f.key === "lotStatus") && d.header?.lotStatus && !isLotAccepted(d.header.lotStatus) && !(d.header.deviationReason ?? "").trim()) {
         errors.push("Reason for Deviation / Rejection / Segregation is required when the lot is not Accepted.");

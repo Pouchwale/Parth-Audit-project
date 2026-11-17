@@ -1,5 +1,5 @@
 import type { Cell, ExportBlock, PaperCellSpec, SheetCell } from "./documentExport";
-import { lineRow, paperTableFor, paperTablePrint, type PaperCell, type PaperRow, type PaperTable } from "../data/seed/qcPaperTables";
+import { lineRow, paperTablePrint, shownPaperTable as paperTableFor, type PaperCell, type PaperRow, type PaperTable } from "../data/seed/qcPaperTables";
 
 // A PAPER DRAWN AS ITS OWN TABLE, DOWNLOADED AS IT IS DRAWN (the owner, 30-10-26, F/QC/17 with its printout beside its
 // Excel download: "when i download the excel it is all ruin, it should be in the perfect format and way just like the
