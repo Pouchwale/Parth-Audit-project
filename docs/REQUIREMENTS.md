@@ -12357,3 +12357,20 @@ qc-17 is also not generating".
   added, at the start, with a line in each one's history.
 - Proved: frontend/tests/rulerSlots.test.ts, trendMonthsAndLists.test.ts, and in the browser: Next on F/QC/11 and F/QC/12
   showing December's and January's records; New on F/QC/17 in November's list.
+
+## §249 F/QC/17's calibration due date told the day before; no trend line on the three trend charts (17-Nov-2026)
+
+The owner, 17-Nov-2026, with F/QC/17's "Calibration due date 25-09-2027" and the trend charts' line and its "Trend 2025":
+"in qc-17 there is calibration due date so it is of 2027 so before one day user should get notification that in both
+system and gmail and in trend analaysis remove line from all three reports and in third image the is word in all three
+which you have to remove".
+
+- F/QC/17, both scales: the day before the Calibration due date written on the records - the ruler's (25-09-2027) and the
+  master scale's (20-09-2027) - and on the day itself, the people who answer for the document (Kapila Barad) are told
+  "Calibration due tomorrow" / "today", which scale, and the date: on the bell, and in the day's reminder emails with what
+  is coming up. One notice a scale and a date, however many of the year's records carry it (engine/notificationPlan.ts,
+  the dates read by engineHost/entry.ts; worded in English, Hindi and Gujarati, engine/notificationText.ts). An email
+  reaches a person when the email reminders are switched on and an address is on file for them.
+- The three trend charts - Rodent, Lizard, Flies - have no trend line, and their key no "Trend …": the years' bars and
+  the key of the years alone (components/reports/CatchTrendSheet.tsx, §239 changed).
+- Proved: frontend/tests/notificationPlan.test.ts, trendYears.test.ts.

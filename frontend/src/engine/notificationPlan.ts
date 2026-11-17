@@ -86,6 +86,8 @@ export interface NotificationData {
   part?: "morning" | "evening";
   /** needs_input: the readings on this line (`dueDate`) are filled and wait for the person to confirm them (F/QC/12). */
   confirm?: boolean;
+  /** expiry: a scale's calibration falling due (F/QC/17, §249), not a supplier's agreement; `subject` names the scale. */
+  calibration?: boolean;
 }
 
 /** A training the training plan calendar plans (engine/trainingCalendar.ts PlannedTraining, as the plan reads it). */
@@ -245,6 +247,8 @@ export interface PlanRecord {
   trainings?: readonly PlanTraining[];
   /** F/PUR/01: the supplier's service agreement / certificate on the record and the date it is valid upto (§192). */
   agreement?: { validUpto: string; supplier: string };
+  /** F/QC/17: the calibration due dates on the record - the ruler's and the master scale's - each with what it is (§249). */
+  calibrationDue?: readonly { date: string; what: string }[];
 }
 
 export interface PlanPerson {
@@ -382,6 +386,22 @@ export function planNotifications(input: PlanInput): PlannedItem[] {
       const left = daysBetween(today, r.agreement.validUpto);
       const data: NotificationData = { ...base, dueDate: r.agreement.validUpto, subject: r.agreement.supplier, count: Math.max(0, left), daysLate: left < 0 ? -left : 0 };
       for (const p of responsible(doc.id)) add(p.id, "expiry", `expiry|${r.id}`, left <= 30 ? "high" : "medium", data);
+    }
+
+    // A SCALE'S CALIBRATION FALLING DUE (F/QC/17; the owner, 17-Nov-2026, REQUIREMENTS §249: "there is calibration due date
+    // so it is of 2027 so before one day user should get notification that in both system and gmail"): the day before the
+    // Calibration due date written on the record - the ruler's, and the master scale's - and the day itself, the people who
+    // answer for the document are told, on the bell and in the day's emails. One notice a scale and a date, however many of
+    // the year's records carry it.
+    if (r.stored && r.calibrationDue) {
+      for (const c of r.calibrationDue) {
+        if (!DAY_RE.test(c.date) || today < addDays(c.date, -1) || today > c.date) continue;
+        if (input.countedFrom && c.date < input.countedFrom) continue;
+        const left = daysBetween(today, c.date);
+        const data: NotificationData = { ...base, dueDate: c.date, subject: c.what, count: left, daysLate: 0, calibration: true };
+        delete data.recordId;
+        for (const p of responsible(doc.id)) add(p.id, "expiry", `calibration|${doc.id}|${c.what}|${c.date}`, "high", data);
+      }
     }
 
     if (WAITING.includes(r.status)) {

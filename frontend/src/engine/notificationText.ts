@@ -37,6 +37,8 @@ export interface WordsData {
   level?: string;
   by?: string;
   part?: string;
+  /** expiry: a scale's calibration falling due (F/QC/17, §249). */
+  calibration?: boolean;
   confirm?: boolean;
 }
 
@@ -128,6 +130,11 @@ const EN: Record<string, Words> = {
     const left = num(d.count);
     const late = num(d.daysLate);
     const who = clean(d.subject) || nameOf(d);
+    // F/QC/17: a scale's calibration falling due tomorrow, or today (§249).
+    if (d.calibration) {
+      const when = left <= 0 ? "today" : "tomorrow";
+      return { title: `Calibration due ${when}: ${who}`, body: `The calibration of ${who} on ${called(d)} is due ${when}, ${displayDate(d.dueDate)}. Have it calibrated, then write the new calibration date and due date on the record.` };
+    }
     if (late > 0) return { title: `Service agreement ran out: ${who}`, body: `${who}'s service agreement / certificate on ${called(d)} was valid upto ${displayDate(d.dueDate)}, ${late} ${late === 1 ? "day" : "days"} ago. Renew it, upload the new agreement on the record and write its new valid-upto date.` };
     return { title: `Service agreement runs out in ${left} ${left === 1 ? "day" : "days"}: ${who}`, body: `${who}'s service agreement / certificate on ${called(d)} is valid upto ${displayDate(d.dueDate)}. Renew it before then, upload the new agreement on the record and write its new valid-upto date.` };
   },
@@ -188,6 +195,10 @@ const HI: Record<string, Words> = {
     const left = num(d.count);
     const late = num(d.daysLate);
     const who = clean(d.subject) || nameOf(d);
+    if (d.calibration) {
+      const when = left <= 0 ? "आज" : "कल";
+      return { title: `कैलिब्रेशन ${when} देय: ${who}`, body: `${who} (${called(d)}) का कैलिब्रेशन ${when}, ${displayDate(d.dueDate)} को देय है। कैलिब्रेशन करवाएँ, फिर रिकॉर्ड पर नई कैलिब्रेशन तिथि और देय तिथि लिखें।` };
+    }
     if (late > 0) return { title: `सर्विस एग्रीमेंट की अवधि समाप्त: ${who}`, body: `${who} का सर्विस एग्रीमेंट / प्रमाणपत्र (${called(d)}) ${displayDate(d.dueDate)} तक वैध था, ${late} दिन बीत चुके हैं। इसे नवीनीकृत करें, नया एग्रीमेंट रिकॉर्ड पर अपलोड करें और नई वैधता तिथि लिखें।` };
     return { title: `सर्विस एग्रीमेंट ${left} दिन में समाप्त: ${who}`, body: `${who} का सर्विस एग्रीमेंट / प्रमाणपत्र (${called(d)}) ${displayDate(d.dueDate)} तक वैध है। उससे पहले नवीनीकृत करें, नया एग्रीमेंट रिकॉर्ड पर अपलोड करें और नई वैधता तिथि लिखें।` };
   },
@@ -245,6 +256,10 @@ const GU: Record<string, Words> = {
     const left = num(d.count);
     const late = num(d.daysLate);
     const who = clean(d.subject) || nameOf(d);
+    if (d.calibration) {
+      const when = left <= 0 ? "આજે" : "આવતીકાલે";
+      return { title: `કેલિબ્રેશન ${when} બાકી: ${who}`, body: `${who} (${called(d)}) નું કેલિબ્રેશન ${when}, ${displayDate(d.dueDate)} ના રોજ બાકી છે. કેલિબ્રેશન કરાવો, પછી રેકોર્ડ પર નવી કેલિબ્રેશન તારીખ અને બાકી તારીખ લખો.` };
+    }
     if (late > 0) return { title: `સર્વિસ એગ્રીમેન્ટની મુદત પૂરી: ${who}`, body: `${who} નો સર્વિસ એગ્રીમેન્ટ / પ્રમાણપત્ર (${called(d)}) ${displayDate(d.dueDate)} સુધી માન્ય હતો, ${late} દિવસ વીતી ગયા છે. તેને રિન્યૂ કરો, નવો એગ્રીમેન્ટ રેકોર્ડ પર અપલોડ કરો અને નવી માન્યતા તારીખ લખો.` };
     return { title: `સર્વિસ એગ્રીમેન્ટ ${left} દિવસમાં પૂરો થાય છે: ${who}`, body: `${who} નો સર્વિસ એગ્રીમેન્ટ / પ્રમાણપત્ર (${called(d)}) ${displayDate(d.dueDate)} સુધી માન્ય છે. તે પહેલાં રિન્યૂ કરો, નવો એગ્રીમેન્ટ રેકોર્ડ પર અપલોડ કરો અને નવી માન્યતા તારીખ લખો.` };
   },

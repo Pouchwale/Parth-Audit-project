@@ -38,6 +38,7 @@ import {
 import { periodDays as browserPeriodDays, priorityOf as browserPriorityOf } from "../src/engine/notifications";
 import { AS_REQUIRED_DAYS as LATENESS_AS_REQUIRED_DAYS, plantClosedDays } from "../src/engine/latenessCore";
 import type { ScheduleConfig } from "../src/types";
+import { emailGroupOf, notificationWords } from "../src/engine/notificationText";
 
 const repoRoot = process.env.DCRS_REPO_ROOT ?? process.cwd();
 
@@ -97,6 +98,32 @@ function plan(today: string, records: PlanRecord[], time = "09:00", countedFrom:
   return planNotifications({ today, time, documents: DOCS, records, people: PEOPLE, isClosedDay: closed, countedFrom });
 }
 const of = (items: PlannedItem[], userId: string, kind?: string) => items.filter((i) => i.userId === userId && (!kind || i.kind === kind));
+
+test("a scale's calibration falling due (F/QC/17, §249): the day before and the day itself, one notice a scale and a date, to who answers for it, on the bell and in the emails", () => {
+  const docs = [...DOCS, doc("qc-ruler-verification", { type: "yearly", month: 8, dayOfMonth: 24 }, "QC")];
+  const qc = person("u-kapila", "Kapila Barad", ["qc-ruler-verification"]);
+  const due = [{ date: "2027-09-25", what: "the 600 mm measuring scale (ruler)" }, { date: "2027-09-20", what: "the master measuring scale QC-44" }];
+  const run = (today: string) =>
+    planNotifications({
+      today,
+      time: "09:00",
+      documents: docs,
+      // Two of the year's twenty records, each carrying the same dates: one notice each, not two.
+      records: [rec("qc-ruler-verification", "2026-09-24", "Due", { calibrationDue: due }), { ...rec("qc-ruler-verification", "2026-09-25", "Due", { calibrationDue: due }), id: "rec-other" }],
+      people: [...PEOPLE, qc],
+      isClosedDay: closed,
+    }).filter((i) => i.kind === "expiry" && i.userId === "u-kapila");
+  assert.equal(run("2027-09-23").length, 0, "two days before the ruler's: nothing yet");
+  const before = run("2027-09-24");
+  assert.deepEqual(before.map((i) => [i.data.subject, i.data.dueDate, i.data.count, i.data.calibration, i.priority]), [["the 600 mm measuring scale (ruler)", "2027-09-25", 1, true, "high"]], "the day before: one notice");
+  assert.deepEqual(run("2027-09-25").map((i) => i.data.count), [0], "the day itself");
+  assert.equal(run("2027-09-26").length, 0, "after it: none");
+  assert.deepEqual(run("2027-09-19").map((i) => i.data.subject), ["the master measuring scale QC-44"], "the master scale's the day before its own date");
+  const words = notificationWords("expiry", before[0].data, "en");
+  assert.match(words.title, /^Calibration due tomorrow: the 600 mm measuring scale \(ruler\)$/);
+  assert.match(words.body, /25-09-2027/);
+  assert.equal(emailGroupOf("expiry"), "upcoming", "in the day's emails, with what is coming up");
+});
 
 test("a service agreement running out (§192): told from two months before to the people who answer for F/PUR/01, high within a month, and after the date until a later one is written", () => {
   const docs = [...DOCS, doc("pur-supplier-registration", { type: "as-required" }, "PUR")];

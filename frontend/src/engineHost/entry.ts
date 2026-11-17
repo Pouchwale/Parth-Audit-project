@@ -60,6 +60,7 @@ import { ensureSeeded as ensureMasterSeeded, masterRepository } from "../data/re
 import { ensureSeeded as ensureHrMasterSeeded, hrMasterRepository } from "../data/repositories/hrMasterRepository";
 import { ensureSeeded as ensureRecordsSeeded, recordRepository } from "../data/repositories/recordRepository";
 import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
+import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { departmentName, departmentOfDocument } from "../data/seed/departments";
 import { formatEditFor } from "../data/formatEdits";
 import { complianceStatement } from "../data/repositories/referenceRepository";
@@ -1172,6 +1173,16 @@ function notificationsOp(args: Obj): Outcome {
     const validUpto = String(header.agreementValidUpto ?? "").trim();
     return /^\d{4}-\d{2}-\d{2}$/.test(validUpto) ? { agreement: { validUpto, supplier: String(header.supplierName ?? "").trim() } } : {};
   };
+  const calibrationDueOf = (documentId: string, data: unknown): Pick<PlanRecord, "calibrationDue"> => {
+    const header = (data as { header?: Record<string, unknown> } | undefined)?.header ?? {};
+    const scale = documentId === "qc-ruler-verification-300" ? "300 mm" : "600 mm";
+    const out: { date: string; what: string }[] = [];
+    const ruler = String(header.calibrationDueDate ?? "").trim();
+    const master = String(header.masterCalibrationDueDate ?? "").trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ruler)) out.push({ date: ruler, what: `the ${scale} measuring scale (ruler)` });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(master)) out.push({ date: master, what: `the master measuring scale ${String(header.masterSerialNo ?? "").trim() || "(master)"}`.trim() });
+    return out.length ? { calibrationDue: out } : {};
+  };
   const records: PlanRecord[] = [];
   for (const r of recordRepository.getAll()) {
     const doc = byId.get(r.documentId);
@@ -1196,6 +1207,8 @@ function notificationsOp(args: Obj): Outcome {
       ...(r.documentId === TRAINING_CALENDAR_ID ? { trainings: plannedTrainings((r.data as { rows?: Obj[] } | undefined)?.rows, r.dueDate, today, (d) => isCompanyHoliday(d, master)) } : {}),
       // F/PUR/01: the service agreement / certificate's valid-upto date and the supplier, for the two months' warning (§192).
       ...(r.documentId === "pur-supplier-registration" ? agreementOf(r.data) : {}),
+      // F/QC/17: the ruler's and the master scale's calibration due dates, for the day-before reminder (§249).
+      ...(isRulerVerification(r.documentId) ? calibrationDueOf(r.documentId, r.data) : {}),
     });
   }
   const times = isObj(args.summaryTimes) && str(args.summaryTimes.morning) && str(args.summaryTimes.evening) ? { morning: str(args.summaryTimes.morning), evening: str(args.summaryTimes.evening) } : undefined;

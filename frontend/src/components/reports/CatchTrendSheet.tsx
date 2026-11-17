@@ -14,7 +14,7 @@ import { TREND_PREPARED_BY } from "../../data/seed/trendReports";
 //     Pest are printed per ROW, which is what lets the flies report carry its
 //     reported "Gramms" years and a board-counted "Number" year on one page;
 //   * below it, a bar chart of every year in the table side by side, JAN..DEC, a
-//     trend line across (§239), y axis "Number or Quantity Trapped", x axis "Months";
+//     no trend line (§249), y axis "Number or Quantity Trapped", x axis "Months";
 //   * a "Report prepared by" signature line at the foot, blank to be signed,
 //     as on every page of the company's file.
 //
@@ -62,14 +62,13 @@ const fmtTick = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
  * 2024 in blue beside 2025 in red under JAN to DEC, each bar's figure over it, a trend line across: "in trend analysis do
  * make sure it will show with all year which are present in that like it will show bars in each month"). Every year of
  * the table above with a figure in it has its bar in every month it was reported (a 0 too, its figure on the baseline);
- * a month not yet reported has none. The black line is the trend of `trendYear` - the latest year reported in full -
- * fitted over the months it was reported, drawn across JAN to DEC as the company's chart draws it.
+ * a month not yet reported has none. No trend line (the owner, 17-Nov-2026, REQUIREMENTS §249: "in trend analaysis remove
+ * line from all three reports"): the bars alone, and the key of the years.
  */
 const SERIES_FILL = ["#9999FF", "#C0504D", "#9BBB59", "#F79646", "#4BACC6", "#8064A2"];
 
 export function CatchTrendChart({
   rows,
-  trendYear,
   yAxisLabel,
   xAxisLabel = "Months",
   unitWord,
@@ -78,8 +77,6 @@ export function CatchTrendChart({
   /** A bar clicked opens its month's register (§242). */
   openMonth?: (year: number, month: number) => void;
   rows: TrendRow[];
-  /** The year whose trend line is drawn. */
-  trendYear: number;
   yAxisLabel: string;
   xAxisLabel?: string;
   unitWord: string;
@@ -108,18 +105,6 @@ export function CatchTrendChart({
   for (let v = 0; v <= top + 1e-9; v += step) ticks.push(Math.round(v * 100) / 100);
   const centre = (i: number) => left + slot * i + slot / 2;
 
-  // The trend: a straight line fitted (least squares) over the months the year was reported.
-  const trendRow = series.find((r) => r.year === trendYear) ?? series[series.length - 1];
-  const pts = trendRow ? trendRow.months.map((m, i) => [i, m] as const).filter((p): p is readonly [number, number] => p[1] !== null) : [];
-  let trend: { a: number; b: number } | null = null;
-  if (pts.length >= 2) {
-    const mx = pts.reduce((s2, p) => s2 + p[0], 0) / pts.length;
-    const my = pts.reduce((s2, p) => s2 + p[1], 0) / pts.length;
-    const sxx = pts.reduce((s2, p) => s2 + (p[0] - mx) ** 2, 0);
-    const b = sxx ? pts.reduce((s2, p) => s2 + (p[0] - mx) * (p[1] - my), 0) / sxx : 0;
-    trend = { a: my - b * mx, b };
-  }
-  const clampY = (v: number) => y(Math.max(0, Math.min(top, v)));
   const word = (r: TrendRow) => (r.unit && /gram/i.test(r.unit) ? "gramms" : unitWord);
 
   return (
@@ -164,11 +149,6 @@ export function CatchTrendChart({
             </text>
           </g>
         ))}
-        {trend && trendRow && (
-          <line x1={centre(0)} y1={clampY(trend.a)} x2={centre(11)} y2={clampY(trend.a + trend.b * 11)} className="trend-line" data-trend-year={trendRow.year}>
-            <title>{`Trend of ${trendRow.year}`}</title>
-          </line>
-        )}
         <text x={left + plotW / 2} y={H - 26} className="axis-title" textAnchor="middle">
           {xAxisLabel}
         </text>
@@ -178,7 +158,7 @@ export function CatchTrendChart({
         {/* Which colour is which year, under the months. */}
         <g className="legend">
           {series.map((r, k) => {
-            const lx = left + plotW / 2 - (series.length * 70) / 2 + k * 70 + (trend ? -40 : 0);
+            const lx = left + plotW / 2 - (series.length * 70) / 2 + k * 70;
             return (
               <g key={r.year}>
                 <rect x={lx} y={H - 14} width={11} height={11} className={`mark series-${k}`} style={{ fill: SERIES_FILL[k % SERIES_FILL.length] }} />
@@ -188,14 +168,6 @@ export function CatchTrendChart({
               </g>
             );
           })}
-          {trend && trendRow && (
-            <g>
-              <line x1={left + plotW / 2 + (series.length * 70) / 2 - 30} y1={H - 8} x2={left + plotW / 2 + (series.length * 70) / 2 - 8} y2={H - 8} className="trend-line" />
-              <text x={left + plotW / 2 + (series.length * 70) / 2 - 3} y={H - 5} className="tick">
-                Trend {trendRow.year}
-              </text>
-            </g>
-          )}
         </g>
       </svg>
     </div>
@@ -314,9 +286,7 @@ export function CatchTrendSheet({
             </tbody>
           </table>
         </div>
-        {/* The trend line is the latest year reported in full - all twelve months - as on the company's charts (2024's
-            line on the 2024 / 2025 pages); else the year chosen (§239). */}
-        <CatchTrendChart openMonth={openMonth} rows={rows} trendYear={rows.filter((r) => r.months.every((m) => m !== null)).map((r) => r.year).sort((x, z) => z - x)[0] ?? drawnYear} yAxisLabel={yAxisLabel} unitWord={unitWord} />
+        <CatchTrendChart openMonth={openMonth} rows={rows} yAxisLabel={yAxisLabel} unitWord={unitWord} />
         {/* The signature line every page of the company's file carries. Left
             blank on purpose: the system does not sign a report for anybody
             (REQUIREMENTS §41). */}
