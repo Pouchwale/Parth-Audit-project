@@ -181,7 +181,7 @@ test("F/HR/18: a visit's own page is the paper, every box the person fills a box
   // Thirteen units, two lines each as the paper prints them: this visit's line, then the month's other visit's,
   // blank here (no other visit on file) with the tube-light dates dittoed.
   assert.equal(count(page, 'class="fhr18-unit"'), 13);
-  assert.equal(count(page.toLowerCase(), 'rowspan="2"'), 13, "each unit's number merged down its two lines");
+  assert.equal(count(page.toLowerCase(), 'rowspan="2"'), 26, "each unit's number and its Verified By merged down its two lines (§256)");
   assert.equal(cells(page, "td", "pc-cell").join(" "), LEGEND.map(([id]) => id).sort().join(" "), "PC-01 to PC-13 in order");
   assert.deepEqual(cells(page, "td", "date-cell"), Array(13).fill(["03-08-2026", ""]).flat(), "the visit's date on its line, as the app writes a date (REQUIREMENTS §171); the other line blank");
   for (const field of ["count", "installed", "due", "cleaning", "verified"]) {
@@ -225,7 +225,7 @@ test("F/HR/18: a visit's page shows the month's other visit on each unit's secon
     const rows = Array.from(unit.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g), (m) => m[1]);
     assert.equal(rows.length, 2, "two lines for the unit");
     assert.ok(rows[0].includes('data-field="count"'), "this visit (3-Aug) first, in date order, open for writing");
-    assert.deepEqual(cells(rows[1], "td").map((c) => c.replace(/&quot;/g, '"')), ["17-08-2026", "4", '"', '"', "Vijay", "Roshni"], "the 17-Aug visit, its date as the app writes one, its count as plain figures (§201)");
+    assert.deepEqual(cells(rows[1], "td").map((c) => c.replace(/&quot;/g, '"')), ["17-08-2026", "4", '"', '"', "Vijay"], "the 17-Aug visit (its Verified By the unit's one merged cell, §256), its date as the app writes one, its count as plain figures (§201)");
     assert.ok(!rows[1].includes("<input"), "the other visit is not typed in here");
     assert.equal(count(page, "data-bind="), 1 + 13 * 5, "only this visit's boxes are bound");
     assert.equal(count(page, "data-empty-line"), 0, "both lines written, both print");
@@ -246,9 +246,10 @@ test("F/HR/18: the month's other visit, still a draft, is typed in on its own li
     const rows = Array.from(unit.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g), (m) => m[1]);
     assert.equal(rows.length, 2, "two lines for the unit");
     assert.equal(cells(rows[1], "td", "date-cell")[0], "17-08-2026", "the other visit's date on its line");
-    for (const field of ["count", "installed", "due", "cleaning", "verified"]) {
+    for (const field of ["count", "installed", "due", "cleaning"]) {
       assert.equal(count(page, `data-field="${field}"`), 26, `a ${field} box on both lines of every unit`);
     }
+    assert.equal(count(page, 'data-field="verified"'), 13, "one Verified By a unit, merged down its lines (§256)");
     assert.equal(count(page, 'data-line="other"'), 13, "the second line of every unit is the other visit's");
     assert.equal(count(page, "data-bind="), 1 + 13 * 5, "only this visit's boxes are bound");
     assert.equal(count(page, "data-empty-line"), 0, "an open line is not hidden from the printout");

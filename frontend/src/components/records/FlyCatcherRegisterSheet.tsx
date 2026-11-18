@@ -20,7 +20,7 @@ import { useT } from "../../i18n";
 import { printDocument } from "../../utils/print";
 import { DownloadDocumentButton } from "../common/DownloadDocumentButton";
 import { MONTH_NAMES, daysInMonth, formatDisplayDate, pad2, todayISO } from "../../utils/date";
-import { tubeLightCycle } from "../../engine/flyPattern";
+import { tubeLightCycle, tubeLightDueFor } from "../../engine/flyPattern";
 import { BIND_RECORD_ATTR } from "../../engine/roundTrip/bindPath";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 
@@ -407,6 +407,31 @@ export function FlyCatcherRegisterSheet({
           // with none (the month's second line before its visit, a visit not carried out) stays on the screen only.
           // The unit's first line always prints: it carries the unit's name.
           const someWritten = rows.some((row) => !!row.entry);
+          // ONE VERIFIED BY A PC (the owner, 18-Nov-2026, REQUIREMENTS §256): merged down the unit's lines as its number is,
+          // one name; typed there, it is written on each of the unit's lines that may be changed.
+          const rowTypable = (r: RecordInstance<FlyCatcherData> | undefined): boolean =>
+            editing && !!r && !waitsUntil(doc, r) && (isEditableStatus(r.status) || (isCorrectableStatus(r.status) && mayDo(FLY_DOC_ID, "correct")));
+          const typedOn = rows.find((row) => rowTypable(row.record));
+          const verifiedName = typedOn
+            ? (typedOn.entry?.verifiedBy ?? "")
+            : (rows.map((row) => row.entry?.verifiedBy ?? "").find((n) => n.trim()) ?? "");
+          const firstHeld = !!rows[0]?.record && dataOf(rows[0].record).entries.some((x) => x.pcId === pc.id);
+          const verifiedCell = typedOn ? (
+            <td rowSpan={rows.length} className="edit-cell verified-cell">
+              <input
+                className="input input-sm fhr18-input"
+                list="fhr18-people"
+                data-field="verified"
+                aria-label={`${pc.id} — verified by`}
+                value={verifiedName}
+                onChange={(ev) => rows.forEach((row) => row.record && rowTypable(row.record) && updateEntry(row.record, pc.id, { verifiedBy: ev.target.value }))}
+              />
+            </td>
+          ) : (
+            <td rowSpan={rows.length} className="name-cell verified-cell notranslate" translate="no" {...(firstHeld ? bindProps(flyCatcherBind.entry(pc.id, "verifiedBy")) : undefined)}>
+              {verifiedName}
+            </td>
+          );
           return (
             <tbody key={pc.id} className="fhr18-unit" data-pc={pc.id}>
               {rows.map((row, i) => {
@@ -486,7 +511,11 @@ export function FlyCatcherRegisterSheet({
                             {...bound("tubeLightInstallDate")}
                             aria-label={`${label} — date of tube light installation`}
                             value={e?.tubeLightInstallDate ?? tubeLightCycle(r?.dueDate).installed}
-                            onChange={(ev) => updateEntry(r!, pc.id, { tubeLightInstallDate: ev.target.value || null })}
+                            // The due date follows the date typed, a year less a day after it (§256: 18-11-2026 -> 17-11-2027).
+                            onChange={(ev) => {
+                              const due = tubeLightDueFor(ev.target.value);
+                              updateEntry(r!, pc.id, due ? { tubeLightInstallDate: ev.target.value, tubeLightDueDate: due } : { tubeLightInstallDate: ev.target.value || null });
+                            }}
                           />
                         </td>
                         <td className="edit-cell">
@@ -511,17 +540,6 @@ export function FlyCatcherRegisterSheet({
                             onChange={(ev) => updateEntry(r!, pc.id, { cleaningDoneBy: ev.target.value })}
                           />
                         </td>
-                        <td className="edit-cell">
-                          <input
-                            className="input input-sm fhr18-input"
-                            list="fhr18-people"
-                            data-field="verified"
-                            {...bound("verifiedBy")}
-                            aria-label={`${label} — verified by`}
-                            value={e?.verifiedBy ?? ""}
-                            onChange={(ev) => updateEntry(r!, pc.id, { verifiedBy: ev.target.value })}
-                          />
-                        </td>
                       </>
                     ) : (
                       <>
@@ -539,11 +557,9 @@ export function FlyCatcherRegisterSheet({
                         <td className="name-cell notranslate" translate="no" {...bound("cleaningDoneBy")}>
                           {e?.cleaningDoneBy ?? ""}
                         </td>
-                        <td className="name-cell notranslate" translate="no" {...bound("verifiedBy")}>
-                          {e?.verifiedBy ?? ""}
-                        </td>
                       </>
                     )}
+                    {i === 0 && verifiedCell}
                   </tr>
                 );
               })}

@@ -368,7 +368,7 @@ export function FlyCatcherRecordView({
 
   // THE MONTH'S OTHER VISIT'S LINE, EDITABLE: the same boxes as this visit's line, written into that visit. Not bound
   // for the Word/Excel round trip: this page's download is this visit's record.
-  const otherEditLine = (e: FlyCatcherEntry, r: RecordInstance<FlyCatcherData>, i: number, pcCell: React.ReactNode) => {
+  const otherEditLine = (e: FlyCatcherEntry, r: RecordInstance<FlyCatcherData>, i: number, pcCell: React.ReactNode, vCell: React.ReactNode) => {
     const o = dataOf(r).entries.find((x) => x.pcId === e.pcId);
     const label = `${e.pcId}, visit of ${formatDisplayDate(r.dueDate)}`;
     return (
@@ -428,17 +428,7 @@ export function FlyCatcherRecordView({
             onChange={(ev) => updateOther(r, e.pcId, { cleaningDoneBy: ev.target.value })}
           />
         </td>
-        <td className="edit-cell">
-          <input
-            className="input input-sm fhr18-input notranslate"
-            translate="no"
-            list="fhr18-record-people"
-            data-field="verified"
-            aria-label={`${label} — verified by`}
-            value={o?.verifiedBy ?? ""}
-            onChange={(ev) => updateOther(r, e.pcId, { verifiedBy: ev.target.value })}
-          />
-        </td>
+        {vCell}
       </tr>
     );
   };
@@ -447,10 +437,10 @@ export function FlyCatcherRecordView({
   // (above), read only once it is submitted or verified — or the paper's blank line. The tube-light dates are the
   // register's fixed pair, dittoed under a line that reads the same. A line with nothing written stays off the
   // printout unless it is the unit's first (it carries the unit's number), as on the register (REQUIREMENTS §126).
-  const otherLine = (e: FlyCatcherEntry, i: number, pcCell: React.ReactNode) => {
+  const otherLine = (e: FlyCatcherEntry, i: number, pcCell: React.ReactNode, vCell: React.ReactNode) => {
     const line = lines[i];
     const r = line.record;
-    if (r && otherEditable(r)) return otherEditLine(e, r, i, pcCell);
+    if (r && otherEditable(r)) return otherEditLine(e, r, i, pcCell, vCell);
     const o = entryOf(line, e, e.pcId);
     const above = i > 0 ? entryOf(lines[i - 1], e, e.pcId) : undefined;
     const tube = (value: string | null | undefined, previous: string | null | undefined) =>
@@ -481,12 +471,49 @@ export function FlyCatcherRecordView({
         <td className="name-cell notranslate" translate="no">
           {o?.cleaningDoneBy ?? ""}
         </td>
-        <td className="name-cell notranslate" translate="no">
-          {o?.verifiedBy ?? ""}
-        </td>
+        {vCell}
       </tr>
     );
   };
+  // ONE VERIFIED BY A PC (the owner, 18-Nov-2026, REQUIREMENTS §256: "remove line in verified name ... in each pc there is
+  // one name only for per pc"): the column's cell is merged down the unit's lines, as its number is, and holds one name. Typed
+  // there, the name is written on each of the unit's lines still being drafted (PC-01's on every unit's too, §237); shown, it
+  // is the first line's that is being drafted, or, with none, the first name a line of the unit holds.
+  const lineName = (line: MonthLine, e: FlyCatcherEntry): string => {
+    if (line.current) return e.verifiedBy ?? "";
+    const r = line.record;
+    if (!r) return "";
+    const o = otherEditable(r) ? dataOf(r).entries.find((x) => x.pcId === e.pcId) : entryOf(line, e, e.pcId);
+    return o?.verifiedBy ?? "";
+  };
+  const lineTypable = (line: MonthLine): boolean => (line.current ? editable : !!line.record && otherEditable(line.record));
+  const setVerified = (pcId: string, value: string) =>
+    lines.forEach((line) => {
+      if (line.current) {
+        if (editable) updateEntry(pcId, { verifiedBy: value });
+      } else if (line.record && otherEditable(line.record)) updateOther(line.record, pcId, { verifiedBy: value });
+    });
+  const verifiedCell = (e: FlyCatcherEntry) => {
+    const typedOn = lines.find(lineTypable);
+    const name = typedOn ? lineName(typedOn, e) : lines.map((line) => lineName(line, e)).find((n) => n.trim()) ?? "";
+    // A signed-off visit shows the box closed, as its other boxes are.
+    return (
+      <td className="edit-cell verified-cell" rowSpan={lines.length}>
+        <input
+          className="input input-sm fhr18-input notranslate"
+          translate="no"
+          list="fhr18-record-people"
+          data-field="verified"
+          {...bound(e.pcId, "verifiedBy")}
+          aria-label={`${e.pcId} — verified by`}
+          disabled={!typedOn}
+          value={name}
+          onChange={(ev) => setVerified(e.pcId, ev.target.value)}
+        />
+      </td>
+    );
+  };
+
   // EVERY PRINTED WORD OF THE VISIT'S SHEET, TYPED OVER ON IT (REQUIREMENTS §137): each catcher's number and area, the
   // visit's date on each line, the headings - this visit's own words once changed; Master Data keeps the plant's.
   const host = { words: data.printedWords, editable, onWords: (printedWords: PrintedWords) => onChange({ ...data, printedWords }) };
@@ -521,7 +548,9 @@ export function FlyCatcherRecordView({
                         {at(`pc:${e.pcId}`, e.pcId, "Catcher")}
                       </td>
                     ) : null;
-                  if (!line.current) return otherLine(e, i, pcCell);
+                  // Its Verified By, merged down its lines the same way: one name a PC (§256).
+                  const vCell = i === 0 ? verifiedCell(e) : null;
+                  if (!line.current) return otherLine(e, i, pcCell, vCell);
                   return (
                   <tr key={record.id} className="register-row" data-visit={record.dueDate}>
                     {pcCell}
@@ -589,19 +618,7 @@ export function FlyCatcherRecordView({
                         onChange={(ev) => updateEntry(e.pcId, { cleaningDoneBy: ev.target.value })}
                       />
                     </td>
-                    <td className="edit-cell">
-                      <input
-                        className="input input-sm fhr18-input notranslate"
-                        translate="no"
-                        list="fhr18-record-people"
-                        data-field="verified"
-                        {...bound(e.pcId, "verifiedBy")}
-                        aria-label={`${label} — verified by`}
-                        disabled={!editable}
-                        value={e.verifiedBy}
-                        onChange={(ev) => updateEntry(e.pcId, { verifiedBy: ev.target.value })}
-                      />
-                    </td>
+                    {vCell}
                   </tr>
                   );
                   })}

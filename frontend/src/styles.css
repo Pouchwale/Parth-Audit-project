@@ -1722,6 +1722,8 @@ body { top: 0 !important; }
 .fhr18-grid td.date-cell { text-align: center; font-weight: 500; width: auto; }
 .fhr18-grid td.count-cell { font-variant-numeric: tabular-nums; }
 .fhr18-grid td.name-cell { text-transform: capitalize; }
+/* One Verified By a PC, in the middle of the unit's lines (the owner, 18-Nov-2026, §256). */
+.fhr18-grid td.verified-cell { vertical-align: middle; }
 .fhr18-grid td { height: 26px; }
 .fhr18-grid tbody.fhr18-unit { border-top: 1.5px solid #2c3e50; }
 /* The printed forms' long column headings must wrap as they do on paper. The
@@ -3700,6 +3702,7 @@ table.svc-paper {
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr.register-row td.date-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr.register-row td.date-cell { text-align: left; font-weight: 400; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.count-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.count-cell { text-align: center; padding-left: 0; }
   .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.name-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.name-cell { text-transform: none; }
+  .fhr18-sheet .register-grid.fhr18-grid tbody.fhr18-unit tr td.verified-cell, .fhr18-record .register-grid.fhr18-grid tbody.fhr18-unit tr td.verified-cell { vertical-align: middle; padding-top: 0; border-right: 1px solid #000; }
 }
 /* F/HR/16 ON ONE PAGE, AS THE PAPER IS (REQUIREMENTS §118): the paper prints its eighteen areas on one landscape page; DCRS's sheet ran to two because
    the cleaning cell (what is cleaned and "Cleaning by", two lines on the paper) wrapped to three. Printed, that cell is wide enough

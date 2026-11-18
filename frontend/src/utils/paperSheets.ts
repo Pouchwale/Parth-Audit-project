@@ -339,10 +339,12 @@ function flyCatcherWord(blocks: ExportBlock[]): ExportBlock[] | null {
         height: unitHeight,
         // A unit's lines stay together: a line whose next line is the same unit's (its PC ID merged down) keeps with it.
         ...(units[ri + 1] && text(units[ri + 1][0]) === "" ? { keepNext: true } : {}),
+        // ...and VERIFIED BY merged down them the same way, one name a PC (the owner, 18-Nov-2026, REQUIREMENTS §256).
         cells: r.slice(0, 7).map((c, i) => {
-          const starts = i === 0 && text(c) !== "";
-          const continues = i === 0 && text(c) === "";
-          return pc(c, 20, i === 0, "left", "top", E(HAIR, HAIR, HAIR, HAIR), starts ? { vMerge: "restart" as const } : continues ? { vMerge: "continue" as const } : {});
+          const merged = i === 0 || i === 6;
+          const starts = merged && text(r[0]) !== "";
+          const continues = merged && text(r[0]) === "";
+          return pc(c, 20, i === 0, "left", i === 6 ? "center" : "top", E(HAIR, HAIR, HAIR, HAIR), starts ? { vMerge: "restart" as const } : continues ? { vMerge: "continue" as const } : {});
         }),
       })),
     });

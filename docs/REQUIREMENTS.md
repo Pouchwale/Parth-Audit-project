@@ -12484,3 +12484,21 @@ made for the days ahead, so they were still listed and counted as due.
   sheets of days the new one does not name are taken away.
 - Proved: frontend/tests/scheduleChange28Oct.test.ts; on the local copy in the browser (F/PRD/23 made As Required: its 18-30
   November sheets gone, the 17-11 sheet kept; put back as issued).
+
+## §256 F/HR/18: the due date follows any installation date typed; one Verified By a PC (18-Nov-2026)
+
+The owner, 18-Nov-2026: "user manually also change date for DATE OF TUBE LIGHT INSTALLATION so from that date to one year
+date will come for example 18-11-2026 then in DUE DATE FOR TUBE LIGHT REPLACEMENT will 17-11-2027", and, with the Verified
+By column (a name on a PC's first line, a ruled empty cell under it): "remove line in verified name which is so in each pc
+there is one name only for per pc".
+
+- An installation date typed gives the due date a year less a day after it (engine/flyPattern.ts tubeLightDueFor) - on a
+  visit's own page, as before, and now on the month's register in Edit too (FlyCatcherRegisterSheet.tsx), which had left the
+  due date as it was. The due date can still be typed over by hand.
+- Verified By is one cell a PC, merged down the unit's lines as its PC ID NO. is, on the visit's page, the register, the
+  printout and the Word and Excel downloads (utils/paperSheets.ts flyCatcherWord). Typed there, the name is written on each
+  of the unit's lines still open (PC-01's on every unit's, §237); a signed-off sheet shows it closed. Cleaning Done By keeps
+  a line each.
+- Proved: frontend/tests/verifiedOnePerPc.test.ts, hrPaperFormats.test.ts; on the local copy in the browser (18-11-2026
+  typed gave 17-11-2027 on the visit and on the register; one Verified By a PC, row span 2); the downloads merged (Excel
+  O20:Q21 for PC-03, Word 26 merged starts) and opened in Excel and Word (tests/office_open_check.ps1).
