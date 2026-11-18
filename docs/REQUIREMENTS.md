@@ -12502,3 +12502,24 @@ there is one name only for per pc".
 - Proved: frontend/tests/verifiedOnePerPc.test.ts, hrPaperFormats.test.ts; on the local copy in the browser (18-11-2026
   typed gave 17-11-2027 on the visit and on the register; one Verified By a PC, row span 2); the downloads merged (Excel
   O20:Q21 for PC-03, Word 26 merged starts) and opened in Excel and Word (tests/office_open_check.ps1).
+
+## §257 F/HR/18: the flies catch count in two figures, and by the season (18-Nov-2026)
+
+The owner, 18-Nov-2026: "in FLIES CATCH COUNT APPROX. ... it should like 01 02 ... so flyies will show according to season
+so it look very real ... some month in rainy season more". This replaces §201's plain 1, 2 (7-Nov-2026) and the 30-10-26
+rule that took a filled-in count's range from the tube light's installation month (2 to 4 for June-August, else 0 to 2).
+
+- A count is written in two figures - 00, 01, 02, 12 - on the visit's page, the register, the printout and the Word and
+  Excel downloads (engine/flyPattern.ts flyCountText; Excel keeps "01" as written). The count box is a text box taking
+  figures only: 3 typed shows 03, backspace from 05 empties it (flyCountTyped).
+- A count filled in automatically falls in its VISIT's month's range (FLY_MONTH_RANGE), Gujarat's year: January 1-2,
+  February-March 0-2, April-May 0-1 (the dry heat), June 1-3 (first rains), July-August 3-6 (monsoon), September 2-5,
+  October 1-4, November 1-3, December 1-2; random by unit, visit and date, a unit that catches more (FLY_UNIT_BASE)
+  leaning to the top.
+- A visit still being drafted has the counts the assistant filled in under the former rule filled in again for the season
+  when it is opened (FlyCatcherRecordView.tsx withSeasonalCounts) - only where the count is exactly that rule's figure and no
+  person's edit or upload in the visit's history wrote that unit's count. A submitted or verified visit, and every count a
+  person wrote, is never touched.
+- Proved: frontend/tests/flyCountSeason.test.ts, hrPaperFormats.test.ts, notBeforeDay.test.ts; on the local copy in the
+  browser (the register's counts 01, 02; 3 typed shows 03; the November draft's counts redrawn 01-03 on opening, a count
+  typed by hand kept).

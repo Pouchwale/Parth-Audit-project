@@ -225,7 +225,7 @@ test("F/HR/18: a visit's page shows the month's other visit on each unit's secon
     const rows = Array.from(unit.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g), (m) => m[1]);
     assert.equal(rows.length, 2, "two lines for the unit");
     assert.ok(rows[0].includes('data-field="count"'), "this visit (3-Aug) first, in date order, open for writing");
-    assert.deepEqual(cells(rows[1], "td").map((c) => c.replace(/&quot;/g, '"')), ["17-08-2026", "4", '"', '"', "Vijay"], "the 17-Aug visit (its Verified By the unit's one merged cell, §256), its date as the app writes one, its count as plain figures (§201)");
+    assert.deepEqual(cells(rows[1], "td").map((c) => c.replace(/&quot;/g, '"')), ["17-08-2026", "04", '"', '"', "Vijay"], "the 17-Aug visit (its Verified By the unit's one merged cell, §256), its date as the app writes one, its count in two figures (§257)");
     assert.ok(!rows[1].includes("<input"), "the other visit is not typed in here");
     assert.equal(count(page, "data-bind="), 1 + 13 * 5, "only this visit's boxes are bound");
     assert.equal(count(page, "data-empty-line"), 0, "both lines written, both print");
@@ -258,17 +258,17 @@ test("F/HR/18: the month's other visit, still a draft, is typed in on its own li
   }
 });
 
-test("F/HR/18: a count filled in automatically is 0 to 2, 2 to 4 in June-August, the same each time; a July visit carries the reminder", async () => {
+test("F/HR/18: a count filled in automatically follows the visit's season (§257), the same each time; a July visit carries the reminder", async () => {
   const { render, FlyCatcherRecordView } = await loadPages();
   const view = await import("../src/components/records/FlyCatcherRecordView");
   const ranges: [string, number, number][] = [
-    ["2026-05-31", 0, 2],
-    ["2026-06-01", 2, 4],
-    ["2026-07-06", 2, 4],
-    ["2026-08-31", 2, 4],
-    ["2026-09-01", 0, 2],
-    ["2026-11-02", 0, 2],
-    ["2027-01-04", 0, 2],
+    ["2026-05-02", 0, 1],
+    ["2026-06-01", 1, 3],
+    ["2026-07-06", 3, 6],
+    ["2026-08-31", 3, 6],
+    ["2026-09-05", 2, 5],
+    ["2026-11-02", 1, 3],
+    ["2027-01-04", 1, 2],
   ];
   for (const [day, low, high] of ranges) {
     const seen = new Set<number>();
@@ -334,25 +334,24 @@ test("F/HR/18: a tube-light date written on a unit's first line is carried to th
   assert.equal(view.carryDatesDown(written, [first]), written, "nothing written over, the same object back");
 });
 
-test("F/HR/18: a count filled in automatically follows the line's tube-light installation month - 2 to 4 for June-August", async () => {
+test("F/HR/18: a count filled in automatically follows the visit's month, whatever the installation date (§257)", async () => {
   const view = await import("../src/components/records/FlyCatcherRecordView");
   const pcs = LEGEND.map(([id]) => id);
-  for (const [install, low, high] of [["2026-06-15", 2, 4], ["2026-07-10", 2, 4], ["2026-08-31", 2, 4], ["2025-11-24", 0, 2], ["2026-09-01", 0, 2]] as const) {
+  for (const install of ["2026-06-15", "2026-07-10", "2025-11-24", "2026-09-01"]) {
     for (const pc of pcs) {
       const n = view.autoFlyCount(pc, "2026-11-16", install);
-      assert.ok(n >= low && n <= high, `${pc}, installed ${install}: ${n} not in ${low}-${high}`);
+      assert.ok(n >= 1 && n <= 3, `${pc}, installed ${install}: ${n} not in November's 1-3`);
     }
   }
-  // No installation date yet: the visit's own month decides.
-  assert.deepEqual(view.autoFlyRange("2026-07-06", null), [2, 4]);
-  assert.deepEqual(view.autoFlyRange("2026-11-16", ""), [0, 2]);
-  // An empty count on each line, by that line's installation date; a written count is kept.
+  assert.deepEqual(view.autoFlyRange("2026-07-06", null), [3, 6], "July, the monsoon: most");
+  assert.deepEqual(view.autoFlyRange("2026-05-16", ""), [0, 1], "May, the dry heat: fewest");
+  // An empty count on each line, in the visit's range; a written count is kept.
   const entry = (pcId: string, count: number | null, install: string | null) => ({ pcId, catchCountApprox: count, tubeLightInstallDate: install, tubeLightDueDate: null, cleaningDoneBy: "", verifiedBy: "" });
   const data = { ...visit().data, entries: [entry("PC-13", null, "2025-11-24"), entry("PC-14", null, "2026-07-10"), entry("PC-12", 9, "2026-07-10")] };
   const filled = view.withAutoCounts(data, "2026-11-16")!;
   const [p13, p14, p12] = filled.entries.map((e) => e.catchCountApprox!);
-  assert.ok(p13 >= 0 && p13 <= 2, `PC-13 ${p13}`);
-  assert.ok(p14 >= 2 && p14 <= 4, `PC-14 ${p14}`);
+  assert.ok(p13 >= 1 && p13 <= 3, `PC-13 ${p13}`);
+  assert.ok(p14 >= 1 && p14 <= 3, `PC-14 ${p14}`);
   assert.equal(p12, 9, "a count already written is kept");
 });
 
@@ -386,11 +385,11 @@ test("F/HR/18: no tube-light installation date, no flies count; the first line's
   const data = { ...visit().data, entries: [entry("PC-14", 2, null), entry("PC-15", null, "2026-07-25", "2027-07-24"), entry("PC-13", 1, "2025-11-24", "2026-11-23")] };
   const counted = view.withAutoCounts(data, "2026-11-16")!;
   assert.equal(counted.entries[0].catchCountApprox, null, "PC-14: no date, no count");
-  assert.ok(counted.entries[1].catchCountApprox! >= 2 && counted.entries[1].catchCountApprox! <= 4, "PC-15: a July date, 2 to 4");
+  assert.ok(counted.entries[1].catchCountApprox! >= 1 && counted.entries[1].catchCountApprox! <= 3, "PC-15: a November visit, 1 to 3");
   assert.equal(counted.entries[2].catchCountApprox, 1, "PC-13: a count written with its date is kept");
   // A different date, a count drawn afresh (random by the date entered), still in the date's range.
   const draws = new Set(["2026-06-01", "2026-06-15", "2026-07-01", "2026-07-25", "2026-08-10", "2026-08-31"].map((d) => view.autoFlyCount("PC-15", "2026-11-16", d)));
-  assert.ok(draws.size > 1 && [...draws].every((n) => n >= 2 && n <= 4), [...draws].join(","));
+  assert.ok(draws.size > 1 && [...draws].every((n) => n >= 1 && n <= 3), [...draws].join(","));
   // The first line has no date for PC-14: the line below has none either; PC-13's dates stand.
   const first = { ...visit().data, entries: [entry("PC-14", null, null), entry("PC-13", 1, "2025-11-24", "2026-11-23")] };
   const below = { ...visit().data, entries: [entry("PC-14", null, "2026-07-25", "2027-07-24"), entry("PC-13", 0, "2025-11-24", "2026-11-23")] };

@@ -12,11 +12,12 @@ import { formatEditFor } from "../../data/formatEdits";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { useAppStore } from "../../store/AppStore";
-import { makeRng } from "../../utils/random";
 import { formatDisplayDate } from "../../utils/date";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 import { visitsInMonth } from "../../engine/flyRegister";
-import { tubeLightCycle, tubeLightDueFor, withTubeLightsOn } from "../../engine/flyPattern";
+import { flyCountText, flyCountTyped, flyMonthRange, seasonalFlyCount, tubeLightCycle, tubeLightDueFor, withTubeLightsOn } from "../../engine/flyPattern";
+import { makeRng } from "../../utils/random";
+import type { HistoryEntry } from "../../types";
 import { FHR18_PAPER_CELLS, FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate } from "./FlyCatcherRegisterSheet";
 
 // A FLY CATCHER VISIT ON ITS OWN PAGE, LAID OUT AS F/HR/18 PRINTS — the
@@ -50,7 +51,8 @@ const DITTO = '"';
 const hasCount = (e: FlyCatcherEntry) => e.catchCountApprox !== null && e.catchCountApprox !== undefined;
 /** 1 -> "01", as the specimen writes a count. */
 /** A count as plain figures - 1, 2, 12 - not padded (the owner, 7-Nov-2026: "like 1, 2 and not 01, 02"). */
-const paperCount = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
+// Two figures, 01, 02 (§257).
+const paperCount = flyCountText;
 // What is typed into the month's other visit is saved this long after the last keystroke, as on the register.
 const AUTOSAVE_MS = 700;
 // UNITS TO A PRINTED PAGE (the owner, 30-10-26): eight, as the register's first page holds PC-01 to PC-08. Each page
@@ -62,16 +64,44 @@ const UNITS_PER_PAGE = 8;
 export const isFlySeasonMonth = (dateISO: string | null | undefined) => ["06", "07", "08"].includes((dateISO ?? "").slice(5, 7));
 
 /**
- * The range a count filled in automatically falls in: by the month of the line's tube-light installation date (the
- * owner, 30-10-26) — 2 to 4 for June-August, else 0 to 2 — or, on a line with no installation date yet, the visit's.
+ * The range a count filled in automatically falls in: the visit's month's, by the season (the owner, 18-Nov-2026,
+ * REQUIREMENTS §257; engine/flyPattern.ts FLY_MONTH_RANGE) - it was the installation month's, 2 to 4 or 0 to 2 (30-10-26).
  */
-export const autoFlyRange = (visitISO: string, installISO?: string | null): [number, number] =>
-  isFlySeasonMonth(installISO || visitISO) ? [2, 4] : [0, 2];
+export const autoFlyRange = (visitISO: string, _installISO?: string | null): [number, number] => flyMonthRange(visitISO);
 
 /** The count filled in automatically on a line, in its range (autoFlyRange); random by unit, visit and installation date, the same on every device. */
 export function autoFlyCount(pcId: string, visitISO: string, installISO?: string | null): number {
-  const [low, high] = autoFlyRange(visitISO, installISO);
-  return low + Math.min(high - low, Math.floor(makeRng(`fly-auto|${pcId}|${visitISO}|${installISO ?? ""}`).next() * (high - low + 1)));
+  return seasonalFlyCount(pcId, visitISO, installISO);
+}
+
+/** The count the 30-10-26 rule filled in - by the installation month, 2 to 4 for June-August, else 0 to 2 - to know it again (withSeasonalCounts). */
+export function formerAutoFlyCount(pcId: string, visitISO: string, installISO: string): number {
+  const [low, high] = isFlySeasonMonth(installISO || visitISO) ? [2, 4] : [0, 2];
+  return low + Math.min(high - low, Math.floor(makeRng(`fly-auto|${pcId}|${visitISO}|${installISO}`).next() * (high - low + 1)));
+}
+
+/**
+ * A DRAFT'S COUNTS BROUGHT TO THE SEASON (the owner, 18-Nov-2026, REQUIREMENTS §257): on a visit still being drafted, a
+ * count the assistant filled in under the former rule (it is exactly that rule's figure, and no person's edit or upload in
+ * the visit's history wrote that unit's count) is filled in again for the visit's season. A count a person wrote stays;
+ * with a person's change the history does not list in full, nothing is touched. Null when nothing changes.
+ */
+export function withSeasonalCounts(data: FlyCatcherData, visitISO: string, history: readonly HistoryEntry[] | undefined): FlyCatcherData | null {
+  const byPerson = (history ?? []).filter((h) => h.action === "edited" || h.action === "imported");
+  if (byPerson.some((h) => (h.moreChanges ?? 0) > 0)) return null;
+  // A unit's line is named by its PC in the change's label ("... PC-05 · Flies catch count"); its path is the line's place.
+  const typed = (pcId: string) =>
+    byPerson.some((h) => (h.changes ?? []).some((c) => c.field.includes("catchCountApprox") && (c.field.includes(pcId) || (c.label ?? "").includes(pcId))));
+  let changed = false;
+  const entries = data.entries.map((e) => {
+    if (!e.tubeLightInstallDate || !hasCount(e) || typed(e.pcId)) return e;
+    if (e.catchCountApprox !== formerAutoFlyCount(e.pcId, visitISO, e.tubeLightInstallDate)) return e;
+    const next = autoFlyCount(e.pcId, visitISO, e.tubeLightInstallDate);
+    if (next === e.catchCountApprox) return e;
+    changed = true;
+    return { ...e, catchCountApprox: next };
+  });
+  return changed ? { ...data, entries } : null;
 }
 
 /**
@@ -303,7 +333,7 @@ export function FlyCatcherRecordView({
     });
   };
   // AN INSTALLATION DATE TYPED: the date and its due date on this line and the unit's lines below, and on each a count
-  // generated from that date (autoFlyCount: 2 to 4 for June-August, else 0 to 2); a date cleared takes the count with it.
+  // generated for the visit's season (autoFlyCount, §257); a date cleared takes the count with it.
   const setInstall = (from: number, pcId: string, value: string) => {
     const dates = installPatch(value);
     setDates(from, pcId, (line) => {
@@ -340,7 +370,9 @@ export function FlyCatcherRecordView({
       const down = carryDatesDown(led, items.slice(0, j).flatMap((x) => (x ? [x.data] : [])));
       // The tube light changed on its due date, every year (§253): a visit on or after it carries the next pair.
       const carried = withTubeLightsOn(down, it.r.dueDate) ?? down;
-      it.data = withAutoCounts(carried, it.r.dueDate) ?? carried;
+      const counted = withAutoCounts(carried, it.r.dueDate) ?? carried;
+      // ...and the counts the assistant filled in before §257, for the season now.
+      it.data = withSeasonalCounts(counted, it.r.dueDate, it.r.history) ?? counted;
     });
     let changed = false;
     for (const it of items) {
@@ -350,7 +382,7 @@ export function FlyCatcherRecordView({
       const stored = (it.line.current ? (recordRepository.getById(it.r.id) as RecordInstance<FlyCatcherData> | undefined) : undefined) ?? it.r;
       saveDraft(stored, it.data, user.current, {
         action: "assistant-edit",
-        note: "Fly catcher units as in Master Data (added or deleted), tube light dates following the first line and a year on from each due date passed, and flies catch counts filled in automatically where a tube light installation date is (2 to 4 for June-August, else 0 to 2)",
+        note: "Fly catcher units as in Master Data (added or deleted), tube light dates following the first line and a year on from each due date passed, and flies catch counts filled in automatically where a tube light installation date is, by the season (most in the monsoon)",
       });
       changed = true;
     }
@@ -379,20 +411,16 @@ export function FlyCatcherRecordView({
         </td>
         <td className="edit-cell">
           <input
-            type="number"
-            min={0}
-            step={1}
+            type="text"
+            inputMode="numeric"
             className="input input-sm fhr18-input"
             data-field="count"
             aria-label={`${label} — flies catch count approx.`}
             // The count comes with the tube light's installation date (the owner, 30-10-26).
             disabled={!o?.tubeLightInstallDate}
             title={o?.tubeLightInstallDate ? undefined : "Enter the date of tube light installation first"}
-            value={o?.catchCountApprox ?? ""}
-            onChange={(ev) => {
-              const n = Number(ev.target.value);
-              updateOther(r, e.pcId, { catchCountApprox: ev.target.value === "" || !Number.isFinite(n) ? null : Math.max(0, n) });
-            }}
+            value={flyCountText(o?.catchCountApprox)}
+            onChange={(ev) => updateOther(r, e.pcId, { catchCountApprox: flyCountTyped(ev.target.value, flyCountText(o?.catchCountApprox)) })}
           />
         </td>
         <td className="edit-cell">
@@ -560,9 +588,8 @@ export function FlyCatcherRecordView({
                     </td>
                     <td className="edit-cell">
                       <input
-                        type="number"
-                        min={0}
-                        step={1}
+                        type="text"
+                        inputMode="numeric"
                         className="input input-sm fhr18-input"
                         data-field="count"
                         {...bound(e.pcId, "catchCountApprox")}
@@ -570,11 +597,8 @@ export function FlyCatcherRecordView({
                         // The count comes with the tube light's installation date (the owner, 30-10-26).
                         disabled={!editable || !e.tubeLightInstallDate}
                         title={editable && !e.tubeLightInstallDate ? "Enter the date of tube light installation first" : undefined}
-                        value={e.catchCountApprox ?? ""}
-                        onChange={(ev) => {
-                          const n = Number(ev.target.value);
-                          updateEntry(e.pcId, { catchCountApprox: ev.target.value === "" || !Number.isFinite(n) ? null : Math.max(0, n) });
-                        }}
+                        value={flyCountText(e.catchCountApprox)}
+                        onChange={(ev) => updateEntry(e.pcId, { catchCountApprox: flyCountTyped(ev.target.value, flyCountText(e.catchCountApprox)) })}
                       />
                     </td>
                     <td className="edit-cell">
@@ -668,7 +692,7 @@ export function FlyCatcherRecordView({
             data-section="fhr18-july-reminder"
             style={{ marginTop: 10, padding: "8px 12px", border: "1px solid var(--color-warning)", borderRadius: "var(--radius-sm)" }}
           >
-            <strong>Reminder — July, fly season:</strong> the flies catch counts were filled in automatically (2 to 4 where the tube light was installed in June, July or August, else 0 to 2). Count the
+            <strong>Reminder — July, fly season:</strong> the flies catch counts were filled in automatically for the monsoon ({flyMonthRange(record.dueDate)[0]} to {flyMonthRange(record.dueDate)[1]} a unit). Count the
             flies on each glue board and change the numbers to what you found.
           </div>
         )}

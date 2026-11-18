@@ -79,9 +79,9 @@ test("the pages and F/HR/18's views read the one rule, and the record page says 
   const css = read("frontend", "src", "styles.css");
   assert.match(css, /\.fhr18-grid td\.pc-cell \{ font-weight: 700; text-align: center; vertical-align: middle;/, "the unit's number in the middle of its two lines");
   assert.match(css, /fhr18-input::-webkit-inner-spin-button/, "the count box's spinner off, its digits in the middle");
-  // Counts as plain figures, the date boxes centred, a submitted visit edited from the register as a correction (§201, the owner's later pictures).
-  assert.match(sheet, /return n === null \|\| n === undefined \? "" : String\(n\);/, "1, 2 - not 01, 02");
-  assert.match(view, /\(n === null \|\| n === undefined \? "" : String\(n\)\)/);
+  // Counts in two figures, 01, 02 (§257, over §201's plain 1, 2), the date boxes centred, a submitted visit edited from the register as a correction.
+  assert.match(sheet, /const paperCount = flyCountText;/, "01, 02");
+  assert.match(view, /const paperCount = flyCountText;/);
   assert.match(css, /input\[type="date"\]\.fhr18-input \{ min-width: 118px; text-align: center; \}/);
   assert.match(sheet, /const canEdit = editing && !!r && !waits && \(isEditableStatus\(r\.status\) \|\| \(isCorrectableStatus\(r\.status\) && mayDo\(FLY_DOC_ID, "correct"\)\)\);/);
   assert.match(sheet, /if \(isCorrectableStatus\(r\.status\) && !pending\.current\.has\(r\.id\)\) r = reopenForCorrection\(r, user\.current, "Corrected on the register"\)/);

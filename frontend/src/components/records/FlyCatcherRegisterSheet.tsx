@@ -20,7 +20,7 @@ import { useT } from "../../i18n";
 import { printDocument } from "../../utils/print";
 import { DownloadDocumentButton } from "../common/DownloadDocumentButton";
 import { MONTH_NAMES, daysInMonth, formatDisplayDate, pad2, todayISO } from "../../utils/date";
-import { tubeLightCycle, tubeLightDueFor } from "../../engine/flyPattern";
+import { flyCountText, flyCountTyped, tubeLightCycle, tubeLightDueFor } from "../../engine/flyPattern";
 import { BIND_RECORD_ATTR } from "../../engine/roundTrip/bindPath";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 
@@ -181,11 +181,8 @@ export function Fhr18GridHead({ host }: { host?: WordsHost } = {}) {
   );
 }
 
-/** 1 -> "01", as the specimen writes a count. */
-/** A count as plain figures - 1, 2, 12 - not padded (the owner, 7-Nov-2026: "like 1, 2 and not 01, 02"). */
-function paperCount(n: number | null | undefined): string {
-  return n === null || n === undefined ? "" : String(n);
-}
+/** A count in two figures, 01, 02, 12 (the owner, 18-Nov-2026, REQUIREMENTS §257: "it should like 01 02" - over the plain 1, 2 of 7-Nov-2026). */
+const paperCount = flyCountText;
 
 const DITTO = '"';
 
@@ -489,18 +486,14 @@ export function FlyCatcherRegisterSheet({
                       <>
                         <td className="edit-cell">
                           <input
-                            type="number"
-                            min={0}
-                            step={1}
+                            type="text"
+                            inputMode="numeric"
                             className="input input-sm fhr18-input"
                             data-field="count"
                             {...bound("catchCountApprox")}
                             aria-label={`${label} — flies catch count`}
-                            value={e?.catchCountApprox ?? ""}
-                            onChange={(ev) => {
-                              const n = Number(ev.target.value);
-                              updateEntry(r!, pc.id, { catchCountApprox: ev.target.value === "" || !Number.isFinite(n) ? null : Math.max(0, n) });
-                            }}
+                            value={flyCountText(e?.catchCountApprox)}
+                            onChange={(ev) => updateEntry(r!, pc.id, { catchCountApprox: flyCountTyped(ev.target.value, flyCountText(e?.catchCountApprox)) })}
                           />
                         </td>
                         <td className="edit-cell">

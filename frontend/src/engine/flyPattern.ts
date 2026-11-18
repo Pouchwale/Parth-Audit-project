@@ -108,6 +108,59 @@ export function withTubeLightsOn<T extends { entries: { tubeLightInstallDate: st
   return changed ? { ...data, entries } : null;
 }
 
+// THE FLIES CATCH COUNT BY THE SEASON (the owner, 18-Nov-2026, REQUIREMENTS §257: "flyies will show according to season
+// so it look very real ... some month in rainy season more"). A count filled in automatically falls in its visit's month's
+// range - Gujarat's year: few in the dry summer heat (April-May), rising with the first rains in June, most in the monsoon
+// (July-August), easing through September and October, a steady few in winter. Which figure in the range is random by unit,
+// visit and installation date (the same on every device), a unit that catches more (FLY_UNIT_BASE: near the wash room, the
+// Gallus machine, the warehouse) leaning to the top of it.
+export const FLY_MONTH_RANGE: readonly [number, number][] = [
+  [1, 2], // January
+  [0, 2], // February
+  [0, 2], // March
+  [0, 1], // April
+  [0, 1], // May
+  [1, 3], // June - the first rains
+  [3, 6], // July - monsoon
+  [3, 6], // August - monsoon
+  [2, 5], // September
+  [1, 4], // October
+  [1, 3], // November
+  [1, 2], // December
+];
+
+/** The range a count filled in automatically falls in: its visit's month's (FLY_MONTH_RANGE). */
+export function flyMonthRange(visitISO: string): [number, number] {
+  const m = Number((visitISO ?? "").slice(5, 7));
+  const r = FLY_MONTH_RANGE[m - 1] ?? [0, 2];
+  return [r[0], r[1]];
+}
+
+/** The count filled in automatically on a unit's line of a visit, in its month's range (flyMonthRange). */
+export function seasonalFlyCount(pcId: string, visitISO: string, installISO?: string | null): number {
+  const [low, high] = flyMonthRange(visitISO);
+  const lean = 0.75 + 0.25 * (FLY_UNIT_BASE[pcId] ?? 1);
+  const u = Math.min(0.999, makeRng(`fly-auto|${pcId}|${visitISO}|${installISO ?? ""}`).next() * lean);
+  return low + Math.min(high - low, Math.floor(u * (high - low + 1)));
+}
+
+/** A count as the paper writes it, two figures: 1 -> "01", 12 -> "12" (the owner, 18-Nov-2026, §257: "it should like 01 02"). */
+export function flyCountText(n: number | null | undefined): string {
+  return n === null || n === undefined || !Number.isFinite(Number(n)) ? "" : String(n).padStart(2, "0");
+}
+
+/**
+ * What a count box holds after a keystroke: its figures as a number, or null when emptied. Typed into a box showing "01",
+ * a figure gives "012" -> 12; cleared down to nothing but noughts (backspace from "05" leaves "0"), the box is emptied.
+ */
+export function flyCountTyped(raw: string, before: string): number | null {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return null;
+  const n = Number(digits);
+  if (n === 0 && digits.length < before.length) return null;
+  return Number.isFinite(n) ? n : null;
+}
+
 export function flySeasonLabel(month: number): string {
   const f = FLY_MONTHLY_FACTOR[month] ?? 1;
   return f >= 0.85 ? "peak fly season" : f >= 0.55 ? "moderate fly season" : "low fly season";
