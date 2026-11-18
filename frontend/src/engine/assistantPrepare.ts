@@ -15,6 +15,7 @@ import { mayWriteRecordsOf } from "./departmentScope";
 import { fillScaleLinesDue, SCALE_DAY_NOTE } from "./nominalFill";
 import { firstWeekDate } from "./calibrationWeeks";
 import { withComputedCells } from "./computedCells";
+import { bladeClosing, bladeSheetBefore, razorBladeRow, RAZOR_BLADE_DOCS, sharpIssueRows, sharpSheetUnwritten, SHARP_FILL_NOTE, SHARP_TOOL_DOCS } from "./sharpTools";
 
 // Statuses in which a record is still an untouched shell the assistant may
 // fill. "In Progress" is deliberately excluded: that means a person has
@@ -139,10 +140,57 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   if (prepared.length > 0) recordRepository.upsertMany(prepared);
 
   // F/QC/12's WEEKS FILL ON THEIR DAY, by themselves (the owner, 30-Oct-2026): see fillScaleWeeksDue.
-  const weeks = fillScaleWeeksDue(referenceISO);
-  if (weeks.length === 0) return prepared;
-  const ids = new Set(weeks.map((r) => r.id));
-  return [...prepared.filter((r) => !ids.has(r.id)), ...weeks];
+  // ...and the Sharp Objects & Blades sheets, from their master data and their stock (§254): see fillSharpToolsDue.
+  const later = [...fillScaleWeeksDue(referenceISO), ...fillSharpToolsDue(referenceISO)];
+  if (later.length === 0) return prepared;
+  const ids = new Set(later.map((r) => r.id));
+  return [...prepared.filter((r) => !ids.has(r.id)), ...later];
+}
+
+/**
+ * THE SHARP OBJECTS & BLADES SHEETS FILLED ON THEIR DAY (the owner, 17-Nov-2026, REQUIREMENTS §254; engine/sharpTools.ts).
+ * Every open Live sheet of F/PRD/10, 22, 23 and 24 dated `referenceISO` or earlier, on which nobody has written a figure yet,
+ * gets its lines: F/PRD/10 and 23 a line for each shift of the Sharp Objects Master Data (none while the list is empty),
+ * F/PRD/22 and 24 the day's blades from the stock the day before closed with. Oldest first, so each blade sheet carries the
+ * one before it. A sheet a person has written on is never touched, so run again it fills nothing. Returns the sheets changed.
+ */
+export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
+  const { liveStartDate } = settingsRepository.get();
+  const master = masterRepository.get();
+  const now = new Date().toISOString();
+  const changed: RecordInstance[] = [];
+  for (const id of SHARP_TOOL_DOCS) {
+    const doc = documentRepository.getByIdUnscoped(id);
+    if (!doc || !mayWriteRecordsOf(doc.id)) continue;
+    const all = recordRepository.queryUnscoped({ documentId: id, isDemo: false }).slice().sort((a, b) => compareISO(a.dueDate, b.dueDate));
+    const blades = (RAZOR_BLADE_DOCS as readonly string[]).includes(id);
+    for (let i = 0; i < all.length; i++) {
+      const record = all[i];
+      if (!["Scheduled", "Due", "In Progress"].includes(record.status)) continue;
+      if (compareISO(record.dueDate, referenceISO) > 0 || (liveStartDate && compareISO(record.dueDate, liveStartDate) < 0)) continue;
+      const data = record.data as LogSheetData | undefined;
+      if (!sharpSheetUnwritten(id, data)) continue;
+      const rows = blades ? [razorBladeRow(id, record.dueDate, bladeClosing(bladeSheetBefore(all, record.dueDate)?.data))].filter((r) => !!r) : sharpIssueRows(id, record.dueDate, master);
+      if (!rows || rows.length === 0) continue;
+      const filled = withComputedCells(id, { header: { ...(data?.header ?? {}) }, rows: rows as LogSheetData["rows"] });
+      const entry = { ...makeEntry("prepared", "Assistant", { note: SHARP_FILL_NOTE, changes: diffRecordData(record.data, filled, fieldLabels(doc.kind, doc.id)) }), at: now };
+      if (!entry.changes?.length) delete entry.changes;
+      // Still the assistant's own work, nobody's yet (prepared.at = updatedAt): two copies of the day's sheet made in two
+      // places merge into one (data/serverSync.ts withoutDuplicateBlanks), and a person's change wins over it.
+      const next: RecordInstance = {
+        ...record,
+        data: filled,
+        status: "In Progress",
+        updatedAt: now,
+        prepared: { at: now, by: "assistant", notes: [SHARP_FILL_NOTE], basedOn: blades ? "the blade stock the sheet before closed with" : "the Sharp Objects Master Data", knownPartsOnly: true },
+        history: [...(record.history ?? []), entry],
+      };
+      all[i] = next;
+      changed.push(next);
+    }
+  }
+  if (changed.length > 0) recordRepository.upsertMany(changed);
+  return changed;
 }
 
 const SCALE_ID = "qc-weight-scale-calibration";

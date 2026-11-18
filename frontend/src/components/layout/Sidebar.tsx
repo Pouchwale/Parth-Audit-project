@@ -296,6 +296,8 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { headingKey: "nav.prdDoctoring" },
     { to: "/document/prd-doctoring-alc", labelKey: "nav.prdDoctoringAlc", icon: FiClipboard },
     { headingKey: "nav.prdSharpObjects" },
+    // Its master data first: name, department, shift - what the four sheets fill from (REQUIREMENTS §254).
+    { to: "/production/sharp-master", labelKey: "nav.prdSharpMaster", icon: FiDatabase },
     { to: "/document/prd-sharp-object-issue", labelKey: "nav.prdSharpObjectIssue", icon: FiScissors },
     { to: "/document/prd-pouching-blade", labelKey: "nav.prdPouchingBlade", icon: FiTool },
     { to: "/document/prd-pouching-cutter-issue", labelKey: "nav.prdPouchingCutterIssue", icon: FiScissors },
@@ -469,6 +471,8 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/document/pur-service-provider-performance": ["pur-service-provider-performance"],
   // Purchase Master Data serves every one of them, so it is shown when any Purchase document is the viewer's (§186).
   "/purchase/master-data": PURCHASE_DOCUMENT_IDS,
+  // The Sharp Objects Master Data serves the four Sharp Objects & Blades sheets (REQUIREMENTS §254).
+  "/production/sharp-master": ["prd-sharp-object-issue", "prd-pouching-blade", "prd-pouching-cutter-issue", "prd-slitting-blade"],
   "/purchase/drive": PURCHASE_DOCUMENT_IDS,
   // Store and Dispatch (REQUIREMENTS §71, §70) — missing until §74, so their
   // links showed to anybody who could see the module at all.

@@ -285,6 +285,9 @@ export function isValidAppRoute(path: string): boolean {
       // /hr (HR Records overview), /hr/{slug} (one HR format's page — data/seed/hrModule.ts),
       // /hr/master-data (HR Master Data, the employee master sheet — REQUIREMENTS §53)
       return rest.length === 0 || (rest.length === 1 && (rest[0] === HR_MASTER_SLUG || HR_PAGE_SLUGS.has(rest[0])));
+    case "production":
+      // /production/sharp-master, the Sharp Objects Master Data (REQUIREMENTS §254)
+      return rest.length === 1 && rest[0] === "sharp-master";
     case "purchase":
       // /purchase/master-data, /purchase/drive and a folder of the drive (REQUIREMENTS §186, §231)
       return (rest.length === 1 && (rest[0] === "master-data" || rest[0] === "drive")) || (rest.length === 2 && rest[0] === "drive" && /^[A-Za-z0-9%:._-]{1,200}$/.test(rest[1]));

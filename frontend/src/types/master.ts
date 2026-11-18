@@ -25,6 +25,15 @@ export interface AreaLocation {
   method?: string;
 }
 
+/** A person on the Sharp Objects Master Data (REQUIREMENTS §254): F/PRD/10 and F/PRD/23 count each shift's people. */
+export interface SharpToolPerson {
+  id: string;
+  name: string;
+  department: string;
+  /** "I", "II", "III" (a "1" or "2" typed is read as I or II). */
+  shift: string;
+}
+
 export interface PCLocation {
   id: string; // "PC-01" .. "PC-13"
   location: string;
@@ -103,6 +112,9 @@ export interface ScheduleOverride {
 
 export interface MasterData {
   employees: Employee[];
+  // THE SHARP OBJECTS MASTER DATA (REQUIREMENTS §254): name, department and shift of the people the sharp objects are issued
+  // to. Read defensively (`?? []`): stored data from before it has no key.
+  sharpToolPeople?: SharpToolPerson[];
   areas: AreaLocation[];
   pcLocations: PCLocation[];
   chemicals: Chemical[];

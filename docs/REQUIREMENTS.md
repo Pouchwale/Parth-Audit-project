@@ -12437,3 +12437,31 @@ one year frequency" - and, asked, "23-11-2026 -> 22-11-2027", from the "first vi
   visit keeps the dates it was signed with.
 - Proved: frontend/tests/tubeLightYears.test.ts; on the local copy and on the plant, December 2026 and January 2027 read
   23-11-2026 / 22-11-2027 and November 2026 24-11-2025 / 23-11-2026.
+
+## §254 Sharp Objects Master Data; the four Sharp Objects & Blades sheets fill themselves (17/18-Nov-2026)
+
+The owner, 17-Nov-2026: "create master data ... with columns called name and Department, Shift and that data will be fetch
+in Sharp Objects & Blades document which is pur-10, 22, 23, 24 ... in those document in upper side note is written clear so
+in this document the data should automatically come" - and, asked: the list in the Production module (the four are
+F/PRD/10, 22, 23, 24), "Issued = people in shift", the stock the app's notes print, the razor blades "like your photo". On
+18-Nov-2026: "give two options only in shift with 1 and 2 not more than that".
+
+- Production > Sharp Objects & Blades > Sharp Objects Master Data (/production/sharp-master, pages/SharpToolMasterPage.tsx):
+  Sr. No., Name, Department, Shift (1 or 2 only; the sheets write I and II, as the paper). Add person; every box saved as it
+  is left; delete asks "Are you sure". Written by whoever may fill one of the four sheets, read by whoever sees them. Kept
+  in the plant's master data (MasterData.sharpToolPeople); the server takes the list from a Production person's write and
+  nothing else of the master data (backend/storageRoutes.ts withStoredMaster). The page says what each sheet gets.
+- Each working day, every open Live sheet dated that day or earlier on which nobody has written a figure is filled by the
+  assistant (engine/sharpTools.ts, engine/assistantPrepare.ts fillSharpToolsDue), oldest first, marked as its own work so
+  two copies of a day's sheet still merge into one:
+  - F/PRD/10: a line for each shift on the list - scissors and manual cutters issued and returned = that shift's people,
+    never more than the note's stock (15 scissors, 20 cutter blades); broken Nil, new NA. Nothing while the list is empty.
+  - F/PRD/23: the same for the pouching section's people (department containing "pouch"; everyone when none does), up to
+    the note's 40 cutter blades.
+  - F/PRD/22 and F/PRD/24: one line, shift I: opening = the day before's closing OK stock; 1-3 blades replaced (1-2 on the
+    slitting machine); closing OK and discarded follow; at 4 OK blades the discarded go back to the store and as many new
+    are issued - so installed (8 pouching, 5 slitting) + loose OK + loose discarded is always the note's 20.
+  The supervisor's and the Production Manager's signatures are left for them; a sheet a person has written on is never
+  touched.
+- Proved: frontend/tests/sharpTools.test.ts, backend/tests/storageRoutes.test.ts; on the local copy in the browser (the
+  list added to, deleted from with the question, the four sheets filled for the day).

@@ -40,6 +40,7 @@ import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
 import { HrMasterDataPage } from "./pages/HrMasterDataPage";
 import { PurchaseDrivePage } from "./pages/PurchaseDrivePage";
 import { PurchaseMasterDataPage } from "./pages/PurchaseMasterDataPage";
+import { SharpToolMasterPage } from "./pages/SharpToolMasterPage";
 import { QcOverviewPage } from "./pages/QcPages";
 import { UsersPage } from "./pages/UsersPage";
 import { FrequencyPage } from "./pages/FrequencyPage";
@@ -212,6 +213,9 @@ function RouteSwitch() {
       // lamination line's paperwork (REQUIREMENTS §58). Each row opens the
       // format's own page, which is where "Open Document" lands too.
       return <QcOverviewPage />;
+    case "production":
+      // The Sharp Objects Master Data - name, department, shift - the four Sharp Objects & Blades sheets fill from (§254).
+      return rest[0] === "sharp-master" ? <SharpToolMasterPage /> : <NotFoundPage />;
     case "purchase":
       // Purchase Master Data — the List of Approved Suppliers with each supplier's rating (REQUIREMENTS §186).
       if (rest[0] === "master-data") return <PurchaseMasterDataPage />;

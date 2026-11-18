@@ -137,16 +137,18 @@ function visibleLines(value: string, visible: (line: unknown) => boolean): strin
  * the Chemical Master's (serviceTypeChemicals, a pest-control document of its own). With nothing stored yet - a new
  * plant's first sync - what is posted is taken, the hours as the super admin's.
  */
-export function withStoredMaster(posted: string, stored: string | null, scheduleIds: ReadonlySet<string> = new Set()): string {
+export function withStoredMaster(posted: string, stored: string | null, scheduleIds: ReadonlySet<string> = new Set(), sharpWriter = false): string {
   if (!stored) return withStoredHours(posted, stored);
   try {
     const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
     const theirs = JSON.parse(stored) as unknown;
     if (!obj(theirs)) return withStoredHours(posted, stored);
     const mine = JSON.parse(posted) as unknown;
-    if (!obj(mine) || (!("serviceTypeChemicals" in mine) && scheduleIds.size === 0)) return stored;
+    if (!obj(mine) || (!("serviceTypeChemicals" in mine) && scheduleIds.size === 0 && !(sharpWriter && "sharpToolPeople" in mine))) return stored;
     const out: Record<string, unknown> = { ...theirs };
     if ("serviceTypeChemicals" in mine) out.serviceTypeChemicals = mine.serviceTypeChemicals;
+    // THE SHARP OBJECTS MASTER DATA (REQUIREMENTS §254) is the Production sheets' own list: whoever may fill one of them writes it.
+    if (sharpWriter && "sharpToolPeople" in mine) out.sharpToolPeople = mine.sharpToolPeople;
     // THE FREQUENCY OF THE DOCUMENTS THE PERSON ANSWERS FOR (REQUIREMENTS §202): their overrides taken - set or taken off - and
     // everybody else's kept as stored.
     if (scheduleIds.size > 0) {
@@ -163,6 +165,9 @@ export function withStoredMaster(posted: string, stored: string | null, schedule
     return stored;
   }
 }
+
+/** The four Production sheets the Sharp Objects Master Data serves (REQUIREMENTS §254). */
+const SHARP_TOOL_DOC_IDS = ["prd-sharp-object-issue", "prd-pouching-blade", "prd-pouching-cutter-issue", "prd-slitting-blade"];
 
 /** THE DOCUMENTS WHOSE FREQUENCY THE PERSON MAY SET (REQUIREMENTS §202): the scheduled ones they may fill - the ones they answer for. */
 function frequencyIdsOf(view: { catalogue: { docs: { id: string; isReferenceOnly?: boolean }[] }; may: (documentId: string, action: "fill") => boolean }): Set<string> {
@@ -352,7 +357,7 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
         // (frontend/src/engine/masterDataAccess.ts) keeps every list as stored - only the Chemical Master's, a pest-control
         // document of its own, is theirs to change as before; a testing account's write is taken, the hours kept.
         // ...and the frequency of the documents they answer for is theirs to set (REQUIREMENTS §202).
-        compose = mayOpenMasterData(user) ? (stored) => withStoredHours(posted, stored) : (stored) => withStoredMaster(posted, stored, frequencyIdsOf(view));
+        compose = mayOpenMasterData(user) ? (stored) => withStoredHours(posted, stored) : (stored) => withStoredMaster(posted, stored, frequencyIdsOf(view), SHARP_TOOL_DOC_IDS.some((id) => view.may(id, "fill")));
       }
       // THE ARCHIVED SHEETS STAY ARCHIVED (REQUIREMENTS §115): a browser whose old copy still holds blank sheets the
       // server moved to the archive writes everything but those. Looked for in what was posted first, so a browser

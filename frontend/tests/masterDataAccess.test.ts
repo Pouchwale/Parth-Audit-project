@@ -132,7 +132,7 @@ test("the link, the page, the assistant's way to it and the server follow the on
   const local = read("frontend", "src", "engine", "assistantLocal.ts");
   assert.match(local, /if \(!person \|\| mayOpenMasterData\(person\)\) chips\.push\(\{ label: t\("ai\.chip\.holidayMaster"\)/);
   const server = read("backend", "storageRoutes.ts");
-  assert.match(server, /compose = mayOpenMasterData\(user\) \? \(stored\) => withStoredHours\(posted, stored\) : \(stored\) => withStoredMaster\(posted, stored, frequencyIdsOf\(view\)\);/);
+  assert.match(server, /compose = mayOpenMasterData\(user\) \? \(stored\) => withStoredHours\(posted, stored\) : \(stored\) => withStoredMaster\(posted, stored, frequencyIdsOf\(view\), SHARP_TOOL_DOC_IDS\.some\(\(id\) => view\.may\(id, "fill"\)\)\);/);
   const engine = read("frontend", "src", "engine", "masterDataAccess.ts");
   assert.doesNotMatch(engine, /^import /m, "import-free: the server runs the same file");
 });

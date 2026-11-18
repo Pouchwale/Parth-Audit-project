@@ -454,6 +454,15 @@ describe("a staff member's frequencies (REQUIREMENTS §202)", () => {
     assert.deepEqual(dropped.scheduleOverrides, { b: { frequency: "Weekly" } }, "an override the person took off goes; another's stays");
     assert.equal(withStoredMaster(posted, stored), stored, "with no document of theirs, nothing but the chemicals is taken, as before");
   });
+
+  it("the Sharp Objects Master Data is taken from whoever may fill one of the four Sharp Objects & Blades sheets, nothing else (§254)", () => {
+    const stored = JSON.stringify({ employees: [{ id: "e1" }], sharpToolPeople: [] });
+    const posted = JSON.stringify({ employees: [], sharpToolPeople: [{ id: "p1", name: "A", department: "Pouching", shift: "I" }] });
+    const out = JSON.parse(withStoredMaster(posted, stored, new Set(), true));
+    assert.equal(out.sharpToolPeople.length, 1);
+    assert.equal(out.employees.length, 1, "the rest kept as stored");
+    assert.equal(withStoredMaster(posted, stored, new Set(), false), stored, "not from someone who fills none of the four");
+  });
 });
 
 describe("a staff member's frequencies through the API (REQUIREMENTS §202)", () => {

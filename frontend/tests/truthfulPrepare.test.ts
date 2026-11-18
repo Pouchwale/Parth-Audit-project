@@ -41,6 +41,7 @@ import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { entriesWaiting, prepareKnownParts, PREPARED_NOTE } from "../src/engine/knownParts";
 import { latestConfirmedRecord, prepareDueRecords } from "../src/engine/assistantPrepare";
+import { SHARP_FILL_NOTE, SHARP_TOOL_DOCS } from "../src/engine/sharpTools";
 import { sampleFillRecord } from "../src/engine/sampleFill";
 import { isCompanyHoliday, nextWorkingDay } from "../src/engine/holidays";
 import { fixedMaterialForServiceArea } from "../src/engine/serviceMaterials";
@@ -417,6 +418,8 @@ test("prepareDueRecords: every record due today is prepared by the rule, with a 
   const problems: string[] = [];
   for (const r of prepared) {
     const doc = documentRepository.getByIdUnscoped(r.documentId)!;
+    // The Sharp Objects & Blades sheets are filled on their day by the owner's rule (REQUIREMENTS §254, tests/sharpTools.test.ts).
+    if (SHARP_TOOL_DOCS.includes(doc.id) && r.history?.at(-1)?.note === SHARP_FILL_NOTE) continue;
     if (r.status !== "In Progress") problems.push(`${doc.id}: status ${r.status}`);
     if (!r.prepared?.knownPartsOnly) problems.push(`${doc.id}: not stamped as prepared by the rule`);
     const entry = r.history?.at(-1);
