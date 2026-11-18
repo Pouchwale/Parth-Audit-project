@@ -43,7 +43,9 @@ export function FrequencyPicker({ doc, override, onChange }: { doc: DocumentDefi
     const frequency = KINDS.find((k) => k.kind === kind)!.frequency;
     const words = scheduleLabel({ ...doc, schedule: chosen });
     sure.ask(
-      `${number} falls due ${words.charAt(0).toLowerCase()}${words.slice(1)} from today. The sheets already made stand as they are; everybody who answers for it is told the working day before each new due date.`,
+      kind === "as-required"
+        ? `${number} falls due ${words.charAt(0).toLowerCase()}${words.slice(1)} from today: no sheet is made by itself, and the blank sheets already made for today and later are taken away (a sheet anyone has written on stays). Start one with New when it is needed.`
+        : `${number} falls due ${words.charAt(0).toLowerCase()}${words.slice(1)} from today. The blank sheets already made for today and later on days the new frequency does not name are taken away (a sheet anyone has written on stays); everybody who answers for it is told the working day before each new due date.`,
       () => onChange({ schedule: chosen, frequency, since: todayISO(), by: user?.name ?? "" })
     );
   };

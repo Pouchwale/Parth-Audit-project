@@ -12468,3 +12468,19 @@ F/PRD/10, 22, 23, 24), "Issued = people in shift", the stock the app's notes pri
 
 - 18-Nov-2026, the owner: "it should be roman number which is like I and II" - the Shift box offers I and II, and the page
   says the shifts so too (pages/SharpToolMasterPage.tsx).
+
+## §255 A frequency changed to As Required: no sheet due from that day (18-Nov-2026)
+
+The owner, 18-Nov-2026, with the Frequency page (F/PRD/10 and 22 set As Required from 17-11-2026, F/PRD/23 and 24 from
+18-11-2026): "once user change frequency of document then it should appear here like wise only ... so from that day it
+should appear on user screen like wise". A document made As Required kept the daily sheets its old schedule had already
+made for the days ahead, so they were still listed and counted as due.
+
+- From the day a document is made As Required (DocumentDefinition.scheduleSince), every Live sheet dated that day or later
+  that nobody has written on (blank, or only filled by the assistant) is taken away - at once from the Frequency page, Master
+  Data or Mitra (engine/frequencyApplied.ts), and at every start (engine/calendarMigration.ts removeOffScheduleShells). A
+  sheet a person wrote on, and every sheet dated before the change, stays. A sheet is started with New when it is needed.
+- The Are-you-sure message says so (components/master/FrequencyPicker.tsx); for any other frequency it says the blank
+  sheets of days the new one does not name are taken away.
+- Proved: frontend/tests/scheduleChange28Oct.test.ts; on the local copy in the browser (F/PRD/23 made As Required: its 18-30
+  November sheets gone, the 17-11 sheet kept; put back as issued).

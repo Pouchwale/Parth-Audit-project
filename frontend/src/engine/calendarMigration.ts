@@ -149,8 +149,17 @@ export function removeOffScheduleShells(today: string = todayISO()): number {
   const removeIds: string[] = [];
   for (const r of recordRepository.getAll()) {
     const doc = docs.get(r.documentId);
-    if (!doc || r.isDemo || compareISO(r.dueDate, today) < 0 || !untouchedByPeople(r) || !mayWriteRecordsOf(doc.id)) continue;
-    if (doc.schedule.type === "daily" || doc.schedule.type === "as-required") continue;
+    if (!doc || r.isDemo || !untouchedByPeople(r) || !mayWriteRecordsOf(doc.id)) continue;
+    // MADE "AS REQUIRED" (the owner, 18-Nov-2026, REQUIREMENTS §255: "once user change frequency of document ... so from
+    // that day it should appear on user screen like wise"): from the day the frequency was set, no sheet is due by itself -
+    // every blank or only-prepared sheet the old schedule made for that day or later goes, the day it was set included;
+    // a sheet is started with New when it is needed. A sheet a person wrote on stays.
+    if (doc.schedule.type === "as-required") {
+      if (doc.scheduleSince && compareISO(r.dueDate, doc.scheduleSince) >= 0) removeIds.push(r.id);
+      continue;
+    }
+    if (compareISO(r.dueDate, today) < 0) continue;
+    if (doc.schedule.type === "daily") continue;
     const filed = /(\d{4}-\d{2}-\d{2})/.exec(r.periodKey ?? "")?.[1] ?? r.dueDate;
     const month = `${doc.id}|${filed.slice(0, 7)}`;
     if (!named.has(month)) named.set(month, new Set(effectiveDueDatesInMonth(doc, Number(filed.slice(0, 4)), Number(filed.slice(5, 7)) - 1, master).map((s) => s.scheduled)));

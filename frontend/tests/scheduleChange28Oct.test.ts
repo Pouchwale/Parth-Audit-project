@@ -133,3 +133,24 @@ test("Add visit on F/HR/18 offers the month's first scheduled Monday", () => {
   assert.equal(suggestedVisitDate(2026, 10, false, "2026-11-20"), "2026-11-02");
   clear(FLY);
 });
+
+test("made As Required from a day: every untouched sheet from that day on goes, that day included; a written one and an earlier one stay (§255)", () => {
+  const ID = "prd-sharp-object-issue";
+  clear(ID);
+  const before = masterRepository.get().scheduleOverrides ?? {};
+  masterRepository.update({ scheduleOverrides: { ...before, [ID]: { schedule: { type: "as-required" }, frequency: "As Required", since: "2026-11-17", by: "Super Admin" } } });
+  try {
+    assert.equal(documentRepository.getByIdUnscoped(ID)?.schedule.type, "as-required");
+    shell(ID, "2026-11-16"); // the day before the change
+    shell(ID, "2026-11-17"); // the day it was set
+    shell(ID, "2026-11-18"); // today
+    shell(ID, "2026-11-25"); // made ahead
+    shell(ID, "2026-11-19", { status: "In Progress", updatedAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() }); // a person began it
+    assert.equal(removeOffScheduleShells("2026-11-18"), 3);
+    assert.deepEqual(live(ID).map((r) => r.dueDate).sort(), ["2026-11-16", "2026-11-19"]);
+    assert.equal(removeOffScheduleShells("2026-11-18"), 0, "nothing to do the next time");
+  } finally {
+    masterRepository.update({ scheduleOverrides: before });
+    clear(ID);
+  }
+});
