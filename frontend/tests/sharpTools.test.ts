@@ -60,10 +60,11 @@ test("a sheet a person has written on is never filled over", () => {
   assert.ok(!sharpSheetUnwritten("prd-sharp-object-issue", { header: {}, rows: [{ id: "r", issuedScissor: 3 }] }));
 });
 
-test("two shifts only, 1 and 2 (the owner, 18-Nov-2026)", () => {
+test("two shifts only, shown I and II (the owner, 18-Nov-2026)", () => {
   const page = src("pages/SharpToolMasterPage.tsx");
   assert.match(page, /const SHIFTS = \["I", "II"\];/);
-  assert.match(page, /\{shiftNo\(s\)\}/, "shown as 1 and 2");
+  assert.match(page, /\{shiftNo\(s\)\}/);
+  assert.match(page, /shiftWord\(s\) === "II" \? "II" : "I"/, "shown as Roman numerals, I and II");
   assert.deepEqual(shiftsOf(sharpPeople({ sharpToolPeople: [person(1, "III"), person(2, "2")] })), [{ shift: "I", count: 1 }, { shift: "II", count: 1 }]);
 });
 

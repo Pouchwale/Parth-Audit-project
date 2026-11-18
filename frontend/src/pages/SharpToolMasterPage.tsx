@@ -19,11 +19,11 @@ import type { SharpToolPerson } from "../types";
 // scissors and cutters issued and returned being that shift's people (engine/sharpTools.ts); the razor blade sheets, F/PRD/22
 // and F/PRD/24, keep their own stock. Written by whoever may fill one of the four sheets, read by everyone who sees them.
 
-// TWO SHIFTS, 1 AND 2 (the owner, 18-Nov-2026: "give two options only in shift with 1 and 2 not more than that"); the
-// sheets write them I and II, as the paper does.
+// TWO SHIFTS, I AND II (the owner, 18-Nov-2026: "give two options only in shift with 1 and 2 not more than that", then
+// "it should be roman number which is like I and II"), written so on the page and on the sheets, as the paper does.
 const SHIFTS = ["I", "II"];
-/** A shift as this page shows it: 1 or 2. */
-const shiftNo = (s: string | null | undefined): string => (shiftWord(s) === "II" ? "2" : "1");
+/** A shift as this page shows it: I or II. */
+const shiftNo = (s: string | null | undefined): string => (shiftWord(s) === "II" ? "II" : "I");
 const many = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export function SharpToolMasterPage() {

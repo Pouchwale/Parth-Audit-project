@@ -12465,3 +12465,6 @@ F/PRD/10, 22, 23, 24), "Issued = people in shift", the stock the app's notes pri
   touched.
 - Proved: frontend/tests/sharpTools.test.ts, backend/tests/storageRoutes.test.ts; on the local copy in the browser (the
   list added to, deleted from with the question, the four sheets filled for the day).
+
+- 18-Nov-2026, the owner: "it should be roman number which is like I and II" - the Shift box offers I and II, and the page
+  says the shifts so too (pages/SharpToolMasterPage.tsx).
