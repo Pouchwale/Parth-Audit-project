@@ -12648,3 +12648,11 @@ about four; the month printed on two A4 pages.
   (data/sharpMonthMigration.ts sharpTypedLinesRestored). The line before a typed line - looking past a weekly off between -
   closes with the stock the typed line opens with. A closed day's line written before the assistant's mark (Nil / NA) is
   written again with a dash.
+
+## §264 No remark written by the assistant on F/PRD/10, 22, 23 and 24 (20-Nov-2026)
+
+The owner, 20-Nov-2026: "make sure system should not fill remarks for this four document". The Remarks column is the
+person's alone: a worn-out cutter blade or a damaged scissor shows only in its Broken and New Qty. columns, and a closed
+day's lines (nothing issued, "-") carry no "Weekly off" (engine/sharpTools.ts sharpIssueLine, closedDayLine). The remarks
+the assistant had written on the plant's November sheets go with the next fill (its lines' mark, §261); a remark a person
+typed makes the line theirs and stays. F/PRD/22 and 24 have no Remarks column. Proved: frontend/tests/sharpTools.test.ts.

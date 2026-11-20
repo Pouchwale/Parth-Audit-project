@@ -63,7 +63,7 @@ test("a worn-out item now and then, broken and as many new issued, so the stock 
     if (r.brokenCutterBlade === "-") assert.equal(r.newCutterBlade, "-");
     else {
       assert.equal(r.newCutterBlade, r.brokenCutterBlade, "as many new as broken: the stock stays 20");
-      assert.match(String(r.remarks), /Cutter blade worn out/);
+      assert.equal(r.remarks, "", "no remark of the assistant's (§264)");
       cutters++;
     }
     if (r.brokenScissor !== "-") {
@@ -192,7 +192,7 @@ test("the month's sheet: each day's line filled on its day, a closed day so writ
     else if (r.shift === "I") assert.ok(Number(r.issuedScissor) >= 1 && Number(r.issuedScissor) <= 3, `${d}: shift I's three people, less any away`);
     else assert.equal(Number(r.issuedScissor), 1, `${d}: shift II's one person`);
   }
-  assert.ok(rows.some((r) => String(r.remarks).includes("Weekly off")), "the weekly off named");
+  assert.ok(rows.every((r) => (r.supervisorSign === "Ramesh" ? true : String(r.remarks ?? "") === "")), "no remark of the assistant's, a closed day's neither (§264)");
   // Run again: nothing to do.
   assert.equal(fillSharpToolsDue("2026-11-20").length, 0);
   // The blade sheet: each line opens with the line before's closing, always the note's 20.
@@ -409,4 +409,16 @@ test("the line before a typed one looks past a weekly off: the stock runs unbrok
   const rows = (recordRepository.getById("wk-nov")!.data as { rows: LogSheetRow[] }).rows.filter((r) => String(r.date) <= "2026-11-20");
   for (let i = 1; i < rows.length; i++) assert.equal(Number(rows[i].openingStock), Number(rows[i - 1].closingOkStock), `${rows[i].date} ${rows[i].replacedShift}: unbroken`);
   assert.equal(Number(rows.find((r) => r.date === "2026-11-20")!.openingStock), 7, "the typed line as typed");
+});
+
+test("the assistant writes no remark on the four sheets (§264); a person's remark stays theirs", async () => {
+  const { sharpIssueRows: rowsOf, monthDays, closedDayLine, assistantsLine, lineFingerprint, ASSISTANT_LINE } = await import("../src/engine/sharpTools");
+  for (const id of ["prd-sharp-object-issue", "prd-pouching-cutter-issue"]) {
+    for (const d of monthDays("2027-01")) for (const s of ["I", "II"] as const) assert.equal(rowsOf(id, d, { sharpToolPeople: [] }, s)![0].remarks, "", `${id} ${d} ${s}`);
+    assert.equal(closedDayLine(id, "2027-01-07", { short: "Weekly off", name: "" }, null, "I").remarks, "");
+  }
+  assert.doesNotMatch(src("engine/sharpTools.ts"), /"Cutter blade worn out"|"Scissor damaged"/);
+  const line = { ...rowsOf("prd-pouching-cutter-issue", "2027-01-05", { sharpToolPeople: [] })![0] };
+  line[ASSISTANT_LINE] = lineFingerprint("prd-pouching-cutter-issue", line);
+  assert.ok(!assistantsLine("prd-pouching-cutter-issue", { ...line, remarks: "Blade changed by fitter" }), "a remark typed: the line is the person's");
 });

@@ -209,7 +209,9 @@ function sharpIssueLine(documentId: string, dueDate: string, counts: { scissors:
   const rng = makeRng(`sharp-worn|${documentId}|${dueDate}${shift === "II" ? "|II" : ""}`);
   const cutterWorn = rng.next() < WORN_CUTTER;
   const scissorWorn = documentId === "prd-sharp-object-issue" && rng.next() < WORN_SCISSOR;
-  const remark = [cutterWorn ? "Cutter blade worn out" : "", scissorWorn ? "Scissor damaged" : ""].filter(Boolean).join(", ");
+  // NO REMARK OF THE ASSISTANT'S (the owner, 20-Nov-2026, REQUIREMENTS §264: "system should not fill remarks for this four
+  // document"): the Remarks column is the person's alone - a worn-out item shows in its Broken and New columns only.
+  const remark = "";
   const row: Partial<LogSheetRow> = { date: dueDate, shift };
   const cutters = counts.cutters;
   if (documentId === "prd-sharp-object-issue") {
@@ -405,12 +407,11 @@ export function withMonthDays(documentId: string, data: LogSheetData | undefined
 
 /** A closed day's line (the weekly off, a holiday): nothing issued, nothing replaced, the stock carried, the day named. */
 export function closedDayLine(documentId: string, date: string, day: Pick<DayInfo, "short" | "name">, before: { ok: number; discarded: number } | null, shift: "I" | "II" = "I"): Partial<LogSheetRow> {
-  const why = day.name || day.short || "Holiday";
   if (documentId === "prd-sharp-object-issue") {
-    return { date, shift, issuedScissor: 0, issuedManualCutter: 0, returnedScissor: 0, returnedManualCutter: 0, brokenScissor: NONE, brokenCutterBlade: NONE, newScissor: NONE, newCutterBlade: NONE, remarks: why };
+    return { date, shift, issuedScissor: 0, issuedManualCutter: 0, returnedScissor: 0, returnedManualCutter: 0, brokenScissor: NONE, brokenCutterBlade: NONE, newScissor: NONE, newCutterBlade: NONE, remarks: "" };
   }
   if (documentId === "prd-pouching-cutter-issue") {
-    return { date, shift, qtyIssued: 0, qtyReturned: 0, brokenQty: NONE, newQtyIssued: NONE, remarks: why };
+    return { date, shift, qtyIssued: 0, qtyReturned: 0, brokenQty: NONE, newQtyIssued: NONE, remarks: "" };
   }
   const plan = BLADE_STOCK[documentId];
   const ok = before ? before.ok : plan?.start ?? 0;
