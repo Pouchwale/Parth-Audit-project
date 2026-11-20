@@ -26,11 +26,20 @@ const SEED_IDS = { has: (id: string) => (seedIds ??= new Set(hrMasterSeed().map(
 // Read once per stored value (REQUIREMENTS §65) — the sheet is 39 KB and every
 // HR format that names a person reads it. ensureSeeded and the writers below
 // use readJSON and get a copy of their own.
+// The store as last read is kept while the stored value is the same (readJSONCached hands back the same object until it
+// changes): every name lookup gets the same array of people, so the name index on it (engine/hrMaster.ts peopleIndex) is
+// built once per version of the sheet, not once per keystroke (REQUIREMENTS §266). Nothing changes the array in place.
+let loaded: { raw: Store; store: Store } | null = null;
+let seedStore: Store | null = null;
+
 function load(): Store {
   const raw = readJSONCached<Store | null>(KEY, null);
-  if (!raw || !Array.isArray(raw.people)) return { people: hrMasterSeed(), removedSeedIds: [] };
+  if (!raw || !Array.isArray(raw.people)) return (seedStore ??= { people: hrMasterSeed(), removedSeedIds: [] });
+  if (loaded && loaded.raw === raw) return loaded.store;
   // A line stored before a column existed (Sub Department, Machine / Process Name, §169) has it blank.
-  return { people: raw.people.map((p) => ({ ...blankHrMasterValues(), ...p })), removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] };
+  const store = { people: raw.people.map((p) => ({ ...blankHrMasterValues(), ...p })), removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] };
+  loaded = { raw, store };
+  return store;
 }
 
 function save(store: Store): boolean {

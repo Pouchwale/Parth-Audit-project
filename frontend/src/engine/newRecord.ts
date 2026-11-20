@@ -2,6 +2,7 @@ import type { DocumentDefinition, RecordInstance, ScheduleConfig } from "../type
 import { createRecordForDocument, recordCoveringDate } from "./recordCrud";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { slotOf } from "./rulerSlots";
+import { isPscSurvey } from "./pscSurveyRound";
 import { schedulePeriodOf } from "./frequencyEngine";
 import { addDays, formatDisplayDate, todayISO } from "../utils/date";
 
@@ -50,7 +51,8 @@ export interface NewRecordResult {
 
 /** What the New record button does (the document page, the library, the search). */
 export function newRecordFromButton(doc: DocumentDefinition, isDemo: boolean, today: string = todayISO()): NewRecordResult {
-  if (doc.schedule.type === "as-required" || doc.kind === "training-record") return createRecordForDocument(doc, { dateISO: today, isDemo });
+  // F/HR/20: a form for one more person, every time (REQUIREMENTS §266; the year's round is made in January).
+  if (doc.schedule.type === "as-required" || doc.kind === "training-record" || isPscSurvey(doc.id)) return createRecordForDocument(doc, { dateISO: today, isDemo });
   // F/QC/17: the first of the year's twenty not filled, else the next number (REQUIREMENTS §220).
   if (isRulerVerification(doc.id)) {
     const made = createRecordForDocument(doc, { dateISO: today, isDemo });

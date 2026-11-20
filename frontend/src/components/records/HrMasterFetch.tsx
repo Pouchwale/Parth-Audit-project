@@ -291,18 +291,22 @@ export function HrMasterFetch({
   );
 }
 
-/** The sheet's people, for the name boxes' suggestion list. */
+/**
+ * The sheet's people, for the name boxes' suggestion list. Its options are made once per version of the sheet
+ * (hrMasterRepository.all() is the same array until the sheet changes), not again on every keystroke (REQUIREMENTS §266).
+ */
 export function HrMasterPeopleList() {
   const people = hrMasterRepository.all();
-  return (
-    <datalist id="hr-master-people">
-      {people
+  const options = React.useMemo(
+    () =>
+      people
         .filter((p) => p.fullName.trim())
         .map((p) => (
           <option key={p.id} value={p.fullName}>
             {[p.gp3No ? `GP3 No. ${p.gp3No}` : "", p.department, p.designation].filter(Boolean).join(" · ")}
           </option>
-        ))}
-    </datalist>
+        )),
+    [people]
   );
+  return <datalist id="hr-master-people">{options}</datalist>;
 }

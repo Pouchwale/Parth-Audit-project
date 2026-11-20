@@ -75,7 +75,7 @@ const SCOPED = "print-scoped";
 /** A box printed as its words: the words, and the box's own inline display where the print hid the box itself. */
 type Written = { box: Element; text: Element; display?: string };
 
-let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: Written[]; split?: SplitPages } | null = null;
+let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: Written[]; split?: SplitPages; tidied?: Element[]; evened?: HTMLElement[] } | null = null;
 
 const EMPTY_ATTR = "data-empty";
 const EMPTY_BOXES = "input[type='date'], input[type='time'], input[type='datetime-local'], input[type='month'], select";
@@ -883,8 +883,106 @@ function unscope(): void {
     text.remove();
   }
   if (active.split) unsplit(active.split);
+  for (const td of active.tidied ?? []) td.classList.remove(PRINT_CENTER, PRINT_ONE_LINE);
+  // (the lines evened for the print go back to the heights the page-fill gave them, which unfit then takes off)
+  for (const tr of active.evened ?? []) tr.style.removeProperty("height");
   document.documentElement.classList.remove(SCOPED);
   active = null;
+}
+
+// THE HR MODULE'S LINES EVEN, ITS NUMBERS IN THE MIDDLE (the owner, 20-Nov-2026, REQUIREMENTS §266, with the Skill Matrix's
+// printout: "make those numbers in middle and see in this all that so line are small and some are big so do this fix this
+// kind of problem where the problem is present"). Measured on every HR sheet's print: the lines ran 14 to 35 px on F/HR/03,
+// 21 to 53 on F/HR/01, 13 to 31 on F/HR/05 - a name, a designation or a department of a few words wrapping to two or three
+// lines in a squeezed column. For the print, on an HR sheet (data-sheet="hr-..."), each grid cell holding
+//   - a number, a date, a grade or a yes / no stands in the middle of its box (PRINT_CENTER);
+//   - any other short value (40 letters at most, one line as written) stays on one line (PRINT_ONE_LINE), so every line is
+//     one line high - the sheet is then drawn to its page by the fit that follows.
+// A sentence (a check point, a topic) wraps as on the paper. Put back after the print (unscope).
+const PRINT_CENTER = "print-center";
+const PRINT_ONE_LINE = "print-one-line";
+const HR_SHEET = '[data-sheet^="hr-"]';
+const CENTRED_VALUE = /^(?:[-+]?\d+(?:[.,:/-]\d+)*\s*%?|[A-Z]{1,3}|Yes|No|N\/?A|Nil|-|—|✓|✔|✗)$/i;
+function tidyHrCells(docs: Element[]): Element[] {
+  const touched: Element[] = [];
+  for (const doc of docs) {
+    const sheets = doc.matches(HR_SHEET) ? [doc] : Array.from(doc.querySelectorAll(HR_SHEET));
+    for (const sheet of sheets) {
+      for (const table of Array.from(sheet.querySelectorAll("table.log-sheet"))) {
+        // By column: one is centred when nearly all its values are numbers, dates or grades - a designation that happens to
+        // be "QC" stays where its column's words stand.
+        const columns = new Map<number, { td: HTMLElement; text: string }[]>();
+        for (const tr of Array.from(table.querySelectorAll(":scope > tbody > tr"))) {
+          Array.from(tr.children).forEach((td, i) => {
+            const text = ((td as HTMLElement).innerText ?? "").trim();
+            if (!text) return;
+            if (!columns.has(i)) columns.set(i, []);
+            columns.get(i)!.push({ td: td as HTMLElement, text });
+          });
+        }
+        for (const cells of columns.values()) {
+          const centred = cells.filter((c) => CENTRED_VALUE.test(c.text)).length >= Math.max(1, cells.length * 0.8);
+          for (const { td, text } of cells) {
+            if (centred) td.classList.add(PRINT_CENTER);
+            else if (text.length <= 40 && !text.includes(String.fromCharCode(10))) td.classList.add(PRINT_ONE_LINE);
+            else continue;
+            touched.push(td);
+          }
+        }
+      }
+    }
+  }
+  return touched;
+}
+
+/**
+ * ...AND A SHORT TABLE'S LINES ALL ONE HEIGHT (§266): where a sentence still runs to two lines beside one-line neighbours -
+ * F/HR/21's attributes, F/HR/06's topics, F/HR/08's induction topics - each line of a table of 40 lines at most is drawn as
+ * tall as its tallest (measured with the print's rules), when that is under twice the shortest (three times on 25 lines or fewer). A long register (F/HR/19's
+ * 55 points) keeps its lines as written, so it runs to no more pages. Put back after the print.
+ */
+function evenHrLines(docs: Element[]): HTMLElement[] {
+  const evened: HTMLElement[] = [];
+  document.documentElement.classList.add("print-measure");
+  try {
+    withPrintRules(() => {
+      for (const doc of docs) {
+        const sheets = doc.matches(HR_SHEET) ? [doc] : Array.from(doc.querySelectorAll(HR_SHEET));
+        const docEl = doc as HTMLElement;
+        const landscape = (paperOf(docEl) ?? (document.documentElement.dataset.printPage === "landscape" ? "landscape" : "portrait")) === "landscape";
+        const zoom = Number(docEl.style.zoom) || 1;
+        const pageH = (landscape ? 210 : 297) * PX_PER_MM;
+        for (const sheet of sheets) {
+          for (const table of Array.from(sheet.querySelectorAll("table.log-sheet"))) {
+            const rows = (Array.from(table.querySelectorAll(":scope > tbody > tr")) as HTMLElement[]).filter((r) => isShown(r) && r.children.length > 1);
+            if (rows.length < 3 || rows.length > 40) continue;
+            // Measured as the page lays the sheet out (its width at its zoom), not as the screen does.
+            const kept = rows.map((r) => r.style.height);
+            const result = laidOutAt(docEl, docEl, zoom, landscape, () => {
+              const pages = () => Math.ceil(((docEl.getBoundingClientRect().height * zoom) / pageH) * 0.999 + 0.0001);
+              const before = pages();
+              const hs = rows.map((r) => r.getBoundingClientRect().height);
+              const low = Math.min(...hs);
+              const high = Math.max(...hs);
+              // (under twice the shortest; a table of 25 lines or fewer under three times)
+              if (low <= 0 || high < low * 1.1 || high >= low * (rows.length <= 25 ? 3 : 2)) return false;
+              for (const r of rows) r.style.height = `${Math.ceil(high)}px`;
+              // only where it runs onto no further page
+              if (pages() > before) {
+                rows.forEach((r, i) => (r.style.height = kept[i]));
+                return false;
+              }
+              return true;
+            });
+            if (result) evened.push(...rows);
+          }
+        }
+      }
+    });
+  } finally {
+    document.documentElement.classList.remove("print-measure");
+  }
+  return evened;
 }
 
 // A MONTH ON TWO PAGES, EACH A WHOLE SHEET (the owner, 20-Nov-2026, REQUIREMENTS §263: F/PRD/10, 22, 23 and 24, two lines a
@@ -983,6 +1081,8 @@ function scope(targets: Element[]): void {
   // A month on two pages (§263): its second page a copy of the sheet, from the 16th on - made once its boxes are written.
   const { docs: pages, split } = splitPages(docs);
   if (split.copies.length) active.split = split;
+  // The HR sheets' values: numbers in the middle, short words on one line (§266) - before the sheet is fitted to its page.
+  active.tidied = tidyHrCells(pages);
   docs.splice(0, docs.length, ...pages);
   fitToPage(docs);
   // Words wider than their box print smaller, never cut (utils/fitText.ts)...
@@ -993,6 +1093,8 @@ function scope(targets: Element[]): void {
   refitToWords(docs);
   // Then a page still short of its foot has its lines drawn taller (FILLING EACH PAGE).
   stretchToPages(docs);
+  // ...and an HR table's lines all as tall as its tallest, where that keeps the sheet to its pages (§266).
+  active.evened = evenHrLines(docs);
 }
 
 // A SHEET WHOSE EVERY VALUE PRINTS AS WORDS (EVERY_VALUE_AS_WORDS: Purchase Master Data, F/PUR/03; REQUIREMENTS §189) IS

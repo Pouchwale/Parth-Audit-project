@@ -1,4 +1,4 @@
-import type { DocumentDefinition, Employee } from "../types";
+import type { DocumentDefinition, Employee, RecordInstance } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -11,6 +11,7 @@ import { isCompanyHoliday } from "./holidays";
 import { addDays, compareISO, fromISODate, todayISO } from "../utils/date";
 import { isMine } from "./departmentScope";
 import { isRulerVerification, RULER_YEARLY_NOTE } from "../data/seed/qcRulerVerificationLayouts";
+import { isRoundForm, roundDateOf } from "./pscSurveyRound";
 
 // How far ahead an "upcoming" reminder starts firing. Anything due today is
 // "due"; anything with an unresolved due date in the past is "overdue" (and
@@ -115,9 +116,19 @@ export function computeReminders(isDemo: boolean): DocumentReminder[] {
   for (const doc of docs) {
     const records = recordRepository.query({ documentId: doc.id, isDemo });
     const assignedEmployees = resolveResponsibleEmployees(doc, master);
+    // F/HR/20's year's round (about 200 forms, REQUIREMENTS §266) is ONE reminder, at its first form still open, saying how
+    // many are left - not two hundred.
+    const roundOpen = new Map<string, RecordInstance[]>();
+    for (const r of records) {
+      if (!isRoundForm(r) || !PENDING_STATUSES.includes(r.status as (typeof PENDING_STATUSES)[number])) continue;
+      const year = roundDateOf(r)!;
+      roundOpen.set(year, [...(roundOpen.get(year) ?? []), r]);
+    }
 
     for (const record of records) {
       if (!PENDING_STATUSES.includes(record.status as (typeof PENDING_STATUSES)[number])) continue;
+      const round = isRoundForm(record) ? roundOpen.get(roundDateOf(record)!) ?? [] : null;
+      if (round && round[0]?.id !== record.id) continue;
       if (liveStartDate && compareISO(record.dueDate, liveStartDate) < 0) continue;
       // Nobody's expected to file paperwork on a day the company's closed
       // (the Thursday weekly off, a festival holiday) — applies to every
@@ -141,7 +152,7 @@ export function computeReminders(isDemo: boolean): DocumentReminder[] {
         daysUntilDue,
         route: routeForRecord(doc, record.id),
         assignedEmployees,
-        ...(reminderNoteFor(doc.id) ? { note: reminderNoteFor(doc.id) } : {}),
+        ...(round ? { note: `${round.length} survey form${round.length === 1 ? "" : "s"} of this year's round still to fill` } : reminderNoteFor(doc.id) ? { note: reminderNoteFor(doc.id) } : {}),
       });
     }
   }

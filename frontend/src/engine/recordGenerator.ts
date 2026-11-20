@@ -11,6 +11,8 @@ import { mayWriteRecordsOf } from "./departmentScope";
 import { schedulePeriodOf } from "./frequencyEngine";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { rulerSlotsFor } from "./rulerSlots";
+import { isPscSurvey, roundFormsFor } from "./pscSurveyRound";
+import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
 
 /**
  * A SHEET FILLED THROUGH THE YEAR AND DUE AT ITS END (REQUIREMENTS §86, §164): F/HR/16,
@@ -95,6 +97,13 @@ export function ensureRecordsGeneratedForMonth(
       if (isRulerVerification(doc.id)) {
         const period = schedulePeriodOf(doc, scheduled);
         if (period) created.push(...rulerSlotsFor(doc, period, !!opts.isDemo));
+        continue;
+      }
+      // F/HR/20: the year's survey round, about 200 forms, each its person's from HR Master Data - made once, Live only
+      // (REQUIREMENTS §266, engine/pscSurveyRound.ts).
+      if (isPscSurvey(doc.id)) {
+        const period = opts.isDemo ? null : schedulePeriodOf(doc, scheduled);
+        if (period) created.push(...roundFormsFor(doc, period, hrMasterRepository.all()));
         continue;
       }
       if (existing.has(`${doc.id}|${periodKeyFor(doc, scheduled)}`)) continue;

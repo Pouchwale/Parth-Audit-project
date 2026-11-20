@@ -680,12 +680,13 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     department: "HR & Admin",
     module: "Human Resources",
     section: "Product Safety Culture",
-    frequency: "As Required",
+    frequency: "Yearly",
     status: "Configured",
     description:
-      "One form per employee, issued in English and Gujarati: fifteen statements about product safety and quality culture — speaking up, management commitment, procedures, time pressure, root causes, training, equipment — each answered on the printed seven-point scale from Strongly Agree (7) to Strongly Disagree (1).",
+      "One form per employee, issued in English and Gujarati: fifteen statements about product safety and quality culture — speaking up, management commitment, procedures, time pressure, root causes, training, equipment — each answered on the printed seven-point scale from Strongly Agree (7) to Strongly Disagree (1). Every January the year's round is made by itself: about 200 forms - directors, HODs, managers, executives, operators, assistants and the rest of the staff, and three or four helpers - each with its person's name, department and designation fetched from HR Master Data; the answers are each person's own. Due by 31 January.",
     sourceFile: "F-HR-20_Product safety culture survey (1).pdf",
-    schedule: { type: "as-required" },
+    // Every January (REQUIREMENTS §266, engine/pscSurveyRound.ts).
+    schedule: { type: "yearly", month: 0, dayOfMonth: 31 },
   },
   {
     id: "hr-psc-survey-analysis",

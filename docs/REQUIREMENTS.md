@@ -12671,3 +12671,23 @@ plant's November lines the assistant wrote are written so with the next fill. Pr
   II replaces no blade and takes none from the store, its line carrying the stock as shift I closed it (NO_SHIFT_II_ISSUE:
   all four). Before a typed line the OK stock is steered over the last shift I lines (up to three, at most three blades a
   line), the last closing with the typed line's opening.
+
+## §266 The HR module's printouts: numbers in the middle, every line one height (20-Nov-2026)
+
+The owner, 20-Nov-2026, with F/HR/03 Skill Matrix's printout: "make those numbers in middle and see in this all that so line
+are small and some are big so do this fix this kind of problem where the problem is present". Measured on all 19 HR sheets'
+print: every number printed at the left of its box (the Sr. No., the points, dates, counts, percentages); lines ran 14-35 px
+on F/HR/03, 21-53 on F/HR/01, 13-31 on F/HR/05 - a name, a designation or a department of a few words wrapping in a squeezed
+column; F/HR/21's and F/HR/09's sentences ran one or two lines beside each other.
+
+- For the print, on every HR sheet (utils/print.ts tidyHrCells, evenHrLines; styles.css, print only):
+  - a column whose values are nearly all numbers, dates, grades or yes / no stands in the middle of its boxes (decided by
+    column, so a designation that happens to be "QC" stays with its words);
+  - any other short value (40 letters at most) stays on one line, so every line is one line high; the sheet is then fitted
+    to its page as before;
+  - a table of 40 lines at most (25 or fewer: up to three times the shortest) has every line drawn as tall as its tallest,
+    measured as the page lays it out, where that runs onto no further page. A long register (F/HR/19's 55 points) and a
+    topic list too tall for its page (F/HR/07's induction topics) keep their lines as written, as the paper does.
+- Measured after: F/HR/01 21-21 px, F/HR/03 14-14, F/HR/05 13-13, F/HR/21 29-29, F/HR/09 all one height on its one page;
+  no number left of its box on any HR sheet; no page count changed.
+- Proved: frontend/tests/sharpTools.test.ts, printFill.test.ts; printed to PDF on the local copy.

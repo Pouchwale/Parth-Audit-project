@@ -44,14 +44,28 @@ export const hrMasterColumnLabel = (key: HrMasterColumnKey): string => HR_MASTER
 
 const TITLE_RE = /^(?:mr|mrs|ms|miss|dr|shri|smt)\.?\s+/i;
 
+// FAST NAME LOOKUP (REQUIREMENTS §266; the owner, 20-Nov-2026: "whenever user system generate or manually user enter name
+// of any person so it must process fast ... the fetching process in any document is very slow"). Every keystroke on an HR
+// format looked every name on it up against every person on the sheet, each time cleaning both names with a Unicode
+// regex: a 200-line register took about a tenth of a second a keystroke. A name's cleaned form is now remembered, and the
+// sheet is indexed once per version (peopleIndex below), so a lookup is one Map read.
+const NAME_KEYS = new Map<string, string>();
+const NAME_KEYS_MAX = 20_000;
+
 /** A name as compared: no title, no case, no punctuation — "Ms. Kapila Barad" and "kapila barad" are one. */
 export function nameKey(name: unknown): string {
-  return String(name ?? "")
+  const raw = String(name ?? "");
+  const hit = NAME_KEYS.get(raw);
+  if (hit !== undefined) return hit;
+  const key = raw
     .trim()
     .replace(TITLE_RE, "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
+  if (NAME_KEYS.size >= NAME_KEYS_MAX) NAME_KEYS.clear();
+  NAME_KEYS.set(raw, key);
+  return key;
 }
 
 export const sameName = (a: unknown, b: unknown): boolean => {
@@ -66,6 +80,12 @@ export function gp3Key(value: unknown): string {
     .replace(/^gp\s*-?\s*3\s*(?:no\.?|number|#)?\s*[:#./-]?\s*/i, "")
     .replace(/\s+/g, "")
     .toUpperCase();
+}
+
+/** A GP3 No. as indexed: two numbers sameGp3 calls one have one form ("GP3.001", "1" and "0001" are "1"). */
+function gp3IndexKey(value: unknown): string {
+  const k = gp3Key(value);
+  return /^\d+$/.test(k) ? String(Number(k)) : k;
 }
 
 /** Two GP3 Nos. are the same number — a spreadsheet that dropped a leading zero still matches. */
@@ -377,12 +397,66 @@ export function linkedValue(person: HrMasterPerson, field: LinkedField): string 
 /** The name names this person: their full name, or another spelling the registers use for them. */
 export const namesPerson = (value: unknown, person: HrMasterPerson): boolean => sameName(value, person.fullName) || (person.aliases ?? []).some((a) => sameName(value, a));
 
+interface PeopleIndex {
+  /** Each name and other spelling, as compared, to the people it names (in sheet order, each once). */
+  byName: Map<string, HrMasterPerson[]>;
+  /** Each GP3 No., as compared, to the people who hold it. */
+  byGp3: Map<string, HrMasterPerson[]>;
+  /** Each person's full name, as compared, in words — for "the start of a name". */
+  words: Map<HrMasterPerson, string[]>;
+}
+
+// One index per array of people: hrMasterRepository.all() hands out the same array until the sheet changes, so the
+// index is built once per version of the sheet. A short list (a caller's own one or two people) is searched directly.
+const INDEXES = new WeakMap<readonly HrMasterPerson[], PeopleIndex>();
+const INDEX_FROM = 12;
+
+function peopleIndex(people: readonly HrMasterPerson[]): PeopleIndex | null {
+  if (people.length < INDEX_FROM) return null;
+  const hit = INDEXES.get(people);
+  if (hit) return hit;
+  const byName = new Map<string, HrMasterPerson[]>();
+  const byGp3 = new Map<string, HrMasterPerson[]>();
+  const words = new Map<HrMasterPerson, string[]>();
+  const put = (map: Map<string, HrMasterPerson[]>, key: string, p: HrMasterPerson) => {
+    if (!key) return;
+    const list = map.get(key);
+    if (!list) map.set(key, [p]);
+    else if (list[list.length - 1] !== p) list.push(p);
+  };
+  for (const p of people) {
+    put(byName, nameKey(p.fullName), p);
+    for (const a of p.aliases ?? []) put(byName, nameKey(a), p);
+    put(byGp3, gp3IndexKey(p.gp3No), p);
+    words.set(p, nameKey(p.fullName).split(" "));
+  }
+  const index = { byName, byGp3, words };
+  INDEXES.set(people, index);
+  return index;
+}
+
+/** Everyone the words name by full name or another spelling, in sheet order. */
+function namedBy(value: unknown, people: readonly HrMasterPerson[]): HrMasterPerson[] {
+  const index = peopleIndex(people);
+  if (!index) return people.filter((p) => namesPerson(value, p));
+  const key = nameKey(value);
+  return key ? index.byName.get(key) ?? [] : [];
+}
+
+/** Everyone holding the GP3 No. the words give, in sheet order. */
+function numberedBy(value: unknown, people: readonly HrMasterPerson[]): HrMasterPerson[] {
+  const index = peopleIndex(people);
+  if (!index) return people.filter((p) => sameGp3(p.gp3No, value));
+  const key = gp3IndexKey(value);
+  return key ? index.byGp3.get(key) ?? [] : [];
+}
+
 export function personNamed(value: unknown, people: HrMasterPerson[]): HrMasterPerson | null {
   if (!String(value ?? "").trim()) return null;
-  const byName = people.filter((p) => namesPerson(value, p));
+  const byName = namedBy(value, people);
   if (byName.length === 1) return byName[0];
   if (byName.length > 1) return null;
-  const byNumber = people.filter((p) => sameGp3(p.gp3No, value));
+  const byNumber = numberedBy(value, people);
   return byNumber.length === 1 ? byNumber[0] : null;
 }
 
@@ -397,17 +471,22 @@ export interface PersonSearch {
 export function searchPeople(query: unknown, people: HrMasterPerson[], limit = 8): PersonSearch {
   const q = String(query ?? "").trim();
   if (!q) return { exact: null, candidates: [] };
-  const byNumber = people.filter((p) => sameGp3(p.gp3No, q));
+  const byNumber = numberedBy(q, people);
   if (byNumber.length > 0) return { exact: byNumber.length === 1 ? byNumber[0] : null, candidates: byNumber.slice(0, limit) };
-  const byName = people.filter((p) => namesPerson(q, p));
+  const byName = namedBy(q, people);
   if (byName.length > 0) return { exact: byName.length === 1 ? byName[0] : null, candidates: byName.slice(0, limit) };
   const tokens = nameKey(q).split(" ").filter(Boolean);
   if (tokens.length === 0) return { exact: null, candidates: [] };
-  const partial = people.filter((p) => {
-    const words = nameKey(p.fullName).split(" ");
-    return tokens.every((t) => words.some((w) => w.startsWith(t)));
-  });
-  return { exact: null, candidates: partial.slice(0, limit) };
+  const index = peopleIndex(people);
+  const partial: HrMasterPerson[] = [];
+  for (const p of people) {
+    const words = index?.words.get(p) ?? nameKey(p.fullName).split(" ");
+    if (tokens.every((t) => words.some((w) => w.startsWith(t)))) {
+      partial.push(p);
+      if (partial.length >= limit) break;
+    }
+  }
+  return { exact: null, candidates: partial };
 }
 
 /** "Sandeep Parekh · GP3 No. 1024 · HR & Admin · Manager" */
@@ -500,7 +579,7 @@ export const taggedForAnother = (row: Record<string, unknown>, person: HrMasterP
  * "several" and nothing is guessed.
  */
 export function lineOfPerson(link: HrMasterLink, rows: LogSheetRow[], person: HrMasterPerson, people: HrMasterPerson[]): LineMatch {
-  const namesake = people.some((p) => p.id !== person.id && (namesPerson(person.fullName, p) || (person.aliases ?? []).some((a) => namesPerson(a, p))));
+  const namesake = [person.fullName, ...(person.aliases ?? [])].some((n) => namedBy(n, people).some((p) => p.id !== person.id));
   const marked = rows.map((_, i) => i).filter((i) => taggedFor(rows[i], person));
   if (marked.length === 1) return { kind: "line", index: marked[0] };
   if (marked.length > 1) return { kind: "several", indexes: marked };

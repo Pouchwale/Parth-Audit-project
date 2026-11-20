@@ -10,6 +10,7 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
 import { nextRulerRecord, rulerRecordShown } from "./rulerSlots";
+import { isPscSurvey } from "./pscSurveyRound";
 import { workingDueDate } from "./holidays";
 import { periodKeyFor } from "./recordGenerator";
 import { historyOf, logRecordStarted } from "./recordHistory";
@@ -104,7 +105,9 @@ function filedFor(record: RecordInstance): string {
  * things happen.
  */
 export function recordCoveringDate(doc: DocumentDefinition, dateISO: string, isDemo: boolean): RecordInstance | undefined {
-  if (doc.schedule.type === "as-required") return undefined;
+  // F/HR/20 is one form per employee: its yearly round is made in January, and New starts another form every time it is
+  // pressed - a person the round did not take - as an as-required document does (REQUIREMENTS §266).
+  if (doc.schedule.type === "as-required" || isPscSurvey(doc.id)) return undefined;
   // F/QC/17: twenty records a year, the first not filled shown (REQUIREMENTS §220, engine/rulerSlots.ts).
   if (isRulerVerification(doc.id)) return rulerRecordShown(doc, dateISO, isDemo);
   const records = recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[];
@@ -160,7 +163,7 @@ export function createRecordForDocument(
   // a complaint, an inspection report, an acknowledgement — can be started as
   // often as things happen, two on one day included; returning the morning's
   // complaint for the afternoon's would file the second under the first.
-  const asRequired = doc.schedule.type === "as-required";
+  const asRequired = doc.schedule.type === "as-required" || isPscSurvey(doc.id);
   // F/QC/17: the first of the year's twenty not filled, else the next number (REQUIREMENTS §220, engine/rulerSlots.ts).
   const ruler = nextRulerRecord(doc, asked, isDemo);
   if (ruler) {

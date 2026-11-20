@@ -455,3 +455,15 @@ test("a line whose only change is the assistant's old remark taken off is still 
   assert.ok(!assistantsLine(id, { ...marked, remarks: "" , qtyIssued: 6 }), "a figure changed too: the person's");
   assert.ok(!assistantsLine(id, { ...marked, remarks: "Fitter's note" }), "a remark of the person's own: the person's");
 });
+
+test("the HR module's print: numbers in the middle by column, short words on one line, a short table's lines one height (§266)", () => {
+  const print = src("utils/print.ts");
+  assert.match(print, /const HR_SHEET = '\[data-sheet\^="hr-"\]';/);
+  assert.match(print, /active\.tidied = tidyHrCells\(pages\);/);
+  assert.match(print, /active\.evened = evenHrLines\(docs\);/);
+  assert.match(print, /cells\.filter\(\(c\) => CENTRED_VALUE\.test\(c\.text\)\)\.length >= Math\.max\(1, cells\.length \* 0\.8\)/, "centred by column");
+  assert.match(print, /if \(pages\(\) > before\) \{/, "never onto a further page");
+  const css = src("styles.css");
+  assert.match(css, /td\.print-one-line\.print-one-line :is\(\.cell-text, \.print-box-text, span, div, \*\) \{ white-space: nowrap; \}/);
+  assert.match(css, /td\.print-center :is\(\.print-box-text, \.cell-text, input, select\) \{ text-align: center;/);
+});
