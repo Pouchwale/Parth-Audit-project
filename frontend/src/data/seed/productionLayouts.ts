@@ -145,8 +145,10 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
   "prd-sharp-object-issue": {
     documentId: "prd-sharp-object-issue",
     instructions: [FPRD10_STOCK_NOTE],
-    // A month on one page, a line for each of its dates (§259).
+    // A month, two lines a date (shift I and II, §263): its values centred, the Word file set close (§259, §262), and
+    // printed on two A4 pages, the 1st-15th and the 16th-end (§263).
     onePage: true,
+    printPages: 2,
     headerFields: [],
     columns: [
       lineDate("Date"),
@@ -183,8 +185,10 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
   "prd-pouching-cutter-issue": {
     documentId: "prd-pouching-cutter-issue",
     instructions: [FPRD23_STOCK_NOTE],
-    // A month on one page, a line for each of its dates (§259).
+    // A month, two lines a date (shift I and II, §263): its values centred, the Word file set close (§259, §262), and
+    // printed on two A4 pages, the 1st-15th and the 16th-end (§263).
     onePage: true,
+    printPages: 2,
     headerFields: [],
     columns: [
       lineDate("Date"),
@@ -211,8 +215,10 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
   "prd-pouching-blade": {
     documentId: "prd-pouching-blade",
     instructions: [FPRD22_BLADE_NOTE],
-    // A month on one page, a line for each of its dates (§259).
+    // A month, two lines a date (shift I and II, §263): its values centred, the Word file set close (§259, §262), and
+    // printed on two A4 pages, the 1st-15th and the 16th-end (§263).
     onePage: true,
+    printPages: 2,
     headerFields: [],
     columns: bladeColumns(),
     rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
@@ -232,8 +238,10 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
   "prd-slitting-blade": {
     documentId: "prd-slitting-blade",
     instructions: [FPRD24_BLADE_NOTE],
-    // A month on one page, a line for each of its dates (§259).
+    // A month, two lines a date (shift I and II, §263): its values centred, the Word file set close (§259, §262), and
+    // printed on two A4 pages, the 1st-15th and the 16th-end (§263).
     onePage: true,
+    printPages: 2,
     headerFields: [],
     columns: bladeColumns(),
     rowMode: { kind: "free", minRows: 1, typicalRows: 1 },

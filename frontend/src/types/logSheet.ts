@@ -603,6 +603,12 @@ export interface LogSheetLayout {
    */
   onePage?: true;
   /**
+   * PRINTED ON THIS MANY PAGES, A MONTH'S HALVES (the owner, 20-Nov-2026, REQUIREMENTS §263: two fixed shifts a day, a month
+   * of about 60 lines; asked, "Two A4 pages"): the 1st to the 15th on the first page, the 16th to the month's end on the
+   * second, the heading and the note on both, each page drawn to fill its A4 (utils/print.ts fitDrawnSections).
+   */
+  printPages?: 2;
+  /**
    * The paper's text AT THE FOOT of the sheet, after the boxes below the grid,
    * verbatim and in its order (REQUIREMENTS §111): F/QC/21's "This is a system
    * generated document ...", the certificates of analysis' "THIS IS A SYSTEM

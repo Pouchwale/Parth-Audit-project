@@ -15,7 +15,7 @@ import { mayWriteRecordsOf } from "./departmentScope";
 import { fillScaleLinesDue, SCALE_DAY_NOTE } from "./nominalFill";
 import { firstWeekDate } from "./calibrationWeeks";
 import { withComputedCells } from "./computedCells";
-import { bladeClosingBefore, bladeLineClosing, closedDayLine, isSharpMonthSheet, razorBladeRow, RAZOR_BLADE_DOCS, sharpIssueRows, sharpLineFigures, sharpLineHoldsFigure, sharpLineWritten, sharpSteadyLine, assistantsLine, lineFingerprint, ASSISTANT_LINE, sharpSheetAssistantOwn, SHARP_FILL_NOTE, SHARP_TOOL_DOCS, withMonthDays } from "./sharpTools";
+import { bladeBridgeRow, bladeClosingBefore, bladeLineClosing, closedDayLine, isSharpMonthSheet, razorBladeRow, RAZOR_BLADE_DOCS, sharpIssueRows, sharpLineFigures, sharpLineHoldsFigure, sharpLineWritten, lineShift, sharpSteadyLine, assistantsLine, lineFingerprint, ASSISTANT_LINE, sharpSheetAssistantOwn, SHARP_FILL_NOTE, SHARP_TOOL_DOCS, withMonthDays } from "./sharpTools";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { blankLogRow } from "./recordDefaults";
 import { dayInfo, effectiveDueDatesInMonth } from "./holidays";
@@ -180,7 +180,7 @@ export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
     const daySheets = all.filter((r) => !isSharpMonthSheet(r.data as LogSheetData | undefined) && !isMonthKeyOf(doc, r, master));
     for (const r of [...daySheets.filter((x) => !untouchedByPeople(x)), ...daySheets.filter((x) => untouchedByPeople(x))]) {
       for (const row of (r.data as LogSheetData | undefined)?.rows ?? []) {
-        const d = String(row.date ?? "").slice(0, 10) || r.dueDate;
+        const d = `${String(row.date ?? "").slice(0, 10) || r.dueDate}|${lineShift(id, row)}`;
         if (sharpLineHoldsFigure(id, row) && !personLines.has(d)) personLines.set(d, row);
       }
     }
@@ -207,19 +207,36 @@ export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
         // A line the assistant wrote and nobody has changed since (its mark, §261; or the paper's usual count it wrote on
         // every day on 20-Nov-2026 before §261) is its own to write again when the figures due are other.
         const steady = sharpSteadyLine(id, date);
-        const mine = assistantsLine(id, row) || (!!steady && lineFingerprint(id, row) === lineFingerprint(id, steady) && !String(row.supervisorSign ?? "").trim());
-        // A line written and not the assistant's to work out again: as it is, its stock carried to the next.
-        if (!due || (written && !own && !mine)) {
+        // (and a closed day's line it wrote before its mark: nothing issued, the day named, nobody's sign)
+        const dayOf = dayInfo(date, master);
+        const closedBefore = dayOf.isHoliday && String(row.remarks ?? "").trim() === (dayOf.name || dayOf.short || "Holiday") && !String(row.supervisorSign ?? row.verifiedBy ?? "").trim();
+        const mine = assistantsLine(id, row) || closedBefore || (!!steady && lineFingerprint(id, row) === lineFingerprint(id, steady) && !String(row.supervisorSign ?? "").trim());
+        // A line written and not the assistant's to work out again - a person's, or one laid from a person's day sheet -
+        // is as it stands, even on a sheet the assistant filled (§263): its stock carried to the next.
+        if (!due || (written && !mine)) {
           if (blades) carried = bladeLineClosing(row) ?? carried;
           continue;
         }
         let line: Partial<LogSheetRow> | null = null;
-        const persons = personLines.get(date);
+        const shift = lineShift(id, row);
+        const persons = personLines.get(`${date}|${shift}`);
         const day = dayInfo(date, master);
+        // The next line a person wrote opens with a stock of its own: the line before it replaces none, so it carries that
+        // stock unchanged (shift II's line before a typed shift I line of the next day, §263).
+        // (the next line as it will stand - a person's on the sheet, or a person's day-sheet line to be laid on it - past any
+        // closed day between, whose lines carry the stock unchanged)
+        const fixedAt = (r: LogSheetRow | undefined) =>
+          !r ? undefined : personLines.get(`${String(r.date ?? "").slice(0, 10)}|${lineShift(id, r)}`) ?? (sharpLineWritten(id, r) && !assistantsLine(id, r) && !dayInfo(String(r.date ?? "").slice(0, 10), master).isHoliday ? r : undefined);
+        let j = k + 1;
+        while (rows[j] && !fixedAt(rows[j]) && dayInfo(String(rows[j].date ?? "").slice(0, 10), master).isHoliday) j++;
+        const next = fixedAt(rows[j]);
+        const nextFixed = blades && !!next && bladeLineClosing(next) !== null && String(next.openingStock ?? "").trim() !== "";
+        const bridge = nextFixed && !day.isHoliday ? bladeBridgeRow(id, date, carried, Number(next.openingStock), shift) : null;
         if (persons) line = sharpLineFigures(id, persons);
-        else if (day.isHoliday) line = closedDayLine(id, date, day, carried);
-        else if (blades) line = razorBladeRow(id, date, carried);
-        else line = sharpIssueRows(id, date, master)?.[0] ?? null;
+        else if (day.isHoliday) line = closedDayLine(id, date, day, carried, shift);
+        else if (bridge) line = bridge;
+        else if (blades) line = razorBladeRow(id, date, carried, shift);
+        else line = sharpIssueRows(id, date, master, shift)?.[0] ?? null;
         if (!line) continue;
         const { id: _drop, ...figures } = line as LogSheetRow;
         void _drop;

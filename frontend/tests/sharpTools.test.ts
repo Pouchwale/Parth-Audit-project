@@ -60,21 +60,21 @@ test("a worn-out item now and then, broken and as many new issued, so the stock 
     const iso = new Date(Date.UTC(2027, 0, 1 + d)).toISOString().slice(0, 10);
     const r = sharpIssueRows("prd-sharp-object-issue", iso, master)![0];
     assert.equal(r.issuedManualCutter, r.returnedManualCutter, "every one issued comes back");
-    if (r.brokenCutterBlade === "Nil") assert.equal(r.newCutterBlade, "NA");
+    if (r.brokenCutterBlade === "-") assert.equal(r.newCutterBlade, "-");
     else {
       assert.equal(r.newCutterBlade, r.brokenCutterBlade, "as many new as broken: the stock stays 20");
       assert.match(String(r.remarks), /Cutter blade worn out/);
       cutters++;
     }
-    if (r.brokenScissor !== "Nil") {
+    if (r.brokenScissor !== "-") {
       assert.equal(r.newScissor, r.brokenScissor);
       scissors++;
     }
     const p = sharpIssueRows("prd-pouching-cutter-issue", iso, master)![0];
-    if (p.brokenQty !== "Nil") {
+    if (p.brokenQty !== "-") {
       assert.equal(p.newQtyIssued, p.brokenQty);
       pouching++;
-    } else assert.equal(p.newQtyIssued, "NA");
+    } else assert.equal(p.newQtyIssued, "-");
     assert.deepEqual(sharpIssueRows("prd-sharp-object-issue", iso, master)![0].brokenCutterBlade, r.brokenCutterBlade, "the same each time");
   }
   assert.ok(cutters > days * 0.05 && cutters < days * 0.16, `cutter blades worn out on ${cutters} of ${days} days`);
@@ -85,7 +85,7 @@ test("a worn-out item now and then, broken and as many new issued, so the stock 
 test("a sheet still the assistant's own is worked out again when its figures change; a person's line never", () => {
   const prep = src("engine/assistantPrepare.ts");
   assert.match(prep, /const own = sharpSheetAssistantOwn\(record\);/);
-  assert.match(prep, /if \(!due \|\| \(written && !own && !mine\)\) \{/);
+  assert.match(prep, /if \(!due \|\| \(written && !mine\)\) \{/);
 });
 
 test("F/PRD/22 and 24: the day's blades from the day before; always the note's 20, the machines' included; low stock renewed", () => {
@@ -137,9 +137,10 @@ test("a line for every date of the month, 1 to 28, 29, 30 or 31, a line already 
   assert.equal(monthDays("2028-02").length, 29);
   const kept = { id: "mine", date: "2026-11-17", shift: "I", issuedScissor: 4 };
   const sheet = withMonthDays("prd-sharp-object-issue", { header: {}, rows: [{ id: "blank", date: "", shift: "" }, kept] }, "2026-11")!;
-  assert.equal(sheet.rows.length, 30, "the day sheet's blank line goes, a line for each of November's 30 days");
-  assert.deepEqual(sheet.rows.map((r) => r.date), monthDays("2026-11"));
-  assert.equal(sheet.rows[16], kept, "17-11's line as written");
+  assert.equal(sheet.rows.length, 60, "the day sheet's blank line goes; two lines, shift I and II, for each of November's 30 days (§263)");
+  assert.deepEqual(sheet.rows.map((r) => r.date), monthDays("2026-11").flatMap((d) => [d, d]));
+  assert.deepEqual(sheet.rows.slice(0, 4).map((r) => r.shift), ["I", "II", "I", "II"], "the shift set on each");
+  assert.equal(sheet.rows[32], kept, "17-11's shift I line as written");
   assert.equal(withMonthDays("prd-sharp-object-issue", sheet, "2026-11"), null, "already so: nothing to do");
 });
 
@@ -180,17 +181,16 @@ test("the month's sheet: each day's line filled on its day, a closed day so writ
   fillSharpToolsDue("2026-11-20");
   const month = recordRepository.getById("t-prd-sharp-object-issue-2026-11-30")!;
   const rows = (month.data as { rows: LogSheetRow[] }).rows;
-  assert.equal(rows.length, 30);
+  assert.equal(rows.length, 60, "two lines a date (§263)");
   assert.equal(month.status, "In Progress");
-  for (const r of rows) {
+  for (const [i, r] of rows.entries()) {
     const d = String(r.date);
+    assert.equal(r.shift, i % 2 === 0 ? "I" : "II", `${d}: shift I then II`);
     if (d > "2026-11-20") assert.ok(r.issuedScissor === null || r.issuedScissor === "", `${d}: blank until its day`);
-    else if (d === "2026-11-18") assert.equal(r.supervisorSign, "Ramesh", "the person's line laid on its date");
+    else if (d === "2026-11-18" && r.shift === "II") assert.equal(r.supervisorSign, "Ramesh", "the person's shift II line laid on its date and shift");
     else if (isCompanyHoliday(d, masterRepository.get())) assert.equal(Number(r.issuedScissor), 0, `${d}: closed, nothing issued`);
-    else {
-      assert.equal(r.shift, "I");
-      assert.ok(Number(r.issuedScissor) >= 1 && Number(r.issuedScissor) <= 3, `${d}: shift I's three people, less any away`);
-    }
+    else if (r.shift === "I") assert.ok(Number(r.issuedScissor) >= 1 && Number(r.issuedScissor) <= 3, `${d}: shift I's three people, less any away`);
+    else assert.equal(Number(r.issuedScissor), 1, `${d}: shift II's one person`);
   }
   assert.ok(rows.some((r) => String(r.remarks).includes("Weekly off")), "the weekly off named");
   // Run again: nothing to do.
@@ -219,7 +219,7 @@ test("the four are a sheet a month from November 2026, the Shift chosen I or II"
     assert.equal(shift.type, "select", id);
     assert.deepEqual(shift.options, ["I", "II"]);
   }
-  assert.match(src("data/bootstrap.ts"), /sharpDaySheetsFolded\(\);\n  removeOffScheduleShells\(\);/);
+  assert.match(src("data/bootstrap.ts"), /sharpDailyFrequencyLifted\(\);\n  sharpDaySheetsFolded\(\);[\s\S]*?sharpTypedLinesRestored\(\);\n  removeOffScheduleShells\(\);/);
 });
 
 test("the month prints on one A4 page: the print fits it however tall, the Word file sets its lines close", async () => {
@@ -278,7 +278,13 @@ test("the plant's case (20-Nov-2026): the Daily set on 18-Nov lifted; a typed bl
   const line = (recordRepository.getById("fold-2026-11-30")!.data as { rows: LogSheetRow[] }).rows.find((r) => r.date === "2026-11-18")!;
   assert.equal(Number(line.closingOkStock), 7, "the typed line on its date");
   assert.equal(line.replacedShift, "I", "its shift written I");
-  assert.equal(Number((recordRepository.getById("fold-2026-11-30")!.data as { rows: LogSheetRow[] }).rows.find((r) => r.date === "2026-11-19")!.openingStock), 7, "the next day opens with it");
+  const lines = (recordRepository.getById("fold-2026-11-30")!.data as { rows: LogSheetRow[] }).rows;
+  const after = lines[lines.indexOf(line) + 1];
+  assert.deepEqual([after.date, after.replacedShift, Number(after.openingStock)], ["2026-11-18", "II", 7], "the shift II line after it opens with it");
+  assert.equal(Number(lines.find((r) => r.date === "2026-11-19")!.openingStock), Number(after.closingOkStock), "and the next day with shift II's closing");
+  const prev = lines[lines.indexOf(line) - 1];
+  assert.deepEqual([prev.date, prev.replacedShift, Number(prev.closingOkStock)], ["2026-11-17", "II", 9], "the line before closes with the 9 the typed line opens with");
+  for (let i = 1; i < lines.length && String(lines[i].date) <= "2026-11-20"; i++) assert.equal(Number(lines[i].openingStock), Number(lines[i - 1].closingOkStock), `${lines[i].date} ${lines[i].replacedShift}: unbroken stock`);
   sharpDaySheetsFolded();
   assert.ok(!recordRepository.getById("fold-2026-11-18"), "...then folded");
 });
@@ -309,4 +315,98 @@ test("a line the assistant wrote carries its mark; changed by a person it is the
   assert.ok(!assistantsLine("prd-pouching-cutter-issue", { ...line, supervisorSign: "Ramesh" }), "signed");
   assert.equal(sharpSteadyLine("prd-sharp-object-issue", "2026-11-05")!.issuedScissor, 12, "the 20-Nov fill, known again");
   assert.match(src("engine/assistantPrepare.ts"), /if \(!persons\) rows\[k\]\[ASSISTANT_LINE\] = lineFingerprint\(id, rows\[k\]\);/);
+});
+
+test("nothing broken, nothing new: a dash, not Nil or NA; every value printed in the middle of its box (§262)", async () => {
+  const { NONE } = await import("../src/engine/sharpTools");
+  assert.equal(NONE, "-");
+  for (const d of ["2026-12-02", "2026-12-03", "2026-12-04"]) {
+    for (const id of ["prd-sharp-object-issue", "prd-pouching-cutter-issue"]) {
+      const r = sharpIssueRows(id, d, { sharpToolPeople: [] })![0];
+      for (const v of Object.values(r)) assert.ok(v !== "Nil" && v !== "NA", `${id} ${d}: ${v}`);
+    }
+  }
+  assert.doesNotMatch(src("engine/sharpTools.ts"), /"Nil"|"NA"/);
+  assert.match(src("styles.css"), /\.paper-sheet\[data-one-page\] table\.log-sheet :is\(th, td\) \{ text-align: center; \}/);
+  assert.match(src("utils/docx.ts"), /<w:jc w:val="center"\/>' : '<w:spacing w:before="20"/);
+});
+
+test("two fixed shifts a day (§263): shift II a smaller crew of about four, each shift within the note; the month on two pages", async () => {
+  const { sharpIssueCounts, razorBladeRow: blade, monthDays } = await import("../src/engine/sharpTools");
+  const { getLogSheetLayout } = await import("../src/data/seed/logSheetLayouts");
+  const two = monthDays("2026-12").map((d) => sharpIssueCounts("prd-sharp-object-issue", { sharpToolPeople: [] }, d, "II")!.cutters);
+  assert.ok(two.every((n) => n >= 3 && n <= 5) && new Set(two).size >= 2, two.join(" "));
+  const one = monthDays("2026-12").map((d) => sharpIssueCounts("prd-sharp-object-issue", { sharpToolPeople: [] }, d, "I")!.cutters);
+  assert.ok(one.every((n, i) => n > two[i]), "shift I the bigger crew");
+  // The blades through both shifts: each line opens with the one before, always the note's 20.
+  const plan = BLADE_STOCK["prd-pouching-blade"];
+  let before: { ok: number; discarded: number } | null = null;
+  for (const d of monthDays("2026-12")) {
+    for (const s of ["I", "II"] as const) {
+      const r = blade("prd-pouching-blade", d, before, s)!;
+      if (before) assert.equal(Number(r.openingStock), before.ok);
+      assert.equal(r.replacedShift, s);
+      assert.equal(Number(r.closingOkStock) + Number(r.closingDiscarded) + plan.onMachine, plan.maintained);
+      before = bladeClosing({ header: {}, rows: [r] });
+    }
+  }
+  for (const id of ["prd-sharp-object-issue", "prd-pouching-blade", "prd-pouching-cutter-issue", "prd-slitting-blade"]) assert.equal(getLogSheetLayout(id)!.printPages, 2, id);
+  assert.match(src("styles.css"), /tr\[data-page-start\] \{ break-before: page;/);
+});
+
+test("a line laid from a person's day sheet stays, even on a sheet the assistant filled; the plant's typed lines put back (§263)", async () => {
+  const { ensureSeeded: docsSeeded, documentRepository } = await import("../src/data/repositories/documentRepository");
+  const { ensureSeeded: masterSeeded } = await import("../src/data/repositories/masterRepository");
+  const { recordRepository } = await import("../src/data/repositories/recordRepository");
+  const { fillSharpToolsDue } = await import("../src/engine/assistantPrepare");
+  const { periodKeyFor } = await import("../src/engine/recordGenerator");
+  const { withMonthDays, ASSISTANT_LINE, lineFingerprint } = await import("../src/engine/sharpTools");
+  const { sharpTypedLinesRestored } = await import("../src/data/sharpMonthMigration");
+  docsSeeded();
+  masterSeeded();
+  const id = "prd-pouching-blade";
+  for (const r of recordRepository.queryUnscoped({ documentId: id, isDemo: false })) recordRepository.removeIds([r.id]);
+  const doc = documentRepository.getByIdUnscoped(id)!;
+  const now = new Date().toISOString();
+  const month = withMonthDays(id, { header: {}, rows: [] }, "2026-11")!;
+  // The sheet as the plant had it: the assistant's own (prepared.at = updatedAt), its 18-11 shift I line written over.
+  const i18 = month.rows.findIndex((r) => r.date === "2026-11-18");
+  const wrong = { ...month.rows[i18], openingStock: 11, newIssuedFromStore: 0, totalStock: 11, replacedShift: "I", replacedNos: 2, closingOkStock: 9, closingDiscarded: 3, discardedReturned: 0 };
+  wrong[ASSISTANT_LINE] = lineFingerprint(id, wrong);
+  month.rows[i18] = wrong;
+  recordRepository.upsertMany([{ id: "restore-nov", documentId: id, periodKey: periodKeyFor(doc, "2026-11-30"), dueDate: "2026-11-30", status: "In Progress", isDemo: false, createdAt: now, updatedAt: now, prepared: { at: now, by: "assistant", notes: [], knownPartsOnly: true }, data: month } as RecordInstance]);
+  assert.ok(sharpTypedLinesRestored() >= 1);
+  const typed = () => (recordRepository.getById("restore-nov")!.data as { rows: LogSheetRow[] }).rows.find((r) => r.date === "2026-11-18" && r.replacedShift === "I")!;
+  assert.deepEqual([Number(typed().openingStock), Number(typed().closingOkStock), Number(typed().closingDiscarded)], [7, 5, 7], "put back as typed");
+  assert.equal(sharpTypedLinesRestored(), 0, "run again: nothing to do");
+  fillSharpToolsDue("2026-11-20");
+  assert.deepEqual([Number(typed().openingStock), Number(typed().closingOkStock)], [7, 5], "the fill leaves the typed line, the sheet the assistant's or not");
+  const rows = (recordRepository.getById("restore-nov")!.data as { rows: LogSheetRow[] }).rows;
+  const at = rows.indexOf(typed());
+  assert.equal(Number(rows[at - 1].closingOkStock), 7, "the line before closes with what the typed line opens with");
+  assert.equal(Number(rows[at + 1].openingStock), 5, "the line after opens with its closing");
+});
+
+test("the line before a typed one looks past a weekly off: the stock runs unbroken into it (§263)", async () => {
+  const { ensureSeeded: docsSeeded, documentRepository } = await import("../src/data/repositories/documentRepository");
+  const { ensureSeeded: masterSeeded, masterRepository } = await import("../src/data/repositories/masterRepository");
+  const { recordRepository } = await import("../src/data/repositories/recordRepository");
+  const { fillSharpToolsDue } = await import("../src/engine/assistantPrepare");
+  const { periodKeyFor } = await import("../src/engine/recordGenerator");
+  const { isCompanyHoliday } = await import("../src/engine/holidays");
+  const { withMonthDays } = await import("../src/engine/sharpTools");
+  docsSeeded();
+  masterSeeded();
+  const id = "prd-slitting-blade";
+  for (const r of recordRepository.queryUnscoped({ documentId: id, isDemo: false })) recordRepository.removeIds([r.id]);
+  assert.ok(isCompanyHoliday("2026-11-19", masterRepository.get()), "19-11-2026 is the weekly off");
+  const month = withMonthDays(id, { header: {}, rows: [] }, "2026-11")!;
+  const i20 = month.rows.findIndex((r) => r.date === "2026-11-20");
+  month.rows[i20] = { ...month.rows[i20], openingStock: 7, newIssuedFromStore: 0, totalStock: 7, replacedShift: "I", replacedNos: 2, closingOkStock: 5, closingDiscarded: 10, discardedReturned: 0 };
+  const now = new Date().toISOString();
+  recordRepository.upsertMany([{ id: "wk-nov", documentId: id, periodKey: periodKeyFor(documentRepository.getByIdUnscoped(id)!, "2026-11-30"), dueDate: "2026-11-30", status: "Due", isDemo: false, createdAt: now, updatedAt: now, data: month } as RecordInstance]);
+  fillSharpToolsDue("2026-11-20");
+  const rows = (recordRepository.getById("wk-nov")!.data as { rows: LogSheetRow[] }).rows.filter((r) => String(r.date) <= "2026-11-20");
+  for (let i = 1; i < rows.length; i++) assert.equal(Number(rows[i].openingStock), Number(rows[i - 1].closingOkStock), `${rows[i].date} ${rows[i].replacedShift}: unbroken`);
+  assert.equal(Number(rows.find((r) => r.date === "2026-11-20")!.openingStock), 7, "the typed line as typed");
 });

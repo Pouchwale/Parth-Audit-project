@@ -7,7 +7,8 @@ import { mayWriteRecordsOf } from "../engine/departmentScope";
 import { effectiveDueDatesInMonth } from "../engine/holidays";
 import { periodKeyFor } from "../engine/recordGenerator";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
-import { isSharpMonthSheet, sharpLineFigures, sharpLineHoldsFigure, SHARP_TOOL_DOCS } from "../engine/sharpTools";
+import { ASSISTANT_LINE, assistantsLine, isSharpMonthSheet, lineShift, sharpLineFigures, sharpLineHoldsFigure, SHARP_TOOL_DOCS } from "../engine/sharpTools";
+import { appendHistory, diffRecordData, makeEntry } from "../engine/recordHistory";
 import { compareISO } from "../utils/date";
 
 /** The day the owner asked for a sheet a month (REQUIREMENTS §259): a Daily frequency set on the four before it is lifted. */
@@ -43,7 +44,7 @@ const OPEN = new Set(["Scheduled", "Due", "In Progress"]);
 /** Whether `row`'s figures are those the month sheet's line of the same date holds. */
 function onMonthLine(documentId: string, row: LogSheetRow, date: string, month: RecordInstance | undefined): boolean {
   if (!month) return false;
-  const line = ((month.data as LogSheetData | undefined)?.rows ?? []).find((r) => String(r.date ?? "").slice(0, 10) === date);
+  const line = ((month.data as LogSheetData | undefined)?.rows ?? []).find((r) => String(r.date ?? "").slice(0, 10) === date && lineShift(documentId, r) === lineShift(documentId, row));
   if (!line) return false;
   return Object.entries(sharpLineFigures(documentId, row)).every(([k, v]) => /shift/i.test(k) || String(line[k] ?? "").trim() === String(v ?? "").trim());
 }
@@ -91,4 +92,50 @@ export function sharpDaySheetsFolded(): number {
     }
   }
   return gone + (quietly.length ? recordRepository.removeIds(quietly) : 0);
+}
+
+/**
+ * THE LINES TYPED ON THE PLANT'S DAY SHEETS, PUT BACK (20-Nov-2026, REQUIREMENTS §263). The razor blade lines a person had
+ * written on the day sheets of F/PRD/22 (1, 18 and 20 Nov) and F/PRD/24 (18 and 20 Nov) were laid on November's sheet
+ * (§259) and then, the sheet being the assistant's own, worked out again by its fill - a person's line is never the
+ * assistant's to write. Each is put back as it was typed (read from the plant's records before, 20-Nov-2026), with a line in
+ * the sheet's history, while its line still stands as the assistant wrote it (its mark): once anybody has changed that
+ * line, it is theirs and is left. Runs at every start: nothing to do, nothing written.
+ */
+const TYPED_LINES: Record<string, { date: string; figures: Record<string, number> }[]> = {
+  "prd-pouching-blade": [
+    { date: "2026-11-01", figures: { openingStock: 10, newIssuedFromStore: 0, totalStock: 10, replacedNos: 1, closingOkStock: 9, closingDiscarded: 3, discardedReturned: 0 } },
+    { date: "2026-11-18", figures: { openingStock: 7, newIssuedFromStore: 0, totalStock: 7, replacedNos: 2, closingOkStock: 5, closingDiscarded: 7, discardedReturned: 0 } },
+    { date: "2026-11-20", figures: { openingStock: 5, newIssuedFromStore: 0, totalStock: 5, replacedNos: 3, closingOkStock: 2, closingDiscarded: 10, discardedReturned: 0 } },
+  ],
+  "prd-slitting-blade": [
+    { date: "2026-11-18", figures: { openingStock: 9, newIssuedFromStore: 0, totalStock: 9, replacedNos: 2, closingOkStock: 7, closingDiscarded: 8, discardedReturned: 0 } },
+    { date: "2026-11-20", figures: { openingStock: 7, newIssuedFromStore: 0, totalStock: 7, replacedNos: 2, closingOkStock: 5, closingDiscarded: 10, discardedReturned: 0 } },
+  ],
+};
+export const TYPED_LINES_NOTE = "The razor blade lines typed on the day sheets (1, 18 and 20 Nov), written over by the assistant's fill, put back as typed (REQUIREMENTS §263)";
+
+export function sharpTypedLinesRestored(): number {
+  const updates: RecordInstance[] = [];
+  for (const [id, lines] of Object.entries(TYPED_LINES)) {
+    if (!mayWriteRecordsOf(id)) continue;
+    const sheet = recordRepository.queryUnscoped({ documentId: id, isDemo: false }).find((r) => r.dueDate.slice(0, 7) === "2026-11" && isSharpMonthSheet(r.data as LogSheetData | undefined));
+    if (!sheet || !OPEN.has(sheet.status) || sheet.submittedAt) continue;
+    const data = sheet.data as LogSheetData;
+    let changed = false;
+    const rows = data.rows.map((row) => {
+      const typed = lines.find((l) => l.date === String(row.date ?? "").slice(0, 10) && lineShift(id, row) === "I");
+      if (!typed || !assistantsLine(id, row)) return row;
+      if (Object.entries(typed.figures).every(([k, v]) => Number(row[k]) === v)) return row;
+      changed = true;
+      const next: LogSheetRow = { ...row, ...typed.figures, replacedShift: "I" };
+      delete next[ASSISTANT_LINE];
+      return next;
+    });
+    if (!changed) continue;
+    const after = { ...data, rows };
+    updates.push(appendHistory({ ...sheet, data: after }, makeEntry("edited", "System", { note: TYPED_LINES_NOTE, changes: diffRecordData(data, after).filter((c) => !c.field.endsWith(ASSISTANT_LINE)) })));
+  }
+  if (updates.length) recordRepository.upsertMany(updates);
+  return updates.length;
 }

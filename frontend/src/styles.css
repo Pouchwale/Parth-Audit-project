@@ -4439,6 +4439,21 @@ html.print-measure [data-page-part="purchase-master-print"] table td :is(.input,
 .drive-drop-hint { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--color-primary); color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; z-index: 50; pointer-events: none; }
 .drive-search { display: inline-flex; align-items: center; gap: 6px; }
 
+
+/* EVERY VALUE IN THE MIDDLE OF ITS BOX (the owner, 20-Nov-2026, REQUIREMENTS §262: "when user take print then it values should
+   print in middle and don't go left or right"): F/PRD/10, 22, 23 and 24 (LogSheetLayout.onePage, data-one-page) - each
+   line's values, and the headings over them, centred in their columns on the screen, in the print and in the Word file. */
+.paper-sheet[data-one-page] table.log-sheet :is(th, td) { text-align: center; }
+.paper-sheet[data-one-page] table.log-sheet td :is(input, select) { text-align: center; text-align-last: center; }
+@media print {
+  .paper-sheet[data-one-page] table.log-sheet td .print-box-text { display: block; width: 100%; text-align: center; }
+}
+html.print-measure .paper-sheet[data-one-page] table.log-sheet td .print-box-text { display: block; width: 100%; text-align: center; }
+
+/* A MONTH ON TWO PAGES (§263): F/PRD/10, 22, 23 and 24 break before the 16th's lines; the heading block repeats (table header group). */
+@media print {
+  .paper-sheet[data-print-pages] table.log-sheet tbody tr[data-page-start] { break-before: page; page-break-before: always; }
+}
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,

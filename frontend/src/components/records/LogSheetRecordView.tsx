@@ -1044,6 +1044,7 @@ export function LogSheetRecordView({
       data-paper={layout.paper ?? (frame ? "portrait" : lc ? "landscape" : undefined)}
       data-print-words={layout.printWordsAll ? "all" : undefined}
       data-one-page={layout.onePage ? "" : undefined}
+      data-print-pages={layout.printPages ? String(layout.printPages) : undefined}
       data-paper-left={cal ? cal.left : undefined}
       data-frame={frame ? "" : undefined}
       data-sheet={doc.id}
@@ -1332,6 +1333,7 @@ export function LogSheetRecordView({
               <SheetRow
                 row={row}
                 index={i}
+                pageStart={!!layout.printPages && i > 0 && String(row.date ?? "").slice(8, 10) === "16" && String(data.rows[i - 1]?.date ?? "").slice(8, 10) !== "16"}
                 spans={merged.size > 0 ? spansAt(merged, i) : undefined}
                 columns={lines.first}
                 issuedColumns={issuedFirst}
@@ -2263,6 +2265,7 @@ function groupSpan(columns: LogColumn[], at: number): number {
 const SheetRow = React.memo(function SheetRow({
   row,
   index,
+  pageStart,
   spans,
   columns,
   issuedColumns,
@@ -2342,6 +2345,8 @@ const SheetRow = React.memo(function SheetRow({
   height2?: number;
   /** Nobody wrote in this line while another line is written: it does not print (the owner, 25-Oct-2026). */
   unwritten?: boolean;
+  /** The line a printed page starts with (LogSheetLayout.printPages, §263: the 16th on F/PRD/10, 22, 23 and 24). */
+  pageStart?: boolean;
   /** The line is drawn on the paper's own table: its printed paragraphs stand as the paper sets them. */
   paper?: boolean;
   /** The columns of this line the paper sets in Arial 10 pt (qcIncomingGeometry.ts). */
@@ -2362,7 +2367,7 @@ const SheetRow = React.memo(function SheetRow({
   // day — runs down both lines, as the one cell of the paper holds the reading and the sign.
   const leadSpans = !!second && second.label === "";
   const firstLine = (
-    <tr data-line={second ? "first" : undefined} data-continues={joinsAbove ? "" : undefined} data-empty-line={unwritten ? "" : undefined} style={paperRowStyle(height)}>
+    <tr data-line={second ? "first" : undefined} data-continues={joinsAbove ? "" : undefined} data-empty-line={unwritten ? "" : undefined} data-page-start={pageStart ? "" : undefined} style={paperRowStyle(height)}>
       {numbered && !joinsAbove && (
         <td className="text-muted" rowSpan={spanDown ? 2 : lineSpan} data-sr-no="">
           {srNo ?? index + 1}

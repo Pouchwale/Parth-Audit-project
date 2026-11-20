@@ -14,8 +14,8 @@ import type { DayInfo } from "./holidays";
 //   F/PRD/10 and F/PRD/23 - ONE LINE A DAY, SHIFT I (the owner, 20-Nov-2026, REQUIREMENTS §258: "the instrument is given in
 //     1st shift only and broken replaced to keep total"): the scissors and manual cutters issued, and returned, are shift
 //     I's people on the list (F/PRD/23: the pouching section's), never more than the stock the paper's note keeps (15
-//     scissors and 20 cutter blades; 40 on F/PRD/23) - the rest are in the cupboard. Most days nothing is broken ("Nil")
-//     and nothing new issued ("NA"); now and then a worn-out cutter blade (more rarely a damaged scissor) is written broken
+//     scissors and 20 cutter blades; 40 on F/PRD/23) - the rest are in the cupboard. Most days nothing is broken (NONE)
+//     and nothing new issued (NONE); now and then a worn-out cutter blade (more rarely a damaged scissor) is written broken
 //     with as many new issued, as the paper's own 02.12.2021 line is, so the stock stays the note's figure. The supervisor
 //     signs.
 //   ONE SHEET A MONTH (the owner, 20-Nov-2026, REQUIREMENTS §259: "it should be one page but date should come likewise 1 to
@@ -103,6 +103,12 @@ export function shiftOnePeople(documentId: string, master: Pick<MasterData, "sha
   return peopleFor(documentId, master).filter((p) => p.shift === "I");
 }
 
+/**
+ * NOTHING BROKEN, NOTHING NEW: A DASH (the owner, 20-Nov-2026, REQUIREMENTS §262: "instead of printing Nil or NA it should print
+ * dash symbol"), as the plant's own registers are written.
+ */
+export const NONE = "-";
+
 /** How often a worn-out item is replaced: a cutter blade about one working day in ten, a scissor about one in forty. */
 const WORN_CUTTER = 0.1;
 const WORN_SCISSOR = 0.025;
@@ -118,6 +124,9 @@ export const SHARP_USUAL: Record<string, { scissor?: number; cutter: number }> =
   "prd-pouching-cutter-issue": { cutter: 13 },
 };
 
+/** Shift II's usual crew, with nobody named in it (§263): the F/PRD/10 register's own shift II lines, 4. */
+export const SHIFT_II_USUAL = 4;
+
 /** How often a person of the list is away on a working day (leave, sickness): about one day in fourteen. */
 const AWAY = 0.07;
 
@@ -129,12 +138,24 @@ const AWAY = 0.07;
  * alone) less the day's few away, none to three. Never more than the note's stock. The same figures for a date on every
  * device and every run (random by sheet and date). Without a date, the usual day's (the Sharp Objects Master Data page).
  */
-export function sharpIssueCounts(documentId: string, master: Pick<MasterData, "sharpToolPeople">, date?: string): { scissors: number; cutters: number; fromList: boolean } | null {
+export function sharpIssueCounts(documentId: string, master: Pick<MasterData, "sharpToolPeople">, date?: string, shift: "I" | "II" = "I"): { scissors: number; cutters: number; fromList: boolean } | null {
   const stock = SHARP_STOCK[documentId];
   if (!stock) return null;
+  const cap = (n: number, most: number) => Math.max(0, Math.min(n, most));
+  // SHIFT II (the owner, 20-Nov-2026, REQUIREMENTS §263: "in one day there is two fix shifts"; asked, "Smaller crew, about
+  // 4"): its people on the list, each away now and then; with nobody named in shift II, about four - three to five.
+  if (shift === "II") {
+    const two = peopleFor(documentId, master).filter((p) => p.shift === "II");
+    let n: number;
+    if (two.length > 0) n = date ? Math.max(1, two.filter((p) => makeRng(`sharp-away|${documentId}|${date}|${p.id || p.name}`).next() >= AWAY).length) : two.length;
+    else {
+      const r = date ? makeRng(`sharp-away|${documentId}|${date}|II`).next() : 0.5;
+      n = SHIFT_II_USUAL + (r < 0.2 ? -1 : r < 0.85 ? 0 : 1);
+    }
+    return { scissors: cap(n, stock.scissor ?? n), cutters: cap(n, stock.cutter), fromList: two.length > 0 };
+  }
   const people = shiftOnePeople(documentId, master);
   const usual = SHARP_USUAL[documentId];
-  const cap = (n: number, most: number) => Math.max(0, Math.min(n, most));
   if (people.length > 0) {
     const at = date ? people.filter((p) => makeRng(`sharp-away|${documentId}|${date}|${p.id || p.name}`).next() >= AWAY).length : people.length;
     const n = Math.max(1, at);
@@ -174,21 +195,22 @@ export function assistantsLine(documentId: string, row: LogSheetRow): boolean {
 }
 
 /** F/PRD/10 and F/PRD/23: the day's one line, shift I (§258): shift I's people, or the paper's usual count (§260). */
-export function sharpIssueRows(documentId: string, dueDate: string, master: Pick<MasterData, "sharpToolPeople">): LogSheetRow[] | null {
+export function sharpIssueRows(documentId: string, dueDate: string, master: Pick<MasterData, "sharpToolPeople">, shift: "I" | "II" = "I"): LogSheetRow[] | null {
   const layout = getLogSheetLayout(documentId);
   const stock = SHARP_STOCK[documentId];
-  const counts = sharpIssueCounts(documentId, master, dueDate);
+  const counts = sharpIssueCounts(documentId, master, dueDate, shift);
   if (!layout || !stock || !counts || counts.cutters === 0) return null;
-  return [{ ...blankLogRow(layout, generateId("row")), ...sharpIssueLine(documentId, dueDate, counts) } as LogSheetRow];
+  return [{ ...blankLogRow(layout, generateId("row")), ...sharpIssueLine(documentId, dueDate, counts, shift) } as LogSheetRow];
 }
 
 /** A day's issue line for the counts given: shift I, all returned, a worn-out one now and then (§258). */
-function sharpIssueLine(documentId: string, dueDate: string, counts: { scissors: number; cutters: number }): Partial<LogSheetRow> {
-  const rng = makeRng(`sharp-worn|${documentId}|${dueDate}`);
+function sharpIssueLine(documentId: string, dueDate: string, counts: { scissors: number; cutters: number }, shift: "I" | "II" = "I"): Partial<LogSheetRow> {
+  // (shift I's draw as before §263, so a line written before keeps its figures; shift II its own)
+  const rng = makeRng(`sharp-worn|${documentId}|${dueDate}${shift === "II" ? "|II" : ""}`);
   const cutterWorn = rng.next() < WORN_CUTTER;
   const scissorWorn = documentId === "prd-sharp-object-issue" && rng.next() < WORN_SCISSOR;
   const remark = [cutterWorn ? "Cutter blade worn out" : "", scissorWorn ? "Scissor damaged" : ""].filter(Boolean).join(", ");
-  const row: Partial<LogSheetRow> = { date: dueDate, shift: "I" };
+  const row: Partial<LogSheetRow> = { date: dueDate, shift };
   const cutters = counts.cutters;
   if (documentId === "prd-sharp-object-issue") {
     const scissors = counts.scissors;
@@ -197,14 +219,14 @@ function sharpIssueLine(documentId: string, dueDate: string, counts: { scissors:
       issuedManualCutter: cutters,
       returnedScissor: scissors,
       returnedManualCutter: cutters,
-      brokenScissor: scissorWorn ? "1" : "Nil",
-      brokenCutterBlade: cutterWorn ? "1" : "Nil",
-      newScissor: scissorWorn ? "1" : "NA",
-      newCutterBlade: cutterWorn ? "1" : "NA",
+      brokenScissor: scissorWorn ? "1" : NONE,
+      brokenCutterBlade: cutterWorn ? "1" : NONE,
+      newScissor: scissorWorn ? "1" : NONE,
+      newCutterBlade: cutterWorn ? "1" : NONE,
       remarks: remark,
     });
   } else {
-    Object.assign(row, { qtyIssued: cutters, qtyReturned: cutters, brokenQty: cutterWorn ? "1" : "Nil", newQtyIssued: cutterWorn ? "1" : "NA", remarks: remark });
+    Object.assign(row, { qtyIssued: cutters, qtyReturned: cutters, brokenQty: cutterWorn ? "1" : NONE, newQtyIssued: cutterWorn ? "1" : NONE, remarks: remark });
   }
   return row;
 }
@@ -234,19 +256,23 @@ export function bladeClosing(data: LogSheetData | undefined): { ok: number; disc
 }
 
 /** F/PRD/22 and F/PRD/24: the day's line, from the stock the day before closed with (none: the specimen's day). */
-export function razorBladeRow(documentId: string, dueDate: string, before: { ok: number; discarded: number } | null): LogSheetRow | null {
+export function razorBladeRow(documentId: string, dueDate: string, before: { ok: number; discarded: number } | null, shift: "I" | "II" = "I"): LogSheetRow | null {
   const layout = getLogSheetLayout(documentId);
   const plan = BLADE_STOCK[documentId];
   if (!layout || !plan) return null;
   const opening = before ? before.ok : plan.start;
   const held = before ? before.discarded : 0;
-  const rng = makeRng(`razor|${documentId}|${dueDate}`);
+  const rng = makeRng(`razor|${documentId}|${dueDate}${shift === "II" ? "|II" : ""}`);
   const roll = rng.next();
-  // Mostly one or two a day; three now and then on the pouching machines.
-  const wanted = plan.most >= 3 ? (roll < 0.45 ? 1 : roll < 0.85 ? 2 : 3) : roll < 0.6 ? 1 : 2;
+  // Shift I: mostly one or two, three now and then on the pouching machines. Shift II, the smaller crew (§263): often none,
+  // one, two now and then on the pouching machines.
+  const wanted =
+    shift === "II"
+      ? plan.most >= 3 ? (roll < 0.45 ? 0 : roll < 0.9 ? 1 : 2) : roll < 0.6 ? 0 : 1
+      : plan.most >= 3 ? (roll < 0.45 ? 1 : roll < 0.85 ? 2 : 3) : roll < 0.6 ? 1 : 2;
   let returned = 0;
   let issued = 0;
-  if (opening <= BLADE_LOW || opening < wanted) {
+  if (wanted > 0 && (opening <= BLADE_LOW || opening < wanted)) {
     returned = held;
     // As many new as go back; with none to give back, enough to bring the stock to what is maintained.
     issued = held > 0 ? held : Math.max(0, plan.maintained - plan.onMachine - opening);
@@ -259,12 +285,32 @@ export function razorBladeRow(documentId: string, dueDate: string, before: { ok:
     openingStock: opening,
     newIssuedFromStore: issued,
     totalStock: total,
-    replacedShift: "I",
+    replacedShift: shift,
     replacedNos: replaced,
     closingOkStock: total - replaced,
     closingDiscarded: held - returned + replaced,
     discardedReturned: returned,
   };
+}
+
+/**
+ * THE LINE BEFORE ONE A PERSON WROTE (§263): it closes with the OK stock the person's line opens with, so the stock runs on
+ * unbroken - blades put on the machines when it opens with more, or the discarded ones returned and as many new issued
+ * when with fewer. Null when no such line can keep the note's 20.
+ */
+export function bladeBridgeRow(documentId: string, date: string, before: { ok: number; discarded: number } | null, targetOk: number, shift: "I" | "II"): Partial<LogSheetRow> | null {
+  const plan = BLADE_STOCK[documentId];
+  if (!plan) return null;
+  const ok = before ? before.ok : plan.start;
+  const discarded = before ? before.discarded : 0;
+  if (targetOk <= ok) {
+    const replaced = ok - targetOk;
+    if (replaced > 3) return null;
+    return { date, openingStock: ok, newIssuedFromStore: 0, totalStock: ok, replacedShift: shift, replacedNos: replaced, closingOkStock: targetOk, closingDiscarded: discarded + replaced, discardedReturned: 0 };
+  }
+  const issued = targetOk - ok;
+  if (issued > discarded) return null;
+  return { date, openingStock: ok, newIssuedFromStore: issued, totalStock: ok + issued, replacedShift: shift, replacedNos: 0, closingOkStock: targetOk, closingDiscarded: discarded - issued, discardedReturned: issued };
 }
 
 /** The razor blade sheet closest before `dueDate` that has a closing stock: a person's, or one filled before it. */
@@ -297,8 +343,22 @@ const LINE_KEYS: Record<string, string[]> = {
 
 /** Whether a day's line has anything written on it. */
 export function sharpLineWritten(documentId: string, row: LogSheetRow | undefined): boolean {
-  return !!row && (LINE_KEYS[documentId] ?? []).some((k) => !blank(row[k]));
+  // (the shift is set on each of the day's two lines beforehand, §263: it alone is not a line written)
+  return !!row && (LINE_KEYS[documentId] ?? []).some((k) => !/shift/i.test(k) && !blank(row[k]));
 }
+
+/** The column a sheet writes its shift in: F/PRD/22 and 24 the replacement's SHIFT, F/PRD/10 and 23 Shift. */
+export function shiftColumn(documentId: string): "shift" | "replacedShift" {
+  return (RAZOR_BLADE_DOCS as readonly string[]).includes(documentId) ? "replacedShift" : "shift";
+}
+
+/** A line's shift, I or II: blank or anything but II is the first shift's. */
+export function lineShift(documentId: string, row: LogSheetRow): "I" | "II" {
+  return shiftWord(String(row[shiftColumn(documentId)] ?? "")) === "II" ? "II" : "I";
+}
+
+/** The two fixed shifts of every day (§263), in their order on the sheet. */
+export const DAY_SHIFTS = ["I", "II"] as const;
 
 /** Whether a line holds a figure or a sign (its date and its shift alone do not count): what a day's sheet carries over. */
 export function sharpLineHoldsFigure(documentId: string, row: LogSheetRow | undefined): boolean {
@@ -326,31 +386,36 @@ export function withMonthDays(documentId: string, data: LogSheetData | undefined
   const layout = getLogSheetLayout(documentId);
   if (!layout) return null;
   const rows = data?.rows ?? [];
-  const byDate = new Map<string, LogSheetRow>();
+  const col = shiftColumn(documentId);
+  // TWO FIXED SHIFTS A DAY (the owner, 20-Nov-2026, REQUIREMENTS §263): a line for shift I and one for shift II on every
+  // date, the shift set on each. A line of the date already there keeps its place as its shift's (blank: shift I's).
+  const byKey = new Map<string, LogSheetRow>();
   const loose: LogSheetRow[] = [];
   for (const r of rows) {
     const d = String(r.date ?? "").slice(0, 10);
-    if (d.slice(0, 7) === month && !byDate.has(d)) byDate.set(d, r);
+    const key = `${d}|${lineShift(documentId, r)}`;
+    if (d.slice(0, 7) === month && !byKey.has(key)) byKey.set(key, blank(r[col]) ? { ...r, [col]: lineShift(documentId, r) } : r);
     else if (sharpLineWritten(documentId, r)) loose.push(r);
   }
-  const next = [...monthDays(month).map((d) => byDate.get(d) ?? { ...blankLogRow(layout, generateId("row")), date: d }), ...loose];
+  const lineFor = (d: string, s: string) => byKey.get(`${d}|${s}`) ?? { ...blankLogRow(layout, generateId("row")), date: d, [col]: s };
+  const next = [...monthDays(month).flatMap((d) => DAY_SHIFTS.map((s) => lineFor(d, s))), ...loose];
   if (next.length === rows.length && next.every((r, i) => r === rows[i])) return null;
   return { header: { ...(data?.header ?? {}) }, rows: next };
 }
 
 /** A closed day's line (the weekly off, a holiday): nothing issued, nothing replaced, the stock carried, the day named. */
-export function closedDayLine(documentId: string, date: string, day: Pick<DayInfo, "short" | "name">, before: { ok: number; discarded: number } | null): Partial<LogSheetRow> {
+export function closedDayLine(documentId: string, date: string, day: Pick<DayInfo, "short" | "name">, before: { ok: number; discarded: number } | null, shift: "I" | "II" = "I"): Partial<LogSheetRow> {
   const why = day.name || day.short || "Holiday";
   if (documentId === "prd-sharp-object-issue") {
-    return { date, shift: "", issuedScissor: 0, issuedManualCutter: 0, returnedScissor: 0, returnedManualCutter: 0, brokenScissor: "Nil", brokenCutterBlade: "Nil", newScissor: "NA", newCutterBlade: "NA", remarks: why };
+    return { date, shift, issuedScissor: 0, issuedManualCutter: 0, returnedScissor: 0, returnedManualCutter: 0, brokenScissor: NONE, brokenCutterBlade: NONE, newScissor: NONE, newCutterBlade: NONE, remarks: why };
   }
   if (documentId === "prd-pouching-cutter-issue") {
-    return { date, shift: "", qtyIssued: 0, qtyReturned: 0, brokenQty: "Nil", newQtyIssued: "NA", remarks: why };
+    return { date, shift, qtyIssued: 0, qtyReturned: 0, brokenQty: NONE, newQtyIssued: NONE, remarks: why };
   }
   const plan = BLADE_STOCK[documentId];
   const ok = before ? before.ok : plan?.start ?? 0;
   const discarded = before ? before.discarded : 0;
-  return { date, openingStock: ok, newIssuedFromStore: 0, totalStock: ok, replacedShift: "", replacedNos: 0, closingOkStock: ok, closingDiscarded: discarded, discardedReturned: 0 };
+  return { date, openingStock: ok, newIssuedFromStore: 0, totalStock: ok, replacedShift: shift, replacedNos: 0, closingOkStock: ok, closingDiscarded: discarded, discardedReturned: 0 };
 }
 
 /** The razor blade stock some line dated before `date` closed with, on any of the document's sheets: the latest. */

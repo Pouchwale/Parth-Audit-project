@@ -75,7 +75,7 @@ const SCOPED = "print-scoped";
 /** A box printed as its words: the words, and the box's own inline display where the print hid the box itself. */
 type Written = { box: Element; text: Element; display?: string };
 
-let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: Written[] } | null = null;
+let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: Written[]; split?: SplitPages } | null = null;
 
 const EMPTY_ATTR = "data-empty";
 const EMPTY_BOXES = "input[type='date'], input[type='time'], input[type='datetime-local'], input[type='month'], select";
@@ -466,6 +466,32 @@ function fitDrawnSections(doc: HTMLElement, zoom: number, landscape: boolean): n
   // A sheet printed on one page, all its lines (LogSheetLayout.onePage, §259): fitted however tall it is.
   const onePage = doc.matches("[data-one-page]") || doc.querySelector("[data-one-page]") !== null;
   let docZoom = zoom;
+  // A MONTH ON TWO PAGES (LogSheetLayout.printPages, §263): the sheet breaks before the 16th (styles.css
+  // tr[data-page-start]) and its heading block stands on both pages; drawn so the longer half, with the heading, fills one A4.
+  const halves = (doc.matches("[data-print-pages]") ? doc : doc.querySelector<HTMLElement>("[data-print-pages]"))?.getAttribute("data-print-pages");
+  if (halves === "2") {
+    withPrintRules(() => {
+      const body = doc.querySelector<HTMLElement>("table.log-sheet tbody");
+      const start = body?.querySelector<HTMLElement>("tr[data-page-start]");
+      if (!body || !start) return;
+      const rows = Array.from(body.children) as HTMLElement[];
+      const at = rows.indexOf(start);
+      const pageH = (landscape ? 210 : 297) * PX_PER_MM;
+      const measured = laidOutAt(doc, doc, zoom, landscape, () => {
+        const whole = doc.getBoundingClientRect().height;
+        const top = body.getBoundingClientRect();
+        const first = rows.slice(0, at).reduce((h, r) => h + r.getBoundingClientRect().height, 0);
+        const second = rows.slice(at).reduce((h, r) => h + r.getBoundingClientRect().height, 0);
+        return { head: whole - top.height, half: Math.max(first, second) };
+      });
+      const page = ((measured.head + measured.half) * zoom) / pageH;
+      if (page <= 0) return;
+      // as large as fills the page (never above FILL_SCALE), and never over it
+      const z = Math.min(FILL_SCALE, Math.floor((FIT_DRAWN_TO / page) * 1000) / 1000);
+      docZoom = Math.floor(zoom * z * 1000) / 1000;
+    });
+    return docZoom;
+  }
   withPrintRules(() => {
     const sections = pageSections(doc);
     if (!drawn && !onePage && sections.length === 0 && !ownMake(doc)) return;
@@ -856,8 +882,78 @@ function unscope(): void {
     if (display !== undefined) (box as HTMLElement).style.display = display;
     text.remove();
   }
+  if (active.split) unsplit(active.split);
   document.documentElement.classList.remove(SCOPED);
   active = null;
+}
+
+// A MONTH ON TWO PAGES, EACH A WHOLE SHEET (the owner, 20-Nov-2026, REQUIREMENTS §263: F/PRD/10, 22, 23 and 24, two lines a
+// date, "Two A4 pages"). For the print only, a sheet that says so (data-print-pages="2") is printed as two copies of itself:
+// the first holds the 1st to the 15th, the second - on a page of its own - the 16th to the month's end, each with the
+// heading and the stock note, its PAGE NO. "1 of 2" and "2 of 2". Each is then fitted to its own A4 (data-one-page). The
+// copy goes and every line and label is put back after the print (unscope).
+interface SplitPages {
+  copies: Element[];
+  rows: HTMLElement[];
+  labels: { el: Element; text: string }[];
+  marked: Element[];
+}
+function splitPages(docs: Element[]): { docs: Element[]; split: SplitPages } {
+  const split: SplitPages = { copies: [], rows: [], labels: [], marked: [] };
+  const out: Element[] = [];
+  for (const doc of docs) {
+    out.push(doc);
+    const sheet = doc.matches('[data-print-pages="2"]') ? doc : doc.querySelector('[data-print-pages="2"]');
+    const start = sheet?.querySelector<HTMLElement>("table.log-sheet tbody tr[data-page-start]");
+    if (!sheet || !start) continue;
+    const copy = doc.cloneNode(true) as HTMLElement;
+    copy.setAttribute("data-print-copy", "");
+    copy.style.breakBefore = "page";
+    copy.style.pageBreakBefore = "always";
+    doc.after(copy);
+    split.copies.push(copy);
+    // The first page: the lines before the 16th; the second: from it on.
+    const rowsOf = (root: Element) => Array.from(root.querySelectorAll<HTMLElement>("table.log-sheet tbody > tr"));
+    const mine = rowsOf(doc);
+    const at = mine.indexOf(start);
+    for (const r of mine.slice(at)) {
+      r.classList.add(HIDDEN);
+      split.rows.push(r);
+    }
+    // (a copy keeps no choice made in a box: each box of the copy takes its original's value)
+    const boxes = Array.from(doc.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input, select, textarea"));
+    const copied = Array.from(copy.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input, select, textarea"));
+    boxes.forEach((box, i) => {
+      const c = copied[i];
+      if (!c) return;
+      if (c instanceof HTMLInputElement && (c.type === "checkbox" || c.type === "radio")) c.checked = (box as HTMLInputElement).checked;
+      else c.value = box.value;
+    });
+    const theirs = rowsOf(copy);
+    for (const r of theirs.slice(0, at)) r.remove();
+    for (const [root, label] of [[doc, "1 of 2"], [copy, "2 of 2"]] as const) {
+      // the PAGE NO. box: the sheet's heading writes it in a bold label or, on a format the plant may re-word, in its own box
+      for (const b of Array.from(root.querySelectorAll('b, [data-action="rename-page-no"]'))) {
+        if ((b.textContent ?? "").trim() !== "1 of 1") continue;
+        if (root === doc) split.labels.push({ el: b, text: b.textContent ?? "" });
+        b.textContent = label;
+      }
+      // each half a page of its own, fitted as one
+      const own = root.matches("[data-print-pages]") ? root : root.querySelector("[data-print-pages]");
+      if (own) {
+        own.removeAttribute("data-print-pages");
+        if (root === doc) split.marked.push(own);
+      }
+    }
+    out.push(copy);
+  }
+  return { docs: out, split };
+}
+function unsplit(split: SplitPages): void {
+  for (const c of split.copies) c.remove();
+  for (const r of split.rows) r.classList.remove(HIDDEN);
+  for (const { el, text } of split.labels) el.textContent = text;
+  for (const m of split.marked) m.setAttribute("data-print-pages", "2");
 }
 
 function scope(targets: Element[]): void {
@@ -883,7 +979,11 @@ function scope(targets: Element[]): void {
     if (a !== document.body) a.classList.add(ANCESTOR);
   }
   document.documentElement.classList.add(SCOPED);
-  active = { hidden, ancestors, emptied: markEmptyBoxes(docs), written: writeBoxesAsText(docs) };
+  active = { hidden, ancestors, emptied: markEmptyBoxes(outermost(targets)), written: writeBoxesAsText(outermost(targets)) };
+  // A month on two pages (§263): its second page a copy of the sheet, from the 16th on - made once its boxes are written.
+  const { docs: pages, split } = splitPages(docs);
+  if (split.copies.length) active.split = split;
+  docs.splice(0, docs.length, ...pages);
   fitToPage(docs);
   // Words wider than their box print smaller, never cut (utils/fitText.ts)...
   fitAll(docs);

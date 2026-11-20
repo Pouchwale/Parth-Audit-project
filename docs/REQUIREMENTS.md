@@ -12614,3 +12614,37 @@ it is not: the four sheets' stock (15 / 20, 40, 20 NOS) is each paper's note, fi
 - A line is written on its own date by the server's morning prepare (and at any start that day), never before it (§201).
 - Proved: frontend/tests/sharpTools.test.ts (a month's counts move, most days everybody in, within the note, the same every
   run; the mark).
+
+## §262 A dash for nothing; every value in the middle of its box (20-Nov-2026)
+
+The owner, 20-Nov-2026, with a printout of F/PRD/10: "instead of printing Nil or NA it should print dash symbol and make sure
+when user take print then it values should print in middle and don't go left or right".
+
+- F/PRD/10 and F/PRD/23 write "-" for nothing broken and nothing new issued (engine/sharpTools.ts NONE); the lines the
+  assistant wrote with Nil / NA are written again so (their mark, §261).
+- On F/PRD/10, 22, 23 and 24 every value and heading stands in the middle of its column, on the screen, in the print
+  (styles.css .paper-sheet[data-one-page]) and in the Word file (docx.ts, one-page grids).
+- Proved: frontend/tests/sharpTools.test.ts; printed to PDF on the local copy.
+
+## §263 Two fixed shifts a day; the month on two A4 pages (20-Nov-2026)
+
+The owner, 20-Nov-2026: "in one day there is two fix shifts are there". Asked: all four sheets; shift II a smaller crew of
+about four; the month printed on two A4 pages.
+
+- Every date of the month has a shift I line and a shift II line, the shift set on each (engine/sharpTools.ts
+  withMonthDays, DAY_SHIFTS). F/PRD/10 and 23: shift II's people on the list, or about four - three to five - with nobody
+  named in it (SHIFT_II_USUAL), each shift within the note's stock, all returned, a worn-out one now and then. F/PRD/22
+  and 24: the stock runs through both shifts, shift II replacing fewer blades (often none); always the note's 20. The line
+  before one a person wrote closes with the stock that line opens with (bladeBridgeRow), so the stock is never broken.
+- The print: the 1st to the 15th on the first A4 page, the 16th to the month's end on the second, each page a whole sheet
+  with the heading, the stock note and its PAGE NO. "1 of 2" / "2 of 2", fitted to its page (utils/print.ts splitPages,
+  LogSheetLayout.printPages). The Word file runs to two pages, its heading row on both; the Excel file is the company's
+  workbook, one sheet.
+- Proved: frontend/tests/sharpTools.test.ts; printed to PDF on the local copy (two pages each, 1 of 2 and 2 of 2); the Word
+  and Excel downloads opened in Word and Excel.
+- (§263, the same day) A line a person wrote, or one laid from a person's day sheet, is never worked out again, even on a
+  sheet the assistant filled: the F/PRD/22 lines of 1, 18 and 20 Nov and the F/PRD/24 lines of 18 and 20 Nov, written over
+  by the fill once the sheet was the assistant's, are put back as typed with a line in the history
+  (data/sharpMonthMigration.ts sharpTypedLinesRestored). The line before a typed line - looking past a weekly off between -
+  closes with the stock the typed line opens with. A closed day's line written before the assistant's mark (Nil / NA) is
+  written again with a dash.

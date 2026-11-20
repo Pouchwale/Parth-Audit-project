@@ -26,7 +26,7 @@ import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
 import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
 import { scaleWeeksOnOpenSheets } from "./scaleWeeksMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
-import { sharpDailyFrequencyLifted, sharpDaySheetsFolded } from "./sharpMonthMigration";
+import { sharpDailyFrequencyLifted, sharpDaySheetsFolded, sharpTypedLinesRestored } from "./sharpMonthMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -104,6 +104,8 @@ export function bootstrap(): void {
   // F/PRD/10, 22, 23 and 24 a sheet a month (REQUIREMENTS §259): their untouched day sheets folded into the month's.
   sharpDailyFrequencyLifted();
   sharpDaySheetsFolded();
+  // ...and the razor blade lines typed on the plant's day sheets, put back where the fill wrote over them (§263).
+  sharpTypedLinesRestored();
   removeOffScheduleShells();
   // ...and an open sheet dated by its frequency, not the day New was pressed (REQUIREMENTS §208).
   datedByFrequency();
