@@ -15,7 +15,7 @@ import { mayWriteRecordsOf } from "./departmentScope";
 import { fillScaleLinesDue, SCALE_DAY_NOTE } from "./nominalFill";
 import { firstWeekDate } from "./calibrationWeeks";
 import { withComputedCells } from "./computedCells";
-import { bladeClosingBefore, bladeLineClosing, closedDayLine, isSharpMonthSheet, razorBladeRow, RAZOR_BLADE_DOCS, sharpIssueRows, sharpLineFigures, sharpLineWritten, sharpSheetAssistantOwn, SHARP_FILL_NOTE, SHARP_TOOL_DOCS, withMonthDays } from "./sharpTools";
+import { bladeClosingBefore, bladeLineClosing, closedDayLine, isSharpMonthSheet, razorBladeRow, RAZOR_BLADE_DOCS, sharpIssueRows, sharpLineFigures, sharpLineHoldsFigure, sharpLineWritten, sharpSheetAssistantOwn, SHARP_FILL_NOTE, SHARP_TOOL_DOCS, withMonthDays } from "./sharpTools";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { blankLogRow } from "./recordDefaults";
 import { dayInfo, effectiveDueDatesInMonth } from "./holidays";
@@ -174,13 +174,14 @@ export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
     const blades = (RAZOR_BLADE_DOCS as readonly string[]).includes(id);
     const layout = getLogSheetLayout(id);
     if (!layout) continue;
-    // A person's line on a day's sheet from before §259, by its date.
+    // The line a day's sheet from before §259 holds, by its date: a person's first, then the assistant's (its figures
+    // stand; the day's sheet is then folded away, data/sharpMonthMigration.ts).
     const personLines = new Map<string, LogSheetRow>();
-    for (const r of all) {
-      if (isSharpMonthSheet(r.data as LogSheetData | undefined) || untouchedByPeople(r)) continue;
+    const daySheets = all.filter((r) => !isSharpMonthSheet(r.data as LogSheetData | undefined) && !isMonthKeyOf(doc, r, master));
+    for (const r of [...daySheets.filter((x) => !untouchedByPeople(x)), ...daySheets.filter((x) => untouchedByPeople(x))]) {
       for (const row of (r.data as LogSheetData | undefined)?.rows ?? []) {
         const d = String(row.date ?? "").slice(0, 10) || r.dueDate;
-        if (sharpLineWritten(id, row) && !personLines.has(d)) personLines.set(d, row);
+        if (sharpLineHoldsFigure(id, row) && !personLines.has(d)) personLines.set(d, row);
       }
     }
     for (let i = 0; i < all.length; i++) {

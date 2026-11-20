@@ -12575,3 +12575,12 @@ select shift easily whether it is I or II".
 - Proved: frontend/tests/sharpTools.test.ts, production.test.ts, myDayAccess.test.ts; on the local copy in the browser (each
   sheet one November record with 30 lines, 20-11 filled and the rest blank; Shift II chosen and kept after a reload; the
   four printed to PDF on one page each; the Excel and Word downloads opened in Excel and Word, one page each).
+- On the plant (20-Nov-2026, the owner with photos of the paper registers - a month of dates on one sheet - "i don't want
+  that my user should open date wise on different on different page"): the four had been set Daily on the Frequency page on
+  18-Nov-2026 (Master Data's scheduleOverrides), which wins over the format's own schedule, so the plant kept making a
+  sheet a day. That setting, made before the owner asked for a sheet a month, is lifted at the start
+  (data/sharpMonthMigration.ts sharpDailyFrequencyLifted; one set on or after 20-Nov-2026 stays). Every line a day's sheet
+  holds - a person's first, then the assistant's - is laid on its date on the month's sheet, its shift written I or II;
+  then each open day's sheet whose lines the month holds, or that holds none, is folded away (one a person had opened with
+  a line in the deleted records); a submitted or signed-off day's sheet stays on file. Proved: sharpTools.test.ts, the
+  plant's own case (a blade line typed on 18-11 laid on its date, the next day opening with its closing stock).

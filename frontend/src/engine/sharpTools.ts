@@ -230,10 +230,15 @@ export function sharpLineWritten(documentId: string, row: LogSheetRow | undefine
   return !!row && (LINE_KEYS[documentId] ?? []).some((k) => !blank(row[k]));
 }
 
-/** A line's own figures, to lay on the month's line of the same date (a person's daily sheet from before §259). */
+/** Whether a line holds a figure or a sign (its date and its shift alone do not count): what a day's sheet carries over. */
+export function sharpLineHoldsFigure(documentId: string, row: LogSheetRow | undefined): boolean {
+  return !!row && (LINE_KEYS[documentId] ?? []).some((k) => !/shift/i.test(k) && !blank(row[k]));
+}
+
+/** A line's own figures, to lay on the month's line of the same date (a day's sheet from before §259), its shift I or II. */
 export function sharpLineFigures(documentId: string, row: LogSheetRow): Partial<LogSheetRow> {
   const out: Partial<LogSheetRow> = {};
-  for (const k of LINE_KEYS[documentId] ?? []) if (!blank(row[k])) out[k] = row[k];
+  for (const k of LINE_KEYS[documentId] ?? []) if (!blank(row[k])) out[k] = /shift/i.test(k) ? shiftWord(String(row[k])) : row[k];
   return out;
 }
 

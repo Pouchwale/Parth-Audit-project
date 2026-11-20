@@ -224,3 +224,47 @@ test("the month prints on one A4 page: the print fits it however tall, the Word 
   assert.match(text(close), /w:top="567"/, "10 mm margins");
   assert.doesNotMatch(text(plain), /<w:noWrap\/>|w:trHeight w:val="240"/, "every other Word file as before");
 });
+
+test("the plant's case (20-Nov-2026): the Daily set on 18-Nov lifted; a typed blade line laid on its date and its day sheet folded", async () => {
+  const { ensureSeeded: docsSeeded, documentRepository } = await import("../src/data/repositories/documentRepository");
+  const { ensureSeeded: masterSeeded, masterRepository } = await import("../src/data/repositories/masterRepository");
+  const { recordRepository } = await import("../src/data/repositories/recordRepository");
+  const { fillSharpToolsDue } = await import("../src/engine/assistantPrepare");
+  const { periodKeyFor } = await import("../src/engine/recordGenerator");
+  const { sharpDailyFrequencyLifted, sharpDaySheetsFolded } = await import("../src/data/sharpMonthMigration");
+  docsSeeded();
+  masterSeeded();
+  const id = "prd-slitting-blade";
+  masterRepository.update({
+    scheduleOverrides: {
+      ...(masterRepository.get().scheduleOverrides ?? {}),
+      [id]: { schedule: { type: "daily" }, frequency: "Daily", since: "2026-11-18", by: "Super Admin" },
+      "prd-alc-production": { schedule: { type: "as-required" }, frequency: "As Required", since: "2026-11-17", by: "Super Admin" },
+    },
+  });
+  assert.equal(documentRepository.getByIdUnscoped(id)!.schedule.type, "daily", "the Daily set on 18-Nov wins until lifted");
+  assert.equal(sharpDailyFrequencyLifted(), 1);
+  assert.equal(documentRepository.getByIdUnscoped(id)!.schedule.type, "monthly");
+  assert.ok(masterRepository.get().scheduleOverrides!["prd-alc-production"], "another document's frequency stays");
+  const doc = documentRepository.getByIdUnscoped(id)!;
+  const now = new Date().toISOString();
+  const at = (dueDate: string, extra: Partial<RecordInstance>): RecordInstance => ({ id: `fold-${dueDate}`, documentId: id, periodKey: periodKeyFor(doc, dueDate), dueDate, status: "Due", isDemo: false, createdAt: now, updatedAt: now, data: { header: {}, rows: [{ id: "x", date: "", shift: "" }] }, ...extra } as RecordInstance);
+  const typed = { id: "t", date: "2026-11-18", openingStock: 9, newIssuedFromStore: 0, totalStock: 9, replacedShift: "1", replacedNos: 2, closingOkStock: 7, closingDiscarded: 8, discardedReturned: 0 };
+  recordRepository.upsertMany([
+    at("2026-11-30", {}),
+    at("2026-11-18", { status: "In Progress", updatedAt: "2026-11-18T04:14:00.000Z", history: [{ id: "h", at: "2026-11-18T04:14:00.000Z", by: "Super Admin", action: "edited" }], data: { header: {}, rows: [typed] } }),
+    at("2026-11-16", { status: "In Progress", updatedAt: "2026-11-17T12:00:00.000Z", history: [{ id: "h", at: "", by: "Super Admin", action: "edited" }] }),
+    at("2026-11-25", {}),
+  ]);
+  sharpDaySheetsFolded();
+  assert.ok(!recordRepository.getById("fold-2026-11-16"), "opened by a person and left blank: folded");
+  assert.ok(!recordRepository.getById("fold-2026-11-25"), "a blank sheet ahead: folded");
+  assert.ok(recordRepository.getById("fold-2026-11-18"), "a typed line stays until the month holds it");
+  fillSharpToolsDue("2026-11-20");
+  const line = (recordRepository.getById("fold-2026-11-30")!.data as { rows: LogSheetRow[] }).rows.find((r) => r.date === "2026-11-18")!;
+  assert.equal(Number(line.closingOkStock), 7, "the typed line on its date");
+  assert.equal(line.replacedShift, "I", "its shift written I");
+  assert.equal(Number((recordRepository.getById("fold-2026-11-30")!.data as { rows: LogSheetRow[] }).rows.find((r) => r.date === "2026-11-19")!.openingStock), 7, "the next day opens with it");
+  sharpDaySheetsFolded();
+  assert.ok(!recordRepository.getById("fold-2026-11-18"), "...then folded");
+});

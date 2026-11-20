@@ -26,7 +26,7 @@ import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
 import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
 import { scaleWeeksOnOpenSheets } from "./scaleWeeksMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
-import { sharpDaySheetsFolded } from "./sharpMonthMigration";
+import { sharpDailyFrequencyLifted, sharpDaySheetsFolded } from "./sharpMonthMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -102,6 +102,7 @@ export function bootstrap(): void {
   serviceReportsOnSaturdays();
   serviceVisitsOnSaturdays();
   // F/PRD/10, 22, 23 and 24 a sheet a month (REQUIREMENTS §259): their untouched day sheets folded into the month's.
+  sharpDailyFrequencyLifted();
   sharpDaySheetsFolded();
   removeOffScheduleShells();
   // ...and an open sheet dated by its frequency, not the day New was pressed (REQUIREMENTS §208).
@@ -133,4 +134,6 @@ export function bootstrap(): void {
   ensureRulerSlots(todayISO(), (r) => deleteRecordWithTrail(r, "System", RULER_MADE_AHEAD));
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });
   prepareDueRecords();
+  // ...and the day sheets whose lines the month's sheet now holds, folded away (REQUIREMENTS §259).
+  sharpDaySheetsFolded();
 }
