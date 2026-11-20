@@ -61,16 +61,17 @@ function open(documentId: string, dueDate: string): RecordInstance {
 }
 
 const day = lastWorkingDay();
+const prd10 = documentRepository.getAllUnscoped().find((d) => d.formatNo === "F/PRD/10");
+// The Production sheets open on the day: the daily ones, and F/PRD/10 (a sheet a month since §259, its line filled each day).
 const daily = documentRepository
   .getAllUnscoped()
-  .filter((d) => !d.isReferenceOnly && d.schedule.type === "daily" && departmentOfDocument(d.id, d.formatNo) === "PRD");
-const prd10 = documentRepository.getAllUnscoped().find((d) => d.formatNo === "F/PRD/10");
+  .filter((d) => !d.isReferenceOnly && (d.schedule.type === "daily" || d.id === prd10?.id) && departmentOfDocument(d.id, d.formatNo) === "PRD");
 const hr17 = documentRepository.getAllUnscoped().find((d) => d.formatNo === "F/HR/17");
 recordRepository.upsertMany([...daily.map((d) => open(d.id, day)), ...(hr17 ? [open(hr17.id, day)] : [])]);
 
 test("the day card holds the documents the plant has: several daily Production sheets, F/PRD/10 among them, and F/HR/17", () => {
   assert.ok(daily.length >= 2, `daily Production documents: ${daily.map((d) => d.formatNo).join(", ")}`);
-  assert.ok(prd10 && daily.some((d) => d.id === prd10.id), "F/PRD/10 is a daily Production document");
+  assert.ok(prd10 && daily.some((d) => d.id === prd10.id), "F/PRD/10 is among the Production sheets open on the day");
   assert.ok(hr17, "F/HR/17 is in the catalogue");
 });
 

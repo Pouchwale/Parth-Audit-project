@@ -871,13 +871,16 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     department: "Production",
     module: "Production",
     section: "Sharp Objects & Blades",
-    frequency: "Daily",
+    frequency: "Monthly",
     status: "Configured",
     description:
       "The scissors and manual cutters issued to the operators and returned, each day and shift: how many of each were issued and returned, any broken, damaged or worn out (scissors and cutter blades), any new issued, the supervisor's sign and a remark. A scissor stock of 15 and 20 cutter blades are kept, counting those issued to operators and those in the cupboard. The paper's own two filled lines, of 01.12.2021 and 02.12.2021, are on it.",
     sourceFile:
       "F-PRD-10.pdf (as supplied 06-Oct-2026); the company's own original is the second sheet, \"F-SYS-20 (2)\", of F-PRD-23_Manual cutter Daily Issue & Return monitoring record.xls",
-    schedule: { type: "daily" },
+    // One sheet a month, a line for every date of it filled on its day, submitted at the month's end (the owner,
+    // 20-Nov-2026, REQUIREMENTS §259); the day's sheets until then stand as they were.
+    schedule: { type: "monthly", dayOfMonth: 31 },
+    scheduleSince: "2026-11-01",
   },
   {
     id: "prd-pouching-blade",
@@ -889,13 +892,16 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     department: "Production",
     module: "Production",
     section: "Sharp Objects & Blades",
-    frequency: "Daily",
+    frequency: "Monthly",
     status: "Configured",
     description:
       "The razor blades of the pouching machines' blade holders, counted each day: the opening stock of OK blades, the new blades issued from the store, the total, how many new blades were put on the machines and in which shift, the closing stock of OK and of discarded blades, and the discarded blades returned to the store, checked by the production manager. The loose blades in stock, those installed on the machines included, are always kept at 20.",
     sourceFile:
       "F-PRD-22_Blade Change Record - All Pouching machine.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-22_Blade Change Record - All Pouching machine.xlsx",
-    schedule: { type: "daily" },
+    // One sheet a month, a line for every date of it filled on its day, submitted at the month's end (the owner,
+    // 20-Nov-2026, REQUIREMENTS §259); the day's sheets until then stand as they were.
+    schedule: { type: "monthly", dayOfMonth: 31 },
+    scheduleSince: "2026-11-01",
   },
   {
     id: "prd-pouching-cutter-issue",
@@ -907,13 +913,16 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     department: "Production",
     module: "Production",
     section: "Sharp Objects & Blades",
-    frequency: "Daily",
+    frequency: "Monthly",
     status: "Configured",
     description:
       "The manual cutters of the whole pouching section, issued to the operators and returned, each day and shift: the quantity issued and returned, any broken or damaged, any new issued, the supervisor's sign and a remark. A scissor stock of 15 and 40 cutter blades are kept, counting those issued to operators and those in the cupboard.",
     sourceFile:
       "F-PRD-23_Manual cutter Daily Issue & Return monitoring record.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-23_Manual cutter Daily Issue & Return monitoring record.xls",
-    schedule: { type: "daily" },
+    // One sheet a month, a line for every date of it filled on its day, submitted at the month's end (the owner,
+    // 20-Nov-2026, REQUIREMENTS §259); the day's sheets until then stand as they were.
+    schedule: { type: "monthly", dayOfMonth: 31 },
+    scheduleSince: "2026-11-01",
   },
   {
     id: "prd-slitting-blade",
@@ -925,13 +934,16 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     department: "Production",
     module: "Production",
     section: "Sharp Objects & Blades",
-    frequency: "Daily",
+    frequency: "Monthly",
     status: "Configured",
     description:
       "The razor blades of the laminated film slitting machine's blade holder, counted each day: the opening stock of OK blades, the new blades issued from the store, the total, how many new blades were put on the machine and in which shift, the closing stock of OK and of discarded blades, and the discarded blades returned to the store, checked by the production manager. The loose blades in stock, those installed on the machine included, are always kept at 20.",
     sourceFile:
       "F-PRD-24_Razor Blade Change Record - Laminated FIlms Slittig machine.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-24_Razor Blade Change Record - Laminated FIlms Slittig machine.xlsx",
-    schedule: { type: "daily" },
+    // One sheet a month, a line for every date of it filled on its day, submitted at the month's end (the owner,
+    // 20-Nov-2026, REQUIREMENTS §259); the day's sheets until then stand as they were.
+    schedule: { type: "monthly", dayOfMonth: 31 },
+    scheduleSince: "2026-11-01",
   },
 
   // ---------------------------------------------------------------------

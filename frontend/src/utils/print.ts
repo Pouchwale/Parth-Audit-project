@@ -463,16 +463,18 @@ const FIT_OWN_OVER = 1.25;
  */
 function fitDrawnSections(doc: HTMLElement, zoom: number, landscape: boolean): number {
   const drawn = doc.matches(FIT_DRAWN) || doc.querySelector(FIT_DRAWN) !== null;
+  // A sheet printed on one page, all its lines (LogSheetLayout.onePage, §259): fitted however tall it is.
+  const onePage = doc.matches("[data-one-page]") || doc.querySelector("[data-one-page]") !== null;
   let docZoom = zoom;
   withPrintRules(() => {
     const sections = pageSections(doc);
-    if (!drawn && sections.length === 0 && !ownMake(doc)) return;
+    if (!drawn && !onePage && sections.length === 0 && !ownMake(doc)) return;
     const parts = sections.length ? sections : [doc];
     // (a page already drawn bigger to fill its paper - FILLING EACH PAGE - is measured as drawn, and keeps that over the fit)
     const own = (sec: HTMLElement) => (sec === doc ? 1 : Number(sec.style.zoom) || 1);
     // Every page drawn at the one size the tallest needs, so the pages of one record match as the paper's do.
     const tallest = Math.max(0, ...parts.map((sec) => pagesAt(doc, zoom * own(sec), landscape, sec)));
-    if (tallest <= FIT_DRAWN_TO || (!drawn && tallest > FIT_OWN_OVER)) return;
+    if (tallest <= FIT_DRAWN_TO || (!drawn && !onePage && tallest > FIT_OWN_OVER)) return;
     const z = Math.floor((FIT_DRAWN_TO / tallest) * 1000) / 1000;
     for (const sec of parts) {
       // (the sheet itself: its zoom over the one it was given, set by the caller - which would set it after this)

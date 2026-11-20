@@ -1,4 +1,4 @@
-import type { LogSheetData, RecordInstance } from "../types";
+import type { DocumentDefinition, LogSheetData, LogSheetRow, MasterData, RecordInstance } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
@@ -15,7 +15,12 @@ import { mayWriteRecordsOf } from "./departmentScope";
 import { fillScaleLinesDue, SCALE_DAY_NOTE } from "./nominalFill";
 import { firstWeekDate } from "./calibrationWeeks";
 import { withComputedCells } from "./computedCells";
-import { bladeClosing, bladeSheetBefore, razorBladeRow, RAZOR_BLADE_DOCS, sameIssueFigures, sharpIssueRows, sharpSheetAssistantOwn, sharpSheetUnwritten, SHARP_FILL_NOTE, SHARP_TOOL_DOCS } from "./sharpTools";
+import { bladeClosingBefore, bladeLineClosing, closedDayLine, isSharpMonthSheet, razorBladeRow, RAZOR_BLADE_DOCS, sharpIssueRows, sharpLineFigures, sharpLineWritten, sharpSheetAssistantOwn, SHARP_FILL_NOTE, SHARP_TOOL_DOCS, withMonthDays } from "./sharpTools";
+import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { blankLogRow } from "./recordDefaults";
+import { dayInfo, effectiveDueDatesInMonth } from "./holidays";
+import { untouchedByPeople } from "./calendarMigration";
+import { periodKeyFor } from "./recordGenerator";
 
 // Statuses in which a record is still an untouched shell the assistant may
 // fill. "In Progress" is deliberately excluded: that means a person has
@@ -148,11 +153,14 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
 }
 
 /**
- * THE SHARP OBJECTS & BLADES SHEETS FILLED ON THEIR DAY (the owner, 17-Nov-2026, REQUIREMENTS §254; engine/sharpTools.ts).
- * Every open Live sheet of F/PRD/10, 22, 23 and 24 dated `referenceISO` or earlier, on which nobody has written a figure yet,
- * gets its lines: F/PRD/10 and 23 a line for each shift of the Sharp Objects Master Data (none while the list is empty),
- * F/PRD/22 and 24 the day's blades from the stock the day before closed with. Oldest first, so each blade sheet carries the
- * one before it. A sheet a person has written on is never touched, so run again it fills nothing. Returns the sheets changed.
+ * THE SHARP OBJECTS & BLADES SHEETS, ONE A MONTH, A LINE FILLED EACH DAY (the owner, 17-Nov-2026, REQUIREMENTS §254; one
+ * sheet a month, §259; engine/sharpTools.ts). Every open Live sheet of F/PRD/10, 22, 23 and 24 whose month has begun gets a
+ * line for every date of the month, and each line dated `referenceISO` or earlier (and not before the system went live)
+ * with nothing written on it is filled: F/PRD/10 and 23 shift I's people from the Sharp Objects Master Data (§258), F/PRD/22
+ * and 24 the day's blades from the stock the line before closed with; a closed day says so. A line a person wrote on a day's
+ * sheet from before §259 is laid on its date. A sheet still the assistant's own, nobody's since, is worked out again when
+ * its figures are not the ones now due (the master data changed); a line a person wrote on is never touched. A line dated
+ * later stays blank until its day. Run again it fills nothing. Returns the sheets changed.
  */
 export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
   const { liveStartDate } = settingsRepository.get();
@@ -164,37 +172,84 @@ export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
     if (!doc || !mayWriteRecordsOf(doc.id)) continue;
     const all = recordRepository.queryUnscoped({ documentId: id, isDemo: false }).slice().sort((a, b) => compareISO(a.dueDate, b.dueDate));
     const blades = (RAZOR_BLADE_DOCS as readonly string[]).includes(id);
+    const layout = getLogSheetLayout(id);
+    if (!layout) continue;
+    // A person's line on a day's sheet from before §259, by its date.
+    const personLines = new Map<string, LogSheetRow>();
+    for (const r of all) {
+      if (isSharpMonthSheet(r.data as LogSheetData | undefined) || untouchedByPeople(r)) continue;
+      for (const row of (r.data as LogSheetData | undefined)?.rows ?? []) {
+        const d = String(row.date ?? "").slice(0, 10) || r.dueDate;
+        if (sharpLineWritten(id, row) && !personLines.has(d)) personLines.set(d, row);
+      }
+    }
     for (let i = 0; i < all.length; i++) {
       const record = all[i];
       if (!["Scheduled", "Due", "In Progress"].includes(record.status)) continue;
-      if (compareISO(record.dueDate, referenceISO) > 0 || (liveStartDate && compareISO(record.dueDate, liveStartDate) < 0)) continue;
-      const data = record.data as LogSheetData | undefined;
-      // A scissor / cutter sheet still the assistant's own, nobody's since, is filled again when its figures are not the
-      // ones now due (§258: one line, shift I, where the earlier fill wrote one a shift); a person's sheet never.
-      const refill = !blades && sharpSheetAssistantOwn(record);
-      if (!refill && !sharpSheetUnwritten(id, data)) continue;
-      const rows = blades ? [razorBladeRow(id, record.dueDate, bladeClosing(bladeSheetBefore(all, record.dueDate)?.data))].filter((r) => !!r) : sharpIssueRows(id, record.dueDate, master);
-      if (!rows || rows.length === 0) continue;
-      if (refill && !sharpSheetUnwritten(id, data) && sameIssueFigures(data?.rows, rows)) continue;
-      const filled = withComputedCells(id, { header: { ...(data?.header ?? {}) }, rows: rows as LogSheetData["rows"] });
-      const entry = { ...makeEntry("prepared", "Assistant", { note: SHARP_FILL_NOTE, changes: diffRecordData(record.data, filled, fieldLabels(doc.kind, doc.id)) }), at: now };
-      if (!entry.changes?.length) delete entry.changes;
-      // Still the assistant's own work, nobody's yet (prepared.at = updatedAt): two copies of the day's sheet made in two
+      const month = record.dueDate.slice(0, 7);
+      // A month's sheet only: the one the monthly schedule makes (due on the month's last working day), or a day's sheet
+      // from before §259 holding its key. Every other day's sheet of a month the schedule covers is left (a person's) or
+      // taken away at the start (data/sharpMonthMigration.ts).
+      if (!isSharpMonthSheet(record.data as LogSheetData | undefined) && !isMonthKeyOf(doc, record, master)) continue;
+      if (compareISO(`${month}-01`, referenceISO) > 0) continue;
+      const own = sharpSheetAssistantOwn(record);
+      const before = record.data as LogSheetData | undefined;
+      const days = withMonthDays(id, before, month) ?? before;
+      if (!days) continue;
+      const rows = days.rows.map((r) => ({ ...r }));
+      let carried: { ok: number; discarded: number } | null = blades ? bladeClosingBefore(all, `${month}-01`, record.id) : null;
+      for (let k = 0; k < rows.length; k++) {
+        const row = rows[k];
+        const date = String(row.date ?? "").slice(0, 10);
+        const due = date.slice(0, 7) === month && compareISO(date, referenceISO) <= 0 && (!liveStartDate || compareISO(date, liveStartDate) >= 0);
+        const written = sharpLineWritten(id, row);
+        // A line written and not the assistant's to work out again: as it is, its stock carried to the next.
+        if (!due || (written && !own)) {
+          if (blades) carried = bladeLineClosing(row) ?? carried;
+          continue;
+        }
+        let line: Partial<LogSheetRow> | null = null;
+        const persons = personLines.get(date);
+        const day = dayInfo(date, master);
+        if (persons) line = sharpLineFigures(id, persons);
+        else if (day.isHoliday) line = closedDayLine(id, date, day, carried);
+        else if (blades) line = razorBladeRow(id, date, carried);
+        else line = sharpIssueRows(id, date, master)?.[0] ?? null;
+        if (!line) continue;
+        const { id: _drop, ...figures } = line as LogSheetRow;
+        void _drop;
+        rows[k] = { ...blankLogRow(layout, row.id), ...figures, date };
+        if (blades) carried = bladeLineClosing(rows[k]) ?? carried;
+      }
+      const filled = withComputedCells(id, { header: { ...(days.header ?? {}) }, rows: rows as LogSheetData["rows"] });
+      const changes = diffRecordData(record.data, filled, fieldLabels(doc.kind, doc.id));
+      if (!changes?.length) continue;
+      const entry = { ...makeEntry("prepared", "Assistant", { note: SHARP_FILL_NOTE, changes }), at: now };
+      // Still the assistant's own work, nobody's yet (prepared.at = updatedAt): two copies of the month's sheet made in two
       // places merge into one (data/serverSync.ts withoutDuplicateBlanks), and a person's change wins over it.
       const next: RecordInstance = {
         ...record,
         data: filled,
         status: "In Progress",
         updatedAt: now,
-        prepared: { at: now, by: "assistant", notes: [SHARP_FILL_NOTE], basedOn: blades ? "the blade stock the sheet before closed with" : "the Sharp Objects Master Data", knownPartsOnly: true },
+        prepared: { at: now, by: "assistant", notes: [SHARP_FILL_NOTE], basedOn: blades ? "the blade stock the line before closed with" : "the Sharp Objects Master Data", knownPartsOnly: true },
         history: [...(record.history ?? []), entry],
       };
+      // A sheet a person has written on stays theirs: the assistant's lines are added, the sheet not marked its own.
+      if (!own && !untouchedByPeople(record)) next.prepared = record.prepared;
       all[i] = next;
       changed.push(next);
     }
   }
   if (changed.length > 0) recordRepository.upsertMany(changed);
   return changed;
+}
+
+/** Whether the record holds the key of its month's sheet (the monthly schedule's date for that month). */
+function isMonthKeyOf(doc: DocumentDefinition, record: RecordInstance, master: MasterData): boolean {
+  if (doc.schedule.type !== "monthly") return false;
+  const [y, m] = record.dueDate.split("-").map(Number);
+  return effectiveDueDatesInMonth(doc, y, m - 1, master).some((d) => record.periodKey === periodKeyFor(doc, d.scheduled));
 }
 
 const SCALE_ID = "qc-weight-scale-calibration";

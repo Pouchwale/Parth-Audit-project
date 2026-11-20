@@ -1043,6 +1043,7 @@ export function LogSheetRecordView({
       data-bind-record={record.id}
       data-paper={layout.paper ?? (frame ? "portrait" : lc ? "landscape" : undefined)}
       data-print-words={layout.printWordsAll ? "all" : undefined}
+      data-one-page={layout.onePage ? "" : undefined}
       data-paper-left={cal ? cal.left : undefined}
       data-frame={frame ? "" : undefined}
       data-sheet={doc.id}

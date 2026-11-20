@@ -528,10 +528,7 @@ const DAILY_SHEET_MONTH_CHARS = 480_000;
 export const RECENT_DAILY_SHEETS: ReadonlySet<string> = new Set([
   "prd-slitting-alc",
   "prd-doctoring-alc",
-  "prd-sharp-object-issue",
-  "prd-pouching-blade",
-  "prd-pouching-cutter-issue",
-  "prd-slitting-blade",
+  // F/PRD/10, 22, 23 and 24 are a sheet a month since 20-Nov-2026 (REQUIREMENTS §259): drawn like any month's sheet.
 ]);
 export const RECENT_DAILY_SHEET_MONTHS_BACK = 0;
 /** What those add to a filled month, generously. */

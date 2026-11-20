@@ -597,6 +597,12 @@ export interface LogSheetLayout {
    */
   paper?: "portrait" | "landscape";
   /**
+   * PRINTED ON ONE PAGE, ALL ITS LINES (the owner, 20-Nov-2026, REQUIREMENTS §259: "it should be one page"): F/PRD/10, 22,
+   * 23 and 24, a line for every date of the month. However tall, the sheet is drawn just small enough to print on one A4
+   * page (utils/print.ts fitDrawnSections), never flowing onto a second.
+   */
+  onePage?: true;
+  /**
    * The paper's text AT THE FOOT of the sheet, after the boxes below the grid,
    * verbatim and in its order (REQUIREMENTS §111): F/QC/21's "This is a system
    * generated document ...", the certificates of analysis' "THIS IS A SYSTEM

@@ -26,6 +26,7 @@ import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
 import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
 import { scaleWeeksOnOpenSheets } from "./scaleWeeksMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
+import { sharpDaySheetsFolded } from "./sharpMonthMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -100,6 +101,8 @@ export function bootstrap(): void {
   // The three service reports on their 1st and 3rd Saturday: an earlier frequency set on them taken off (REQUIREMENTS §221).
   serviceReportsOnSaturdays();
   serviceVisitsOnSaturdays();
+  // F/PRD/10, 22, 23 and 24 a sheet a month (REQUIREMENTS §259): their untouched day sheets folded into the month's.
+  sharpDaySheetsFolded();
   removeOffScheduleShells();
   // ...and an open sheet dated by its frequency, not the day New was pressed (REQUIREMENTS §208).
   datedByFrequency();

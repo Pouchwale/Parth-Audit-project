@@ -1129,8 +1129,8 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
 }
 
 /** The blocks as a Word document; given an envelope, with the map of its bound values. */
-export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape", margins?: { top: number; right: number; bottom: number; left: number }): Uint8Array<ArrayBuffer> {
-  if (!envelope) return buildDocx(wordBlocksFrom(blocks), { ...(paper ? { paper } : {}), ...(margins ? { margins } : {}) });
+export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape", margins?: { top: number; right: number; bottom: number; left: number }, onePage = false): Uint8Array<ArrayBuffer> {
+  if (!envelope) return buildDocx(wordBlocksFrom(blocks), { ...(paper ? { paper } : {}), ...(margins ? { margins } : {}), ...(onePage ? { onePage } : {}) });
   const builder = new ExportMapBuilder();
   const docxBlocks = wordBlocksFrom(blocks, builder);
   const json = mapJson(envelope, builder.entries, builder.tables);
@@ -1139,6 +1139,7 @@ export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTr
     customProperties: [[ENVELOPE_PROPERTY, envelopePropertyValue(envelope)]],
     ...(paper ? { paper } : {}),
     ...(margins ? { margins } : {}),
+    ...(onePage ? { onePage } : {}),
   });
 }
 
@@ -1200,7 +1201,9 @@ export function documentFileBytes(
   recordIds: string[],
   exportedAt?: string,
   /** The paper's own orientation (LogSheetLayout.paper, REQUIREMENTS §117), where the layout names it. */
-  paper?: "portrait" | "landscape"
+  paper?: "portrait" | "landscape",
+  /** All its lines on one page (LogSheetLayout.onePage, §259). */
+  onePage = false
 ): Uint8Array<ArrayBuffer> {
   // Every record the file holds: those given, and any a bound value belongs to.
   const ids = [...recordIds];
@@ -1221,7 +1224,7 @@ export function documentFileBytes(
   const envelope = unique.length ? makeEnvelope(kind, { documentId: doc.id, formatNo: doc.formatNo, revisionNo: doc.revisionNo }, unique, exportedAt) : undefined;
   if (kind === "xlsx") return workbookFromBlocks(knownFormatNo(doc as DocumentDefinition) || doc.name, blocks, envelope, paper);
   // A page drawn as the company's Word original names its own margins (the "paper" blocks, utils/paperSheets.ts).
-  return wordDocumentFromBlocks(blocks, envelope, paper, blocks.some((b) => b.kind === "paper") ? (paperTableWordMargins(doc.id) ?? paperMarginsOf(doc.id)) : undefined);
+  return wordDocumentFromBlocks(blocks, envelope, paper, blocks.some((b) => b.kind === "paper") ? (paperTableWordMargins(doc.id) ?? paperMarginsOf(doc.id)) : undefined, onePage);
 }
 
 /** Puts every line of a long list on screen (utils/useProgressive.ts) and lets the page draw once. */
@@ -1277,7 +1280,9 @@ export async function downloadDocumentFile(doc: DocumentDefinition, roots: Eleme
     }
     // The paper's own page (§117), where the sheet names it.
     const paper = paperPageOf(doc.id) ?? (live.length ? live : roots).map(paperOf).find((p) => p !== null) ?? undefined;
-    const bytes = documentFileBytes(kind, doc, blocks, recordIdsIn(live.length ? live : roots), undefined, paper);
+    // A month's sheet on one page (LogSheetLayout.onePage, carried as data-one-page on the sheet; §259).
+    const onePage = (live.length ? live : roots).some((r) => r.matches("[data-one-page]") || r.querySelector("[data-one-page]") !== null);
+    const bytes = documentFileBytes(kind, doc, blocks, recordIdsIn(live.length ? live : roots), undefined, paper, onePage);
     downloadBlob(`${name}.${kind}`, new Blob([bytes], { type: kind === "xlsx" ? XLSX_TYPE : DOCX_TYPE }));
     return kind;
   } catch {

@@ -58,14 +58,14 @@ const groups = (id: string) => layout(id).columns.map((c) => c.group ?? "");
 
 /** The nine Production formats in DCRS: number, revision, revision date, section, schedule. */
 const FORMATS: { id: string; formatNo: string; rev: string; revDate: string; section: string; schedule: string }[] = [
-  { id: "prd-sharp-object-issue", formatNo: "F/PRD/10", rev: "00", revDate: "2021-12-01", section: "Sharp Objects & Blades", schedule: "daily" },
+  { id: "prd-sharp-object-issue", formatNo: "F/PRD/10", rev: "00", revDate: "2021-12-01", section: "Sharp Objects & Blades", schedule: "monthly" },
   { id: "prd-alc-production", formatNo: "F-PRD-18", rev: "01", revDate: "2025-06-25", section: "Lamination", schedule: "daily" },
   { id: "prd-process-parameter", formatNo: "F-PRD-19", rev: "00", revDate: "2024-12-15", section: "Lamination", schedule: "daily" },
   { id: "prd-slitting-alc", formatNo: "F-PRD-20", rev: "01", revDate: "2025-06-25", section: "Slitting", schedule: "daily" },
   { id: "prd-pouching-line-clearance", formatNo: "F/PRD/21", rev: "00", revDate: "2024-12-15", section: "Pouching", schedule: "as-required" },
-  { id: "prd-pouching-blade", formatNo: "F/PRD/22", rev: "00", revDate: "2024-12-15", section: "Sharp Objects & Blades", schedule: "daily" },
-  { id: "prd-pouching-cutter-issue", formatNo: "F/PRD/23", rev: "00", revDate: "2025-12-15", section: "Sharp Objects & Blades", schedule: "daily" },
-  { id: "prd-slitting-blade", formatNo: "F/PRD/24", rev: "00", revDate: "2024-12-15", section: "Sharp Objects & Blades", schedule: "daily" },
+  { id: "prd-pouching-blade", formatNo: "F/PRD/22", rev: "00", revDate: "2024-12-15", section: "Sharp Objects & Blades", schedule: "monthly" },
+  { id: "prd-pouching-cutter-issue", formatNo: "F/PRD/23", rev: "00", revDate: "2025-12-15", section: "Sharp Objects & Blades", schedule: "monthly" },
+  { id: "prd-slitting-blade", formatNo: "F/PRD/24", rev: "00", revDate: "2024-12-15", section: "Sharp Objects & Blades", schedule: "monthly" },
   { id: "prd-doctoring-alc", formatNo: "F-PRD-26", rev: "01", revDate: "2025-07-23", section: "Doctoring", schedule: "daily" },
 ];
 const IDS = FORMATS.map((f) => f.id);

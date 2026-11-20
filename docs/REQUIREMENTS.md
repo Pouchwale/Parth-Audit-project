@@ -12548,3 +12548,30 @@ replaced to keep total".
 - Proved: frontend/tests/sharpTools.test.ts; on the local copy in the browser (four people, three in shift I: F/PRD/10
   one line, shift I, 3 / 3; a fifth in shift I and the assistant's sheet filled again, 4 / 4; F/PRD/23 the pouching
   section's shift I people).
+
+## §259 Sharp Objects & Blades: one sheet a month, a line for every date (20-Nov-2026)
+
+The owner, 20-Nov-2026, with F/PRD/10's stock note on the screen: "it should be one page but date should come likewise 1 to
+30 or whatever according to month and make sure in total according to document number should come and check heading like
+this in those 4 document which are prd-10, 22, 23, 24 so on user dashboard this document will appear only one page each
+month in which all day covers of that month and in shift column in all documents add dropdown button so system and user can
+select shift easily whether it is I or II".
+
+- F/PRD/10, 22, 23 and 24 are Monthly from November 2026 (documentDefinitions.ts: schedule monthly, due on the month's last
+  working day; scheduleSince 2026-11-01): one sheet a month on the dashboard, with a line for every date of the month, 1 to
+  28, 29, 30 or 31 (engine/sharpTools.ts withMonthDays).
+- Each day's line is filled on its day by the server's morning prepare and at every start (assistantPrepare.ts
+  fillSharpToolsDue): F/PRD/10 and 23 shift I's people (§258), F/PRD/22 and 24 the day's blades from the stock the line
+  before closed with (the month's first line from the last month's last); a closed day (the weekly off, a holiday) is
+  written so - nothing issued, the stock carried, the day named in Remarks. Lines dated later stay blank until their day;
+  the people check the lines and submit the sheet at the month's end. A line a person wrote is never changed.
+- The day sheets made before: those nobody wrote on are taken away at the start (data/sharpMonthMigration.ts), their lines
+  filled the same on the month's sheet; a day sheet a person wrote on stays on file and its line is laid on the month's.
+- Shift (and F/PRD/22 and 24's replacement SHIFT) is a dropdown, I or II (productionLayouts.ts).
+- One A4 page: the printout fits the month's lines on one page however tall (LogSheetLayout.onePage, data-one-page,
+  utils/print.ts); the Word file sets the grid's lines close with 10 mm margins, a date never broken at its dashes (docx.ts
+  DocxExtras.onePage); the Excel file (the company's workbook) was one page already. Each sheet's stock note heads it as
+  printed (15 / 20, 15 / 40, 20 NOS).
+- Proved: frontend/tests/sharpTools.test.ts, production.test.ts, myDayAccess.test.ts; on the local copy in the browser (each
+  sheet one November record with 30 lines, 20-11 filled and the rest blank; Shift II chosen and kept after a reload; the
+  four printed to PDF on one page each; the Excel and Word downloads opened in Excel and Word, one page each).

@@ -116,6 +116,9 @@ const alcDone = (): LogColumn => ({
 /** The operator signs each line himself: left for him, never filled by the assistant nor carried from the last sheet. */
 const operatorSignColumn = (label: string, key = "operatorSign"): LogColumn => ({ key, label, type: "text", autoFill: { fresh: true }, width: 130 });
 
+/** The plant's two shifts, chosen on F/PRD/10, 22, 23 and 24 (§259). */
+const SHIFTS = ["I", "II"];
+
 /** F/PRD/22 and F/PRD/24: the same ten headings, in the same order. */
 const BLADE_GROUP = "Nos. of new blades replaced on Machine";
 const bladeColumns = (): LogColumn[] => [
@@ -123,7 +126,7 @@ const bladeColumns = (): LogColumn[] => [
   { key: "openingStock", label: "Opening stock of OK Blade", type: "number", decimals: 0, required: true, width: 110 },
   { key: "newIssuedFromStore", label: "New Blades Issued from Store", type: "number", decimals: 0, width: 110 },
   { key: "totalStock", label: "Total Stock", type: "number", decimals: 0, required: true, width: 90 },
-  { key: "replacedShift", label: "SHIFT", type: "text", group: BLADE_GROUP, width: 70 },
+  { key: "replacedShift", label: "SHIFT", type: "select", options: SHIFTS, group: BLADE_GROUP, width: 70 },
   { key: "replacedNos", label: "New Blade nos.", type: "number", decimals: 0, group: BLADE_GROUP, width: 100 },
   { key: "closingOkStock", label: "Closing stock of OK Blade", type: "number", decimals: 0, required: true, width: 110 },
   { key: "closingDiscarded", label: "Closing Stock of Discarded blades", type: "number", decimals: 0, width: 120 },
@@ -142,10 +145,13 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
   "prd-sharp-object-issue": {
     documentId: "prd-sharp-object-issue",
     instructions: [FPRD10_STOCK_NOTE],
+    // A month on one page, a line for each of its dates (§259).
+    onePage: true,
     headerFields: [],
     columns: [
       lineDate("Date"),
-      { key: "shift", label: "Shift", type: "text", width: 70 },
+      // Chosen, I or II (the owner, 20-Nov-2026, REQUIREMENTS §259): the plant's two shifts.
+      { key: "shift", label: "Shift", type: "select", options: SHIFTS, width: 70 },
       { key: "issuedScissor", label: "Scissor", type: "number", decimals: 0, required: true, group: "Description of Sharp Metal Object Issued", width: 90 },
       { key: "issuedManualCutter", label: "Manual cutter", type: "number", decimals: 0, required: true, group: "Description of Sharp Metal Object Issued", width: 100 },
       { key: "returnedScissor", label: "Scissor", type: "number", decimals: 0, required: true, group: "Description of Sharp Metal Object Returned", width: 90 },
@@ -177,10 +183,13 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
   "prd-pouching-cutter-issue": {
     documentId: "prd-pouching-cutter-issue",
     instructions: [FPRD23_STOCK_NOTE],
+    // A month on one page, a line for each of its dates (§259).
+    onePage: true,
     headerFields: [],
     columns: [
       lineDate("Date"),
-      { key: "shift", label: "Shift", type: "text", width: 70 },
+      // Chosen, I or II (the owner, 20-Nov-2026, REQUIREMENTS §259): the plant's two shifts.
+      { key: "shift", label: "Shift", type: "select", options: SHIFTS, width: 70 },
       { key: "qtyIssued", label: "QTY. ISSUED", type: "number", decimals: 0, required: true, width: 100 },
       { key: "qtyReturned", label: "QTY. RETURNED", type: "number", decimals: 0, required: true, width: 110 },
       { key: "brokenQty", label: "BROKEN / DAMAGED QTY (IF ANY)", type: "text", width: 130 },
@@ -202,6 +211,8 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
   "prd-pouching-blade": {
     documentId: "prd-pouching-blade",
     instructions: [FPRD22_BLADE_NOTE],
+    // A month on one page, a line for each of its dates (§259).
+    onePage: true,
     headerFields: [],
     columns: bladeColumns(),
     rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
@@ -221,6 +232,8 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
   "prd-slitting-blade": {
     documentId: "prd-slitting-blade",
     instructions: [FPRD24_BLADE_NOTE],
+    // A month on one page, a line for each of its dates (§259).
+    onePage: true,
     headerFields: [],
     columns: bladeColumns(),
     rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
