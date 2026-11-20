@@ -5,7 +5,7 @@ import { useRouter } from "../store/router";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { isDocumentIdVisible, mayDo } from "../engine/departmentScope";
-import { BLADE_STOCK, peopleFor, SHARP_STOCK, SHARP_TOOL_DOCS, shiftsOf, shiftWord } from "../engine/sharpTools";
+import { BLADE_STOCK, SHARP_STOCK, SHARP_TOOL_DOCS, shiftOnePeople, shiftWord } from "../engine/sharpTools";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { Modal } from "../components/common/Modal";
 import { logActivity } from "../utils/activityLog";
@@ -60,17 +60,15 @@ export function SharpToolMasterPage() {
     const doc = documentRepository.getById(id);
     const no = doc?.formatNo ?? id;
     if (BLADE_STOCK[id]) return `${no}: one line a day from its own blade stock (always ${BLADE_STOCK[id].maintained} blades, machines' included).`;
-    const shifts = shiftsOf(peopleFor(id, master));
-    if (shifts.length === 0) return `${no}: nothing yet - add the people and their shift below.`;
+    // One line a day, shift I: the instruments are given in the first shift only (§258).
+    const count = shiftOnePeople(id, master).length;
+    if (count === 0) return `${no}: nothing yet - add the people of shift I below.`;
     const stock = SHARP_STOCK[id];
-    const each = shifts
-      .map(({ shift, count }) =>
-        id === "prd-sharp-object-issue"
-          ? `shift ${shiftNo(shift)} ${many(Math.min(count, stock.scissor ?? count), "scissor")}, ${many(Math.min(count, stock.cutter), "manual cutter")}`
-          : `shift ${shiftNo(shift)} ${many(Math.min(count, stock.cutter), "manual cutter")}`
-      )
-      .join("; ");
-    return `${no}: ${each} issued and returned each day${id === "prd-pouching-cutter-issue" ? " (the pouching section's people)" : ""}.`;
+    const each =
+      id === "prd-sharp-object-issue"
+        ? `${many(Math.min(count, stock.scissor ?? count), "scissor")} of ${stock.scissor}, ${many(Math.min(count, stock.cutter), "manual cutter")} of ${stock.cutter}`
+        : `${many(Math.min(count, stock.cutter), "manual cutter")} of ${stock.cutter}`;
+    return `${no}: shift I - ${each} issued and returned each day${id === "prd-pouching-cutter-issue" ? " (the pouching section's people)" : ""}, the rest in the cupboard; a worn-out one replaced now and then, so the stock stays ${id === "prd-sharp-object-issue" ? `${stock.scissor} / ${stock.cutter}` : stock.cutter}.`;
   };
 
   return (

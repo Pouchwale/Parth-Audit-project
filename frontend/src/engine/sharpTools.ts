@@ -10,10 +10,13 @@ import { compareISO } from "../utils/date";
 // document in upper side note is written clear so in this document the data should automatically come"; asked: the list in
 // the Production module, "Issued = people in shift", the stock the app's notes print, the razor blades "like your photo").
 //
-//   F/PRD/10 and F/PRD/23 - a line for each shift the Sharp Objects Master Data names, every working day: the scissors and
-//     manual cutters issued, and returned, are the people of that shift (F/PRD/23: the pouching section's), never more than
-//     the stock the paper's note keeps (15 scissors and 20 cutter blades; 40 on F/PRD/23); nothing broken ("Nil"), nothing
-//     new issued ("NA"). The supervisor signs.
+//   F/PRD/10 and F/PRD/23 - ONE LINE A DAY, SHIFT I (the owner, 20-Nov-2026, REQUIREMENTS §258: "the instrument is given in
+//     1st shift only and broken replaced to keep total"): the scissors and manual cutters issued, and returned, are shift
+//     I's people on the list (F/PRD/23: the pouching section's), never more than the stock the paper's note keeps (15
+//     scissors and 20 cutter blades; 40 on F/PRD/23) - the rest are in the cupboard. Most days nothing is broken ("Nil")
+//     and nothing new issued ("NA"); now and then a worn-out cutter blade (more rarely a damaged scissor) is written broken
+//     with as many new issued, as the paper's own 02.12.2021 line is, so the stock stays the note's figure. The supervisor
+//     signs.
 //   F/PRD/22 and F/PRD/24 - one line a day, shift I: the opening stock of OK blades is the day before's closing; 1 to 3 new
 //     blades put on the machines (1 to 2 on the one slitting machine); the closing OK stock falls by them and the discarded
 //     rise; when the OK stock is down to 4, the discarded blades go back to the store and as many new ones are issued, so the
@@ -89,25 +92,61 @@ export function sharpSheetUnwritten(documentId: string, data: LogSheetData | und
   return rows.every((r) => keys.every((k) => blank(r[k])));
 }
 
-/** F/PRD/10 and F/PRD/23: the day's lines, a shift each; null when the list names nobody. */
+/** The people the day's line counts: shift I's (§258), the instruments being given in the first shift only. */
+export function shiftOnePeople(documentId: string, master: Pick<MasterData, "sharpToolPeople">): SharpToolPerson[] {
+  return peopleFor(documentId, master).filter((p) => p.shift === "I");
+}
+
+/** How often a worn-out item is replaced: a cutter blade about one working day in ten, a scissor about one in forty. */
+const WORN_CUTTER = 0.1;
+const WORN_SCISSOR = 0.025;
+
+/** F/PRD/10 and F/PRD/23: the day's one line, shift I (§258); null when the list names nobody in shift I. */
 export function sharpIssueRows(documentId: string, dueDate: string, master: Pick<MasterData, "sharpToolPeople">): LogSheetRow[] | null {
   const layout = getLogSheetLayout(documentId);
   const stock = SHARP_STOCK[documentId];
   if (!layout || !stock) return null;
-  const shifts = shiftsOf(peopleFor(documentId, master));
-  if (shifts.length === 0) return null;
-  return shifts.map(({ shift, count }) => {
-    const row: LogSheetRow = { ...blankLogRow(layout, generateId("row")), date: dueDate, shift };
-    if (documentId === "prd-sharp-object-issue") {
-      const scissors = Math.min(count, stock.scissor ?? count);
-      const cutters = Math.min(count, stock.cutter);
-      Object.assign(row, { issuedScissor: scissors, issuedManualCutter: cutters, returnedScissor: scissors, returnedManualCutter: cutters, brokenScissor: "Nil", brokenCutterBlade: "Nil", newScissor: "NA", newCutterBlade: "NA" });
-    } else {
-      const cutters = Math.min(count, stock.cutter);
-      Object.assign(row, { qtyIssued: cutters, qtyReturned: cutters, brokenQty: "Nil", newQtyIssued: "NA" });
-    }
-    return row;
-  });
+  const count = shiftOnePeople(documentId, master).length;
+  if (count === 0) return null;
+  const rng = makeRng(`sharp-worn|${documentId}|${dueDate}`);
+  const cutterWorn = rng.next() < WORN_CUTTER;
+  const scissorWorn = documentId === "prd-sharp-object-issue" && rng.next() < WORN_SCISSOR;
+  const remark = [cutterWorn ? "Cutter blade worn out" : "", scissorWorn ? "Scissor damaged" : ""].filter(Boolean).join(", ");
+  const row: LogSheetRow = { ...blankLogRow(layout, generateId("row")), date: dueDate, shift: "I" };
+  const cutters = Math.min(count, stock.cutter);
+  if (documentId === "prd-sharp-object-issue") {
+    const scissors = Math.min(count, stock.scissor ?? count);
+    Object.assign(row, {
+      issuedScissor: scissors,
+      issuedManualCutter: cutters,
+      returnedScissor: scissors,
+      returnedManualCutter: cutters,
+      brokenScissor: scissorWorn ? "1" : "Nil",
+      brokenCutterBlade: cutterWorn ? "1" : "Nil",
+      newScissor: scissorWorn ? "1" : "NA",
+      newCutterBlade: cutterWorn ? "1" : "NA",
+      remarks: remark,
+    });
+  } else {
+    Object.assign(row, { qtyIssued: cutters, qtyReturned: cutters, brokenQty: cutterWorn ? "1" : "Nil", newQtyIssued: cutterWorn ? "1" : "NA", remarks: remark });
+  }
+  return [row];
+}
+
+/** The figures a scissor / cutter line holds, to tell the assistant's earlier fill from the one now due. */
+const ISSUE_KEYS = ["shift", "issuedScissor", "issuedManualCutter", "returnedScissor", "returnedManualCutter", "brokenScissor", "brokenCutterBlade", "newScissor", "newCutterBlade", "qtyIssued", "qtyReturned", "brokenQty", "newQtyIssued", "remarks"];
+export function sameIssueFigures(a: readonly LogSheetRow[] | undefined, b: readonly LogSheetRow[]): boolean {
+  if (!a || a.length !== b.length) return false;
+  return a.every((r, i) => ISSUE_KEYS.every((k) => String(r[k] ?? "") === String(b[i][k] ?? "")));
+}
+
+/**
+ * Whether a sheet is still the assistant's own fill, nobody's since (prepared by the assistant with SHARP_FILL_NOTE and
+ * not changed after): it may be filled again when the rule changes (§258: the earlier fill wrote a line for each shift).
+ */
+export function sharpSheetAssistantOwn(record: Pick<RecordInstance, "prepared" | "updatedAt">): boolean {
+  const p = record.prepared;
+  return !!p && p.by === "assistant" && (p.notes ?? []).includes(SHARP_FILL_NOTE) && p.at === record.updatedAt;
 }
 
 /** The stock a razor blade sheet closed with: its last line's closing OK and discarded blades. */

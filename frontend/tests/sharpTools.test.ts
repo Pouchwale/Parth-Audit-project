@@ -19,21 +19,59 @@ test("the shifts as the sheets write them; each shift's people counted", () => {
   assert.deepEqual(shiftsOf(sharpPeople(master)), [{ shift: "I", count: 20 }, { shift: "II", count: 4 }]);
 });
 
-test("F/PRD/10: a line a shift, issued and returned = the shift's people, never more than the note's stock (15 scissors, 20 cutters)", () => {
+test("F/PRD/10: one line a day, shift I only (§258): issued and returned = shift I's people, never more than the note's stock (15 scissors, 20 cutters)", () => {
   const rows = sharpIssueRows("prd-sharp-object-issue", "2026-11-17", master)!;
-  assert.equal(rows.length, 2);
+  assert.equal(rows.length, 1, "the instruments are given in the first shift only");
   assert.deepEqual([rows[0].shift, rows[0].issuedScissor, rows[0].issuedManualCutter, rows[0].returnedScissor, rows[0].returnedManualCutter], ["I", 15, 20, 15, 20]);
-  assert.deepEqual([rows[1].shift, rows[1].issuedScissor, rows[1].issuedManualCutter], ["II", 4, 4]);
   assert.equal(rows[0].date, "2026-11-17");
-  assert.equal(rows[0].brokenScissor, "Nil");
   assert.equal(rows[0].supervisorSign ?? "", "", "the supervisor signs");
+  const few = { sharpToolPeople: [person(1, "I"), person(2, "I"), person(3, "II")] };
+  assert.deepEqual([sharpIssueRows("prd-sharp-object-issue", "2026-11-17", few)![0].issuedScissor], [2], "shift II's people are not counted");
   assert.equal(sharpIssueRows("prd-sharp-object-issue", "2026-11-17", { sharpToolPeople: [] }), null, "nothing while the list is empty");
+  assert.equal(sharpIssueRows("prd-sharp-object-issue", "2026-11-17", { sharpToolPeople: [person(1, "II")] }), null, "nothing with nobody in shift I");
 });
 
-test("F/PRD/23: the pouching section's people only, up to 40 cutters", () => {
+test("F/PRD/23: the pouching section's shift I people only, up to 40 cutters", () => {
   const rows = sharpIssueRows("prd-pouching-cutter-issue", "2026-11-17", master)!;
-  assert.equal(rows.length, 1, "the Lamination shift II people are not the pouching section's");
+  assert.equal(rows.length, 1);
   assert.deepEqual([rows[0].shift, rows[0].qtyIssued, rows[0].qtyReturned], ["I", 20, 20]);
+});
+
+test("a worn-out item now and then, broken and as many new issued, so the stock stays the note's (§258)", () => {
+  let cutters = 0;
+  let scissors = 0;
+  let pouching = 0;
+  const days = 400;
+  for (let d = 0; d < days; d++) {
+    const iso = new Date(Date.UTC(2027, 0, 1 + d)).toISOString().slice(0, 10);
+    const r = sharpIssueRows("prd-sharp-object-issue", iso, master)![0];
+    assert.equal(r.issuedManualCutter, r.returnedManualCutter, "every one issued comes back");
+    if (r.brokenCutterBlade === "Nil") assert.equal(r.newCutterBlade, "NA");
+    else {
+      assert.equal(r.newCutterBlade, r.brokenCutterBlade, "as many new as broken: the stock stays 20");
+      assert.match(String(r.remarks), /Cutter blade worn out/);
+      cutters++;
+    }
+    if (r.brokenScissor !== "Nil") {
+      assert.equal(r.newScissor, r.brokenScissor);
+      scissors++;
+    }
+    const p = sharpIssueRows("prd-pouching-cutter-issue", iso, master)![0];
+    if (p.brokenQty !== "Nil") {
+      assert.equal(p.newQtyIssued, p.brokenQty);
+      pouching++;
+    } else assert.equal(p.newQtyIssued, "NA");
+    assert.deepEqual(sharpIssueRows("prd-sharp-object-issue", iso, master)![0].brokenCutterBlade, r.brokenCutterBlade, "the same each time");
+  }
+  assert.ok(cutters > days * 0.05 && cutters < days * 0.16, `cutter blades worn out on ${cutters} of ${days} days`);
+  assert.ok(scissors >= 1 && scissors < days * 0.06, `scissors on ${scissors} days`);
+  assert.ok(pouching > days * 0.05 && pouching < days * 0.16, `F/PRD/23 on ${pouching} days`);
+});
+
+test("a sheet still the assistant's own is filled again when its figures change; a person's never", () => {
+  const prep = src("engine/assistantPrepare.ts");
+  assert.match(prep, /const refill = !blades && sharpSheetAssistantOwn\(record\);/);
+  assert.match(prep, /if \(refill && !sharpSheetUnwritten\(id, data\) && sameIssueFigures\(data\?\.rows, rows\)\) continue;/);
 });
 
 test("F/PRD/22 and 24: the day's blades from the day before; always the note's 20, the machines' included; low stock renewed", () => {

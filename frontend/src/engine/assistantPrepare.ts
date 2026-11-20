@@ -15,7 +15,7 @@ import { mayWriteRecordsOf } from "./departmentScope";
 import { fillScaleLinesDue, SCALE_DAY_NOTE } from "./nominalFill";
 import { firstWeekDate } from "./calibrationWeeks";
 import { withComputedCells } from "./computedCells";
-import { bladeClosing, bladeSheetBefore, razorBladeRow, RAZOR_BLADE_DOCS, sharpIssueRows, sharpSheetUnwritten, SHARP_FILL_NOTE, SHARP_TOOL_DOCS } from "./sharpTools";
+import { bladeClosing, bladeSheetBefore, razorBladeRow, RAZOR_BLADE_DOCS, sameIssueFigures, sharpIssueRows, sharpSheetAssistantOwn, sharpSheetUnwritten, SHARP_FILL_NOTE, SHARP_TOOL_DOCS } from "./sharpTools";
 
 // Statuses in which a record is still an untouched shell the assistant may
 // fill. "In Progress" is deliberately excluded: that means a person has
@@ -169,9 +169,13 @@ export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
       if (!["Scheduled", "Due", "In Progress"].includes(record.status)) continue;
       if (compareISO(record.dueDate, referenceISO) > 0 || (liveStartDate && compareISO(record.dueDate, liveStartDate) < 0)) continue;
       const data = record.data as LogSheetData | undefined;
-      if (!sharpSheetUnwritten(id, data)) continue;
+      // A scissor / cutter sheet still the assistant's own, nobody's since, is filled again when its figures are not the
+      // ones now due (§258: one line, shift I, where the earlier fill wrote one a shift); a person's sheet never.
+      const refill = !blades && sharpSheetAssistantOwn(record);
+      if (!refill && !sharpSheetUnwritten(id, data)) continue;
       const rows = blades ? [razorBladeRow(id, record.dueDate, bladeClosing(bladeSheetBefore(all, record.dueDate)?.data))].filter((r) => !!r) : sharpIssueRows(id, record.dueDate, master);
       if (!rows || rows.length === 0) continue;
+      if (refill && !sharpSheetUnwritten(id, data) && sameIssueFigures(data?.rows, rows)) continue;
       const filled = withComputedCells(id, { header: { ...(data?.header ?? {}) }, rows: rows as LogSheetData["rows"] });
       const entry = { ...makeEntry("prepared", "Assistant", { note: SHARP_FILL_NOTE, changes: diffRecordData(record.data, filled, fieldLabels(doc.kind, doc.id)) }), at: now };
       if (!entry.changes?.length) delete entry.changes;

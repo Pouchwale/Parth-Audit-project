@@ -12523,3 +12523,28 @@ rule that took a filled-in count's range from the tube light's installation mont
 - Proved: frontend/tests/flyCountSeason.test.ts, hrPaperFormats.test.ts, notBeforeDay.test.ts; on the local copy in the
   browser (the register's counts 01, 02; 3 typed shows 03; the November draft's counts redrawn 01-03 on opening, a count
   typed by hand kept).
+
+## §258 Sharp Objects & Blades: the stock the notes keep, in total (20-Nov-2026)
+
+The owner, 20-Nov-2026, with the Production menu's four sheets: "in that system you have follow notes so in that number
+should maintain (Scissor stock - 15 Nos & Cutter Blade - 20 Nos to be maintained including Issued to Operator as well as
+available in Cup board) ... you have to maintain number of whatever given and in total". Asked how (each shift's line was
+capped on its own, so the two shifts together could pass 15 / 20): "the instrument is given in 1st shift only and broken
+replaced to keep total".
+
+- F/PRD/10 and F/PRD/23 have one line a day, shift I (engine/sharpTools.ts sharpIssueRows): the scissors and manual cutters
+  issued and returned are shift I's people on the Sharp Objects Master Data (F/PRD/23: the pouching section's), never more
+  than the note's stock - 15 scissors and 20 cutter blades, 40 on F/PRD/23 - the rest being in the cupboard. Shift II's
+  people are not counted.
+- About one working day in ten a cutter blade is written worn out - Broken 1, New Qty. Issued 1, Remarks "Cutter blade worn
+  out" - and about one in forty a scissor ("Scissor damaged"), as the paper's own 02.12.2021 line is, so the stock stays
+  the note's figure. Random by sheet and day, the same on every device.
+- A scissor / cutter sheet still the assistant's own fill, nobody's since, is filled again when its figures are not the
+  ones now due (assistantPrepare.ts fillSharpToolsDue: the shift-a-line sheets of 17-19 Nov, or a person added to the
+  list); a sheet a person wrote on is never touched.
+- F/PRD/22 and F/PRD/24 already keep their note's 20 (installed on the machine + loose OK + loose discarded) on every line
+  (§254); unchanged.
+- The Sharp Objects Master Data page says so for each sheet (pages/SharpToolMasterPage.tsx).
+- Proved: frontend/tests/sharpTools.test.ts; on the local copy in the browser (four people, three in shift I: F/PRD/10
+  one line, shift I, 3 / 3; a fifth in shift I and the assistant's sheet filled again, 4 / 4; F/PRD/23 the pouching
+  section's shift I people).
