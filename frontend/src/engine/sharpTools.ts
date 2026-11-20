@@ -118,28 +118,77 @@ export const SHARP_USUAL: Record<string, { scissor?: number; cutter: number }> =
   "prd-pouching-cutter-issue": { cutter: 13 },
 };
 
-/** The scissors and manual cutters issued (and returned) a day: shift I's people on the list, or the paper's usual count. */
-export function sharpIssueCounts(documentId: string, master: Pick<MasterData, "sharpToolPeople">): { scissors: number; cutters: number; fromList: boolean } | null {
+/** How often a person of the list is away on a working day (leave, sickness): about one day in fourteen. */
+const AWAY = 0.07;
+
+/**
+ * THE SCISSORS AND MANUAL CUTTERS ISSUED (AND RETURNED) ON A DAY, AS A REAL DAY'S ARE (the owner, 20-Nov-2026, REQUIREMENTS
+ * §261: "show in such a way so it seem to very real so when auditor check the sheet of any month then it should be seem to
+ * very real"): one to each of shift I's people at work that day - each person on the list away about one day in fourteen -
+ * or, while the list names nobody in shift I, the paper's usual 13 (F/PRD/10: 12 scissors, one of them working with a cutter
+ * alone) less the day's few away, none to three. Never more than the note's stock. The same figures for a date on every
+ * device and every run (random by sheet and date). Without a date, the usual day's (the Sharp Objects Master Data page).
+ */
+export function sharpIssueCounts(documentId: string, master: Pick<MasterData, "sharpToolPeople">, date?: string): { scissors: number; cutters: number; fromList: boolean } | null {
   const stock = SHARP_STOCK[documentId];
   if (!stock) return null;
-  const count = shiftOnePeople(documentId, master).length;
+  const people = shiftOnePeople(documentId, master);
   const usual = SHARP_USUAL[documentId];
-  const scissors = count > 0 ? count : usual?.scissor ?? usual?.cutter ?? 0;
-  const cutters = count > 0 ? count : usual?.cutter ?? 0;
-  return { scissors: Math.min(scissors, stock.scissor ?? scissors), cutters: Math.min(cutters, stock.cutter), fromList: count > 0 };
+  const cap = (n: number, most: number) => Math.max(0, Math.min(n, most));
+  if (people.length > 0) {
+    const at = date ? people.filter((p) => makeRng(`sharp-away|${documentId}|${date}|${p.id || p.name}`).next() >= AWAY).length : people.length;
+    const n = Math.max(1, at);
+    return { scissors: cap(n, stock.scissor ?? n), cutters: cap(n, stock.cutter), fromList: true };
+  }
+  if (!usual) return null;
+  let away = 0;
+  let scissorless = usual.scissor !== undefined && usual.scissor < usual.cutter ? usual.cutter - usual.scissor : 0;
+  if (date) {
+    const rng = makeRng(`sharp-away|${documentId}|${date}`);
+    const r = rng.next();
+    away = r < 0.4 ? 0 : r < 0.72 ? 1 : r < 0.9 ? 2 : 3;
+    // the one who works with a cutter alone is away some days too, and the scissors then match the cutters
+    if (scissorless > 0 && rng.next() < 0.15) scissorless -= 1;
+  }
+  const cutters = usual.cutter - away;
+  return { scissors: cap(cutters - scissorless, stock.scissor ?? cutters), cutters: cap(cutters, stock.cutter), fromList: false };
+}
+
+/** The figures F/PRD/10 and 23 wrote on 20-Nov-2026 before §261 (the paper's usual count every day), to know such a line again. */
+export function sharpSteadyLine(documentId: string, date: string): Partial<LogSheetRow> | null {
+  const usual = SHARP_USUAL[documentId];
+  if (!usual) return null;
+  return sharpIssueLine(documentId, date, { scissors: usual.scissor ?? usual.cutter, cutters: usual.cutter });
+}
+
+/** THE MARK OF A LINE THE ASSISTANT WROTE (§261): its figures as written; a line whose figures still match is the assistant's to write again. Never printed. */
+export const ASSISTANT_LINE = "assistantLine";
+const FIGURE_KEYS = (documentId: string) => (LINE_KEYS[documentId] ?? []).filter((k) => k !== "supervisorSign" && k !== "verifiedBy");
+export function lineFingerprint(documentId: string, row: Partial<LogSheetRow>): string {
+  return FIGURE_KEYS(documentId).map((k) => String(row[k] ?? "").trim()).join("|");
+}
+/** Whether a line is still as the assistant wrote it: its mark matches its figures, and nobody signed it. */
+export function assistantsLine(documentId: string, row: LogSheetRow): boolean {
+  const mark = row[ASSISTANT_LINE];
+  return typeof mark === "string" && mark === lineFingerprint(documentId, row) && blank(row.supervisorSign) && blank(row.verifiedBy);
 }
 
 /** F/PRD/10 and F/PRD/23: the day's one line, shift I (§258): shift I's people, or the paper's usual count (§260). */
 export function sharpIssueRows(documentId: string, dueDate: string, master: Pick<MasterData, "sharpToolPeople">): LogSheetRow[] | null {
   const layout = getLogSheetLayout(documentId);
   const stock = SHARP_STOCK[documentId];
-  const counts = sharpIssueCounts(documentId, master);
+  const counts = sharpIssueCounts(documentId, master, dueDate);
   if (!layout || !stock || !counts || counts.cutters === 0) return null;
+  return [{ ...blankLogRow(layout, generateId("row")), ...sharpIssueLine(documentId, dueDate, counts) } as LogSheetRow];
+}
+
+/** A day's issue line for the counts given: shift I, all returned, a worn-out one now and then (§258). */
+function sharpIssueLine(documentId: string, dueDate: string, counts: { scissors: number; cutters: number }): Partial<LogSheetRow> {
   const rng = makeRng(`sharp-worn|${documentId}|${dueDate}`);
   const cutterWorn = rng.next() < WORN_CUTTER;
   const scissorWorn = documentId === "prd-sharp-object-issue" && rng.next() < WORN_SCISSOR;
   const remark = [cutterWorn ? "Cutter blade worn out" : "", scissorWorn ? "Scissor damaged" : ""].filter(Boolean).join(", ");
-  const row: LogSheetRow = { ...blankLogRow(layout, generateId("row")), date: dueDate, shift: "I" };
+  const row: Partial<LogSheetRow> = { date: dueDate, shift: "I" };
   const cutters = counts.cutters;
   if (documentId === "prd-sharp-object-issue") {
     const scissors = counts.scissors;
@@ -157,7 +206,7 @@ export function sharpIssueRows(documentId: string, dueDate: string, master: Pick
   } else {
     Object.assign(row, { qtyIssued: cutters, qtyReturned: cutters, brokenQty: cutterWorn ? "1" : "Nil", newQtyIssued: cutterWorn ? "1" : "NA", remarks: remark });
   }
-  return [row];
+  return row;
 }
 
 /** The figures a scissor / cutter line holds, to tell the assistant's earlier fill from the one now due. */

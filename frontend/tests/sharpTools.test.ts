@@ -22,24 +22,33 @@ test("the shifts as the sheets write them; each shift's people counted", () => {
 test("F/PRD/10: one line a day, shift I only (§258): issued and returned = shift I's people, never more than the note's stock (15 scissors, 20 cutters)", () => {
   const rows = sharpIssueRows("prd-sharp-object-issue", "2026-11-17", master)!;
   assert.equal(rows.length, 1, "the instruments are given in the first shift only");
-  assert.deepEqual([rows[0].shift, rows[0].issuedScissor, rows[0].issuedManualCutter, rows[0].returnedScissor, rows[0].returnedManualCutter], ["I", 15, 20, 15, 20]);
+  // 20 people in shift I, one or two away some days: never more than the note's 15 scissors and 20 cutters; all returned.
+  assert.equal(rows[0].shift, "I");
+  assert.equal(rows[0].issuedScissor, 15);
+  assert.ok(Number(rows[0].issuedManualCutter) >= 16 && Number(rows[0].issuedManualCutter) <= 20, String(rows[0].issuedManualCutter));
+  assert.deepEqual([rows[0].returnedScissor, rows[0].returnedManualCutter], [rows[0].issuedScissor, rows[0].issuedManualCutter]);
   assert.equal(rows[0].date, "2026-11-17");
   assert.equal(rows[0].supervisorSign ?? "", "", "the supervisor signs");
   const few = { sharpToolPeople: [person(1, "I"), person(2, "I"), person(3, "II")] };
-  assert.deepEqual([sharpIssueRows("prd-sharp-object-issue", "2026-11-17", few)![0].issuedScissor], [2], "shift II's people are not counted");
+  assert.ok(Number(sharpIssueRows("prd-sharp-object-issue", "2026-11-17", few)![0].issuedScissor) <= 2, "shift II's people are not counted");
   // Nobody named in shift I (the plant's list, 20-Nov-2026: four rows, no names): the paper's usual count, within the note (§260).
   for (const people of [[], [person(1, "II")], [{ id: "x", name: "", department: "", shift: "I" }]]) {
     const usual = sharpIssueRows("prd-sharp-object-issue", "2026-11-17", { sharpToolPeople: people })![0];
     assert.equal(usual.shift, "I");
-    assert.deepEqual([usual.issuedScissor, usual.issuedManualCutter, usual.returnedScissor, usual.returnedManualCutter], [12, 13, 12, 13], "F/PRD/10's own 01.12.2021 line");
+    const [sc, cu] = [Number(usual.issuedScissor), Number(usual.issuedManualCutter)];
+    assert.ok(cu >= 10 && cu <= 13 && sc <= cu && sc >= cu - 1, `about F/PRD/10's own 12 / 13: ${sc} / ${cu}`);
+    assert.deepEqual([usual.returnedScissor, usual.returnedManualCutter], [sc, cu]);
   }
-  assert.equal(sharpIssueRows("prd-pouching-cutter-issue", "2026-11-17", { sharpToolPeople: [] })![0].qtyIssued, 13);
+  const p23 = Number(sharpIssueRows("prd-pouching-cutter-issue", "2026-11-17", { sharpToolPeople: [] })![0].qtyIssued);
+  assert.ok(p23 >= 10 && p23 <= 13);
 });
 
 test("F/PRD/23: the pouching section's shift I people only, up to 40 cutters", () => {
   const rows = sharpIssueRows("prd-pouching-cutter-issue", "2026-11-17", master)!;
   assert.equal(rows.length, 1);
-  assert.deepEqual([rows[0].shift, rows[0].qtyIssued, rows[0].qtyReturned], ["I", 20, 20]);
+  assert.equal(rows[0].shift, "I");
+  assert.ok(Number(rows[0].qtyIssued) >= 16 && Number(rows[0].qtyIssued) <= 20);
+  assert.equal(rows[0].qtyReturned, rows[0].qtyIssued);
 });
 
 test("a worn-out item now and then, broken and as many new issued, so the stock stays the note's (§258)", () => {
@@ -76,7 +85,7 @@ test("a worn-out item now and then, broken and as many new issued, so the stock 
 test("a sheet still the assistant's own is worked out again when its figures change; a person's line never", () => {
   const prep = src("engine/assistantPrepare.ts");
   assert.match(prep, /const own = sharpSheetAssistantOwn\(record\);/);
-  assert.match(prep, /if \(!due \|\| \(written && !own\)\) \{/);
+  assert.match(prep, /if \(!due \|\| \(written && !own && !mine\)\) \{/);
 });
 
 test("F/PRD/22 and 24: the day's blades from the day before; always the note's 20, the machines' included; low stock renewed", () => {
@@ -180,7 +189,7 @@ test("the month's sheet: each day's line filled on its day, a closed day so writ
     else if (isCompanyHoliday(d, masterRepository.get())) assert.equal(Number(r.issuedScissor), 0, `${d}: closed, nothing issued`);
     else {
       assert.equal(r.shift, "I");
-      assert.equal(Number(r.issuedScissor), 3, `${d}: shift I's three people`);
+      assert.ok(Number(r.issuedScissor) >= 1 && Number(r.issuedScissor) <= 3, `${d}: shift I's three people, less any away`);
     }
   }
   assert.ok(rows.some((r) => String(r.remarks).includes("Weekly off")), "the weekly off named");
@@ -272,4 +281,32 @@ test("the plant's case (20-Nov-2026): the Daily set on 18-Nov lifted; a typed bl
   assert.equal(Number((recordRepository.getById("fold-2026-11-30")!.data as { rows: LogSheetRow[] }).rows.find((r) => r.date === "2026-11-19")!.openingStock), 7, "the next day opens with it");
   sharpDaySheetsFolded();
   assert.ok(!recordRepository.getById("fold-2026-11-18"), "...then folded");
+});
+
+test("a month as a real one reads (§261): the counts move with who is at work, within the note; the same on every run", async () => {
+  const { sharpIssueRows: rowsOf, monthDays, SHARP_STOCK } = await import("../src/engine/sharpTools");
+  for (const [id, people] of [["prd-sharp-object-issue", []], ["prd-pouching-cutter-issue", []], ["prd-sharp-object-issue", Array.from({ length: 9 }, (_, i) => person(i, "I"))]] as const) {
+    const days = monthDays("2026-12").map((d) => rowsOf(id, d, { sharpToolPeople: [...people] })![0]);
+    const cut = days.map((r) => Number(r.issuedManualCutter ?? r.qtyIssued));
+    assert.ok(new Set(cut).size >= 3, `${id}: the counts move from day to day (${cut.join(" ")})`);
+    const stock = SHARP_STOCK[id];
+    for (const r of days) {
+      assert.ok(Number(r.issuedManualCutter ?? r.qtyIssued) <= stock.cutter);
+      if (r.issuedScissor !== undefined) assert.ok(Number(r.issuedScissor) <= stock.scissor!);
+      assert.equal(r.returnedManualCutter ?? r.qtyReturned, r.issuedManualCutter ?? r.qtyIssued, "every one returned");
+    }
+    assert.ok(cut.filter((c) => c === Math.max(...cut)).length >= 8, `${id}: most days everybody is in`);
+    assert.deepEqual(monthDays("2026-12").map((d) => rowsOf(id, d, { sharpToolPeople: [...people] })![0].issuedManualCutter ?? 0), days.map((r) => r.issuedManualCutter ?? 0), "the same figures every run");
+  }
+});
+
+test("a line the assistant wrote carries its mark; changed by a person it is the person's (§261)", async () => {
+  const { assistantsLine, lineFingerprint, ASSISTANT_LINE, sharpSteadyLine } = await import("../src/engine/sharpTools");
+  const line = { ...sharpIssueRows("prd-pouching-cutter-issue", "2026-12-02", { sharpToolPeople: [] })![0] };
+  line[ASSISTANT_LINE] = lineFingerprint("prd-pouching-cutter-issue", line);
+  assert.ok(assistantsLine("prd-pouching-cutter-issue", line));
+  assert.ok(!assistantsLine("prd-pouching-cutter-issue", { ...line, qtyIssued: 9 }), "a figure typed over");
+  assert.ok(!assistantsLine("prd-pouching-cutter-issue", { ...line, supervisorSign: "Ramesh" }), "signed");
+  assert.equal(sharpSteadyLine("prd-sharp-object-issue", "2026-11-05")!.issuedScissor, 12, "the 20-Nov fill, known again");
+  assert.match(src("engine/assistantPrepare.ts"), /if \(!persons\) rows\[k\]\[ASSISTANT_LINE\] = lineFingerprint\(id, rows\[k\]\);/);
 });

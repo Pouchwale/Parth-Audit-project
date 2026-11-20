@@ -12597,3 +12597,20 @@ plant's Sharp Objects Master Data held four rows with no names, so shift I count
   Once shift I's people are named, they are counted instead. Lines are filled up to today only, a closed day so written.
 - The Sharp Objects Master Data page says which count each sheet takes.
 - Proved: frontend/tests/sharpTools.test.ts (an empty list, shift II only, a row with no name: 12 / 13; F/PRD/23 13).
+
+## §261 F/PRD/10 and F/PRD/23 read as a real month does (20-Nov-2026)
+
+The owner, 20-Nov-2026: "show in such a way so it seem to very real so when auditor check the sheet of any month then it
+should be seem to very real ... and data should be filled on that particular date"; and asked whether Indexing is used -
+it is not: the four sheets' stock (15 / 20, 40, 20 NOS) is each paper's note, fixed in engine/sharpTools.ts.
+
+- The scissors and manual cutters issued on a day follow who is at work (engine/sharpTools.ts sharpIssueCounts): one to each
+  of shift I's people on the list, each away about one working day in fourteen; with nobody named, the paper's usual 13
+  (F/PRD/10: 12 scissors) less the day's few away, none to three. All returned; a worn-out one now and then (§258); never
+  more than the note's stock. Random by sheet and date: the same figures on every device and run.
+- Each line the assistant writes carries a mark of its figures (ASSISTANT_LINE, never printed nor shown in the history); a
+  line still so - or one holding the steady 12 / 13 (13) the fill wrote on 20-Nov-2026 before this rule - is written again
+  when the figures due are other; a line a person changed or signed is theirs.
+- A line is written on its own date by the server's morning prepare (and at any start that day), never before it (§201).
+- Proved: frontend/tests/sharpTools.test.ts (a month's counts move, most days everybody in, within the note, the same every
+  run; the mark).

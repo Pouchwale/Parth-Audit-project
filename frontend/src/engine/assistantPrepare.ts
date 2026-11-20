@@ -15,7 +15,7 @@ import { mayWriteRecordsOf } from "./departmentScope";
 import { fillScaleLinesDue, SCALE_DAY_NOTE } from "./nominalFill";
 import { firstWeekDate } from "./calibrationWeeks";
 import { withComputedCells } from "./computedCells";
-import { bladeClosingBefore, bladeLineClosing, closedDayLine, isSharpMonthSheet, razorBladeRow, RAZOR_BLADE_DOCS, sharpIssueRows, sharpLineFigures, sharpLineHoldsFigure, sharpLineWritten, sharpSheetAssistantOwn, SHARP_FILL_NOTE, SHARP_TOOL_DOCS, withMonthDays } from "./sharpTools";
+import { bladeClosingBefore, bladeLineClosing, closedDayLine, isSharpMonthSheet, razorBladeRow, RAZOR_BLADE_DOCS, sharpIssueRows, sharpLineFigures, sharpLineHoldsFigure, sharpLineWritten, sharpSteadyLine, assistantsLine, lineFingerprint, ASSISTANT_LINE, sharpSheetAssistantOwn, SHARP_FILL_NOTE, SHARP_TOOL_DOCS, withMonthDays } from "./sharpTools";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { blankLogRow } from "./recordDefaults";
 import { dayInfo, effectiveDueDatesInMonth } from "./holidays";
@@ -204,8 +204,12 @@ export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
         const date = String(row.date ?? "").slice(0, 10);
         const due = date.slice(0, 7) === month && compareISO(date, referenceISO) <= 0 && (!liveStartDate || compareISO(date, liveStartDate) >= 0);
         const written = sharpLineWritten(id, row);
+        // A line the assistant wrote and nobody has changed since (its mark, §261; or the paper's usual count it wrote on
+        // every day on 20-Nov-2026 before §261) is its own to write again when the figures due are other.
+        const steady = sharpSteadyLine(id, date);
+        const mine = assistantsLine(id, row) || (!!steady && lineFingerprint(id, row) === lineFingerprint(id, steady) && !String(row.supervisorSign ?? "").trim());
         // A line written and not the assistant's to work out again: as it is, its stock carried to the next.
-        if (!due || (written && !own)) {
+        if (!due || (written && !own && !mine)) {
           if (blades) carried = bladeLineClosing(row) ?? carried;
           continue;
         }
@@ -220,12 +224,16 @@ export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
         const { id: _drop, ...figures } = line as LogSheetRow;
         void _drop;
         rows[k] = { ...blankLogRow(layout, row.id), ...figures, date };
+        // Marked as the assistant's (§261), unless it is a line a day's sheet held: a person's stays a person's.
+        if (!persons) rows[k][ASSISTANT_LINE] = lineFingerprint(id, rows[k]);
         if (blades) carried = bladeLineClosing(rows[k]) ?? carried;
       }
       const filled = withComputedCells(id, { header: { ...(days.header ?? {}) }, rows: rows as LogSheetData["rows"] });
-      const changes = diffRecordData(record.data, filled, fieldLabels(doc.kind, doc.id));
-      if (!changes?.length) continue;
-      const entry = { ...makeEntry("prepared", "Assistant", { note: SHARP_FILL_NOTE, changes }), at: now };
+      const all_changes = diffRecordData(record.data, filled, fieldLabels(doc.kind, doc.id));
+      if (!all_changes?.length) continue;
+      // (the assistant's mark on its lines is not shown in the history: it is never printed either)
+      const changes = all_changes.filter((c) => !c.field.endsWith(ASSISTANT_LINE));
+      const entry = { ...makeEntry("prepared", "Assistant", { note: SHARP_FILL_NOTE, ...(changes.length ? { changes } : {}) }), at: now };
       // Still the assistant's own work, nobody's yet (prepared.at = updatedAt): two copies of the month's sheet made in two
       // places merge into one (data/serverSync.ts withoutDuplicateBlanks), and a person's change wins over it.
       const next: RecordInstance = {
