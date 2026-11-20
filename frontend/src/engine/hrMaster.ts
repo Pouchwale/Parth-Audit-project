@@ -564,6 +564,73 @@ export function personFill(link: HrMasterLink, person: HrMasterPerson, current: 
   return { fills, conflicts };
 }
 
+/** The box holds what the sheet gives this person for it (the same, or the same written another way). */
+function holdsPersonValue(f: LinkedField, person: HrMasterPerson, written: unknown): boolean {
+  const before = String(written ?? "").trim();
+  const after = linkedValue(person, f);
+  if (!before || !after) return false;
+  if (before === after) return true;
+  if (isDateSource(f)) return parseWrittenDate(before, slashOrderOf(f.style ?? "iso")) === person[f.from];
+  if (f.from === "departmentThenDesignation" || f.from === "designationThenDepartment") {
+    const w = before.split(/\s*-\s*/).map(nameKey).filter(Boolean).sort();
+    const s = [person.department, person.designation].map(nameKey).filter(Boolean).sort();
+    return w.length === s.length && w.every((x, i) => x === s[i]);
+  }
+  if (f.from === "subDepartmentThenDesignation") return [person.subDepartment, person.designation].some((v) => !!v && nameKey(v) === nameKey(before));
+  return nameKey(before) === nameKey(after);
+}
+
+/**
+ * The boxes still holding what was fetched for the person the name box named BEFORE (REQUIREMENTS §268): that person is
+ * the one the sheet's mark names (HR_MASTER_TAG); on a header or line without the mark, the one person on the sheet whose
+ * details the most boxes hold (two at least, or the one box filled). `except`: the person the box names now.
+ */
+export function fetchedForAnother(link: HrMasterLink, current: Record<string, unknown>, people: readonly HrMasterPerson[], except: HrMasterPerson | null): string[] {
+  const fields = link.fields.filter((f) => f.key !== link.nameField && String(current[f.key] ?? "").trim());
+  if (fields.length === 0) return [];
+  const held = (p: HrMasterPerson) => fields.filter((f) => holdsPersonValue(f, p, current[f.key])).map((f) => f.key);
+  const tag = String(current[HR_MASTER_TAG] ?? "").trim();
+  if (tag) {
+    const marked = people.find((p) => sameGp3(p.gp3No, tag));
+    if (!marked) return [];
+    return except && marked.id === except.id ? [] : held(marked);
+  }
+  let best: string[] = [];
+  for (const p of people) {
+    if (except && p.id === except.id) continue;
+    const keys = held(p);
+    if (keys.length > best.length) best = keys;
+    if (best.length === fields.length) break;
+  }
+  return best.length >= Math.min(2, fields.length) ? best : [];
+}
+
+/**
+ * A NAME WRITTEN IN, CHANGED OR TAKEN OUT OF A PERSON'S BOX (REQUIREMENTS §53, §268; the owner, 20-Nov-2026: "if he enter
+ * employee name so ... the other details also fetch from that which is correct but if user enter delete name then it
+ * should also vanished from there"). The header (or line) as it then stands, or null when nothing changes:
+ *   * the boxes still holding the details fetched for the person named before are emptied - the name taken out, or
+ *     another person named (a name not on the sheet empties them only when the sheet's mark said whose they were);
+ *   * the person now named, if on the sheet, fills the boxes left blank, and the mark says it is theirs.
+ * A box a person typed something else into is never touched.
+ */
+export function withPersonNamed(link: HrMasterLink, current: Record<string, unknown>, value: string, people: readonly HrMasterPerson[]): Record<string, unknown> | null {
+  const named = String(value ?? "").trim() ? personNamed(value, people as HrMasterPerson[]) : null;
+  const tag = String(current[HR_MASTER_TAG] ?? "").trim();
+  const unknownName = !named && !!String(value ?? "").trim();
+  const stale = unknownName && !tag ? [] : fetchedForAnother(link, current, people, named);
+  const next: Record<string, unknown> = { ...current, [link.nameField]: value };
+  for (const key of stale) next[key] = "";
+  if (tag && !(named && sameGp3(named.gp3No, tag))) delete next[HR_MASTER_TAG];
+  if (named) {
+    const { fills } = personFill(link, named, next);
+    Object.assign(next, Object.fromEntries(fills.map((f) => [f.key, f.after])));
+    if (named.gp3No.trim() && (fills.length > 0 || stale.length > 0 || tag)) next[HR_MASTER_TAG] = named.gp3No.trim();
+  }
+  const keys = new Set([...Object.keys(current), ...Object.keys(next)]);
+  return [...keys].some((k) => String(current[k] ?? "") !== String(next[k] ?? "")) ? next : null;
+}
+
 export function applyFills<T extends Record<string, unknown>>(current: T, fills: FieldFill[]): T {
   if (fills.length === 0) return current;
   return { ...current, ...Object.fromEntries(fills.map((f) => [f.key, f.after])) } as T;

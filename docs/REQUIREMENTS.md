@@ -12726,3 +12726,20 @@ the person's own" for the year's round.
   open, is answered at the next start or morning prepare (the plant's 04-11-2026 form, Nalin Parshotambhai Darji: 6 7 6 7 6 6
   6 1 6 6 7 6 6 7 6); a form with any answer of a person's is left as it is. Proved: pscFill.test.ts; on the local copy (New:
   15 answers, kept after a reload); on the plant (4100 serves the build; the server's engine rebuilt with it at 16:51).
+
+## §268 A name taken out of a person's box takes its fetched details with it (20-Nov-2026)
+
+The owner, 20-Nov-2026, with F/HR/20's Employee name emptied and its Department "Label", Designation "Supervisor" left on
+the form: "if he enter employee name so as per our requirement the other details also fetch from that which is correct but
+if user enter delete name then it should also vanished from there".
+
+- On every HR format that fetches a person from HR Master Data (header or register line), the boxes still holding what was
+  fetched for the person are emptied the moment the name is deleted (engine/hrMaster.ts withPersonNamed; LogSheetRecordView
+  setHeader, setCell and the name box's blur). Another person named instead: the first one's details are replaced by
+  theirs. Whose the details were is read from the sheet's mark (HR_MASTER_TAG, written with every fetch now); a header or
+  line fetched before the mark: the one person whose details at least two boxes hold (or the one box filled).
+- A box typed by hand with something else is never emptied; a department typed with no name is left alone; a name not on
+  the sheet empties the details only when the mark said they were another person's (a name may only be spelt otherwise).
+- Proved: frontend/tests/hrNameCleared.test.ts (every HR format's fetched boxes emptied); on the local copy in the browser
+  (F/HR/20: Rajpratap Rajbirsingh Singh fetched Sleeve / Supervisor; the name deleted, all three empty, kept after a
+  reload); the test account check (§206) on F/HR/01, F/HR/13, F/HR/20.

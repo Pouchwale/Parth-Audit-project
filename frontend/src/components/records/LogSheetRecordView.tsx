@@ -20,7 +20,7 @@ import { formatEditFor } from "../../data/formatEdits";
 import { departmentOfDocument } from "../../data/seed/departments";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
-import { applyFills, hrMasterLinkFor, personFill, personNamed } from "../../engine/hrMaster";
+import { applyFills, hrMasterLinkFor, personNamed, withPersonNamed } from "../../engine/hrMaster";
 import { sexFromName } from "../../engine/sexFromName";
 import { printFillOf } from "../../engine/printFill";
 import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
@@ -314,7 +314,13 @@ export function LogSheetRecordView({
     if (!String(line.testedBy ?? "").trim()) line.testedBy = currentUser;
     if (!String(line.sign ?? "").trim()) line.sign = currentUser;
   };
-  const setHeader = (key: string, value: string) => save({ ...data, header: { ...data.header, [key]: value } });
+  // (editable only: a read-only sheet never changes)
+  const hrNameLink = editable ? hrMasterLinkFor(doc.id) : undefined;
+  const setHeader = (key: string, value: string) => {
+    // The person's name taken out of its box: what was fetched for them goes with it at once (REQUIREMENTS §268).
+    const cleared = !String(value ?? "").trim() && hrNameLink?.where === "header" && hrNameLink.nameField === key ? withPersonNamed(hrNameLink, data.header, value, hrMasterRepository.all()) : null;
+    save({ ...data, header: (cleared ?? { ...data.header, [key]: value }) as LogSheetData["header"] });
+  };
   /** F/QC/12: a date changed settles every week against its date - a week still to come loses its readings, one that has come is filled. */
   const saveDates = (next: LogSheetData) => {
     const dated = withComputedCells(doc.id, next, data);
@@ -328,7 +334,9 @@ export function LogSheetRecordView({
       ...data,
       rows: data.rows.map((r) => {
         if (r.id !== rowId) return r;
-        const next: LogSheetRow = typableKeys.has(key) ? typedOver(r, key, value) : { ...r, [key]: value };
+        // The person's name taken out of a line: what was fetched for them goes with it at once (REQUIREMENTS §268).
+        const cleared = !String(value ?? "").trim() && hrNameLink?.where === "rows" && hrNameLink.nameField === key ? (withPersonNamed(hrNameLink, r, "", hrMasterRepository.all()) as LogSheetRow | null) : null;
+        const next: LogSheetRow = cleared ?? (typableKeys.has(key) ? typedOver(r, key, value) : { ...r, [key]: value });
         // A reading typed over a filled one is the person's own: nothing left to confirm on the line (F/QC/12).
         if (r[READINGS_TO_CONFIRM] && /^testedValue/.test(key)) {
           delete next[READINGS_TO_CONFIRM];
@@ -383,28 +391,31 @@ export function LogSheetRecordView({
   // already written is changed here.
   const link = hrMasterLinkFor(doc.id);
   const fetching = !!link && editable;
+  // A name taken out, or another person named, empties the boxes still holding what was fetched for the one named before
+  // (REQUIREMENTS §268, engine/hrMaster.ts withPersonNamed); a box typed by hand is never touched.
   const fillFromName = (rowId: string | null, value: string) => {
     if (!link || !editable) return;
-    const person = personNamed(value, hrMasterRepository.all());
-    if (!person) {
-      // A name not on the sheet, on a form with a Sex box (F/HR/04): the name alone says Male or Female when it is
-      // sure (engine/sexFromName.ts), and a blank Sex box takes it. Nothing else is known about the person.
-      const sexBox = rowId === null && link.fields.some((f) => f.key === "sex" && f.from === "sexFromName");
-      const sex = sexBox ? sexFromName(value) : "";
-      if (sex && !String(data.header.sex ?? "").trim()) save({ ...data, header: { ...data.header, [link.nameField]: value, sex } });
-      return;
-    }
+    const people = hrMasterRepository.all();
     if (rowId === null) {
-      const header = { ...data.header, [link.nameField]: value };
-      const { fills } = personFill(link, person, header);
-      if (fills.length > 0) save({ ...data, header: applyFills(header, fills) });
+      let header: Record<string, unknown> = withPersonNamed(link, data.header, value, people) ?? data.header;
+      let changed = header !== data.header;
+      if (String(value ?? "").trim() && !personNamed(value, people)) {
+        // A name not on the sheet, on a form with a Sex box (F/HR/04): the name alone says Male or Female when it is
+        // sure (engine/sexFromName.ts), and a blank Sex box takes it. Nothing else is known about the person.
+        const sexBox = link.fields.some((f) => f.key === "sex" && f.from === "sexFromName");
+        const sex = sexBox ? sexFromName(value) : "";
+        if (sex && !String(header.sex ?? "").trim()) {
+          header = { ...header, [link.nameField]: value, sex };
+          changed = true;
+        }
+      }
+      if (changed) save({ ...data, header: header as LogSheetData["header"] });
       return;
     }
     const row = data.rows.find((r) => r.id === rowId);
     if (!row) return;
-    const current = { ...row, [link.nameField]: value };
-    const { fills } = personFill(link, person, current);
-    if (fills.length > 0) save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(current, fills) : r)) });
+    const next = withPersonNamed(link, row, value, people);
+    if (next) save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? (next as LogSheetRow) : r)) });
   };
 
   // THE TRAINING NAMED ON F/HR/11 OR F/HR/12 FILLS ITS DATE, TRAINER AND DURATION FROM THE CALENDAR, and F/HR/12 lists
