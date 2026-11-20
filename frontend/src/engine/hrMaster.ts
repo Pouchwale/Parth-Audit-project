@@ -74,12 +74,19 @@ export const sameName = (a: unknown, b: unknown): boolean => {
 };
 
 /** A GP3 No. as compared: "GP3 No. 0101", "gp3-0101" and "0101" are one. */
+const GP3_KEYS = new Map<string, string>();
 export function gp3Key(value: unknown): string {
-  return String(value ?? "")
+  const raw = String(value ?? "");
+  const hit = GP3_KEYS.get(raw);
+  if (hit !== undefined) return hit;
+  const key = raw
     .trim()
     .replace(/^gp\s*-?\s*3\s*(?:no\.?|number|#)?\s*[:#./-]?\s*/i, "")
     .replace(/\s+/g, "")
     .toUpperCase();
+  if (GP3_KEYS.size >= NAME_KEYS_MAX) GP3_KEYS.clear();
+  GP3_KEYS.set(raw, key);
+  return key;
 }
 
 /** A GP3 No. as indexed: two numbers sameGp3 calls one have one form ("GP3.001", "1" and "0001" are "1"). */
@@ -451,6 +458,17 @@ function numberedBy(value: unknown, people: readonly HrMasterPerson[]): HrMaster
   return key ? index.byGp3.get(key) ?? [] : [];
 }
 
+/** Somebody on the sheet has this name (or another spelling of it), or this GP3 No. */
+export const anyoneNamed = (value: unknown, people: HrMasterPerson[]): boolean =>
+  !!String(value ?? "").trim() && (namedBy(value, people).length > 0 || numberedBy(value, people).length > 0);
+
+/** The other people on the sheet who could be mistaken for this one: the same name, or another spelling of it. */
+export function namesakesOf(person: HrMasterPerson, people: HrMasterPerson[]): HrMasterPerson[] {
+  const out: HrMasterPerson[] = [];
+  for (const n of [person.fullName, ...(person.aliases ?? [])]) for (const p of namedBy(n, people)) if (p.id !== person.id && !out.includes(p)) out.push(p);
+  return people.filter((p) => out.includes(p));
+}
+
 export function personNamed(value: unknown, people: HrMasterPerson[]): HrMasterPerson | null {
   if (!String(value ?? "").trim()) return null;
   const byName = namedBy(value, people);
@@ -693,7 +711,7 @@ export function personProblems(person: HrMasterPerson, people: HrMasterPerson[],
   const out: PersonProblem[] = [];
   if (!person.fullName.trim()) out.push({ field: "fullName", message: "Full Name is required." });
   if (person.gp3No.trim()) {
-    const other = people.find((p) => p.id !== person.id && sameGp3(p.gp3No, person.gp3No));
+    const other = numberedBy(person.gp3No, people).find((p) => p.id !== person.id);
     if (other) out.push({ field: "gp3No", message: `GP3 No. ${person.gp3No} is also given to ${other.fullName || "another line"}.` });
   }
   for (const key of ["joiningDate", "dateOfBirth"] as const) {

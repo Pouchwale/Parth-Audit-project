@@ -9,7 +9,7 @@ import { isEditableStatus, reopenForCorrection, saveDraft } from "./recordLifecy
 import { fieldLabels } from "./recordPatch";
 import { followHeader } from "./headerFollowers";
 import { categoryFor, defaultTargets, hasEntries, JOINER_TARGETS, registerOnFile, type JoinerCategory, type JoinerTarget } from "./hrJoiner";
-import { describePerson, HR_MASTER_TAG, hrMasterLinkFor, lineForPerson, lineOfPerson, linkedValue, namesPerson, sameGp3, taggedFor, taggedForAnother, type HrMasterLink } from "./hrMaster";
+import { describePerson, HR_MASTER_TAG, hrMasterLinkFor, lineForPerson, lineOfPerson, linkedValue, namesakesOf, namesPerson, sameGp3, taggedFor, taggedForAnother, type HrMasterLink } from "./hrMaster";
 import { generateId } from "../utils/id";
 import { todayISO } from "../utils/date";
 
@@ -133,7 +133,19 @@ export interface Placement {
 
 /** The people on the sheet who could be mistaken for this one: the same name, or another spelling of it. */
 function namesakes(person: HrMasterPerson, people: HrMasterPerson[]): HrMasterPerson[] {
-  return people.filter((p) => p.id !== person.id && (namesPerson(person.fullName, p) || (person.aliases ?? []).some((a) => namesPerson(a, p))));
+  return namesakesOf(person, people);
+}
+
+/**
+ * What one look at the records found, kept for the rest of one pass over the sheet (planEveryone): the register on file
+ * and the records of each format are the same for all 463 people, so they are read once, not once a person
+ * (REQUIREMENTS §266: "file everyone" took half a second).
+ */
+export type PassMemo = Map<string, unknown>;
+function remembered<T>(memo: PassMemo | undefined, key: string, read: () => T): T {
+  if (!memo) return read();
+  if (!memo.has(key)) memo.set(key, read());
+  return memo.get(key) as T;
 }
 
 /** The record of a one-person format that is this person's: by the sheet's mark, by a GP3 No. in the name box, or by name. */
@@ -153,7 +165,7 @@ const unmarkedNamesakeLines = (link: HrMasterLink, rows: LogSheetRow[], person: 
   rows.flatMap((row, i) => (!String(row[HR_MASTER_TAG] ?? "").trim() && namesPerson(row[link.nameField], person) ? [i + 1] : []));
 
 /** Where this person stands on every format the sheet can file them on, in the order the formats are offered. */
-export function placementsFor(person: HrMasterPerson, people: HrMasterPerson[], isDemo: boolean): Placement[] {
+export function placementsFor(person: HrMasterPerson, people: HrMasterPerson[], isDemo: boolean, memo?: PassMemo): Placement[] {
   const role = roleOf(person);
   const byRole = new Set(formatsForRole(role));
   const sharedName = namesakes(person, people);
@@ -165,12 +177,12 @@ export function placementsFor(person: HrMasterPerson, people: HrMasterPerson[], 
     const base = { target, link, byRole: byRole.has(target.docId), mismatch: roleMismatch(target.docId, person) };
     const standing = ((): Standing => {
       if (!person.fullName.trim()) return { kind: "unclear", why: "The line has no Full Name." };
-      if (!documentRepository.getById(target.docId)) return { kind: "not-available" };
+      if (!remembered(memo, `doc|${target.docId}`, () => !!documentRepository.getById(target.docId))) return { kind: "not-available" };
       if (namesake && noNumber) {
         return { kind: "unclear", why: `${sharedName.length + 1} people on the sheet are named ${person.fullName}, and this line has no GP3 No. to tell them apart.` };
       }
       if (target.kind === "register") {
-        const register = registerOnFile(target.docId, isDemo);
+        const register = remembered(memo, `register|${target.docId}`, () => registerOnFile(target.docId, isDemo));
         if (!register) return { kind: "add", willReopen: false };
         const rows = register.data?.rows ?? [];
         const match = lineOfPerson(link, rows, person, people);
@@ -186,7 +198,7 @@ export function placementsFor(person: HrMasterPerson, people: HrMasterPerson[], 
         }
         return { kind: "add", willReopen: !isEditableStatus(register.status), recordStatus: register.status };
       }
-      const records = recordRepository.query({ documentId: target.docId, isDemo }) as RecordInstance<LogSheetData>[];
+      const records = remembered(memo, `records|${target.docId}`, () => recordRepository.query({ documentId: target.docId, isDemo }) as RecordInstance<LogSheetData>[]);
       const theirs = recordOfPerson(link, records, person, namesake);
       return theirs ? { kind: "already", recordId: theirs.id } : { kind: "start", willReopen: false };
     })();
@@ -313,8 +325,9 @@ export function planEveryone(people: HrMasterPerson[], isDemo: boolean): Everyon
   const lines = new Map<string, EveryoneLine>();
   const unclear: EveryonePlan["unclear"] = [];
   let settled = 0;
+  const memo: PassMemo = new Map();
   for (const person of people) {
-    const placements = placementsFor(person, people, isDemo).filter((p) => p.byRole);
+    const placements = placementsFor(person, people, isDemo, memo).filter((p) => p.byRole);
     const blocked = placements.find((p) => p.standing.kind === "unclear" && /no Full Name|no GP3 No/.test(p.standing.why));
     if (blocked && blocked.standing.kind === "unclear") {
       unclear.push({ person, why: blocked.standing.why });

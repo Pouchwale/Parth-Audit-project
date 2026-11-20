@@ -1,5 +1,5 @@
 import type { HrMasterPerson, LogSheetData, LogSheetRow, RecordInstance } from "../types";
-import { HR_MASTER_LINKS, nameKey, parseWrittenDate, personNamed, splitDepartmentDesignation, type DateStyle, type HrMasterLink, type HrMasterValues } from "./hrMaster";
+import { anyoneNamed, HR_MASTER_LINKS, nameKey, parseWrittenDate, personNamed, splitDepartmentDesignation, type DateStyle, type HrMasterLink, type HrMasterValues } from "./hrMaster";
 
 // THE REGISTERS FEED THE SHEET (REQUIREMENTS §161; the owner, 2-Nov-2026): "the date of joining is present on
 // F/HR/01, so take it from there into the master data according to the name; and if that name comes on any document,
@@ -161,7 +161,7 @@ export function takeFromRegisters(people: HrMasterPerson[], records: readonly Re
         const name = String(box[link.nameField] ?? "")
           .replace(/\s+/g, " ")
           .trim();
-        if (!name || people.some((p) => personNamed(name, [p]))) continue;
+        if (!name || anyoneNamed(name, people)) continue;
         if (!nameKey(name)) continue;
         const said = valuesSaid(link, box);
         // "Nilesh Rana" on one register and "Nilesh M. Rana" on another are one newcomer (sameRegisterName, the
