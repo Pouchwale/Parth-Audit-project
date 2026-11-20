@@ -8,7 +8,7 @@ import { diffRecordData, makeEntry } from "./recordHistory";
 import { fieldLabels } from "./recordPatch";
 import { untouchedByPeople } from "./calendarMigration";
 import { PSC_SURVEY_DOC, roundDateOf } from "./pscSurveyRound";
-import { pscAnalysis, pscRoundAnswers, scoreOf } from "./pscScores";
+import { pscAnalysis, pscFormAnswers, pscRoundAnswers, scoreOf } from "./pscScores";
 import { compareISO, todayISO } from "../utils/date";
 
 // F/HR/20's ROUND ANSWERED AND F/HR/21 WORKED OUT, BY THE ASSISTANT (REQUIREMENTS §267; engine/pscScores.ts says how).
@@ -16,6 +16,8 @@ import { compareISO, todayISO } from "../utils/date";
 // first day the year's survey may be written (engine/notBeforeDay.ts), never before:
 //   * every form of the year's round still blank and still the assistant's own is answered (7 / 6; 1 / 2 on attribute 8);
 //     a form a person has answered, changed or submitted is never touched;
+//   * a form started by hand with New opens answered the same way (newRecord.ts answerHandMadeForm), and one already on
+//     file with no answer at all, still open, is answered (nothing of the person's is written over);
 //   * the year's analysis is worked out from the year's forms - the round's and any started with New - and worked out
 //     again whenever they change, while it is still the assistant's own; once a person writes on it, it is theirs.
 
@@ -59,6 +61,27 @@ function stamped(record: RecordInstance, data: LogSheetData, note: string, based
   };
 }
 
+/** A Live form started by hand, open, with no answer marked yet: answered with good scores. Null when it is not one. */
+function answeredHandMade(r: RecordInstance, now: string): RecordInstance | null {
+  if (r.isDemo || roundDateOf(r) || r.documentId !== PSC_SURVEY_DOC) return null;
+  if (r.submittedAt || r.verifiedAt || r.rejectedAt || !OPEN.includes(r.status)) return null;
+  const data = r.data as LogSheetData | undefined;
+  if (!data || !blankAnswers(data)) return null;
+  const answers = pscFormAnswers(Number(surveyYear(r)), r.id);
+  const rows = data.rows.map((row, i): LogSheetRow => (answers[i] ? { ...row, response: answers[i] } : row));
+  return stamped(r, { ...data, rows }, PSC_ANSWERS_NOTE, "the year's survey figure", now);
+}
+
+/** F/HR/20's New: the form just started, answered at once (stored); the form as it was when it is not one to answer. */
+export function answerHandMadeForm(record: RecordInstance): RecordInstance {
+  const surveyDoc = documentRepository.getByIdUnscoped(PSC_SURVEY_DOC);
+  if (!surveyDoc || !mayWriteRecordsOf(surveyDoc.id)) return record;
+  const next = answeredHandMade(record, new Date().toISOString());
+  if (!next) return record;
+  recordRepository.upsertMany([next]);
+  return next;
+}
+
 /** Answers the year's round and works out the year's analysis. Returns the records changed. Run again it changes nothing. */
 export function fillPscSurveyDue(referenceISO = todayISO()): RecordInstance[] {
   const { liveStartDate } = settingsRepository.get();
@@ -88,6 +111,16 @@ export function fillPscSurveyDue(referenceISO = todayISO()): RecordInstance[] {
         const next = stamped(r, { ...data, rows }, PSC_ANSWERS_NOTE, "the year's survey round", now);
         if (next) changed.push(next);
       }
+    }
+  }
+
+  // ...and the forms started by hand that nobody has answered yet.
+  if (surveyDoc && mayWriteRecordsOf(surveyDoc.id)) {
+    // (no launch-date floor: a form started by hand is a person's, never backlog noise)
+    for (const r of forms) {
+      if (waitsUntil(surveyDoc, r, referenceISO) !== null) continue;
+      const next = answeredHandMade(r, now);
+      if (next) changed.push(next);
     }
   }
 

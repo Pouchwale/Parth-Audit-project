@@ -12720,3 +12720,9 @@ the person's own" for the year's round.
   answer kept and the analysis following it; a person's analysis left alone), pscSurveyRound.test.ts, generationAhead.test.ts
   (F/HR/20's January is the round's 200 forms); on the local copy with the browser's clock at 4-Jan-2027 (every form 15 of
   15, Virat Rajgor's 7/6 with 1 on attribute 8; F/HR/21 JANUARY 2027, 200 counted, 96.62%); the test account check (§206).
+- (§267, the same day) The owner: "make changes in live deployment". A form started by hand with New opens with good answers
+  the same way - 7 or 6, 1 (now and then 2) to attribute 8, random by the form - every answer still a dropdown
+  (engine/newRecord.ts, pscFill.ts answerHandMadeForm); Demo Mode as before. A form on file with no answer at all, still
+  open, is answered at the next start or morning prepare (the plant's 04-11-2026 form, Nalin Parshotambhai Darji: 6 7 6 7 6 6
+  6 1 6 6 7 6 6 7 6); a form with any answer of a person's is left as it is. Proved: pscFill.test.ts; on the local copy (New:
+  15 answers, kept after a reload); on the plant (4100 serves the build; the server's engine rebuilt with it at 16:51).

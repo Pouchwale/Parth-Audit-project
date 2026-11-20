@@ -3,6 +3,7 @@ import { createRecordForDocument, recordCoveringDate } from "./recordCrud";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { slotOf } from "./rulerSlots";
 import { isPscSurvey } from "./pscSurveyRound";
+import { answerHandMadeForm } from "./pscFill";
 import { schedulePeriodOf } from "./frequencyEngine";
 import { addDays, formatDisplayDate, todayISO } from "../utils/date";
 
@@ -52,6 +53,11 @@ export interface NewRecordResult {
 /** What the New record button does (the document page, the library, the search). */
 export function newRecordFromButton(doc: DocumentDefinition, isDemo: boolean, today: string = todayISO()): NewRecordResult {
   // F/HR/20: a form for one more person, every time (REQUIREMENTS §266; the year's round is made in January).
+  // Its answers start good - 7 or 6, 1 to attribute 8 - each changeable (REQUIREMENTS §267, engine/pscFill.ts).
+  if (isPscSurvey(doc.id) && !isDemo) {
+    const made = createRecordForDocument(doc, { dateISO: today, isDemo });
+    return made.existed ? made : { ...made, record: answerHandMadeForm(made.record) };
+  }
   if (doc.schedule.type === "as-required" || doc.kind === "training-record" || isPscSurvey(doc.id)) return createRecordForDocument(doc, { dateISO: today, isDemo });
   // F/QC/17: the first of the year's twenty not filled, else the next number (REQUIREMENTS §220).
   if (isRulerVerification(doc.id)) {

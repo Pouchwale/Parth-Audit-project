@@ -76,3 +76,24 @@ test("the January-2026 analysis on file stays exactly as printed", () => {
   assert.equal((jan26.data as LogSheetData).header!.overallAchieved, "93.99%");
   assert.equal(rowsOf(jan26)[1].achieved, "95.02%");
 });
+
+test("New on F/HR/20 opens with good answers; a blank form already on file is answered; one with any answer is left as it is", async () => {
+  const { newRecordFromButton } = await import("../src/engine/newRecord");
+  const { documentRepository } = await import("../src/data/repositories/documentRepository");
+  const doc = documentRepository.getByIdUnscoped(PSC_SURVEY_DOC)!;
+  const made = newRecordFromButton(doc, false, "2026-11-20").record;
+  const stored = recordRepository.queryUnscoped({ documentId: PSC_SURVEY_DOC, isDemo: false }).find((r) => r.id === made.id)!;
+  for (const r of [made, stored]) rowsOf(r).forEach((row, i) => assert.match(String(row.response), i === 7 ? /^[12] — / : /^[76] — /));
+  // Demo Mode: as before, nothing answered by this.
+  const demo = newRecordFromButton(doc, true, "2026-11-20").record;
+  assert.ok(rowsOf(demo).every((row) => !/^[1-7] /.test(String(row.response ?? ""))));
+  // A form started on 4-Nov with no answers (as the plant's one): answered by the next prepare. One with an answer: left.
+  const base = newRecordFromButton(doc, false, "2026-11-04").record;
+  const blank: RecordInstance = { ...base, id: "rec-blank-hand", data: { ...(base.data as LogSheetData), rows: rowsOf(base).map((row) => ({ ...row, response: "" })) }, prepared: undefined, status: "In Progress" };
+  const partly: RecordInstance = { ...blank, id: "rec-partly-hand", data: { ...(blank.data as LogSheetData), rows: rowsOf(blank).map((row, i) => (i === 2 ? { ...row, response: "4 — Neutral" } : row)) } };
+  recordRepository.upsertMany([blank, partly]);
+  fillPscSurveyDue("2026-11-20");
+  const get = (id: string) => recordRepository.queryUnscoped({ documentId: PSC_SURVEY_DOC, isDemo: false }).find((r) => r.id === id)!;
+  assert.ok(rowsOf(get("rec-blank-hand")).every((row) => /^[1-7] /.test(String(row.response))), "the blank form answered");
+  assert.deepEqual(rowsOf(get("rec-partly-hand")).map((row) => row.response), rowsOf(partly).map((row) => row.response), "a form with an answer of the person's is theirs");
+});

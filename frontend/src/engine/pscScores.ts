@@ -106,6 +106,21 @@ export function pscRoundAnswers(year: number, n: number): string[][] {
   return answers;
 }
 
+/**
+ * The answers of ONE form started by hand with New (not one of the round's): each attribute's best answer (7; 1 on
+ * attribute 8) as often as the year's figure has it, else the next (6; 2) - random by the form, the same every time.
+ */
+export function pscFormAnswers(year: number, seed: string): string[] {
+  const targets = pscTargets(year);
+  const rng = makeRng(`psc-form:${seed}`);
+  return targets.map((target, a) => {
+    const reversed = PSC_REVERSED.has(a);
+    const t = target / 100;
+    const best = rng.next() < (reversed ? 2 - 1 / t : 7 * t - 6);
+    return answerOf(best ? (reversed ? 1 : 7) : reversed ? 2 : 6);
+  });
+}
+
 /** One form's answers, as its rows hold them (rows[i].response), by attribute. */
 export type SurveyAnswers = readonly unknown[];
 
