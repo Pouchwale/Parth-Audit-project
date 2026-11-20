@@ -107,21 +107,42 @@ export function shiftOnePeople(documentId: string, master: Pick<MasterData, "sha
 const WORN_CUTTER = 0.1;
 const WORN_SCISSOR = 0.025;
 
-/** F/PRD/10 and F/PRD/23: the day's one line, shift I (§258); null when the list names nobody in shift I. */
+/**
+ * THE PAPER'S USUAL COUNT, WHILE THE LIST NAMES NOBODY IN SHIFT I (the owner, 20-Nov-2026, REQUIREMENTS §260: "this all data
+ * should also filled automatically but date wise in all four documents just make sure it follow the whatever the note is
+ * written"): F/PRD/10's own filled lines of 01.12.2021 and 02.12.2021 - 12 scissors and 13 manual cutters issued and
+ * returned - and F/PRD/23's typical line, its 13 manual cutters; each within the note's stock (15 / 20, 40).
+ */
+export const SHARP_USUAL: Record<string, { scissor?: number; cutter: number }> = {
+  "prd-sharp-object-issue": { scissor: 12, cutter: 13 },
+  "prd-pouching-cutter-issue": { cutter: 13 },
+};
+
+/** The scissors and manual cutters issued (and returned) a day: shift I's people on the list, or the paper's usual count. */
+export function sharpIssueCounts(documentId: string, master: Pick<MasterData, "sharpToolPeople">): { scissors: number; cutters: number; fromList: boolean } | null {
+  const stock = SHARP_STOCK[documentId];
+  if (!stock) return null;
+  const count = shiftOnePeople(documentId, master).length;
+  const usual = SHARP_USUAL[documentId];
+  const scissors = count > 0 ? count : usual?.scissor ?? usual?.cutter ?? 0;
+  const cutters = count > 0 ? count : usual?.cutter ?? 0;
+  return { scissors: Math.min(scissors, stock.scissor ?? scissors), cutters: Math.min(cutters, stock.cutter), fromList: count > 0 };
+}
+
+/** F/PRD/10 and F/PRD/23: the day's one line, shift I (§258): shift I's people, or the paper's usual count (§260). */
 export function sharpIssueRows(documentId: string, dueDate: string, master: Pick<MasterData, "sharpToolPeople">): LogSheetRow[] | null {
   const layout = getLogSheetLayout(documentId);
   const stock = SHARP_STOCK[documentId];
-  if (!layout || !stock) return null;
-  const count = shiftOnePeople(documentId, master).length;
-  if (count === 0) return null;
+  const counts = sharpIssueCounts(documentId, master);
+  if (!layout || !stock || !counts || counts.cutters === 0) return null;
   const rng = makeRng(`sharp-worn|${documentId}|${dueDate}`);
   const cutterWorn = rng.next() < WORN_CUTTER;
   const scissorWorn = documentId === "prd-sharp-object-issue" && rng.next() < WORN_SCISSOR;
   const remark = [cutterWorn ? "Cutter blade worn out" : "", scissorWorn ? "Scissor damaged" : ""].filter(Boolean).join(", ");
   const row: LogSheetRow = { ...blankLogRow(layout, generateId("row")), date: dueDate, shift: "I" };
-  const cutters = Math.min(count, stock.cutter);
+  const cutters = counts.cutters;
   if (documentId === "prd-sharp-object-issue") {
-    const scissors = Math.min(count, stock.scissor ?? count);
+    const scissors = counts.scissors;
     Object.assign(row, {
       issuedScissor: scissors,
       issuedManualCutter: cutters,

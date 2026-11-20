@@ -27,8 +27,13 @@ test("F/PRD/10: one line a day, shift I only (§258): issued and returned = shif
   assert.equal(rows[0].supervisorSign ?? "", "", "the supervisor signs");
   const few = { sharpToolPeople: [person(1, "I"), person(2, "I"), person(3, "II")] };
   assert.deepEqual([sharpIssueRows("prd-sharp-object-issue", "2026-11-17", few)![0].issuedScissor], [2], "shift II's people are not counted");
-  assert.equal(sharpIssueRows("prd-sharp-object-issue", "2026-11-17", { sharpToolPeople: [] }), null, "nothing while the list is empty");
-  assert.equal(sharpIssueRows("prd-sharp-object-issue", "2026-11-17", { sharpToolPeople: [person(1, "II")] }), null, "nothing with nobody in shift I");
+  // Nobody named in shift I (the plant's list, 20-Nov-2026: four rows, no names): the paper's usual count, within the note (§260).
+  for (const people of [[], [person(1, "II")], [{ id: "x", name: "", department: "", shift: "I" }]]) {
+    const usual = sharpIssueRows("prd-sharp-object-issue", "2026-11-17", { sharpToolPeople: people })![0];
+    assert.equal(usual.shift, "I");
+    assert.deepEqual([usual.issuedScissor, usual.issuedManualCutter, usual.returnedScissor, usual.returnedManualCutter], [12, 13, 12, 13], "F/PRD/10's own 01.12.2021 line");
+  }
+  assert.equal(sharpIssueRows("prd-pouching-cutter-issue", "2026-11-17", { sharpToolPeople: [] })![0].qtyIssued, 13);
 });
 
 test("F/PRD/23: the pouching section's shift I people only, up to 40 cutters", () => {

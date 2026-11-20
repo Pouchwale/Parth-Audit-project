@@ -12584,3 +12584,16 @@ select shift easily whether it is I or II".
   then each open day's sheet whose lines the month holds, or that holds none, is folded away (one a person had opened with
   a line in the deleted records); a submitted or signed-off day's sheet stays on file. Proved: sharpTools.test.ts, the
   plant's own case (a blade line typed on 18-11 laid on its date, the next day opening with its closing stock).
+
+## §260 F/PRD/10 and F/PRD/23 filled day by day even with nobody named (20-Nov-2026)
+
+The owner, 20-Nov-2026, with F/PRD/23's month of blank lines on the screen: "this all data should also filled automatically
+but date wise in all four documents just make sure it follow the whatever the note is written on those document". The
+plant's Sharp Objects Master Data held four rows with no names, so shift I counted nobody and the lines stayed blank.
+
+- While the list names nobody in shift I, each day's line takes the paper's usual count (engine/sharpTools.ts SHARP_USUAL,
+  sharpIssueCounts): F/PRD/10's own filled lines - 12 scissors and 13 manual cutters issued and returned - and F/PRD/23's 13
+  manual cutters; within the note's stock (15 / 20, 40), shift I, Nil / NA, a worn-out one replaced now and then (§258).
+  Once shift I's people are named, they are counted instead. Lines are filled up to today only, a closed day so written.
+- The Sharp Objects Master Data page says which count each sheet takes.
+- Proved: frontend/tests/sharpTools.test.ts (an empty list, shift II only, a row with no name: 12 / 13; F/PRD/23 13).
