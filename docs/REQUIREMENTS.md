@@ -12666,3 +12666,8 @@ plant's November lines the assistant wrote are written so with the next fill. Pr
 - (§265) A line whose only change since the assistant wrote it is its old remark taken off by a person - as a Super Admin did on
   F/PRD/23's 4-Nov shift II line before §264 - is still the assistant's (engine/sharpTools.ts assistantsLine), so it is
   written again by the rules in force; a figure, a sign or a remark of the person's own makes it theirs.
+- (§265, the same day) The owner: "in all four documents in shift 2 no instrument can able to issue ... this applies to all
+  four document". On F/PRD/10 and 23 the shift II line is 0 issued, 0 returned, "-" broken and new; on F/PRD/22 and 24 shift
+  II replaces no blade and takes none from the store, its line carrying the stock as shift I closed it (NO_SHIFT_II_ISSUE:
+  all four). Before a typed line the OK stock is steered over the last shift I lines (up to three, at most three blades a
+  line), the last closing with the typed line's opening.

@@ -124,8 +124,13 @@ export const SHARP_USUAL: Record<string, { scissor?: number; cutter: number }> =
   "prd-pouching-cutter-issue": { cutter: 13 },
 };
 
-/** The sheets on which nothing is ever issued in shift II (§265): F/PRD/23, the pouching section's manual cutters. */
-export const NO_SHIFT_II_ISSUE: readonly string[] = ["prd-pouching-cutter-issue"];
+/**
+ * NOTHING IS ISSUED IN SHIFT II, ON ANY OF THE FOUR (the owner, 20-Nov-2026, REQUIREMENTS §265: "in all four documents in
+ * shift 2 no instrument can able to issue ... this applies to all four document"): F/PRD/10 and 23 write their shift II
+ * line 0 issued, 0 returned, "-" broken and new; F/PRD/22 and 24 replace no blade and take none from the store in shift II,
+ * the line carrying the stock as shift I closed it.
+ */
+export const NO_SHIFT_II_ISSUE: readonly string[] = ["prd-sharp-object-issue", "prd-pouching-blade", "prd-pouching-cutter-issue", "prd-slitting-blade"];
 
 /** Shift II's usual crew, with nobody named in it (§263): the F/PRD/10 register's own shift II lines, 4. */
 export const SHIFT_II_USUAL = 4;
@@ -217,7 +222,11 @@ export function sharpIssueRows(documentId: string, dueDate: string, master: Pick
   const counts = sharpIssueCounts(documentId, master, dueDate, shift);
   // (F/PRD/23's shift II: a line all the same - nothing issued, nothing returned, nothing broken, nothing new; §265)
   if (layout && stock && shift === "II" && NO_SHIFT_II_ISSUE.includes(documentId)) {
-    return [{ ...blankLogRow(layout, generateId("row")), date: dueDate, shift, qtyIssued: 0, qtyReturned: 0, brokenQty: NONE, newQtyIssued: NONE, remarks: "" } as LogSheetRow];
+    const none: Partial<LogSheetRow> =
+      documentId === "prd-sharp-object-issue"
+        ? { issuedScissor: 0, issuedManualCutter: 0, returnedScissor: 0, returnedManualCutter: 0, brokenScissor: NONE, brokenCutterBlade: NONE, newScissor: NONE, newCutterBlade: NONE }
+        : { qtyIssued: 0, qtyReturned: 0, brokenQty: NONE, newQtyIssued: NONE };
+    return [{ ...blankLogRow(layout, generateId("row")), date: dueDate, shift, ...none, remarks: "" } as LogSheetRow];
   }
   if (!layout || !stock || !counts || counts.cutters === 0) return null;
   return [{ ...blankLogRow(layout, generateId("row")), ...sharpIssueLine(documentId, dueDate, counts, shift) } as LogSheetRow];
@@ -288,10 +297,8 @@ export function razorBladeRow(documentId: string, dueDate: string, before: { ok:
   const roll = rng.next();
   // Shift I: mostly one or two, three now and then on the pouching machines. Shift II, the smaller crew (§263): often none,
   // one, two now and then on the pouching machines.
-  const wanted =
-    shift === "II"
-      ? plan.most >= 3 ? (roll < 0.45 ? 0 : roll < 0.9 ? 1 : 2) : roll < 0.6 ? 0 : 1
-      : plan.most >= 3 ? (roll < 0.45 ? 1 : roll < 0.85 ? 2 : 3) : roll < 0.6 ? 1 : 2;
+  // Shift II replaces none and takes none from the store (§265): its line carries the stock.
+  const wanted = shift === "II" && NO_SHIFT_II_ISSUE.includes(documentId) ? 0 : plan.most >= 3 ? (roll < 0.45 ? 1 : roll < 0.85 ? 2 : 3) : roll < 0.6 ? 1 : 2;
   let returned = 0;
   let issued = 0;
   if (wanted > 0 && (opening <= BLADE_LOW || opening < wanted)) {

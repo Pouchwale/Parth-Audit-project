@@ -227,11 +227,27 @@ export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
         // closed day between, whose lines carry the stock unchanged)
         const fixedAt = (r: LogSheetRow | undefined) =>
           !r ? undefined : personLines.get(`${String(r.date ?? "").slice(0, 10)}|${lineShift(id, r)}`) ?? (sharpLineWritten(id, r) && !assistantsLine(id, r) && !dayInfo(String(r.date ?? "").slice(0, 10), master).isHoliday ? r : undefined);
+        // (past shift II's lines too, which carry the stock unchanged, §265: the shift I line before closes with the typed
+        // line's opening; a shift II line never bridges, nothing being issued in it)
         let j = k + 1;
-        while (rows[j] && !fixedAt(rows[j]) && dayInfo(String(rows[j].date ?? "").slice(0, 10), master).isHoliday) j++;
-        const next = fixedAt(rows[j]);
+        let between = 0;
+        while (rows[j] && !fixedAt(rows[j])) {
+          if (!dayInfo(String(rows[j].date ?? "").slice(0, 10), master).isHoliday && lineShift(id, rows[j]) === "I") between++;
+          j++;
+        }
+        // (steered only over the last three shift I lines before it: further off, a day goes as any day)
+        const next = shift === "II" || between > 2 ? undefined : fixedAt(rows[j]);
         const nextFixed = blades && !!next && bladeLineClosing(next) !== null && String(next.openingStock ?? "").trim() !== "";
-        const bridge = nextFixed && !day.isHoliday ? bladeBridgeRow(id, date, carried, Number(next.openingStock), shift) : null;
+        // The OK stock steered toward the typed line's opening over the shift I lines left before it, at most three blades a
+        // line; the last of them closes with it exactly (bladeBridgeRow).
+        let bridge: Partial<LogSheetRow> | null = null;
+        if (nextFixed && !day.isHoliday && next) {
+          const target = Number(next.openingStock);
+          const ok = carried ? carried.ok : null;
+          const need = ok === null ? 0 : ok - target;
+          if (between === 0) bridge = bladeBridgeRow(id, date, carried, target, shift);
+          else if (ok !== null && need > 0) bridge = bladeBridgeRow(id, date, carried, ok - Math.min(3, Math.ceil(need / (between + 1))), shift);
+        }
         if (persons) line = sharpLineFigures(id, persons);
         else if (day.isHoliday) line = closedDayLine(id, date, day, carried, shift);
         else if (bridge) line = bridge;

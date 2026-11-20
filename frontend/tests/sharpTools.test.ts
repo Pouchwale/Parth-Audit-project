@@ -190,7 +190,7 @@ test("the month's sheet: each day's line filled on its day, a closed day so writ
     else if (d === "2026-11-18" && r.shift === "II") assert.equal(r.supervisorSign, "Ramesh", "the person's shift II line laid on its date and shift");
     else if (isCompanyHoliday(d, masterRepository.get())) assert.equal(Number(r.issuedScissor), 0, `${d}: closed, nothing issued`);
     else if (r.shift === "I") assert.ok(Number(r.issuedScissor) >= 1 && Number(r.issuedScissor) <= 3, `${d}: shift I's three people, less any away`);
-    else assert.equal(Number(r.issuedScissor), 1, `${d}: shift II's one person`);
+    else assert.deepEqual([Number(r.issuedScissor), Number(r.issuedManualCutter), r.brokenScissor, r.newCutterBlade], [0, 0, "-", "-"], `${d}: nothing issued in shift II (§265)`);
   }
   assert.ok(rows.every((r) => (r.supervisorSign === "Ramesh" ? true : String(r.remarks ?? "") === "")), "no remark of the assistant's, a closed day's neither (§264)");
   // Run again: nothing to do.
@@ -334,10 +334,11 @@ test("nothing broken, nothing new: a dash, not Nil or NA; every value printed in
 test("two fixed shifts a day (§263): shift II a smaller crew of about four, each shift within the note; the month on two pages", async () => {
   const { sharpIssueCounts, razorBladeRow: blade, monthDays } = await import("../src/engine/sharpTools");
   const { getLogSheetLayout } = await import("../src/data/seed/logSheetLayouts");
+  // Nothing issued in shift II, on any of the four (§265).
   const two = monthDays("2026-12").map((d) => sharpIssueCounts("prd-sharp-object-issue", { sharpToolPeople: [] }, d, "II")!.cutters);
-  assert.ok(two.every((n) => n >= 3 && n <= 5) && new Set(two).size >= 2, two.join(" "));
+  assert.ok(two.every((n) => n === 0), two.join(" "));
   const one = monthDays("2026-12").map((d) => sharpIssueCounts("prd-sharp-object-issue", { sharpToolPeople: [] }, d, "I")!.cutters);
-  assert.ok(one.every((n, i) => n > two[i]), "shift I the bigger crew");
+  assert.ok(one.every((n) => n >= 10), "shift I issues");
   // The blades through both shifts: each line opens with the one before, always the note's 20.
   const plan = BLADE_STOCK["prd-pouching-blade"];
   let before: { ok: number; discarded: number } | null = null;
@@ -346,6 +347,7 @@ test("two fixed shifts a day (§263): shift II a smaller crew of about four, eac
       const r = blade("prd-pouching-blade", d, before, s)!;
       if (before) assert.equal(Number(r.openingStock), before.ok);
       assert.equal(r.replacedShift, s);
+      if (s === "II") assert.deepEqual([Number(r.replacedNos), Number(r.newIssuedFromStore), Number(r.discardedReturned), Number(r.closingOkStock)], [0, 0, 0, Number(r.openingStock)], `${d} II: no blade in shift II`);
       assert.equal(Number(r.closingOkStock) + Number(r.closingDiscarded) + plan.onMachine, plan.maintained);
       before = bladeClosing({ header: {}, rows: [r] });
     }
@@ -423,7 +425,7 @@ test("the assistant writes no remark on the four sheets (§264); a person's rema
   assert.ok(!assistantsLine("prd-pouching-cutter-issue", { ...line, remarks: "Blade changed by fitter" }), "a remark typed: the line is the person's");
 });
 
-test("F/PRD/23: nothing is ever issued in shift II - 0 issued, 0 returned, whoever is listed (§265)", async () => {
+test("nothing is ever issued in shift II on any of the four - 0 issued, 0 returned, whoever is listed (§265)", async () => {
   const { sharpIssueRows: rowsOf, monthDays } = await import("../src/engine/sharpTools");
   const listed = { sharpToolPeople: [person(1, "II"), person(2, "II"), person(3, "I")] };
   for (const people of [{ sharpToolPeople: [] }, listed]) {
@@ -433,7 +435,15 @@ test("F/PRD/23: nothing is ever issued in shift II - 0 issued, 0 returned, whoev
     }
   }
   assert.ok(Number(rowsOf("prd-pouching-cutter-issue", "2026-12-02", listed, "I")![0].qtyIssued) >= 1, "shift I as before");
-  assert.ok(Number(rowsOf("prd-sharp-object-issue", "2026-12-02", { sharpToolPeople: [] }, "II")![0].issuedManualCutter) >= 3, "F/PRD/10's shift II as before");
+  for (const people of [{ sharpToolPeople: [] }, listed]) {
+    const r = rowsOf("prd-sharp-object-issue", "2026-12-02", people, "II")![0];
+    assert.deepEqual([r.shift, r.issuedScissor, r.issuedManualCutter, r.returnedScissor, r.returnedManualCutter, r.brokenScissor, r.brokenCutterBlade, r.newScissor, r.newCutterBlade], ["II", 0, 0, 0, 0, "-", "-", "-", "-"], "F/PRD/10's shift II: nothing");
+  }
+  const { razorBladeRow: blade } = await import("../src/engine/sharpTools");
+  for (const id of ["prd-pouching-blade", "prd-slitting-blade"]) {
+    const r = blade(id, "2026-12-02", { ok: 3, discarded: 9 }, "II")!;
+    assert.deepEqual([Number(r.replacedNos), Number(r.newIssuedFromStore), Number(r.closingOkStock)], [0, 0, 3], `${id}: shift II takes nothing, not even with the OK stock low`);
+  }
 });
 
 test("a line whose only change is the assistant's old remark taken off is still the assistant's (§264, §265)", async () => {
