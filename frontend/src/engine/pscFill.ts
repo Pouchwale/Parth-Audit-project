@@ -1,0 +1,120 @@
+import type { LogSheetData, LogSheetRow, RecordInstance } from "../types";
+import { documentRepository } from "../data/repositories/documentRepository";
+import { recordRepository } from "../data/repositories/recordRepository";
+import { settingsRepository } from "../data/repositories/settingsRepository";
+import { mayWriteRecordsOf } from "./departmentScope";
+import { waitsUntil } from "./notBeforeDay";
+import { diffRecordData, makeEntry } from "./recordHistory";
+import { fieldLabels } from "./recordPatch";
+import { untouchedByPeople } from "./calendarMigration";
+import { PSC_SURVEY_DOC, roundDateOf } from "./pscSurveyRound";
+import { pscAnalysis, pscRoundAnswers, scoreOf } from "./pscScores";
+import { compareISO, todayISO } from "../utils/date";
+
+// F/HR/20's ROUND ANSWERED AND F/HR/21 WORKED OUT, BY THE ASSISTANT (REQUIREMENTS §267; engine/pscScores.ts says how).
+// Run with the morning prepare and at every start (engine/assistantPrepare.ts prepareDueRecords), from 1 January - the
+// first day the year's survey may be written (engine/notBeforeDay.ts), never before:
+//   * every form of the year's round still blank and still the assistant's own is answered (7 / 6; 1 / 2 on attribute 8);
+//     a form a person has answered, changed or submitted is never touched;
+//   * the year's analysis is worked out from the year's forms - the round's and any started with New - and worked out
+//     again whenever they change, while it is still the assistant's own; once a person writes on it, it is theirs.
+
+export const PSC_ANALYSIS_DOC = "hr-psc-survey-analysis";
+
+export const PSC_ANSWERS_NOTE =
+  "Answered by the assistant (REQUIREMENTS §267): good scores - 7 Strongly Agree or 6 Moderately Agree, and 1 Strongly Disagree to attribute 8 - each answer can be changed in its dropdown.";
+export const PSC_ANALYSIS_NOTE =
+  "Worked out by the assistant from the year's Product Safety Culture Survey forms (F/HR/20), as the company's analysis sheet works it out (REQUIREMENTS §267): it follows the forms as they change.";
+
+const OPEN = ["Scheduled", "Due", "In Progress"];
+
+/** Still only the assistant's work: made or filled by it, nobody's since. */
+function assistantsOwn(r: RecordInstance): boolean {
+  if (r.submittedAt || r.verifiedAt || r.rejectedAt || !OPEN.includes(r.status)) return false;
+  if (untouchedByPeople(r)) return true;
+  const p = r.prepared;
+  return !!p && p.by === "assistant" && p.at === r.updatedAt;
+}
+
+const formNumber = (r: RecordInstance): number => Number(/#(\d+)$/.exec(r.periodKey ?? "")?.[1] ?? 0);
+const blankAnswers = (data: LogSheetData | undefined): boolean => (data?.rows ?? []).every((row) => scoreOf(row.response) === null);
+
+/** The year a survey form belongs to: its round's, else its own date's. */
+function surveyYear(r: RecordInstance): string {
+  const header = (r.data as LogSheetData | undefined)?.header ?? {};
+  return (roundDateOf(r) || String(header.surveyDate ?? "").slice(0, 10) || r.dueDate).slice(0, 4);
+}
+
+function stamped(record: RecordInstance, data: LogSheetData, note: string, basedOn: string, now: string): RecordInstance | null {
+  const doc = documentRepository.getByIdUnscoped(record.documentId);
+  const changes = diffRecordData(record.data, data, fieldLabels(doc?.kind ?? "log-sheet", record.documentId));
+  if (!changes?.length) return null;
+  return {
+    ...record,
+    data,
+    status: "In Progress",
+    updatedAt: now,
+    prepared: { at: now, by: "assistant", notes: [note], basedOn, knownPartsOnly: true },
+    history: [...(record.history ?? []), { ...makeEntry("prepared", "Assistant", { note, changes }), at: now }],
+  };
+}
+
+/** Answers the year's round and works out the year's analysis. Returns the records changed. Run again it changes nothing. */
+export function fillPscSurveyDue(referenceISO = todayISO()): RecordInstance[] {
+  const { liveStartDate } = settingsRepository.get();
+  const now = new Date().toISOString();
+  const changed: RecordInstance[] = [];
+  const surveyDoc = documentRepository.getByIdUnscoped(PSC_SURVEY_DOC);
+  const forms = recordRepository.queryUnscoped({ documentId: PSC_SURVEY_DOC, isDemo: false });
+
+  // 1. The round's forms, answered.
+  if (surveyDoc && mayWriteRecordsOf(surveyDoc.id)) {
+    const rounds = new Map<string, RecordInstance[]>();
+    for (const r of forms) {
+      const date = roundDateOf(r);
+      if (date) rounds.set(date, [...(rounds.get(date) ?? []), r]);
+    }
+    for (const [date, round] of rounds) {
+      // The answers depend on the round's size - its highest form number - so a form deleted changes nobody else's.
+      const size = Math.max(...round.map(formNumber));
+      const answers = pscRoundAnswers(Number(date.slice(0, 4)), size);
+      for (const r of round) {
+        if (waitsUntil(surveyDoc, r, referenceISO) !== null) continue;
+        if (liveStartDate && compareISO(r.dueDate, liveStartDate) < 0) continue;
+        const data = r.data as LogSheetData | undefined;
+        const mine = answers[formNumber(r) - 1];
+        if (!data || !mine || !assistantsOwn(r) || !blankAnswers(data)) continue;
+        const rows = data.rows.map((row, i): LogSheetRow => (mine[i] ? { ...row, response: mine[i] } : row));
+        const next = stamped(r, { ...data, rows }, PSC_ANSWERS_NOTE, "the year's survey round", now);
+        if (next) changed.push(next);
+      }
+    }
+  }
+
+  // 2. The year's analysis, from the year's forms as they now stand.
+  const analysisDoc = documentRepository.getByIdUnscoped(PSC_ANALYSIS_DOC);
+  if (analysisDoc && mayWriteRecordsOf(analysisDoc.id)) {
+    const current = new Map(forms.map((r) => [r.id, r] as const));
+    for (const r of changed) current.set(r.id, r);
+    for (const record of recordRepository.queryUnscoped({ documentId: PSC_ANALYSIS_DOC, isDemo: false })) {
+      if (waitsUntil(analysisDoc, record, referenceISO) !== null) continue;
+      if (liveStartDate && compareISO(record.dueDate, liveStartDate) < 0) continue;
+      if (!assistantsOwn(record)) continue;
+      const year = record.dueDate.slice(0, 4);
+      const yearForms = [...current.values()].filter((f) => f.status !== "Rejected" && surveyYear(f) === year);
+      if (yearForms.length === 0) continue;
+      const answered = yearForms.map((f) => ((f.data as LogSheetData | undefined)?.rows ?? []).map((row) => row.response));
+      const { rows: figures, overall, respondents } = pscAnalysis(answered);
+      if (respondents === 0) continue;
+      const data = record.data as LogSheetData | undefined;
+      if (!data) continue;
+      const rows = data.rows.map((row, i): LogSheetRow => (figures[i] ? { ...row, ...figures[i] } : row));
+      const header = { ...(data.header ?? {}), surveyPeriod: `JANUARY ${year}`, overallAchieved: overall };
+      const next = stamped(record, { ...data, header, rows }, PSC_ANALYSIS_NOTE, `${respondents} survey forms of ${year}`, now);
+      if (next) changed.push(next);
+    }
+  }
+
+  if (changed.length > 0) recordRepository.upsertMany(changed);
+  return changed;
+}

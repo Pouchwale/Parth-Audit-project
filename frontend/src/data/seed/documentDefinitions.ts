@@ -683,7 +683,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Yearly",
     status: "Configured",
     description:
-      "One form per employee, issued in English and Gujarati: fifteen statements about product safety and quality culture — speaking up, management commitment, procedures, time pressure, root causes, training, equipment — each answered on the printed seven-point scale from Strongly Agree (7) to Strongly Disagree (1). Every January the year's round is made by itself: about 200 forms - directors, HODs, managers, executives, operators, assistants and the rest of the staff, and three or four helpers - each with its person's name, department and designation fetched from HR Master Data; the answers are each person's own. Due by 31 January.",
+      "One form per employee, issued in English and Gujarati: fifteen statements about product safety and quality culture — speaking up, management commitment, procedures, time pressure, root causes, training, equipment — each answered on the printed seven-point scale from Strongly Agree (7) to Strongly Disagree (1). Every January the year's round is made by itself: about 200 forms - directors, HODs, managers, executives, operators, assistants and the rest of the staff, and three or four helpers - each with its person's name, department and designation fetched from HR Master Data; the assistant answers each form from 1 January with good scores - 7 or 6, and 1 to the shortcuts question - every answer changeable. Due by 31 January.",
     sourceFile: "F-HR-20_Product safety culture survey (1).pdf",
     // Every January (REQUIREMENTS §266, engine/pscSurveyRound.ts).
     schedule: { type: "yearly", month: 0, dayOfMonth: 31 },
@@ -701,7 +701,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Yearly",
     status: "Configured",
     description:
-      "The analysis of one survey round: for each of the fifteen attributes, how many responses fell at each point of the scale, the actual and ideal weighted responses and the percentage achieved, with the overall figure. The January-2026 analysis (63 respondents, 93.99% overall) is on file exactly as printed — nothing recomputed.",
+      "The analysis of one survey round: for each of the fifteen attributes, how many responses fell at each point of the scale, the actual and ideal weighted responses and the percentage achieved, with the overall figure. The January-2026 analysis (63 respondents, 93.99% overall) is on file exactly as printed. From 2027 each year's analysis is worked out by the assistant from that year's F/HR/20 forms, as the company's analysis sheet works it out, and follows them as they change.",
     sourceFile: "F-HR-21_Product Safety Culture Survey analysis record.pdf",
     schedule: { type: "yearly", month: 0, dayOfMonth: 31 },
   },

@@ -21,6 +21,7 @@ import { blankLogRow } from "./recordDefaults";
 import { dayInfo, effectiveDueDatesInMonth } from "./holidays";
 import { untouchedByPeople } from "./calendarMigration";
 import { periodKeyFor } from "./recordGenerator";
+import { fillPscSurveyDue } from "./pscFill";
 
 // Statuses in which a record is still an untouched shell the assistant may
 // fill. "In Progress" is deliberately excluded: that means a person has
@@ -146,7 +147,8 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
 
   // F/QC/12's WEEKS FILL ON THEIR DAY, by themselves (the owner, 30-Oct-2026): see fillScaleWeeksDue.
   // ...and the Sharp Objects & Blades sheets, from their master data and their stock (§254): see fillSharpToolsDue.
-  const later = [...fillScaleWeeksDue(referenceISO), ...fillSharpToolsDue(referenceISO)];
+  // ...and F/HR/20's round answered, F/HR/21 worked out from it (§267): see engine/pscFill.ts.
+  const later = [...fillScaleWeeksDue(referenceISO), ...fillSharpToolsDue(referenceISO), ...fillPscSurveyDue(referenceISO)];
   if (later.length === 0) return prepared;
   const ids = new Set(later.map((r) => r.id));
   return [...prepared.filter((r) => !ids.has(r.id)), ...later];

@@ -5,7 +5,7 @@
 //     rank, three or four helpers (a different few each year), a guard / driver / sweeper / peon only to make up the 200,
 //     nobody who joins later;
 //   * each form is its person's - name, department, designation as HR Master Data has them, the date, the GP3 mark - with
-//     every answer left for the person; made once (a second January, a deleted form, never make it again); Live only;
+//     the answers filled by the morning's preparation (§267, pscFill.test.ts); made once (a second January, a deleted form, never make it again); Live only;
 //   * New on F/HR/20 starts a form for one more person each time; the round is one reminder, not two hundred;
 //   * the name index answers as the old full search did, for every person, alias and GP3 No., and a 200-line register
 //     is looked up in a few milliseconds.
@@ -69,7 +69,7 @@ test("the round: 200 people - every director and HOD, staff and operators, three
   assert.notEqual(helpersOf("2027-01-30"), helpersOf("2028-01-31"));
 });
 
-test("January's generation makes the year's 200 forms, each its person's from HR Master Data, the answers left blank; once", () => {
+test("January's generation makes the year's 200 forms, each its person's from HR Master Data, the answers left to the morning's preparation; once", () => {
   const made = ensureRecordsGeneratedForMonth(2027, 0, { documentIds: [PSC_SURVEY_DOC] });
   const forms = made.filter(isRoundForm);
   assert.equal(forms.length, PSC_ROUND_SIZE);
@@ -89,7 +89,9 @@ test("January's generation makes the year's 200 forms, each its person's from HR
     assert.equal(rows.length, 15, "the fifteen attributes");
     assert.ok(rows.every((row) => !String(row.response ?? "").trim()), "every answer is the person's");
   }
-  // Prepared already: the morning's preparation leaves them as they are.
+  // The morning's preparation answers them (§267: 7 or 6, 1 or 2 to attribute 8; engine/pscFill.ts) - and only once.
+  prepareDueRecords("2027-01-31");
+  for (const r of round(scheduled)) assert.ok((r.data as LogSheetData).rows.every((row, i) => (i === 7 ? /^[12] /.test(String(row.response)) : /^[76] /.test(String(row.response)))), "answered");
   const before = JSON.stringify(round(scheduled).map((r) => r.data));
   prepareDueRecords("2027-01-31");
   assert.equal(JSON.stringify(round(scheduled).map((r) => r.data)), before);

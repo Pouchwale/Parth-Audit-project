@@ -23,9 +23,8 @@ import { compareISO } from "../utils/date";
 //   * and, only when those fall short of 200, guards, drivers, sweepers and peons to make it up (the sheet of 3-Nov-2026
 //     has 195 of the first kind: four helpers and one guard make the 200);
 //   * nobody who joins after the survey's date.
-// The answers on the seven-point scale are the person's own - each employee's opinion, which is what an auditor reads the
-// survey for - so they are left for the person (or HR, from the person's paper form) to mark (REQUIREMENTS §98: the
-// assistant writes the known parts, never an answer).
+// The answers are filled by the assistant from 1 January - good scores, 7 or 6 (1 to attribute 8), each editable - and
+// F/HR/21 is worked out from them (REQUIREMENTS §267, engine/pscScores.ts, engine/pscFill.ts).
 //
 // The round is made ONCE a year: never a second time, never put back after somebody deletes forms from it, never added
 // to when someone joins later (New record starts a form for anyone else, as often as wanted, as before). Live records only.
@@ -36,7 +35,7 @@ export const PSC_ROUND_SIZE = 200;
 export const PSC_ROUND_HELPERS = { most: 4, least: 3 };
 
 export const PSC_ROUND_NOTE =
-  "The year's Product Safety Culture Survey round, made in January: this person fetched from HR Master Data (name, department, designation) and the form's date. The answers are the person's own (REQUIREMENTS §266)";
+  "The year's Product Safety Culture Survey round, made in January: this person fetched from HR Master Data (name, department, designation) and the form's date (REQUIREMENTS §266); the answers are filled by the assistant from 1 January and can be changed (§267)";
 
 export const isPscSurvey = (documentId: string | undefined): boolean => documentId === PSC_SURVEY_DOC;
 

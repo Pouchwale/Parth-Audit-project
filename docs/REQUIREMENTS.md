@@ -12691,3 +12691,32 @@ column; F/HR/21's and F/HR/09's sentences ran one or two lines beside each other
 - Measured after: F/HR/01 21-21 px, F/HR/03 14-14, F/HR/05 13-13, F/HR/21 29-29, F/HR/09 all one height on its one page;
   no number left of its box on any HR sheet; no page count changed.
 - Proved: frontend/tests/sharpTools.test.ts, printFill.test.ts; printed to PDF on the local copy.
+
+## §267 F/HR/20 answered with good scores; F/HR/21 worked out from it, above 90% (20-Nov-2026)
+
+The owner, 20-Nov-2026: "from HR-20 all helper score which is already good by default editable and which is 7 or 6 and
+sometime 1 also so this document is also fill by system and keep good score for all helper and on that basics score in
+hr-21 will be decided so make sure more good score which is 7, 6, 1 likewise so at last when achieved column check then
+percentage will come more than 90% all time and it should random like sometime 91". This replaces §266's "the answers are
+the person's own" for the year's round.
+
+- From 1 January (never before, §201), the morning prepare and every start answer each form of the year's round that is
+  still blank and still the assistant's (engine/pscFill.ts fillPscSurveyDue): 7 Strongly Agree or 6 Moderately Agree to
+  every attribute, and 1 Strongly Disagree (now and then 2) to attribute 8, the shortcuts question, as the January-2026
+  round answered it. Every answer stays a dropdown; a form a person changed or submitted is never touched.
+- How good (engine/pscScores.ts): each year has its own overall figure between 91% and 97%, random by the year (2027
+  96.62%, 2028 92.54%, 2029 96.47%, 2030 93.52% ...), each attribute near it and never under 90.5%; how many forms carry
+  the 7 (the 1 on attribute 8) is set to reach it, and which forms is shuffled, so no two people answer alike. The same on
+  every device and run.
+- F/HR/21 for the year is worked out from that year's F/HR/20 forms (the round's and any started with New) as the
+  company's workbook works it out: the count at each point of the scale (blank where none), Actual Responses = the answers
+  added up, Ideal = respondents x 7, Achieved = Actual / Ideal; attribute 8 Ideal = respondents x 1, Achieved = Ideal /
+  Actual; Overall achieved = the average of the fifteen (=AVERAGE(N5:N19)); the Survey box "JANUARY <year>". It follows the
+  forms as they change while it is still the assistant's; once a person writes on it, it is theirs. (The workbook's Ideal
+  was typed as Actual + 22 or + 29; DCRS uses the true ideal, so the figures add up.) The January-2026 analysis on file
+  stays exactly as printed.
+- Proved: frontend/tests/pscScores.test.ts (40 years x six round sizes: every attribute over 90.5%, the overall 91-97%,
+  moving year to year), pscFill.test.ts (nothing before 1 January; 200 forms answered; F/HR/21 counts all 200; a person's
+  answer kept and the analysis following it; a person's analysis left alone), pscSurveyRound.test.ts, generationAhead.test.ts
+  (F/HR/20's January is the round's 200 forms); on the local copy with the browser's clock at 4-Jan-2027 (every form 15 of
+  15, Virat Rajgor's 7/6 with 1 on attribute 8; F/HR/21 JANUARY 2027, 200 counted, 96.62%); the test account check (§206).

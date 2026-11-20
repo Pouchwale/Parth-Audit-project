@@ -798,7 +798,7 @@ export const PSC_ATTRIBUTES = [
   "Equipment in our facility allows us to produce safe quality products",
 ];
 
-const PSC_SCALE = ["7 — Strongly Agree", "6 — Moderately Agree", "5 — Agree", "4 — Neutral", "3 — Disagree", "2 — Moderately Disagree", "1 — Strongly Disagree"];
+export const PSC_SCALE = ["7 — Strongly Agree", "6 — Moderately Agree", "5 — Agree", "4 — Neutral", "3 — Disagree", "2 — Moderately Disagree", "1 — Strongly Disagree"];
 
 const pscSurvey: LogSheetLayout = {
   documentId: "hr-psc-survey",
@@ -832,7 +832,7 @@ const pscAnalysis: LogSheetLayout = {
   // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
   screenNotes: [
     "PRODUCT SAFETY CULTURE SURVEY — the analysis of one survey round: how many responses each attribute drew at each point of the scale, the actual and ideal weighted responses, and the percentage achieved.",
-    "The figures are as printed on the company's own analysis sheet; nothing is recomputed.",
+    "From 2027 the figures are worked out by the assistant from the year's survey forms (F/HR/20): Actual = the answers added up, Ideal = everyone answering 7 (attribute 8: everyone answering 1), Achieved = Actual / Ideal, the overall the average of the fifteen. The January-2026 analysis is as printed.",
   ],
   headerFields: [{ key: "surveyPeriod", label: "Survey", type: "text", width: 220 }],
   columns: [
