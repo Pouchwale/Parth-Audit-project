@@ -124,6 +124,9 @@ export const SHARP_USUAL: Record<string, { scissor?: number; cutter: number }> =
   "prd-pouching-cutter-issue": { cutter: 13 },
 };
 
+/** The sheets on which nothing is ever issued in shift II (§265): F/PRD/23, the pouching section's manual cutters. */
+export const NO_SHIFT_II_ISSUE: readonly string[] = ["prd-pouching-cutter-issue"];
+
 /** Shift II's usual crew, with nobody named in it (§263): the F/PRD/10 register's own shift II lines, 4. */
 export const SHIFT_II_USUAL = 4;
 
@@ -145,6 +148,9 @@ export function sharpIssueCounts(documentId: string, master: Pick<MasterData, "s
   // SHIFT II (the owner, 20-Nov-2026, REQUIREMENTS §263: "in one day there is two fix shifts"; asked, "Smaller crew, about
   // 4"): its people on the list, each away now and then; with nobody named in shift II, about four - three to five.
   if (shift === "II") {
+    // F/PRD/23 - NOTHING IS ISSUED IN SHIFT II (the owner, 20-Nov-2026, REQUIREMENTS §265: "in shift two the quantity is not
+    // able to issue ever in second shift"): its shift II line is written 0 issued, 0 returned, whoever is listed.
+    if (NO_SHIFT_II_ISSUE.includes(documentId)) return { scissors: 0, cutters: 0, fromList: false };
     const two = peopleFor(documentId, master).filter((p) => p.shift === "II");
     let n: number;
     if (two.length > 0) n = date ? Math.max(1, two.filter((p) => makeRng(`sharp-away|${documentId}|${date}|${p.id || p.name}`).next() >= AWAY).length) : two.length;
@@ -191,7 +197,17 @@ export function lineFingerprint(documentId: string, row: Partial<LogSheetRow>): 
 /** Whether a line is still as the assistant wrote it: its mark matches its figures, and nobody signed it. */
 export function assistantsLine(documentId: string, row: LogSheetRow): boolean {
   const mark = row[ASSISTANT_LINE];
-  return typeof mark === "string" && mark === lineFingerprint(documentId, row) && blank(row.supervisorSign) && blank(row.verifiedBy);
+  if (typeof mark !== "string" || !blank(row.supervisorSign) || !blank(row.verifiedBy)) return false;
+  const now = lineFingerprint(documentId, row);
+  if (mark === now) return true;
+  // A remark the assistant wrote before §264, taken off by a person and nothing else changed: still the assistant's line.
+  const keys = FIGURE_KEYS(documentId);
+  const at = keys.indexOf("remarks");
+  if (at < 0 || !blank(row.remarks)) return false;
+  const parts = mark.split("|");
+  if (parts.length !== keys.length) return false;
+  parts[at] = "";
+  return parts.join("|") === now;
 }
 
 /** F/PRD/10 and F/PRD/23: the day's one line, shift I (§258): shift I's people, or the paper's usual count (§260). */
@@ -199,6 +215,10 @@ export function sharpIssueRows(documentId: string, dueDate: string, master: Pick
   const layout = getLogSheetLayout(documentId);
   const stock = SHARP_STOCK[documentId];
   const counts = sharpIssueCounts(documentId, master, dueDate, shift);
+  // (F/PRD/23's shift II: a line all the same - nothing issued, nothing returned, nothing broken, nothing new; §265)
+  if (layout && stock && shift === "II" && NO_SHIFT_II_ISSUE.includes(documentId)) {
+    return [{ ...blankLogRow(layout, generateId("row")), date: dueDate, shift, qtyIssued: 0, qtyReturned: 0, brokenQty: NONE, newQtyIssued: NONE, remarks: "" } as LogSheetRow];
+  }
   if (!layout || !stock || !counts || counts.cutters === 0) return null;
   return [{ ...blankLogRow(layout, generateId("row")), ...sharpIssueLine(documentId, dueDate, counts, shift) } as LogSheetRow];
 }

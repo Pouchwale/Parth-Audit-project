@@ -422,3 +422,26 @@ test("the assistant writes no remark on the four sheets (§264); a person's rema
   line[ASSISTANT_LINE] = lineFingerprint("prd-pouching-cutter-issue", line);
   assert.ok(!assistantsLine("prd-pouching-cutter-issue", { ...line, remarks: "Blade changed by fitter" }), "a remark typed: the line is the person's");
 });
+
+test("F/PRD/23: nothing is ever issued in shift II - 0 issued, 0 returned, whoever is listed (§265)", async () => {
+  const { sharpIssueRows: rowsOf, monthDays } = await import("../src/engine/sharpTools");
+  const listed = { sharpToolPeople: [person(1, "II"), person(2, "II"), person(3, "I")] };
+  for (const people of [{ sharpToolPeople: [] }, listed]) {
+    for (const d of monthDays("2026-12")) {
+      const r = rowsOf("prd-pouching-cutter-issue", d, people, "II")![0];
+      assert.deepEqual([r.shift, r.qtyIssued, r.qtyReturned, r.brokenQty, r.newQtyIssued, r.remarks], ["II", 0, 0, "-", "-", ""], d);
+    }
+  }
+  assert.ok(Number(rowsOf("prd-pouching-cutter-issue", "2026-12-02", listed, "I")![0].qtyIssued) >= 1, "shift I as before");
+  assert.ok(Number(rowsOf("prd-sharp-object-issue", "2026-12-02", { sharpToolPeople: [] }, "II")![0].issuedManualCutter) >= 3, "F/PRD/10's shift II as before");
+});
+
+test("a line whose only change is the assistant's old remark taken off is still the assistant's (§264, §265)", async () => {
+  const { assistantsLine, lineFingerprint, ASSISTANT_LINE } = await import("../src/engine/sharpTools");
+  const id = "prd-pouching-cutter-issue";
+  const old = { id: "x", date: "2026-11-04", shift: "II", qtyIssued: 4, qtyReturned: 4, brokenQty: "1", newQtyIssued: "1", remarks: "Cutter blade worn out", supervisorSign: "" };
+  const marked = { ...old, [ASSISTANT_LINE]: lineFingerprint(id, old) };
+  assert.ok(assistantsLine(id, { ...marked, remarks: "" }), "the remark taken off: still the assistant's");
+  assert.ok(!assistantsLine(id, { ...marked, remarks: "" , qtyIssued: 6 }), "a figure changed too: the person's");
+  assert.ok(!assistantsLine(id, { ...marked, remarks: "Fitter's note" }), "a remark of the person's own: the person's");
+});

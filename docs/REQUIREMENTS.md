@@ -12656,3 +12656,13 @@ person's alone: a worn-out cutter blade or a damaged scissor shows only in its B
 day's lines (nothing issued, "-") carry no "Weekly off" (engine/sharpTools.ts sharpIssueLine, closedDayLine). The remarks
 the assistant had written on the plant's November sheets go with the next fill (its lines' mark, §261); a remark a person
 typed makes the line theirs and stays. F/PRD/22 and 24 have no Remarks column. Proved: frontend/tests/sharpTools.test.ts.
+
+## §265 F/PRD/23: nothing issued in shift II (20-Nov-2026)
+
+The owner, 20-Nov-2026: "F/PRD/23 so in this in shift two the quantity is not able to issue ever in second shift". F/PRD/23's
+shift II line on every date is written 0 issued, 0 returned, "-" broken, "-" new, no remark - whoever the Sharp Objects
+Master Data lists in shift II (engine/sharpTools.ts NO_SHIFT_II_ISSUE). Shift I, and F/PRD/10's shift II, as before. The
+plant's November lines the assistant wrote are written so with the next fill. Proved: frontend/tests/sharpTools.test.ts.
+- (§265) A line whose only change since the assistant wrote it is its old remark taken off by a person - as a Super Admin did on
+  F/PRD/23's 4-Nov shift II line before §264 - is still the assistant's (engine/sharpTools.ts assistantsLine), so it is
+  written again by the rules in force; a figure, a sign or a remark of the person's own makes it theirs.
