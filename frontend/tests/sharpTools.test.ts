@@ -219,7 +219,7 @@ test("the four are a sheet a month from November 2026, the Shift chosen I or II"
     assert.equal(shift.type, "select", id);
     assert.deepEqual(shift.options, ["I", "II"]);
   }
-  assert.match(src("data/bootstrap.ts"), /sharpDailyFrequencyLifted\(\);\n  sharpDaySheetsFolded\(\);[\s\S]*?sharpTypedLinesRestored\(\);\n  removeOffScheduleShells\(\);/);
+  assert.match(src("data/bootstrap.ts"), /sharpDailyFrequencyLifted\(\);\r?\n  sharpDaySheetsFolded\(\);[\s\S]*?sharpTypedLinesRestored\(\);\r?\n  removeOffScheduleShells\(\);/);
 });
 
 test("the month prints on one A4 page: the print fits it however tall, the Word file sets its lines close", async () => {
