@@ -616,7 +616,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     if (COMPANY_RE.test(text)) text = text.replace(COMPANY_RE, opts.company);
     // A cell that is the company's line alone, however the paper spelt it ("GUJARAT PRINT PACA1:AH16K PUBLICATION PRIVATE
     // LIMITED" on F/HR/15's workbook): the one name.
-    else if (m.r <= 3 && /^\s*GUJ\s*A?R\s*A?T\s+PRINT\b.*\b(?:PVT\.?\s*LTD\.?|PRIVATE\s+LIMITED)\s*$/i.test(text)) text = opts.company;
+    else if (m.r <= 3 && /^\s*GUJ\s*A?R\s*A?T\s+PRINT\b.*\b(?:PVT\.?\s*LTD\.?|PRIVATE\s+LIMITED)\s*$/i.test(text) && opts.company !== "$&") text = opts.company;
     // The format's own number, revision and date, wherever the paper prints them (its head, its foot).
     if (ownNumber && dcrsFormat && norm(text).includes(norm(ownNumber))) {
       text = replaceFormat(text, ownNumber, dcrsFormat, dcrsRev, dcrsRevDate);

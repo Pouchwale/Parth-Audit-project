@@ -3782,7 +3782,7 @@ table.svc-paper {
    box's words written again where the paper prints them again; where nothing is written yet, the box's blank. */
 .pt-table .pt-pw { display: none; }
 .pt-table .pt-copy:empty { display: inline-block; width: calc(var(--pt-bw) * var(--u)); }
-.pt-table td.pt-c > .field-in-table > .paragraph-text { margin: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; white-space: pre-wrap; }
+.pt-table :is(td.pt-c, .pt-over) > .field-in-table > .paragraph-text { margin: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; white-space: pre-wrap; }
 /* A register in a heavy frame (F/QC/16): its outer edges heavier than its cells'. */
 .pt-table.pt-frame { border-left: var(--pt-hv); }
 .pt-table.pt-frame.pt-head { border-top: var(--pt-hv); }
@@ -3839,16 +3839,16 @@ table.svc-paper {
   border-radius: 50%; background: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
 /* A box of the record fills its cell: the paper's cell is the box. */
-.pt-table td.pt-c > .field-in-table, .pt-table td.pt-c > .pt-box { position: absolute; inset: 0; display: block; margin: 0; padding: 0; }
-.pt-table td.pt-c > .field-in-table > .input, .pt-table td.pt-c > .pt-box > .input {
+.pt-table :is(td.pt-c, .pt-over) > .field-in-table, .pt-table :is(td.pt-c, .pt-over) > .pt-box { position: absolute; inset: 0; display: block; margin: 0; padding: 0; }
+.pt-table :is(td.pt-c, .pt-over) > .field-in-table > .input, .pt-table :is(td.pt-c, .pt-over) > .pt-box > .input {
   position: absolute; inset: 0; box-sizing: border-box; display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0;
   text-indent: calc(var(--pt-x) * var(--u)); border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000;
   font: inherit; text-align: inherit;
 }
-.pt-table td.pt-c > .field-in-table.pt-lines > textarea.input { padding-top: calc(var(--pt-y) * var(--u)); resize: none; overflow: hidden; white-space: pre-wrap; text-indent: 0; padding-left: calc(var(--pt-x) * var(--u)); }
-.pt-table td.pt-c > .pt-box > .cell-text { display: block; min-width: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; }
+.pt-table :is(td.pt-c, .pt-over) > .field-in-table.pt-lines > textarea.input { padding-top: calc(var(--pt-y) * var(--u)); resize: none; overflow: hidden; white-space: pre-wrap; text-indent: 0; padding-left: calc(var(--pt-x) * var(--u)); }
+.pt-table :is(td.pt-c, .pt-over) > .pt-box > .cell-text { display: block; min-width: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; }
 /* A written date prints as its words in the place of its box (utils/print.ts), in the cell's own face and place. */
-.pt-table td.pt-c > .field-in-table > .print-box-text { position: absolute; inset: 0; display: block; margin: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; text-align: inherit; }
+.pt-table :is(td.pt-c, .pt-over) > .field-in-table > .print-box-text { position: absolute; inset: 0; display: block; margin: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; text-align: inherit; }
 /* The box written inside the paper's sentence ("This material should be retested on ... before usage."). */
 .pt-table .pt-sentence .field-in-table { position: relative; display: inline-block; width: calc(var(--pt-bw) * var(--u)); height: calc(var(--pt-lh) * var(--u)); margin: 0; padding: 0; vertical-align: top; }
 .pt-table .pt-sentence .field-in-table > .input {
@@ -3858,8 +3858,8 @@ table.svc-paper {
 .pt-table .pt-sentence .field-in-table > .print-box-text { display: inline; padding: 0; color: #000; font: inherit; }
 .pt-table .field-out-of-band > .input, .pt-table .cell-out-of-band > .input { background: var(--color-warning-bg); }
 @media screen {
-  .pt-table td.pt-c > .field-in-table > .input:not(:disabled), .pt-table td.pt-c > .pt-box > .input:not(:disabled), .pt-table .pt-sentence .field-in-table > .input:not(:disabled) { background: #fffdf0; }
-  .pt-table td.pt-c > .field-in-table > .input:not(:disabled):hover, .pt-table td.pt-c > .pt-box > .input:not(:disabled):hover { background: #fff7cc; }
+  .pt-table :is(td.pt-c, .pt-over) > .field-in-table > .input:not(:disabled), .pt-table :is(td.pt-c, .pt-over) > .pt-box > .input:not(:disabled), .pt-table .pt-sentence .field-in-table > .input:not(:disabled) { background: #fffdf0; }
+  .pt-table :is(td.pt-c, .pt-over) > .field-in-table > .input:not(:disabled):hover, .pt-table :is(td.pt-c, .pt-over) > .pt-box > .input:not(:disabled):hover { background: #fff7cc; }
   .pt-table .input:focus { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
   .pt-table .pt-sentence .field-in-table > .input:not(:disabled) { box-shadow: inset 0 -1px 0 0 #6b7280; }
 }
@@ -3875,9 +3875,9 @@ table.svc-paper {
     padding: calc(var(--pt-top) * 1mm / var(--print-zoom, 1)) 0 0 calc(var(--pt-left) * 1mm / var(--print-zoom, 1));
   }
   .paper-sheet[data-paper-form="table"] .doc-header.doc-header-paper { border: 0; }
-  .pt-table td.pt-c > .field-in-table > .input, .pt-table td.pt-c > .pt-box > .input { padding: 0; }
+  .pt-table :is(td.pt-c, .pt-over) > .field-in-table > .input, .pt-table :is(td.pt-c, .pt-over) > .pt-box > .input { padding: 0; }
   /* A written date prints as its words in its place (utils/print.ts), the box itself not. */
-  .pt-table td.pt-c > .field-in-table > .input.print-as-text, .pt-table .pt-sentence .field-in-table > .input.print-as-text, .pt-table td.pt-c > .pt-box > .input.print-as-text { display: none; }
+  .pt-table :is(td.pt-c, .pt-over) > .field-in-table > .input.print-as-text, .pt-table .pt-sentence .field-in-table > .input.print-as-text, .pt-table :is(td.pt-c, .pt-over) > .pt-box > .input.print-as-text { display: none; }
   /* An empty choice box prints nothing at all (not its hidden first option). */
   .pt-table select[data-empty] { visibility: hidden; }
   /* PRINTED, ONLY THE LINES WRITTEN (the owner, 25-Oct-2026, F/QC/12 printed with four entries where one was written:
@@ -4445,6 +4445,29 @@ html.print-measure [data-page-part="purchase-master-print"] table td :is(.input,
   [data-print-doc].print-close .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet :is(th, td) { padding-left: 2px; padding-right: 2px; }
 }
 html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet :is(th, td) { padding-left: 2px; padding-right: 2px; }
+.pt-table .pt-over { position: absolute; left: calc(var(--ox) * var(--u)); top: calc(var(--oy) * var(--u)); width: calc(var(--ow) * var(--u)); height: calc(var(--oh) * var(--u)); display: block; }
+/* A choice the paper sets across its cells or inside one (REQUIREMENTS §275): the answer ringed, as a pen rings it, or ticked. */
+.pt-table .pt-picks { display: block; }
+.pt-table .pt-pick { display: inline-block; min-width: 1.4em; text-align: center; border-radius: 999px; }
+.pt-table .pt-pick[role="button"] { cursor: pointer; }
+.pt-table .pt-pick.pt-pick-ring.is-on { outline: calc(0.32 * var(--u)) solid #000; outline-offset: calc(0.12 * var(--u)); font-weight: 700; }
+.pt-table .pt-pick.pt-pick-tick { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 0; min-width: 0; }
+.pt-table .pt-pick.pt-pick-tick.is-on::after { content: "\2713"; font-weight: 700; color: #000; }
+@media screen {
+  .pt-table .pt-pick[role="button"]:hover { background: #fff7cc; }
+  .pt-table .pt-pick[role="button"]:focus-visible { outline: 2px solid var(--focus-ring); }
+}
+.pt-table .pt-sentence .pt-words, .pt-table .pt-sentence .editable-words { display: inline; }
+/* The HR papers run on from head to body to foot, as one table on the paper. */
+.paper-sheet[data-paper-own] :is(.paper-head, .paper-body, .paper-foot) { margin: 0; padding: 0; border: 0; }
+.paper-sheet[data-paper-own] .doc-header.doc-header-paper { margin: 0; border: 0; }
+/* A cell the paper leaves blank is written in where it stands. */
+.pt-table td.pt-c > .pt-words.editable-words:empty { position: absolute; inset: 0; display: block; }
+@media screen { .pt-table td.pt-c > .pt-words.editable-words:empty:hover { background: #fff7cc; } }
+@media print { .pt-table tr.pt-pb { break-before: page; } }
+/* An HR paper's plain sheet while a download reads it: off the screen, never seen (utils/paperTwin.ts). */
+.paper-plain-twin { position: fixed; left: -30000px; top: 0; width: 1400px; pointer-events: none; }
+@media print { body > .paper-plain-twin { display: none; } .paper-sheet[data-paper-own] .pt-table thead { display: table-header-group; } .paper-sheet[data-paper-own] .pt-table tr { break-inside: avoid; } }
 
 /* THE HR MODULE'S LINES EVEN, ITS NUMBERS IN THE MIDDLE (§266; utils/print.ts tidyHrCells): in the print only. */
 @media print {

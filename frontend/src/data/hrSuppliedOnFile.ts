@@ -3,6 +3,7 @@ import { recordRepository } from "./repositories/recordRepository";
 import { hrMasterRepository } from "./repositories/hrMasterRepository";
 import { readJSON } from "./storageAdapter";
 import { HR_FEEDBACK_ON_FILE, type FeedbackSheetOnFile } from "./seed/hrFeedbackOnFile";
+import { HR_COMPETENCE_CRITERIA } from "./seed/hrCompetenceCriteria";
 import { mayWriteRecordsOf } from "../engine/departmentScope";
 import { nameKey, sameGp3 } from "../engine/hrMaster";
 
@@ -55,6 +56,24 @@ export function hrFeedbackSheetsOnFile(): RecordInstance[] {
   const add = HR_FEEDBACK_ON_FILE.map(feedbackRecord).filter((r) => !have.has(r.id) && !deleted.has(r.id) && !deleted.has(r.periodKey));
   if (add.length > 0) recordRepository.upsertMany(add);
   return add;
+}
+
+/** F/HR/02 on file, entered before it carried the paper's bullets: its lines take them, while they are the paper's words still. */
+export function hrCriteriaBullets(): boolean {
+  if (!mayWriteRecordsOf("hr-competence-criteria")) return false;
+  const r = recordRepository.getById("hr-competence-criteria-2026-09-01") as RecordInstance<LogSheetData> | undefined;
+  if (!r?.data?.rows) return false;
+  let changed = false;
+  const rows = r.data.rows.map((row, i) => {
+    const paper = HR_COMPETENCE_CRITERIA[i]?.[3];
+    if (!paper || String(row.requirements ?? "") !== paper.map((l) => l.replace(/^• /, "")).join("\n")) return row;
+    const requirements = paper.join("\n");
+    if (requirements === row.requirements) return row;
+    changed = true;
+    return { ...row, requirements };
+  });
+  if (changed) recordRepository.upsertMany([{ ...r, data: { ...r.data, rows } }]);
+  return changed;
 }
 
 const DIRECTOR_NUMBERS: readonly (readonly [string, string])[] = [

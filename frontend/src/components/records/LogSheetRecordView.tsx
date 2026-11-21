@@ -1,4 +1,6 @@
 import React from "react";
+import { createPortal } from "react-dom";
+import { PLAIN_TWIN_ATTR, registerPaperTwin } from "../../utils/paperTwin";
 import { EXTRA_BOX, isExtraBox, listTables, rowWords, shownRows, withRecordBoxRows, withRowAdded, withRowRemoved } from "../../engine/boxRows";
 import { setShownPaperTable } from "../../data/seed/qcPaperTables";
 import { unitized } from "../../engine/calibration";
@@ -118,6 +120,7 @@ export function LogSheetRecordView({
   onChange,
   lists,
   header,
+  asPlainTwin,
 }: {
   doc: DocumentDefinition;
   record: RecordInstance<LogSheetData>;
@@ -132,6 +135,8 @@ export function LogSheetRecordView({
    * the employee names a box whose label names a person would otherwise offer.
    */
   lists?: Record<string, string>;
+  /** The plain sheet of a record drawn as its paper, off the screen, for the moment of a download (utils/paperTwin.ts). */
+  asPlainTwin?: boolean;
 }) {
   // The form reads in the language chosen beside Today's Briefing: a form the
   // department issues in Gujarati reads in English while English is chosen
@@ -205,6 +210,10 @@ export function LogSheetRecordView({
   // one: F/PUR/05's four criteria tables are one printed band across the top of
   // the form, so "Show" on any of them shows the criteria (REQUIREMENTS §68).
   const [showReference, setShowReference] = React.useState(false);
+  // An HR paper's plain sheet, drawn off the screen while a download reads it (REQUIREMENTS §275).
+  const [plainTwin, setPlainTwin] = React.useState(false);
+  const paperId = !asPlainTwin && paperTableFor(doc.id)?.ownWords ? record.id : null;
+  React.useEffect(() => (paperId ? registerPaperTwin(paperId, setPlainTwin) : undefined), [paperId]);
   // THE HEADER BLOCK, TYPED OVER ON THE RECORD (REQUIREMENTS §86): the format's
   // company, title, number, revision and its date, and this record's own Page No.
   // (no Date cell of the record's own on the header, §117).
@@ -553,7 +562,7 @@ export function LogSheetRecordView({
   // A paper that is one Word table from its letterhead to its foot (the certificates of analysis, data/seed/qcPaperTables.ts,
   // §117 round 2) is drawn as that table, row by row, in the paper's millimetres (components/records/PaperTableSheet.tsx).
   // (only while the paper still fits the format: one the plant has edited since is drawn as every grid is)
-  const ptForm = !frame && !lc ? paperTableFor(layout.documentId) : undefined;
+  const ptForm = !frame && !lc && !asPlainTwin ? paperTableFor(layout.documentId) : undefined;
   // ...its tables of boxes with the record's own rows (§246, engine/boxRows.ts).
   const pt = ptForm && paperTableFits(ptForm, layout) ? withRecordBoxRows(ptForm, layout, data) : undefined;
   if (pt) setShownPaperTable(layout.documentId, pt);
@@ -922,6 +931,66 @@ export function LogSheetRecordView({
           {words}
         </EditableWords>
       ),
+      // The HR papers: every printed word typed over where it stands, kept on this record by its place (REQUIREMENTS §275).
+      printed: pt.ownWords
+        ? (place: string, own: string, drawn: React.ReactNode) => {
+            const key = `paper:${place}`;
+            const words = headingWords(key, own);
+            return (
+              <EditableWords className="pt-words" shown={words} editable={editable} onChange={(w) => setHeadingWords(key, w)} label={own}>
+                {words === own ? drawn : words}
+              </EditableWords>
+            );
+          }
+        : undefined,
+      holds: (line: number, col: string) => String(data.rows[line]?.[col] ?? "").trim() !== "",
+      calc: (line: number, of: string, times: number) => {
+        const v = data.rows[line]?.[of];
+        return v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? "" : String(Number(v) * times);
+      },
+      fyMonth: (month: number) => {
+        // The sheet's own twelve months, from the period it says ("01.04.2026 ~ 31.03.2027"), else from its date.
+        const named = /(\d{4})/.exec(String(data.header?.period ?? ""))?.[1];
+        const due = record.dueDate;
+        const fromDate = Number(due.slice(5, 7)) >= 4 ? Number(due.slice(0, 4)) : Number(due.slice(0, 4)) - 1;
+        const start = named ? Number(named) : fromDate;
+        const names = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+        return `${names[month]}-${String((month > 8 ? start + 1 : start) % 100).padStart(2, "0")}`;
+      },
+      pick: (p, line) => {
+        const row = p.col && line !== undefined ? data.rows[line] : undefined;
+        const held = p.box ? data.header?.[p.box] : row?.[p.col!];
+        const on = String(held ?? "") === p.value;
+        const can = editable && (!!p.box || !!row);
+        const set = () => {
+          const next = on ? (p.off ?? "") : p.value;
+          if (p.box) onBox(p.box, next);
+          else if (row) onCell(row.id, p.col!, next);
+        };
+        return (
+          <span
+            className={`pt-pick pt-pick-${p.mark}${on ? " is-on" : ""}`}
+            role={can ? "button" : undefined}
+            tabIndex={can ? 0 : undefined}
+            aria-pressed={can ? on : undefined}
+            aria-label={p.word || p.value}
+            data-pick={p.value}
+            onClick={can ? set : undefined}
+            onKeyDown={
+              can
+                ? (e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      set();
+                    }
+                  }
+                : undefined
+            }
+          >
+            {p.word}
+          </span>
+        );
+      },
       addRow: editable
         ? (table: string, after: string) => {
             const t = listTables(layout).find((x) => x.first === table);
@@ -948,9 +1017,19 @@ export function LogSheetRecordView({
         data-paper-left={ptPrint.left}
         data-sheet={doc.id}
         data-paper-form="table"
+        data-paper-own={pt.ownWords ? "" : undefined}
         data-fill-a4={ptFill ? "" : undefined}
         style={{ "--pt-left": String(ptPrint.left), "--pt-top": String(ptPrint.top), ...(ptFill ? { "--pt-print-scale": String(ptPrint.scale) } : {}) } as React.CSSProperties}
       >
+        {/* The working tool that fetches a person: on the screen, above the paper, never part of it (REQUIREMENTS §275). */}
+        {pt.ownWords && fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
+        {plainTwin &&
+          createPortal(
+            <div className="paper-plain-twin" {...{ [PLAIN_TWIN_ATTR]: record.id }}>
+              <LogSheetRecordView doc={doc} record={record} editable={editable} onChange={onChange} lists={lists} header={header} asPlainTwin />
+            </div>,
+            document.body
+          )}
         <div className="paper-head">
           <div className="doc-header doc-header-paper">
             <div className="doc-letterhead">
@@ -1043,7 +1122,7 @@ export function LogSheetRecordView({
             ))}
           </datalist>
         )}
-        <div className="text-xs text-faint mt-3 no-print">Specimen source: {layout.specimenSource}</div>
+        {!pt.ownWords && <div className="text-xs text-faint mt-3 no-print">Specimen source: {layout.specimenSource}</div>}
       </div>
     );
   }

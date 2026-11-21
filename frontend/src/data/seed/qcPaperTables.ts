@@ -27,6 +27,22 @@
 //          u underlined; caps in capitals (the company's name where the paper prints it so); rs the lines a cell spans
 //          down, the cells it covers on the lines under it standing as skip (F/QC/17's Status and Calibration performed by).
 
+import { HR_PAPER_TABLES } from "./hrPaperTables";
+
+/** One answer of a choice the paper sets across its cells or inside a cell: a scale's 7 to 1, Yes / No, a tick box (§275). */
+export interface PaperPick {
+  /** The record's box, or the column of its grid (on the cell's line, or on `ln`). */
+  box?: string;
+  col?: string;
+  ln?: number;
+  /** What the record holds for this answer, and what it holds when the answer is taken off (nothing, or "No" for a tick box). */
+  value: string;
+  off?: string;
+  /** The paper's own words for it; a tick box has none. */
+  word: string;
+  mark: "ring" | "tick";
+}
+
 export interface PaperCell {
   w: number;
   t?: string;
@@ -90,6 +106,16 @@ export interface PaperCell {
   /** The words of a row of a table of boxes the record keeps its own rows in (engine/boxRows.ts, §246): the row's box, its table. */
   rowKey?: string;
   rowTable?: string;
+  /** The record's boxes standing inside the paper's words (mm from the cell's corner): "Name: ____" (§275). */
+  over?: { box?: string; col?: string; ln?: number; x: number; y: number; w: number; h: number; lines?: true; pick?: PaperPick[] }[];
+  /** The answers this cell holds (§275). */
+  pick?: PaperPick[];
+  /** The place of the same words on the paper's first page (a heading printed again on each page): typed over once (§275). */
+  pl?: string;
+  /** The cell's shade where its line holds something in it, and only then (F/HR/03's points). */
+  bgIf?: string;
+  /** A figure the paper works out from a column of the line: that column's figure times this (F/HR/21's two working columns). */
+  calc?: { of: string; times: number };
 }
 
 export interface PaperRow {
@@ -99,6 +125,8 @@ export interface PaperRow {
   head?: true;
   /** The record's line this row draws, from 0 (F/QC/17's six readings; a register's lines are numbered so by themselves). */
   line?: number;
+  /** The paper starts a new page at this row (§275). */
+  pb?: true;
 }
 
 export interface PaperTable {
@@ -139,6 +167,15 @@ export interface PaperTable {
   };
   /** The table's outer edges ruled heavier than its cells' (F/QC/16's frame). */
   frame?: "heavy";
+  /**
+   * Every printed word of the paper is the record's to type over where it stands (the HR formats, REQUIREMENTS §275): the
+   * company, the title, the format's number, each label and heading, kept on the record by their place on the paper.
+   */
+  ownWords?: true;
+  /** The paper runs over several pages: fitted to the page's width alone, never squeezed onto one (§275). */
+  flows?: true;
+  /** Boxes and columns of the format the paper prints no place for (its own words stand there): kept on the record, not drawn. */
+  offPaper?: string[];
 }
 
 const W = 193.4;
@@ -1515,22 +1552,28 @@ export function paperTableFits(
   layout: { headerFields: { key: string }[]; footerFields?: { key: string }[]; columns: { key: string }[]; rowMode?: { kind: string; rows?: unknown[] } }
 ): boolean {
   const cells = [...form.head, ...form.body, ...form.foot].flatMap((r) => r.cells).concat(form.lines?.cells ?? []);
-  const boxes = new Set(cells.flatMap((c) => (c.box ? [c.box] : c.sentence ? [c.sentence.box] : [])));
-  const cols = new Set(cells.flatMap((c) => (c.col ? [c.col] : [])));
+  const inner = (c: PaperCell): { box?: string; col?: string; ln?: number }[] => [...(c.over ?? []), ...(c.over ?? []).flatMap((o) => o.pick ?? []), ...(c.pick ?? [])];
+  const boxes = new Set(cells.flatMap((c) => [...(c.box ? [c.box] : c.sentence ? [c.sentence.box] : []), ...inner(c).flatMap((o) => (o.box ? [o.box] : []))]));
+  const cols = new Set(cells.flatMap((c) => [...(c.col ? [c.col] : []), ...inner(c).flatMap((o) => (o.col ? [o.col] : []))]));
   const fields = [...layout.headerFields, ...(layout.footerFields ?? [])].map((f) => f.key);
   const columns = layout.columns.map((c) => c.key);
-  const lns = cells.flatMap((c) => (c.col && c.ln !== undefined ? [c.ln] : []));
+  const lns = cells.flatMap((c) => [...(c.col && c.ln !== undefined ? [c.ln] : []), ...inner(c).flatMap((o) => (o.col && o.ln !== undefined ? [o.ln] : []))]);
   if (!form.lines && lns.length > 0 && layout.rowMode?.kind === "fixedRows" && layout.rowMode.rows?.length !== Math.max(...lns) + 1) return false;
+  // (what the paper has no place for is the format's still, and is not looked for on the paper: PaperTable.offPaper)
+  const off = new Set("offPaper" in form ? (form.offPaper ?? []) : []);
+  const wanted = fields.filter((k) => !off.has(k));
+  const wantedCols = columns.filter((k) => !off.has(k));
+  if (off.size > 0 || form.ownWords) return wanted.every((k) => boxes.has(k)) && wantedCols.every((k) => cols.has(k)) && [...boxes].every((k) => fields.includes(k)) && [...cols].every((k) => columns.includes(k));
   return fields.length === boxes.size && fields.every((k) => boxes.has(k)) && columns.length === cols.size && columns.every((k) => cols.has(k));
 }
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
-export const paperTableFor = (documentId: string): PaperTable | undefined => QC_PAPER_TABLES[documentId];
+export const paperTableFor = (documentId: string): PaperTable | undefined => QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId];
 
 /** The paper as the page draws it now, with the record's own rows (§246): what the download is cut from. */
 const SHOWN_PAPER = new Map<string, PaperTable>();
 export const setShownPaperTable = (documentId: string, form: PaperTable): void => void SHOWN_PAPER.set(documentId, form);
-export const shownPaperTable = (documentId: string): PaperTable | undefined => SHOWN_PAPER.get(documentId) ?? QC_PAPER_TABLES[documentId];
+export const shownPaperTable = (documentId: string): PaperTable | undefined => SHOWN_PAPER.get(documentId) ?? paperTableFor(documentId);
 
 /** The margin a paper printed to fill the A4 page keeps at its left and top (PaperTable.fillA4): every document's 12 mm. */
 export const A4_MARGIN_MM = 12;
@@ -1546,6 +1589,6 @@ export function paperTablePrint(form: PaperTable, fill: boolean = !!form.fillA4)
   const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
   const width = form.head[0]?.cells.reduce((a, c) => a + c.w, 0) ?? pageW;
   const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
-  const scale = Math.floor(Math.min((pageW - 2 * A4_MARGIN_MM) / width, (pageH - A4_MARGIN_MM - 4) / height) * 1000) / 1000;
+  const scale = Math.floor(Math.min((pageW - 2 * A4_MARGIN_MM) / width, form.flows ? Infinity : (pageH - A4_MARGIN_MM - 4) / height) * 1000) / 1000;
   return { left: A4_MARGIN_MM, top: A4_MARGIN_MM, scale };
 }

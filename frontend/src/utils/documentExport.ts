@@ -7,6 +7,7 @@ import { PRINT_PREPARE_EVENT, paperOf } from "./print";
 import { paperMarginsOf, paperPageOf, paperSheetBlocks, paperWordBlocks } from "./paperSheets";
 import { paperTableSheet, paperTableWord, paperTableWordMargins } from "./paperTableExport";
 import { originalFileBytes, originalFileOf } from "./originalFill";
+import { withPlainTwins } from "./paperTwin";
 import {
   BIND_APPEND_ATTR,
   BIND_ATTR,
@@ -1255,7 +1256,12 @@ async function everyLineDrawn(): Promise<void> {
  * Downloads the documents on screen as the document's own kind of file.
  * Resolves to the kind made ("pdf" means nothing was: print it). Never rejects.
  */
-export async function downloadDocumentFile(doc: DocumentDefinition, roots: Element[], dateISO?: string, as?: "xlsx" | "docx"): Promise<DocumentFileKind> {
+export function downloadDocumentFile(doc: DocumentDefinition, roots: Element[], dateISO?: string, as?: "xlsx" | "docx") {
+  // An HR paper is read from its record's plain sheet, drawn off the screen for the moment (REQUIREMENTS §275).
+  return withPlainTwins(roots, (read) => downloadRead(doc, read, dateISO, as));
+}
+
+async function downloadRead(doc: DocumentDefinition, roots: Element[], dateISO?: string, as?: "xlsx" | "docx"): Promise<DocumentFileKind> {
   // A paper downloaded as it is drawn (utils/paperTableExport.ts) may be asked for as either kind: Excel or Word.
   const kind = as && documentFileKinds(doc).includes(as) ? as : documentFileKind(doc);
   if (kind === "pdf" || roots.length === 0) return "pdf";

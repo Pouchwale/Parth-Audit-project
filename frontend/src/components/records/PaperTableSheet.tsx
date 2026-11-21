@@ -1,6 +1,6 @@
 import React from "react";
 import type { LogHeaderField, LogSheetLayout } from "../../types";
-import { lineRow, type PaperCell, type PaperRow, type PaperTable } from "../../data/seed/qcPaperTables";
+import { lineRow, type PaperCell, type PaperPick, type PaperRow, type PaperTable } from "../../data/seed/qcPaperTables";
 import { HeaderWord, type AnyHeaderField, type HeaderEdit } from "../documents/DocumentHeader";
 
 // A QC PAPER DRAWN AS ITS OWN WORD TABLE (REQUIREMENTS §117, round 2 of 20-Oct-2026): the rows of
@@ -63,6 +63,16 @@ export interface PaperTableParts {
   /** A row put in under this one, and this one taken off (§246); undefined where the record cannot be written. */
   addRow?: (table: string, after: string) => void;
   removeRow?: (table: string, key: string) => void;
+  /** A paper whose every printed word is the record's (PaperTable.ownWords): the words at this place, typed over where they stand. */
+  printed?: (place: string, words: string, drawn: React.ReactNode) => React.ReactNode;
+  /** One answer of a choice set across the paper's cells (§275), on the record's line where it is a grid's. */
+  pick?: (pick: PaperPick, line: number | undefined) => React.ReactNode;
+  /** Whether the line holds something in this column (PaperCell.bgIf). */
+  holds?: (line: number, col: string) => boolean;
+  /** A figure worked out from a column of the line, as the paper works it out (PaperCell.calc). */
+  calc?: (line: number, of: string, times: number) => string;
+  /** The month of the sheet's financial year a heading names: "Apr-26" (0 is April). */
+  fyMonth?: (month: number) => string;
 }
 
 /** Words whose lines the paper underlines (PaperCell.ul, F-QC-14's specifications): each such line in its own underlined span. */
@@ -153,6 +163,11 @@ function withHeaderWords(text: string, words: PaperTableParts["words"], edit: He
   });
 }
 
+/** "{fy:3}" in a heading: that month of the sheet's own financial year (F/HR/09's Apr-26 ... Mar-27). */
+function fyWords(text: string, parts: PaperTableParts): string {
+  return parts.fyMonth && text.includes("{fy:") ? text.replace(/\{fy:(\d+)\}/g, (_, m: string) => parts.fyMonth!(Number(m))) : text;
+}
+
 /** A row as drawn: a register's line knows its number, and whether it is one of the paper's blank lines (pad). */
 type DrawnRow = PaperRow & { line?: number; pad?: boolean };
 
@@ -206,6 +221,10 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
             "--pt-y": String(Math.max(0, (c.y ?? 0) - letterTop(font, pt, lh))),
           };
           if (c.bg) style["--pt-bg"] = c.bg;
+          if (c.bgIf && c.col && c.ln !== undefined && parts.holds?.(c.ln, c.col)) {
+            classes.push("pt-bg");
+            style["--pt-bg"] = c.bgIf;
+          }
           if (c.ww) style["--pt-ww"] = String(c.ww);
           let body: React.ReactNode = null;
           if (c.at) {
@@ -214,16 +233,17 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               const lf = line.f ?? form.font;
               const lpt = line.pt ?? pt;
               const llh = lpt * MM;
-              const text = line.t.startsWith("@") ? referenced(layout, line.t) : line.t;
+              const text = fyWords(line.t.startsWith("@") ? referenced(layout, line.t) : line.t, parts);
               // Its left: its own x, or the cell's where the cell is not centred (a centred line stands in the middle).
               const lx = line.x ?? (c.a === "c" ? 0 : (c.x ?? 0));
+              const place = `${c.pl ?? `${row0 + ri}:${ci}`}:${li}`;
               return (
                 <span
                   key={li}
                   className={`pt-at${line.b ? " pt-b" : ""}${line.f ? ` pt-f-${line.f}` : ""}${line.wrap ? " pt-wrap" : ""}${line.caps ? " pt-caps" : ""}`}
                   style={{ "--pt-size": String(lpt), "--pt-lh": String(llh), "--pt-ay": String(line.y - letterTop(lf, lpt, llh)), "--pt-ax": String(lx) } as React.CSSProperties}
                 >
-                  {withHeaderWords(text, words, edit, !!line.caps)}
+                  {parts.printed ? parts.printed(place, text, text) : withHeaderWords(text, words, edit, !!line.caps)}
                 </span>
               );
             });
@@ -240,9 +260,25 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               parts.box(c.box, c)
             );
           }
-          else if (c.num && row.line !== undefined) {
+          else if (c.calc) {
+            const line = c.ln ?? row.line;
+            body = <span className="pt-words">{line !== undefined ? parts.calc?.(line, c.calc.of, c.calc.times) : ""}</span>;
+          } else if (c.pick) {
+            const line = c.ln ?? row.line;
+            body = (
+              <span className="pt-words pt-picks">
+                {c.pick.map((p, pi) => (
+                  <React.Fragment key={pi}>
+                    {pi > 0 && " / "}
+                    {parts.pick?.(p, p.ln ?? line)}
+                  </React.Fragment>
+                ))}
+              </span>
+            );
+          } else if (c.num && row.line !== undefined) {
             const n = c.ln ?? row.line;
-            body = c.num === "all" || n < (parts.rowCount ?? 0) ? <span className="pt-words">{n + 1}</span> : null;
+            const shownNo = c.num === "all" || n < (parts.rowCount ?? 0);
+            body = !shownNo ? null : parts.printed && !row.pad ? parts.printed(`num:${n}`, String(n + 1), n + 1) : <span className="pt-words">{n + 1}</span>;
           } else if (c.col !== undefined && c.ln !== undefined) body = row.line !== undefined && c.ln >= (parts.rowCount ?? 0) ? null : parts.gridCell(c.ln, c.col, c);
           else if (c.sentence) {
             const s = c.sentence;
@@ -257,7 +293,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
             body = (
               <span className={`pt-words pt-sentence${s.pw ? " pt-sw" : ""}`} style={{ "--pt-bw": String(s.boxWidth) } as React.CSSProperties}>
                 {head ? `${head}\n` : null}
-                {before}
+                {before && parts.printed ? parts.printed(`${c.pl ?? `${row0 + ri}:${ci}`}:b`, before, before) : before}
                 {before && !before.endsWith("\n") ? gap : null}
                 {s.copy ? (
                   // the box's words written again where the paper prints them again (the box is where it prints them first)
@@ -275,11 +311,11 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
                   </>
                 )}
                 {after && !after.startsWith("\n") ? gap : null}
-                {after}
+                {after && parts.printed ? parts.printed(`${c.pl ?? `${row0 + ri}:${ci}`}:a`, after, after) : after}
               </span>
             );
           } else {
-            const text = c.lab !== undefined ? referenced(layout, c.lab) : (c.t ?? "");
+            const text = fyWords(c.lab !== undefined ? referenced(layout, c.lab) : (c.t ?? ""), parts);
             if (c.bullets !== undefined) {
               body = (
                 <span className="pt-words">
@@ -294,6 +330,9 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
                 </span>
               );
             } else if (c.rowKey && c.rowTable && parts.rowWords) body = <span className="pt-words">{parts.rowWords(c.rowTable, c.rowKey, text)}</span>;
+            // (a cell the paper leaves blank can be written in too: every part of the paper is the record's)
+            // (not the hair-thin strips between a paper's rules: nothing is ever written there)
+            else if (parts.printed && !c.img && !row.pad && (text || (c.w >= 4 && row.h >= 2.5))) body = parts.printed(c.pl ?? `${row0 + ri}:${ci}`, text, text ? withUnderlinedLines(text, c.ul) : null);
             else if (text) body = <span className="pt-words">{withUnderlinedLines(text, c.ul, (line) => withHeaderWords(line, words, edit, !!c.caps))}</span>;
           }
           cells.push(
@@ -342,13 +381,33 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
                 />
               )}
               {body}
+              {/* The record's boxes standing inside the paper's words (§275). */}
+              {c.over?.map((o, oi) => {
+                const ln = o.ln ?? c.ln ?? row.line;
+                if (o.col && (ln === undefined || ln >= (parts.rowCount ?? 0))) return null;
+                const at = { "--ox": String(o.x), "--oy": String(o.y), "--ow": String(o.w), "--oh": String(o.h), "--pt-x": "0", "--pt-y": "0" } as React.CSSProperties;
+                return (
+                  <span key={oi} className="pt-over" style={at}>
+                    {o.pick
+                      ? o.pick.map((p, pi) => (
+                          <React.Fragment key={pi}>
+                            {pi > 0 && " / "}
+                            {parts.pick?.(p, p.ln ?? ln)}
+                          </React.Fragment>
+                        ))
+                      : o.box
+                        ? parts.box(o.box, { ...c, lines: o.lines })
+                        : parts.gridCell(ln!, o.col!, { ...c, lines: o.lines })}
+                  </span>
+                );
+              })}
             </td>
           );
         });
         return (
           <tr
             key={ri}
-            className={row.pad ? "pt-pad" : undefined}
+            className={[row.pad ? "pt-pad" : "", row.pb ? "pt-pb" : ""].filter(Boolean).join(" ") || undefined}
             aria-hidden={row.pad ? true : undefined}
             data-pt-heading={row.head ? "" : undefined}
             data-pt-line={row.line !== undefined ? row.line + 1 : undefined}
@@ -378,10 +437,11 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
         }))
       : [];
   const rows: DrawnRow[] = [...form[part], ...lines];
-  const row0 = part === "head" ? 0 : part === "body" ? form.head.length : form.head.length + form.body.length + (form.lines ? Math.max(form.lines.count, held) : 0);
+  // (a paper whose words are kept by their place numbers its foot the same however many lines the record holds)
+  const row0 = part === "head" ? 0 : part === "body" ? form.head.length : form.head.length + form.body.length + (form.lines ? (form.ownWords ? form.lines.count : Math.max(form.lines.count, held)) : 0);
   if (rows.length === 0) return null;
   const widths = edges.slice(1).map((e, i) => Math.round((e - edges[i]) * 100) / 100);
-  return (
+  const table = (drawn: DrawnRow[], first: number, heading?: DrawnRow[]) => (
     <table
       className={`pt-table pt-${part} pt-font-${form.font}${form.frame ? " pt-frame" : ""}`}
       style={{ "--pt-w": String(edges[edges.length - 1]) } as React.CSSProperties}
@@ -393,9 +453,28 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
           <col key={i} style={{ "--pt-col": String(w) } as React.CSSProperties} />
         ))}
       </colgroup>
+      {heading && (
+        <thead>
+          <PaperRows rows={heading} edges={edges} parts={parts} row0={first - heading.length} />
+        </thead>
+      )}
       <tbody>
-        <PaperRows rows={rows} edges={edges} parts={parts} row0={row0} />
+        <PaperRows rows={drawn} edges={edges} parts={parts} row0={first} />
       </tbody>
     </table>
   );
+  // A register running past its page: the paper's column headings at the top of every page (§275).
+  if (part === "body" && form.ownWords && form.lines) {
+    const from = form.body.findIndex((r) => r.head);
+    if (from >= 0) {
+      const to = form.body.length - 1 - [...form.body].reverse().findIndex((r) => r.head);
+      return (
+        <>
+          {from > 0 && table(form.body.slice(0, from), row0)}
+          {table([...form.body.slice(to + 1), ...lines], row0 + to + 1, form.body.slice(from, to + 1))}
+        </>
+      );
+    }
+  }
+  return table(rows, row0);
 }

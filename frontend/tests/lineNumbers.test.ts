@@ -166,7 +166,7 @@ async function sheet(documentId: string, rows: LogSheetData["rows"]): Promise<st
     updatedAt: "2026-09-01T03:00:00.000Z",
   } as unknown as RecordInstance<LogSheetData>;
   return renderToStaticMarkup(
-    h(auth.AuthProvider, null, h(store.AppStoreProvider, null, h(router.RouterProvider, null, h(view.LogSheetRecordView, { doc, record, editable: false, onChange: () => undefined }))))
+    h(auth.AuthProvider, null, h(store.AppStoreProvider, null, h(router.RouterProvider, null, h(view.LogSheetRecordView, { doc, record, asPlainTwin: true, editable: false, onChange: () => undefined }))))
   );
 }
 

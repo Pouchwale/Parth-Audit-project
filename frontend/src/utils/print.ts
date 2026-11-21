@@ -689,6 +689,8 @@ function stretchToPages(docs: Element[]): void {
     withPrintRules(() => {
       for (const d of docs) {
         const doc = d as HTMLElement;
+        // The HR papers keep their own lines' heights, as the company's file draws them (REQUIREMENTS §275).
+        if (doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]")) continue;
         // A QC, HR or Purchase paper drawn short of its page (REQUIREMENTS §228; the owner, 16-Nov-2026: "in A4 size page it
         // is not covering fully ... check for other document also of QC, HR and Purchase modules"): its lines drawn taller,
         // to STRETCH_TO at most - no ruled lines added, nothing spread, never onto a second page.

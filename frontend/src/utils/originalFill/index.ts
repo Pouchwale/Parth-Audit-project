@@ -13,9 +13,12 @@ import type { RoundTripEnvelope } from "../../engine/roundTrip/exportMap";
 import { readUploadedFile } from "../../engine/roundTrip/readFile";
 import { originalFileOf, type OriginalFile } from "../../data/seed/originalFiles";
 import { COMPANY } from "../../data/seed/masterData";
+import { paperTableFor } from "../../data/seed/qcPaperTables";
 import { fillXlsx } from "./xlsxFill";
 import { fillDocx } from "./docxFill";
 import { hintsOf } from "./hints";
+import { paperWordEdits, withPaperWords } from "./paperWords";
+import { recordRepository } from "../../data/repositories/recordRepository";
 import type { FillReport } from "./types";
 
 export type { FillReport } from "./types";
@@ -97,7 +100,7 @@ export async function fillTemplate(
   documentId: string
 ): Promise<{ bytes: Uint8Array<ArrayBuffer>; report: FillReport }> {
   const hints = hintsOf(documentId);
-  const out = file.kind === "xlsx" ? await fillXlsx(buffer, blocks, { envelope, sheet: file.sheet, hints, company: COMPANY.name }) : await fillDocx(buffer, blocks, { envelope, hints, company: COMPANY.name });
+  const out = file.kind === "xlsx" ? await fillXlsx(buffer, blocks, { envelope, sheet: file.sheet, hints, company: paperTableFor(documentId)?.ownWords ? "$&" : COMPANY.name }) : await fillDocx(buffer, blocks, { envelope, hints, company: paperTableFor(documentId)?.ownWords ? "$&" : COMPANY.name });
   // A value DCRS shows that found no place on the paper: the file would not be the record, so it is not handed over (the
   // generic download is made instead) - unless the paper is known not to print it (hints.ts notOnPaper).
   if (out.report.notPlaced.length) throw new Error(`no place on the paper for: ${out.report.notPlaced.slice(0, 5).join(", ")}`);
@@ -120,5 +123,8 @@ export async function originalFileBytes(documentId: string, blocks: ExportBlock[
   if (!file || HAND_DRAWN.has(documentId) || NOT_YET.has(documentId)) return null;
   const buffer = await template(file);
   const { bytes, report } = await fillTemplate(file, buffer, blocks, envelope, documentId);
-  return { bytes, kind: file.kind, report };
+  // The printed words this record typed over on its HR paper (REQUIREMENTS §275).
+  const record = envelope?.recordIds[0] ? recordRepository.getById(envelope.recordIds[0]) : undefined;
+  const headings = (record?.data as { words?: { headings?: Record<string, string> } } | undefined)?.words?.headings;
+  return { bytes: await withPaperWords(bytes, paperWordEdits(paperTableFor(documentId), headings)), kind: file.kind, report };
 }
