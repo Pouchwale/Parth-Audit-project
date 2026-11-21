@@ -903,6 +903,15 @@ const PRINT_CENTER = "print-center";
 const PRINT_ONE_LINE = "print-one-line";
 const HR_SHEET = '[data-sheet^="hr-"]';
 const CENTRED_VALUE = /^(?:[-+]?\d+(?:[.,:/-]\d+)*\s*%?|[A-Z]{1,3}|Yes|No|N\/?A|Nil|-|—|✓|✔|✗)$/i;
+/**
+ * What a grid cell shows: its words, or - on a record still being written, where the value stands in a box - the box's value
+ * (§270: F/HR/04's YES / NO is a choice box; read by its words alone, it held nothing, and its "No" printed at the left).
+ */
+function cellValueText(td: HTMLElement): string {
+  const box = td.querySelector("select, input:not([type='hidden']):not([type='checkbox']):not([type='radio']), textarea") as HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement | null;
+  if (!box || box.classList.contains(PRINTED_AS_TEXT)) return (td.innerText ?? "").trim();
+  return (box instanceof HTMLSelectElement ? (box.value ? (box.selectedOptions[0]?.text ?? box.value) : "") : box.value).trim();
+}
 function tidyHrCells(docs: Element[]): Element[] {
   const touched: Element[] = [];
   for (const doc of docs) {
@@ -914,7 +923,7 @@ function tidyHrCells(docs: Element[]): Element[] {
         const columns = new Map<number, { td: HTMLElement; text: string }[]>();
         for (const tr of Array.from(table.querySelectorAll(":scope > tbody > tr"))) {
           Array.from(tr.children).forEach((td, i) => {
-            const text = ((td as HTMLElement).innerText ?? "").trim();
+            const text = cellValueText(td as HTMLElement);
             if (!text) return;
             if (!columns.has(i)) columns.set(i, []);
             columns.get(i)!.push({ td: td as HTMLElement, text });
@@ -1095,6 +1104,8 @@ function scope(targets: Element[]): void {
   stretchToPages(docs);
   // ...and an HR table's lines all as tall as its tallest, where that keeps the sheet to its pages (§266).
   active.evened = evenHrLines(docs);
+  // Last of all, nothing wider than the page: a grid still running past its printable width is drawn smaller (§269).
+  keepWithinPage(docs);
 }
 
 // A SHEET WHOSE EVERY VALUE PRINTS AS WORDS (EVERY_VALUE_AS_WORDS: Purchase Master Data, F/PUR/03; REQUIREMENTS §189) IS
@@ -1119,6 +1130,38 @@ function refitToWords(docs: Element[]): void {
           if (width <= 0) break;
           const z = Math.min(1, Math.max(SMALLEST_SCALE, Math.floor(((zoom * room) / width) * 1000) / 1000));
           if (Math.abs(z - zoom) < 0.004) break;
+          doc.style.zoom = String(z);
+          doc.style.setProperty("--print-zoom", String(z));
+          if (!fitted.includes(doc)) fitted.push(doc);
+        }
+      }
+    });
+  } finally {
+    document.documentElement.classList.remove("print-measure");
+  }
+}
+
+// NOTHING CUT AT THE PAGE'S EDGE (REQUIREMENTS §269; the owner, 20-Nov-2026, with F/HR/01's printout running off the right of
+// the A4: "when user taking print on A4 size paper then it should print properly only no line should cut ... when there are
+// many columns in document"). Last of all - every box written as it prints, every line drawn - each sheet's grids are
+// measured as narrow as they can be laid out, with the print's own rules on; one still wider than the page's printable
+// width (A4 less its 12 mm each side, 2% kept) is drawn smaller until it fits. Never larger: a sheet that fits is left as the
+// steps above drew it. A framed paper, one standing at its own margin and one printed as pages of its own fit themselves.
+function keepWithinPage(docs: Element[]): void {
+  const landscape = document.documentElement.dataset.printPage === "landscape";
+  const room = PRINTABLE_WIDTH[landscape ? "landscape" : "portrait"] * 0.98;
+  document.documentElement.classList.add("print-measure");
+  try {
+    withPrintRules(() => {
+      for (const d of docs) {
+        const doc = d as HTMLElement;
+        if (ownLeftMargin(doc) !== null || isFramed(doc) || pageSections(doc).length > 1) continue;
+        for (let round = 0; round < 3; round++) {
+          const zoom = Number(doc.style.zoom) || 1;
+          const width = narrowestWidth(doc);
+          if (width <= room + 1) break;
+          const z = Math.max(SMALLEST_SCALE, Math.floor(((zoom * room) / width) * 1000) / 1000);
+          if (z >= zoom) break;
           doc.style.zoom = String(z);
           doc.style.setProperty("--print-zoom", String(z));
           if (!fitted.includes(doc)) fitted.push(doc);

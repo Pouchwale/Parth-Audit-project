@@ -13,7 +13,9 @@ const floorOf = (el: HTMLElement): number => (el.closest(PAPER) ? MIN : OTHER_MI
 // (a locked standard - F/QC/12's weights since 30-Oct-2026 - is words in a span, not a box: fitted all the same, or "100.000gm" is cut to "100.000gr")
 // (and a date read only - a sheet waiting for its day, a signed one: written as its date box would be, on one line at the
 // box's size, the owner, 15-Nov-2026, REQUIREMENTS §217: F/QC/12's December sheet showed "13-12-" over "2026" in big type)
-const BOXES = "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='file']), select, .print-box-text, .cell-text[data-locked], .cell-text.cell-date";
+// (and every value of a paper's copy read only - a signed F/QC/12 printed "199.982gr" and two weights run together, REQUIREMENTS
+// §269: a paper's cell keeps the paper's width, so its words are written smaller to fit it)
+const BOXES = "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='file']), select, .print-box-text, .cell-text[data-locked], .cell-text.cell-date, :is([data-paper-form], [data-paper-left]) .cell-text";
 const isDateWords = (el: HTMLElement): boolean => el.classList.contains("cell-date") && el.classList.contains("cell-text");
 
 const base = new WeakMap<HTMLElement, number>();

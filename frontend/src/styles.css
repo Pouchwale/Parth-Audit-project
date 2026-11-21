@@ -4447,6 +4447,11 @@ html.print-measure [data-page-part="purchase-master-print"] table td :is(.input,
   .paper-sheet[data-sheet] table.log-sheet.log-sheet tbody td.print-one-line.print-one-line, .paper-sheet[data-sheet] table.log-sheet.log-sheet tbody td.print-one-line.print-one-line :is(.cell-text, .print-box-text, span, div, *) { white-space: nowrap; }
 }
 
+/* ...and while print MEASURES the page (html.print-measure, utils/print.ts fitToPage), the same one line: the sheet is fitted
+   to the width it prints at. Measured without it, a register of short values (F/HR/01) was fitted as if they wrapped and
+   printed wider than the page, its right-hand columns cut (REQUIREMENTS §269). */
+html.print-measure .paper-sheet[data-sheet] table.log-sheet.log-sheet tbody td.print-one-line.print-one-line, html.print-measure .paper-sheet[data-sheet] table.log-sheet.log-sheet tbody td.print-one-line.print-one-line :is(.cell-text, .print-box-text, span, div, *) { white-space: nowrap; }
+
 /* EVERY VALUE IN THE MIDDLE OF ITS BOX (the owner, 20-Nov-2026, REQUIREMENTS §262: "when user take print then it values should
    print in middle and don't go left or right"): F/PRD/10, 22, 23 and 24 (LogSheetLayout.onePage, data-one-page) - each
    line's values, and the headings over them, centred in their columns on the screen, in the print and in the Word file. */
