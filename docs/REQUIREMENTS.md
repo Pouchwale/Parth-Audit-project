@@ -12838,3 +12838,19 @@ module which i will supply to you". Compared with what DCRS held, value by value
   printed with 10 mm margins, Word with its 26 lines once each, Excel; the 38 sheets stored In Progress with 2,012 lines, one
   opened and printed; the directors' numbers); the test account check (§206) on F/HR/02 and F/HR/12. The plant's database was
   backed up first (backend/data/backups/dcrs-2026-11-21-1202.dump).
+
+## §274 Portrait or landscape by what prints largest; a wide grid's cells closed up (21-Nov-2026)
+
+The owner, 21-Nov-2026: "you can do some format in Landscape and some in portrait so when taking physical print on A4 size
+paper because some print are very small".
+
+- Measured on all 138 formats on the local copy, each printed to an A4 PDF both ways and its letter size read with PyMuPDF: 14
+  printed under 7 pt. Those are held by their width and nearly all are already landscape; turned upright they print smaller.
+- For the print only (utils/print.ts measureAndFit, styles.css .print-close): a sheet with no paper of its own, below 85% of its
+  size, is laid out again with the empty space inside its cells closed up (2 px a side), and the page turns if it then fits
+  upright. Kept only where the letters come out larger and each sheet still fits its page; a register running over several
+  pages is left as it was, since larger could cost it a page. The Word and Excel files do not change.
+- Measured after, all 138: no format smaller, none on more pages. F/PRD/22 landscape 6.6 pt -> portrait 8.5; F/PRD/24 landscape
+  6.6 -> portrait 9.1; F/SYS/05 6.6 -> 7.3; F/SYS/16 5.9 -> 6.5; F/MNT/06 7.6 -> 8.2; F/HR/21 7.4 -> 7.8; F/HR/09 5.0 -> 5.1.
+- Still under 7 pt, their columns too many for the page's width: F/HR/03 (4.8), F/HR/08, F/HR/09, F/PUR/03, F/QC/08, F/MNT/03,
+  F/HR/15, F/SYS/16, F/PRD/10, F/HR/16, F/QC/13.

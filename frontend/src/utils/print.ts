@@ -583,7 +583,43 @@ function fillMeasured(doc: HTMLElement, zoom: number, width: number, across: num
   return zoom;
 }
 
+// A WIDE GRID'S CELLS CLOSED UP, SO ITS LETTERS PRINT LARGER (the owner, 21-Nov-2026, REQUIREMENTS §274: "do some format in
+// Landscape and some in portrait ... because some print are very small"). Measured on all 138 formats, each printed both
+// ways: a sheet that prints small is held by its width, and most are already on the wider page. What a sheet below
+// CLOSE_BELOW of its size gives up is the empty space inside its cells: it is laid out again with them closed up, and the page
+// turns if it now fits upright (F/PRD/22 and 24). Kept only where the letters come out larger and each sheet still fits its page.
+const PRINT_CLOSE = "print-close";
+const CLOSE_BELOW = 0.85;
+let closedUp: HTMLElement[] = [];
+
+/** The tallest sheet, in pages, as laid out now (a month on two pages is two sheets here, one a page: splitPages). */
+function tallestSheet(docs: HTMLElement[]): number {
+  const landscape = document.documentElement.dataset.printPage === "landscape";
+  return withPrintRules(() => Math.max(...docs.map((d) => pagesAt(d, Number(d.style.zoom) || 1, landscape))));
+}
+
 function measureAndFit(docs: Element[]): void {
+  layOutOnPage(docs);
+  const all = docs as HTMLElement[];
+  const small = all.filter((d) => paperOf(d) === null && ownLeftMargin(d) === null && !isFramed(d) && d.querySelector("table.log-sheet") !== null && (Number(d.style.zoom) || 1) < CLOSE_BELOW);
+  if (small.length === 0) return;
+  const zoomBefore = small.map((d) => Number(d.style.zoom) || 1);
+  // Only sheets of one page each: a longer one repeats its heading on every page, and larger could run to a page more.
+  if (tallestSheet(all) > 1) return;
+  const closeUp = (on: boolean) => {
+    unfit();
+    if (on) {
+      for (const d of small) d.classList.add(PRINT_CLOSE);
+      closedUp = small;
+    }
+    layOutOnPage(docs);
+  };
+  closeUp(true);
+  const larger = small.every((d, i) => (Number(d.style.zoom) || 1) >= zoomBefore[i]) && small.some((d, i) => (Number(d.style.zoom) || 1) > zoomBefore[i]);
+  if (!larger || tallestSheet(all) > 1) closeUp(false);
+}
+
+function layOutOnPage(docs: Element[]): void {
   const needs = docs.map((d) => ({ doc: d as HTMLElement, width: narrowestWidth(d) }));
   const widest = Math.max(0, ...needs.map((n) => n.width));
   // The paper's own orientation (§117); without one, the width decides (§54).
@@ -844,6 +880,8 @@ function letBlocksBreak(doc: HTMLElement, zoom: number, landscape: boolean): voi
 }
 
 function unfit(): void {
+  for (const doc of closedUp) doc.classList.remove(PRINT_CLOSE);
+  closedUp = [];
   for (const doc of fitted) {
     doc.style.zoom = "";
     doc.style.removeProperty("--print-zoom");

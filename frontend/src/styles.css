@@ -4440,6 +4440,12 @@ html.print-measure [data-page-part="purchase-master-print"] table td :is(.input,
 .drive-search { display: inline-flex; align-items: center; gap: 6px; }
 
 
+/* A WIDE GRID'S CELLS CLOSED UP, SO ITS LETTERS PRINT LARGER (§274; utils/print.ts measureAndFit): in the print, and while it is measured. */
+@media print {
+  [data-print-doc].print-close .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet :is(th, td) { padding-left: 2px; padding-right: 2px; }
+}
+html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-form]) .doc-table table.log-sheet :is(th, td) { padding-left: 2px; padding-right: 2px; }
+
 /* THE HR MODULE'S LINES EVEN, ITS NUMBERS IN THE MIDDLE (§266; utils/print.ts tidyHrCells): in the print only. */
 @media print {
   .paper-sheet table.log-sheet td.print-center, .paper-sheet table.log-sheet td.print-center :is(.print-box-text, .cell-text, input, select) { text-align: center; text-align-last: center; }
