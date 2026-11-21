@@ -52,7 +52,7 @@ export const CALIBRATION_GEOMETRY: Record<string, CalibrationGeometry> = {
   },
   // "F-QC-12 Weighing balance internal calibration record (2).pdf" (A4 landscape).
   "qc-weight-scale-calibration": {
-    left: 5.71,
+    left: 5.1, // (in the middle of the page, clear of the edge a printer cannot print on either side: §277)
     top: 8.55,
     width: 286.86,
     gridWidth: 285.63,
