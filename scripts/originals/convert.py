@@ -92,6 +92,7 @@ PICKS = [
     D("hr-competence", ["A:HR/F-HR-01_Personal Competence record (R-2023).xls"]),
     D("hr-skill-matrix", ["A:HR/F-HR-03_Operator skill matr3ix-2023.xls"], sheet="29.09.2026", note="The workbook keeps two status sheets (01.02.2025 and 29.09.2026) of the same matrix; the latest is taken."),
     D("hr-job-responsibility", ["A:HR/F-HR-07_Job responsibility & authorities (SC)..doc", "A:HR/F-HR-07_Job responsibility & authorities sales corrdinator.doc"], note="Two position sheets of the same format; the first is taken."),
+    D("hr-competence-criteria", ["A:HR/F-HR-02_Personnel competence criteria (SS) - D.doc"]),
     D("hr-mobile-authorization", ["A:HR/F-HR-13_Authorization for Mobile inside Plant.doc"]),
     D("hr-training-needs", ["A:HR/F-HR-08_Employee wise Training need identification Record(2024-25).xls"], sheet="Formate 01 (2)"),
     D("hr-training-calendar", ["A:HR/F-HR-09_Training Calender(2026-27).xlsx"]),

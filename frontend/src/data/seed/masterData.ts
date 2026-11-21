@@ -321,6 +321,7 @@ export const SEED_MASTER_DATA: MasterData = {
     // Coordinator keeps, and the PSTL's own — mobile authorisation, the HARA
     // team's GMP inspection and the product safety culture survey.
     "hr-competence": "HR & Admin",
+    "hr-competence-criteria": "HR & Admin",
     "hr-skill-matrix": "HR & Admin",
     "hr-pre-employment-health": "HR & Admin",
     "hr-induction-staff": "HR & Admin",

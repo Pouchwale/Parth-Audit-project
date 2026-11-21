@@ -88,7 +88,7 @@ export function DayViewPage({ date }: { date?: string }) {
               )}
               {records.map((r) => {
                 const doc = docs.find((dd) => dd.id === r.documentId);
-                const isOverdue = overdue && ["Scheduled", "Due", "In Progress"].includes(r.status);
+                const isOverdue = overdue && !r.filedFromPaper && ["Scheduled", "Due", "In Progress"].includes(r.status);
                 const route = routeForRecord(doc, r.id);
                 const prepared = !!r.prepared && ["Scheduled", "Due", "In Progress"].includes(r.status);
                 return (

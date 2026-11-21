@@ -101,6 +101,7 @@ import { refusalSentence, type AccessLanguage } from "../engine/accessWords";
 import { planNotifications, type PlanPerson, type PlanRecord } from "../engine/notificationPlan";
 import { plannedTrainings, TRAINING_CALENDAR_ID } from "../engine/trainingCalendar";
 import { fillTrainingCalendarDue } from "../engine/trainingCalendarFill";
+import { hrFeedbackSheetsOnFile } from "../data/hrSuppliedOnFile";
 import { ensureRecordIndex, readSearchQuery, searchRecords } from "../engine/recordSearch";
 import { recordSearchText, snippetFor } from "../engine/recordText";
 import { analyticIntent, buildEvidence, topicOfDocument, type AnalyticIntent } from "../engine/historyDigest";
@@ -1130,6 +1131,8 @@ function prepareOp(): Outcome {
   for (const r of prepared) touched.add(r.id);
   // F/HR/09's plan dates, and each actual date on its day (REQUIREMENTS §271): written on the sheet, whatever its status.
   for (const r of fillTrainingCalendarDue(today)) touched.add(r.id);
+  // The 38 filled F/HR/12 sheets the owner supplied (REQUIREMENTS §273), stored whether or not anybody opens the app.
+  for (const r of hrFeedbackSheetsOnFile()) touched.add(r.id);
   const byModule = new Map<string, number>();
   for (const r of prepared) {
     const code = departmentOfDocument(r.documentId, documentRepository.getByIdUnscoped(r.documentId)?.formatNo) ?? "";

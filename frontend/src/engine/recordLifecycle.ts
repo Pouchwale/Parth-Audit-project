@@ -303,6 +303,7 @@ export function cancelCorrection<T>(record: RecordInstance<T>, actorName: string
 
 export function isOverdue(record: RecordInstance, todayISO: string): boolean {
   return (
+    !record.filedFromPaper &&
     record.dueDate < todayISO &&
     ["Scheduled", "Due", "In Progress"].includes(record.status)
   );

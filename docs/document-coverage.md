@@ -318,7 +318,7 @@ What the status words mean:
 | Sr. | Format number | Name on the list | Status |
 |---|---|---|---|
 | 111 | F-HR-01 | Personal competence record | **In DCRS** as `hr-competence` "Personal Competence Records (Staff Members Only)", Rev 00 |
-| 112 | F-HR-02 | Personnel competence criteria | **Not supplied yet.** |
+| 112 | F-HR-02 | Personnel competence criteria | **In DCRS** as `hr-competence-criteria`, Rev 00, updated as on 01.09.2026 (supplied 21-Nov-2026, REQUIREMENTS §273) |
 | 113 | F-HR-03 | Operator skill matrix | **In DCRS** as `hr-skill-matrix` "Skill Matrix - Operator", Rev 00 |
 | 114 | F-HR-04 | Pre Employment Health declaration. | **In DCRS** as `hr-pre-employment-health` "Pre-Employment Medical Health Declaration", Rev 00 |
 | 115 | F-HR-05 | Induction Training programme-Staff | **In DCRS** as `hr-induction-staff` "Induction Training Record — New Employee (Staff: Supervisor & Above)", Rev 00 |

@@ -31,6 +31,8 @@ export interface LatenessRecord {
   documentId: string;
   dueDate: string;
   status: string;
+  /** Entered from an earlier paper (RecordInstance.filedFromPaper): nobody's lateness. */
+  filedFromPaper?: boolean;
   data?: unknown;
   submittedAt?: string | null;
   submittedBy?: string | null;
@@ -177,7 +179,7 @@ function firstSubmission(record: LatenessRecord, calendar: PlantCalendar): { on:
 
 /** How one record went, with the days late and who handed it in. */
 export function judge(record: LatenessRecord, doc: LatenessDocument, today: string, calendar: PlantCalendar = ALWAYS_OPEN): Judgement {
-  if (doc.isReferenceOnly) return NOT_COUNTED;
+  if (doc.isReferenceOnly || record.filedFromPaper) return NOT_COUNTED;
   // The daily register's H O L I D A Y line is a closed day written down, not work.
   if (doc.kind === "daily-pest-monitoring" && (record.data as { isHoliday?: unknown } | null | undefined)?.isHoliday) return NOT_COUNTED;
   const asRequired = doc.schedule.type === "as-required";

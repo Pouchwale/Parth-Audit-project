@@ -27,6 +27,7 @@ export interface HrRecordPage {
 // In the order of the groups, and within a group in the order of the library.
 export const HR_RECORD_PAGES: HrRecordPage[] = [
   { docId: "hr-competence", slug: "competence", section: "Personnel & Competence", navKey: "nav.hrCompetence", labelKey: "reviewedOn", labelTitle: "Reviewed as on" },
+  { docId: "hr-competence-criteria", slug: "competence-criteria", section: "Personnel & Competence", navKey: "nav.hrCompetenceCriteria", labelKey: "updatedAsOn", labelTitle: "Updated as on" },
   { docId: "hr-skill-matrix", slug: "skill-matrix", section: "Personnel & Competence", navKey: "nav.hrSkillMatrix", labelKey: "statusAsOn", labelTitle: "Status as on" },
   { docId: "hr-job-responsibility", slug: "job-responsibility", section: "Personnel & Competence", navKey: "nav.hrJobResponsibility", labelKey: "position", labelTitle: "Position" },
   { docId: "hr-mobile-authorization", slug: "mobile-authorization", section: "Personnel & Competence", navKey: "nav.hrMobile" },

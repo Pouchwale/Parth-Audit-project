@@ -28,6 +28,7 @@ import { scaleWeeksOnOpenSheets } from "./scaleWeeksMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
 import { sharpDailyFrequencyLifted, sharpDaySheetsFolded, sharpTypedLinesRestored } from "./sharpMonthMigration";
 import { fillTrainingCalendarDue } from "../engine/trainingCalendarFill";
+import { hrDirectorNumbers, hrFeedbackSheetsOnFile } from "./hrSuppliedOnFile";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -141,4 +142,7 @@ export function bootstrap(): void {
   sharpDaySheetsFolded();
   // F/HR/09's plan dates, and each actual date on its day (REQUIREMENTS §271).
   fillTrainingCalendarDue();
+  // What the owner supplied on 21-Nov-2026: the 38 filled F/HR/12 sheets, and the three directors' GP3 Nos. (REQUIREMENTS §273).
+  hrFeedbackSheetsOnFile();
+  hrDirectorNumbers();
 }

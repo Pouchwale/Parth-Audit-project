@@ -49,6 +49,7 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
 
   // --- Human Resources: the department's own formats (F-HR-01 … F-HR-22 on the master list; REQUIREMENTS §46)
   "hr-competence": "HR", // F/HR/01
+  "hr-competence-criteria": "HR", // F/HR/02
   "hr-skill-matrix": "HR", // F/HR/03
   "hr-pre-employment-health": "HR", // F/HR/04
   "hr-induction-staff": "HR", // F/HR/05

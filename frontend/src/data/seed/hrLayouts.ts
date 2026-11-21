@@ -1,5 +1,6 @@
 import type { LogColumn, LogSheetLayout } from "../../types";
 import { CALENDAR_MONTH_NAMES } from "../../engine/trainingCalendar";
+import { HR_COMPETENCE_CRITERIA } from "./hrCompetenceCriteria";
 
 // THE HUMAN RESOURCES FORMATS — sixteen of the company's F/HR/… formats,
 // supplied as PDFs on 14-Sep-2026, and the two cleaning records supplied on
@@ -64,6 +65,31 @@ const competence: LogSheetLayout = {
     { name: "Swarup Rajgor", department: "Sales & Marketing", designation: "Director", eduRequired: "Graduate", eduAvailable: "B.A.", expRequired: "5 Years", expAvailable: "5 Years", gapJustification: "NA", dateOfJoining: "04.03.2017", dateOfLeaving: "" },
   ],
   specimenSource: "F-HR-01_Personal Competence record (R-2023).pdf — F/HR/01 (00/01.12.2021), reviewed as on 01.10.2026",
+};
+
+// ---------------------------------------------------------------------------
+// F/HR/02 — PERSONNEL COMPETENCE CRITERIA: QUALIFICATION & EXPERIENCE (REQUIREMENTS §273)
+
+/** The company's sheet as its lines: a cell's separate requirements one to a line. */
+export const competenceCriteriaRows = (): Record<string, string>[] =>
+  HR_COMPETENCE_CRITERIA.map(([parameter, qualification, experience, requirements]) => ({ parameter, qualification, experience, requirements: requirements.join("\n") }));
+
+const competenceCriteria: LogSheetLayout = {
+  documentId: "hr-competence-criteria",
+  instructions: [],
+  // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
+  screenNotes: ["PERSONNEL COMPETENCE CRITERIA — one line per designation: the qualification, the experience and the specific requirements it needs. Every box can be changed; a new revision starts from these lines."],
+  paper: "portrait",
+  headerFields: [{ key: "updatedAsOn", label: "Updated as on", type: "text", width: 160, autoFill: { carryForward: true } }],
+  columns: [
+    fixedText("parameter", "Designation", 170),
+    text("qualification", "Qualification", 150),
+    text("experience", "Experience", 80),
+    { key: "requirements", label: "Specific requirements", type: "text", width: 390, multiline: true },
+  ],
+  rowMode: { kind: "fixedRows", openLines: true, rows: competenceCriteriaRows() as { parameter: string }[] },
+  specimenHeader: { updatedAsOn: "01.09.2026" },
+  specimenSource: "F-HR-02_Personnel competence criteria (SS) - D.doc — F/HR/02 (00/01.12.2021), updated as on 01.09.2026",
 };
 
 // ---------------------------------------------------------------------------
@@ -1033,6 +1059,7 @@ export const HR_LAYOUTS: Record<string, LogSheetLayout> = {
   "hr-induction-staff": inductionStaff,
   "hr-induction-operators": inductionOperators,
   "hr-job-responsibility": jobResponsibility,
+  "hr-competence-criteria": competenceCriteria,
   "hr-training-needs": trainingNeeds,
   "hr-training-calendar": trainingCalendar,
   "hr-training-imparted": trainingImparted,

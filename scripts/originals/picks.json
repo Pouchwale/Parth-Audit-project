@@ -2612,5 +2612,18 @@
   ],
   "pages": 1,
   "bytes": 19519
+ },
+ {
+  "id": "hr-competence-criteria",
+  "kind": "docx",
+  "file": "originals/hr-competence-criteria.docx",
+  "original": "HR/F-HR-02_Personnel competence criteria (SS) - D.doc",
+  "originalRoot": "Audit document",
+  "sheet": null,
+  "notes": "",
+  "scores": [],
+  "pages": null,
+  "bytes": 29731,
+  "copiedToSourceDocuments": "F-HR-02_Personnel competence criteria (SS) - D.doc"
  }
 ]

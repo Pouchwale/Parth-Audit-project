@@ -250,12 +250,12 @@ with sync_playwright() as p:
     # 1. The Document Library: one hundred and thirty-six documents, twenty-eight of them HR's
     # ==================================================================
     open_library(page)
-    check("The Document Library lists one hundred and thirty-seven documents (F/HR/10 since s168)", library_rows(page).count() == 137, library_rows(page).count())
+    check("The Document Library lists one hundred and thirty-eight documents (F/HR/10 since s168, F/HR/02 since s273)", library_rows(page).count() == 137, library_rows(page).count())
     group = hr_group(page)
     check("The Human Resources module is one group of the library", group.count() == 1)
     check("...and there is no Pest Control module any more", page.locator(".app-content h3:has-text('Pest Control')").count() == 0)
     hr_rows = group.locator("tbody tr:not(.doc-section-row)")
-    check("The Human Resources group holds twenty-nine documents - the nineteen HR formats (F/HR/10 since s168) and the pest control file's ten", hr_rows.count() == 29, hr_rows.count())
+    check("The Human Resources group holds thirty documents - the twenty HR formats (F/HR/10 since s168, F/HR/02 since s273) and the pest control file's ten", hr_rows.count() == 29, hr_rows.count())
     # textContent, not innerText: the section rows are set in small capitals by CSS.
     sections = group.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved by section: HR's five groups, then the pest control file's four", sections == SECTIONS, sections)
@@ -292,7 +292,7 @@ with sync_playwright() as p:
     # §69) names the modules a person's waiting work falls in, and that is not the
     # library saying it.
     check("...showing the twenty-nine documents and nothing of the other modules",
-          library_rows(page).count() == 29 and "Lamination — Quality Control" not in page.locator(".doc-table").first.inner_text(),
+          library_rows(page).count() == 30 and "Lamination — Quality Control" not in page.locator(".doc-table").first.inner_text(),
           library_rows(page).count())
 
     # ==================================================================
@@ -468,7 +468,7 @@ with sync_playwright() as p:
     # ==================================================================
     open_library(page)
     all_ids = page.eval_on_selector_all("[data-action='open-document']", "els => els.map((e) => e.getAttribute('data-document'))")
-    check("Every document in the library has Open Document", len(all_ids) == 137, len(all_ids))
+    check("Every document in the library has Open Document", len(all_ids) == 138, len(all_ids))
     landed = {}
     for doc_id in all_ids:
         open_library(page)

@@ -230,6 +230,7 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/hr/master-data", labelKey: "nav.hrMasterData", icon: FiDatabase },
     { headingKey: "nav.hrPersonnel" },
     { to: "/hr/competence", labelKey: "nav.hrCompetence", icon: FiBriefcase },
+    { to: "/hr/competence-criteria", labelKey: "nav.hrCompetenceCriteria", icon: FiBriefcase },
     { to: "/hr/skill-matrix", labelKey: "nav.hrSkillMatrix", icon: FiTarget },
     { to: "/hr/job-responsibility", labelKey: "nav.hrJobResponsibility", icon: FiClipboard },
     { to: "/hr/mobile-authorization", labelKey: "nav.hrMobile", icon: FiSmartphone },

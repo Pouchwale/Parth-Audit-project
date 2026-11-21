@@ -12810,3 +12810,31 @@ planned date and user get notification and on that day of actual date should com
 5. A month already gone with no date gets none (CCP monitoring, August 2026): nothing is written in afterwards.
 6. Proved: frontend/tests/trainingCalendar.test.ts (§272); tests/verify_with_test_account.py and tests/check_all_documents.py
    on F/HR/09 on the local copy (Word, Excel, A4 print).
+
+## §273 The HR files the owner supplied: F/HR/02, the 38 filled F/HR/12 sheets, the directors' GP3 Nos. (21-Nov-2026)
+
+The owner, 21-Nov-2026, with hrauditdoc.zip (19 files) and rehrauditdoc.zip (20 workbooks): "now i want that in system for HR
+module which i will supply to you". Compared with what DCRS held, value by value: F/HR/01, 03, 04, 05, 06, 07, 08, 09, 11, 12
+(blank format), 13, 14, 19, 20, 21 and 22 are the same. Three things were new, and the owner chose all three.
+
+- **F/HR/02 Personnel Competence Criteria - Qualification & Experience** (updated as on 01.09.2026), the one HR format not
+  supplied before: a document of the HR module (/hr/competence-criteria, Personnel & Competence), As Required, Vinay Bhojak and
+  Sandeep Parekh answering for it as the owner's table has F/HR/1 to 14. Its 26 designations are on file, in the paper's words
+  and order, a cell's separate requirements on their own lines (data/seed/hrCompetenceCriteria.ts); a new revision starts from
+  them and every box can be changed. It prints on A4 portrait and downloads as the company's Word file.
+- **The 38 filled F/HR/12 sheets of 2024 to 2026** (2,012 lines; data/seed/hrFeedbackOnFile.ts, data/hrSuppliedOnFile.ts): each a
+  Live record of its training's date. On the owner's word they are **In Progress with Evaluated By empty**, for HR to check and
+  sign: only one paper has anything in that box, and that is a date. A sheet is added once and one somebody deletes is not put
+  back. The names are as the papers write them; 24 lines the papers rate with no name keep their rating and an empty name.
+- Two corrections on the owner's word, each named in that sheet's history: Housekeeping's date 34/09/2024 entered as 24-09-2024;
+  Gitaben Nyayi's rating 32 on Testing Method & Calibration (09-01-2026) entered as 3.
+- A sheet entered from an earlier paper (RecordInstance.filedFromPaper) is never shown Overdue and never counts on anyone's
+  score, even when HR signs it years after its date: its date is the day of the training, not a deadline (engine/latenessCore.ts
+  judge, recordLifecycle.ts isOverdue, RecordPage, DayViewPage).
+- **The three directors' GP3 Nos.** from Master Data.xlsx: Shail Patel DIR.001, Swarup Rajgor DIR.002, Virat Rajgor DIR.003,
+  written only where the box is empty and the number free. Nothing else on the sheet was changed. The file also writes GP3.1250
+  for two people (Kirti Purushottam Jahagirdar, Parth Dipakkumar Fulvani): left for HR to settle.
+- Proved: frontend/tests/hrSuppliedOnFile.test.ts, accessRules.test.ts; on the local copy in the browser (F/HR/02 on screen,
+  printed with 10 mm margins, Word with its 26 lines once each, Excel; the 38 sheets stored In Progress with 2,012 lines, one
+  opened and printed; the directors' numbers); the test account check (§206) on F/HR/02 and F/HR/12. The plant's database was
+  backed up first (backend/data/backups/dcrs-2026-11-21-1202.dump).

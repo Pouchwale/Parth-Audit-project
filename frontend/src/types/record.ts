@@ -8,6 +8,11 @@ export interface RecordInstance<TData = unknown> {
   documentId: string;
   periodKey: string; // e.g. "2026-09-04" (daily) or "2026-09-04-F" (fortnightly due date) or "2026-Q3"
   dueDate: string; // ISO date the record is due
+  /**
+   * Entered from the company's own filled paper of an earlier date (F/HR/12's sheets of 2024-26, REQUIREMENTS §273): its date
+   * is the day the training was held, not a deadline, so it is never shown Overdue and never counts on anyone's score.
+   */
+  filedFromPaper?: boolean;
   status: RecordStatus;
   isDemo: boolean;
   responsibleUser?: string;

@@ -565,7 +565,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
   actions.current = { submit: handleSubmit, verify: handleVerify, cancelCorrection: handleCancelCorrection, remove: handleDelete };
 
-  const overdue = record.dueDate < todayISO() && ["Scheduled", "Due", "In Progress"].includes(record.status);
+  const overdue = !record.filedFromPaper && record.dueDate < todayISO() && ["Scheduled", "Due", "In Progress"].includes(record.status);
 
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>

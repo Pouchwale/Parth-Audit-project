@@ -26,6 +26,7 @@ export const ORIGINAL_FILES: Record<string, OriginalFile> = {
   "disp-vehicle-cleaning": { file: "originals/disp-vehicle-cleaning.docx", kind: "docx", original: "source-documents/F-DISP-04_Vehicle cleaning Protocol & Record_01.11.2023.docx" },
   "fly-catcher": { file: "originals/fly-catcher.docx", kind: "docx", original: "source-documents/F-HR-18_Fly Catcher Inspection & Cleaning Record.doc", notes: "The company's own Word original, sent 16-Oct-2026." },
   "gap-inspection": { file: "originals/gap-inspection.xlsx", kind: "xlsx", original: "source-documents/GAP Analysis Report -Pest control Dec 2023.xlsx", sheet: "Sheet1" },
+  "hr-competence-criteria": { file: "originals/hr-competence-criteria.docx", kind: "docx", original: "Audit document/HR/F-HR-02_Personnel competence criteria (SS) - D.doc" },
   "hr-competence": { file: "originals/hr-competence.xlsx", kind: "xlsx", original: "Audit document/HR/F-HR-01_Personal Competence record (R-2023).xls", sheet: "Formate 01  (2)" },
   "hr-daily-cleaning": { file: "originals/hr-daily-cleaning.xlsx", kind: "xlsx", original: "source-documents/F-HR-15_Daily Cleaning record_01_15.12.2024.xls", sheet: "Cleaning" },
   "hr-gmp-checklist": { file: "originals/hr-gmp-checklist.docx", kind: "docx", original: "Audit document/HR/F-HR-19_Monthly GMP Inspection record.doc" },

@@ -377,6 +377,23 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     schedule: { type: "yearly", month: 9, dayOfMonth: 1 },
   },
   {
+    id: "hr-competence-criteria",
+    kind: "log-sheet",
+    name: "Personnel Competence Criteria — Qualification & Experience",
+    formatNo: "F/HR/02",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Personnel & Competence",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "What each designation of the plant requires: its qualification, its experience and its specific requirements, one line per designation. The company's sheet updated as on 01.09.2026 (26 designations) is on file; a new revision starts from it.",
+    sourceFile: "F-HR-02_Personnel competence criteria (SS) - D.doc",
+    schedule: { type: "as-required" },
+  },
+  {
     id: "hr-skill-matrix",
     kind: "log-sheet",
     name: "Skill Matrix - Operator",

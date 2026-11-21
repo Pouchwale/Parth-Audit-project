@@ -1,5 +1,5 @@
 import type { LogSheetData, LogSheetRow, RecordInstance } from "../../types";
-import { CALENDAR_TOPICS, calendarRow, PSC_ATTRIBUTES } from "./hrLayouts";
+import { CALENDAR_TOPICS, calendarRow, competenceCriteriaRows, PSC_ATTRIBUTES } from "./hrLayouts";
 
 // THE HUMAN RESOURCES REGISTERS AS SUPPLIED — the filled registers among the
 // sixteen F/HR/… PDFs of 14-Sep-2026, transcribed line for line and seeded as
@@ -531,8 +531,19 @@ export const SEED_HR_PSC_ANALYSIS: RecordInstance<LogSheetData> = seeded("hr-psc
   ),
 });
 
+// ---------------------------------------------------------------------------
+// F/HR/02 — PERSONNEL COMPETENCE CRITERIA, the company's sheet updated as on 01.09.2026, supplied 21-Nov-2026 (REQUIREMENTS §273)
+
+const CRITERIA_ON_FILE = "HR & Admin (company's sheet as supplied, 21-Nov-2026)";
+export const SEED_HR_COMPETENCE_CRITERIA: RecordInstance<LogSheetData> = {
+  ...seeded("hr-competence-criteria-2026-09-01", "hr-competence-criteria", "2026-09-01", { header: { updatedAsOn: "01.09.2026" }, rows: rowsOf("hrcc", competenceCriteriaRows()) }),
+  submittedBy: CRITERIA_ON_FILE,
+  verifiedBy: CRITERIA_ON_FILE,
+};
+
 export const SEED_HR_RECORDS: RecordInstance[] = [
   SEED_HR_COMPETENCE as RecordInstance,
+  SEED_HR_COMPETENCE_CRITERIA as RecordInstance,
   SEED_HR_SKILL_MATRIX as RecordInstance,
   SEED_HR_INDUCTION_OPERATORS as RecordInstance,
   ...(SEED_HR_JOB_RESPONSIBILITIES as RecordInstance[]),

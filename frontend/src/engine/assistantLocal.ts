@@ -602,6 +602,7 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
     ],
   },
   // Human Resources — the sixteen F/HR formats (REQUIREMENTS §46).
+  { id: "hr-competence-criteria", aliases: ["personnel competence criteria", "competence criteria", "qualification and experience", "qualification & experience", "f/hr/02"] },
   { id: "hr-competence", aliases: ["personal competence", "competence record", "competence records", "competence chart", "f/hr/01", "competence"] },
   { id: "hr-skill-matrix", aliases: ["skill matrix", "operator skill", "skill status", "f/hr/03"] },
   { id: "hr-pre-employment-health", aliases: ["pre-employment", "pre employment", "medical health declaration", "medical declaration", "f/hr/04"] },

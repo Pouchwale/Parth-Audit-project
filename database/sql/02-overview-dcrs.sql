@@ -157,7 +157,7 @@ AS $$
     WHEN document_id IN (
       'daily-pest-monitoring', 'fly-catcher', 'service-report-rodent', 'service-report-general',
       'service-report-fly', 'pest-responsibilities', 'training-record', 'chemical-master',
-      'gurudev-insecticide-licence', 'hr-competence', 'hr-skill-matrix', 'hr-pre-employment-health',
+      'gurudev-insecticide-licence', 'hr-competence', 'hr-competence-criteria', 'hr-skill-matrix', 'hr-pre-employment-health',
       'hr-induction-staff', 'hr-induction-operators', 'hr-job-responsibility', 'hr-training-needs',
       'hr-training-calendar', 'hr-training-effectiveness', 'hr-training-feedback', 'hr-mobile-authorization',
       'hr-visitor-health', 'hr-gmp-checklist', 'hr-psc-survey', 'hr-psc-survey-analysis', 'hr-hygiene-report',

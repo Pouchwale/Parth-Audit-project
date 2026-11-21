@@ -67,6 +67,7 @@ const EXPECTED: Record<string, string> = {
   "disp-container-stuffing":          "Kapila",  // F/DISP/02
   "disp-vehicle-cleaning":            "Kapila",  // F/DISP/04
   "hr-competence":                    "Vinay+Sandeep",  // F/HR/01
+  "hr-competence-criteria":           "Vinay+Sandeep",  // F/HR/02
   "hr-training-effectiveness":        "Vinay+Sandeep",  // F/HR/11
   "hr-training-feedback":             "Vinay+Sandeep",  // F/HR/12
   "hr-mobile-authorization":          "Vinay+Sandeep",  // F/HR/13
