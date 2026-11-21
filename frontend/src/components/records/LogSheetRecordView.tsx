@@ -1056,10 +1056,10 @@ export function LogSheetRecordView({
         data-sheet={doc.id}
         data-paper-form="table"
         data-paper-own={pt.ownWords ? "" : undefined}
+        data-fill-a4={ptFill ? "" : undefined}
         data-paper-paged={pt.ownWords && (pageBreaks?.length || [...pt.head, ...pt.body].some((r) => r.pb)) ? "" : undefined}
         data-paper-pages={pageBreaks?.length ? pageBreaks.length + 1 : undefined}
         data-paper-flows={pt.flows || pt.lines ? "" : undefined}
-        data-fill-a4={ptFill ? "" : undefined}
         style={{ "--pt-left": String(ptPrint.left), "--pt-top": String(ptPrint.top), ...(ptFill ? { "--pt-print-scale": String(ptPrint.scale) } : {}) } as React.CSSProperties}
       >
         {/* The working tool that fetches a person: on the screen, above the paper, never part of it (REQUIREMENTS §275). */}

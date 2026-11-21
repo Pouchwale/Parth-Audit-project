@@ -13,11 +13,11 @@ import { unzip, zipStored } from "../src/utils/xlsx";
 
 const ROOT = process.env.DCRS_REPO_ROOT ?? process.cwd();
 const src = (f: string) => readFileSync(path.join(ROOT, "frontend", "src", ...f.split("/")), "utf8").replace(/\r\n/g, "\n");
-const SUPPLIED = ["hr-competence", "hr-competence-criteria", "hr-skill-matrix", "hr-pre-employment-health", "hr-induction-staff", "hr-induction-operators", "hr-job-responsibility", "hr-training-needs", "hr-training-calendar", "hr-training-effectiveness", "hr-training-feedback", "hr-mobile-authorization", "hr-visitor-health", "hr-gmp-checklist", "hr-psc-survey", "hr-psc-survey-analysis", "hr-hygiene-report"];
+const SUPPLIED = ["hr-competence", "hr-competence-criteria", "hr-skill-matrix", "hr-pre-employment-health", "hr-induction-staff", "hr-induction-operators", "hr-job-responsibility", "hr-training-needs", "hr-training-calendar", "hr-training-imparted", "hr-training-effectiveness", "hr-training-feedback", "hr-mobile-authorization", "hr-visitor-health", "hr-gmp-checklist", "hr-psc-survey", "hr-psc-survey-analysis", "hr-hygiene-report"];
 const cellsOf = (f: PaperTable): PaperCell[] => [...f.head, ...f.body, ...f.foot].flatMap((r) => r.cells).concat(f.lines?.cells ?? []);
 const allWords = (f: PaperTable): string => cellsOf(f).map((c) => [c.t ?? "", ...(c.at ?? []).map((a) => a.t), c.sentence?.before ?? "", c.sentence?.after ?? ""].join(" ")).join(" ");
 
-test("all seventeen formats the owner supplied are drawn as their papers, and every box of the record has its place", () => {
+test("all eighteen formats the owner supplied are drawn as their papers, and every box of the record has its place", () => {
   assert.deepEqual(Object.keys(HR_PAPER_TABLES).sort(), [...SUPPLIED].sort());
   for (const id of SUPPLIED) {
     const form = paperTableFor(id)!;
