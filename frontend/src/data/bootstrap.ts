@@ -28,7 +28,7 @@ import { scaleWeeksOnOpenSheets } from "./scaleWeeksMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
 import { sharpDailyFrequencyLifted, sharpDaySheetsFolded, sharpTypedLinesRestored } from "./sharpMonthMigration";
 import { fillTrainingCalendarDue } from "../engine/trainingCalendarFill";
-import { hrCriteriaBullets, hrDirectorNumbers, hrFeedbackSheetsOnFile } from "./hrSuppliedOnFile";
+import { hrCriteriaBullets, hrDirectorDetails, hrDirectorNumbers, hrFeedbackSheetsOnFile, hrImpartedSheetsOnFile } from "./hrSuppliedOnFile";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -144,7 +144,9 @@ export function bootstrap(): void {
   fillTrainingCalendarDue();
   // What the owner supplied on 21-Nov-2026: the 38 filled F/HR/12 sheets, and the three directors' GP3 Nos. (REQUIREMENTS §273).
   hrFeedbackSheetsOnFile();
+  hrImpartedSheetsOnFile();
   hrDirectorNumbers();
+  hrDirectorDetails();
   // F/HR/02's bullets, as its paper prints them (REQUIREMENTS §275).
   hrCriteriaBullets();
 }

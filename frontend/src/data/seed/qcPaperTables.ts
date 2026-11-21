@@ -127,6 +127,8 @@ export interface PaperRow {
   line?: number;
   /** The paper starts a new page at this row (§275). */
   pb?: true;
+  /** The row a person may add under or take off, by its key (engine/paperRows.ts, §276). */
+  rowKey?: string;
 }
 
 export interface PaperTable {
@@ -1590,8 +1592,9 @@ export const A4_MARGIN_MM = 12;
 export function paperFrameStyle(form: PaperTable, print: { left: number; top: number; scale: number }): Record<string, string> {
   const f = form.pageFrame!;
   const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
-  const x = Math.max(3, print.left - f.l * print.scale);
-  const y = Math.max(3, print.top - f.t * print.scale);
+  // (never inside the outer edge of the sheet, which a printer cannot print)
+  const x = Math.max(6, print.left - f.l * print.scale);
+  const y = Math.max(6, print.top - f.t * print.scale);
   const drawn = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
   return {
     "--pf-l": String(f.l),
@@ -1600,8 +1603,8 @@ export function paperFrameStyle(form: PaperTable, print: { left: number; top: nu
     "--pf-sh": String(Math.max(f.h, drawn + 2 * f.t)),
     "--pf-px": String(x),
     "--pf-py": String(y),
-    "--pf-pw": String(Math.min(f.w * print.scale, pageW - x - 3)),
-    "--pf-ph": String(Math.min(f.h * print.scale, pageH - y - 3)),
+    "--pf-pw": String(Math.min(f.w * print.scale, pageW - 2 * x)),
+    "--pf-ph": String(Math.min(f.h * print.scale, pageH - y - 6)),
   };
 }
 
@@ -1610,6 +1613,14 @@ export function paperTablePrint(form: PaperTable, fill: boolean = !!form.fillA4)
   const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
   const width = form.head[0]?.cells.reduce((a, c) => a + c.w, 0) ?? pageW;
   const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
-  const scale = Math.floor(Math.min((pageW - 2 * A4_MARGIN_MM) / width, form.flows ? Infinity : (pageH - A4_MARGIN_MM - 4) / height) * 1000) / 1000;
+  // An HR paper keeps its margin at the foot of every page too (§277), and each page it draws for itself fits inside them.
+  const room = form.ownWords ? pageH - A4_MARGIN_MM - 10 : pageH - A4_MARGIN_MM - 6;
+  const pages: number[] = [0];
+  for (const r of [...form.head, ...form.body, ...form.foot]) {
+    if (r.pb) pages.push(0);
+    pages[pages.length - 1] += r.h;
+  }
+  const tallest = form.ownWords && form.flows && pages.length > 1 ? room / Math.max(...pages) : Infinity;
+  const scale = Math.floor(Math.min((pageW - 2 * A4_MARGIN_MM) / width, form.flows ? tallest : room / height) * 1000) / 1000;
   return { left: A4_MARGIN_MM, top: A4_MARGIN_MM, scale };
 }

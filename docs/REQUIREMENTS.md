@@ -12871,3 +12871,28 @@ it is no new things and make sure each and every part is editable."
   (utils/paperTableExport.ts paperDrawnBlocks), so it carries the same cells and every word the record holds.
 - Print: each paper fills A4 at its own size; a paper that draws its own pages does not have its head repeated over them.
 - Pages of his PDFs that are filled example sheets (F/HR/06, F/HR/07, F/HR/13) are not format pages: the record's lines stand there.
+
+## §276 F/HR/10 as the company's own paper, its 17 filled sheets, and any row added or deleted (21-Nov-2026)
+
+The owner, 21-Nov-2026, with hrauditdoc and rehrauditdoc again: "make sure that user can add delete any row or add row and make
+sure check master list in that zip file inside".
+
+- The six zips are three sets. New in them: 17 filled F-HR-10 Training Imparted Records, so F/HR/10 is now drawn from the company's
+  own paper, with its Method of Evaluation and Evaluation date. Its older boxes (method of training, venue, department) stay
+  off the sheet because the training chain reads them.
+- The 17 sheets are on file as written, In Progress for HR to sign, never Overdue (data/hrSuppliedOnFile.ts). Sheet 15 has no names.
+- Any row of an HR paper can be added under or deleted, on that record only (engine/paperRows.ts, data.words.paperRows): + and x
+  beside the row, never printed. A row added copies the row's cells, its Yes/No included; the Sr. No. counts on. A deleted row stops
+  counting and "Bring back deleted rows" restores it with what it held. A record whose rows differ downloads as drawn from its paper.
+- Master Data.xlsx against HR Master Data: same 445 people, plus the three directors, whose empty boxes now take its details. Not
+  changed, for HR to decide: GP3.1250 is written for two people (DCRS keeps Parth Fulvani as GP3.1251); 12 dates of birth differ
+  (GP3.1509, 1510, 1518, 1520, 1521, 1522, 1524, 1527 day and month swapped; 1530 another date; 1532, 1533, 1534 blank in the file).
+
+## §277 No line at the paper's edge, on any page of any document (21-Nov-2026)
+
+The owner, 21-Nov-2026, with F/HR/01's second page, its heading cut at the top: "no header or footer or left, right or anything".
+
+- The page has no margin (§59) and a printer cannot print the sheet's outer 4 to 5 mm. A paper that runs on now keeps its margin in
+  the head and foot repeated on every page. A foot too tall for the browser to repeat prints once, with a short foot for the margin.
+- A long HR register draws each page's head itself for the print, so each says its own "Page No.: 2 Of 4" (utils/paperPages.ts).
+- Measured: every document printed to A4 from its fullest record, every page, the nearest word or rule to each edge.

@@ -54,6 +54,10 @@ export interface PaperTableParts {
   gridCell: (line: number, col: string, cell: PaperCell) => React.ReactNode;
   /** How many lines the record holds (a register's ruled lines beyond them print blank). */
   rowCount?: number;
+  /** For the print of a long register: the lines each later page starts at (utils/paperPages.ts, §277). */
+  pageBreaks?: number[] | null;
+  /** A line of the record put in under this one, on an HR paper's register (§276). */
+  insertLine?: (line: number) => void;
   /** Take a line of the record off (the screen's bin on a register's line), where lines may be removed. */
   removeLine?: (line: number) => void;
   /** What a box of the record holds: its words where the paper prints them again, or where the print shows them as words. */
@@ -63,6 +67,8 @@ export interface PaperTableParts {
   /** A row put in under this one, and this one taken off (§246); undefined where the record cannot be written. */
   addRow?: (table: string, after: string) => void;
   removeRow?: (table: string, key: string) => void;
+  /** A row of an HR paper put in under this one, and this one taken off (§276); undefined where the record cannot be written. */
+  paperRow?: { add: (key: string) => void; remove: (key: string) => void };
   /** A paper whose every printed word is the record's (PaperTable.ownWords): the words at this place, typed over where they stand. */
   printed?: (place: string, words: string, drawn: React.ReactNode) => React.ReactNode;
   /** One answer of a choice set across the paper's cells (§275), on the record's line where it is a grid's. */
@@ -359,6 +365,22 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
                   </button>
                 </span>
               )}
+              {/* Any row of an HR paper: one put in under it, or it taken off - outside the paper's table, never printed (§276). */}
+              {row.rowKey && parts.paperRow && ci === row.cells.findIndex((x) => !x.skip) && (
+                <span className="pt-rowtools no-print">
+                  <button type="button" className="btn btn-ghost btn-sm btn-icon" data-action="paper-row-add" data-row={row.rowKey} title="Add a row below" aria-label="Add a row below" onClick={() => parts.paperRow?.add(row.rowKey!)}>
+                    +
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm btn-icon" data-action="paper-row-remove" data-row={row.rowKey} title="Delete this row" aria-label="Delete this row" onClick={() => parts.paperRow?.remove(row.rowKey!)}>
+                    ×
+                  </button>
+                </span>
+              )}
+              {ci === 0 && row.line !== undefined && !row.pad && parts.insertLine && form.lines && (
+                <button type="button" className="btn btn-ghost btn-sm btn-icon pt-line-add no-print" data-action="paper-line-add" data-line={row.line} title="Add a row below" aria-label={`Add a row below line ${row.line + 1}`} onClick={() => parts.insertLine?.(row.line!)}>
+                  +
+                </button>
+              )}
               {/* The screen's bin on a register's line, outside the paper's table; never printed. */}
               {ci === 0 && row.line !== undefined && !row.pad && parts.removeLine && form.lines && (
                 <button
@@ -421,6 +443,15 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
   );
 }
 
+/** A cell of the paper's head saying this page's number and how many there are (its "Page No.: 1 Of 1"). */
+function onPage(c: PaperCell, page: number, pages: number): PaperCell {
+  const words = c.at ? c.at.map((l) => l.t).join(" ") : (c.t ?? "");
+  if (!/Page\s*No/i.test(words)) return c;
+  let n = 0;
+  const numbered = (s: string) => s.replace(/\d+/g, (d) => (++n === 1 ? String(page) : n === 2 ? String(pages) : d));
+  return c.at ? { ...c, at: c.at.map((l) => ({ ...l, t: numbered(l.t) })) } : { ...c, t: numbered(c.t ?? "") };
+}
+
 /** One part of the paper (its header block, its body or its foot), as a table on the paper's columns. */
 export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"; parts: PaperTableParts }) {
   const { form } = parts;
@@ -436,7 +467,9 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
           pad: ln >= held,
         }))
       : [];
-  const rows: DrawnRow[] = [...form[part], ...lines];
+  const breaks = form.ownWords ? (parts.pageBreaks ?? []) : [];
+  const pages = breaks.length + 1;
+  const rows: DrawnRow[] = part === "head" && breaks.length ? form.head.map((r) => ({ ...r, cells: r.cells.map((c) => onPage(c, 1, pages)) })) : [...form[part], ...lines];
   // (a paper whose words are kept by their place numbers its foot the same however many lines the record holds)
   const row0 = part === "head" ? 0 : part === "body" ? form.head.length : form.head.length + form.body.length + (form.lines ? (form.ownWords ? form.lines.count : Math.max(form.lines.count, held)) : 0);
   if (rows.length === 0) return null;
@@ -468,6 +501,26 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
     const starts = drawn.flatMap((r, i) => (i === 0 || r.pb ? [i] : []));
     return starts.map((s, k) => <React.Fragment key={s}>{table(drawn.slice(s, starts[k + 1] ?? drawn.length), first + s)}</React.Fragment>);
   };
+  // The print of a long register: each page its own head, with its number, and the column headings again (§277).
+  if (part === "body" && breaks.length > 0) {
+    const stamped = (r: PaperRow, at: number): PaperRow => ({ ...r, cells: r.cells.map((c, ci) => (c.pl ? c : { ...c, pl: `${at}:${ci}` })) });
+    const headings = form.body.flatMap((r, i) => (r.head ? [stamped(r, form.head.length + i)] : []));
+    const drawn: DrawnRow[] = [...form.body];
+    let from = 0;
+    [...breaks, lines.length].forEach((end, k) => {
+      drawn.push(...lines.slice(from, end));
+      from = end;
+      if (k < breaks.length) {
+        const pageHead = form.head.map((r, ri): DrawnRow => {
+          const row = stamped(r, ri);
+          const { pb: _own, ...rest } = row;
+          return { ...rest, ...(ri === 0 ? { pb: true as const } : {}), cells: row.cells.map((c) => onPage(c, k + 2, pages)) };
+        });
+        drawn.push(...pageHead, ...headings);
+      }
+    });
+    return <>{paged(drawn, row0)}</>;
+  }
   // A register running past its page: the paper's column headings at the top of every page (§275).
   if (part === "body" && form.ownWords && form.lines) {
     const from = form.body.findIndex((r) => r.head);

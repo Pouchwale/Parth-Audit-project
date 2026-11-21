@@ -4477,11 +4477,30 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
 }
 .paper-sheet[data-paper-own] .doc-header.doc-header-paper { margin: 0; border: 0; }
 /* A cell the paper leaves blank is written in where it stands. */
-.pt-table td.pt-c > .pt-words.editable-words:empty { position: absolute; inset: 0; display: block; }
+.pt-table td.pt-c > .pt-words.editable-words:empty { position: absolute; inset: 0; display: block; min-width: 0; }
+.paper-sheet[data-paper-own] .pt-table .editable-words:empty::before { content: none; }
 @media screen { .pt-table td.pt-c > .pt-words.editable-words:empty:hover { background: #fff7cc; } }
 @media print { .pt-table tr.pt-pb { break-before: page; } .paper-sheet[data-paper-paged] > .paper-head { display: table-row-group; } }
 /* An HR paper's plain sheet while a download reads it: off the screen, never seen (utils/paperTwin.ts). */
 .paper-plain-twin { position: fixed; left: -30000px; top: 0; width: 1400px; pointer-events: none; }
+.pt-table .pt-line-add { position: absolute; left: -58px; top: 50%; transform: translateY(-50%); min-width: 24px; padding: 0 4px; line-height: 1; }
+.paper-sheet[data-paper-form="table"]:has(.pt-line-add) { padding-left: 62px; }
+.pt-page-top { display: none; }
+/* NO LINE AT THE PAPER'S EDGE, ON ANY PAGE (REQUIREMENTS §277; the owner, 21-Nov-2026, with F/HR/01's second page, its heading cut at
+   the top). The page itself has no margin (§59), and a printer cannot print its outer 4 to 5 mm: so the margin stands in the head
+   and the foot the browser repeats on every page of a paper that runs on. */
+@media print {
+  .paper-sheet[data-paper-form="table"]:is([data-paper-own], [data-paper-flows]), .paper-sheet[data-paper-form="table"][data-fill-a4]:is([data-paper-own], [data-paper-flows]) { padding-top: 0; }
+  .paper-sheet[data-paper-form="table"]:is([data-paper-own], [data-paper-flows]) > .paper-head::before { content: ""; display: block; height: calc(var(--pt-top) * var(--u)); }
+  .paper-sheet[data-paper-form="table"][data-fill-a4]:is([data-paper-own], [data-paper-flows]) > .paper-head::before { height: calc(var(--pt-top) * 1mm / var(--print-zoom, 1)); }
+  .paper-sheet[data-paper-form="table"][data-paper-paged] > .paper-head::before { content: none; }
+  .paper-sheet[data-paper-paged] > .pt-page-top { display: table-header-group; break-inside: avoid; }
+  .paper-sheet[data-paper-paged] > .pt-page-top::before { content: ""; display: block; height: calc(var(--pt-top) * 1mm); }
+  .paper-sheet[data-paper-own] > .paper-foot { display: table-row-group; }
+  .paper-sheet[data-paper-own] > .paper-page-foot { display: table-footer-group; break-inside: avoid; }
+  .paper-sheet[data-paper-own] > .paper-page-foot::after { content: ""; display: block; height: 9mm; }
+  .paper-sheet[data-paper-form="table"][data-paper-flows]:not([data-paper-own]) > .paper-foot::after { content: ""; display: block; height: 9mm; }
+}
 @media print { body > .paper-plain-twin { display: none; } .paper-sheet[data-paper-own] .pt-table thead { display: table-header-group; } .paper-sheet[data-paper-own] .pt-table tr { break-inside: avoid; } }
 
 /* THE HR MODULE'S LINES EVEN, ITS NUMBERS IN THE MIDDLE (§266; utils/print.ts tidyHrCells): in the print only. */

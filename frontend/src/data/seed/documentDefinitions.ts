@@ -504,7 +504,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     status: "Configured",
     description:
       "One record per training held: the date, the topic (offered from the training plan calendar, which fills the trainer, the duration and the method), who imparted it, how long, how and where, and one line per employee who attended, with a signature. The Training Effectiveness Evaluation (F/HR/11) and the Training Feedback & Evaluation Record (F/HR/12) take their training and their people from it.",
-    sourceFile: "Named on the Master List of Formats (F/SYS/02) as F-HR-10, Training Imparted Record, a hard copy; the paper was not supplied - DCRS's own layout, to be aligned with the paper when it comes.",
+    sourceFile: "Audit document/HR/F-HR-10_Training Imparted Record.doc (the company's own paper, supplied 21-Nov-2026)",
     schedule: { type: "as-required" },
   },
   {

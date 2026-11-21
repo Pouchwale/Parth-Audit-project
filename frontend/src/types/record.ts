@@ -188,6 +188,17 @@ export interface SheetWords {
    * for its label above or below the grid.
    */
   headings?: Record<string, string>;
+  /** The rows of an HR paper this record put in or took off (REQUIREMENTS §276, engine/paperRows.ts). */
+  paperRows?: PaperRowsKept;
+}
+
+export interface PaperRowsKept {
+  /** A row put in: under which row, the paper's row it copies, and the record's lines it is written on. */
+  added?: { id: string; after: string; from: string; lines?: number[] }[];
+  /** The format's rows taken off, by their place on the format. */
+  removed?: string[];
+  /** What those rows' lines held, for "bring back". */
+  held?: Record<string, Record<string, Record<string, string | number | null>>>;
 }
 
 /** A photograph on a log sheet: its own id, the file's name and the picture (a scaled-down JPEG's data URL). */

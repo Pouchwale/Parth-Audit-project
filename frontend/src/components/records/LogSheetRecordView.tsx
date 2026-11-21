@@ -10,6 +10,8 @@ import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHea
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
+import { registerPaperPager } from "../../utils/paperPages";
+import { paperRowAdded, paperRowRemoved, paperRowsBack, paperWithRows } from "../../engine/paperRows";
 import { paperFrameStyle, paperTableFits, paperTableFor, paperTablePrint, type PaperCell } from "../../data/seed/qcPaperTables";
 import { calibrationGeometryFor } from "../../data/seed/qcCalibrationGeometry";
 import { reportGeometryFor } from "../../data/seed/qcReportGeometry";
@@ -214,6 +216,9 @@ export function LogSheetRecordView({
   const [plainTwin, setPlainTwin] = React.useState(false);
   const paperId = !asPlainTwin && paperTableFor(doc.id)?.ownWords ? record.id : null;
   React.useEffect(() => (paperId ? registerPaperTwin(paperId, setPlainTwin) : undefined), [paperId]);
+  // The pages of a long register, while it prints (§277).
+  const [pageBreaks, setPageBreaks] = React.useState<number[] | null>(null);
+  React.useEffect(() => (paperId ? registerPaperPager(paperId, setPageBreaks) : undefined), [paperId]);
   // THE HEADER BLOCK, TYPED OVER ON THE RECORD (REQUIREMENTS §86): the format's
   // company, title, number, revision and its date, and this record's own Page No.
   // (no Date cell of the record's own on the header, §117).
@@ -564,7 +569,9 @@ export function LogSheetRecordView({
   // (only while the paper still fits the format: one the plant has edited since is drawn as every grid is)
   const ptForm = !frame && !lc && !asPlainTwin ? paperTableFor(layout.documentId) : undefined;
   // ...its tables of boxes with the record's own rows (§246, engine/boxRows.ts).
-  const pt = ptForm && paperTableFits(ptForm, layout) ? withRecordBoxRows(ptForm, layout, data) : undefined;
+  const ptFormed = ptForm && paperTableFits(ptForm, layout) ? withRecordBoxRows(ptForm, layout, data) : undefined;
+  // The rows this record put in or took off (§276).
+  const pt = ptFormed ? paperWithRows(ptFormed, data.words?.paperRows) : undefined;
   if (pt) setShownPaperTable(layout.documentId, pt);
   // THE TWO INTERNAL CALIBRATION RECORDS ON THEIR PAPERS' MEASURES (F/QC/11, F/QC/12; data/seed/qcCalibrationGeometry.ts,
   // §117 round 2): the sheet as it is drawn (its boxes, its grid, its PROCEDURE), in the paper's millimetres; the number
@@ -934,7 +941,16 @@ export function LogSheetRecordView({
       form: pt,
       layout,
       rowCount: data.rows.length,
+      pageBreaks,
       removeLine: ptCanRemove ? (line: number) => { const r = data.rows[line]; if (r) removeRow(r.id); } : undefined,
+      insertLine:
+        ptCanAdd && pt.ownWords
+          ? (line: number) => {
+              const rows = [...data.rows];
+              rows.splice(line + 1, 0, newRow(layout, data.rows, generateId("row")));
+              save({ ...data, rows });
+            }
+          : undefined,
       words: { companyName: companyWords, title: titleWords, formatNo: headerEdit?.values.formatNo ?? doc.formatNo, revisionNo, revisionDate: dottedDate(revisionDate), page: headerProps.pageLabel },
       edit: headerEdit,
       box: paperBox,
@@ -1018,6 +1034,13 @@ export function LogSheetRecordView({
             if (t && shownRows(data, t).length > 1) save(withRowRemoved(data, t, key));
           }
         : undefined,
+      paperRow:
+        editable && pt.ownWords && ptFormed
+          ? {
+              add: (key: string) => save(paperRowAdded(ptFormed, data, key, generateId("row"), ptLinesRule.canAdd ? () => newRow(layout, data.rows, generateId("row")) : undefined)),
+              remove: (key: string) => save(paperRowRemoved(ptFormed, data, key)),
+            }
+          : undefined,
     };
     // Where the paper stands on its printed page, and how much bigger it is drawn there (PaperTable.fillA4: F/QC/17; and
     // every paper of a document that fills its page, REQUIREMENTS §194 - the QC papers).
@@ -1033,7 +1056,9 @@ export function LogSheetRecordView({
         data-sheet={doc.id}
         data-paper-form="table"
         data-paper-own={pt.ownWords ? "" : undefined}
-        data-paper-paged={pt.ownWords && [...pt.head, ...pt.body].some((r) => r.pb) ? "" : undefined}
+        data-paper-paged={pt.ownWords && (pageBreaks?.length || [...pt.head, ...pt.body].some((r) => r.pb)) ? "" : undefined}
+        data-paper-pages={pageBreaks?.length ? pageBreaks.length + 1 : undefined}
+        data-paper-flows={pt.flows || pt.lines ? "" : undefined}
         data-fill-a4={ptFill ? "" : undefined}
         style={{ "--pt-left": String(ptPrint.left), "--pt-top": String(ptPrint.top), ...(ptFill ? { "--pt-print-scale": String(ptPrint.scale) } : {}) } as React.CSSProperties}
       >
@@ -1046,6 +1071,8 @@ export function LogSheetRecordView({
             </div>,
             document.body
           )}
+        {/* The top margin of every printed page, where the paper draws each page's head itself (REQUIREMENTS §277). */}
+        {pt.ownWords && (!!pageBreaks?.length || [...pt.head, ...pt.body].some((r) => r.pb)) && <div className="pt-page-top" aria-hidden="true" />}
         <div className="paper-head">
           {pt.pageFrame && <div className={`pt-page-frame${pt.pageFrame.double ? " pt-page-frame-double" : ""}`} aria-hidden="true" style={paperFrameStyle(pt, ptPrint)} />}
           <div className="doc-header doc-header-paper">
@@ -1123,10 +1150,16 @@ export function LogSheetRecordView({
             </button>
           )}
           {linesBackButton}
+          {editable && !!data.words?.paperRows?.removed?.length && (
+            <button className="btn btn-secondary btn-sm mt-2 no-print" data-action="restore-paper-rows" onClick={() => save(paperRowsBack(data))} style={{ marginLeft: 8 }}>
+              <FiRotateCcw size={13} /> Bring back deleted rows ({data.words.paperRows.removed.length})
+            </button>
+          )}
         </div>
         <div className="paper-foot">
           <PaperTablePart part="foot" parts={ptParts} />
         </div>
+        {pt.ownWords && <div className="paper-page-foot" aria-hidden="true" />}
         <datalist id="log-sheet-employees">
           {employees.map((e) => (
             <option key={e.id} value={e.name} />

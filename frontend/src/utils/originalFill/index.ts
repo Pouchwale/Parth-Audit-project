@@ -123,8 +123,10 @@ export async function originalFileBytes(documentId: string, blocks: ExportBlock[
   if (!file || HAND_DRAWN.has(documentId) || NOT_YET.has(documentId)) return null;
   // The printed words this record typed over on its HR paper (REQUIREMENTS §275).
   const record = envelope?.recordIds[0] ? recordRepository.getById(envelope.recordIds[0]) : undefined;
-  const headings = (record?.data as { words?: { headings?: Record<string, string> } } | undefined)?.words?.headings;
-  if (paperWordsWithoutPlace(paperTableFor(documentId), headings)) return null;
+  const words = (record?.data as { words?: { headings?: Record<string, string>; paperRows?: { added?: unknown[]; removed?: unknown[] } } } | undefined)?.words;
+  const headings = words?.headings;
+  // (rows put in or taken off, or words where the file has no place: the file is drawn from the paper itself, §276)
+  if (words?.paperRows?.added?.length || words?.paperRows?.removed?.length || paperWordsWithoutPlace(paperTableFor(documentId), headings)) return null;
   const buffer = await template(file);
   const { bytes, report } = await fillTemplate(file, buffer, blocks, envelope, documentId);
   return { bytes: await withPaperWords(bytes, paperWordEdits(paperTableFor(documentId), headings)), kind: file.kind, report };

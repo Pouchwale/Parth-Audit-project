@@ -488,6 +488,9 @@ const trainingImparted: LogSheetLayout = {
     { key: "duration", label: "Duration", type: "text", autoFill: { carryForward: true } },
     { key: "method", label: "Method of Training", type: "select", options: ["Class room", "On the Job", "On the Job + Class room"], autoFill: { carryForward: true } },
     { key: "venue", label: "Venue", type: "text", autoFill: { carryForward: true } },
+    // The company's own paper, F-HR-10 (REQUIREMENTS §276): its method of evaluation, in its own words, and the evaluation's date.
+    { key: "evaluationMethod", label: "Method of Evaluation (Tick one)", type: "text", autoFill: { default: "On the Job observation / Written test / Discussion & Interaction" } },
+    { key: "evaluationDate", label: "Evaluation date", type: "date" },
   ],
   columns: [text("name", "Name of the Employee", 200, true), text("department", "Department", 150), text("designation", "Designation", 160), text("signature", "Signature", 140)],
   rowMode: { kind: "free", minRows: 1, typicalRows: 8 },
@@ -500,7 +503,7 @@ const trainingImparted: LogSheetLayout = {
     { name: "Roshni Senma", department: "Lab", designation: "Lab Executive", signature: "" },
     { name: "Ajay Vaghela", department: "Production", designation: "Flexo Manager", signature: "" },
   ],
-  specimenSource: "F-HR-10 Training Imparted Record — named on the Master List of Formats (F/SYS/02), the paper not supplied; DCRS's own layout",
+  specimenSource: "F-HR-10 Training Imparted Record — the company's own paper, supplied 21-Nov-2026",
 };
 
 // ---------------------------------------------------------------------------

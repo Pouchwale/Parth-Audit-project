@@ -4,6 +4,7 @@ import { hrMasterRepository } from "./repositories/hrMasterRepository";
 import { readJSON } from "./storageAdapter";
 import { HR_FEEDBACK_ON_FILE, type FeedbackSheetOnFile } from "./seed/hrFeedbackOnFile";
 import { HR_COMPETENCE_CRITERIA } from "./seed/hrCompetenceCriteria";
+import { HR_IMPARTED_ON_FILE, type ImpartedSheetOnFile } from "./seed/hrImpartedOnFile";
 import { mayWriteRecordsOf } from "../engine/departmentScope";
 import { nameKey, sameGp3 } from "../engine/hrMaster";
 
@@ -58,6 +59,44 @@ export function hrFeedbackSheetsOnFile(): RecordInstance[] {
   return add;
 }
 
+export const HR_IMPARTED_DOC = "hr-training-imparted";
+export const impartedRecordId = (key: string): string => `hr-imparted-file-${key}`;
+
+/** One supplied F/HR/10 sheet as its record: In Progress, for HR to check and sign, as the F/HR/12 sheets (REQUIREMENTS §276). */
+export function impartedRecord(s: ImpartedSheetOnFile): RecordInstance<LogSheetData> {
+  const entry: HistoryEntry = { id: `hist-hr-imparted-${s.key}`, at: SUPPLIED_AT, by: "System", action: "imported", note: `Entered from the company's filled sheet ${s.file}; its signatures are left for HR (REQUIREMENTS §276)` };
+  const lines = s.lines.length ? s.lines : [["", ""]];
+  return {
+    id: impartedRecordId(s.key),
+    documentId: HR_IMPARTED_DOC,
+    periodKey: `${HR_IMPARTED_DOC}:${s.date}:file-${s.key}`,
+    dueDate: s.date,
+    status: "In Progress",
+    isDemo: false,
+    filedFromPaper: true,
+    data: {
+      header: { trainingDate: s.date, topic: s.topic, impartedBy: s.by, duration: s.duration, method: "", venue: "", evaluationMethod: s.evaluation, evaluationDate: "", trainerSign: "", hrSign: "" },
+      rows: lines.map(([name, designation], i) => ({ id: `hrti-${s.key}-${i + 1}`, name, department: "", designation, signature: "" })),
+    },
+    createdAt: SUPPLIED_AT,
+    updatedAt: SUPPLIED_AT,
+    history: [entry],
+  };
+}
+
+/** The supplied F/HR/10 sheets not on file yet are added; one deleted stays deleted, and a training already recorded is not doubled. */
+export function hrImpartedSheetsOnFile(): RecordInstance[] {
+  if (!mayWriteRecordsOf(HR_IMPARTED_DOC)) return [];
+  const all = recordRepository.getAll();
+  const have = new Set(all.map((r) => r.id));
+  const key = (date: unknown, topic: unknown) => `${String(date ?? "")}|${String(topic ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase()}`;
+  const held = new Set(all.filter((r) => r.documentId === HR_IMPARTED_DOC && !r.isDemo && !r.id.startsWith("hr-imparted-file-")).map((r) => { const h = (r.data as LogSheetData | undefined)?.header; return key(h?.trainingDate, h?.topic); }));
+  const deleted = new Set(readJSON<{ recordId?: string; id?: string; periodKey?: string }[]>("deletions", []).flatMap((d) => [d.recordId, d.id, d.periodKey]));
+  const add = HR_IMPARTED_ON_FILE.filter((s) => !held.has(key(s.date, s.topic))).map(impartedRecord).filter((r) => !have.has(r.id) && !deleted.has(r.id) && !deleted.has(r.periodKey));
+  if (add.length > 0) recordRepository.upsertMany(add);
+  return add;
+}
+
 /** F/HR/02 on file, entered before it carried the paper's bullets: its lines take them, while they are the paper's words still. */
 export function hrCriteriaBullets(): boolean {
   if (!mayWriteRecordsOf("hr-competence-criteria")) return false;
@@ -81,6 +120,26 @@ const DIRECTOR_NUMBERS: readonly (readonly [string, string])[] = [
   ["Swarup Rajgor", "DIR.002"],
   ["Virat Rajgor", "DIR.003"],
 ];
+
+/** What Master Data.xlsx says of the three directors, written only into a box that is empty (REQUIREMENTS §276). */
+const DIRECTOR_DETAILS: readonly (readonly [string, Partial<Record<"joiningDate" | "department" | "designation" | "dateOfBirth", string>>])[] = [
+  ["Shail Patel", { joiningDate: "2014-04-01", department: "Top management", designation: "CEO", dateOfBirth: "1988-10-21" }],
+  ["Swarup Rajgor", { joiningDate: "2017-03-04", department: "Sales & Marketing", designation: "Director", dateOfBirth: "1993-03-03" }],
+  ["Virat Rajgor", { joiningDate: "2022-03-01", department: "Operations", designation: "Director", dateOfBirth: "1989-01-17" }],
+];
+
+export function hrDirectorDetails(): number {
+  if (!mayWriteRecordsOf("hr-competence")) return 0;
+  let written = 0;
+  for (const [name, details] of DIRECTOR_DETAILS) {
+    const named = hrMasterRepository.all().filter((p) => nameKey(p.fullName) === nameKey(name));
+    if (named.length !== 1) continue;
+    for (const [field, value] of Object.entries(details) as ["joiningDate" | "department" | "designation" | "dateOfBirth", string][]) {
+      if (!String(named[0][field] ?? "").trim() && hrMasterRepository.update(named[0].id, field, value, "System")) written += 1;
+    }
+  }
+  return written;
+}
 
 /** The three directors' GP3 Nos. written where the box is empty. Returns how many were written. */
 export function hrDirectorNumbers(): number {

@@ -66,6 +66,7 @@
 import { logActivity } from "./activityLog";
 import { formatDisplayDate } from "./date";
 import { fitAll, measureWords, unfitAll } from "./fitText";
+import { pagePapers, unpagePapers } from "./paperPages";
 
 const DOC_SELECTOR = "[data-print-doc]";
 const HIDDEN = "print-scope-hidden";
@@ -633,7 +634,8 @@ function layOutOnPage(docs: Element[]): void {
     // (an HR paper is drawn at the size that fills its A4 page, PaperTable.fillA4: §275)
     if (doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]")) continue;
     const own = ownLeftMargin(doc);
-    const room = own !== null ? (PAGE_WIDTH_MM[landscape ? "landscape" : "portrait"] - own - 2) * PX_PER_MM : paper;
+    // (its right side as clear of the sheet's edge as a printer needs, §277)
+    const room = own !== null ? (PAGE_WIDTH_MM[landscape ? "landscape" : "portrait"] - own - 5.5) * PX_PER_MM : paper;
     // (2% of the room kept: the print is measured as it prints, closely but not to the pixel)
     let zoom = width <= room ? 1 : Math.max(SMALLEST_SCALE, Math.floor(((room * 0.98) / width) * 1000) / 1000);
     // A short one-page sheet is drawn to fill its page (FILLING THE PAGE, above); a sheet printed as pages of its own, each
@@ -912,10 +914,44 @@ export function documentsOnScreen(within: ParentNode = document): Element[] {
   return outermost(Array.from(within.querySelectorAll(DOC_SELECTOR)).filter(isShown));
 }
 
+/** Sheets whose foot was too tall for the browser to repeat, printed for now with it once at the end (§277). */
+let footsOnce: Element[] = [];
+
+/**
+ * The browser repeats a table's footer only while it is short beside the page. A taller foot (F/SYS's HARA sheet, 63 mm) was not
+ * repeated, so its 12 mm went with it and the first page's lines ran to 0.6 mm of the paper's edge. Such a sheet prints that foot
+ * once, after its last line, and keeps its margin in its own short foot (.paper-page-foot).
+ */
+function footsTooTall(docs: Element[]): Element[] {
+  const pageH = (document.documentElement.dataset.printPage === "landscape" ? 210 : 297) * PX_PER_MM;
+  const out: Element[] = [];
+  document.documentElement.classList.add("print-measure");
+  try {
+    withPrintRules(() => {
+      for (const d of docs) {
+        const sel = ".paper-sheet:not([data-frame]):not([data-paper-form]):not([data-foot])";
+        for (const sheet of d.matches(sel) ? [d] : Array.from(d.querySelectorAll(sel))) {
+          const foot = sheet.querySelector(":scope > .paper-foot");
+          if (foot && sheet.querySelector(":scope > .paper-page-foot") && foot.getBoundingClientRect().height > pageH * 0.2) out.push(sheet);
+        }
+      }
+    });
+  } finally {
+    document.documentElement.classList.remove("print-measure");
+  }
+  for (const s of out) s.setAttribute("data-foot", "once");
+  return out;
+}
+
 function unscope(): void {
+  for (const s of footsOnce) s.removeAttribute("data-foot");
+  footsOnce = [];
   unfit();
   unfitAll();
-  if (!active) return;
+  if (!active) {
+    unpagePapers();
+    return;
+  }
   for (const el of active.hidden) el.classList.remove(HIDDEN);
   for (const el of active.ancestors) el.classList.remove(ANCESTOR);
   for (const el of active.emptied) el.removeAttribute(EMPTY_ATTR);
@@ -930,6 +966,7 @@ function unscope(): void {
   for (const tr of active.evened ?? []) tr.style.removeProperty("height");
   document.documentElement.classList.remove(SCOPED);
   active = null;
+  unpagePapers();
 }
 
 // THE HR MODULE'S LINES EVEN, ITS NUMBERS IN THE MIDDLE (the owner, 20-Nov-2026, REQUIREMENTS §266, with the Skill Matrix's
@@ -1109,6 +1146,13 @@ function scope(targets: Element[]): void {
   unscope();
   const docs = outermost(targets);
   if (docs.length === 0) return;
+  // A long HR register: each page with its own head and number (§277), drawn before the boxes are written for the print.
+  document.documentElement.classList.add("print-measure");
+  try {
+    pagePapers(docs, withPrintRules);
+  } finally {
+    document.documentElement.classList.remove("print-measure");
+  }
   const keep = new Set<Element>(docs);
   const ancestors: Element[] = [];
   for (const d of docs) {
@@ -1136,6 +1180,7 @@ function scope(targets: Element[]): void {
   active.tidied = tidyHrCells(pages);
   docs.splice(0, docs.length, ...pages);
   fitToPage(docs);
+  footsOnce = footsTooTall(docs);
   // Words wider than their box print smaller, never cut (utils/fitText.ts)...
   fitAll(docs);
   // ...and a value too long for its box even so prints as words that wrap.
