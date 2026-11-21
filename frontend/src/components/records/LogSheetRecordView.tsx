@@ -10,7 +10,7 @@ import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHea
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
-import { paperTableFits, paperTableFor, paperTablePrint, type PaperCell } from "../../data/seed/qcPaperTables";
+import { paperFrameStyle, paperTableFits, paperTableFor, paperTablePrint, type PaperCell } from "../../data/seed/qcPaperTables";
 import { calibrationGeometryFor } from "../../data/seed/qcCalibrationGeometry";
 import { reportGeometryFor } from "../../data/seed/qcReportGeometry";
 import { PaperTablePart, withUnderlinedLines, type PaperTableParts } from "./PaperTableSheet";
@@ -889,6 +889,21 @@ export function LogSheetRecordView({
           </div>
         );
       }
+      if (cell?.lines && pt.ownWords && col.type === "text") {
+        return (
+          <div className={`field field-in-table pt-lines${judge(row, c, fixedRow) ? " cell-out-of-band" : ""}`}>
+            <textarea
+              className="input input-sm"
+              {...bindProps(logCellBind(row, line, col, logRowName(row, layout.columns)))}
+              aria-label={c.label}
+              rows={2}
+              disabled={!(editable && writable(col))}
+              value={String(row[key] ?? "")}
+              onChange={(e) => onCell(row.id, key, e.target.value)}
+            />
+          </div>
+        );
+      }
       return (
         <div className={`pt-box${judge(row, c, fixedRow) ? " cell-out-of-band" : ""}`}>
           <CellInput
@@ -1018,6 +1033,7 @@ export function LogSheetRecordView({
         data-sheet={doc.id}
         data-paper-form="table"
         data-paper-own={pt.ownWords ? "" : undefined}
+        data-paper-paged={pt.ownWords && [...pt.head, ...pt.body].some((r) => r.pb) ? "" : undefined}
         data-fill-a4={ptFill ? "" : undefined}
         style={{ "--pt-left": String(ptPrint.left), "--pt-top": String(ptPrint.top), ...(ptFill ? { "--pt-print-scale": String(ptPrint.scale) } : {}) } as React.CSSProperties}
       >
@@ -1031,6 +1047,7 @@ export function LogSheetRecordView({
             document.body
           )}
         <div className="paper-head">
+          {pt.pageFrame && <div className={`pt-page-frame${pt.pageFrame.double ? " pt-page-frame-double" : ""}`} aria-hidden="true" style={paperFrameStyle(pt, ptPrint)} />}
           <div className="doc-header doc-header-paper">
             <div className="doc-letterhead">
               <PaperTablePart part="head" parts={ptParts} />

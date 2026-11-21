@@ -5,9 +5,10 @@ import { downloadBlob } from "./csv";
 import { displayDateToISO, formatDisplayDate, todayISO } from "./date";
 import { PRINT_PREPARE_EVENT, paperOf } from "./print";
 import { paperMarginsOf, paperPageOf, paperSheetBlocks, paperWordBlocks } from "./paperSheets";
-import { paperTableSheet, paperTableWord, paperTableWordMargins } from "./paperTableExport";
+import { paperDrawnBlocks, paperTableSheet, paperTableWord, paperTableWordMargins } from "./paperTableExport";
 import { originalFileBytes, originalFileOf } from "./originalFill";
 import { withPlainTwins } from "./paperTwin";
+import { paperTableFor } from "../data/seed/qcPaperTables";
 import {
   BIND_APPEND_ATTR,
   BIND_ATTR,
@@ -1258,10 +1259,10 @@ async function everyLineDrawn(): Promise<void> {
  */
 export function downloadDocumentFile(doc: DocumentDefinition, roots: Element[], dateISO?: string, as?: "xlsx" | "docx") {
   // An HR paper is read from its record's plain sheet, drawn off the screen for the moment (REQUIREMENTS §275).
-  return withPlainTwins(roots, (read) => downloadRead(doc, read, dateISO, as));
+  return withPlainTwins(roots, (read) => downloadRead(doc, read, dateISO, as, roots));
 }
 
-async function downloadRead(doc: DocumentDefinition, roots: Element[], dateISO?: string, as?: "xlsx" | "docx"): Promise<DocumentFileKind> {
+async function downloadRead(doc: DocumentDefinition, roots: Element[], dateISO?: string, as?: "xlsx" | "docx", onPage: Element[] = roots): Promise<DocumentFileKind> {
   // A paper downloaded as it is drawn (utils/paperTableExport.ts) may be asked for as either kind: Excel or Word.
   const kind = as && documentFileKinds(doc).includes(as) ? as : documentFileKind(doc);
   if (kind === "pdf" || roots.length === 0) return "pdf";
@@ -1285,10 +1286,12 @@ async function downloadRead(doc: DocumentDefinition, roots: Element[], dateISO?:
       /* the generic download below */
     }
     // The paper's own page (§117), where the sheet names it.
-    const paper = paperPageOf(doc.id) ?? (live.length ? live : roots).map(paperOf).find((p) => p !== null) ?? undefined;
+    const paper = paperPageOf(doc.id) ?? (paperTableFor(doc.id)?.ownWords ? paperTableFor(doc.id)?.page : undefined) ?? (live.length ? live : roots).map(paperOf).find((p) => p !== null) ?? undefined;
     // A month's sheet on one page (LogSheetLayout.onePage, carried as data-one-page on the sheet; §259).
     const onePage = (live.length ? live : roots).some((r) => r.matches("[data-one-page]") || r.querySelector("[data-one-page]") !== null);
-    const bytes = documentFileBytes(kind, doc, blocks, recordIdsIn(live.length ? live : roots), undefined, paper, onePage);
+    // An HR paper in the other kind of file, or with words its own file has no place for: drawn from the paper itself (§275).
+    const drawn = paperDrawnBlocks(doc.id, kind, onPage, cellOf, knownFormatNo(doc).replace(/\//g, "-"));
+    const bytes = documentFileBytes(kind, doc, drawn ?? blocks, recordIdsIn(live.length ? live : roots), undefined, paper, onePage);
     downloadBlob(`${name}.${kind}`, new Blob([bytes], { type: kind === "xlsx" ? XLSX_TYPE : DOCX_TYPE }));
     return kind;
   } catch {

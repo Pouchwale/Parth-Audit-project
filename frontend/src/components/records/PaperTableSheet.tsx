@@ -240,7 +240,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               return (
                 <span
                   key={li}
-                  className={`pt-at${line.b ? " pt-b" : ""}${line.f ? ` pt-f-${line.f}` : ""}${line.wrap ? " pt-wrap" : ""}${line.caps ? " pt-caps" : ""}`}
+                  className={`pt-at${line.b ? " pt-b" : ""}${line.u ? " pt-at-u" : ""}${line.f ? ` pt-f-${line.f}` : ""}${line.wrap ? " pt-wrap" : ""}${line.caps ? " pt-caps" : ""}`}
                   style={{ "--pt-size": String(lpt), "--pt-lh": String(llh), "--pt-ay": String(line.y - letterTop(lf, lpt, llh)), "--pt-ax": String(lx) } as React.CSSProperties}
                 >
                   {parts.printed ? parts.printed(place, text, text) : withHeaderWords(text, words, edit, !!line.caps)}
@@ -385,9 +385,9 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               {c.over?.map((o, oi) => {
                 const ln = o.ln ?? c.ln ?? row.line;
                 if (o.col && (ln === undefined || ln >= (parts.rowCount ?? 0))) return null;
-                const at = { "--ox": String(o.x), "--oy": String(o.y), "--ow": String(o.w), "--oh": String(o.h), "--pt-x": "0", "--pt-y": "0" } as React.CSSProperties;
+                const at = { "--ox": String(o.x), "--oy": String(o.y), "--ow": String(o.w), "--oh": String(o.h), "--pt-x": "0", "--pt-y": "0", ...(o.rule ? { "--orw": String(o.rule) } : {}) } as React.CSSProperties;
                 return (
-                  <span key={oi} className="pt-over" style={at}>
+                  <span key={oi} className={`pt-over${o.rule ? " pt-over-rule" : ""}`} style={at}>
                     {o.pick
                       ? o.pick.map((p, pi) => (
                           <React.Fragment key={pi}>
@@ -463,6 +463,11 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
       </tbody>
     </table>
   );
+  // Each page a paper draws for itself is a table of its own: the rule under a page's last line stays as long as that line (§275).
+  const paged = (drawn: DrawnRow[], first: number) => {
+    const starts = drawn.flatMap((r, i) => (i === 0 || r.pb ? [i] : []));
+    return starts.map((s, k) => <React.Fragment key={s}>{table(drawn.slice(s, starts[k + 1] ?? drawn.length), first + s)}</React.Fragment>);
+  };
   // A register running past its page: the paper's column headings at the top of every page (§275).
   if (part === "body" && form.ownWords && form.lines) {
     const from = form.body.findIndex((r) => r.head);
@@ -470,11 +475,11 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
       const to = form.body.length - 1 - [...form.body].reverse().findIndex((r) => r.head);
       return (
         <>
-          {from > 0 && table(form.body.slice(0, from), row0)}
+          {from > 0 && paged(form.body.slice(0, from), row0)}
           {table([...form.body.slice(to + 1), ...lines], row0 + to + 1, form.body.slice(from, to + 1))}
         </>
       );
     }
   }
-  return table(rows, row0);
+  return form.ownWords ? <>{paged(rows, row0)}</> : table(rows, row0);
 }

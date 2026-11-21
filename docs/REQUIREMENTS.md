@@ -12854,3 +12854,20 @@ paper because some print are very small".
   6.6 -> portrait 9.1; F/SYS/05 6.6 -> 7.3; F/SYS/16 5.9 -> 6.5; F/MNT/06 7.6 -> 8.2; F/HR/21 7.4 -> 7.8; F/HR/09 5.0 -> 5.1.
 - Still under 7 pt, their columns too many for the page's width: F/HR/03 (4.8), F/HR/08, F/HR/09, F/PUR/03, F/QC/08, F/MNT/03,
   F/HR/15, F/SYS/16, F/PRD/10, F/HR/16, F/QC/13.
+
+## §275 The HR formats as the company's own papers, every part editable (21-Nov-2026)
+
+The owner, 21-Nov-2026, of the HR files supplied in §273: "i want as it is in my system which i have shared documents with you. as
+it is no new things and make sure each and every part is editable."
+
+- The 17 HR formats supplied are drawn cell by cell from the owner's own PDFs (data/seed/hrPaperTables.ts, PaperTable.ownWords):
+  his company name, header, rules, page border, shading, underlines, bold, tick boxes, Yes/No choices, page numbers and page
+  breaks. Nothing of DCRS's stands on the sheet. F/HR/10, 15, 16, 17 and 18 were not in his files and are unchanged.
+- Every part is editable on a record that can be written on: a printed word, a blank cell, a line's number, a box, a choice.
+  A printed word typed over is kept on that record alone (data.words.headings "paper:<place>"); the format itself does not change.
+- The Master Data fetch stands above the paper on the screen and is never printed.
+- Word and Excel: the download is his own file filled with the record, keeping his title, number and date as his file prints them.
+  The other kind of file, and a record with words his file has no place for, is drawn from the paper itself
+  (utils/paperTableExport.ts paperDrawnBlocks), so it carries the same cells and every word the record holds.
+- Print: each paper fills A4 at its own size; a paper that draws its own pages does not have its head repeated over them.
+- Pages of his PDFs that are filled example sheets (F/HR/06, F/HR/07, F/HR/13) are not format pages: the record's lines stand there.

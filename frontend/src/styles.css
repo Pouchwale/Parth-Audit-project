@@ -4460,11 +4460,22 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
 .pt-table .pt-sentence .pt-words, .pt-table .pt-sentence .editable-words { display: inline; }
 /* The HR papers run on from head to body to foot, as one table on the paper. */
 .paper-sheet[data-paper-own] :is(.paper-head, .paper-body, .paper-foot) { margin: 0; padding: 0; border: 0; }
+/* The frame the company's page draws round the paper (a Word page border): on every printed page. */
+.paper-sheet[data-paper-own] .paper-head { position: relative; }
+.pt-table td.pt-c .pt-at.pt-at-u { text-decoration: underline; text-decoration-thickness: calc(0.42 * var(--u)); text-underline-offset: calc(0.75 * var(--u)); }
+.paper-sheet[data-paper-own] .pt-table td.pt-c > .field-in-table.pt-lines > textarea.input { line-height: calc(var(--pt-lh) * var(--u)); padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); }
+.pt-table .pt-over.pt-over-rule::after { content: ""; position: absolute; left: 0; bottom: 0; width: calc(var(--orw) * var(--u)); border-bottom: calc(0.22 * var(--u)) solid #000; pointer-events: none; }
+.pt-page-frame { position: absolute; left: calc(var(--pf-l) * -1 * var(--u)); top: calc(var(--pf-t) * -1 * var(--u)); width: calc(var(--pf-w) * var(--u)); height: calc(var(--pf-sh) * var(--u)); box-sizing: border-box; border: calc(0.3 * var(--u)) solid #000; pointer-events: none; }
+.pt-page-frame.pt-page-frame-double { border: calc(0.9 * var(--u)) double #000; }
+@media print {
+  .pt-page-frame { position: fixed; left: calc(var(--pf-px) * 1mm); top: calc(var(--pf-py) * 1mm); width: calc(var(--pf-pw) * 1mm); height: calc(var(--pf-ph) * 1mm); border-width: 0.3mm; }
+  .pt-page-frame.pt-page-frame-double { border-width: 0.9mm; }
+}
 .paper-sheet[data-paper-own] .doc-header.doc-header-paper { margin: 0; border: 0; }
 /* A cell the paper leaves blank is written in where it stands. */
 .pt-table td.pt-c > .pt-words.editable-words:empty { position: absolute; inset: 0; display: block; }
 @media screen { .pt-table td.pt-c > .pt-words.editable-words:empty:hover { background: #fff7cc; } }
-@media print { .pt-table tr.pt-pb { break-before: page; } }
+@media print { .pt-table tr.pt-pb { break-before: page; } .paper-sheet[data-paper-paged] > .paper-head { display: table-row-group; } }
 /* An HR paper's plain sheet while a download reads it: off the screen, never seen (utils/paperTwin.ts). */
 .paper-plain-twin { position: fixed; left: -30000px; top: 0; width: 1400px; pointer-events: none; }
 @media print { body > .paper-plain-twin { display: none; } .paper-sheet[data-paper-own] .pt-table thead { display: table-header-group; } .paper-sheet[data-paper-own] .pt-table tr { break-inside: avoid; } }

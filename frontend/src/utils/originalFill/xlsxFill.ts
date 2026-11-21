@@ -618,11 +618,11 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     // LIMITED" on F/HR/15's workbook): the one name.
     else if (m.r <= 3 && /^\s*GUJ\s*A?R\s*A?T\s+PRINT\b.*\b(?:PVT\.?\s*LTD\.?|PRIVATE\s+LIMITED)\s*$/i.test(text) && opts.company !== "$&") text = opts.company;
     // The format's own number, revision and date, wherever the paper prints them (its head, its foot).
-    if (ownNumber && dcrsFormat && norm(text).includes(norm(ownNumber))) {
+    if (opts.company !== "$&" && ownNumber && dcrsFormat && norm(text).includes(norm(ownNumber))) {
       text = replaceFormat(text, ownNumber, dcrsFormat, dcrsRev, dcrsRevDate);
     }
     // A band cell by its label: "Rev. no. - 00", "Effective date : 16.02.2022", "Page No. : 1 Of 1", "Date: ...".
-    if (m.r < firstHeading && bandRows.has(m.r)) {
+    if (opts.company !== "$&" && m.r < firstHeading && bandRows.has(m.r)) {
       const band = bandEdit(text, { formatNo: dcrsFormat, revNo: dcrsRev, revDate: dcrsRevDate, page: dcrsPage });
       if (band === null) {
         blanks.push({ r: m.r, c: m.c });
@@ -641,7 +641,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
   }
   // The title, where the plant changed it: the cell reading most like DCRS's title, above the first grid.
   // The paper printing the title already, word for word (a box's label though it be, F/SYS/13's): no other cell takes it.
-  if (model.title && !all1.some((m) => m.r < firstHeading && same(m.text.replace(/[\s:\-–=]+$/, ""), model.title))) {
+  if (model.title && opts.company !== "$&" && !all1.some((m) => m.r < firstHeading && same(m.text.replace(/[\s:\-–=]+$/, ""), model.title))) {
     let best: { r: number; c: number; text: string; s: number } | null = null;
     for (const m of all1) {
       if (m.r >= firstHeading || taken.has(key(m.r, m.c))) continue;

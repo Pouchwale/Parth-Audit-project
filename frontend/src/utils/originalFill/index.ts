@@ -17,7 +17,7 @@ import { paperTableFor } from "../../data/seed/qcPaperTables";
 import { fillXlsx } from "./xlsxFill";
 import { fillDocx } from "./docxFill";
 import { hintsOf } from "./hints";
-import { paperWordEdits, withPaperWords } from "./paperWords";
+import { paperWordEdits, paperWordsWithoutPlace, withPaperWords } from "./paperWords";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import type { FillReport } from "./types";
 
@@ -121,10 +121,11 @@ export async function fillTemplate(
 export async function originalFileBytes(documentId: string, blocks: ExportBlock[], envelope: RoundTripEnvelope | undefined): Promise<{ bytes: Uint8Array<ArrayBuffer>; kind: "xlsx" | "docx"; report: FillReport } | null> {
   const file = originalFileOf(documentId);
   if (!file || HAND_DRAWN.has(documentId) || NOT_YET.has(documentId)) return null;
-  const buffer = await template(file);
-  const { bytes, report } = await fillTemplate(file, buffer, blocks, envelope, documentId);
   // The printed words this record typed over on its HR paper (REQUIREMENTS §275).
   const record = envelope?.recordIds[0] ? recordRepository.getById(envelope.recordIds[0]) : undefined;
   const headings = (record?.data as { words?: { headings?: Record<string, string> } } | undefined)?.words?.headings;
+  if (paperWordsWithoutPlace(paperTableFor(documentId), headings)) return null;
+  const buffer = await template(file);
+  const { bytes, report } = await fillTemplate(file, buffer, blocks, envelope, documentId);
   return { bytes: await withPaperWords(bytes, paperWordEdits(paperTableFor(documentId), headings)), kind: file.kind, report };
 }

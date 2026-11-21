@@ -630,6 +630,8 @@ function layOutOnPage(docs: Element[]): void {
   pageStyle().textContent = landscape ? "@page { size: A4 landscape; margin: 0; }" : "";
   document.documentElement.dataset.printPage = landscape ? "landscape" : "portrait";
   for (const { doc, width } of needs) {
+    // (an HR paper is drawn at the size that fills its A4 page, PaperTable.fillA4: §275)
+    if (doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]")) continue;
     const own = ownLeftMargin(doc);
     const room = own !== null ? (PAGE_WIDTH_MM[landscape ? "landscape" : "portrait"] - own - 2) * PX_PER_MM : paper;
     // (2% of the room kept: the print is measured as it prints, closely but not to the pixel)
@@ -1195,7 +1197,8 @@ function keepWithinPage(docs: Element[]): void {
     withPrintRules(() => {
       for (const d of docs) {
         const doc = d as HTMLElement;
-        if (ownLeftMargin(doc) !== null || isFramed(doc) || pageSections(doc).length > 1) continue;
+        // (an HR paper sizes itself to the A4 page, PaperTable.fillA4: §275)
+        if (ownLeftMargin(doc) !== null || isFramed(doc) || pageSections(doc).length > 1 || doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]")) continue;
         for (let round = 0; round < 3; round++) {
           const zoom = Number(doc.style.zoom) || 1;
           const width = narrowestWidth(doc);

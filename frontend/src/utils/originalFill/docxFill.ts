@@ -386,8 +386,8 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     if (!text.trim()) return;
     let next = text;
     if (COMPANY_RE.test(next)) next = next.replace(COMPANY_RE, opts.company);
-    if (own && dcrs.formatNo && norm(next).includes(norm(own))) next = replaceFormat(next, own, dcrs.formatNo, dcrs.revNo, dcrs.revDate);
-    if (inBand) {
+    if (opts.company !== "$&" && own && dcrs.formatNo && norm(next).includes(norm(own))) next = replaceFormat(next, own, dcrs.formatNo, dcrs.revNo, dcrs.revDate);
+    if (inBand && opts.company !== "$&") {
       const band = bandEdit(next.trim(), dcrs);
       if (band === null) {
         emptyParagraph(p);
@@ -550,7 +550,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
       }
   }
   for (const p of paragraphs) if (!usedParas.has(p)) fixWords(p, false);
-  if (model.title) {
+  if (model.title && opts.company !== "$&") {
     let best: { p: XmlElement; s: number } | null = null;
     const candidates = [...headerParts.flatMap((n) => all(pkg.xml(n)!, "p")), ...paragraphs, ...tables.filter((t) => t.index < firstGridTable).flatMap((t) => all(t.tbl, "p"))];
     for (const p of candidates) {

@@ -1,4 +1,7 @@
 import { flushSync } from "react-dom";
+import { recordRepository } from "../data/repositories/recordRepository";
+import { paperTableFor } from "../data/seed/qcPaperTables";
+import { paperWordEdits } from "./originalFill/paperWords";
 
 // AN HR PAPER DOWNLOADS FROM ITS RECORD'S BOXES (REQUIREMENTS §275). The HR formats are drawn on the screen as the company's
 // own papers: a scale ticked across seven cells, a Yes and a No column, a box inside a sentence. The filler of the company's
@@ -42,9 +45,17 @@ export async function withPlainTwins<T>(roots: Element[], read: (roots: Element[
     // (the paper's own name for the company, in a file made from the plain sheet where the company has no such file)
     for (const el of swapped) {
       if (!el.hasAttribute(PLAIN_TWIN_ATTR)) continue;
+      // ...and the words this record typed over on its paper, in that file too
+      const id = el.getAttribute(PLAIN_TWIN_ATTR) ?? "";
+      const record = recordRepository.getById(id);
+      const headings = (record?.data as { words?: { headings?: Record<string, string> } } | undefined)?.words?.headings;
+      const edits = record ? paperWordEdits(paperTableFor(record.documentId), headings) : [];
+      const key = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
       const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       while (walk.nextNode()) {
         const n = walk.currentNode;
+        const typed = edits.find((e) => key(e.from) === key(n.textContent ?? ""));
+        if (typed) n.textContent = typed.to;
         if (/PUBLICATIONS\s+PVT\.?\s+LTD/i.test(n.textContent ?? "")) n.textContent = (n.textContent ?? "").replace(/PUBLICATIONS\s+PVT\.?\s+LTD\.?/i, "PUBLICATION PRIVATE LIMITED");
       }
     }

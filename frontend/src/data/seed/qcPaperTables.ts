@@ -81,7 +81,7 @@ export interface PaperCell {
    * from the cell's left, where the cell is not centred): the letterhead. wrap: the line runs on to a second where it is
    * longer than the cell (the company's name in F/QC/25's narrow cell); caps: in capitals.
    */
-  at?: { t: string; y: number; x?: number; pt?: number; f?: "arial" | "times" | "gothic"; b?: true; wrap?: true; caps?: true }[];
+  at?: { t: string; y: number; x?: number; pt?: number; f?: "arial" | "times" | "gothic"; b?: true; u?: true; wrap?: true; caps?: true }[];
   edges?: string;
   u?: true;
   caps?: true;
@@ -107,7 +107,7 @@ export interface PaperCell {
   rowKey?: string;
   rowTable?: string;
   /** The record's boxes standing inside the paper's words (mm from the cell's corner): "Name: ____" (§275). */
-  over?: { box?: string; col?: string; ln?: number; x: number; y: number; w: number; h: number; lines?: true; pick?: PaperPick[] }[];
+  over?: { box?: string; col?: string; ln?: number; x: number; y: number; w: number; h: number; lines?: true; pick?: PaperPick[]; /** The paper's writing line under the box, mm long. */ rule?: number }[];
   /** The answers this cell holds (§275). */
   pick?: PaperPick[];
   /** The place of the same words on the paper's first page (a heading printed again on each page): typed over once (§275). */
@@ -172,6 +172,8 @@ export interface PaperTable {
    * company, the title, the format's number, each label and heading, kept on the record by their place on the paper.
    */
   ownWords?: true;
+  /** The frame the paper's page draws round it (a Word page border), mm: how far it stands left of and above the paper's corner, its width and height. */
+  pageFrame?: { l: number; t: number; w: number; h: number; double?: true };
   /** The paper runs over several pages: fitted to the page's width alone, never squeezed onto one (§275). */
   flows?: true;
   /** Boxes and columns of the format the paper prints no place for (its own words stand there): kept on the record, not drawn. */
@@ -1584,6 +1586,25 @@ export const A4_MARGIN_MM = 12;
  * that fills its page, REQUIREMENTS §194) - A4_MARGIN_MM from the page's left and top edges, drawn so its width is the
  * page's less that margin each side, unless that would take it past the page's foot (4 mm kept clear).
  */
+/** Where the page's own frame stands, on the screen (round the paper) and on the printed A4 page (mm from its edges). */
+export function paperFrameStyle(form: PaperTable, print: { left: number; top: number; scale: number }): Record<string, string> {
+  const f = form.pageFrame!;
+  const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
+  const x = Math.max(3, print.left - f.l * print.scale);
+  const y = Math.max(3, print.top - f.t * print.scale);
+  const drawn = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
+  return {
+    "--pf-l": String(f.l),
+    "--pf-t": String(f.t),
+    "--pf-w": String(f.w),
+    "--pf-sh": String(Math.max(f.h, drawn + 2 * f.t)),
+    "--pf-px": String(x),
+    "--pf-py": String(y),
+    "--pf-pw": String(Math.min(f.w * print.scale, pageW - x - 3)),
+    "--pf-ph": String(Math.min(f.h * print.scale, pageH - y - 3)),
+  };
+}
+
 export function paperTablePrint(form: PaperTable, fill: boolean = !!form.fillA4): { left: number; top: number; scale: number } {
   if (!fill) return { left: form.left, top: form.top, scale: 1 };
   const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];

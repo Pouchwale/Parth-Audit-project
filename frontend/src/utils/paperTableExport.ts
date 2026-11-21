@@ -1,5 +1,5 @@
 import type { Cell, ExportBlock, PaperCellSpec, SheetCell } from "./documentExport";
-import { lineRow, paperTablePrint, shownPaperTable as paperTableFor, type PaperCell, type PaperRow, type PaperTable } from "../data/seed/qcPaperTables";
+import { lineRow, paperTableFor as ownPaper, paperTablePrint, shownPaperTable as paperTableFor, type PaperCell, type PaperRow, type PaperTable } from "../data/seed/qcPaperTables";
 
 // A PAPER DRAWN AS ITS OWN TABLE, DOWNLOADED AS IT IS DRAWN (the owner, 30-10-26, F/QC/17 with its printout beside its
 // Excel download: "when i download the excel it is all ruin, it should be in the perfect format and way just like the
@@ -235,5 +235,150 @@ export function paperTableWord(documentId: string, blocks: ExportBlock[]): Expor
 
 /** The Word page's margins for such a paper (points): the print's own, all round. */
 export function paperTableWordMargins(documentId: string): { top: number; right: number; bottom: number; left: number } | undefined {
-  return PAPER_TABLE_EXPORTS.has(documentId) ? { top: WORD_MARGIN, right: WORD_MARGIN, bottom: WORD_MARGIN, left: WORD_MARGIN } : undefined;
+  return PAPER_TABLE_EXPORTS.has(documentId) || ownPaper(documentId)?.ownWords ? { top: WORD_MARGIN, right: WORD_MARGIN, bottom: WORD_MARGIN, left: WORD_MARGIN } : undefined;
+}
+
+// AN HR PAPER IN THE KIND OF FILE ITS ORIGINAL IS NOT (REQUIREMENTS §275: "as it is, no new things"). The company's own Word or
+// Excel file is filled where it is that kind; the other kind, and a record with words its file has no place for, is drawn
+// here from the paper on the page: its cells, merges, rules, faces and every word the record holds - and nothing else.
+
+/** The words of a cell holding a box or a choice inside its printed words, read in the order the paper shows them. */
+function wordsInPlace(td: HTMLTableCellElement, read: (el: Element) => Cell): string {
+  const pieces: { t: string; x: number; y: number; h: number; right: number; filled?: boolean }[] = [];
+  const add = (t: string, b: DOMRect, filled = false) => {
+    if (t) pieces.push({ t, x: b.left, y: b.top + b.height / 2, h: b.height || 10, right: b.right, filled });
+  };
+  const walker = document.createTreeWalker(td, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const n = walker.currentNode as Text;
+    const up = n.parentElement;
+    if (!up || up.closest(".no-print, [aria-hidden='true'], .pt-pick, input, textarea, select, option")) continue;
+    const over = up.closest(".pt-over");
+    if (over && !over.querySelector(".pt-pick")) continue;
+    for (const m of n.data.matchAll(/\S+/g)) {
+      const r = document.createRange();
+      r.setStart(n, m.index);
+      r.setEnd(n, m.index + m[0].length);
+      add(m[0], r.getBoundingClientRect());
+    }
+  }
+  for (const p of Array.from(td.querySelectorAll(".pt-pick"))) {
+    const on = p.classList.contains("is-on");
+    const word = (p.textContent ?? "").trim();
+    add(p.classList.contains("pt-pick-tick") ? (on ? "✓" : "") : on ? `(${word})` : word, p.getBoundingClientRect(), on);
+  }
+  for (const o of Array.from(td.querySelectorAll(":scope > .pt-over"))) {
+    if (!o.querySelector(".pt-pick")) add(read(o).text.trim(), o.getBoundingClientRect(), true);
+  }
+  // (the paper's writing line under a value is the value's place: the value stands there instead)
+  const kept = pieces.filter((p) => !/^[_.…]{3,}$/.test(p.t) || !pieces.some((v) => v.filled && Math.abs(v.y - p.y) < p.h && v.x < p.right && v.right > p.x));
+  const lines: (typeof kept)[] = [];
+  for (const p of [...kept].sort((a, b) => a.y - b.y)) {
+    const line = lines.find((l) => Math.abs(l[0].y - p.y) < Math.max(l[0].h, p.h) * 0.6);
+    if (line) line.push(p);
+    else lines.push([p]);
+  }
+  return lines.map((l) => l.sort((a, b) => a.x - b.x).map((p) => p.t).join(" ")).join("\n");
+}
+
+function drawnWords(td: HTMLTableCellElement, read: (el: Element) => Cell): Cell {
+  if (td.querySelector(":scope > .pt-over, .pt-pick")) return { text: wordsInPlace(td, read) };
+  const at = Array.from(td.querySelectorAll(":scope > .pt-at"));
+  if (at.length) return { text: at.map((a) => read(a).text.trim()).filter(Boolean).join("\n") };
+  const bullets = Array.from(td.querySelectorAll(".pt-bullet"));
+  if (bullets.length) return { text: bullets.map((b) => `• ${read(b).text.trim().replace(/^[•●]\s*/, "")}`).join("\n") };
+  return read(td);
+}
+
+/** The paper on the page as a sheet or a Word table, or null for any other document. */
+export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", roots: Element[], read: (el: Element) => Cell, sheetName = ""): ExportBlock[] | null {
+  const form = ownPaper(documentId);
+  if (!form?.ownWords) return null;
+  const papers = roots.flatMap((r) => (r.matches(".paper-table-sheet") ? [r] : Array.from(r.querySelectorAll(".paper-table-sheet"))));
+  const first = papers[0]?.querySelector("table.pt-table");
+  if (!first) return null;
+  const widthsMm = Array.from(first.querySelectorAll(":scope > colgroup > col")).map((c) => Number((c as HTMLElement).style.getPropertyValue("--pt-col")) || 0);
+  const totalMm = widthsMm.reduce((a, b) => a + b, 0);
+  if (!(totalMm > 0)) return null;
+  const heightsMm: number[] = [];
+  const starts: number[] = [];
+  const drawn: Omit<Placed, "def" | "shown">[] = [];
+  const words: Cell[] = [];
+  for (const paper of papers) {
+    starts.push(heightsMm.length);
+    for (const table of Array.from(paper.querySelectorAll<HTMLTableElement>("table.pt-table"))) {
+      const perMm = table.getBoundingClientRect().width / totalMm || 1;
+      const held = new Map<number, Set<number>>();
+      for (const tr of Array.from(table.rows)) {
+        const ri = heightsMm.length;
+        const own = Number(tr.style.getPropertyValue("--pt-h")) || 0;
+        heightsMm.push(Math.max(own, tr.getBoundingClientRect().height / perMm));
+        const blankLine = tr.classList.contains("pt-pad");
+        const taken = held.get(ri);
+        let col = 0;
+        for (const td of Array.from(tr.cells)) {
+          while (taken?.has(col)) col++;
+          const colSpan = Math.max(1, td.colSpan);
+          const rowSpan = Math.max(1, td.rowSpan);
+          const has = (c: string) => td.classList.contains(c);
+          const line = td.querySelector<HTMLElement>(":scope > .pt-at");
+          const rule = (e: string, open: string, heavy?: string) => (has(open) || !has(`pt-e${e}`) ? 0 : heavy && has(heavy) ? 2 : 1);
+          const face = (["arial", "times", "gothic"] as const).find((f) => has(`pt-f-${f}`) || line?.classList.contains(`pt-f-${f}`));
+          const fill = has("pt-bg") ? td.style.getPropertyValue("--pt-bg").trim() : "";
+          words.push(blankLine || has("pt-padc") ? { text: "" } : drawnWords(td, read));
+          drawn.push({
+            row: ri,
+            col,
+            colSpan,
+            rowSpan,
+            size: Number(line?.style.getPropertyValue("--pt-size")) || Number(td.style.getPropertyValue("--pt-size")) || form.pt,
+            bold: has("pt-b") || !!line?.classList.contains("pt-b"),
+            underline: has("pt-u"),
+            ...(fill ? { fill } : {}),
+            align: has("pt-ac") ? "center" : has("pt-ar") ? "right" : "left",
+            font: FACE[face ?? form.font],
+            borders: [rule("l", "pt-nl"), rule("r", "pt-or", "pt-hr"), rule("t", "pt-nt"), rule("b", "pt-ob", "pt-hb")],
+          });
+          for (let d = 1; d < rowSpan; d++) {
+            const below = held.get(ri + d) ?? new Set<number>();
+            for (let c = col; c < col + colSpan; c++) below.add(c);
+            held.set(ri + d, below);
+          }
+          col += colSpan;
+        }
+      }
+    }
+  }
+  // The size it prints on A4, inside the page's margins.
+  const roomPt = (form.page === "portrait" ? 595.28 : 841.89) - 2 * WORD_MARGIN;
+  const scale = Math.min(paperTablePrint(form, true).scale, roomPt / (totalMm * MM_PT));
+  if (kind === "xlsx") {
+    const cells: SheetCell[] = drawn.map((p, i) => ({
+      ...words[i],
+      row: p.row,
+      col: p.col,
+      rowSpan: p.rowSpan,
+      colSpan: p.colSpan,
+      style: { size: round(p.size * scale, 0.5), bold: p.bold, underline: p.underline, align: p.align, valign: "center", wrap: true, borders: p.borders, font: p.font, ...(p.fill ? { fill: p.fill } : {}), ...(/^0\d|\.\d*0$/.test(words[i].text.trim()) ? { keepText: true } : {}) },
+    }));
+    const widths = widthsMm.map((mm) => Math.max(0.5, Math.round((((mm * scale * 96) / 25.4 - 5) / 7) * 100) / 100));
+    const heights = heightsMm.map((h) => round(Math.min(409, h * scale * MM_PT), 0.25));
+    return [{ kind: "sheet", name: sheetName, widths, heights, rowCount: heightsMm.length, cells, breaks: starts.slice(1), page: form.page }];
+  }
+  const eighths = (level: number) => (level === 2 ? 12 : level === 1 ? 6 : 0);
+  const byRow: { col: number; cell: PaperCellSpec }[][] = heightsMm.map(() => []);
+  drawn.forEach((p, i) => {
+    const [l, r, t, b] = p.borders.map(eighths) as PaperCellSpec["borders"];
+    const set = { size: Math.round(p.size * scale * 2), bold: p.bold, align: p.align, valign: "center" as const, font: p.font, ...(p.underline ? { underline: true } : {}), ...(p.fill ? { fill: p.fill } : {}), ...(p.colSpan > 1 ? { colSpan: p.colSpan } : {}) };
+    byRow[p.row].push({ col: p.col, cell: { ...words[i], ...set, borders: [l, r, t, b], ...(p.rowSpan > 1 ? { vMerge: "restart" as const } : {}) } });
+    for (let d = 1; d < p.rowSpan; d++) byRow[p.row + d]?.push({ col: p.col, cell: { text: "", ...set, borders: [l, r, 0, b], vMerge: "continue" } });
+  });
+  const wordWidths = widthsMm.map((mm) => Math.round(mm * scale * MM_PT * 100) / 100);
+  return starts.map((from, n) => ({
+    kind: "paper" as const,
+    widths: wordWidths,
+    spaceAfter: 1,
+    ...(n > 0 ? { pageBreakBefore: true } : {}),
+    rows: heightsMm.slice(from, starts[n + 1] ?? heightsMm.length).map((h, k) => ({ height: Math.round(h * scale * MM_PT * 100) / 100, cells: byRow[from + k].sort((a, b) => a.col - b.col).map((c) => c.cell) })),
+  }));
 }

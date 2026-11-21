@@ -46,6 +46,17 @@ export function paperWordEdits(form: PaperTable | undefined, headings: Record<st
   return edits;
 }
 
+/** Words a record wrote where its paper prints none (a blank cell, a line's number): its own file has no place for them. */
+export function paperWordsWithoutPlace(form: PaperTable | undefined, headings: Record<string, string> | undefined): boolean {
+  if (!form?.ownWords || !headings) return false;
+  const own = paperWordsOf(form);
+  return Object.entries(headings).some(([key, to]) => {
+    if (!key.startsWith("paper:") || own.has(key.slice(6))) return false;
+    const num = /^paper:num:(\d+)$/.exec(key);
+    return to.trim() !== "" && (!num || to.trim() !== String(Number(num[1]) + 1));
+  });
+}
+
 const same = (s: string): string => s.replace(/\s+/g, " ").trim().toLowerCase();
 const unescape = (s: string): string => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#10;/g, "\n").replace(/&amp;/g, "&");
 const escape = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -55,8 +66,12 @@ function edited(text: string, edits: PaperWordEdit[]): string | null {
   const whole = edits.find((e) => same(e.from) === same(text));
   if (whole) return whole.to;
   let next = text;
-  // (inside a longer line only for words long enough to be that place's and no other's)
-  for (const e of edits) if (e.from.length >= 8 && !e.from.includes("\n") && next.includes(e.from)) next = next.split(e.from).join(e.to);
+  // (inside a longer line only for words long enough to be that place's and no other's, however the file spaces them)
+  for (const e of edits) {
+    if (e.from.trim().length < 8) continue;
+    const words = e.from.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    next = next.replace(new RegExp(words.join("\\s*"), "gi"), () => e.to.trim());
+  }
   return next === text ? null : next;
 }
 
@@ -77,7 +92,7 @@ function rewrite(block: string, tag: string, edits: PaperWordEdit[]): string {
 
 function changedPart(name: string, xml: string, edits: PaperWordEdit[]): string {
   if (/^xl\/sharedStrings\.xml$/.test(name)) return xml.replace(/<si>[\s\S]*?<\/si>/g, (si) => rewrite(si, "t", edits));
-  if (/^xl\/worksheets\/[^/]+\.xml$/.test(name)) return xml.replace(/<is>[\s\S]*?<\/is>/g, (is) => rewrite(is, "t", edits));
+  if (/^xl\/worksheets\/[^/]+\.xml$/.test(name)) return xml.replace(/<is>[\s\S]*?<\/is>/g, (is) => rewrite(is, "t", edits)).replace(/<c [^>]*t="str"[^>]*>[\s\S]*?<\/c>/g, (c) => (c.includes("<f") ? c : rewrite(c, "v", edits).replace(/<v xml:space="preserve">/g, "<v>")));
   if (/^word\/(document|header\d*|footer\d*)\.xml$/.test(name)) return xml.replace(/<w:p(?: [^>]*)?>[\s\S]*?<\/w:p>/g, (p) => rewrite(p, "w:t", edits));
   return xml;
 }
@@ -88,6 +103,7 @@ export async function withPaperWords(bytes: Uint8Array<ArrayBuffer>, edits: Pape
   const copy = bytes.slice();
   const zip = await unzip(copy.buffer);
   const files: { name: string; data: Uint8Array }[] = [];
+  const landed = new Set<PaperWordEdit>();
   for (const [name, get] of zip) {
     if (name.endsWith("/")) continue;
     const data = await get();
@@ -97,7 +113,10 @@ export async function withPaperWords(bytes: Uint8Array<ArrayBuffer>, edits: Pape
     }
     const xml = new TextDecoder("utf-8").decode(data);
     const next = changedPart(name, xml, edits);
+    for (const e of edits) if (next !== xml && next.includes(escape(e.to.trim()))) landed.add(e);
     files.push({ name, data: next === xml ? data : new TextEncoder().encode(next) });
   }
+  // (a word this file does not print: the file would not be the record, so the paper is drawn instead)
+  if (landed.size < edits.length) throw new Error("a typed word has no place in the file");
   return zipStored(files);
 }
