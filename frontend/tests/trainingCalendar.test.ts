@@ -7,8 +7,8 @@
 //   * a date as a person wrote it: the paper's 7/22/2026 and 2/4/2027 (month first), the app's 22-07-2027, ISO, a bare day;
 //   * the trainings the 2026-27 calendar on file plans: held where the date has passed, planned on the pre-written date
 //     where it has not, on the month's last working day where no date is written;
-//   * next year's plan from this year's: every topic, every planned month on the same day of the month, moved past the
-//     Thursday off, the 15th where no date was written, the Actual cells empty;
+//   * next year's plan from this year's: every topic, X in every planned month, a random working day kept for it, the
+//     Actual cells empty (§272);
 //   * the schedule: due 31 March, one sheet for the twelve months from April - the 2026-27 sheet on file counts as its
 //     year's, the 2027-28 sheet is made when April 2027 is generated (a month ahead by the near-term generator), and
 //     F/HR/16 keeps its 31 December;
@@ -30,6 +30,8 @@ import { prepareKnownParts } from "../src/engine/knownParts";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { planNotifications, type PlanDocument, type PlanPerson, type PlanRecord } from "../src/engine/notificationPlan";
 import { plantClosedDays } from "../src/engine/latenessCore";
+import { diffRecordData } from "../src/engine/recordHistory";
+import { addDays as addOne } from "../src/utils/date";
 import {
   CALENDAR_MONTH_NAMES,
   calendarMonth,
@@ -37,8 +39,11 @@ import {
   calendarStartYear,
   displayDay,
   lastWorkingDay,
+  calendarDatesDue,
+  dayKey,
   nextYearPlan,
   plannedTrainings,
+  settledKey,
   TRAINING_CALENDAR_ID,
   writtenDate,
 } from "../src/engine/trainingCalendar";
@@ -106,24 +111,36 @@ test("the trainings the 2026-27 calendar plans: held when its date has passed, p
   assert.equal(words[0].held, true, "words that are no date under Actual still say it was held");
 });
 
-test("next year's plan from this year's: every topic, each planned month on the same day of the month, past the Thursday off; the 15th with no date; Actual empty", () => {
+test("next year's plan from this year's: every topic, X in each planned month, a random working day kept for it, Actual empty", () => {
   const next = nextYearPlan(rows2026(), "2028-03-31", closed);
   assert.equal(next.length, 19);
   const r0 = next[0];
   assert.equal(r0.parameter, "BRCGS - Packaging (Issue 07)Awareness");
   assert.equal(r0.source, "External (Shashank Sheth)");
   assert.equal(r0.duration, "16 hours");
-  assert.equal(r0.m3Plan, "23-07-2027", "22-07-2027 is a Thursday: the day after");
-  assert.equal(r0.m10Plan, "04-02-2028", "Friday 4-02-2028");
+  assert.equal(r0.m3Plan, "X");
+  assert.equal(r0.m10Plan, "X");
   assert.equal(r0.m3Actual, "");
-  assert.equal(r0.m10Actual, "");
   assert.equal(r0.m0Plan, "", "April was not planned");
-  const ccp = next[8];
-  assert.equal(ccp.parameter, "CCP monitoring");
-  assert.equal(ccp.m4Plan, "15-08-2027", "no date was written for August: the 15th (a Sunday, a working day)");
-  assert.equal(ccp.m7Plan, "30-11-2027", "held 11/30/2026: Tuesday 30-11-2027");
-  const gmp = next[4];
-  assert.deepEqual([gmp.m0Plan, gmp.m5Plan, gmp.m10Plan], ["09-04-2027", "19-09-2027", "05-02-2028"], "Friday 9-04-2027; Sunday 19-09-2027 (a working day); Saturday 5-02-2028");
+  assert.equal(r0[dayKey(0)], undefined);
+  let planned = 0;
+  const days = new Set<string>();
+  for (const row of next) {
+    for (let i = 0; i < 12; i++) {
+      if (!row[`m${i}Plan`]) continue;
+      planned += 1;
+      const day = row[dayKey(i)];
+      const { year, month } = calendarMonth(2027, i);
+      assert.ok(day.startsWith(`${year}-${String(month).padStart(2, "0")}-`), `${day} is in its own month`);
+      assert.ok(!closed(day), `${day} is a working day`);
+      days.add(day.slice(8));
+    }
+  }
+  assert.ok(planned > 30);
+  assert.ok(days.size >= 10, `the days vary: ${[...days].join(" ")}`);
+  assert.deepEqual(nextYearPlan(rows2026(), "2028-03-31", closed), next, "the same every time");
+  const later = nextYearPlan(rows2026(), "2029-03-31", closed);
+  assert.notEqual(later[0][dayKey(3)]?.slice(8), r0[dayKey(3)]?.slice(8), "another day another year");
 });
 
 test("the schedule: F/HR/09 due 31 March, year-long and made a month ahead; F/HR/16 still 31 December", () => {
@@ -172,9 +189,10 @@ test("the generator: the 2026-27 calendar on file is its year's sheet; April 202
   assert.equal(data.header.period, "01-04-2027 ~ 31-03-2028");
   assert.equal(data.rows.length, 19);
   assert.equal(data.rows[0].parameter, "BRCGS - Packaging (Issue 07)Awareness");
-  assert.equal(data.rows[0].m3Plan, "23-07-2027");
+  assert.equal(data.rows[0].m3Plan, "X");
   assert.equal(data.rows[0].m3Actual, "");
-  assert.equal(data.rows[0].m10Plan, "04-02-2028");
+  assert.ok(String(data.rows[0][dayKey(3)]).startsWith("2027-07-"));
+  assert.equal(data.rows[0].m10Plan, "X");
   assert.ok(data.rows.every((r) => typeof r.id === "string" && r.id));
   assert.match(result.basedOn, /training plan calendar of 01\.04\.2026 ~ 31\.03\.2027/);
   assert.ok(result.notes.some((n) => n.startsWith("Planned as the calendar of 01.04.2026 ~ 31.03.2027 was: its 19 topics")), result.notes.join(" | "));
@@ -222,4 +240,77 @@ test("the notifications: each planned training told of from three days ahead to 
   // Held: nothing.
   const held: PlanRecord = { ...record, trainings: record.trainings!.map((t) => ({ ...t, held: true })) };
   assert.equal(planNotifications({ today: "2026-12-01", time: "09:00", documents: [calendar], records: [held], people: [hr], isClosedDay: closed }).filter((i) => i.kind === "training").length, 0);
+});
+
+test("§272 Plan reads X, never Yes or a date; the day is kept out of sight; nothing under Actual before its day", () => {
+  const rows = calendarDatesDue(rows2026(), "2026-04-01", "2026-11-21", closed)!;
+  const line = (topic: string) => rows.find((r) => String(r.parameter).startsWith(topic))!;
+  const cell = (topic: string, i: number) => [line(topic)[`m${i}Plan`], line(topic)[`m${i}Actual`], line(topic)[dayKey(i)]];
+  assert.deepEqual(cell("BRCGS", 3), ["X", "7/22/2026", "2026-07-22"], "held: its Actual as written");
+  assert.deepEqual(cell("BRCGS", 10), ["X", "", "2027-02-05"], "to come, on a Thursday off: the Friday, not yet under Actual");
+  assert.deepEqual(cell("CCP monitoring", 7), ["X", "", "2026-11-30"], "to come: moved from Actual");
+  assert.deepEqual(cell("CCP monitoring", 4), ["X", "", undefined], "a month gone with no date: no date made up");
+  for (const row of rows) for (let i = 0; i < 12; i++) assert.ok(["", "X"].includes(String(row[`m${i}Plan`])));
+  assert.equal(calendarDatesDue(rows, "2026-04-01", "2026-11-21", closed), null, "run again it writes nothing");
+  // A sheet already holding §271's dates under Plan reads X, each day kept.
+  const dated = [{ id: "a", parameter: "T", m7Plan: "30-11-2026", m7Actual: "", m4Plan: "15-08-2026", m4Actual: "" }];
+  const [moved] = calendarDatesDue(dated, "2026-04-01", "2026-11-21", closed)!;
+  assert.deepEqual([moved.m7Plan, moved.m7Actual, moved[dayKey(7)]], ["X", "", "2026-11-30"]);
+  assert.deepEqual([moved.m4Plan, moved.m4Actual], ["X", ""], "August is not written in afterwards");
+});
+
+test("§272 a new X takes a random working day from today on, within its month", () => {
+  const [row] = calendarDatesDue([{ id: "a", parameter: "Fire drill", source: "HR", m8Plan: "X", m8Actual: "" }], "2026-04-01", "2026-12-20", closed)!;
+  const day = String(row[dayKey(8)]);
+  assert.ok(day >= "2026-12-20" && day <= "2026-12-31", day);
+  assert.ok(!closed(day));
+  assert.equal(row.m8Actual, "");
+});
+
+test("§272 the Actual date comes on its day, once: a person's date stands, a date cleared stays clear, and it goes on next year", () => {
+  const rows = calendarDatesDue(rows2026(), "2026-04-01", "2026-11-21", closed)!;
+  const ccp = (rs: typeof rows) => rs.find((r) => r.parameter === "CCP monitoring")!;
+  assert.equal(calendarDatesDue(rows, "2026-04-01", "2026-11-29", closed), null, "the day before: nothing");
+  const onDay = calendarDatesDue(rows, "2026-04-01", "2026-11-30", closed)!;
+  assert.equal(ccp(onDay).m7Actual, "30-11-2026");
+  assert.equal(ccp(onDay).m7Plan, "X");
+  assert.equal(ccp(onDay).m4Actual, "", "August stays for a person");
+  // Told on the day itself, then done.
+  const told = (today: string) => plannedTrainings([ccp(onDay)], "2026-04-01", today, closed).find((t) => t.monthIndex === 7)!;
+  assert.deepEqual([told("2026-11-30").date, told("2026-11-30").held], ["2026-11-30", false]);
+  assert.equal(told("2026-12-01").held, true);
+  // A person changes it: it stands.
+  const typed = onDay.map((r) => (r.parameter === "CCP monitoring" ? { ...r, m7Actual: "01-12-2026" } : r));
+  assert.equal(calendarDatesDue(typed, "2026-04-01", "2026-12-02", closed), null);
+  // A person clears it, the training not having been held: it is not written back, and the reminder goes on.
+  const cleared = onDay.map((r) => (r.parameter === "CCP monitoring" ? { ...r, m7Actual: "" } : r));
+  assert.equal(calendarDatesDue(cleared, "2026-04-01", "2026-12-02", closed), null);
+  assert.equal(plannedTrainings([ccp(cleared)], "2026-04-01", "2026-12-02", closed).find((t) => t.monthIndex === 7)!.held, false);
+  // Next year's sheet: X, and written on its own day.
+  const next = nextYearPlan(onDay, "2028-03-31", closed);
+  const day = String(ccp(next)[dayKey(7)]);
+  assert.equal(calendarDatesDue(next, "2028-03-31", addOne(day, -1), closed)?.find((r) => r.parameter === "CCP monitoring")?.m7Actual ?? "", "");
+  const again = calendarDatesDue(next, "2028-03-31", day, closed)!;
+  assert.equal(ccp(again).m7Plan, "X");
+  assert.equal(ccp(again).m7Actual, displayDay(day));
+});
+
+test("§272 a date typed under Plan becomes that training's day, and the X stays; the X taken off takes its day with it", () => {
+  const [row] = calendarDatesDue([{ id: "a", parameter: "T", m8Plan: "22-12-2026", m8Actual: "" }], "2026-04-01", "2026-11-21", closed)!;
+  assert.deepEqual([row.m8Plan, row[dayKey(8)]], ["X", "2026-12-22"]);
+  const [off] = calendarDatesDue([{ ...row, m8Plan: "" }], "2026-04-01", "2026-11-22", closed)!;
+  assert.equal(dayKey(8) in off, false);
+  // A person's own words under Plan stay as written; "x" and an older "Yes" read X.
+  assert.equal(calendarDatesDue([{ id: "w", parameter: "T", m8Plan: "After audit", m8Actual: "" }], "2026-04-01", "2026-11-21", closed), null);
+  const [marks] = calendarDatesDue([{ id: "m", parameter: "T", m8Plan: "x", m8Actual: "", m9Plan: "Yes", m9Actual: "" }], "2026-04-01", "2026-11-21", closed)!;
+  assert.deepEqual([marks.m8Plan, marks.m9Plan], ["X", "X"]);
+  // A date typed after it has passed is the person's to confirm: not written under Actual.
+  const [late] = calendarDatesDue([{ id: "b", parameter: "T", m6Plan: "10-10-2026", m6Actual: "" }], "2026-04-01", "2026-11-25", closed)!;
+  assert.deepEqual([late.m6Plan, late.m6Actual], ["X", ""]);
+});
+
+test("§272 what the system keeps out of sight is no line in the record's history", () => {
+  const before = { header: {}, rows: [{ id: "a", parameter: "T", m8Plan: "X", m8Actual: "" }] };
+  const after = { header: {}, rows: [{ ...before.rows[0], [dayKey(8)]: "2026-12-22", [settledKey(8)]: "kept" }] };
+  assert.deepEqual(diffRecordData(before, after), []);
 });

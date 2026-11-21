@@ -208,7 +208,8 @@ function flatten(value: unknown, path: string, label: string, out: Map<string, L
       // A row's id, and the mark that a catch row or a Summary line is still the system's suggestion (REQUIREMENTS §177),
       // are bookkeeping, not something a person wrote: neither is a change.
       // ...nor F/PUR/02's note of what its NC table filled by itself (engine/purchaseAuditNc.ts, REQUIREMENTS §229).
-      if (k === "id" || k === "suggested" || k === "ncAuto") continue;
+      // ...nor F/HR/09's day kept for a planned month and its mark of having been written (engine/trainingCalendar.ts, §272).
+      if (k === "id" || k === "suggested" || k === "ncAuto" || /^training(?:Day|Settled)\d+$/.test(k)) continue;
       const childPath = path ? `${path}.${k}` : k;
       // checkpoints.7.value -> "Check point 7"; checkpoints.7.note -> "Check point 7 note"
       let childLabel: string;

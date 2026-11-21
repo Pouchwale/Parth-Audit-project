@@ -12743,3 +12743,70 @@ if user enter delete name then it should also vanished from there".
 - Proved: frontend/tests/hrNameCleared.test.ts (every HR format's fetched boxes emptied); on the local copy in the browser
   (F/HR/20: Rajpratap Rajbirsingh Singh fetched Sleeve / Supervisor; the name deleted, all three empty, kept after a
   reload); the test account check (§206) on F/HR/01, F/HR/13, F/HR/20.
+
+## §269 Nothing cut at the edge of the A4 printout, however many columns (20-Nov-2026)
+
+The owner, 20-Nov-2026, with F/HR/01's printout running off the right of the page: "in some formats when user is taking print
+on A4 size paper then it should print properly only no line should cut or anything so make sure about it when there are many
+columns in document".
+
+- Why F/HR/01 ran off: §266 prints an HR sheet's short values on one line (a print-only rule), but the sheet was fitted to
+  its page measured without that rule - as if they wrapped - so it printed wider than it was fitted, its last columns at
+  the paper's very edge. The one-line rule now holds while print measures the page too (styles.css html.print-measure), so
+  the sheet is fitted at the width it prints.
+- And last of all, on every printout (utils/print.ts keepWithinPage): once every box is written and every line drawn, each
+  sheet's grids are measured with the print's rules on; one still wider than the printable width (A4 less 12 mm each side)
+  is drawn smaller until it fits. Never larger. A framed paper, a paper at its own margin and a sheet printed as pages of its
+  own fit themselves as before.
+- A paper's copy read only (a signed F/QC/12) printed "199.982gr" and two weights run together: its values were not written
+  smaller to fit their cells as the open sheet's boxes are. They are now (utils/fitText.ts: every value of a paper's copy).
+- Measured on all 137 documents on the local copy, each record printed to an A4 PDF as Print does and read with PyMuPDF:
+  nothing within 5 mm of either edge (F/HR/01 now 10 mm and 11.6 mm in; before, 0.2 pt past the right edge), no value across
+  a cell's line, no page count changed. F/QC/12's frame stands 5.8 mm / 4.4 mm from the edges as the company's Word file
+  draws it, its words 8 mm in - left as the paper is. Proved also: frontend/tests/printFill.test.ts.
+
+## §270 A choice box's value in the middle too: F/HR/04's YES / NO (20-Nov-2026)
+
+The owner, 20-Nov-2026, with F/HR/04's printout: "see nothing yes and no column is not align properly so fix it." §266 decided
+which columns print centred from each cell's printed words; on a record still being written YES / NO is a choice box, whose
+value is no printed word, so the column was not centred. The print now reads a box's value (utils/print.ts cellValueText), so a
+Yes / No, a number or a date in a box stands in the middle as written text does. Measured on the opened F/HR/04 printed to PDF:
+every "No" in the middle of its column, one page as before.
+
+## §271 F/HR/09: the system plans every date and writes each actual date, every year (21-Nov-2026)
+
+The owner, 21-Nov-2026: "in F/HR/09 the system should plan date for all topics and system should filled actual date and this
+should be continue every year". §164 left the Actual cell to the person; it is now the system's, and the person's to correct.
+
+1. **Every planned month has its date under Plan** (engine/trainingCalendar.ts calendarDatesDue). The paper's "Yes" takes the
+   day written under Actual if that day has come; a day still to come moves from Actual to Plan, off the weekly off and the
+   festival holidays and within its month (F/HR/09's 04-02-2027, a Thursday, is planned for 05-02-2027); a month with no date
+   takes the 15th, off a closed day.
+2. **On the planned day the same date is written under Actual**, never before it (§201), by the morning prepare and at every
+   start (engine/trainingCalendarFill.ts). A date a person wrote stands, and they change it if the training was held on another
+   day. The calendar is written on all year, so a signed-off sheet takes its dates too: status and signatures stay, and each
+   change is a line in its history.
+3. **No day before 21-11-2026 is written in** (ACTUALS_WRITTEN_FROM): the 2026-27 sheet's CCP monitoring for August has an X and
+   no date on the paper. It is planned for 16-08-2026, its Actual left for the plant to say whether and when it was held; the
+   "not held yet" reminder stays on it until then.
+4. **Every year:** each March's new sheet is planned from the last (§164), now always under its own month's column, and its
+   Actual dates are written the same way. The reminder ahead of a training says the system writes the date.
+5. Proved: frontend/tests/trainingCalendar.test.ts (§271); printed to A4 on the local copy, one landscape page.
+
+## §272 F/HR/09: X under Plan, a random day for each training, the Actual date on that day (21-Nov-2026)
+
+The owner, 21-Nov-2026, with the sheet showing "Yes" under Plan: "in F/HR/09 don't write yes instead of that keep X in that
+planned date and user get notification and on that day of actual date should come directly and it is random date only".
+
+1. **Plan reads X**, as the paper prints it: the old "Yes" and §271's dates under Plan are turned to X on every calendar from
+   2026-27 on. A person's own words under Plan stay as written; a date typed there becomes that training's day and reads X.
+2. **Each planned month has a working day, kept on the line and not shown** (engine/trainingCalendar.ts dayKey). It is a random
+   working day of the month (randomWorkingDay: the same every time for one topic and month, different from year to year),
+   from today on for a new X. The dates the company's paper already gives for December 2026 to February 2027 are kept.
+3. **The notification** goes to the people who answer for F/HR/09 from three days ahead and on the day itself, naming the date.
+4. **On that day the date comes under Actual**, once (settledKey), by the morning job and at every start, with a line in the
+   record's history. A person's date stands. A date cleared because the training was not held is not written back, and the
+   "not held yet" reminder goes on until someone writes when it was held.
+5. A month already gone with no date gets none (CCP monitoring, August 2026): nothing is written in afterwards.
+6. Proved: frontend/tests/trainingCalendar.test.ts (§272); tests/verify_with_test_account.py and tests/check_all_documents.py
+   on F/HR/09 on the local copy (Word, Excel, A4 print).

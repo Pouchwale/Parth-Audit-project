@@ -27,6 +27,7 @@ import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
 import { scaleWeeksOnOpenSheets } from "./scaleWeeksMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
 import { sharpDailyFrequencyLifted, sharpDaySheetsFolded, sharpTypedLinesRestored } from "./sharpMonthMigration";
+import { fillTrainingCalendarDue } from "../engine/trainingCalendarFill";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -138,4 +139,6 @@ export function bootstrap(): void {
   prepareDueRecords();
   // ...and the day sheets whose lines the month's sheet now holds, folded away (REQUIREMENTS §259).
   sharpDaySheetsFolded();
+  // F/HR/09's plan dates, and each actual date on its day (REQUIREMENTS §271).
+  fillTrainingCalendarDue();
 }

@@ -352,7 +352,7 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
   const mode = layout.rowMode;
   if (planned) {
     notes.push(
-      `Planned as the calendar of ${planned.from.data.header?.period ?? formatDisplayDate(planned.from.dueDate)} was: its ${rows.length} topics, ${planned.lines} of them with trainings planned again in the same months, each on the same day of the month as last year's (moved past a holiday). The planned date is in the Plan cell: change any that should move. The Actual cell is written when the training is held; until then DCRS reminds the people who answer for the calendar before each planned day, and every day after it.`,
+      `Planned as the calendar of ${planned.from.data.header?.period ?? formatDisplayDate(planned.from.dueDate)} was: its ${rows.length} topics, ${planned.lines} of them with trainings planned again in the same months with X, each on a random working day of its month. The planned date is in the Plan cell: change any that should move. The Actual cell is written when the training is held; until then DCRS reminds the people who answer for the calendar before each planned day, and every day after it.`,
     );
   } else if (listed) {
     notes.push(`The ${rows.length} lines of the list confirmed on ${formatDisplayDate(prior!.dueDate)} are carried forward with who or what each line is about. Every assessment on them is made afresh.`);

@@ -7,14 +7,21 @@
 // Plan cell and an Actual cell under every month. The paper marks a planned month with X and writes the date the
 // training was held under it; the plant also writes the intended date ahead of time. DCRS reads both ways:
 //
-//   Plan     "Yes" (the paper's X), or the date DCRS planned ("22-07-27") - either means the month is planned
+//   Plan     X, as the paper prints it (§272; the owner, 21-Nov-2026: "don't write yes instead of that keep X"). The day
+//            picked for it is kept on the line, out of sight (dayKey). An older "Yes" or date reads as planned too
 //   Actual   the date the training was held, written by the person; the plant's pre-written date counts once its day
 //            has passed
 //
 // THE NEXT YEAR'S CALENDAR is drawn from this year's (nextYearPlan): every topic with its source, method, duration and
 // evaluation; every planned month planned again, on the same day of the month it was held (or planned) this year, moved
 // forward off the weekly off and the festival holidays; the 15th where this year's month has no date at all. The Actual
-// cells start empty: they are the person's to write when each training is held.
+// cells start empty.
+//
+// THE SYSTEM WRITES THE DATES, EVERY YEAR (calendarDatesDue; the owner, 21-Nov-2026, REQUIREMENTS §271, §272: "keep X in that
+// planned date and user get notification and on that day of actual date should come directly and it is random date
+// only"): every planned month has a random working day, told to the people who answer for F/HR/09 ahead of it, and on that
+// day the date is written under Actual once - never before it (§201). A person's date under Actual stands, they change it
+// where the training was held on another day, and a date they clear because it was not held is not written back.
 //
 // THE TRAININGS A CALENDAR PLANS (plannedTrainings): one per topic and planned month, each with its date - the date in
 // the Plan cell, else the date pre-written under Actual, else the month's last working day - and whether it has been
@@ -30,6 +37,14 @@ export const CALENDAR_MONTH_NAMES = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export const planKey = (monthIndex: number): string => `m${monthIndex}Plan`;
 export const actualKey = (monthIndex: number): string => `m${monthIndex}Actual`;
+/** What the Plan cell of a planned month reads, as the paper prints it (§272). */
+export const PLAN_MARK = "X";
+/** The day the system planned the month's training for, kept on the line and shown nowhere on the sheet (§272). */
+export const dayKey = (monthIndex: number): string => `trainingDay${monthIndex}`;
+/** The month's Actual is past the system's one writing: "system" wrote it, or it was "kept" as a person left it (§272). */
+export const settledKey = (monthIndex: number): string => `trainingSettled${monthIndex}`;
+const SETTLED_BY_SYSTEM = "system";
+const SETTLED_KEPT = "kept";
 
 /** The calendar's fixed columns: the topic and how it is trained, carried from one year to the next as they are. */
 export const CALENDAR_FIXED_KEYS = ["parameter", "source", "method", "duration", "evaluation"] as const;
@@ -159,8 +174,10 @@ export function plannedTrainings(rows: readonly Cells[] | undefined, dueDate: st
       const actual = str(row[actualKey(i)]);
       const actualDate = writtenDate(actual, year, month);
       const planned = writtenDate(plan, year, month);
-      const date = planned ?? actualDate ?? lastWorkingDay(year, month, isClosedDay);
-      const held = !!actual && (actualDate === null || actualDate <= today);
+      const date = planned ?? actualDate ?? writtenDate(row[dayKey(i)], year, month) ?? lastWorkingDay(year, month, isClosedDay);
+      // The date the system wrote this morning: the people are still told of today's training (§272).
+      const writtenToday = str(row[settledKey(i)]) === SETTLED_BY_SYSTEM && actualDate === today;
+      const held = !!actual && (actualDate === null || actualDate <= today) && !writtenToday;
       out.push({ key: `${id}|${i}`, topic: str(row.parameter), by: str(row.source), date, held, monthIndex: i });
     }
   });
@@ -168,10 +185,9 @@ export function plannedTrainings(rows: readonly Cells[] | undefined, dueDate: st
 }
 
 /**
- * NEXT YEAR'S LINES from this year's: every topic as it is, every planned month planned again on the same day of the
- * month this year's training was held (or planned), moved forward off a closed day; the 15th where no date was written.
- * The Actual cells are empty: the person writes each date when the training is held. `nextDueDate` is the new
- * calendar's due date (its 31st March).
+ * NEXT YEAR'S LINES from this year's: every topic as it is, every planned month planned again with its X and a new random
+ * working day (§272). The Actual cells are empty until each day comes. `nextDueDate` is the new calendar's due date (its
+ * 31st March).
  */
 export function nextYearPlan(previousRows: readonly Cells[], nextDueDate: string, isClosedDay: ClosedDay): Record<string, string>[] {
   const start = calendarStartYear(nextDueDate);
@@ -185,15 +201,108 @@ export function nextYearPlan(previousRows: readonly Cells[], nextDueDate: string
         row[actualKey(i)] = "";
         continue;
       }
-      const last = calendarMonth(start - 1, i);
-      const was = writtenDate(plan, last.year, last.month) ?? writtenDate(prev[actualKey(i)], last.year, last.month);
-      const day = was ? Number(was.slice(8, 10)) : 15;
       const { year, month } = calendarMonth(start, i);
-      row[planKey(i)] = displayDay(onWorkingDay(isoOf(year, month, day), isClosedDay));
+      row[planKey(i)] = PLAN_MARK;
+      row[dayKey(i)] = randomWorkingDay(`${str(prev.parameter)}|${str(prev.source)}`, year, month, isClosedDay) ?? lastWorkingDay(year, month, isClosedDay);
       row[actualKey(i)] = "";
     }
     return row;
   });
+}
+
+/** `iso` or the next working day, kept under its own month's column: the month's last working day where none is left after it. */
+function workingDayInMonth(iso: string, isClosedDay: ClosedDay): string {
+  const day = onWorkingDay(iso, isClosedDay);
+  return day.slice(0, 7) === iso.slice(0, 7) ? day : lastWorkingDay(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)), isClosedDay);
+}
+
+/** The first day the system writes an Actual date (§271): a planned day before it was the paper's to record, and is not written in afterwards. */
+export const ACTUALS_WRITTEN_FROM = "2026-11-21";
+
+/**
+ * A working day of the month, picked at random but the same every time for the same topic and month, so the plant's days
+ * differ from topic to topic and year to year. `notBefore` keeps it from a day already gone; null when no working day is left.
+ */
+export function randomWorkingDay(seed: string, year: number, month: number, isClosedDay: ClosedDay, notBefore = ""): string | null {
+  const days: string[] = [];
+  for (let d = 1; d <= daysInMonth(year, month); d++) {
+    const iso = isoOf(year, month, d);
+    if (iso >= notBefore && !isClosedDay(iso)) days.push(iso);
+  }
+  if (days.length === 0) return null;
+  let h = 2166136261;
+  for (const ch of `${seed}|${year}-${month}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return days[((h ^ (h >>> 16)) >>> 0) % days.length];
+}
+
+/**
+ * THE DATES DUE ON A CALENDAR (§271, §272). For each planned month:
+ *   - the Plan cell reads X. Its day is kept on the line, out of sight (dayKey): a date typed under Plan, else the day
+ *     already kept, else the day written under Actual (one still to come moves out of Actual, off a closed day), else a
+ *     random working day from today on. A month already gone with no date gets no day;
+ *   - on that day a blank Actual takes the date, ONCE (settledKey). If a person clears it because the training was not held,
+ *     it stays clear. A day before ACTUALS_WRITTEN_FROM, or one typed after it had passed, is never written in.
+ * Whatever else is in a cell stays. The lines with the dates in; null when there is nothing to write.
+ */
+export function calendarDatesDue<T extends Cells>(rows: readonly T[], dueDate: string, today: string, isClosedDay: ClosedDay): T[] | null {
+  const start = calendarStartYear(dueDate);
+  let changed = false;
+  const next = rows.map((row) => {
+    const cells: Cells = { ...row };
+    const put = (key: string, value: string) => {
+      if (str(cells[key]) === value) return;
+      cells[key] = value;
+      changed = true;
+    };
+    for (let i = 0; i < 12; i++) {
+      const plan = str(row[planKey(i)]);
+      if (!plan) {
+        // The X taken off: its day goes with it.
+        for (const key of [dayKey(i), settledKey(i)]) {
+          if (key in cells) {
+            delete cells[key];
+            changed = true;
+          }
+        }
+        continue;
+      }
+      const { year, month } = calendarMonth(start, i);
+      let actual = str(row[actualKey(i)]);
+      const written = writtenDate(actual, year, month);
+      const typed = writtenDate(plan, year, month);
+      // Words of a person's own under Plan are theirs: only the mark ("Yes", x) or a date is read as the plan.
+      if (!typed && !/^(?:x|yes)$/i.test(plan)) continue;
+      const kept = writtenDate(row[dayKey(i)], year, month);
+      let settled = str(row[settledKey(i)]);
+      let day = typed ?? kept;
+      if (typed && typed !== kept) settled = !actual && typed < today ? SETTLED_KEPT : "";
+      if (!day) {
+        if (written && written <= today) day = written;
+        else if (written) {
+          day = workingDayInMonth(written, isClosedDay);
+          actual = "";
+        } else day = randomWorkingDay(`${str(row.parameter)}|${str(row.source)}`, year, month, isClosedDay, today);
+      }
+      put(planKey(i), PLAN_MARK);
+      put(actualKey(i), actual);
+      if (day) {
+        put(dayKey(i), day);
+        if (!settled && actual && (written ?? day) <= today) settled = SETTLED_KEPT;
+        if (!settled && !actual && day >= ACTUALS_WRITTEN_FROM && day <= today) {
+          put(actualKey(i), displayDay(day));
+          settled = SETTLED_BY_SYSTEM;
+        }
+      }
+      if (settled) put(settledKey(i), settled);
+      else if (settledKey(i) in cells) {
+        delete cells[settledKey(i)];
+        changed = true;
+      }
+    }
+    return cells as T;
+  });
+  return changed ? next : null;
 }
 
 /** How many of the lines plan at least one training. */

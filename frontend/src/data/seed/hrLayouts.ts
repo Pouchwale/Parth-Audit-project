@@ -372,7 +372,7 @@ const calendarColumns: LogColumn[] = [
   fixedText("evaluation", "Method of Evaluation", 140),
 ];
 for (let i = 0; i < CALENDAR_MONTHS.length; i++) {
-  // Plan: "Yes" where the paper prints X, or the date DCRS planned the training for ("22-07-27", §164): either plans the month.
+  // Plan: X, as the paper prints it (§272); the day picked for the training is kept on the line (engine/trainingCalendar.ts).
   calendarColumns.push(text(`m${i}Plan`, `${CALENDAR_MONTHS[i]} — Plan`, 80));
   calendarColumns.push(text(`m${i}Actual`, `${CALENDAR_MONTHS[i]} — Actual`, 95));
 }
@@ -416,7 +416,7 @@ export function calendarRow(t: CalendarTopic): Record<string, string | number | 
   const row: Record<string, string | number | null> = { parameter: t.topic, source: t.source, method: t.method, duration: t.duration, evaluation: t.evaluation };
   for (let i = 0; i < CALENDAR_MONTHS.length; i++) {
     const planned = i in t.plan;
-    row[`m${i}Plan`] = planned ? "Yes" : "";
+    row[`m${i}Plan`] = planned ? "X" : "";
     row[`m${i}Actual`] = planned ? t.plan[i] : "";
   }
   return row;
@@ -427,7 +427,7 @@ const trainingCalendar: LogSheetLayout = {
   instructions: [],
   // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
   screenNotes: [
-    "Training Plan Calender (Rev. 00 / 07.03.2022), one sheet a year from April to March. For every topic and month: Plan — Yes where the paper prints X, or the date DCRS planned the training for; Actual — the date the training was held, written when it is. Each March the coming year is planned from this year's calendar, and the people who answer for it are reminded before each planned day until the actual date is written.",
+    "Training Plan Calender (Rev. 00 / 07.03.2022), one sheet a year from April to March. For every topic and month: Plan — X for a planned month; Actual — the date, written by the system on the working day it picked for that training and never before it (change it if the training was held on another day, clear it if it was not held). Each March the coming year is planned from this year's calendar, and the people who answer for it are reminded before each planned day.",
     "The training duration of topic 10 is not legible on the supplied copy and is marked TO BE CONFIRMED.",
   ],
   headerFields: [{ key: "period", label: "Training Plan Calender", type: "text", autoFill: { financialYear: true }, width: 260 }],
