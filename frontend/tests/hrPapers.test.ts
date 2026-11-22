@@ -1,6 +1,7 @@
 // THE HR FORMATS AS THE COMPANY'S OWN PAPERS, EVERY PART EDITABLE (REQUIREMENTS §275; the owner, 21-Nov-2026: "as it is in my
 // system which i have shared documents with you. as it is no new things and make sure each and every part is editable").
 // Run: npm run test:unit -- hrPapers
+import { readablePaper } from "../src/engine/paperReadable";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -48,7 +49,7 @@ test("F/HR/20's scale, F/HR/22's Yes and No, F/HR/04's answers are chosen on the
   assert.equal(picks("hr-psc-survey").length, 15 * 7);
   assert.deepEqual([...new Set(picks("hr-psc-survey").map((p) => p.value[0]))], ["7", "6", "5", "4", "3", "2", "1"]);
   assert.equal(picks("hr-hygiene-report").length, 31 * 9 * 2);
-  assert.ok(picks("hr-pre-employment-health").some((p) => p.mark === "tick" && p.off === "No"), "question 06's tick boxes");
+  assert.ok(picks("hr-pre-employment-health").some((p) => p.mark === "check" && p.off === "No"), "question 06's tick boxes");
   assert.ok(picks("hr-pre-employment-health").some((p) => p.box === "sex" && p.value === "Female"));
 });
 
@@ -113,4 +114,25 @@ test("§281 no ruled line runs past a paper's right-hand line: no thin open cell
       assert.ok(!(last.w <= 1 && rulesAcross && !last.edges.includes("r")), `${id}: a ${last.w} mm cell draws its lines past the right-hand line`);
     }
   }
+});
+
+test("§286 YES and NO stay side by side, a label and its box on one line, the names' columns hold the longest name", () => {
+  const form = HR_PAPER_TABLES["hr-pre-employment-health"];
+  const out = readablePaper(form, { header: {}, rows: [] }, "section-286");
+  const cells = out.body.flatMap((r) => r.cells);
+  const yesNo = cells.filter((c) => c.pick?.[0]?.word === "YES");
+  assert.equal(yesNo.length, 9);
+  for (const c of yesNo) assert.ok(c.w >= 19, `the YES / NO cell is ${c.w} mm wide`);
+  for (const c of cells.filter((x) => x.pick?.length === 1 && x.pick[0].mark === "check" && !x.pick[0].word)) assert.ok(c.w >= 3.8, `a tick box's cell is ${c.w} mm wide`);
+  // Question 02 keeps its two lines, its box on the second, inside its row.
+  const row = out.body.find((r) => r.cells.some((c) => c.t?.startsWith("02.")))!;
+  const q2 = row.cells.find((c) => c.t?.startsWith("02."))!;
+  assert.ok(q2.t!.includes("\n"));
+  assert.ok(q2.over![0].y + q2.over![0].h <= row.h);
+  // F/HR/07's Position stands clear of its cell's edge, in the middle of its row, with room for a long position.
+  const position = HR_PAPER_TABLES["hr-job-responsibility"].body[0].cells[0];
+  assert.ok((position.x ?? 0) >= 1.5 && position.vm && position.sentence!.boxWidth >= 60);
+  // F/HR/10 and F/HR/13 give a name the room of the staff sheet's longest.
+  assert.ok(HR_PAPER_TABLES["hr-training-imparted"].lines!.cells.find((c) => c.col === "name")!.w >= 69);
+  assert.ok(HR_PAPER_TABLES["hr-mobile-authorization"].lines!.cells.find((c) => c.col === "name")!.w >= 66);
 });

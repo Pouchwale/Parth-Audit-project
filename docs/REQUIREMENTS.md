@@ -13007,3 +13007,19 @@ their fullest record to A4, and every page measured.
 - F/HR/15 and F/HR/16 stay on one page, whatever is written in their day boxes.
 - Letters: F/HR/21's words wrap in their column, not at the old column's line breaks (8 pt). F/HR/09 is 8.5 pt on its two pages. A word
   is never cut in two across lines on a fitted paper: that one cell is written a little smaller (utils/print.ts keepWordsWhole).
+
+## §286 YES and NO side by side, a label and its box on one line, no name cut (22-Nov-2026)
+
+The owner, 22-Nov-2026, with F/HR/04's printout and F/HR/07's Position row: "the yes and no is not properly align in this document
+so fix it by keep it side and in some documents the name column is cutting ... in second image you can that is not align".
+
+- F/HR/04: §282's fitting narrowed the YES / NO column to 16 mm, so the two answers wrapped and NO stood on the ruled line. A pair of
+  tick-box answers now tells the fitting the room it needs (engine/paperReadable.ts), and stays on one line on the screen, the print,
+  Word and Excel. On a fitted paper a label and the box beside it stand on one line in the middle of their row; a two-line question
+  keeps its break, its box on the second line. Question 06's tick boxes keep their own room, clear of the column lines.
+- F/HR/07: "Position" and "Reports to" stand in from the cell's edge as the row above does, in the middle of their row, with room for
+  a long position.
+- Names: every HR paper was printed with the longest names and designations on the staff sheet written into its name columns (in the
+  browser only, nothing saved). F/HR/10 and F/HR/13 did not hold them; their columns are set so each stays on one line.
+- Proved: frontend/tests/hrPapers.test.ts; the print measured on all HR papers on the local copy; Word and Excel opened;
+  tests/verify_with_test_account.py.

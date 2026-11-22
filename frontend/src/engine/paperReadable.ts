@@ -55,7 +55,15 @@ interface Entry {
   face: PaperTable["font"];
   /** Over a register's column. */
   heading: boolean;
+  /** Two tick-box answers side by side (§286): the room they need on one line, at this size. */
+  least?: (pt: number) => number;
 }
+
+/** A tick box and the space after it, and the space between two answers, mm (styles.css .pt-pick-check). */
+const CHECK_BOX = 3.9;
+const CHECK_GAP = 3.6;
+/** How far the middle of a line of letters stands below the "top of the letters" a cell's y measures, per mm of type. */
+const LETTER_MIDDLE = 0.41;
 
 function edgesOf(rows: PaperRow[]): number[] {
   const xs = new Set<number>([0]);
@@ -124,8 +132,8 @@ function columnsFor(entries: Entry[], own: number[], W: number, F: number, H: nu
   const need = new Array<number>(n).fill(0);
   const want = new Array<number>(n).fill(0);
   const size = (e: Entry) => Math.max(e.pt, e.heading ? H : F);
-  const longest = (e: Entry) => Math.max(0, ...e.texts.flatMap((t) => t.split(/\s+/)).map((w) => mmOf(w, size(e), e.bold, e.face))) + PAD;
-  const whole = (e: Entry) => Math.max(0, ...e.texts.flatMap((t) => t.split("\n")).map((l) => mmOf(l, size(e), e.bold, e.face))) + PAD;
+  const longest = (e: Entry) => Math.max(e.least?.(size(e)) ?? 0, Math.max(0, ...e.texts.flatMap((t) => t.split(/\s+/)).map((w) => mmOf(w, size(e), e.bold, e.face))) + PAD);
+  const whole = (e: Entry) => Math.max(e.least?.(size(e)) ?? 0, Math.max(0, ...e.texts.flatMap((t) => t.split("\n")).map((l) => mmOf(l, size(e), e.bold, e.face))) + PAD);
   for (const e of entries) {
     if (e.to - e.from !== 1) continue;
     need[e.from] = Math.max(need[e.from], longest(e));
@@ -224,8 +232,15 @@ function build(form: PaperTable, data: LogSheetData | undefined): PaperTable {
   const entries: Entry[] = [];
   const headingRows = new Set<PaperRow>(form.lines ? form.body.filter((r, i) => r.head || i === form.body.length - 1) : []);
   const note = (c: PaperCell, from: number, to: number, texts: string[], heading = false) => {
+    // (a tick box with no words of its own keeps the room for its box, clear of the column's lines)
+    if (!c.skip && texts.length === 0 && c.pick?.length === 1 && c.pick[0].mark === "check") {
+      entries.push({ from, to, texts: [], pt: (c.pt ?? form.pt) * old, bold: false, face: c.f ?? form.font, heading, least: () => CHECK_BOX });
+      return;
+    }
     if (c.skip || texts.length === 0) return;
-    entries.push({ from, to, texts, pt: (c.pt ?? c.at?.[0]?.pt ?? form.pt) * old, bold: !!c.b || !!c.at?.some((l) => l.b), face: c.f ?? form.font, heading });
+    const pair = c.pick?.length === 2 && c.pick.every((p) => p.mark === "check" && p.word) ? c.pick : null;
+    const least = pair ? (pt: number) => sum(pair.map((p) => mmOf(p.word, pt, !!c.b, c.f ?? form.font) + CHECK_BOX)) + CHECK_GAP + PAD : undefined;
+    entries.push({ from, to, texts, pt: (c.pt ?? c.at?.[0]?.pt ?? form.pt) * old, bold: !!c.b || !!c.at?.some((l) => l.b), face: c.f ?? form.font, heading, ...(least ? { least } : {}) });
   };
   for (const r of [...form.head, ...form.body, ...form.foot]) for (const { c, from, to } of place(r)) note(c, from, to, textsOf(c, data, c.ln ?? r.line), headingRows.has(r));
   if (template) {
@@ -337,8 +352,21 @@ function build(form: PaperTable, data: LogSheetData | undefined): PaperTable {
         if (l.x !== undefined) line.x = Math.round(l.x * across * 100) / 100;
         return line;
       });
-    } else if (!c.over?.length) out.vm = true;
+    } else if (!c.over?.length && !c.top) out.vm = true;
     if (c.over) out.over = c.over.map((o) => ({ ...o, x: o.x * across, w: o.w * across, y: o.y * old * down, h: o.h * old * down }));
+    // A label and the box written beside it stand on one line, in the middle of their row (§286). A question of two lines: its
+    // box on the second line, beside the words it follows.
+    if (out.over?.length && c.t && !c.at && (c.rs ?? 1) === 1) {
+      const lines = c.t.split("\n").length;
+      const lh = out.lh ?? pt * MM * 1.2;
+      const firstMiddle = (h - (lines - 1) * lh) / 2;
+      const boxMiddle = firstMiddle + (lines - 1) * lh;
+      out.y = Math.round((firstMiddle - LETTER_MIDDLE * pt * MM) * 100) / 100;
+      out.over = out.over.map((o) => {
+        const boxH = Math.min(o.h, lh + 0.6, h - 0.5);
+        return { ...o, h: boxH, y: Math.max(0.1, Math.min(boxMiddle - boxH / 2, h - boxH - 0.25)) };
+      });
+    }
     if (c.sentence) out.sentence = { ...c.sentence, boxWidth: c.sentence.boxWidth * old };
     return out;
   };

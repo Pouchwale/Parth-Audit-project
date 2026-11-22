@@ -111,6 +111,8 @@ export interface PaperCell {
   over?: { box?: string; col?: string; ln?: number; x: number; y: number; w: number; h: number; lines?: true; pick?: PaperPick[]; /** The paper's writing line under the box, mm long. */ rule?: number }[];
   /** The answers this cell holds (§275). */
   pick?: PaperPick[];
+  /** The second line of words begun on the row above: it stays at the top of its cell on a fitted paper (§286). */
+  top?: true;
   /** The place of the same words on the paper's first page (a heading printed again on each page): typed over once (§275). */
   pl?: string;
   /** The cell's shade where its line holds something in it, and only then (F/HR/03's points). */
