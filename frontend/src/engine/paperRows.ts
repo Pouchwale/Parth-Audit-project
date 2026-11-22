@@ -6,10 +6,10 @@
 import type { PaperCell, PaperRow, PaperTable } from "../data/seed/qcPaperTables";
 import type { LogSheetData, LogSheetRow, PaperRowsKept } from "../types/record";
 
-const HEAD_WORDS = /GUJARAT PRINT PACK|Format No|Rev No|Page No/i;
+const HEAD_WORDS = /GUJARAT PRINT PACK|Format No|Rev No|Page No|F\/HR\/\d+/i;
 const NUMBER = /^\d+\.?$/;
 
-const wordsOf = (c: PaperCell): string => [c.t, c.lab, ...(c.at ?? []).map((l) => l.t)].filter(Boolean).join(" ");
+const wordsOf = (c: PaperCell): string => [c.t, c.lab, c.sentence?.before, ...(c.at ?? []).map((l) => l.t)].filter(Boolean).join(" ");
 
 /** Rows held together by a cell running down them: one row of the paper to add after or take off. */
 function units(rows: PaperRow[]): { from: number; to: number }[] {
@@ -42,7 +42,9 @@ function partsOf(form: PaperTable): { head: Part; body: Part; foot: Part } {
 /** A row that may be added after or taken off: never the letterhead, a page's repeated head, a heading or a hair-thin strip. */
 function canChange(rows: PaperRow[]): boolean {
   if (rows.reduce((a, r) => a + r.h, 0) < 3) return false;
-  return !rows.some((r) => r.pb || r.head || r.cells.some((c) => HEAD_WORDS.test(wordsOf(c)) || /^Sr\.? ?no/i.test(wordsOf(c).trim()) || (!!c.pl && wordsOf(c).trim() !== "")));
+  const holds = (c: PaperCell) => !!(c.t || c.lab || c.box || c.col || c.pick?.length || c.sentence || c.at?.length || c.over?.length || c.calc || c.num);
+  if (!rows.some((r) => r.cells.some((c) => !c.skip && (holds(c) || (c.edges ?? "ltrb") !== "")))) return false;
+  return !rows.some((r) => r.pb || r.head || r.cells.some((c) => HEAD_WORDS.test(wordsOf(c)) || /^Sr\.?\s*no/i.test(wordsOf(c).trim()) || (!!c.pl && wordsOf(c).trim() !== "")));
 }
 
 /** The record's lines a row of the paper is answered on. */

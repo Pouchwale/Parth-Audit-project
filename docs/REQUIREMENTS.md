@@ -12967,5 +12967,6 @@ document except pest control module".
 - No colour on an HR record: the paper's yellow, orange and green shading and the screen's yellow boxes are gone, in the company's
   own Word and Excel files too (utils/originalFill/paperWords.ts withoutColours). Grey headings stay. A choice shows no arrow.
 - F/HR/15 and F/HR/16 show every day and month on the screen and print on one A4 page at 8 pt.
+- F/HR/02: the empty page space under its last line is gone, its number stands just under the table, and + and x appear only on real rows.
 - Word and Excel: all 40 files opened and printed through Word and Excel themselves. A one-page paper stays on one page; a number in
   a narrow Excel column no longer shows as ###.
