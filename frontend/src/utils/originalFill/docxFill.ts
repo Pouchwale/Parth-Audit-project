@@ -216,6 +216,8 @@ class Controls {
     private report: FillReport
   ) {}
   private next = 900001;
+  /** A choice printed in one cell is written with tick boxes (hints.ts tickChoices, §280). */
+  tickChoices = false;
 
   /**
    * The cell's pieces as runs: the fixed words as words, each bound value in a control tagged "dcrs:<i>". `shown` writes a
@@ -356,6 +358,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   const labels = labelsOf(model);
   const builder = opts.envelope ? new ExportMapBuilder() : null;
   const controls = new Controls(builder, report);
+  controls.tickChoices = !!hints.tickChoices;
   // The owner's further filled copies of the same form (F/HR/07's other positions) are his examples: left out.
   if (hints.cutFromTable !== undefined) cutCopies(body, hints.cutFromTable);
   pageWidth = textWidth(body);
@@ -1912,6 +1915,19 @@ function markChoiceInCell(holder: TCell, cell: Cell, words: string[], controls: 
   }
   found.sort((a, b) => a.from - b.from);
   const chosen = found.find((o) => same(o.text, cell.text));
+  if (controls.tickChoices && found.length >= 2) {
+    // A tick box before each answer (§280), a little smaller so the narrow cell still keeps its one line.
+    const rPr = sizedRun(firstRunProps(p), 17);
+    for (let i = found.length - 1; i >= 0; i--) {
+      const o = found[i];
+      const word = paraText(p).slice(o.from, o.to);
+      replaceRange(p, o.from, o.to, "");
+      insertAt(p, o.from, o === chosen ? [runOf(CHECKED, rPr), ...controls.runs(cell, word === word.toUpperCase() ? capsRun(rPr) : rPr, label)] : [runOf(`${UNCHECKED}${word}`, rPr)]);
+      if (i > 0) replaceRange(p, found[i - 1].to, o.from, " ");
+    }
+    if (!chosen) p.children.push(...controls.runs(cell, rPr, label));
+    return;
+  }
   if (!chosen) {
     p.children.push(runOf(" ", firstRunProps(p)), ...controls.runs(cell, firstRunProps(p), label));
     return;
@@ -1922,6 +1938,31 @@ function markChoiceInCell(holder: TCell, cell: Cell, words: string[], controls: 
     replaceRange(p, o.from, o.to, "");
     insertAt(p, o.from, o === chosen ? controls.runs(cell, rPr, label) : [runOf(word, struck(rPr))]);
   }
+}
+
+/** A run's properties shown in capitals: the record keeps "No", the paper's "NO" is what is seen (§280). */
+function capsRun(rPr: XmlElement): XmlElement {
+  const out = clone(rPr);
+  out.children = out.children.filter((c) => typeof c === "string" || c.local !== "caps");
+  let at = 0;
+  out.children.forEach((c, i) => {
+    if (typeof c !== "string" && ["rStyle", "rFonts", "b", "bCs", "i", "iCs"].includes(c.local)) at = i + 1;
+  });
+  out.children.splice(at, 0, el("w:caps"));
+  return out;
+}
+
+/** A run's properties at this size in half-points (w:sz and w:szCs in their place among them). */
+function sizedRun(rPr: XmlElement | null, halfPoints: number): XmlElement {
+  const out = rPr ? clone(rPr) : el("w:rPr");
+  out.children = out.children.filter((c) => typeof c === "string" || (c.local !== "sz" && c.local !== "szCs"));
+  let at = 0;
+  const before = ["rStyle", "rFonts", "b", "bCs", "i", "iCs", "caps", "smallCaps", "strike", "dstrike", "outline", "shadow", "emboss", "imprint", "noProof", "snapToGrid", "vanish", "webHidden", "color", "spacing", "w", "kern", "position"];
+  out.children.forEach((c, i) => {
+    if (typeof c !== "string" && before.includes(c.local)) at = i + 1;
+  });
+  out.children.splice(at, 0, el("w:sz", { "w:val": String(halfPoints) }), el("w:szCs", { "w:val": String(halfPoints) }));
+  return out;
 }
 
 /** A run's properties with the words struck through (w:strike in its place among them). */

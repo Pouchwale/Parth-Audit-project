@@ -12928,3 +12928,18 @@ Maintenance.
   a choice, a text box). A value of several lines stays as words. The boxes come off when the print is done. Where boxes
   would run the sheet to a page more than its words take (a blank F/MNT/04 month), it stays as words.
 - Measured on all 138 documents, each printed to A4 from outside and from inside.
+
+## §280 The HR forms' Yes / No: a tick box in place of a ring; F/HR/04 set straight (22-Nov-2026)
+
+The owner, 22-Nov-2026, with F/HR/04: "there are many mistakes like alignment and i want tick mark button instead of circle in
+this all type of document where yes and no is present in hr module only except pest control record".
+
+- F/HR/04, F/HR/11, F/HR/14 and F/HR/19: each answer has its own tick box, in the middle of its cell, on the screen, the print,
+  Word and Excel (PaperPick mark "check"; originalFill hints tickChoices). F/HR/04's Male / Female and F/HR/11's other choices
+  on the same forms are ticked the same way. The stored values are unchanged, so every record on file shows its answer ticked.
+  F/HR/20's 7-to-1 scale has no Yes / No and keeps its rings. No pest control record is touched.
+- F/HR/04: question 02 stands with the others, its details on their own line; the values of Name, Sex, Department and Date of
+  Birth start on one line, clear of their labels; no box covers a ruled line; question 06's rows evenly spaced and its tick boxes
+  clear of the column lines; "Signature :" and "Date :" each followed by a box wide enough to write in. One A4 page as before.
+- Proved: frontend/tests/hrPapers.test.ts; the four forms clicked, reloaded and printed on the local copy; their Word and Excel
+  downloads opened in Word and Excel; tests/verify_with_test_account.py.

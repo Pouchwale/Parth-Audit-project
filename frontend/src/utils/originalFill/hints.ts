@@ -3,6 +3,11 @@ import type { FillHints } from "./types";
 // PER-DOCUMENT HELP FOR THE FILLER, ONLY WHERE THE GENERIC MATCHER CANNOT TELL (REQUIREMENTS §119). Each with its reason.
 // Kept few: every other document is placed by its words alone (utils/originalFill/xlsxFill.ts, docxFill.ts).
 export const FILL_HINTS: Record<string, FillHints> = {
+  // The HR forms' Yes / No answers: a tick box before each, as on the screen and the print (the owner, 22-Nov-2026, REQUIREMENTS §280).
+  "hr-pre-employment-health": { tickChoices: true },
+  "hr-visitor-health": { tickChoices: true },
+  "hr-gmp-checklist": { tickChoices: true },
+  "hr-training-effectiveness": { tickChoices: true },
   // F/QC/12: one landscape page, four weekly lines of two rows each; a Tested Value or a name written at the paper's own size
   // wraps in its column and pushes the sheet onto a second page. The grid's words are written smaller instead.
   "qc-weight-scale-calibration": { onePage: true },

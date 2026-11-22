@@ -265,7 +265,7 @@ function wordsInPlace(td: HTMLTableCellElement, read: (el: Element) => Cell): st
   for (const p of Array.from(td.querySelectorAll(".pt-pick"))) {
     const on = p.classList.contains("is-on");
     const word = (p.textContent ?? "").trim();
-    add(p.classList.contains("pt-pick-tick") ? (on ? "✓" : "") : on ? `(${word})` : word, p.getBoundingClientRect(), on);
+    add(p.classList.contains("pt-pick-tick") ? (on ? "✓" : "") : p.classList.contains("pt-pick-check") ? `${on ? "☑" : "☐"} ${word}` : on ? `(${word})` : word, p.getBoundingClientRect(), on);
   }
   for (const o of Array.from(td.querySelectorAll(":scope > .pt-over"))) {
     if (!o.querySelector(".pt-pick")) add(read(o).text.trim(), o.getBoundingClientRect(), true);

@@ -272,10 +272,10 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           } else if (c.pick) {
             const line = c.ln ?? row.line;
             body = (
-              <span className="pt-words pt-picks">
+              <span className={`pt-words pt-picks${c.pick.some((p) => p.mark === "check") ? " pt-picks-check" : ""}`}>
                 {c.pick.map((p, pi) => (
                   <React.Fragment key={pi}>
-                    {pi > 0 && " / "}
+                    {pi > 0 && p.mark !== "check" && " / "}
                     {parts.pick?.(p, p.ln ?? line)}
                   </React.Fragment>
                 ))}
@@ -409,11 +409,11 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
                 if (o.col && (ln === undefined || ln >= (parts.rowCount ?? 0))) return null;
                 const at = { "--ox": String(o.x), "--oy": String(o.y), "--ow": String(o.w), "--oh": String(o.h), "--pt-x": "0", "--pt-y": "0", ...(o.rule ? { "--orw": String(o.rule) } : {}) } as React.CSSProperties;
                 return (
-                  <span key={oi} className={`pt-over${o.rule ? " pt-over-rule" : ""}`} style={at}>
+                  <span key={oi} className={`pt-over${o.rule ? " pt-over-rule" : ""}${o.pick?.some((p) => p.mark === "check") ? " pt-over-checks" : ""}`} style={at}>
                     {o.pick
                       ? o.pick.map((p, pi) => (
                           <React.Fragment key={pi}>
-                            {pi > 0 && " / "}
+                            {pi > 0 && p.mark !== "check" && " / "}
                             {parts.pick?.(p, p.ln ?? ln)}
                           </React.Fragment>
                         ))

@@ -4456,6 +4456,12 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
 .pt-table .pt-pick.pt-pick-ring.is-on { outline: calc(0.32 * var(--u)) solid #000; outline-offset: calc(0.12 * var(--u)); font-weight: 700; }
 .pt-table .pt-pick.pt-pick-tick { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 0; min-width: 0; }
 .pt-table .pt-pick.pt-pick-tick.is-on::after { content: "\2713"; font-weight: 700; color: #000; }
+/* A tick box beside each answer, in place of a ring (the HR forms' Yes / No; REQUIREMENTS §280), in the middle of its cell. */
+.pt-table .pt-picks.pt-picks-check { position: absolute; inset: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: calc(0.8 * var(--u)) calc(2.4 * var(--u)); padding: 0 calc(0.6 * var(--u)); white-space: nowrap; }
+.pt-table .pt-over.pt-over-checks { display: flex; align-items: center; gap: calc(3 * var(--u)); white-space: nowrap; }
+.pt-table .pt-pick.pt-pick-check { display: inline-flex; align-items: center; gap: calc(0.9 * var(--u)); min-width: 0; border-radius: 0; line-height: 1; }
+.pt-table .pt-pick.pt-pick-check::before { content: ""; box-sizing: border-box; flex: none; display: inline-flex; align-items: center; justify-content: center; width: calc(3 * var(--u)); height: calc(3 * var(--u)); border: calc(0.25 * var(--u)) solid #000; background: #fff; color: #000; font-family: "Segoe UI Symbol", "DejaVu Sans", sans-serif; font-size: calc(2.9 * var(--u)); font-weight: 700; line-height: 1; }
+.pt-table .pt-pick.pt-pick-check.is-on::before { content: "\2713"; }
 @media screen {
   .pt-table .pt-pick[role="button"]:hover { background: #fff7cc; }
   .pt-table .pt-pick[role="button"]:focus-visible { outline: 2px solid var(--focus-ring); }

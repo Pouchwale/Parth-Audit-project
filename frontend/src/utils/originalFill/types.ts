@@ -4,6 +4,8 @@
  * Per-document help where the generic matcher cannot tell (utils/originalFill/hints.ts) - kept few, each with its reason.
  */
 export interface FillHints {
+  /** docx: a choice printed in one cell ("YES / NO") is written with a tick box before each answer, not by striking the others (§280). */
+  tickChoices?: boolean;
   /** xlsx: the sheet's 1-based row of a grid's (last) heading row, by the grid's order on the page. */
   headingRow?: Record<number, number>;
   /** The grids of the page to leave out of the file (a grid DCRS shows that the paper does not have). */

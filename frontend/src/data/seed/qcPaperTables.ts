@@ -40,7 +40,8 @@ export interface PaperPick {
   off?: string;
   /** The paper's own words for it; a tick box has none. */
   word: string;
-  mark: "ring" | "tick";
+  /** "check": a tick box beside the answer's own words (the HR forms' Yes / No, the owner, 22-Nov-2026). */
+  mark: "ring" | "tick" | "check";
 }
 
 export interface PaperCell {
