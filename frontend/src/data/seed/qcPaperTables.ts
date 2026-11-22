@@ -1588,19 +1588,14 @@ export const A4_MARGIN_MM = 12;
  * that fills its page, REQUIREMENTS §194) - A4_MARGIN_MM from the page's left and top edges, drawn so its width is the
  * page's less that margin each side, unless that would take it past the page's foot (4 mm kept clear).
  */
-/** Where the page's own frame stands, on the screen (round the paper) and on the printed A4 page (mm from its edges). */
+/** Where the page's own frame stands on the printed A4 page (mm from its edges). It is not drawn on the screen. */
 export function paperFrameStyle(form: PaperTable, print: { left: number; top: number; scale: number }): Record<string, string> {
   const f = form.pageFrame!;
   const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
   // (never inside the outer edge of the sheet, which a printer cannot print)
   const x = Math.max(6, print.left - f.l * print.scale);
   const y = Math.max(6, print.top - f.t * print.scale);
-  const drawn = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
   return {
-    "--pf-l": String(f.l),
-    "--pf-t": String(f.t),
-    "--pf-w": String(f.w),
-    "--pf-sh": String(Math.max(f.h, drawn + 2 * f.t)),
     "--pf-px": String(x),
     "--pf-py": String(y),
     "--pf-pw": String(Math.min(f.w * print.scale, pageW - 2 * x)),

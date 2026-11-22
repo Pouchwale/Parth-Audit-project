@@ -4469,10 +4469,11 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
   .paper-sheet[data-paper-own] .pt-table td.pt-c > .field-in-table.pt-lines > textarea.input { position: static; display: block; width: 100%; height: 100%; }
 }
 .pt-table .pt-over.pt-over-rule::after { content: ""; position: absolute; left: 0; bottom: 0; width: calc(var(--orw) * var(--u)); border-bottom: calc(0.22 * var(--u)) solid #000; pointer-events: none; }
-.pt-page-frame { position: absolute; left: calc(var(--pf-l) * -1 * var(--u)); top: calc(var(--pf-t) * -1 * var(--u)); width: calc(var(--pf-w) * var(--u)); height: var(--pf-screen-h, calc(var(--pf-sh) * var(--u))); box-sizing: border-box; border: calc(0.3 * var(--u)) solid #000; pointer-events: none; }
-.pt-page-frame.pt-page-frame-double { border: calc(0.9 * var(--u)) double #000; }
+/* The page border of the company's paper is a thing of the printed page: never drawn on the screen (the owner, 22-Nov-2026). */
+.pt-page-frame { display: none; box-sizing: border-box; border: 0.3mm solid #000; pointer-events: none; }
+.pt-page-frame.pt-page-frame-double { border: 0.9mm double #000; }
 @media print {
-  .pt-page-frame { position: fixed; left: calc(var(--pf-px) * 1mm); top: calc(var(--pf-py) * 1mm); width: calc(var(--pf-pw) * 1mm); height: calc(var(--pf-ph) * 1mm); border-width: 0.3mm; }
+  .pt-page-frame { display: block; position: fixed; left: calc(var(--pf-px) * 1mm); top: calc(var(--pf-py) * 1mm); width: calc(var(--pf-pw) * 1mm); height: calc(var(--pf-ph) * 1mm); border-width: 0.3mm; }
   .pt-page-frame.pt-page-frame-double { border-width: 0.9mm; }
 }
 .paper-sheet[data-paper-own] .doc-header.doc-header-paper { margin: 0; border: 0; }
@@ -4485,13 +4486,6 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
 .paper-plain-twin { position: fixed; left: -30000px; top: 0; width: 1400px; pointer-events: none; }
 .pt-table .pt-line-add { position: absolute; left: -58px; top: 50%; transform: translateY(-50%); min-width: 24px; padding: 0 4px; line-height: 1; }
 .paper-sheet[data-paper-form="table"]:has(.pt-line-add) { padding-left: 62px; }
-@media screen {
-  /* (the row's tools and Add Row stand outside the page's frame) */
-  .paper-sheet[data-paper-own] .pt-table .pt-rowtools, .paper-sheet[data-paper-own] .pt-table .pt-line-add { left: calc(-58px - var(--pf-side, 0px)); }
-  .paper-sheet[data-paper-own] .pt-table .pt-bin { left: calc(-30px - var(--pf-side, 0px)); }
-  .paper-sheet[data-paper-form="table"][data-paper-own]:has(.pt-rowtools, .pt-line-add) { padding-left: calc(62px + var(--pf-side, 0px)); }
-  .paper-sheet[data-paper-own] .paper-body > .btn { margin-top: calc(var(--pf-gap, 0px) + 8px); }
-}
 .pt-page-top { display: none; }
 /* NO LINE AT THE PAPER'S EDGE, ON ANY PAGE (REQUIREMENTS §277; the owner, 21-Nov-2026, with F/HR/01's second page, its heading cut at
    the top). The page itself has no margin (§59), and a printer cannot print its outer 4 to 5 mm: so the margin stands in the head
