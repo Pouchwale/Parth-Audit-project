@@ -190,10 +190,10 @@ with sync_playwright() as p:
     fmt, suggested, path = download(page, "competence")
     rows, sheet_xml, book_xml = workbook(path)
     texts = all_text(rows)
-    # The owner's own workbook (REQUIREMENTS section 119, 20-Oct-2026: "it should download the same document which i have
-    # uploaded / Supplied to you"): his sheet "Formate 01  (2)", his header cells, his heading rows, his page set-up, and
-    # the record's eighty lines in his rows - with the round-trip map beside it (the very hidden "_dcrs" sheet).
-    check("F/HR/01 Personal Competence Records downloads as the owner's own workbook, named for the format", fmt == "xlsx" and suggested.startswith("F-HR-01 Personal Competence Records") and suggested.endswith(".xlsx") and 'name="Formate 01  (2)"' in book_xml and 'name="_dcrs"' in book_xml, suggested)
+    # F/HR/01's letters had to be fitted to be read (REQUIREMENTS s282): its workbook is that same readable paper, on a sheet
+    # named for the format - his header cells, his heading rows, his page set-up and the record's eighty lines - with the
+    # round-trip map beside it (the very hidden "_dcrs" sheet).
+    check("F/HR/01 Personal Competence Records downloads as its readable paper (s282), named for the format", fmt == "xlsx" and suggested.startswith("F-HR-01 Personal Competence Records") and suggested.endswith(".xlsx") and 'name="F-HR-01"' in book_xml and 'name="_dcrs"' in book_xml, (suggested, re.findall(r'<sheet\b[^>]*name="([^"]*)"', book_xml)))
     check("...with his header block: the title and F/HR/01 with its revision", any("PERSONAL COMPETENCE RECORDS" in t for t in texts) and any(t.startswith("F/HR/01") for t in texts), texts[:12])
     heading_row = next((r for r in rows.values() if any(c[0] == "Name of person" for c in r.values())), None)
     check("...his grid's headings", heading_row is not None and any(c[0] == "Date of Joining" for c in heading_row.values()), heading_row)
@@ -259,7 +259,9 @@ with sync_playwright() as p:
     rows, sheet_xml, _ = workbook(path)
     lines = [[c[0] for c in r.values()] for r in rows.values()]
     check("F/QC/17 of the 300 mm scale downloads as a portrait workbook too, as its paper is (s117)", fmt == "xlsx" and 'orientation="portrait"' in sheet_xml, (fmt, suggested))
-    check("...with the 300 mm paper's GP-3/MS/42 and 0-300 mm, the + / - 1 mm and the six points", any("GP-3/MS/42" in l for l in lines) and any("0-300 mm" in l for l in lines) and any("+ / - 1 mm" in l for l in lines) and any("290 mm" in l for l in lines), lines[:24])
+    # The Serial number is the sheet's own running number since REQUIREMENTS s220 and s233, no longer the paper's GP-3/MS/42.
+    serial = [next((c for c in l[1:] if c), "") for l in lines if l and l[0] == "Serial number"]  # the master's, then this scale's
+    check("...with its running Serial number (s220, s233), 0-300 mm, the + / - 1 mm and the six points", len(serial) == 2 and serial[1].isdigit() and any("0-300 mm" in l for l in lines) and any("+ / - 1 mm" in l for l in lines) and any("290 mm" in l for l in lines), (serial, lines[:24]))
 
     # ==================================================================
     # 2. Forms and Word originals: Word
@@ -310,13 +312,14 @@ with sync_playwright() as p:
              return { printed: window.__printed, page: document.documentElement.dataset.printPage, zoom: doc.style.zoom, rule: style ? style.textContent : '' };
            }"""
     )
-    check("Printing F/HR/09 turns the page landscape and scales the calendar to the paper", fit["printed"] == 1 and fit["page"] == "landscape" and "landscape" in fit["rule"] and fit["zoom"] and 0.3 <= float(fit["zoom"]) < 1, fit)
+    # F/HR/09 is the company's paper since s275: drawn at its own size for landscape A4 (s285), so no zoom is put on it.
+    check("Printing F/HR/09 turns the page landscape, the paper at its own size", fit["printed"] == 1 and fit["page"] == "landscape" and "landscape" in fit["rule"] and fit["zoom"] == "", fit)
     pdf_path = os.path.join(TMP, "calendar.pdf")
     page.pdf(path=pdf_path, prefer_css_page_size=True, print_background=True)
     with open(pdf_path, "rb") as f:
         pdf = f.read()
     boxes = [tuple(float(x) for x in m.groups()) for m in re.finditer(rb"/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]", pdf)]
-    check("...and the PDF comes out on landscape A4 pages", bool(boxes) and all(b[2] > b[3] for b in boxes), boxes[:2])
+    check("...and the PDF comes out on its two landscape A4 pages (s285)", len(boxes) == 2 and all(b[2] > b[3] for b in boxes), boxes[:3])
     page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
     page.wait_for_timeout(200)
     after = page.evaluate("() => ({ page: document.documentElement.dataset.printPage || '', zoom: document.querySelector('[data-print-doc]').style.zoom, rule: (document.getElementById('print-page-fit') || {}).textContent || '' })")
@@ -401,7 +404,8 @@ with sync_playwright() as p:
             check("...and as many rows and columns as the supplied sheet", max(rows) == want[2] and max(len(r) for r in rows.values()) <= want[3] + 1, (max(rows), want[2], want[3]))
 
     # F/HR/18: the Word original's page - A4 portrait, the framed band, the legend, the heading box, two lines a unit.
-    goto(page, "#/pest/trend/fly-catcher")
+    # (the register is a page of its own since REQUIREMENTS s222; the trend page holds only its report)
+    goto(page, "#/pest/fly-catcher")
     fmt, suggested, path = download(page, "fhr18")
     names_, xml, paragraphs, tables = word(path)
     texts18 = [c for t in tables for r in t for c in r]
@@ -409,8 +413,9 @@ with sync_playwright() as p:
     check("...on A4 portrait, as the paper is, with its margins", 'w:orient="landscape"' not in xml and '<w:pgSz w:w="11906" w:h="16838"/>' in xml and 'w:left="574"' in xml, xml[-300:])
     check("...the band's four cells as the paper words them, on both pages", all(any(t == w for t in texts18) for w in ("Format No.: F/HR/18", "Rev No: 02", "Date: 15.12.2024", "Page No.: 1 of 2", "Page No.: 2 of 2")), texts18[:12])
     unit_tables = [[r[0] for r in t if r and r[0].startswith("PC-")] for t in tables if len(t[0]) == 7 and t[0][0].startswith("PC-")]
-    check("...two pages: PC-01 to PC-08 on the first, PC-09 to PC-13 on the second, a page break between", xml.count('<w:br w:type="page"/>') == 1 and unit_tables == [[f"PC-{n:02d}" for n in range(1, 9)], [f"PC-{n:02d}" for n in range(9, 14)]], (unit_tables, xml.count('<w:br w:type="page"/>')))
-    check("...the unit's number merged down its two lines, the band's name spanning its four cells", xml.count('w:vMerge w:val="restart"') == 13 and '<w:gridSpan w:val="4"/>' in xml, (xml.count('w:vMerge w:val="restart"'), xml.count("gridSpan")))
+    check("...two pages: PC-01 to PC-08 on the first, PC-09 to PC-13 on the second, a page break between", xml.count("<w:pageBreakBefore/>") == 1 and unit_tables == [[f"PC-{n:02d}" for n in range(1, 9)], [f"PC-{n:02d}" for n in range(9, 14)]], (unit_tables, xml.count("<w:pageBreakBefore/>")))
+    # (each of the 13 units merges two cells down its two lines: its number, and its one Verified By since REQUIREMENTS s256)
+    check("...the unit's number and its one Verified By merged down its two lines (s256), the band's name spanning its four cells", xml.count('w:vMerge w:val="restart"') == 26 and '<w:gridSpan w:val="4"/>' in xml, (xml.count('w:vMerge w:val="restart"'), xml.count("gridSpan")))
     check("...Calibri at the paper's sizes: 20 pt name, 14 pt title, 12 pt cells, 10 pt grid", all(f'<w:sz w:val="{n}"/>' in xml for n in (40, 28, 24, 20)), None)
 
     check("No JavaScript errors", not errors, errors[:5])
