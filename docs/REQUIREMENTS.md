@@ -12951,3 +12951,16 @@ cell under 1 mm wide, left over from the company's Word table, which ruled its t
 stuck out past the table's right-hand line like a comb. The thin cell is now part of the last real cell of its row (14 rows), so
 each table ends in one straight line, level with the heading above it. All 18 HR papers measured on the local copy: none left.
 Proved: frontend/tests/hrPapers.test.ts; screen, print, Word and Excel of the two papers.
+
+## §282 The menu shows which document you are in (22-Nov-2026)
+
+The owner: when a user enters a module and goes into a document, the menu should show which document they are in.
+
+- On a document's page **and inside any of its records**, that document's own menu link is lit and scrolled into view.
+- A document with no link of its own (every QC format) gets a row at the top of its module, with its number and name,
+  for as long as it is open.
+- Going into a document opens its module if it was closed. Closing the module again stays closed until a different
+  document is opened.
+
+Proved: tests/e2e_menu_current_document.py.
+

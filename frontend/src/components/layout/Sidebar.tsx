@@ -57,6 +57,7 @@ import {
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
 import { documentRepository } from "../../data/repositories/documentRepository";
+import { recordRepository } from "../../data/repositories/recordRepository";
 import { readJSON, writeJSON } from "../../data/storageAdapter";
 import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
@@ -75,6 +76,8 @@ interface NavItem {
   // whole navigation changes with the language.
   labelKey: string;
   icon: IconType;
+  // Words that are not a translation key: the open document's own number and name.
+  label?: string;
 }
 
 // A module's body is a list of links, optionally broken up by small
@@ -603,6 +606,32 @@ function loadOpenState(): Record<string, boolean> {
 // can light up for exactly the same reason its child link does.
 const isActivePath = (path: string, to: string): boolean => path === to || path.startsWith(to + "/");
 
+// THE DOCUMENT THE ADDRESS IS INSIDE. A record's address (/record/{id}) names no
+// menu link, so the record is asked which document it belongs to.
+function documentIdAt(path: string): string | undefined {
+  const [root, id] = path.split("/").filter(Boolean);
+  if (!id) return undefined;
+  if (root === "record") return recordRepository.getById(id)?.documentId;
+  return root === "document" || root === "soc" ? id : undefined;
+}
+
+// The menu link that is one document's own page. Links serving several documents
+// (the HR and QC overviews) are not, so a QC format gets its own row instead.
+function linkOfDocument(documentId: string, links: NavEntry[]): string | undefined {
+  return links.find((e): e is NavItem => {
+    if (isHeading(e)) return false;
+    const ids = LINK_DOCUMENT_IDS[e.to];
+    return ids?.length === 1 && ids[0] === documentId;
+  })?.to;
+}
+
+// A CAPA report's address sits under /gap without naming its list.
+function capaListAt(path: string): string | undefined {
+  const [root, id] = path.split("/").filter(Boolean);
+  if (root !== "gap" || !id || id === "internal" || id === "external") return undefined;
+  return id === "complaint" ? "/gap/external" : "/gap/internal";
+}
+
 function NavGroup({ items, path }: { items: NavEntry[]; path: string }) {
   const t = useT();
   // The most specific link that holds the page is the one lit: on
@@ -623,11 +652,11 @@ function NavGroup({ items, path }: { items: NavEntry[]; path: string }) {
         const Icon = item.icon;
         const active = item.to === activeTo;
         return (
-          <Link key={item.to} to={item.to} className={active ? "active" : ""} aria-current={active ? "page" : undefined}>
+          <Link key={item.to} to={item.to} className={active ? "active" : ""} title={item.label} aria-current={active ? "page" : undefined}>
             <span className="nav-icon">
               <Icon size={16} />
             </span>
-            <span className="nav-label">{t(item.labelKey)}</span>
+            <span className="nav-label">{item.label ?? t(item.labelKey)}</span>
           </Link>
         );
       })}
@@ -638,7 +667,7 @@ function NavGroup({ items, path }: { items: NavEntry[]; path: string }) {
 export function Sidebar() {
   const { path: address } = useRouter();
   // A renamed module's old address lights the module's link as its new one does (utils/moduleSlug.ts, REQUIREMENTS §91).
-  const path = currentAddress(address);
+  const pageAddress = currentAddress(address);
   const t = useT();
   const { user } = useAuth();
   // Demo Mode only where the server has it (§65); Users & Access only for the
@@ -665,9 +694,26 @@ export function Sidebar() {
   const visibleDocuments = documentRepository.getAll();
   const visibleModuleNames = new Set(visibleDocuments.map((d) => d.module));
   const visibleDocumentIds = new Set(visibleDocuments.map((d) => d.id));
-  const modules = MODULE_ORDER.filter((m) => visibleModuleNames.has(m))
+  const baseModules = MODULE_ORDER.filter((m) => visibleModuleNames.has(m))
     .map((module) => ({ module, entries: visibleEntries(MODULE_LINKS[module], visibleDocumentIds) }))
     .filter(({ entries }) => entries.some((entry) => !isHeading(entry)));
+  // WHICH DOCUMENT YOU ARE IN: its own link is lit, and a document without one
+  // (every QC format) is given a row at the top of its module while it is open.
+  const openDocumentId = documentIdAt(pageAddress);
+  const openDocument = openDocumentId ? visibleDocuments.find((d) => d.id === openDocumentId) : undefined;
+  const documentLink = openDocument && baseModules.map(({ entries }) => linkOfDocument(openDocument.id, entries)).find(Boolean);
+  const path = documentLink ?? capaListAt(pageAddress) ?? pageAddress;
+  const documentRow: NavItem | undefined =
+    openDocument && !documentLink
+      ? {
+          to: pageAddress,
+          labelKey: "",
+          icon: FiFileText,
+          label: /^F\//.test(openDocument.formatNo) ? `${openDocument.formatNo} · ${openDocument.name}` : openDocument.name,
+        }
+      : undefined;
+  const modules = baseModules.map((m) => (documentRow && m.module === openDocument?.module ? { ...m, entries: [documentRow, ...m.entries] } : m));
+  const currentModule = modules.find(({ entries }) => entries.some((entry) => !isHeading(entry) && isActivePath(path, entry.to)))?.module;
   // Undefined (never explicitly toggled) defaults to open — discoverable
   // without a click. Once a module has been explicitly opened or closed,
   // that choice is authoritative and persists across navigation: an earlier
@@ -690,11 +736,24 @@ export function Sidebar() {
   // browser still remembers them for whoever can see them (REQUIREMENTS §40).
   const toggleAll = () => persist({ ...openState, ...Object.fromEntries(modules.map(({ module }) => [module, !allOpen])) });
 
+  // Going into a document opens its module once. Closing it afterwards sticks
+  // until a different document is opened.
+  useEffect(() => {
+    if (openDocumentId && currentModule && !isOpen(currentModule)) persist({ ...openState, [currentModule]: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDocumentId, currentModule]);
+
+  // A long menu brings the lit row into view.
+  const currentModuleOpen = currentModule ? isOpen(currentModule) : false;
+  useEffect(() => {
+    if (visible) document.querySelector("#app-sidebar .app-nav a.active")?.scrollIntoView({ block: "nearest" });
+  }, [path, currentModuleOpen, visible]);
+
   // As an overlay drawer the panel sits on top of the page, so going somewhere
   // has to put it away again — including when the assistant navigates for you.
   useEffect(() => {
     if (narrow) close();
-  }, [path, narrow, close]);
+  }, [pageAddress, narrow, close]);
 
   // Escape closes the drawer, the way every other overlay in the app does.
   useEffect(() => {

@@ -378,6 +378,7 @@ async function main(): Promise<void> {
     const python = findPython();
     const suites = [
       "tests/e2e_smoke.py",
+      "tests/e2e_menu_current_document.py",
       "tests/e2e_backlog_regression.py",
       "tests/e2e_voice.py",
       "tests/e2e_secure_address.py",
