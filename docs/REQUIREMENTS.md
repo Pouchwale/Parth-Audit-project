@@ -13034,3 +13034,29 @@ The owner, 22-Nov-2026: "in HR-20 remove circle and add tick mark". This replace
   the last one, so their headings stay whole and a box stays beside its number. The Attribute column keeps its width.
 
 Proved: frontend/tests/hrPapers.test.ts; tests/e2e_hr20_ticks.py; the print, Word and Excel pages looked at.
+
+## §288 F/QC/11, 12 and 17: the sign boxes stay empty for the person (22-Nov-2026)
+
+The owner, 22-Nov-2026: "in qc module make sure that always sign part remain empty so user will manually add name specially only for
+qc-11, 12, 17". This replaces §278's names on Submit and Verify.
+
+- F/QC/11's Sign. line, F/QC/12's Tested By and Sign, and F/QC/17's Calibration performed by start empty on every sheet and line. DCRS
+  writes no name there: not on opening, not from the last sheet, not on a confirmed reading or an added line, not on Submit or Verify
+  (engine/calibrationSigner.ts, nominalFill.ts, carryForward.ts). F/QC/17 still asks for its performer's name before Submit.
+- Sheets still open: a name DCRS itself wrote on opening is taken off, once, with a line in the history (data/qcSignsMigration.ts). A
+  name typed by a person, any other name, and every submitted or verified sheet stay exactly as they are.
+
+## §289 No document fills until a person opens it, except F/QC/12 (22-Nov-2026)
+
+The owner, 22-Nov-2026: "no document should fill before due date until user come on screen and open it on then only it should fills
+automatically except qc-12".
+
+- With nobody at the screen (the server's morning job, the app's start, the Dashboard) the month's blank sheets are made and F/QC/12
+  alone is prepared and filled on its day (engine/assistantPrepare.ts prepareUnattended).
+- A person opening a record, on or after the first day it covers (§201), fills that record and no other (prepareRecordOnOpen): the
+  known parts, F/PRD/10, 22, 23 and 24's days so far, F/HR/09's Actual dates, F/HR/21 from the forms as they stand. Before its day it
+  opens read only and unfilled. F/QC/17's yearly twenty stay blank but for their number until one is opened.
+- F/HR/09's reminders still go out for a new year's sheet nobody has opened, from the plan it will take when opened.
+- F/HR/20: the January forms no longer answer themselves. They are made with the person's name, department and designation, and open
+  with their answers blank for the employee.
+- Proved: frontend/tests/fillOnOpen.test.ts, calibrationSigner.test.ts; clicked through on the local copy.

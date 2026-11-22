@@ -4,7 +4,7 @@ import { ASSISTANT_NAME } from "../../engine/assistantPersona";
 import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
 import { useRouter } from "../../store/router";
-import { prepareDueRecords } from "../../engine/assistantPrepare";
+import { prepareUnattended } from "../../engine/assistantPrepare";
 import { computeBriefing, briefingHeadline, pendingCount, submitPreparedRecords, upcomingLabel, type Briefing, type BriefingItem } from "../../engine/assistantBriefing";
 import { dueBriefingSlot, recordBriefingShown } from "../../engine/briefingSchedule";
 import type { BriefingSlot } from "../../data/repositories/settingsRepository";
@@ -77,7 +77,7 @@ export function AssistantBriefingPopup() {
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const created = prepareDueRecords();
+    const created = prepareUnattended();
     if (created.length > 0) bump();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

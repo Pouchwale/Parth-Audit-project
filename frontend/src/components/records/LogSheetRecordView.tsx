@@ -324,12 +324,6 @@ export function LogSheetRecordView({
       if (fills.length > 0) hrMasterRepository.takeFromRegisters({ fills, newcomers: [] }, currentUser || "the record");
     }
   };
-  /** F/QC/12: the readings the assistant filled on the day have no name on them; the person who confirms them is the tester. */
-  const signConfirmed = (line: LogSheetRow) => {
-    if (!currentUser) return;
-    if (!String(line.testedBy ?? "").trim()) line.testedBy = currentUser;
-    if (!String(line.sign ?? "").trim()) line.sign = currentUser;
-  };
   // (editable only: a read-only sheet never changes)
   const hrNameLink = editable ? hrMasterLinkFor(doc.id) : undefined;
   const setHeader = (key: string, value: string) => {
@@ -356,10 +350,7 @@ export function LogSheetRecordView({
         const cleared = !String(value ?? "").trim() && hrNameLink?.where === "rows" && hrNameLink.nameField === key ? (withPersonNamed(hrNameLink, r, "", hrMasterRepository.all()) as LogSheetRow | null) : null;
         const next: LogSheetRow = cleared ?? (typableKeys.has(key) ? typedOver(r, key, value) : { ...r, [key]: value });
         // A reading typed over a filled one is the person's own: nothing left to confirm on the line (F/QC/12).
-        if (r[READINGS_TO_CONFIRM] && /^testedValue/.test(key)) {
-          delete next[READINGS_TO_CONFIRM];
-          signConfirmed(next);
-        }
+        if (r[READINGS_TO_CONFIRM] && /^testedValue/.test(key)) delete next[READINGS_TO_CONFIRM];
         return next;
       }),
     });
@@ -371,7 +362,6 @@ export function LogSheetRecordView({
         if (r.id !== rowId) return r;
         const next: LogSheetRow = { ...r };
         delete next[READINGS_TO_CONFIRM];
-        signConfirmed(next);
         return next;
       }),
     });

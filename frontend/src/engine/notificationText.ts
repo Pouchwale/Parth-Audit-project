@@ -157,7 +157,7 @@ const EN: Record<string, Words> = {
     const by = clean(d.by);
     const n = num(d.daysLate);
     if (n > 0) return { title: `Training not held yet: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} was planned for ${displayDate(d.dueDate)}, ${n} ${n === 1 ? "day" : "days"} ago. Hold it, then write the actual date in ${called(d)}.` };
-    return { title: `Training coming up: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} is planned for ${displayDate(d.dueDate)} in ${called(d)}. Hold it on that day: the system writes the actual date, change it if it is held on another day.` };
+    return { title: `Training coming up: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} is planned for ${displayDate(d.dueDate)} in ${called(d)}. Hold it on that day and open the calendar: the actual date is written then, change it if it is held on another day.` };
   },
   boss_summary: (d) => {
     const t = summaryTotals(d);
@@ -218,7 +218,7 @@ const HI: Record<string, Words> = {
     const by = clean(d.by);
     const n = num(d.daysLate);
     if (n > 0) return { title: `ट्रेनिंग अभी नहीं हुई: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${displayDate(d.dueDate)} को तय थी, ${n} दिन बीत गए। ट्रेनिंग कराएँ, फिर ${called(d)} में वास्तविक तारीख़ लिखें।` };
-    return { title: `ट्रेनिंग आने वाली है: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${called(d)} में ${displayDate(d.dueDate)} को तय है। उस दिन ट्रेनिंग कराएँ: वास्तविक तारीख़ सिस्टम लिखेगा, किसी और दिन हो तो उसे बदल दें।` };
+    return { title: `ट्रेनिंग आने वाली है: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${called(d)} में ${displayDate(d.dueDate)} को तय है। उस दिन ट्रेनिंग कराएँ और कैलेंडर खोलें: वास्तविक तारीख़ तभी लिखी जाएगी, किसी और दिन हो तो उसे बदल दें।` };
   },
   boss_summary: (d) => {
     const t = summaryTotals(d);
@@ -279,7 +279,7 @@ const GU: Record<string, Words> = {
     const by = clean(d.by);
     const n = num(d.daysLate);
     if (n > 0) return { title: `તાલીમ હજી થઈ નથી: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${displayDate(d.dueDate)} ના રોજ નક્કી હતી, ${n} દિવસ વીતી ગયા. તાલીમ કરાવો, પછી ${called(d)} માં ખરી તારીખ લખો.` };
-    return { title: `તાલીમ આવી રહી છે: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${called(d)} માં ${displayDate(d.dueDate)} ના રોજ નક્કી છે. તે દિવસે તાલીમ કરાવો: ખરી તારીખ સિસ્ટમ લખશે, બીજા દિવસે થાય તો તે બદલો.` };
+    return { title: `તાલીમ આવી રહી છે: ${topic}`, body: `${topic}${by ? ` (${by})` : ""} ${called(d)} માં ${displayDate(d.dueDate)} ના રોજ નક્કી છે. તે દિવસે તાલીમ કરાવો અને કેલેન્ડર ખોલો: ખરી તારીખ ત્યારે લખાશે, બીજા દિવસે થાય તો તે બદલો.` };
   },
   boss_summary: (d) => {
     const t = summaryTotals(d);

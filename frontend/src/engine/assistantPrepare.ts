@@ -22,6 +22,10 @@ import { dayInfo, effectiveDueDatesInMonth } from "./holidays";
 import { untouchedByPeople } from "./calendarMigration";
 import { periodKeyFor } from "./recordGenerator";
 import { fillPscSurveyDue } from "./pscFill";
+import { waitsUntil } from "./notBeforeDay";
+import { fillTrainingCalendarDue } from "./trainingCalendarFill";
+import { TRAINING_CALENDAR_ID } from "./trainingCalendar";
+import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 
 // Statuses in which a record is still an untouched shell the assistant may
 // fill. "In Progress" is deliberately excluded: that means a person has
@@ -58,7 +62,7 @@ export function latestConfirmedRecord(documentId: string, beforeISO: string, isD
 // its history. Idempotent — a record is prepared at most once (the `prepared`
 // stamp + status check), and a fresh shell for a future date is left blank
 // until its day comes.
-export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
+export function prepareDueRecords(referenceISO = todayISO(), only?: { documentId?: string; recordId?: string }): RecordInstance[] {
   ensureNearTermRecordsGenerated(false);
   const master = masterRepository.get();
   // Unscoped: the assistant prepares the plant's due records whoever opened
@@ -68,7 +72,7 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   // own (engine/assistantBriefing.ts).
   // Of those, the documents the signed-in person may fill (REQUIREMENTS §96): the server's morning job prepares the
   // rest of the plant's, and refuses a change below Write from a browser (engine/departmentScope.ts).
-  const docs = documentRepository.getRecordableUnscoped().filter((d) => mayWriteRecordsOf(d.id));
+  const docs = documentRepository.getRecordableUnscoped().filter((d) => mayWriteRecordsOf(d.id) && (!only?.documentId || d.id === only.documentId));
   const now = new Date().toISOString();
   const prepared: RecordInstance[] = [];
   // Same launch-date floor as the generator (ensureNearTermRecordsGenerated,
@@ -107,11 +111,13 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
       .queryUnscoped({ documentId: doc.id, isDemo: false })
       .filter(
         (r) =>
+          (!only?.recordId || r.id === only.recordId) &&
           BLANK_STATUSES.includes(r.status as (typeof BLANK_STATUSES)[number]) &&
           !r.prepared &&
           // A year-long sheet made ahead of its year (the training plan calendar, REQUIREMENTS §164) is prepared as soon
           // as it is made: its known parts are the coming year's plan, wanted a month before the year begins.
-          (compareISO(r.dueDate, referenceISO) <= 0 || (fillsThroughYear(doc) && doc.madeAheadDays !== undefined)) &&
+          // (a sheet a person has just opened, on or after the first day it covers, is prepared now: prepareRecordOnOpen)
+          (!!only?.recordId || compareISO(r.dueDate, referenceISO) <= 0 || (fillsThroughYear(doc) && doc.madeAheadDays !== undefined)) &&
           (!liveStartDate || compareISO(r.dueDate, liveStartDate) >= 0)
       )
       .sort((a, b) => compareISO(a.dueDate, b.dueDate));
@@ -124,7 +130,8 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
         withPreparedEntry(
           {
             ...record,
-            data: result.data,
+            // (F/QC/17's record keeps its own number, 01 to 20)
+            data: isRulerVerification(doc.id) ? { ...(result.data as LogSheetData), header: { ...(result.data as LogSheetData).header, serialNo: (record.data as LogSheetData | undefined)?.header?.serialNo ?? "" } } : result.data,
             status: "In Progress",
             // updatedAt is stamped here (matching prepared.at exactly) rather
             // than left for upsertMany to fill in — upsertMany no longer
@@ -148,10 +155,34 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   // F/QC/12's WEEKS FILL ON THEIR DAY, by themselves (the owner, 30-Oct-2026): see fillScaleWeeksDue.
   // ...and the Sharp Objects & Blades sheets, from their master data and their stock (§254): see fillSharpToolsDue.
   // ...and F/HR/20's round answered, F/HR/21 worked out from it (§267): see engine/pscFill.ts.
-  const later = [...fillScaleWeeksDue(referenceISO), ...fillSharpToolsDue(referenceISO), ...fillPscSurveyDue(referenceISO)];
+  const later = only
+    ? [...(only.documentId === SCALE_ID ? fillScaleWeeksDue(referenceISO) : []), ...(only.recordId && SHARP_TOOL_DOCS.includes(only.documentId ?? "") ? fillSharpToolsDue(referenceISO, only.recordId) : [])]
+    : [...fillScaleWeeksDue(referenceISO), ...fillSharpToolsDue(referenceISO), ...fillPscSurveyDue(referenceISO)];
   if (later.length === 0) return prepared;
   const ids = new Set(later.map((r) => r.id));
   return [...prepared.filter((r) => !ids.has(r.id)), ...later];
+}
+
+/**
+ * WHAT RUNS WITH NOBODY AT THE SCREEN (REQUIREMENTS §289; the owner, 22-Nov-2026: "no document should fill before due date until user
+ * come on screen and open it on then only it should fills automatically except qc-12"): the month's blank sheets are made, and
+ * F/QC/12 alone is prepared and filled on its day. Every other document waits for prepareRecordOnOpen.
+ */
+export const prepareUnattended = (referenceISO = todayISO()): RecordInstance[] => prepareDueRecords(referenceISO, { documentId: SCALE_ID });
+
+/**
+ * A PERSON OPENS A RECORD: on or after the first day it covers (engine/notBeforeDay.ts), it is filled now, as the morning prepare used
+ * to fill it. F/HR/20's answers are not among what is filled: they are each employee's own. Returns the record as it now stands.
+ */
+export function prepareRecordOnOpen(recordId: string, referenceISO = todayISO()): RecordInstance | undefined {
+  const record = recordRepository.getById(recordId);
+  if (!record || record.isDemo || record.documentId === SCALE_ID) return record;
+  const doc = documentRepository.getByIdUnscoped(record.documentId);
+  if (!doc || !mayWriteRecordsOf(doc.id) || waitsUntil(doc, record, referenceISO) !== null) return record;
+  prepareDueRecords(referenceISO, { documentId: doc.id, recordId });
+  if (doc.id === TRAINING_CALENDAR_ID) fillTrainingCalendarDue(referenceISO, recordId);
+  if (doc.id === "hr-psc-survey-analysis") fillPscSurveyDue(referenceISO, { analysisOf: recordId });
+  return recordRepository.getById(recordId);
 }
 
 /**
@@ -164,7 +195,7 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
  * its figures are not the ones now due (the master data changed); a line a person wrote on is never touched. A line dated
  * later stays blank until its day. Run again it fills nothing. Returns the sheets changed.
  */
-export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
+export function fillSharpToolsDue(referenceISO = todayISO(), onlyRecordId?: string): RecordInstance[] {
   const { liveStartDate } = settingsRepository.get();
   const master = masterRepository.get();
   const now = new Date().toISOString();
@@ -188,6 +219,7 @@ export function fillSharpToolsDue(referenceISO = todayISO()): RecordInstance[] {
     }
     for (let i = 0; i < all.length; i++) {
       const record = all[i];
+      if (onlyRecordId && record.id !== onlyRecordId) continue;
       if (!["Scheduled", "Due", "In Progress"].includes(record.status)) continue;
       const month = record.dueDate.slice(0, 7);
       // A month's sheet only: the one the monthly schedule makes (due on the month's last working day), or a day's sheet

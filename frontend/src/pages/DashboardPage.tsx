@@ -6,7 +6,7 @@ import { useRouter } from "../store/router";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
-import { prepareDueRecords } from "../engine/assistantPrepare";
+import { prepareUnattended } from "../engine/assistantPrepare";
 import { routeForRecord } from "../engine/reminders";
 import { mayDo } from "../engine/departmentScope";
 import { computeBriefing, briefingHeadline } from "../engine/assistantBriefing";
@@ -64,7 +64,7 @@ export function DashboardPage() {
     // Whenever the dashboard is opened (e.g. the app was left open
     // overnight and it's now a new day), let the assistant prepare anything
     // that has fallen due since — Live records only.
-    if (prepareDueRecords().length > 0) bump();
+    if (prepareUnattended().length > 0) bump();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today]);
 

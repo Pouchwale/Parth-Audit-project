@@ -20,6 +20,7 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { documentLayoutIn } from "../i18n/documentText";
 import type { Language } from "../i18n/strings";
 import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
+import { signKeys } from "./calibrationSigner";
 import { applyFills, describePerson, hrMasterLinkFor, personFill, searchPeople } from "./hrMaster";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { CAF_COMPLAINT_SUB_TYPES, CAF_COMPLAINT_TYPES } from "../data/seed/complaintAck";
@@ -726,7 +727,7 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
           .map((line) => {
             const values = line.split(/,|\t|\|/).map((s) => s.trim());
             const row: LogSheetRow = { id: generateId("row") };
-            for (const c of layout.columns) if (c.autoFill?.sign && template) row[c.key] = template[c.key] ?? "";
+            for (const c of layout.columns) if (c.autoFill?.sign && template && !signKeys(layout.documentId, template).includes(c.key)) row[c.key] = template[c.key] ?? "";
             cols.forEach((c, i) => {
               const raw = values[i];
               if (raw === undefined || raw === "") return;

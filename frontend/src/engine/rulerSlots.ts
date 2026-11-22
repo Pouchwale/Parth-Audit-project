@@ -64,11 +64,11 @@ function yearRecords(doc: DocumentDefinition, period: SchedulePeriod, isDemo: bo
 function slotRecord(doc: DocumentDefinition, period: SchedulePeriod, n: number, isDemo: boolean, status: RecordInstance["status"], on?: string): RecordInstance {
   const master = masterRepository.get();
   const due = on ?? workingDueDate(period.scheduled, master);
-  // Written as the last written sheet was, as every new F/QC/17 is (engine/recordCrud.ts startingData, §117): the master's
-  // boxes and the lines carried, the ruler's own boxes (Make, Serial number) the person's - here its number.
+  // Written as the last written sheet was (§117) when New makes it, a person being at the screen. The year's twenty the schedule
+  // makes stay blank but for their number until somebody opens one (REQUIREMENTS §289, engine/assistantPrepare.ts prepareRecordOnOpen).
   const blank = createDefaultData(doc, due, master) as LogSheetData;
   const layout = getLogSheetLayout(doc.id);
-  const previous = layout?.carryForwardAll ? previousWrittenRecord(doc.id, due, isDemo, layout, blank) : undefined;
+  const previous = on && layout?.carryForwardAll ? previousWrittenRecord(doc.id, due, isDemo, layout, blank) : undefined;
   const data = (previous ? withComputedCells(doc.id, carriedFrom(layout!, previous.data, blank, due)) : blank) as LogSheetData;
   const now = new Date().toISOString();
   return {

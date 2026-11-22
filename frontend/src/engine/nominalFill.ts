@@ -186,18 +186,19 @@ export function nominalFillWaits(documentId: string, data: LogSheetData | undefi
   if (!kind || !Array.isArray(data?.rows) || data.rows.length === 0) return false;
   const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
   // (or a sheet written as last year's, its readings carried, with this year's tester still to be named: the owner, 31-Oct-2026)
-  if (kind === "ruler") return data.rows.every((r) => blank(r.observed)) || blank(data.rows[0]?.performedBy);
+  if (kind === "ruler") return data.rows.every((r) => blank(r.observed));
   if (kind === "scale") {
     // The week's line, nobody's name on it yet: the opener's (§145 - the weeks below wait for their own testers).
     // Not while a week's filled readings still wait for the person to confirm them (READINGS_TO_CONFIRM).
     if (data.rows.some((r) => r[READINGS_TO_CONFIRM])) return false;
     const now = lineNow(data.rows);
-    return now >= 0 && blank(data.rows[now].testedBy) && blank(data.rows[now].sign);
+    return now >= 0;
   }
   // F/QC/11: nobody's name on its Sign. line yet (the owner, 30-Oct-2026: a sheet carried from last month with its sizes
   // on it opened with its Sign. line empty - the fill had waited for blank sizes). The fill writes only what is blank.
-  const sign = data.rows.find((r) => String(r.parameter ?? "") === "Sign.");
-  return !!sign && GSM_PLATES.every((p) => blank(sign[p.key]));
+  // A Pass/Fail box still blank: the sign line says nothing now that the sign boxes stay empty (§288).
+  const pass = data.rows.find((r) => String(r.parameter ?? "") === "Pass/Fail");
+  return !!pass && GSM_PLATES.some((p) => blank(pass[p.key]));
 }
 
 /**
@@ -217,25 +218,26 @@ export function nominalFillAdded(documentId: string, data: LogSheetData, line: L
 
 /** The sheet filled as the plant's pages are, in `signer`'s name, where nothing is observed on it yet; null otherwise. */
 export function nominalFillOnOpen(documentId: string, data: LogSheetData | undefined, signer: string, firstDate?: string): LogSheetData | null {
-  return data && nominalFillWaits(documentId, data) ? nominalFill(documentId, data, signer, firstDate) : null;
+  if (!data || !nominalFillWaits(documentId, data)) return null;
+  const filled = nominalFill(documentId, data, signer, firstDate);
+  // (nothing new to write: no change, and no line in the record's history each time it is opened)
+  return filled && JSON.stringify(filled) !== JSON.stringify(data) ? filled : null;
 }
 
 /** The sheet filled as the plant's pages are, in `signer`'s name; null where the document is not one of the three. */
-export function nominalFill(documentId: string, data: LogSheetData, signer: string, firstDate?: string): LogSheetData | null {
+export function nominalFill(documentId: string, data: LogSheetData, _signer: string, firstDate?: string): LogSheetData | null {
   const kind = nominalFillLabel(documentId);
   if (!kind) return null;
-  const name = signer.trim();
   if (kind === "ruler") {
     // A sheet with any reading on it (carried from last year's, or a person's) keeps every reading as it is: only this
     // year's tester's name goes on, where none is (the owner, 31-Oct-2026). The printed points fill a sheet with none.
     const read = data.rows.some((r) => String(r.observed ?? "").trim() !== "");
     const rows: LogSheetRow[] = data.rows.map((row, i) => {
-      if (read) return i === 0 && name && !String(row.performedBy ?? "").trim() ? { ...row, performedBy: name } : row;
+      if (read) return row;
       const point = pointOf(row.masterReading);
       const next: LogSheetRow = { ...row, ...(point === null ? {} : { observed: point }) };
       // The Status and the name stand once, down the six lines (merged); the Status is worked out from the readings. A
       // name already there (the last sheet's signer, carried) is kept.
-      if (i === 0 && name && !String(row.performedBy ?? "").trim()) next.performedBy = name;
       return next;
     });
     return { ...data, rows };
@@ -257,9 +259,6 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
       // its own week's), and only in boxes nobody has written.
       const day = String(row.date ?? "").trim();
       if (!day || day <= today) Object.assign(next, fillScaleLine(row, data.header?.acceptableTolerance) ?? {});
-      if (!name) return next;
-      if (!String(row.testedBy ?? "").trim()) next.testedBy = name;
-      if (!String(row.sign ?? "").trim()) next.sign = name;
       return next;
     });
     return { ...data, rows };
@@ -272,7 +271,6 @@ export function nominalFill(documentId: string, data: LogSheetData, signer: stri
       // A test line added under the paper's four (Tasted-5, 6 …, REQUIREMENTS §233) is measured the same way.
       if ((GSM_MEASURED.includes(line) || isGsmTestLine(line)) && !String(row[plate.key] ?? "").trim()) next[plate.key] = plate.size;
       else if (line === "Pass/Fail" && !String(row[plate.key] ?? "").trim()) next[plate.key] = "Pass";
-      else if (line === "Sign." && name && !String(row[plate.key] ?? "").trim()) next[plate.key] = name;
     }
     return next;
   });

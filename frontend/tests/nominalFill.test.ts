@@ -33,7 +33,7 @@ test("F/QC/17, both scales: every point read as the master's, the Difference 0.0
     assert.deepEqual(filled.rows.map((r) => r.observed), [...points], id);
     assert.ok(filled.rows.every((r) => r.difference === "0.0"), id);
     assert.equal(filled.rows[0].status, "Pass", id);
-    assert.equal(filled.rows[0].performedBy, "Kapila Barad", `${id}: the name of whoever pressed it, once, down the lines`);
+    assert.equal(filled.rows[0].performedBy, "", `${id}: the name is the person's to write (§288)`);
     assert.ok(filled.rows.slice(1).every((r) => r.status === "" && r.performedBy === ""), id);
     assert.deepEqual(filled.rows.map((r) => r.masterReading), blank.rows.map((r) => r.masterReading), "the printed points as they were");
   }
@@ -48,7 +48,7 @@ test("F/QC/11: every plate at its size on its four lines, 0% worked out, Pass an
   }
   const [pass, sign] = filled.rows.slice(4);
   assert.deepEqual([pass.p54, pass.p55, pass.p56, pass.p57], ["Pass", "Pass", "Pass", "Pass"]);
-  assert.deepEqual([sign.p54, sign.p55, sign.p56, sign.p57], ["Kapila Barad", "Kapila Barad", "Kapila Barad", "Kapila Barad"]);
+  assert.deepEqual([sign.p54, sign.p55, sign.p56, sign.p57], ["", "", "", ""], "the Sign. line is the person's (§288)");
   assert.deepEqual(filled.rows.map((r) => r.parameter), ["Tasted-1", "2", "3", "4", "Pass/Fail", "Sign."], "the paper's lines as they were");
 });
 
@@ -87,17 +87,17 @@ test("F/QC/12 (§142, §145): a month's sheet of four weekly lines - the weights
     assert.deepEqual(five(line, "deviation"), ["", "", "", "", ""]);
     assert.ok(!line.passFail, "no Pass before the week's readings");
   }
-  assert.deepEqual(filled.rows.map((r) => r.testedBy), ["Kapila Barad", "", "", ""], "the week's own line; the weeks below wait for their testers");
-  assert.deepEqual(filled.rows.map((r) => r.sign), ["Kapila Barad", "", "", ""]);
-  assert.equal(nominalFillOnOpen(SCALE, filled, "x"), null, "the week's line has its name: left as it is");
+  assert.deepEqual(filled.rows.map((r) => r.testedBy), ["", "", "", ""], "Tested By is the person's to write (§288)");
+  assert.deepEqual(filled.rows.map((r) => r.sign), ["", "", "", ""]);
+  assert.equal(nominalFillOnOpen(SCALE, filled, "x"), null, "the week's readings wait to be confirmed: left as it is");
   // The person's date and readings for week 1: the deviations follow, and Pass; one off by 0.1 %, Fail.
   // (A reading typed over a filled one clears the line's mark, as the sheet does: components/records/LogSheetRecordView.tsx.)
   const read = withComputedCells(SCALE, { ...filled, rows: [{ ...filled.rows[0], readingsToConfirm: "", date: "2026-11-02", testedValue3: "100.000gm", testedValue4: "200.020gm", testedValue5: "400.040gm" }, ...filled.rows.slice(1)] }, filled);
   assert.deepEqual([3, 4, 5].map((i) => read.rows[0][`deviation${i}`]), ["0%", "0.01%", "0.01%"]);
   assert.equal(read.rows[0].passFail, "Pass");
-  // Week 2, opened by somebody else: their name on the second line, the first left as it is.
-  const week2 = nominalFillOnOpen(SCALE, read, "Meet Patel")!;
-  assert.deepEqual(week2.rows.map((r) => r.testedBy), ["Kapila Barad", "Meet Patel", "", ""]);
+  // Week 2, opened by somebody else: no name goes on any line (§288).
+  const week2 = nominalFillOnOpen(SCALE, read, "Meet Patel") ?? read;
+  assert.deepEqual(week2.rows.map((r) => r.testedBy), ["", "", "", ""]);
   const off = withComputedCells(SCALE, { ...read, rows: [{ ...read.rows[0], testedValue5: "400.400gm" }, ...read.rows.slice(1)] }, read);
   assert.deepEqual([off.rows[0].deviation5, off.rows[0].passFail], ["0.1%", "Fail"]);
 });
@@ -183,7 +183,7 @@ test("F/QC/12: a line added with Add Row is the same standard line, in the adder
   assert.deepEqual(five(added, "testedValue"), ["", "", "", "", ""], "its readings wait for its own week");
   assert.deepEqual(five(added, "deviation"), ["", "", "", "", ""]);
   assert.ok(!added.passFail, "no Pass before the readings");
-  assert.deepEqual([added.testedBy, added.sign, added.id], ["Kapila Barad", "Kapila Barad", "row-added"]);
+  assert.deepEqual([added.testedBy, added.sign, added.id], ["", "", "row-added"]);
   assert.deepEqual([added.date, added.nextDueDate], ["2026-11-30", "2026-12-07"], "a fifth week, on the Next Due Date above it");
   assert.equal(sheet.rows[0].testedValue4, "200.010", "a value typed above is left as it is");
   assert.equal(sheet.rows[0].testedBy, "Parth");
@@ -208,24 +208,20 @@ test("on opening: a sheet nothing is observed on is filled in the opener's name;
   assert.equal(nominalFillWaits(RULER_600_ID, blank), true);
   const opened = nominalFillOnOpen(RULER_600_ID, blank, "Kapila Barad")!;
   assert.deepEqual(opened.rows.map((r) => r.observed), [100, 200, 300, 400, 500, 490]);
-  assert.equal(opened.rows[0].performedBy, "Kapila Barad");
+  assert.equal(opened.rows[0].performedBy, "", "the name is the person's (§288)");
   assert.equal(nominalFillOnOpen(RULER_600_ID, opened, "Somebody Else"), null, "written on: left as it is");
   const oneReading = { ...blank, rows: blank.rows.map((r, i) => (i === 2 ? { ...r, observed: 301 } : r)) };
-  // A reading a person wrote: every reading left as it is, only the opener's name goes on where none is (the owner, 31-Oct-2026).
-  const named = nominalFillOnOpen(RULER_600_ID, oneReading, "x")!;
-  assert.deepEqual(named.rows.map((r) => r.observed), oneReading.rows.map((r) => r.observed), "a reading a person wrote: left as it is");
-  assert.equal(named.rows[0].performedBy, "x");
-  assert.equal(nominalFillOnOpen(RULER_600_ID, named, "y"), null, "named: left as it is");
+  // A reading a person wrote: the sheet is left as it is, and no name goes on (§288).
+  assert.equal(nominalFillOnOpen(RULER_600_ID, oneReading, "x"), null, "a reading a person wrote: left as it is");
   const gsm = createDefaultData(doc(GSM), "2026-11-03", master) as LogSheetData;
   assert.equal(nominalFillWaits(GSM, gsm), true);
   const measured = { ...gsm, rows: gsm.rows.map((r, i) => (i === 0 ? { ...r, p55: "10.1 x 10cm" } : r)) };
   // F/QC/11 (the owner, 30-Oct-2026): a sheet carried from last month with its sizes on it, or a plate already measured,
-  // still takes its Pass and the opener's Sign. where blank - what was written is kept.
+  // still takes its Pass where blank - what was written is kept - and its Sign. line stays the person's (§288).
   const measuredFilled = nominalFillOnOpen(GSM, measured, "Kapila Barad")!;
   assert.equal(measuredFilled.rows[0].p55, "10.1 x 10cm", "the measurement a person wrote is kept");
-  assert.equal(measuredFilled.rows.find((r) => r.parameter === "Sign.")!.p54, "Kapila Barad", "the opener signs");
-  const signed = { ...gsm, rows: gsm.rows.map((r) => (r.parameter === "Sign." ? { ...r, p54: "Rashmi", p55: "Rashmi", p56: "Rashmi", p57: "Rashmi" } : r)) };
-  assert.equal(nominalFillOnOpen(GSM, signed, "x"), null, "a sheet signed: left as it is");
+  assert.equal(measuredFilled.rows.find((r) => r.parameter === "Sign.")!.p54, "", "nobody's name");
+  assert.equal(nominalFillOnOpen(GSM, measuredFilled, "x"), null, "filled once: left as it is");
   assert.equal(nominalFillOnOpen("qc-calibration-master-list", blank, "x"), null);
   assert.equal(nominalFillOnOpen(RULER_600_ID, undefined, "x"), null);
 });

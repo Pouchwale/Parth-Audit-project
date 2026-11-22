@@ -86,7 +86,7 @@ import { supersededRevisionOf, validateForSubmit, type ValidationResult } from "
 import { entriesWaiting } from "../engine/knownParts";
 import { createRecordForDocument, deleteRecordWithTrail, recordCoveringDate, type DeletionEntry } from "../engine/recordCrud";
 import { createDefaultData } from "../engine/recordDefaults";
-import { prepareDueRecords } from "../engine/assistantPrepare";
+import { prepareRecordOnOpen, prepareUnattended } from "../engine/assistantPrepare";
 import { computeReminders, ensureNearTermRecordsGenerated, routeForRecord } from "../engine/reminders";
 import { computeBriefing, type BriefingItem } from "../engine/assistantBriefing";
 import { buildAssistantContext, matchDocuments } from "../engine/assistantLocal";
@@ -99,8 +99,7 @@ import { dayInfo, isCompanyHoliday, nextWeeklyOff, upcomingHolidays, weeklyOffDa
 import { buildAccess, levelNeeded, type Access, type AccessAccount, type DocumentAction } from "../engine/accessRules";
 import { refusalSentence, type AccessLanguage } from "../engine/accessWords";
 import { planNotifications, type PlanPerson, type PlanRecord } from "../engine/notificationPlan";
-import { plannedTrainings, TRAINING_CALENDAR_ID } from "../engine/trainingCalendar";
-import { fillTrainingCalendarDue } from "../engine/trainingCalendarFill";
+import { nextYearPlan, plannedTrainings, TRAINING_CALENDAR_ID } from "../engine/trainingCalendar";
 import { hrFeedbackSheetsOnFile } from "../data/hrSuppliedOnFile";
 import { ensureRecordIndex, readSearchQuery, searchRecords } from "../engine/recordSearch";
 import { recordSearchText, snippetFor } from "../engine/recordText";
@@ -1111,6 +1110,19 @@ const systemOnly = (): Outcome => refuse(403, "system-only", "This is the server
 /** The server's own caller (backend/notificationJobs.ts SYSTEM_CALLER, as the super admin): every document, every department. */
 const asTheSystem = (): boolean => (viewer ? viewer.role === "admin" : !departments);
 
+/** F/HR/09's lines for its reminders: a new year's sheet nobody has opened yet is told of as it will be planned when it is (§289). */
+function calendarLinesForNotice(r: RecordInstance, closed: (d: string) => boolean): Obj[] | undefined {
+  const rows = (r.data as { rows?: Obj[] } | undefined)?.rows;
+  const planned = (list: Obj[] | undefined) => (list ?? []).some((row) => Array.from({ length: 12 }, (_, i) => String(row[`m${i}Plan`] ?? "").trim()).some(Boolean));
+  if (planned(rows)) return rows;
+  const last = recordRepository
+    .queryUnscoped({ documentId: TRAINING_CALENDAR_ID, isDemo: false })
+    .filter((x) => x.dueDate < r.dueDate && planned((x.data as { rows?: Obj[] } | undefined)?.rows))
+    .sort((a, b) => (a.dueDate < b.dueDate ? 1 : -1))[0];
+  if (!last) return rows;
+  return nextYearPlan((last.data as { rows: Obj[] }).rows, r.dueDate, closed).map((line, i) => ({ id: rows?.[i]?.id ?? `line-${i}`, ...line }));
+}
+
 // THE MORNING PREPARE (backend/notificationJobs.ts "morning-prepare"). What a browser does when it opens the app
 // (data/bootstrap.ts, engine/assistantPrepare.ts), done on the server whether or not anybody opens it: the near-term
 // sheets of every Live document made (at the load, engine/reminders.ts ensureNearTermRecordsGenerated), and every
@@ -1120,7 +1132,8 @@ const asTheSystem = (): boolean => (viewer ? viewer.role === "admin" : !departme
 function prepareOp(): Outcome {
   if (!asTheSystem()) return systemOnly();
   const today = todayISO();
-  const prepared = prepareDueRecords(today);
+  // Only F/QC/12 is filled with nobody at the screen; every other record when a person opens it (REQUIREMENTS §289).
+  const prepared = prepareUnattended(today);
   const preparedIds = new Set(prepared.map((r) => r.id));
   let made = 0;
   for (const r of recordRepository.getAll()) {
@@ -1129,8 +1142,6 @@ function prepareOp(): Outcome {
     if (!preparedIds.has(r.id)) made += 1;
   }
   for (const r of prepared) touched.add(r.id);
-  // F/HR/09's plan dates, and each actual date on its day (REQUIREMENTS §271): written on the sheet, whatever its status.
-  for (const r of fillTrainingCalendarDue(today)) touched.add(r.id);
   // The 38 filled F/HR/12 sheets the owner supplied (REQUIREMENTS §273), stored whether or not anybody opens the app.
   for (const r of hrFeedbackSheetsOnFile()) touched.add(r.id);
   const byModule = new Map<string, number>();
@@ -1210,7 +1221,7 @@ function notificationsOp(args: Obj): Outcome {
       // F/QC/12: the weeks whose filled readings wait to be confirmed (engine/nominalFill.ts), dated today or before.
       ...(r.documentId === "qc-weight-scale-calibration" ? { toConfirm: scaleLinesToConfirm(r, today) } : {}),
       // F/HR/09: the trainings the calendar plans, each with its day and whether its actual date is written (§164).
-      ...(r.documentId === TRAINING_CALENDAR_ID ? { trainings: plannedTrainings((r.data as { rows?: Obj[] } | undefined)?.rows, r.dueDate, today, (d) => isCompanyHoliday(d, master)) } : {}),
+      ...(r.documentId === TRAINING_CALENDAR_ID ? { trainings: plannedTrainings(calendarLinesForNotice(r, (d) => isCompanyHoliday(d, master)), r.dueDate, today, (d) => isCompanyHoliday(d, master)) } : {}),
       // F/PUR/01: the service agreement / certificate's valid-upto date and the supplier, for the two months' warning (§192).
       ...(r.documentId === "pur-supplier-registration" ? agreementOf(r.data) : {}),
       // F/QC/17: the ruler's and the master scale's calibration due dates, for the day-before reminder (§249).
@@ -1732,8 +1743,7 @@ function openOp(args: Obj, who: Who): Outcome {
   // record opened here is the record a browser opened now would show. Only for a
   // person who may fill it: the server's morning prepare does the rest.
   if ((record.status === "Scheduled" || record.status === "Due") && !record.prepared && compareISO(record.dueDate, today) <= 0 && (!viewer || mayDo(doc.id, "fill"))) {
-    prepareDueRecords(today);
-    record = recordRepository.getById(record.id) ?? record;
+    record = prepareRecordOnOpen(record.id, today) ?? record;
   }
   if (!wasStored || record !== made) touched.add(record.id);
   // Opening a record is a line of the activity log (pages/RecordPage.tsx).

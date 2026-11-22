@@ -47,6 +47,7 @@ import { addRemark, removeRemark, takesRemarks } from "../engine/recordRemarks";
 import { RecordRemarks } from "../components/records/RecordRemarks";
 import { periodKeyFor } from "../engine/recordGenerator";
 import { NOMINAL_FILL_NOTE, SCALE_DAY_NOTE, fillScaleLinesDue, nominalFillAdded, nominalFillOnOpen } from "../engine/nominalFill";
+import { prepareRecordOnOpen } from "../engine/assistantPrepare";
 import { SERIAL_NUMBER_NOTE, withSerialNumber } from "../data/serialNumbersMigration";
 import { SCALE_WEEKS_NOTE, scaleSheetFitted } from "../data/scaleWeeksMigration";
 import { firstWeekDate } from "../engine/calibrationWeeks";
@@ -94,7 +95,8 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   const { navigate, back } = useRouter();
   const { currentUser, bump, lang, version } = useAppStore();
   const t = useT();
-  const [record, setRecord] = useState<RecordInstance | undefined>(() => (recordId ? recordRepository.getById(recordId) : undefined));
+  // A RECORD IS FILLED WHEN A PERSON OPENS IT, on or after its day (REQUIREMENTS §289); only F/QC/12 fills by itself.
+  const [record, setRecord] = useState<RecordInstance | undefined>(() => (recordId ? prepareRecordOnOpen(recordId) : undefined));
   const [data, setData] = useState<unknown>(record?.data);
   const [dirty, setDirty] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -297,7 +299,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
   useEffect(() => {
     flush(); // anything pending on the record we're leaving
-    const r = recordId ? recordRepository.getById(recordId) : undefined;
+    const r = recordId ? prepareRecordOnOpen(recordId) : undefined;
     removedHere.current = false;
     latest.current = { ...latest.current, record: r, data: r?.data, dirty: false };
     setRecord(r);

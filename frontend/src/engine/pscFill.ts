@@ -83,7 +83,8 @@ export function answerHandMadeForm(record: RecordInstance): RecordInstance {
 }
 
 /** Answers the year's round and works out the year's analysis. Returns the records changed. Run again it changes nothing. */
-export function fillPscSurveyDue(referenceISO = todayISO()): RecordInstance[] {
+/** `analysisOf`: only that F/HR/21 record, worked out from the forms as they stand, as it is opened (§289); no form is answered. */
+export function fillPscSurveyDue(referenceISO = todayISO(), opts: { analysisOf?: string } = {}): RecordInstance[] {
   const { liveStartDate } = settingsRepository.get();
   const now = new Date().toISOString();
   const changed: RecordInstance[] = [];
@@ -91,7 +92,7 @@ export function fillPscSurveyDue(referenceISO = todayISO()): RecordInstance[] {
   const forms = recordRepository.queryUnscoped({ documentId: PSC_SURVEY_DOC, isDemo: false });
 
   // 1. The round's forms, answered.
-  if (surveyDoc && mayWriteRecordsOf(surveyDoc.id)) {
+  if (!opts.analysisOf && surveyDoc && mayWriteRecordsOf(surveyDoc.id)) {
     const rounds = new Map<string, RecordInstance[]>();
     for (const r of forms) {
       const date = roundDateOf(r);
@@ -115,7 +116,7 @@ export function fillPscSurveyDue(referenceISO = todayISO()): RecordInstance[] {
   }
 
   // ...and the forms started by hand that nobody has answered yet.
-  if (surveyDoc && mayWriteRecordsOf(surveyDoc.id)) {
+  if (!opts.analysisOf && surveyDoc && mayWriteRecordsOf(surveyDoc.id)) {
     // (no launch-date floor: a form started by hand is a person's, never backlog noise)
     for (const r of forms) {
       if (waitsUntil(surveyDoc, r, referenceISO) !== null) continue;
@@ -130,6 +131,7 @@ export function fillPscSurveyDue(referenceISO = todayISO()): RecordInstance[] {
     const current = new Map(forms.map((r) => [r.id, r] as const));
     for (const r of changed) current.set(r.id, r);
     for (const record of recordRepository.queryUnscoped({ documentId: PSC_ANALYSIS_DOC, isDemo: false })) {
+      if (opts.analysisOf && record.id !== opts.analysisOf) continue;
       if (waitsUntil(analysisDoc, record, referenceISO) !== null) continue;
       if (liveStartDate && compareISO(record.dueDate, liveStartDate) < 0) continue;
       if (!assistantsOwn(record)) continue;

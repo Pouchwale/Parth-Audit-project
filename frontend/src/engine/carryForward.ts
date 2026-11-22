@@ -1,5 +1,6 @@
 import type { LogSheetData, LogSheetLayout, LogSheetRow, RecordInstance } from "../types";
 import { carriedBoxRows } from "./boxRows";
+import { withoutSignNames } from "./calibrationSigner";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { blankLogRow } from "./recordDefaults";
 import { boxKind, columnKind, isPlaceholder } from "./observations";
@@ -64,7 +65,8 @@ export function previousWrittenRecord(documentId: string, beforeISO: string, isD
  */
 export function carriedFrom(layout: LogSheetLayout, previous: LogSheetData, blank: LogSheetData, dueDate: string): LogSheetData {
   // ...and the last sheet's tables of boxes as it had them: its rows, their words, its added boxes (§246, engine/boxRows.ts).
-  return carriedBoxRows(layout, previous, carriedSheet(layout, previous, blank, dueDate));
+  // (never the last sheet's names in F/QC/11, 12 and 17's sign boxes: they are the person's to write, §288)
+  return withoutSignNames(layout.documentId, carriedBoxRows(layout, previous, carriedSheet(layout, previous, blank, dueDate)));
 }
 
 function carriedSheet(layout: LogSheetLayout, previous: LogSheetData, blank: LogSheetData, dueDate: string): LogSheetData {

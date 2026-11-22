@@ -110,7 +110,7 @@ test("the first line's date is the previous week's Next Due Date; the Next Due D
       ["2026-11-13", "2026-11-20"],
     ]
   );
-  assert.equal(rows[0].testedBy, "Kapila Barad");
+  assert.ok(!String(rows[0].testedBy ?? "").trim(), "the sign boxes are the person's (§288)");
   // The week's readings filled with the standard weights, Pass, to be confirmed by the person (the owner, 30-Oct-2026).
   [rows[0].testedValue3, rows[0].testedValue4, rows[0].testedValue5].forEach((v, i) => {
     const std = [100, 200, 400][i];

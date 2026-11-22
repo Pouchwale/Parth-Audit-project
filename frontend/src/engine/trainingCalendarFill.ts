@@ -20,14 +20,14 @@ export const CALENDAR_DATES_NOTE = "Training dates by the system (REQUIREMENTS Â
 
 const OPEN = new Set(["Scheduled", "Due", "In Progress"]);
 
-export function fillTrainingCalendarDue(referenceISO = todayISO()): RecordInstance[] {
+export function fillTrainingCalendarDue(referenceISO = todayISO(), onlyRecordId?: string): RecordInstance[] {
   const doc = documentRepository.getByIdUnscoped(TRAINING_CALENDAR_ID);
   if (!doc) return [];
   const master = masterRepository.get();
   const now = new Date().toISOString();
   const updates: RecordInstance[] = [];
   for (const r of recordRepository.queryUnscoped({ documentId: TRAINING_CALENDAR_ID, isDemo: false })) {
-    if (r.status === "Rejected" || calendarStartYear(r.dueDate) < 2026) continue;
+    if ((onlyRecordId && r.id !== onlyRecordId) || r.status === "Rejected" || calendarStartYear(r.dueDate) < 2026) continue;
     if (!mayDo(TRAINING_CALENDAR_ID, OPEN.has(r.status) && !r.correction ? "fill" : "correct")) continue;
     const data = r.data as LogSheetData | undefined;
     if (!data?.rows?.length) continue;

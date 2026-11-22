@@ -335,5 +335,5 @@ test("the start-up brings the name in line after its other clean-ups and before 
   assert.ok(at("alignCompanyName();") > at("pinSchedulesWrittenOnRev00();"));
   assert.ok(at("alignCompanyName();") > at("alignTubeLightDates();"));
   assert.ok(at("alignCompanyName();") < at("ensureRecordsGeneratedForMonth("));
-  assert.ok(at("alignCompanyName();") < at("prepareDueRecords();"));
+  assert.ok(at("alignCompanyName();") < at("prepareUnattended();"));
 });

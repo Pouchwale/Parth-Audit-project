@@ -8,7 +8,7 @@ import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
 import { ensureRulerSlots } from "../engine/rulerSlots";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { RULER_MADE_AHEAD } from "../engine/reminders";
-import { prepareDueRecords } from "../engine/assistantPrepare";
+import { prepareUnattended } from "../engine/assistantPrepare";
 import { alignRecordsToWorkingCalendar, datedByFrequency, removeOffScheduleShells } from "../engine/calendarMigration";
 import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
 import { alignTubeLightDates } from "../engine/tubeLightMigration";
@@ -26,8 +26,8 @@ import { alignRulerBoxes, alignRulerBoxesRound2 } from "./rulerBoxesMigration";
 import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
 import { scaleWeeksOnOpenSheets } from "./scaleWeeksMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
+import { qcSignsClearedOnOpenSheets } from "./qcSignsMigration";
 import { sharpDailyFrequencyLifted, sharpDaySheetsFolded, sharpTypedLinesRestored } from "./sharpMonthMigration";
-import { fillTrainingCalendarDue } from "../engine/trainingCalendarFill";
 import { hrCriteriaBullets, hrDirectorDetails, hrDirectorNumbers, hrFeedbackSheetsOnFile, hrImpartedSheetsOnFile } from "./hrSuppliedOnFile";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
@@ -132,16 +132,17 @@ export function bootstrap(): void {
   scaleWeeksOnOpenSheets();
   // F/HR/19's every point at Yes on the untouched sheets already made (§170), each with a line in its history.
   gmpYesOnOpenSheets();
+  // F/QC/11, 12, 17: the names DCRS wrote on the sheets still open come off; the sign boxes are the person's (REQUIREMENTS §288).
+  qcSignsClearedOnOpenSheets();
 
   const today = new Date(todayISO());
   // F/QC/17's twenty records of this year for each scale, its records of the time before filed (REQUIREMENTS §220).
   ensureRulerSlots(todayISO(), (r) => deleteRecordWithTrail(r, "System", RULER_MADE_AHEAD));
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });
-  prepareDueRecords();
+  // Only F/QC/12 fills by itself; every other record is filled when a person opens it (REQUIREMENTS §289).
+  prepareUnattended();
   // ...and the day sheets whose lines the month's sheet now holds, folded away (REQUIREMENTS §259).
   sharpDaySheetsFolded();
-  // F/HR/09's plan dates, and each actual date on its day (REQUIREMENTS §271).
-  fillTrainingCalendarDue();
   // What the owner supplied on 21-Nov-2026: the 38 filled F/HR/12 sheets, and the three directors' GP3 Nos. (REQUIREMENTS §273).
   hrFeedbackSheetsOnFile();
   hrImpartedSheetsOnFile();
