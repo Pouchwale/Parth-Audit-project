@@ -221,7 +221,7 @@ export interface PaperCellSpec extends Cell {
 export type ExportBlock =
   | { kind: "text"; text: string; strong: boolean; title?: boolean; parts?: ExportSegment[] }
   /** A table laid in points as the company's Word original draws it: widths (pt), rows with heights (pt) and merged cells. For a Word file only. */
-  | { kind: "paper"; widths: number[]; rows: { height?: number; keepNext?: boolean; cells: PaperCellSpec[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number }
+  | { kind: "paper"; widths: number[]; rows: { height?: number; keepNext?: boolean; cells: PaperCellSpec[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number; cellPad?: number }
   /**
    * A sheet drawn as the company's own Excel paper: merged cells, the paper's column widths (Excel characters) and row
    * heights (points), fonts, borders. Read from a table marked data-paper-sheet (utils/documentExport.ts sheetBlock).
@@ -1113,6 +1113,7 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
         indent: b.indent,
         pageBreakBefore: b.pageBreakBefore,
         spaceAfter: b.spaceAfter,
+        ...(b.cellPad !== undefined ? { cellPad: b.cellPad } : {}),
       };
     }
     if (b.kind === "sheet") {

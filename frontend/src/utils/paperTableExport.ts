@@ -283,6 +283,15 @@ function wordsInPlace(td: HTMLTableCellElement, read: (el: Element) => Cell): st
   return lines.map((l) => l.sort((a, b) => a.x - b.x).map((p) => p.t).join(" ")).join("\n");
 }
 
+/**
+ * Millimetres a drawn paper's columns give to each other in the file, adding up to nothing. F/HR/20's tick boxes: "Agree",
+ * "Neutral" and "Disagree" broke in their narrow columns in Word and Excel, and a box parted from its number. The room comes
+ * from the Moderately columns and the last one, which have some to spare; the Attribute column keeps its width.
+ */
+const DRAWN_COLUMN_SHIFT: Record<string, number[]> = { "hr-psc-survey": [0, 0, 1, -1.7, 1.4, 1.4, 1.4, -2, -1.5] };
+/** Word's room inside each cell of such a paper (twentieths of a point), so the headings stay whole. */
+const DRAWN_CELL_PAD: Record<string, number> = { "hr-psc-survey": 40 };
+
 function drawnWords(td: HTMLTableCellElement, read: (el: Element) => Cell): Cell {
   if (td.querySelector(":scope > .pt-over, .pt-pick")) return { text: wordsInPlace(td, read) };
   const at = Array.from(td.querySelectorAll(":scope > .pt-at"));
@@ -299,7 +308,9 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
   const papers = roots.flatMap((r) => (r.matches(".paper-table-sheet") ? [r] : Array.from(r.querySelectorAll(".paper-table-sheet"))));
   const first = papers[0]?.querySelector("table.pt-table");
   if (!first) return null;
-  const widthsMm = Array.from(first.querySelectorAll(":scope > colgroup > col")).map((c) => Number((c as HTMLElement).style.getPropertyValue("--pt-col")) || 0);
+  const drawnMm = Array.from(first.querySelectorAll(":scope > colgroup > col")).map((c) => Number((c as HTMLElement).style.getPropertyValue("--pt-col")) || 0);
+  const shift = DRAWN_COLUMN_SHIFT[documentId];
+  const widthsMm = shift?.length === drawnMm.length ? drawnMm.map((mm, i) => mm + shift[i]) : drawnMm;
   const totalMm = widthsMm.reduce((a, b) => a + b, 0);
   if (!(totalMm > 0)) return null;
   const heightsMm: number[] = [];
@@ -398,6 +409,7 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
     kind: "paper" as const,
     widths: wordWidths,
     spaceAfter: 1,
+    ...(DRAWN_CELL_PAD[documentId] !== undefined ? { cellPad: DRAWN_CELL_PAD[documentId] } : {}),
     ...(n > 0 ? { pageBreakBefore: true } : {}),
     // (a one-page paper: Word's lines stand a little taller than the page's, so its rows give up their spare height)
     rows: heightsMm.slice(from, starts[n + 1] ?? heightsMm.length).map((h, k) => ({ height: Math.round(h * scale * MM_PT * (form.flows ? 1 : 0.48) * 100) / 100, cells: byRow[from + k].sort((a, b) => a.col - b.col).map((c) => c.cell) })),

@@ -13023,3 +13023,14 @@ so fix it by keep it side and in some documents the name column is cutting ... i
   browser only, nothing saved). F/HR/10 and F/HR/13 did not hold them; their columns are set so each stays on one line.
 - Proved: frontend/tests/hrPapers.test.ts; the print measured on all HR papers on the local copy; Word and Excel opened;
   tests/verify_with_test_account.py.
+
+## §287 F/HR/20: a tick box in place of the circle (22-Nov-2026)
+
+The owner, 22-Nov-2026: "in HR-20 remove circle and add tick mark". This replaces the line of §280 that kept F/HR/20's rings.
+
+- Each of the 105 answers (15 attributes, 7 to 1) has its own tick box beside its number, on the screen, in print, and in the Word
+  and Excel downloads. One line holds one answer. The stored values are unchanged, so every form on file shows its answer ticked.
+- In Word and Excel the columns Strongly Agree, Agree, Neutral and Disagree take a little room from the Moderately columns and
+  the last one, so their headings stay whole and a box stays beside its number. The Attribute column keeps its width.
+
+Proved: frontend/tests/hrPapers.test.ts; tests/e2e_hr20_ticks.py; the print, Word and Excel pages looked at.

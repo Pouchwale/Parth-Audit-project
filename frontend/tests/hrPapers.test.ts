@@ -89,14 +89,14 @@ test("the screen's tools stay off the paper, and a download reads the record's b
   assert.match(src("utils/print.ts"), /\[data-paper-own\]/, "a paper keeps its own lines' heights");
 });
 
-test("§280 the HR forms' Yes / No are tick boxes; F/HR/20's scale keeps its rings; F/HR/04's boxes stay inside their lines", () => {
+test("§280 the HR forms' Yes / No are tick boxes; so is F/HR/20's scale, no ring left; F/HR/04's boxes stay inside their lines", () => {
   const picks = (id: string) => cellsOf(HR_PAPER_TABLES[id]).flatMap((c) => [...(c.pick ?? []), ...(c.over ?? []).flatMap((o) => o.pick ?? [])]);
   for (const id of ["hr-pre-employment-health", "hr-visitor-health", "hr-gmp-checklist", "hr-training-effectiveness"]) {
     assert.ok(picks(id).length > 0, id);
     assert.ok(picks(id).every((p) => p.mark !== "ring"), `${id}: no ring left`);
     assert.ok(picks(id).some((p) => p.mark === "check"), `${id}: tick boxes`);
   }
-  assert.ok(picks("hr-psc-survey").every((p) => p.mark === "ring"));
+  assert.ok(picks("hr-psc-survey").every((p) => p.mark === "check"), "F/HR/20's 7-to-1 scale is ticked too");
   for (const row of HR_PAPER_TABLES["hr-pre-employment-health"].body ?? []) {
     for (const c of row.cells) {
       if (c.rs) continue;

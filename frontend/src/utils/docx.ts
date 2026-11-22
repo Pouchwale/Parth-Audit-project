@@ -61,7 +61,7 @@ export type DocxBlock =
    * A table laid in points, as the company's Word original draws it: fixed column widths, row heights, merged cells, a face
    * and size to each cell, edges to each cell. `indent` is its distance from the margin, `pageBreakBefore` starts a page.
    */
-  | { type: "paper"; widths: number[]; rows: { height?: number; keepNext?: boolean; cells: DocxPaperCell[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number }
+  | { type: "paper"; widths: number[]; rows: { height?: number; keepNext?: boolean; cells: DocxPaperCell[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number; cellPad?: number }
   | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true };
 
 /** What a document carries besides its body. */
@@ -205,7 +205,7 @@ function paperTable(controls: Controls, block: Extract<DocxBlock, { type: "paper
   return (
     lead +
     `<w:tbl><w:tblPr><w:tblW w:w="${tw(total)}" w:type="dxa"/><w:tblInd w:w="${tw(block.indent ?? 0)}" w:type="dxa"/><w:tblLayout w:type="fixed"/>` +
-    `<w:tblCellMar><w:left w:w="108" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${rows}</w:tbl>` +
+    `<w:tblCellMar><w:left w:w="${block.cellPad ?? 108}" w:type="dxa"/><w:right w:w="${block.cellPad ?? 108}" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${rows}</w:tbl>` +
     `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="${Math.max(20, tw(block.spaceAfter ?? 1))}" w:lineRule="exact"/></w:pPr></w:p>`
   );
 }
