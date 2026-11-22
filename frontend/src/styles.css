@@ -4494,7 +4494,10 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
 /* An HR paper's plain sheet while a download reads it: off the screen, never seen (utils/paperTwin.ts). */
 .paper-plain-twin { position: fixed; left: -30000px; top: 0; width: 1400px; pointer-events: none; }
 .pt-table .pt-line-add { position: absolute; left: -58px; top: 50%; transform: translateY(-50%); min-width: 24px; padding: 0 4px; line-height: 1; }
-.paper-sheet[data-paper-form="table"]:has(.pt-line-add) { padding-left: 62px; }
+/* (the room for the screen's + and x only: printed, it pushed a paper 4 mm towards the right edge, §285) */
+@media screen { .paper-sheet[data-paper-form="table"]:has(.pt-line-add) { padding-left: 62px; } }
+/* A value on a paper fitted to be read wraps in its column, not at the narrow column's old line breaks (§285). */
+.pt-table.pt-read td.pt-c[data-pt-col], .pt-table.pt-read td.pt-c[data-pt-col] :is(.pt-words, .cell-text) { white-space: normal; }
 /* NO COLOUR ON A COMPANY PAPER (§282): its boxes are white on the screen, marked only while a person is on them; a choice shows its
    value alone, without an arrow in every cell, and opens as any choice does. */
 @media screen {

@@ -1599,13 +1599,14 @@ export function paperFrameStyle(form: PaperTable, print: { left: number; top: nu
   const f = form.pageFrame!;
   const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
   // (never inside the outer edge of the sheet, which a printer cannot print)
-  const x = Math.max(6, print.left - f.l * print.scale);
-  const y = Math.max(6, print.top - f.t * print.scale);
+  // (8 mm: at 6 the border of F/HR/05, 06 and 10 stood where many printers cannot print, §285)
+  const x = Math.max(8, print.left - f.l * print.scale);
+  const y = Math.max(8, print.top - f.t * print.scale);
   return {
     "--pf-px": String(x),
     "--pf-py": String(y),
     "--pf-pw": String(Math.min(f.w * print.scale, pageW - 2 * x)),
-    "--pf-ph": String(Math.min(f.h * print.scale, pageH - y - 6)),
+    "--pf-ph": String(Math.min(f.h * print.scale, pageH - y - 8)),
   };
 }
 
@@ -1623,5 +1624,7 @@ export function paperTablePrint(form: PaperTable, fill: boolean = !!form.fillA4)
   }
   const tallest = form.ownWords && form.flows && pages.length > 1 ? room / Math.max(...pages) : Infinity;
   const scale = Math.floor(Math.min((pageW - 2 * A4_MARGIN_MM) / width, form.flows ? tallest : room / height) * 1000) / 1000;
-  return { left: A4_MARGIN_MM, top: A4_MARGIN_MM, scale };
+  // (an HR paper held by the page's height stands in the middle of its width: F/HR/14 was 12 mm from the left, 42 from the right, §285)
+  const left = form.ownWords ? Math.max(A4_MARGIN_MM, Math.round(((pageW - width * scale) / 2) * 100) / 100) : A4_MARGIN_MM;
+  return { left, top: A4_MARGIN_MM, scale };
 }

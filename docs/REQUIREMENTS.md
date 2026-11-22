@@ -12994,3 +12994,16 @@ The owner: when a user enters a module and goes into a document, the menu should
 
 Proved: tests/e2e_menu_current_document.py.
 
+## §285 Every HR print copy checked page by page: header, footer, left, right, letters (22-Nov-2026)
+
+The owner, 22-Nov-2026: "check all hr documents by checking it print copy ... whether header, footer, left, right, fonts and visibility is
+perfect or not if not then do fix it", pest control apart. All 20 formats were printed through Print Original-Style Record from
+their fullest record to A4, and every page measured.
+
+- Margins: the page border of F/HR/05, 06, 10 stood 6 mm from the paper's edge; it stands 8 mm clear. F/HR/12 and the registers with a
+  + button printed 4 mm to the right (the screen's room for that button); it is the screen's only. F/HR/14 stands in the middle of the page.
+- Page numbers: every page says its true number and how many there are (F/HR/11 said 1 Of 1 over two pages; F/HR/06 said 1 Of 5).
+- F/HR/19's blank fifth page, its letterhead and nothing else, is no longer drawn or printed.
+- F/HR/15 and F/HR/16 stay on one page, whatever is written in their day boxes.
+- Letters: F/HR/21's words wrap in their column, not at the old column's line breaks (8 pt). F/HR/09 is 8.5 pt on its two pages. A word
+  is never cut in two across lines on a fitted paper: that one cell is written a little smaller (utils/print.ts keepWordsWhole).

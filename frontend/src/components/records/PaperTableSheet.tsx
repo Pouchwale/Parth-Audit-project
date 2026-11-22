@@ -488,14 +488,22 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
   // (a paper may draw its first pages itself: the pages after them count on from those)
   const ownPages = 1 + [...form.head, ...form.body].filter((r) => r.pb).length;
   const pages = breaks.length + ownPages;
-  const rows: DrawnRow[] = part === "head" && breaks.length ? form.head.map((r) => ({ ...r, cells: r.cells.map((c) => onPage(c, 1, pages)) })) : [...form[part], ...lines];
+  // Every page says its true number and how many there are: the papers' own "1 Of 1" over a second page, "1 Of 5" over a single one (§285).
+  let ownPage = 1;
+  const ownBody: PaperRow[] = form.ownWords
+    ? form.body.map((r) => {
+        if (r.pb) ownPage += 1;
+        return { ...r, cells: r.cells.map((c) => onPage(c, ownPage, pages)) };
+      })
+    : form.body;
+  const rows: DrawnRow[] = part === "head" && form.ownWords ? form.head.map((r) => ({ ...r, cells: r.cells.map((c) => onPage(c, 1, pages)) })) : part === "body" ? [...ownBody, ...lines] : [...form[part], ...lines];
   // (a paper whose words are kept by their place numbers its foot the same however many lines the record holds)
   const row0 = part === "head" ? 0 : part === "body" ? form.head.length : form.head.length + form.body.length + (form.lines ? (form.ownWords ? form.lines.count : Math.max(form.lines.count, held)) : 0);
   if (rows.length === 0) return null;
   const widths = edges.slice(1).map((e, i) => Math.round((e - edges[i]) * 100) / 100);
   const table = (drawn: DrawnRow[], first: number, heading?: DrawnRow[]) => (
     <table
-      className={`pt-table pt-${part} pt-font-${form.font}${form.frame ? " pt-frame" : ""}`}
+      className={`pt-table pt-${part} pt-font-${form.font}${form.frame ? " pt-frame" : ""}${form.readFit ? " pt-read" : ""}`}
       style={{ "--pt-w": String(edges[edges.length - 1]) } as React.CSSProperties}
       data-paper-part={part}
       data-pt-rules={form.rules}
@@ -524,11 +532,7 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
   if (part === "body" && breaks.length > 0) {
     const stamped = (r: PaperRow, at: number): PaperRow => ({ ...r, cells: r.cells.map((c, ci) => (c.pl ? c : { ...c, pl: `${at}:${ci}` })) });
     const headings = form.body.flatMap((r, i) => (r.head ? [stamped(r, form.head.length + i)] : []));
-    let bodyPage = 1;
-    const drawn: DrawnRow[] = form.body.map((r) => {
-      if (r.pb) bodyPage += 1;
-      return { ...r, cells: r.cells.map((c) => onPage(c, bodyPage, pages)) };
-    });
+    const drawn: DrawnRow[] = [...ownBody];
     let from = 0;
     [...breaks, lines.length].forEach((end, k) => {
       drawn.push(...lines.slice(from, end));
@@ -546,13 +550,13 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
   }
   // A register running past its page: the paper's column headings at the top of every page (§275).
   if (part === "body" && form.ownWords && form.lines) {
-    const from = form.body.findIndex((r) => r.head);
+    const from = ownBody.findIndex((r) => r.head);
     if (from >= 0) {
-      const to = form.body.length - 1 - [...form.body].reverse().findIndex((r) => r.head);
+      const to = ownBody.length - 1 - [...ownBody].reverse().findIndex((r) => r.head);
       return (
         <>
-          {from > 0 && paged(form.body.slice(0, from), row0)}
-          {table([...form.body.slice(to + 1), ...lines], row0 + to + 1, form.body.slice(from, to + 1))}
+          {from > 0 && paged(ownBody.slice(0, from), row0)}
+          {table([...ownBody.slice(to + 1), ...lines], row0 + to + 1, ownBody.slice(from, to + 1))}
         </>
       );
     }

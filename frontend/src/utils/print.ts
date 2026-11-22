@@ -76,7 +76,7 @@ const SCOPED = "print-scoped";
 /** A box printed as its words: the words, and the box's own inline display where the print hid the box itself. */
 type Written = { box: Element; text: Element; display?: string };
 
-let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: Written[]; split?: SplitPages; tidied?: Element[]; evened?: HTMLElement[]; sheets?: HTMLElement[] } | null = null;
+let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: Written[]; split?: SplitPages; tidied?: Element[]; evened?: HTMLElement[]; sheets?: HTMLElement[]; whole?: HTMLElement[] } | null = null;
 
 const EMPTY_ATTR = "data-empty";
 const EMPTY_BOXES = "input[type='date'], input[type='time'], input[type='datetime-local'], input[type='month'], select";
@@ -969,6 +969,7 @@ function clearScope(): void {
   for (const td of active.tidied ?? []) td.classList.remove(PRINT_CENTER, PRINT_ONE_LINE);
   // (the lines evened for the print go back to the heights the page-fill gave them, which unfit then takes off)
   for (const tr of active.evened ?? []) tr.style.removeProperty("height");
+  for (const td of active.whole ?? []) td.style.removeProperty("font-size");
   document.documentElement.classList.remove(SCOPED);
   active = null;
 }
@@ -1320,6 +1321,47 @@ function refitToWords(docs: Element[]): void {
 // measured as narrow as they can be laid out, with the print's own rules on; one still wider than the page's printable
 // width (A4 less its 12 mm each side, 2% kept) is drawn smaller until it fits. Never larger: a sheet that fits is left as the
 // steps above drew it. A framed paper, one standing at its own margin and one printed as pages of its own fit themselves.
+function wordCutInTwo(td: HTMLElement): boolean {
+  const walk = document.createTreeWalker(td, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode() as Text | null; n; n = walk.nextNode() as Text | null) {
+    for (const m of n.data.matchAll(/[^\s-]{3,}/g)) {
+      const at = m.index ?? 0;
+      const range = document.createRange();
+      range.setStart(n, at);
+      range.setEnd(n, at + m[0].length);
+      if (new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0.5).map((r) => Math.round(r.top))).size > 1) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * NO WORD CUT IN TWO (REQUIREMENTS §285; F/HR/01 printed "Graduat" over "e"). On an HR paper fitted to be read, a cell whose word
+ * still runs past its column has its letters made a little smaller, only that cell, until the word stands whole.
+ */
+function keepWordsWhole(docs: Element[]): HTMLElement[] {
+  const sized: HTMLElement[] = [];
+  document.documentElement.classList.add("print-measure");
+  try {
+    withPrintRules(() => {
+      for (const d of docs) {
+        for (const td of Array.from(d.querySelectorAll<HTMLElement>(".paper-sheet[data-paper-read] .pt-table td.pt-c"))) {
+          if (!wordCutInTwo(td)) continue;
+          const own = parseFloat(getComputedStyle(td).fontSize);
+          sized.push(td);
+          for (let k = 0.95; k >= 0.74; k -= 0.03) {
+            td.style.fontSize = `${(own * k).toFixed(2)}px`;
+            if (!wordCutInTwo(td)) break;
+          }
+        }
+      }
+    });
+  } finally {
+    document.documentElement.classList.remove("print-measure");
+  }
+  return sized;
+}
+
 function keepWithinPage(docs: Element[]): void {
   const landscape = document.documentElement.dataset.printPage === "landscape";
   const room = PRINTABLE_WIDTH[landscape ? "landscape" : "portrait"] * 0.98;
@@ -1345,6 +1387,25 @@ function keepWithinPage(docs: Element[]): void {
   } finally {
     document.documentElement.classList.remove("print-measure");
   }
+  // F/HR/15 and F/HR/16 stay on their one page however the words in their day boxes wrapped once written (§285), measured by the
+  // print's own rules: their set columns are not what the page-measuring rules draw.
+  withPrintRules(() => {
+    for (const d of docs) {
+      const doc = d as HTMLElement;
+      if (!doc.querySelector(CLEANING_SHEETS)) continue;
+      for (let round = 0; round < 3; round++) {
+        const zoom = Number(doc.style.zoom) || 1;
+        const tall = pagesAt(doc, zoom, landscape);
+        if (tall <= FIT_DRAWN_TO) break;
+        const z = Math.max(SMALLEST_SCALE, Math.floor(((zoom * FIT_DRAWN_TO) / tall) * 1000) / 1000);
+        if (z >= zoom) break;
+        doc.style.zoom = String(z);
+        doc.style.setProperty("--print-zoom", String(z));
+        if (!fitted.includes(doc)) fitted.push(doc);
+      }
+    }
+  });
+  if (active) active.whole = keepWordsWhole(docs);
 }
 
 /**

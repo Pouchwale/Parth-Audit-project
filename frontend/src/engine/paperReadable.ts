@@ -85,11 +85,12 @@ function textsOf(c: PaperCell, data: LogSheetData | undefined, line: number | un
   const row = line !== undefined ? data?.rows[line] : undefined;
   const out: string[] = [];
   if (c.at) out.push(...c.at.map((l) => shownWords(l.t)));
-  if (c.t) out.push(shownWords(c.t));
+  if (c.t) out.push(c.ul ? shownWords(c.t) : shownWords(c.t).replace(/\s*\n\s*/g, " "));
   if (c.lab) out.push(shownWords(c.lab));
   if (c.sentence) out.push(`${shownWords(c.sentence.before)} ${data?.header?.[c.sentence.box] ?? ""} ${shownWords(c.sentence.after)}`);
   if (c.box) out.push(String(data?.header?.[c.box] ?? ""));
-  if (c.col && row) out.push(/^\d{4}-\d{2}-\d{2}$/.test(String(row[c.col] ?? "")) ? "00-00-0000" : String(row[c.col] ?? ""));
+  // (a value's line breaks were its narrow column's on the paper: the words wrap in the column it has now, §285)
+  if (c.col && row) out.push(/^\d{4}-\d{2}-\d{2}$/.test(String(row[c.col] ?? "")) ? "00-00-0000" : String(row[c.col] ?? "").replace(/\s*\n\s*/g, " "));
   if (c.pick) out.push(pickWords(c.pick));
   if (c.calc) out.push("0000");
   if (c.num) out.push(String((line ?? 0) + 1));
@@ -257,9 +258,45 @@ function build(form: PaperTable, data: LogSheetData | undefined): PaperTable {
     const { rowH, lineH } = tall(widths, F, H, squeeze);
     return sum([...form.head, ...form.body, ...form.foot].map((r) => rowH(r))) + lineH * (form.lines ? Math.max(form.lines.count, lineCount) : 0);
   };
+  // A PAPER OF FIXED ROWS WITH ROOM ON ITS PAGES TAKES LARGER LETTERS (REQUIREMENTS §285; the owner, 22-Nov-2026, with F/HR/09: its
+  // page 40% empty at 8 pt). Its longer words wrap inside their own rows, as long as every page it draws still holds. Not a paper
+  // whose boxes stand inside its words (F/HR/04): those are placed against the words' own size.
+  const fixedRows = !form.lines && [...form.head, ...form.body, ...form.foot].flatMap((r) => r.cells).filter((c) => c.over?.length).length <= 1;
+  const pagesHold = (widths: number[], F: number, H: number, roomH: number) => {
+    const { rowH } = tall(widths, F, H, 1);
+    const at = [0];
+    for (const w of widths) at.push(at[at.length - 1] + w);
+    const rows = [...form.head, ...form.body, ...form.foot];
+    const heights = rows.map((r) => rowH(r));
+    rows.forEach((r, i) => {
+      for (const { c, from, to } of place(r)) {
+        const span = c.rs ?? 1;
+        if (c.skip || span <= 1) continue;
+        const pt = Math.max((c.pt ?? form.pt) * old, F);
+        const count = Math.max(1, ...textsOf(c, data, c.ln ?? r.line).map((t) => linesAt(t, at[to] - at[from] - PAD, pt, !!c.b, c.f ?? form.font)));
+        const short = count * pt * MM * 1.2 + 1 - sum(heights.slice(i, i + span));
+        if (short > 0) for (let k = i; k < Math.min(i + span, heights.length); k++) heights[k] += short / span;
+      }
+    });
+    let used = 0;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].pb) used = 0;
+      used += heights[i];
+      if (used > roomH) return false;
+    }
+    return true;
+  };
   const choose = (page: PaperTable["page"]) => {
     const W = (page === "portrait" ? 210 : 297) - 2 * MARGIN;
     const roomH = (page === "portrait" ? 297 : 210) - HEAD_FOOT;
+    if (fixedRows && page === form.page) {
+      for (const F of SIZES.filter((s) => s > READ_PT)) {
+        for (let H = F; H >= Math.max(READ_PT, F - 1) - 0.001; H -= 0.5) {
+          const widths = columnsFor(entries, own, W, F, H);
+          if (widths && pagesHold(widths, F, H, roomH)) return { page, F, H, squeeze: 1, widths };
+        }
+      }
+    }
     // First the largest size at which every written value stays on one line; then, from the reading size down, words may wrap.
     for (const whole of [true, false]) {
       for (const F of whole ? SIZES.filter((s) => s >= READ_PT) : SIZES.filter((s) => s <= READ_PT)) {
@@ -314,6 +351,28 @@ function build(form: PaperTable, data: LogSheetData | undefined): PaperTable {
   return { ...form, page: best.page, left: MARGIN, top: MARGIN, head: rows(form.head), body: rows(form.body), foot: rows(form.foot), ...(lines ? { lines } : {}), readFit: true };
 }
 
+/** The paper's words wrap in the column they have now, not at the line breaks of its old narrow column (F/HR/21, §285). */
+function flatWords(form: PaperTable): PaperTable {
+  // (a question with its answer box inside it keeps its line break: the box stands on that second line, §286)
+  const cell = (c: PaperCell): PaperCell => (c.t?.includes("\n") && !c.ul && !c.over?.length ? { ...c, t: c.t.replace(/\s*\n\s*/g, " ") } : c);
+  const row = (r: PaperRow): PaperRow => ({ ...r, cells: r.cells.map(cell) });
+  return { ...form, head: form.head.map(row), body: form.body.map(row), foot: form.foot.map(row) };
+}
+
+/**
+ * A last page holding nothing but the paper's letterhead (F/HR/19's fifth: a Word page break after its table) is not drawn or
+ * printed, so no blank sheet comes out of the printer (REQUIREMENTS §285).
+ */
+function withoutEmptyLastPage(form: PaperTable): PaperTable {
+  if (form.foot.length > 0 || form.lines) return form;
+  const last = form.body.map((r) => !!r.pb).lastIndexOf(true);
+  if (last < 0) return form;
+  const wordsOf = (c: PaperCell) => (c.at ? c.at.map((l) => l.t).join(" ") : (c.t ?? "")).replace(/\d+/g, "").replace(/\s+/g, " ").trim();
+  const heading = new Set(form.head.flatMap((r) => r.cells.map(wordsOf)));
+  const holdsMore = form.body.slice(last).some((r) => r.cells.some((c) => c.col !== undefined || !!c.box || !!c.pick || !!c.sentence || !!c.over?.length || !heading.has(wordsOf(c))));
+  return holdsMore ? form : { ...form, body: form.body.slice(0, last) };
+}
+
 const made = new Map<string, PaperTable>();
 
 /**
@@ -324,8 +383,8 @@ export function readablePaper(form: PaperTable, data: LogSheetData | undefined, 
   if (!form.ownWords) return form;
   const known = made.get(key);
   if (known) return known;
-  const clean = colourless(form);
-  const out = paperNeedsReading(clean) ? build(clean, data) : clean;
+  const clean = withoutEmptyLastPage(colourless(form));
+  const out = paperNeedsReading(clean) ? flatWords(build(clean, data)) : clean;
   if (made.size > 12) made.clear();
   made.set(key, out);
   return out;
