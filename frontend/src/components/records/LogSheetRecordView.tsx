@@ -219,6 +219,22 @@ export function LogSheetRecordView({
   // The pages of a long register, while it prints (§277).
   const [pageBreaks, setPageBreaks] = React.useState<number[] | null>(null);
   React.useEffect(() => (paperId ? registerPaperPager(paperId, setPageBreaks) : undefined), [paperId]);
+  // The page's frame on the screen: round the paper as this record draws it, however many lines it holds (§277).
+  React.useEffect(() => {
+    if (!paperId) return;
+    const sheet = document.querySelector<HTMLElement>(`.paper-table-sheet[data-bind-record="${CSS.escape(paperId)}"]`);
+    const frame = sheet?.querySelector<HTMLElement>(":scope > .paper-head > .pt-page-frame");
+    const tables = sheet ? Array.from(sheet.querySelectorAll("table.pt-table")) : [];
+    if (!sheet || !frame || tables.length === 0) return;
+    const first = tables[0].getBoundingClientRect();
+    const last = tables[tables.length - 1].getBoundingClientRect();
+    const box = frame.getBoundingClientRect();
+    const zoom = box.width / (frame.offsetWidth || box.width) || 1;
+    const above = (first.top - box.top) / zoom;
+    frame.style.setProperty("--pf-screen-h", `${(last.bottom - first.top) / zoom + 2 * above}px`);
+    sheet.style.setProperty("--pf-gap", `${above}px`);
+    sheet.style.setProperty("--pf-side", `${(first.left - box.left) / zoom}px`);
+  });
   // THE HEADER BLOCK, TYPED OVER ON THE RECORD (REQUIREMENTS §86): the format's
   // company, title, number, revision and its date, and this record's own Page No.
   // (no Date cell of the record's own on the header, §117).

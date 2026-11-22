@@ -944,14 +944,16 @@ function footsTooTall(docs: Element[]): Element[] {
 }
 
 function unscope(): void {
+  clearScope();
+  unpagePapers();
+}
+
+function clearScope(): void {
   for (const s of footsOnce) s.removeAttribute("data-foot");
   footsOnce = [];
   unfit();
   unfitAll();
-  if (!active) {
-    unpagePapers();
-    return;
-  }
+  if (!active) return;
   for (const el of active.hidden) el.classList.remove(HIDDEN);
   for (const el of active.ancestors) el.classList.remove(ANCESTOR);
   for (const el of active.emptied) el.removeAttribute(EMPTY_ATTR);
@@ -966,7 +968,6 @@ function unscope(): void {
   for (const tr of active.evened ?? []) tr.style.removeProperty("height");
   document.documentElement.classList.remove(SCOPED);
   active = null;
-  unpagePapers();
 }
 
 // THE HR MODULE'S LINES EVEN, ITS NUMBERS IN THE MIDDLE (the owner, 20-Nov-2026, REQUIREMENTS §266, with the Skill Matrix's
@@ -1144,15 +1145,26 @@ function unsplit(split: SplitPages): void {
 
 function scope(targets: Element[]): void {
   unscope();
-  const docs = outermost(targets);
-  if (docs.length === 0) return;
-  // A long HR register: each page with its own head and number (§277), drawn before the boxes are written for the print.
-  document.documentElement.classList.add("print-measure");
-  try {
-    pagePapers(docs, withPrintRules);
-  } finally {
-    document.documentElement.classList.remove("print-measure");
+  if (outermost(targets).length === 0) return;
+  prepareScope(targets);
+  // A long HR register: each page with its own head and number (§277). Its pages are measured with the sheet ready to print
+  // (its lines evened, its boxes written as words), then it is drawn so and made ready again.
+  const measuring = <T,>(measure: () => T): T => {
+    document.documentElement.classList.add("print-measure");
+    try {
+      return withPrintRules(measure);
+    } finally {
+      document.documentElement.classList.remove("print-measure");
+    }
+  };
+  if (pagePapers(outermost(targets), measuring)) {
+    clearScope();
+    prepareScope(targets);
   }
+}
+
+function prepareScope(targets: Element[]): void {
+  const docs = outermost(targets);
   const keep = new Set<Element>(docs);
   const ancestors: Element[] = [];
   for (const d of docs) {

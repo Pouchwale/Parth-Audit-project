@@ -12895,4 +12895,6 @@ The owner, 21-Nov-2026, with F/HR/01's second page, its heading cut at the top: 
 - The page has no margin (§59) and a printer cannot print the sheet's outer 4 to 5 mm. A paper that runs on now keeps its margin in
   the head and foot repeated on every page. A foot too tall for the browser to repeat prints once, with a short foot for the margin.
 - A long HR register draws each page's head itself for the print, so each says its own "Page No.: 2 Of 4" (utils/paperPages.ts).
+  Its pages are measured with the sheet ready to print; a continued page repeats the letterhead down to its number band, then the
+  column headings. On the screen the page's frame goes round the paper as the record draws it, its row tools and Add Row outside it.
 - Measured: every document printed to A4 from its fullest record, every page, the nearest word or rule to each edge.

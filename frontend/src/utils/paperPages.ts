@@ -10,7 +10,7 @@ const pagers = new Map<string, SetBreaks>();
 const PX_PER_MM = 96 / 25.4;
 /** The foot's margin (styles.css .paper-page-foot) and a little kept in hand: the print is measured closely, not to the pixel. */
 const FOOT_MM = 9 + 1.5;
-const SHEETS = ".paper-table-sheet[data-paper-own][data-paper-flows]:not([data-paper-paged])";
+const SHEETS = ".paper-table-sheet[data-paper-own][data-paper-flows]:not([data-paper-pages])";
 
 /** A paper on the screen says how to draw its pages. Returns how to take that back. */
 export function registerPaperPager(recordId: string, set: SetBreaks): () => void {
@@ -31,17 +31,28 @@ function breaksOf(sheet: HTMLElement): number[] {
   const lines = Array.from(sheet.querySelectorAll(".paper-body tr[data-pt-line]")).filter(shown);
   if (lines.length === 0) return [];
   const head = heightOf(Array.from(sheet.querySelectorAll(".paper-head table.pt-table")));
+  // (a continued page repeats the letterhead down to its number band: PaperTableSheet pageHeadRows)
+  const headRows = Array.from(sheet.querySelectorAll(".paper-head table.pt-table tr"));
+  let band = -1;
+  headRows.forEach((tr, i) => {
+    if (/Format No|Page\s*No|F\/HR\/\d+/i.test(tr.textContent ?? "")) band = i;
+  });
+  if (band >= 0 && headRows[band + 1] && !(headRows[band + 1].textContent ?? "").trim()) band += 1;
+  const again = band >= 0 ? heightOf(headRows.slice(0, band + 1)) : head;
   const heading = heightOf(Array.from(sheet.querySelectorAll(".paper-body tr[data-pt-heading]")).filter(shown));
   const bodyTop = sheet.querySelector(".paper-body table.pt-table")?.getBoundingClientRect().top ?? lines[0].getBoundingClientRect().top;
   const foot = heightOf(Array.from(sheet.querySelectorAll(".paper-foot table.pt-table")));
   const lineOf = (tr: Element) => Number(tr.getAttribute("data-pt-line")) - 1;
   const breaks: number[] = [];
-  let used = head + (lines[0].getBoundingClientRect().top - bodyTop);
+  // (where the paper draws a page of its own above the first line, that page is the one the lines start on)
+  const firstTop = lines[0].getBoundingClientRect().top;
+  const ownPage = Array.from(sheet.querySelectorAll(".paper-body tr.pt-pb")).filter((tr) => tr.getBoundingClientRect().top <= firstTop).pop();
+  let used = ownPage ? firstTop - ownPage.getBoundingClientRect().top : head + (firstTop - bodyTop);
   for (const tr of lines) {
     const h = tr.getBoundingClientRect().height;
     if (used + h > room) {
       breaks.push(lineOf(tr));
-      used = head + heading;
+      used = again + heading;
     }
     used += h;
   }
@@ -54,7 +65,7 @@ function breaksOf(sheet: HTMLElement): number[] {
 }
 
 /** Works out the pages of the long registers among `docs` and draws them so; `measuring` lays the sheet out as it prints. */
-export function pagePapers(docs: Element[], measuring: <T>(measure: () => T) => T): void {
+export function pagePapers(docs: Element[], measuring: <T>(measure: () => T) => T): boolean {
   const found: { set: SetBreaks; breaks: number[] }[] = [];
   measuring(() => {
     for (const doc of docs) {
@@ -67,10 +78,11 @@ export function pagePapers(docs: Element[], measuring: <T>(measure: () => T) => 
       }
     }
   });
-  if (found.length === 0) return;
+  if (found.length === 0) return false;
   flushSync(() => {
     for (const f of found) f.set(f.breaks);
   });
+  return true;
 }
 
 /** The papers as the screen draws them again. */

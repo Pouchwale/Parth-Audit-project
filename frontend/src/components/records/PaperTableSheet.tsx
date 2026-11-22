@@ -452,6 +452,23 @@ function onPage(c: PaperCell, page: number, pages: number): PaperCell {
   return c.at ? { ...c, at: c.at.map((l) => ({ ...l, t: numbered(l.t) })) } : { ...c, t: numbered(c.t ?? "") };
 }
 
+/**
+ * The rows a continued page repeats: the letterhead down to its number band and the blank strip under it, not the table that
+ * follows it on the first page. A cell running down past them stops with them, or it would push the lines below out of line.
+ */
+function pageHeadRows(form: PaperTable): PaperRow[] {
+  const words = (c: PaperCell) => (c.at ? c.at.map((l) => l.t).join(" ") : (c.t ?? ""));
+  let end = -1;
+  form.head.forEach((r, i) => {
+    if (r.cells.some((c) => /Format No|Page\s*No|F\/HR\/\d+/i.test(words(c)))) end = i;
+  });
+  if (end < 0) end = form.head.length - 1;
+  const next = form.head[end + 1];
+  if (next && next.cells.every((c) => !words(c).trim() && !c.box && !c.col && !c.sentence)) end += 1;
+  const rows = form.head.slice(0, end + 1);
+  return rows.map((r, ri) => ({ ...r, cells: r.cells.map((c) => (c.rs && c.rs > rows.length - ri ? { ...c, rs: rows.length - ri } : c)) }));
+}
+
 /** One part of the paper (its header block, its body or its foot), as a table on the paper's columns. */
 export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"; parts: PaperTableParts }) {
   const { form } = parts;
@@ -468,7 +485,9 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
         }))
       : [];
   const breaks = form.ownWords ? (parts.pageBreaks ?? []) : [];
-  const pages = breaks.length + 1;
+  // (a paper may draw its first pages itself: the pages after them count on from those)
+  const ownPages = 1 + [...form.head, ...form.body].filter((r) => r.pb).length;
+  const pages = breaks.length + ownPages;
   const rows: DrawnRow[] = part === "head" && breaks.length ? form.head.map((r) => ({ ...r, cells: r.cells.map((c) => onPage(c, 1, pages)) })) : [...form[part], ...lines];
   // (a paper whose words are kept by their place numbers its foot the same however many lines the record holds)
   const row0 = part === "head" ? 0 : part === "body" ? form.head.length : form.head.length + form.body.length + (form.lines ? (form.ownWords ? form.lines.count : Math.max(form.lines.count, held)) : 0);
@@ -505,16 +524,20 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
   if (part === "body" && breaks.length > 0) {
     const stamped = (r: PaperRow, at: number): PaperRow => ({ ...r, cells: r.cells.map((c, ci) => (c.pl ? c : { ...c, pl: `${at}:${ci}` })) });
     const headings = form.body.flatMap((r, i) => (r.head ? [stamped(r, form.head.length + i)] : []));
-    const drawn: DrawnRow[] = [...form.body];
+    let bodyPage = 1;
+    const drawn: DrawnRow[] = form.body.map((r) => {
+      if (r.pb) bodyPage += 1;
+      return { ...r, cells: r.cells.map((c) => onPage(c, bodyPage, pages)) };
+    });
     let from = 0;
     [...breaks, lines.length].forEach((end, k) => {
       drawn.push(...lines.slice(from, end));
       from = end;
       if (k < breaks.length) {
-        const pageHead = form.head.map((r, ri): DrawnRow => {
+        const pageHead = pageHeadRows(form).map((r, ri): DrawnRow => {
           const row = stamped(r, ri);
           const { pb: _own, ...rest } = row;
-          return { ...rest, ...(ri === 0 ? { pb: true as const } : {}), cells: row.cells.map((c) => onPage(c, k + 2, pages)) };
+          return { ...rest, ...(ri === 0 ? { pb: true as const } : {}), cells: row.cells.map((c) => onPage(c, ownPages + k + 1, pages)) };
         });
         drawn.push(...pageHead, ...headings);
       }
