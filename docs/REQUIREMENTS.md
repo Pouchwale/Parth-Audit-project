@@ -12970,3 +12970,16 @@ document except pest control module".
 - F/HR/02: the empty page space under its last line is gone, its number stands just under the table, and + and x appear only on real rows.
 - Word and Excel: all 40 files opened and printed through Word and Excel themselves. A one-page paper stays on one page; a number in
   a narrow Excel column no longer shows as ###.
+
+## §283 Inside a record, the menu shows which document it is (22-Nov-2026)
+
+The owner, 22-Nov-2026, with the menu on a record: "when user go inside any record then in menu the system should give show
+where user like in which document".
+
+- Inside any record the left menu lights that record's own document: its format's page where it has one, otherwise the list that
+  holds it (QC Records, a module's collection). F/PUR's service agreement lights Purchase's link, the Complaint Acknowledgement
+  lights Internal CAPA, the page it is kept on.
+- One link is lit in the whole menu, the most specific one.
+- Going into a record opens its module once and scrolls the menu to the link. A module shut by hand afterwards stays shut.
+- Proved: frontend/tests/menuOfRecord.test.ts (all 132 documents that make records have a link); 27 records across every module
+  opened on the local copy, and after a reload.

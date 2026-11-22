@@ -599,7 +599,7 @@ function tallestSheet(docs: HTMLElement[]): number {
   return withPrintRules(() => Math.max(...docs.map((d) => pagesAt(d, Number(d.style.zoom) || 1, landscape))));
 }
 
-/** F/HR/15 and F/HR/16: their columns are set for the A4 page in styles.css, so they are never shrunk to fit it (§280). */
+/** F/HR/15 and F/HR/16: their columns are set for the A4 page in styles.css, so they are never shrunk to fit it (§282). */
 const CLEANING_SHEETS = '[data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]';
 
 function measureAndFit(docs: Element[]): void {
@@ -634,7 +634,7 @@ function layOutOnPage(docs: Element[]): void {
   pageStyle().textContent = landscape ? "@page { size: A4 landscape; margin: 0; }" : "";
   document.documentElement.dataset.printPage = landscape ? "landscape" : "portrait";
   for (const { doc, width } of needs) {
-    // (an HR paper is drawn at the size that fills its A4 page, PaperTable.fillA4: §275; the cleaning records' columns are set for it: §280)
+    // (an HR paper is drawn at the size that fills its A4 page, PaperTable.fillA4: §275; the cleaning records' columns are set for it: §282)
     if (doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]") || doc.querySelector(CLEANING_SHEETS)) continue;
     const own = ownLeftMargin(doc);
     // (its right side as clear of the sheet's edge as a printer needs, §277)
@@ -1041,7 +1041,7 @@ function evenHrLines(docs: Element[]): HTMLElement[] {
       for (const doc of docs) {
         const sheets = doc.matches(HR_SHEET) ? [doc] : Array.from(doc.querySelectorAll(HR_SHEET));
         const docEl = doc as HTMLElement;
-        // (the cleaning records' lines are set for their one page, §280)
+        // (the cleaning records' lines are set for their one page, §282)
         if (docEl.querySelector(CLEANING_SHEETS)) continue;
         const landscape = (paperOf(docEl) ?? (document.documentElement.dataset.printPage === "landscape" ? "landscape" : "portrait")) === "landscape";
         const zoom = Number(docEl.style.zoom) || 1;

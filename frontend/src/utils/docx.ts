@@ -80,7 +80,7 @@ export interface DocxExtras {
    * and 10 mm margins, so a month's 31 lines print on the one page.
    */
   onePage?: boolean;
-  /** The columns of the sheet's grid in mm, set as they print (F/HR/15's 31 days, F/HR/16's twelve months, §280). */
+  /** The columns of the sheet's grid in mm, set as they print (F/HR/15's 31 days, F/HR/16's twelve months, §282). */
   columnsMm?: number[];
 }
 

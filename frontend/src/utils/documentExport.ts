@@ -1133,7 +1133,7 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
 }
 
 /** The blocks as a Word document; given an envelope, with the map of its bound values. */
-/** F/HR/15 and F/HR/16 in Word: every column as on the printed page, so a long value wraps in its cell and nothing passes the page (§280). */
+/** F/HR/15 and F/HR/16 in Word: every column as on the printed page, so a long value wraps in its cell and nothing passes the page (§282). */
 const WORD_COLUMNS_MM: Record<string, number[]> = {
   "hr-daily-cleaning": [6, 58, 42, ...new Array<number>(31).fill(5.3)],
   "hr-monthly-cleaning": [7, 58, 46, ...new Array<number>(12).fill(13.3)],

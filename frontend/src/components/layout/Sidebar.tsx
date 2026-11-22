@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiGrid,
   FiBookOpen,
@@ -57,6 +57,7 @@ import {
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
 import { documentRepository } from "../../data/repositories/documentRepository";
+import { recordRepository } from "../../data/repositories/recordRepository";
 import { readJSON, writeJSON } from "../../data/storageAdapter";
 import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
@@ -603,13 +604,33 @@ function loadOpenState(): Record<string, boolean> {
 // can light up for exactly the same reason its child link does.
 const isActivePath = (path: string, to: string): boolean => path === to || path.startsWith(to + "/");
 
-function NavGroup({ items, path }: { items: NavEntry[]; path: string }) {
+// WHERE AN OPEN RECORD STANDS IN THE MENU (REQUIREMENTS §283; the owner, 22-Nov-2026: "when user go inside any record then in
+// menu the system should give show where user like in which document"). A record's address names the record, not its document,
+// so the menu is told the link of the record's own document: that format's page if it has one, else the smallest list holding
+// it, else its module's collection in the Document Library.
+const RECORD_ADDRESS = /^\/(?:record|gap\/complaint|gap|training)\/([^/]+)/;
+
+// (The Complaint Acknowledgement is kept on the Internal CAPA page; the service agreement is the pest file's but Purchase's link.)
+const MENU_HOME: Record<string, string> = { "capa-complaint-ack": "/gap/internal" };
+
+export function menuLinkOfDocument(documentId: string, module: string): string | undefined {
+  if (MENU_HOME[documentId]) return MENU_HOME[documentId];
+  const linksIn = (entries: NavEntry[]) => entries.filter((entry): entry is NavItem => !isHeading(entry));
+  const listing = (links: NavItem[]) =>
+    links
+      .filter((link) => LINK_DOCUMENT_IDS[link.to]?.includes(documentId))
+      .sort((a, b) => LINK_DOCUMENT_IDS[a.to].length - LINK_DOCUMENT_IDS[b.to].length)[0]?.to;
+  const links = linksIn(MODULE_LINKS[module as ModuleName] ?? []);
+  return (
+    links.find((link) => link.to === `/document/${documentId}`)?.to ??
+    listing(links) ??
+    links.find((link) => link.to.startsWith("/library/"))?.to ??
+    listing(linksIn(Object.values(MODULE_LINKS).flat()))
+  );
+}
+
+function NavGroup({ items, activeTo }: { items: NavEntry[]; activeTo: string | undefined }) {
   const t = useT();
-  // The most specific link that holds the page is the one lit: on
-  // /hr/competence that is the competence link, not the HR overview (/hr) too.
-  const activeTo = items
-    .filter((item): item is NavItem => !isHeading(item) && isActivePath(path, item.to))
-    .sort((a, b) => b.to.length - a.to.length)[0]?.to;
   return (
     <>
       {items.map((item, i) => {
@@ -639,6 +660,12 @@ export function Sidebar() {
   const { path: address } = useRouter();
   // A renamed module's old address lights the module's link as its new one does (utils/moduleSlug.ts, REQUIREMENTS §91).
   const path = currentAddress(address);
+  // Inside a record the menu lights the record's own document (§283).
+  const openRecordId = RECORD_ADDRESS.exec(path)?.[1];
+  const openRecord = openRecordId ? recordRepository.getById(openRecordId) : undefined;
+  const openDocument = openRecord ? documentRepository.getByIdUnscoped(openRecord.documentId) : undefined;
+  const menuPath = (openDocument && menuLinkOfDocument(openDocument.id, openDocument.module)) || path;
+  const sidebarRef = useRef<HTMLElement>(null);
   const t = useT();
   const { user } = useAuth();
   // Demo Mode only where the server has it (§65); Users & Access only for the
@@ -674,6 +701,12 @@ export function Sidebar() {
   // version of this re-opened a just-collapsed module the instant you
   // navigated to any other page within it (e.g. clicking from CAPA to
   // Training), which made "closing" a module feel like it didn't stick.
+  const mainItems = [...(assistantAvailable() ? NAV_MAIN : NAV_MAIN.filter((item) => item.to !== "/assistant")), ...(frequencyForMe ? [FREQUENCY_ITEM] : [])];
+  // The most specific link that holds the page is the one lit, and the only one in the whole menu: on /hr/competence that
+  // is the competence link, not the HR overview (/hr) too; on a module's collection, not the Document Library too (§283).
+  const activeTo = [...mainItems, ...modules.flatMap(({ entries }) => entries), ...systemItems]
+    .filter((item): item is NavItem => !isHeading(item) && isActivePath(menuPath, item.to))
+    .sort((a, b) => b.to.length - a.to.length)[0]?.to;
   const isOpen = (module: string) => openState[module] ?? true;
   const allOpen = modules.every(({ module }) => isOpen(module));
 
@@ -696,6 +729,26 @@ export function Sidebar() {
     if (narrow) close();
   }, [path, narrow, close]);
 
+  // Going into a record opens its module once, so its document can be seen; shutting the module afterwards stays shut (§283).
+  const openModule = openDocument ? modules.find(({ entries }) => entries.some((entry) => !isHeading(entry) && entry.to === activeTo))?.module : undefined;
+  useEffect(() => {
+    if (openModule) setOpenState((state) => (state[openModule] === false ? { ...state, [openModule]: true } : state));
+  }, [openDocument?.id, openModule]);
+
+  // ...and the long menu is scrolled to it when it is out of sight.
+  useEffect(() => {
+    if (!openDocument) return;
+    const frame = requestAnimationFrame(() => {
+      const box = sidebarRef.current;
+      const link = box?.querySelector<HTMLElement>(".app-nav a.active");
+      if (!box || !link) return;
+      const at = link.getBoundingClientRect();
+      const within = box.getBoundingClientRect();
+      if (at.top < within.top + 8 || at.bottom > within.bottom - 8) box.scrollTop += at.top - within.top - within.height / 2 + at.height / 2;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [openDocument?.id, menuPath]);
+
   // Escape closes the drawer, the way every other overlay in the app does.
   useEffect(() => {
     if (!narrow || !visible) return;
@@ -710,6 +763,7 @@ export function Sidebar() {
     <>
       {narrow && visible && <div className="sidebar-backdrop no-print" onClick={close} aria-hidden="true" />}
       <aside
+        ref={sidebarRef}
         id="app-sidebar"
         className={`app-sidebar no-print ${visible ? "is-open" : "is-closed"} ${narrow ? "is-drawer" : ""}`}
         aria-hidden={visible ? undefined : true}
@@ -742,7 +796,7 @@ export function Sidebar() {
         <nav className="app-nav">
           <div className="nav-section-label">{t("nav.workspace")}</div>
           {/* Ask Mitra only for a person who has Mitra: the super admin may switch it off for the staff (engine/features.ts, 2-Nov-2026). */}
-          <NavGroup items={[...(assistantAvailable() ? NAV_MAIN : NAV_MAIN.filter((item) => item.to !== "/assistant")), ...(frequencyForMe ? [FREQUENCY_ITEM] : [])]} path={path} />
+          <NavGroup items={mainItems} activeTo={activeTo} />
 
           {/* The heading and its expand/collapse belong to the modules
               underneath, so a department with no module of its own is not
@@ -769,7 +823,7 @@ export function Sidebar() {
             const ModuleIcon = MODULE_ICONS[module];
             // Marked whether the module is open or shut, so a collapsed module
             // still tells you the page you're on lives inside it.
-            const holdsCurrentPage = entries.some((entry) => !isHeading(entry) && isActivePath(path, entry.to));
+            const holdsCurrentPage = entries.some((entry) => !isHeading(entry) && entry.to === activeTo);
             return (
               <div key={module} className={`nav-module ${open ? "open" : "closed"} ${holdsCurrentPage ? "current" : ""}`} data-module={module}>
                 <button
@@ -788,7 +842,7 @@ export function Sidebar() {
                 </button>
                 {open && (
                   <div className="nav-module-body">
-                    <NavGroup items={entries} path={path} />
+                    <NavGroup items={entries} activeTo={activeTo} />
                   </div>
                 )}
               </div>
@@ -799,7 +853,7 @@ export function Sidebar() {
           {systemItems.length > 0 && (
             <>
               <div className="nav-section-label">{t("nav.system")}</div>
-              <NavGroup items={systemItems} path={path} />
+              <NavGroup items={systemItems} activeTo={activeTo} />
             </>
           )}
         </nav>

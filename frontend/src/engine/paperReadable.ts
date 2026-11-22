@@ -1,4 +1,4 @@
-// AN HR PAPER ANYONE CAN READ (REQUIREMENTS §280; the owner, 22-Nov-2026, with F/HR/03 on the screen: "it hard to see anything ... no font
+// AN HR PAPER ANYONE CAN READ (REQUIREMENTS §282; the owner, 22-Nov-2026, with F/HR/03 on the screen: "it hard to see anything ... no font
 // is too small on print so any one can read easily ... remove colour from record like yellow, orange"). The company's papers keep
 // their rows, words and rules. A paper whose letters would print under READ_PT has its columns measured from what they really
 // hold: each is given the room its longest word needs, taken from columns with room to spare, and the page turned where that
@@ -188,7 +188,7 @@ export function paperNeedsReading(form: PaperTable | undefined): boolean {
   return !!form?.ownWords && smallestPrinted(form) < READ_PT;
 }
 
-/** Company files that, once filled, run past the page their paper is on: downloaded as the paper is drawn (§280). */
+/** Company files that, once filled, run past the page their paper is on: downloaded as the paper is drawn (§282). */
 const FILES_DRAWN = new Set(["hr-visitor-health"]);
 export const fileIsDrawn = (documentId: string, form: PaperTable | undefined): boolean => FILES_DRAWN.has(documentId) || paperNeedsReading(form);
 
