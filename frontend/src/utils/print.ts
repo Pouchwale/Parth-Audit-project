@@ -599,6 +599,9 @@ function tallestSheet(docs: HTMLElement[]): number {
   return withPrintRules(() => Math.max(...docs.map((d) => pagesAt(d, Number(d.style.zoom) || 1, landscape))));
 }
 
+/** F/HR/15 and F/HR/16: their columns are set for the A4 page in styles.css, so they are never shrunk to fit it (§279). */
+const CLEANING_SHEETS = '[data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]';
+
 function measureAndFit(docs: Element[]): void {
   layOutOnPage(docs);
   const all = docs as HTMLElement[];
@@ -631,8 +634,8 @@ function layOutOnPage(docs: Element[]): void {
   pageStyle().textContent = landscape ? "@page { size: A4 landscape; margin: 0; }" : "";
   document.documentElement.dataset.printPage = landscape ? "landscape" : "portrait";
   for (const { doc, width } of needs) {
-    // (an HR paper is drawn at the size that fills its A4 page, PaperTable.fillA4: §275)
-    if (doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]")) continue;
+    // (an HR paper is drawn at the size that fills its A4 page, PaperTable.fillA4: §275; the cleaning records' columns are set for it: §279)
+    if (doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]") || doc.querySelector(CLEANING_SHEETS)) continue;
     const own = ownLeftMargin(doc);
     // (its right side as clear of the sheet's edge as a printer needs, §277)
     const room = own !== null ? (PAGE_WIDTH_MM[landscape ? "landscape" : "portrait"] - own - 5.5) * PX_PER_MM : paper;
@@ -694,7 +697,7 @@ function stretchToPages(docs: Element[]): void {
       for (const d of docs) {
         const doc = d as HTMLElement;
         // The HR papers keep their own lines' heights, as the company's file draws them (REQUIREMENTS §275).
-        if (doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]")) continue;
+        if (doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]") || doc.querySelector(CLEANING_SHEETS)) continue;
         // A QC, HR or Purchase paper drawn short of its page (REQUIREMENTS §228; the owner, 16-Nov-2026: "in A4 size page it
         // is not covering fully ... check for other document also of QC, HR and Purchase modules"): its lines drawn taller,
         // to STRETCH_TO at most - no ruled lines added, nothing spread, never onto a second page.
@@ -1038,6 +1041,8 @@ function evenHrLines(docs: Element[]): HTMLElement[] {
       for (const doc of docs) {
         const sheets = doc.matches(HR_SHEET) ? [doc] : Array.from(doc.querySelectorAll(HR_SHEET));
         const docEl = doc as HTMLElement;
+        // (the cleaning records' lines are set for their one page, §279)
+        if (docEl.querySelector(CLEANING_SHEETS)) continue;
         const landscape = (paperOf(docEl) ?? (document.documentElement.dataset.printPage === "landscape" ? "landscape" : "portrait")) === "landscape";
         const zoom = Number(docEl.style.zoom) || 1;
         const pageH = (landscape ? 210 : 297) * PX_PER_MM;
@@ -1324,7 +1329,7 @@ function keepWithinPage(docs: Element[]): void {
       for (const d of docs) {
         const doc = d as HTMLElement;
         // (an HR paper sizes itself to the A4 page, PaperTable.fillA4: §275)
-        if (ownLeftMargin(doc) !== null || isFramed(doc) || pageSections(doc).length > 1 || doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]")) continue;
+        if (ownLeftMargin(doc) !== null || isFramed(doc) || pageSections(doc).length > 1 || doc.matches("[data-paper-own]") || doc.querySelector("[data-paper-own]") || doc.querySelector(CLEANING_SHEETS)) continue;
         for (let round = 0; round < 3; round++) {
           const zoom = Number(doc.style.zoom) || 1;
           const width = narrowestWidth(doc);

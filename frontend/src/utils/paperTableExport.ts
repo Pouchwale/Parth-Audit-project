@@ -235,7 +235,9 @@ export function paperTableWord(documentId: string, blocks: ExportBlock[]): Expor
 
 /** The Word page's margins for such a paper (points): the print's own, all round. */
 export function paperTableWordMargins(documentId: string): { top: number; right: number; bottom: number; left: number } | undefined {
-  return PAPER_TABLE_EXPORTS.has(documentId) || ownPaper(documentId)?.ownWords ? { top: WORD_MARGIN, right: WORD_MARGIN, bottom: WORD_MARGIN, left: WORD_MARGIN } : undefined;
+  const own = ownPaper(documentId);
+  if (own?.ownWords && !own.flows) return { top: 18, right: WORD_MARGIN, bottom: 18, left: WORD_MARGIN };
+  return PAPER_TABLE_EXPORTS.has(documentId) || own?.ownWords ? { top: WORD_MARGIN, right: WORD_MARGIN, bottom: WORD_MARGIN, left: WORD_MARGIN } : undefined;
 }
 
 // AN HR PAPER IN THE KIND OF FILE ITS ORIGINAL IS NOT (REQUIREMENTS §275: "as it is, no new things"). The company's own Word or
@@ -349,27 +351,45 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
       }
     }
   }
+  // (a thin empty strip at the very end is nothing of the paper's: in Excel it made a blank last page of its own)
+  while (heightsMm.length > 1 && heightsMm[heightsMm.length - 1] < 4 && !drawn.some((p, i) => p.row === heightsMm.length - 1 && words[i].text.trim() !== "")) {
+    const last = heightsMm.length - 1;
+    for (const p of drawn) if (p.row < last && p.row + p.rowSpan - 1 >= last) p.rowSpan = last - p.row;
+    heightsMm.pop();
+    for (let i = drawn.length - 1; i >= 0; i--) {
+      if (drawn[i].row === last) {
+        drawn.splice(i, 1);
+        words.splice(i, 1);
+      }
+    }
+  }
   // The size it prints on A4, inside the page's margins.
-  const roomPt = (form.page === "portrait" ? 595.28 : 841.89) - 2 * WORD_MARGIN;
-  const scale = Math.min(paperTablePrint(form, true).scale, roomPt / (totalMm * MM_PT));
+  // (the page and the size the sheet itself is drawn at: a paper fitted to be read may have turned its page, §279)
+  const sheet = papers[0] as HTMLElement;
+  const page = sheet.getAttribute("data-paper") === "landscape" ? "landscape" : "portrait";
+  const roomPt = (page === "portrait" ? 595.28 : 841.89) - 2 * WORD_MARGIN;
+  const scale = Math.min(Number(sheet.style.getPropertyValue("--pt-print-scale")) || 1, roomPt / (totalMm * MM_PT));
   if (kind === "xlsx") {
+    const narrow = (p: { col: number; colSpan: number }, text: string) => /^\d/.test(text) && widthsMm.slice(p.col, p.col + p.colSpan).reduce((a, b) => a + b, 0) * scale < 3.2 * text.length + 4;
     const cells: SheetCell[] = drawn.map((p, i) => ({
       ...words[i],
       row: p.row,
       col: p.col,
       rowSpan: p.rowSpan,
       colSpan: p.colSpan,
-      style: { size: round(p.size * scale, 0.5), bold: p.bold, underline: p.underline, align: p.align, valign: "center", wrap: true, borders: p.borders, font: p.font, ...(p.fill ? { fill: p.fill } : {}), ...(/^0\d|\.\d*0$/.test(words[i].text.trim()) ? { keepText: true } : {}) },
+      style: { size: round(p.size * scale, 0.5), bold: p.bold, underline: p.underline, align: p.align, valign: "center", wrap: true, borders: p.borders, font: p.font, ...(p.fill ? { fill: p.fill } : {}), ...(/^0\d|\.\d*0$/.test(words[i].text.trim()) || narrow(p, words[i].text.trim()) ? { keepText: true } : {}) },
     }));
     const widths = widthsMm.map((mm) => Math.max(0.5, Math.round((((mm * scale * 96) / 25.4 - 5) / 7) * 100) / 100));
     const heights = heightsMm.map((h) => round(Math.min(409, h * scale * MM_PT), 0.25));
-    return [{ kind: "sheet", name: sheetName, widths, heights, rowCount: heightsMm.length, cells, breaks: starts.slice(1), page: form.page }];
+    return [{ kind: "sheet", name: sheetName, widths, heights, rowCount: heightsMm.length, cells, breaks: starts.slice(1), page, ...(form.flows ? {} : { onePage: true }) }];
   }
   const eighths = (level: number) => (level === 2 ? 12 : level === 1 ? 6 : 0);
   const byRow: { col: number; cell: PaperCellSpec }[][] = heightsMm.map(() => []);
+  // (F/HR/04 is a full page: Word sets its lines a little taller, so half a point less keeps its foot on that one page)
+  const wordFit = documentId === "hr-pre-employment-health" ? 0.94 : 1;
   drawn.forEach((p, i) => {
     const [l, r, t, b] = p.borders.map(eighths) as PaperCellSpec["borders"];
-    const set = { size: Math.round(p.size * scale * 2), bold: p.bold, align: p.align, valign: "center" as const, font: p.font, ...(p.underline ? { underline: true } : {}), ...(p.fill ? { fill: p.fill } : {}), ...(p.colSpan > 1 ? { colSpan: p.colSpan } : {}) };
+    const set = { size: Math.round(p.size * scale * wordFit * 2), bold: p.bold, align: p.align, valign: "center" as const, font: p.font, ...(p.underline ? { underline: true } : {}), ...(p.fill ? { fill: p.fill } : {}), ...(p.colSpan > 1 ? { colSpan: p.colSpan } : {}) };
     byRow[p.row].push({ col: p.col, cell: { ...words[i], ...set, borders: [l, r, t, b], ...(p.rowSpan > 1 ? { vMerge: "restart" as const } : {}) } });
     for (let d = 1; d < p.rowSpan; d++) byRow[p.row + d]?.push({ col: p.col, cell: { text: "", ...set, borders: [l, r, 0, b], vMerge: "continue" } });
   });
@@ -379,6 +399,7 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
     widths: wordWidths,
     spaceAfter: 1,
     ...(n > 0 ? { pageBreakBefore: true } : {}),
-    rows: heightsMm.slice(from, starts[n + 1] ?? heightsMm.length).map((h, k) => ({ height: Math.round(h * scale * MM_PT * 100) / 100, cells: byRow[from + k].sort((a, b) => a.col - b.col).map((c) => c.cell) })),
+    // (a one-page paper: Word's lines stand a little taller than the page's, so its rows give up their spare height)
+    rows: heightsMm.slice(from, starts[n + 1] ?? heightsMm.length).map((h, k) => ({ height: Math.round(h * scale * MM_PT * (form.flows ? 1 : 0.48) * 100) / 100, cells: byRow[from + k].sort((a, b) => a.col - b.col).map((c) => c.cell) })),
   }));
 }

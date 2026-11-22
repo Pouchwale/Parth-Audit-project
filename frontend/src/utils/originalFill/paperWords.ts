@@ -97,6 +97,49 @@ function changedPart(name: string, xml: string, edits: PaperWordEdit[]): string 
   return xml;
 }
 
+const coloured = (hex: string): boolean => {
+  const h = hex.slice(-6);
+  if (!/^[0-9a-f]{6}$/i.test(h)) return false;
+  const v = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  return Math.max(...v) - Math.min(...v) > 14;
+};
+
+/** A solid cell fill of the workbook that is a colour (a theme's colours past its black and white, an indexed colour that is no grey). */
+function colourFill(fill: string): boolean {
+  if (!/patternType="solid"/.test(fill)) return false;
+  const fg = /<fgColor ([^>]*)\/?>/.exec(fill)?.[1] ?? "";
+  const rgb = /rgb="([0-9A-Fa-f]{6,8})"/.exec(fg)?.[1];
+  if (rgb) return coloured(rgb);
+  const theme = /theme="(\d+)"/.exec(fg)?.[1];
+  if (theme !== undefined) return Number(theme) > 1;
+  const indexed = /indexed="(\d+)"/.exec(fg)?.[1];
+  return indexed !== undefined && ![8, 9, 15, 16, 22, 23, 55, 63, 64, 65].includes(Number(indexed));
+}
+
+/** The company's file with no coloured shading or highlight left on it (§279): its rules, words and greys stay. */
+export async function withoutColours(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+  const copy = bytes.slice();
+  const zip = await unzip(copy.buffer);
+  const files: { name: string; data: Uint8Array }[] = [];
+  for (const [name, get] of zip) {
+    if (name.endsWith("/")) continue;
+    const data = await get();
+    if (!/\.xml$/.test(name)) {
+      files.push({ name, data });
+      continue;
+    }
+    const xml = new TextDecoder("utf-8").decode(data);
+    let next = xml;
+    if (/^word\/(document|header\d*|footer\d*)\.xml$/.test(name)) {
+      next = xml.replace(/<w:highlight [^>]*\/>/g, "").replace(/(<w:shd [^>]*w:fill=")([0-9A-Fa-f]{6})"/g, (all, head: string, hex: string) => (coloured(hex) ? `${head}auto"` : all));
+    } else if (name === "xl/styles.xml") {
+      next = xml.replace(/<fill>[\s\S]*?<\/fill>/g, (fill) => (colourFill(fill) ? '<fill><patternFill patternType="none"/></fill>' : fill));
+    }
+    files.push({ name, data: next === xml ? data : new TextEncoder().encode(next) });
+  }
+  return zipStored(files);
+}
+
 /** The filled file with the record's own printed words. */
 export async function withPaperWords(bytes: Uint8Array<ArrayBuffer>, edits: PaperWordEdit[]): Promise<Uint8Array<ArrayBuffer>> {
   if (edits.length === 0) return bytes;

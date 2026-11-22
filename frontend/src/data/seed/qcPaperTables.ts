@@ -177,6 +177,8 @@ export interface PaperTable {
    * company, the title, the format's number, each label and heading, kept on the record by their place on the paper.
    */
   ownWords?: true;
+  /** Its columns were measured from what they hold so that every letter reads (engine/paperReadable.ts, §279). */
+  readFit?: true;
   /** The frame the paper's page draws round it (a Word page border), mm: how far it stands left of and above the paper's corner, its width and height. */
   pageFrame?: { l: number; t: number; w: number; h: number; double?: true };
   /** The paper runs over several pages: fitted to the page's width alone, never squeezed onto one (§275). */

@@ -10,6 +10,7 @@ import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHea
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
+import { readablePaper } from "../../engine/paperReadable";
 import { registerPaperPager } from "../../utils/paperPages";
 import { paperRowAdded, paperRowRemoved, paperRowsBack, paperWithRows } from "../../engine/paperRows";
 import { paperFrameStyle, paperTableFits, paperTableFor, paperTablePrint, type PaperCell } from "../../data/seed/qcPaperTables";
@@ -574,7 +575,7 @@ export function LogSheetRecordView({
   // ...its tables of boxes with the record's own rows (§246, engine/boxRows.ts).
   const ptFormed = ptForm && paperTableFits(ptForm, layout) ? withRecordBoxRows(ptForm, layout, data) : undefined;
   // The rows this record put in or took off (§276).
-  const pt = ptFormed ? paperWithRows(ptFormed, data.words?.paperRows) : undefined;
+  const pt = ptFormed ? readablePaper(paperWithRows(ptFormed, data.words?.paperRows), data, `${doc.id}|${record.id}|${data.rows.length}|${JSON.stringify(data.words?.paperRows ?? null)}`) : undefined;
   if (pt) setShownPaperTable(layout.documentId, pt);
   // THE TWO INTERNAL CALIBRATION RECORDS ON THEIR PAPERS' MEASURES (F/QC/11, F/QC/12; data/seed/qcCalibrationGeometry.ts,
   // §117 round 2): the sheet as it is drawn (its boxes, its grid, its PROCEDURE), in the paper's millimetres; the number
@@ -1063,6 +1064,7 @@ export function LogSheetRecordView({
         data-paper-paged={pt.ownWords && (pageBreaks?.length || [...pt.head, ...pt.body].some((r) => r.pb)) ? "" : undefined}
         data-paper-pages={pageBreaks?.length ? pageBreaks.length + 1 : undefined}
         data-paper-flows={pt.flows || pt.lines ? "" : undefined}
+        data-paper-read={pt.readFit ? "" : undefined}
         style={{ "--pt-left": String(ptPrint.left), "--pt-top": String(ptPrint.top), ...(ptFill ? { "--pt-print-scale": String(ptPrint.scale) } : {}) } as React.CSSProperties}
       >
         {/* The working tool that fetches a person: on the screen, above the paper, never part of it (REQUIREMENTS §275). */}

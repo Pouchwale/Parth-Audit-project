@@ -226,7 +226,7 @@ export type ExportBlock =
    * A sheet drawn as the company's own Excel paper: merged cells, the paper's column widths (Excel characters) and row
    * heights (points), fonts, borders. Read from a table marked data-paper-sheet (utils/documentExport.ts sheetBlock).
    */
-  | { kind: "sheet"; name: string; widths: number[]; heights: (number | undefined)[]; rowCount: number; cells: SheetCell[]; /** Rows (0-based) a new printed page starts at. */ breaks?: number[]; /** The page's way, where the sheet names it (F/HR/17's register: portrait). */ page?: "portrait" | "landscape" }
+  | { kind: "sheet"; name: string; widths: number[]; heights: (number | undefined)[]; rowCount: number; cells: SheetCell[]; /** Rows (0-based) a new printed page starts at. */ breaks?: number[]; /** The page's way, where the sheet names it (F/HR/17's register: portrait). */ page?: "portrait" | "landscape"; /** The paper is one page: Excel prints it on one (§278). */ onePage?: boolean }
   /** Boxes with their labels; `perLine`, how many the paper puts on one line (LogSheetLayout.headerColumns, REQUIREMENTS §117). */
   | { kind: "fields"; pairs: [string, Cell][]; perLine?: number }
   | { kind: "table"; rows: Cell[][]; headerRows: number; bindTable?: ExportTableBinding; band?: true };
@@ -765,6 +765,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
   };
   let sheetTitle = "";
   let sheetPage: "portrait" | "landscape" | undefined;
+  let sheetOnePage = false;
   // Rows holding one line of words (a heading, a note): the ones too long for the sheet's width wrap across it (below).
   const textRows = new Set<number>();
   // 8 bold wrapped (a label) · 9 plain wrapped · 10 title wrapped — after the eight above, so their numbers stay.
@@ -819,6 +820,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       const base = rows.length;
       if (block.name) sheetTitle = block.name;
       if (block.page) sheetPage = block.page;
+      if (block.onePage) sheetOnePage = true;
       for (let r = 0; r < block.rowCount; r++) rows.push([]);
       block.widths.forEach((w, ci) => (fixedWidths[ci] = w));
       block.heights.forEach((h, ri) => h !== undefined && heightsAt.set(base + ri, h));
@@ -1057,7 +1059,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
         // Printed from Excel: one page wide, as many pages down as it takes.
         // ...on the paper's own page where the layout names it (REQUIREMENTS §117), else as its width needs.
-        `<pageSetup paperSize="9" orientation="${sheetPage ?? paper ?? (columns > 6 ? "landscape" : "portrait")}" fitToWidth="1" fitToHeight="0"/>` +
+        `<pageSetup paperSize="9" orientation="${sheetPage ?? paper ?? (columns > 6 ? "landscape" : "portrait")}" fitToWidth="1" fitToHeight="${sheetOnePage ? 1 : 0}"/>` +
         // A new page where the paper starts one (F/HR/18's second page): Excel breaks above the row.
         (pageBreaks.length ? `<rowBreaks count="${pageBreaks.length}" manualBreakCount="${pageBreaks.length}">${pageBreaks.map((r) => `<brk id="${r}" max="16383" man="1"/>`).join("")}</rowBreaks>` : "") +
         `</worksheet>`,
@@ -1286,7 +1288,7 @@ async function downloadRead(doc: DocumentDefinition, roots: Element[], dateISO?:
       /* the generic download below */
     }
     // The paper's own page (§117), where the sheet names it.
-    const paper = paperPageOf(doc.id) ?? (paperTableFor(doc.id)?.ownWords ? paperTableFor(doc.id)?.page : undefined) ?? (live.length ? live : roots).map(paperOf).find((p) => p !== null) ?? undefined;
+    const paper = paperPageOf(doc.id) ?? (paperTableFor(doc.id)?.ownWords ? ((onPage.map((r) => (r.matches(".paper-table-sheet") ? r : r.querySelector(".paper-table-sheet"))).find(Boolean)?.getAttribute("data-paper") as "portrait" | "landscape" | null) ?? paperTableFor(doc.id)?.page) : undefined) ?? (live.length ? live : roots).map(paperOf).find((p) => p !== null) ?? undefined;
     // A month's sheet on one page (LogSheetLayout.onePage, carried as data-one-page on the sheet; §259).
     const onePage = (live.length ? live : roots).some((r) => r.matches("[data-one-page]") || r.querySelector("[data-one-page]") !== null);
     // An HR paper in the other kind of file, or with words its own file has no place for: drawn from the paper itself (§275).

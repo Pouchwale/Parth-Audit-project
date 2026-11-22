@@ -97,7 +97,7 @@ function dailyCleaningSheet(blocks: ExportBlock[]): ExportBlock[] | null {
   for (let d = 0; d < days; d++) put(3, 3 + d, { text: text(heading[3 + d]) || String(d + 1) }, st(14, true, "center", [1, 1, 0, 1]));
   body.forEach((r, i) => {
     const row = 4 + i;
-    heights.push(39);
+    heights.push(35);
     put(row, 0, r[0] ?? { text: "" }, st(14, true, "center", edge(row, 0, 1, 0)));
     put(row, 1, r[1] ?? { text: "" }, st(14, true, "left", edge(row, 1, 1, 0)));
     put(row, 2, r[2] ?? { text: "" }, st(14, true, "left", edge(row, 2, 1, 0)));
@@ -110,7 +110,7 @@ function dailyCleaningSheet(blocks: ExportBlock[]): ExportBlock[] | null {
     put(row, 0, { text: label }, st(14, true, "right", [2, 0, 1, 2]), 1, 3);
     for (let d = 0; d < days; d++) put(row, 3 + d, r[3 + d] ?? { text: "" }, st(11, false, "center", edge(row, 3 + d)));
   });
-  return [{ kind: "sheet", name: formatNo.replace(/\//g, "-") || "Cleaning", widths: [5, 42.89, 40.66, ...Array(days).fill(5.66)], heights, rowCount: lastRow + 1, cells }];
+  return [{ kind: "sheet", onePage: true, name: formatNo.replace(/\//g, "-") || "Cleaning", widths: [5, 42.89, 40.66, ...Array(days).fill(5.66)], heights, rowCount: lastRow + 1, cells }];
 }
 
 /**
@@ -164,7 +164,7 @@ function monthlyCleaningSheet(blocks: ExportBlock[]): ExportBlock[] | null {
   for (let m = 0; m < months; m++) put(4, 4 + m, dateRow?.[3 + m] ?? { text: "" }, st(12, true, "center", [1, m === months - 1 ? 2 : 1, 1, 1]));
   body.forEach((r, i) => {
     const row = 5 + i;
-    heights.push(49);
+    heights.push(30);
     const both = text(r[2]);
     const method = both.replace(/\s*Cleaning by\s*$/i, "").trim();
     put(row, 0, r[0] ?? { text: "" }, st(12, true, "center", edge(row, 0, 1, 0)));
@@ -178,7 +178,7 @@ function monthlyCleaningSheet(blocks: ExportBlock[]): ExportBlock[] | null {
     put(lastRow, 0, { text: "Cleaning verified by" }, st(12, true, "right", [2, 0, 1, 2]), 1, 4);
     for (let m = 0; m < months; m++) put(lastRow, 4 + m, foot[3 + m] ?? { text: "" }, st(12, true, "center", edge(lastRow, 4 + m)));
   }
-  return [{ kind: "sheet", name: formatNo.replace(/\//g, "-") || "Cleaning", widths: [5, 34.83, 13.66, 15.83, ...Array(months).fill(12)], heights, rowCount: lastRow + 1, cells }];
+  return [{ kind: "sheet", onePage: true, name: formatNo.replace(/\//g, "-") || "Cleaning", widths: [5, 34.83, 13.66, 15.83, ...Array(months).fill(12)], heights, rowCount: lastRow + 1, cells }];
 }
 
 /** The blocks of a document redrawn as its supplied workbook, or null where there is no such original here (the generic download stands). */

@@ -4495,6 +4495,57 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
 .paper-plain-twin { position: fixed; left: -30000px; top: 0; width: 1400px; pointer-events: none; }
 .pt-table .pt-line-add { position: absolute; left: -58px; top: 50%; transform: translateY(-50%); min-width: 24px; padding: 0 4px; line-height: 1; }
 .paper-sheet[data-paper-form="table"]:has(.pt-line-add) { padding-left: 62px; }
+/* NO COLOUR ON A COMPANY PAPER (§279): its boxes are white on the screen, marked only while a person is on them; a choice shows its
+   value alone, without an arrow in every cell, and opens as any choice does. */
+@media screen {
+  .paper-sheet[data-paper-own] .pt-table :is(td.pt-c, .pt-over) > :is(.field-in-table, .pt-box) > .input:not(:disabled), .paper-sheet[data-paper-own] .pt-table .pt-sentence .field-in-table > .input:not(:disabled) { background: transparent; }
+  .paper-sheet[data-paper-own] .pt-table :is(td.pt-c, .pt-over) > :is(.field-in-table, .pt-box) > .input:not(:disabled):hover { background: #f1f3f5; }
+  .paper-sheet[data-paper-own] .pt-table td.pt-c > .pt-words.editable-words:empty:hover { background: #f1f3f5; }
+  .paper-sheet[data-paper-own] .pt-table .pt-pick[role="button"]:hover { background: #e9ecef; }
+}
+.paper-sheet[data-paper-own] .pt-table select.input { appearance: none; -webkit-appearance: none; background-image: none; padding: 0; text-align: center; text-align-last: center; cursor: pointer; }
+/* A paper fitted to be read: a written value stands in the middle of its cell's height and wraps inside it. */
+.paper-sheet[data-paper-read] .pt-table td.pt-c > :is(.field-in-table, .pt-box):has(> .cell-text) { position: static; display: block; }
+.paper-sheet[data-paper-read] .pt-table td.pt-c > :is(.field-in-table, .pt-box) > .cell-text { padding: 0.3mm calc(0.5 * var(--u)) 0.3mm calc(var(--pt-x) * var(--u)); line-height: 1.12; overflow-wrap: break-word; }
+.paper-sheet[data-paper-read] .pt-table td.pt-c { overflow-wrap: anywhere; }
+@media print {
+  .paper-sheet[data-paper-read] .pt-table td.pt-c > :is(.field-in-table, .pt-box):has(> .print-box-text) { position: static; }
+  .paper-sheet[data-paper-read] .pt-table td.pt-c > :is(.field-in-table, .pt-box) > .print-box-text { position: static; display: block; padding: 0.3mm calc(0.5 * var(--u)) 0.3mm calc(var(--pt-x) * var(--u)); line-height: 1.12; overflow-wrap: break-word; }
+}
+@media screen and (min-width: 1000px) {
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table { overflow-x: visible; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet { table-layout: fixed; width: 100%; min-width: 0; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet :is(th, td) { min-width: 0; padding-left: 4px; padding-right: 4px; overflow-wrap: anywhere; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet tr > :nth-child(1) { width: 34px; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet tr > :nth-child(2) { width: 17%; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet tr > :nth-child(3) { width: 14%; }
+  .paper-sheet[data-sheet="hr-daily-cleaning"] .doc-table table.log-sheet tr > :nth-child(n+4) { padding-left: 0; padding-right: 0; text-align: center; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td .input-sm { min-width: 0; width: 100%; padding-left: 1px; padding-right: 1px; text-align: center; }
+}
+/* F/HR/15's 31 days and F/HR/16's twelve months on one landscape A4 page at a size anyone can read (§279): every column set, none left
+   to the browser, so the sheet is never shrunk to fit. */
+@media print {
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table { overflow: visible; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet { table-layout: fixed; width: 271mm; min-width: 0; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet tbody tr { height: 6.4mm; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet :is(th, td) { height: auto; padding: 0.4mm 0.6mm; font-size: 8pt; line-height: 1.12; min-width: 0; overflow-wrap: anywhere; vertical-align: middle; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td :is(.cell-text, .input, select, textarea), .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td > span { font-size: 8pt; line-height: 1.12; padding: 0; min-width: 0; min-height: 0; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td :is(.input, select, textarea) { height: 3.6mm; border: 0; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-header :is(.company-name, .doc-title) { padding-top: 1mm; padding-bottom: 1mm; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-header .meta-cell { padding-top: 0.5mm; padding-bottom: 0.5mm; }
+  .paper-sheet[data-sheet="hr-daily-cleaning"] .doc-table table.log-sheet tr > :nth-child(1) { width: 6mm; }
+  .paper-sheet[data-sheet="hr-daily-cleaning"] .doc-table table.log-sheet tr > :nth-child(2) { width: 58mm; }
+  .paper-sheet[data-sheet="hr-daily-cleaning"] .doc-table table.log-sheet tr > :nth-child(3) { width: 42mm; }
+  .paper-sheet[data-sheet="hr-daily-cleaning"] .doc-table table.log-sheet tr > :nth-child(n+4) { width: 5.3mm; padding-left: 0; padding-right: 0; text-align: center; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet tr > :nth-child(1) { width: 7mm; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet tr > :nth-child(2) { width: 58mm; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet tr > :nth-child(3) { width: 46mm; min-width: 0; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet tr > :nth-child(n+4) { width: 13.3mm; text-align: center; }
+  /* (F/HR/16's twenty lines of two lines each, on its one page) */
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet tbody tr { height: 6.15mm; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet :is(th, td) { padding-top: 0.16mm; padding-bottom: 0.16mm; line-height: 1.05; }
+  .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td :is(.cell-text, .input, select, textarea), .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td > span { line-height: 1.05; }
+}
 .pt-page-top { display: none; }
 /* NO LINE AT THE PAPER'S EDGE, ON ANY PAGE (REQUIREMENTS §277; the owner, 21-Nov-2026, with F/HR/01's second page, its heading cut at
    the top). The page itself has no margin (§59), and a printer cannot print its outer 4 to 5 mm: so the margin stands in the head
