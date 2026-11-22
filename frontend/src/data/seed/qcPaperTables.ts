@@ -42,6 +42,18 @@ export interface PaperPick {
   word: string;
   /** "check": a tick box beside the answer's own words (the HR forms' Yes / No, the owner, 22-Nov-2026). */
   mark: "ring" | "tick" | "check";
+  /** One of several answers that may all hold: the record's box keeps a list, "A, B, C" (F/HR/19's Location Guide). */
+  many?: true;
+}
+
+const listWord = (s: string): string => s.toLowerCase().replace(/[–—]/g, "-").replace(/\s+/g, " ").trim();
+const listOf = (held: unknown): string[] => String(held ?? "").split(",").map((w) => w.trim()).filter(Boolean);
+/** The box's list holds this answer. */
+export const listHolds = (held: unknown, value: string): boolean => listOf(held).some((w) => listWord(w) === listWord(value));
+/** The box's list with this answer put in, or taken out where it is there. */
+export function listToggled(held: unknown, value: string): string {
+  const list = listOf(held);
+  return (listHolds(held, value) ? list.filter((w) => listWord(w) !== listWord(value)) : [...list, value]).join(", ");
 }
 
 export interface PaperCell {

@@ -1,6 +1,7 @@
 // THE HR FORMATS AS THE COMPANY'S OWN PAPERS, EVERY PART EDITABLE (REQUIREMENTS §275; the owner, 21-Nov-2026: "as it is in my
 // system which i have shared documents with you. as it is no new things and make sure each and every part is editable").
 // Run: npm run test:unit -- hrPapers
+import { listHolds, listToggled } from "../src/data/seed/qcPaperTables";
 import { readablePaper } from "../src/engine/paperReadable";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -135,4 +136,21 @@ test("§286 YES and NO stay side by side, a label and its box on one line, the n
   // F/HR/10 and F/HR/13 give a name the room of the staff sheet's longest.
   assert.ok(HR_PAPER_TABLES["hr-training-imparted"].lines!.cells.find((c) => c.col === "name")!.w >= 69);
   assert.ok(HR_PAPER_TABLES["hr-mobile-authorization"].lines!.cells.find((c) => c.col === "name")!.w >= 66);
+});
+
+test("§292 F/HR/19: twelve location tick boxes on one list, and the Date's value clear of its word", () => {
+  const form = HR_PAPER_TABLES["hr-gmp-checklist"];
+  const places = cellsOf(form).flatMap((c) => c.pick ?? []).filter((p) => p.box === "locations");
+  assert.equal(places.length, 12);
+  assert.ok(places.every((p) => p.many && p.mark === "tick"));
+  let list = "Outside Premises, Plant – First Floor";
+  assert.ok(listHolds(list, "Plant - First Floor"), "a dash written either way");
+  assert.ok(!listHolds(list, "Utility"));
+  list = listToggled(list, "Utility");
+  assert.equal(list, "Outside Premises, Plant – First Floor, Utility");
+  assert.equal(listToggled(list, "Outside Premises"), "Plant – First Floor, Utility");
+  const head = form.head[3].cells[0];
+  const word = head.at!.find((l) => l.t === "Date")!;
+  const box = head.over!.find((o) => o.box === "inspectionDate")!;
+  assert.ok(box.x - word.x! >= 10, "room after the word Date");
 });

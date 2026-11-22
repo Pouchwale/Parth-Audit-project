@@ -11,6 +11,7 @@ import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
 import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
 import { readablePaper } from "../../engine/paperReadable";
+import { listHolds, listToggled } from "../../data/seed/qcPaperTables";
 import { registerPaperPager } from "../../utils/paperPages";
 import { paperRowAdded, paperRowRemoved, paperRowsBack, paperWithRows } from "../../engine/paperRows";
 import { paperFrameStyle, paperTableFits, paperTableFor, paperTablePrint, type PaperCell } from "../../data/seed/qcPaperTables";
@@ -985,10 +986,10 @@ export function LogSheetRecordView({
       pick: (p, line) => {
         const row = p.col && line !== undefined ? data.rows[line] : undefined;
         const held = p.box ? data.header?.[p.box] : row?.[p.col!];
-        const on = String(held ?? "") === p.value;
+        const on = p.many ? listHolds(held, p.value) : String(held ?? "") === p.value;
         const can = editable && (!!p.box || !!row);
         const set = () => {
-          const next = on ? (p.off ?? "") : p.value;
+          const next = p.many ? listToggled(held, p.value) : on ? (p.off ?? "") : p.value;
           if (p.box) onBox(p.box, next);
           else if (row) onCell(row.id, p.col!, next);
         };

@@ -526,6 +526,10 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
   const groupLabels = new Set([...labels, ...model.fields.flatMap((f) => groupOf(f) ?? []).map(norm)]);
   for (const field of model.fields) {
     if (!isBound(field.cell)) continue;
+    if (hints.formTicks && same(hints.formTicks.label, field.label)) {
+      tickFormBoxes(paragraphs, field.cell.text, hints.formTicks.words);
+      continue;
+    }
     if (hints.notOnPaper?.some((l) => same(l, field.label))) {
       report.leftOut.push(field.label);
       continue;
@@ -1939,6 +1943,53 @@ function markChoiceInCell(holder: TCell, cell: Cell, words: string[], controls: 
     insertAt(p, o.from, o === chosen ? controls.runs(cell, rPr, label) : [runOf(word, struck(rPr))]);
   }
 }
+
+/**
+ * The paper's own Word check boxes (FORMCHECKBOX fields) whose words are among `words`, each written as a box with a tick where the
+ * record's list holds it, an empty box where it does not (Word's own field would show an X, §292).
+ */
+function tickFormBoxes(paragraphs: XmlElement[], value: string, words: readonly string[]): void {
+  const key = (s: string) => s.toLowerCase().replace(/[–—]/g, "-").replace(/\s+/g, " ").trim();
+  const held = new Set(value.split(",").map(key).filter(Boolean));
+  const known = new Set(words.map(key));
+  const fieldChar = (c: XmlNode, type: string): boolean => typeof c !== "string" && c.local === "r" && kids(c, "fldChar").some((f) => (f.attrs["w:fldCharType"] ?? f.attrs.fldCharType) === type);
+  for (const p of paragraphs) {
+    for (let i = p.children.length - 1; i >= 0; i--) {
+      const begin = p.children[i];
+      if (!fieldChar(begin, "begin") || typeof begin === "string" || all(begin, "checkBox").length === 0) continue;
+      let end = i;
+      while (end < p.children.length && !fieldChar(p.children[end], "end")) end++;
+      if (end >= p.children.length) continue;
+      // Its words: the text after the field, up to the next tab or the next box.
+      let label = "";
+      for (let j = end + 1; j < p.children.length; j++) {
+        const c = p.children[j];
+        if (typeof c === "string" || c.local !== "r") continue;
+        if (kid(c, "tab") || kid(c, "fldChar")) {
+          if (label.trim()) break;
+          if (kid(c, "fldChar")) break;
+          continue;
+        }
+        label += textOfRun(c);
+      }
+      if (!known.has(key(label))) continue;
+      const mark = held.has(key(label)) ? CHECKED : UNCHECKED;
+      // (the bookmarks round the field stay; only the field's own runs give way to the mark)
+      const inField = p.children.slice(i, end + 1).filter((c) => typeof c === "string" || c.local === "r");
+      const box = runOf(mark.trimEnd(), kid(begin, "rPr"));
+      p.children[i] = box;
+      for (const c of inField.slice(1)) {
+        const at = p.children.indexOf(c);
+        if (at > i) p.children.splice(at, 1);
+      }
+    }
+  }
+}
+
+const textOfRun = (r: XmlElement): string =>
+  kids(r, "t")
+    .map((t) => t.children.map((s) => (typeof s === "string" ? s : "")).join(""))
+    .join("");
 
 /** A run's properties shown in capitals: the record keeps "No", the paper's "NO" is what is seen (§280). */
 function capsRun(rPr: XmlElement): XmlElement {

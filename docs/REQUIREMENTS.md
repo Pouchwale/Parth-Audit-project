@@ -13090,3 +13090,15 @@ The owner, 22-Nov-2026: "in some document the Data is not fetching from master d
 - Automatic filing and what registers feed back to HR Master Data stay on exact names.
 - F/HR/03: two Dates of Joining kept as spreadsheet day numbers (43893, 45439) read as dates; both agree with HR Master Data.
 - Checked through the real fetch bar on all 11 formats that name a person (F/HR/01, 03, 04, 05, 06, 08, 10, 11, 12, 13, 20).
+
+## §292 F/HR/19: the Location Guide ticks, and room after Date (22-Nov-2026)
+
+The owner, 22-Nov-2026, with F/HR/19's head: "this location guide checkpoint should be editable so if user or system fill it then in
+that tick mark should come and also you can see there is not sufficient space in between Date and number of it".
+
+- Each of the paper's twelve location boxes is a tick box: a click ticks it, another takes it off. The record's Location Guide box
+  keeps the list ("A, B, C", PaperPick many), so whatever writes that list, a person, Mitra or the last sheet carried, shows as ticks.
+- On the screen, the print and Excel the tick stands in the paper's own box; in the company's Word file its check-box fields are
+  written as a ticked or an empty box (hints.ts formTicks).
+- The Date's value stands clear of the word Date, with a box the size of a date.
+- Proved: frontend/tests/hrPapers.test.ts; clicked, reloaded, printed and downloaded on the local copy; Word and Excel opened.
