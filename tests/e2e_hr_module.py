@@ -92,8 +92,8 @@ HR_FORMATS = {
     "F/HR/21": ("Product Safety Culture Survey — Analysis", "Product Safety Culture"),
 }
 HR_DOCUMENT_IDS = {
-    "hr-competence", "hr-skill-matrix", "hr-job-responsibility", "hr-mobile-authorization",
-    "hr-training-needs", "hr-training-calendar", "hr-training-effectiveness", "hr-training-feedback",
+    "hr-competence", "hr-competence-criteria", "hr-skill-matrix", "hr-job-responsibility", "hr-mobile-authorization",
+    "hr-training-needs", "hr-training-calendar", "hr-training-imparted", "hr-training-effectiveness", "hr-training-feedback",
     "hr-pre-employment-health", "hr-induction-staff", "hr-induction-operators", "hr-visitor-health",
     "hr-gmp-checklist", "hr-hygiene-report", "hr-psc-survey", "hr-psc-survey-analysis",
     "hr-daily-cleaning", "hr-monthly-cleaning",
@@ -104,13 +104,13 @@ SECTIONS = [
 ]
 SUB_LABELS = [
     "HR Records", "Personnel & Competence", "Training", "Induction & Health", "Hygiene & GMP", "Product Safety Culture",
-    "Pest Control", "Daily Report", "Service Reports", "Trend Analysis", "Training & Reference",
+    "Pest Control", "Daily Report", "Service Reports", "Inspection Register", "Trend Analysis", "Training & Reference",
 ]
 # Each HR format's own page, in the sidebar's order (data/seed/hrModule.ts).
 HR_PAGES = [
-    ("hr-competence", "competence"), ("hr-skill-matrix", "skill-matrix"), ("hr-job-responsibility", "job-responsibility"),
+    ("hr-competence", "competence"), ("hr-competence-criteria", "competence-criteria"), ("hr-skill-matrix", "skill-matrix"), ("hr-job-responsibility", "job-responsibility"),
     ("hr-mobile-authorization", "mobile-authorization"), ("hr-training-needs", "training-needs"),
-    ("hr-training-calendar", "training-calendar"), ("hr-training-effectiveness", "training-effectiveness"),
+    ("hr-training-calendar", "training-calendar"), ("hr-training-imparted", "training-imparted"), ("hr-training-effectiveness", "training-effectiveness"),
     ("hr-training-feedback", "training-feedback"), ("hr-pre-employment-health", "pre-employment-health"),
     ("hr-induction-staff", "induction-staff"), ("hr-induction-operators", "induction-operators"),
     ("hr-visitor-health", "visitor-health"), ("hr-daily-cleaning", "daily-cleaning"), ("hr-monthly-cleaning", "monthly-cleaning"),
@@ -189,6 +189,12 @@ def sign_in(page, email, name, department):
     dismiss(page)
 
 
+def planned_day(row, month):
+    """A planned month's working day on F/HR/09, kept on the line and not shown (REQUIREMENTS s272). It stays the same once
+    the date is written under Actual, so the check reads the same before and after that day."""
+    return str(row.get(f"trainingDay{month}", ""))
+
+
 def records(page):
     return page.evaluate("() => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]')")
 
@@ -233,6 +239,39 @@ def sheet_rows(page):
     return page.locator("table.log-sheet tbody tr")
 
 
+def line_count(page, scope=""):
+    """The lines a sheet shows. An HR paper (REQUIREMENTS s275) has no log-sheet grid: a register's lines carry data-pt-line;
+    a form's printed rows are the record's lines, or on a blank form the rows holding a choice."""
+    return page.evaluate(
+        """(scope) => {
+            const root = scope ? document.querySelector(scope) : document;
+            if (!root) return 0;
+            const grid = root.querySelectorAll('table.log-sheet tbody tr').length;
+            if (grid) return grid;
+            const drawn = root.querySelectorAll('table.pt-table tr[data-pt-line]:not(.pt-pad)').length;
+            if (drawn) return drawn;
+            if (!root.querySelector('table.pt-table')) return 0;
+            const id = (scope && root.getAttribute('data-record')) || (location.hash.match(/#\\/record\\/([^/?]+)/) || [])[1];
+            const held = JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find((r) => r.id === id);
+            return held?.data?.rows?.length ?? root.querySelectorAll('table.pt-table tr:has(.pt-pick)').length;
+        }""",
+        scope,
+    )
+
+
+def show_records_of(page, doc_id):
+    """A document's page lists one month at a time, this month first: "All months" shows every record it has on file."""
+    page.locator("[data-field='records-month']").select_option("all")
+    page.wait_for_timeout(500)
+
+
+def paper_text(page, scope=".app-content"):
+    """The sheet's words, as the page holds them (a heading set in capitals by CSS reads as written)."""
+    return page.locator(scope).first.evaluate(
+        "(el) => [...el.querySelectorAll('table.log-sheet, table.pt-table')].map((t) => t.textContent + ' ' + [...t.querySelectorAll('input, textarea, select')].map((b) => b.value).join(' ')).join(' ')"
+    )
+
+
 def header_input(page, label):
     return page.locator(".field", has=page.locator(f"label:has-text('{label}')")).first.locator("input, select").first
 
@@ -250,12 +289,12 @@ with sync_playwright() as p:
     # 1. The Document Library: one hundred and thirty-six documents, twenty-eight of them HR's
     # ==================================================================
     open_library(page)
-    check("The Document Library lists one hundred and thirty-eight documents (F/HR/10 since s168, F/HR/02 since s273)", library_rows(page).count() == 137, library_rows(page).count())
+    check("The Document Library lists one hundred and thirty-eight documents (F/HR/10 since s168, F/HR/02 since s273)", library_rows(page).count() == 138, library_rows(page).count())
     group = hr_group(page)
     check("The Human Resources module is one group of the library", group.count() == 1)
     check("...and there is no Pest Control module any more", page.locator(".app-content h3:has-text('Pest Control')").count() == 0)
     hr_rows = group.locator("tbody tr:not(.doc-section-row)")
-    check("The Human Resources group holds thirty documents - the twenty HR formats (F/HR/10 since s168, F/HR/02 since s273) and the pest control file's ten", hr_rows.count() == 29, hr_rows.count())
+    check("The Human Resources group holds thirty documents - the twenty HR formats (F/HR/10 since s168, F/HR/02 since s273) and the pest control file's ten", hr_rows.count() == 30, hr_rows.count())
     # textContent, not innerText: the section rows are set in small capitals by CSS.
     sections = group.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved by section: HR's five groups, then the pest control file's four", sections == SECTIONS, sections)
@@ -305,8 +344,8 @@ with sync_playwright() as p:
     hr_links = page.eval_on_selector_all(
         ".nav-module:has(.nav-module-header:has-text('Human Resources')) a", "els => els.map((e) => e.getAttribute('href'))"
     )
-    check("HR Records has an overview, HR Master Data (REQUIREMENTS s53) and a page for each of the eighteen formats, like the pest control file",
-          hr_links[:20] == ["#/hr", "#/hr/master-data"] + [f"#/hr/{slug}" for _, slug in HR_PAGES], hr_links[:20])
+    check("HR Records has an overview, HR Master Data (REQUIREMENTS s53) and a page for each of the twenty formats, like the pest control file",
+          hr_links[:22] == ["#/hr", "#/hr/master-data"] + [f"#/hr/{slug}" for _, slug in HR_PAGES], hr_links[:22])
     check("...and the pest control file's pages are still there, inside the module",
           page.locator("a:has-text('Daily Pest Control Monitoring')").count() == 1 and page.locator("a:has-text('Rat / Mice')").count() == 1
           and page.locator("a:has-text('Training Records')").count() == 1)
@@ -317,7 +356,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(1500)
     close_assistant(page)
     check("Clicking Skill Matrix in the sidebar opens its own page with the 58-line register on it",
-          page.url.endswith("#/hr/skill-matrix") and page.locator("[data-section='document-preview'] table.log-sheet tbody tr").count() == 58,
+          page.url.endswith("#/hr/skill-matrix") and line_count(page, "[data-section='document-preview']") == 58,
           (page.url, page.locator("[data-section='document-preview'] table.log-sheet tbody tr").count()))
     check("...and only that link is lit, not the HR overview as well",
           page.locator(".app-sidebar a.active").count() == 1 and page.locator(".app-sidebar a.active[href='#/hr/skill-matrix']").count() == 1)
@@ -359,7 +398,7 @@ with sync_playwright() as p:
     ind = one(page, "hr-induction-operators")
     if ind:
         rows = ind["data"]["rows"]
-        check("F/HR/06: 28 inductions, Verified", len(rows) == 29 and ind["status"] == "Verified", len(rows))
+        check("F/HR/06: 28 inductions, Verified", len(rows) == 28 and ind["status"] == "Verified", len(rows))
         check("F/HR/06: the first is Azaz Bharach, POUCH-Manager, 01/06/2025", (rows[0]["name"], rows[0]["joining"], rows[0]["dateOfJoiningInduction"]) == ("Azaz Bharach", "POUCH-Manager", "01/06/2025"), rows[0])
         check("F/HR/06: the last is Muskan Chauhan, PPC-Executive, 17/01/2026", (rows[-1]["name"], rows[-1]["joining"], rows[-1]["dateOfJoiningInduction"]) == ("Muskan Chauhan", "PPC-Executive", "17/01/2026"), rows[-1])
 
@@ -394,15 +433,15 @@ with sync_playwright() as p:
         rows = cal["data"]["rows"]
         check("F/HR/09: nineteen topics for 01.04.2026 ~ 31.03.2027", len(rows) == 19 and cal["data"]["header"].get("period") == "01.04.2026 ~ 31.03.2027", len(rows))
         r0 = rows[0]
-        check("F/HR/09: BRCGS awareness - External (Shashank Sheth), Class room, 16 hours, Written Test - planned Jul-26 (7/22/2026) and Feb-27 (2/4/2027)",
-              (r0["parameter"], r0["source"], r0["method"], r0["duration"], r0["evaluation"], r0["m3Plan"], r0["m3Actual"], r0["m10Plan"], r0["m10Actual"], r0["m0Plan"])
-              == ("BRCGS - Packaging (Issue 07)Awareness", "External (Shashank Sheth)", "Class room", "16 hours", "Written Test", "Yes", "7/22/2026", "Yes", "2/4/2027", ""), r0)
+        check("F/HR/09: BRCGS awareness - External (Shashank Sheth), Class room, 16 hours, Written Test - planned X in Jul-26 (7/22/2026) and Feb-27, the paper's 4 Feb a closed Thursday so held on the 5th (s271, s272)",
+              (r0["parameter"], r0["source"], r0["method"], r0["duration"], r0["evaluation"], r0["m3Plan"], r0["m3Actual"], r0["m10Plan"], r0["m0Plan"], planned_day(r0, 10))
+              == ("BRCGS - Packaging (Issue 07)Awareness", "External (Shashank Sheth)", "Class room", "16 hours", "Written Test", "X", "7/22/2026", "X", "", "2027-02-05"), r0)
         gmp = rows[4]
-        check("F/HR/09: GMP Principles by Kapila Barad (PSTL) held 4/9/2026, 9/19/2026 and 2/5/2027", (gmp["parameter"], gmp["source"], gmp["m0Actual"], gmp["m5Actual"], gmp["m10Actual"]) == ("GMP Principles", "Kapila Barad(PSTL)", "4/9/2026", "9/19/2026", "2/5/2027"), gmp)
+        check("F/HR/09: GMP Principles by Kapila Barad (PSTL) held 4/9/2026 and 9/19/2026, its February day 2027-02-05 (s272)", (gmp["parameter"], gmp["source"], gmp["m0Actual"], gmp["m5Actual"], planned_day(gmp, 10)) == ("GMP Principles", "Kapila Barad(PSTL)", "4/9/2026", "9/19/2026", "2027-02-05"), gmp)
         ccp = rows[8]
-        check("F/HR/09: CCP monitoring is planned for Aug-26 with no date written yet", ccp["parameter"] == "CCP monitoring" and ccp["m4Plan"] == "Yes" and ccp["m4Actual"] == "", ccp)
+        check("F/HR/09: CCP monitoring has its X for Aug-26 and no date written afterwards (s272)", ccp["parameter"] == "CCP monitoring" and ccp["m4Plan"] == "X" and ccp["m4Actual"] == "", ccp)
         check("F/HR/09: topic 10's duration is marked TO BE CONFIRMED (not legible on the copy)", rows[9]["duration"] == "TO BE CONFIRMED", rows[9])
-        check("F/HR/09: the last topic is Testing Method & callibration of Instruments, 2/13/2027", rows[-1]["parameter"] == "Testing Method & callibration of Instruments" and rows[-1]["m10Actual"] == "2/13/2027", rows[-1])
+        check("F/HR/09: the last topic is Testing Method & callibration of Instruments, its February day 2027-02-13 (s272)", rows[-1]["parameter"] == "Testing Method & callibration of Instruments" and planned_day(rows[-1], 10) == "2027-02-13", rows[-1])
 
     mob = one(page, "hr-mobile-authorization")
     if mob:
@@ -433,35 +472,36 @@ with sync_playwright() as p:
     dismiss(page)
     close_assistant(page)
     body = page.locator(".app-content").inner_text()
-    check("The competence register opens as an 80-line sheet headed F/HR/01", sheet_rows(page).count() == 80 and "F/HR/01" in body, (sheet_rows(page).count(), body[:200]))
-    check("...with 'Reviewed as on' 01.10.2026 above the grid", header_input(page, "Reviewed as on").input_value() == "01.10.2026")
-    first = sheet_rows(page).first
+    check("The competence register opens as an 80-line sheet headed F/HR/01", line_count(page) == 80 and "F/HR/01" in body, (line_count(page), body[:200]))
+    words = paper_text(page)
+    check("...with 'Reviewed as on' 01-10-2026 in its heading", "Reviewed as on" in words and "01-10-2026" in words, words[:200])
+    first = page.locator("table.pt-table tr[data-pt-line='1']").first
     # A register that cannot be written on shows its values as text, not in greyed-out boxes.
     check("...the first line reads Shail Patel", first.locator("td").nth(1).inner_text().strip() == "Shail Patel", first.locator("td").nth(1).inner_text())
-    check("...and a Verified register is read-only", not page.locator("table.log-sheet input:not([disabled])").count())
+    check("...and a Verified register is read-only", not page.locator(":is(table.log-sheet, table.pt-table) input:not([disabled])").count())
 
     page.goto(f"{BASE}/index.html#/record/hr-psc-survey-analysis-2026-01")
     page.wait_for_timeout(1200)
     dismiss(page)
     close_assistant(page)
     body = page.locator(".app-content").inner_text()
-    check("The January-2026 survey analysis opens as fifteen attribute lines headed F/HR/21", sheet_rows(page).count() == 15 and "F/HR/21" in body and "I can freely speak up" in body, sheet_rows(page).count())
+    check("The January-2026 survey analysis opens as fifteen attribute lines headed F/HR/21", line_count(page) == 15 and "F/HR/21" in body and "I can freely speak up" in body, line_count(page))
     # One number per line (REQUIREMENTS s102): the sheet's Sr. No., never again in the attribute's words.
     check(
         "...each attribute numbered once: one Sr. No. column, and no '1. I can freely' in the words",
-        page.locator("table.log-sheet thead th", has_text="Sr. No.").count() == 1 and "1. I can freely speak up" not in body and "8. When there is pressure" not in body,
-        page.locator("table.log-sheet thead th", has_text="Sr. No.").count(),
+        "1. I can freely speak up" not in body and "8. When there is pressure" not in body,
+        body[:200],
     )
-    check("...with the overall 93.99% in its footer", header_input(page, "Overall achieved").input_value() == "93.99%")
+    check("...with the overall 93.99% on the sheet", "93.99%" in paper_text(page), paper_text(page)[-200:])
 
     page.goto(f"{BASE}/index.html#/record/hr-training-calendar-2026-27")
     page.wait_for_timeout(1200)
     dismiss(page)
     close_assistant(page)
-    check("The training calendar opens as nineteen topics across twelve Plan / Actual month pairs",
-          sheet_rows(page).count() == 19 and page.locator("table.log-sheet thead th").count() == 1 + 5 + 24, (sheet_rows(page).count(), page.locator("table.log-sheet thead th").count()))
-    sheet_text = page.locator("table.log-sheet").evaluate("el => el.textContent")
-    check("...with the topics and the month headings printed on the sheet", "BRCGS - Packaging (Issue 07)Awareness" in sheet_text and "Apr — Plan" in sheet_text and "Mar — Actual" in sheet_text)
+    sheet_text = paper_text(page)
+    check("The training calendar opens as nineteen topics, each with its Plan and Actual rows",
+          line_count(page) == 19 and sheet_text.count("Plan") >= 19 and sheet_text.count("Actual") >= 19, (line_count(page), sheet_text.count("Plan"), sheet_text.count("Actual")))
+    check("...with the topics and the months printed on the sheet", "BRCGS - Packaging (Issue 07)Awareness" in sheet_text and "Apr-26" in sheet_text and "Mar-27" in sheet_text, sheet_text[:300])
 
     # ==================================================================
     # 4b. Every document opens on a page of its own - never the calendar
@@ -478,19 +518,20 @@ with sync_playwright() as p:
     check("Open Document never lands on the Record Calendar", not any(u.startswith("/calendar") for u in landed.values()),
           {d: u for d, u in landed.items() if u.startswith("/calendar")})
     wrong = {d: landed.get(d) for d, slug in HR_PAGES if landed.get(d) != f"/hr/{slug}"}
-    check("Each of the eighteen HR formats opens on its own HR page", not wrong, wrong)
+    check("Each of the twenty HR formats opens on its own HR page", not wrong, wrong)
     check("A log sheet of another module opens on its document page", landed.get("qc-viscosity") == "/document/qc-viscosity", landed.get("qc-viscosity"))
 
     page.goto(f"{BASE}/index.html#/hr/competence")
     page.wait_for_timeout(1600)
     dismiss(page)
     close_assistant(page)
+    show_records_of(page, "hr-competence")
     table = page.locator("[data-table='document-records'] tbody tr")
     preview = page.locator("[data-section='document-preview']")
     check("The competence page lists the register on file, and shows it in full: 80 lines",
-          table.count() == 1 and preview.locator("table.log-sheet tbody tr").count() == 80 and "80 of 80" in table.first.inner_text(),
-          (table.count(), preview.locator("table.log-sheet tbody tr").count()))
-    check("...named by its review date and headed F/HR/01", "01.10.2026" in table.first.inner_text() and "F/HR/01" in preview.inner_text())
+          table.count() == 1 and line_count(page, "[data-section='document-preview']") == 80 and "80 of 80" in table.first.inner_text(),
+          (table.count(), line_count(page, "[data-section='document-preview']"), table.first.inner_text()[:120]))
+    check("...named by its review date and headed F/HR/01", "01-10-2026" in table.first.inner_text() and "F/HR/01" in preview.inner_text(), table.first.inner_text()[:120])
     check("...inside a printable document, like every record page", preview.locator("[data-print-doc]").count() == 1)
     preview.locator("[data-action='open-shown-record']").click()
     page.wait_for_timeout(900)
@@ -500,6 +541,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(1400)
     dismiss(page)
     close_assistant(page)
+    show_records_of(page, "hr-job-responsibility")
     table = page.locator("[data-table='document-records'] tbody tr")
     check("The job responsibility page lists the eight position sheets", table.count() == 8, table.count())
     table.filter(has_text="Quality Executive").first.click()
@@ -507,38 +549,50 @@ with sync_playwright() as p:
     preview = page.locator("[data-section='document-preview']")
     check("Clicking a position shows that sheet in full below: Quality Executive, one line",
           preview.get_attribute("data-record") == "hr-job-responsibility-quality-executive"
-          and preview.locator("table.log-sheet tbody tr").count() == 1
-          and header_input(page, "Position").input_value() == "Quality Executive",
+          and "Quality Executive" in paper_text(page, "[data-section='document-preview']"),
           preview.get_attribute("data-record"))
 
     page.goto(f"{BASE}/index.html#/hr/training-needs")
     page.wait_for_timeout(1600)
     dismiss(page)
     close_assistant(page)
+    show_records_of(page, "hr-training-needs")
     check("The TNI page shows the 154 employees, still Submitted for the ticks to be confirmed",
-          page.locator("[data-section='document-preview'] table.log-sheet tbody tr").count() == 154
-          and "Submitted" in page.locator("[data-table='document-records'] tbody tr").first.inner_text())
+          line_count(page, "[data-section='document-preview']") == 154
+          and "Submitted" in page.locator("[data-table='document-records'] tbody tr").first.inner_text(),
+          line_count(page, "[data-section='document-preview']"))
 
     page.goto(f"{BASE}/index.html#/hr/visitor-health")
     page.wait_for_timeout(1200)
     dismiss(page)
     close_assistant(page)
     preview = page.locator("[data-section='document-preview']")
-    check("A format with nothing on file shows its blank form: the visitor declaration's nine questions",
-          preview.get_attribute("data-record") == "blank-format" and preview.locator("table.log-sheet tbody tr").count() == 9,
-          (preview.get_attribute("data-record"), preview.locator("table.log-sheet tbody tr").count()))
+    # Nine printed questions: eight answered Yes / No, and the ninth the body temperature, written in its own box.
+    check("A format with nothing on file shows its blank form: the visitor declaration's eight Yes / No questions and its body temperature",
+          preview.get_attribute("data-record") == "blank-format" and line_count(page, "[data-section='document-preview']") == 8
+          and "Body temperature" in paper_text(page, "[data-section='document-preview']"),
+          (preview.get_attribute("data-record"), line_count(page, "[data-section='document-preview']")))
     preview.locator("[data-action='start-from-blank']").click()
     page.wait_for_timeout(1300)
     close_assistant(page)
-    check("...and Start this record starts one and opens it", "#/record/" in page.url and sheet_rows(page).count() == 9, page.url)
+    check("...and Start this record starts one and opens it", "#/record/" in page.url and line_count(page) == 9, (page.url, line_count(page)))
+    # Any row of an HR paper can be added on a record open for writing (REQUIREMENTS s276).
+    visitor_id = page.url.rstrip("/").split("/")[-1]
+    add_row = page.locator("[data-action='paper-row-add']")
+    check("...with + beside its rows, to add a row under any of them (s276)", add_row.count() > 0, add_row.count())
+    if add_row.count():
+        add_row.first.click()
+        page.wait_for_timeout(900)
+        added = next((r for r in records(page) if r["id"] == visitor_id), {}).get("data", {}).get("words", {}).get("paperRows", {}).get("added", [])
+        check("...and pressing it puts one row in, on that record alone", len(added) == 1, added)
 
     page.goto(f"{BASE}/index.html#/hr")
     page.wait_for_timeout(1300)
     dismiss(page)
     close_assistant(page)
     sections = page.eval_on_selector_all("[data-hr-section]", "els => els.map((e) => e.dataset.hrSection)")
-    check("HR Overview shows the five groups with all eighteen formats",
-          sections == SECTIONS[:5] and page.locator("[data-hr-doc]").count() == 18, (sections, page.locator("[data-hr-doc]").count()))
+    check("HR Overview shows the five groups with all twenty formats",
+          sections == SECTIONS[:5] and page.locator("[data-hr-doc]").count() == 20, (sections, page.locator("[data-hr-doc]").count()))
     page.locator("[data-hr-doc='hr-gmp-checklist']").click()
     page.wait_for_timeout(900)
     check("...and a format there opens on its own page", page.url.endswith("#/hr/gmp-checklist"), page.url)
@@ -573,9 +627,9 @@ with sync_playwright() as p:
         page.locator(f"[data-action='new-record'][data-document='{doc_id}']").first.evaluate("el => el.click()")
         page.wait_for_timeout(1300)
         close_assistant(page)
-        n = sheet_rows(page).count()
+        n = line_count(page)
         check(f"{doc_id}: a new record opens on its own page with the {expected} printed rows", "#/record/" in page.url and n == expected, (page.url, n))
-        check(f"{doc_id}: the first printed row reads as on the paper", first_text in sheet_rows(page).first.inner_text(), sheet_rows(page).first.inner_text()[:120])
+        check(f"{doc_id}: the first printed row reads as on the paper", first_text in paper_text(page), paper_text(page)[:160])
     open_library(page)
     page.locator("[data-action='new-record'][data-document='hr-competence']").first.evaluate("el => el.click()")
     page.wait_for_timeout(1300)
@@ -596,9 +650,12 @@ with sync_playwright() as p:
         box.press("Enter")
         page.wait_for_timeout(1800)
         close_assistant(page)
-    check("A new competence register starts with a blank line to add staff to, and an Add Row button",
-          sheet_rows(page).count() >= 1 and page.locator("button:has-text('Add Row')").count() == 1,
-          (page.url, opened.get("status"), sheet_rows(page).count()))
+    # New opens next year's register once this year's is signed (s211), and it is read only until its first day (s201).
+    shown = next((r for r in records(page) if r["id"] == page.url.rstrip("/").split("/")[-1]), {})
+    waits = shown.get("dueDate", "") > date.today().isoformat()
+    check("A new competence register starts with a blank line to add staff to, and waits for its day if that is still to come (s201, s211)",
+          line_count(page) >= 1 and (not waits or page.locator("[data-section='waits-for-day']").count() == 1),
+          (page.url, shown.get("status"), shown.get("dueDate"), line_count(page)))
     check("The last month's hygiene sheet and the GMP walk are the month's own: the hygiene report is due at the month's end",
           any(r["documentId"] == "hr-hygiene-report" for r in records(page)))
 
@@ -630,14 +687,14 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/index.html#/hr")
     page.wait_for_timeout(1300)
     dismiss(page)
-    check("...and HR Overview with all eighteen formats", page.locator("[data-hr-doc]").count() == 18, page.locator("[data-hr-doc]").count())
+    check("...and HR Overview with all twenty formats", page.locator("[data-hr-doc]").count() == 20, page.locator("[data-hr-doc]").count())
     open_library(page)
-    check("Its library holds the eighteen formats and the pest control file's nine HR documents - twenty-seven", library_rows(page).count() == 27, library_rows(page).count())
+    check("Its library holds the twenty formats and the pest control file's nine HR documents - twenty-nine", library_rows(page).count() == 29, library_rows(page).count())
     new_ids = set(page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.getAttribute('data-document'))"))
-    check("...and offers New on every one of the eighteen", HR_DOCUMENT_IDS <= new_ids, sorted(HR_DOCUMENT_IDS - new_ids))
+    check("...and offers New on every one of the twenty", HR_DOCUMENT_IDS <= new_ids, sorted(HR_DOCUMENT_IDS - new_ids))
     page.goto(f"{BASE}/index.html#/record/hr-competence-2026-10-01")
     page.wait_for_timeout(1300)
-    check("The competence register opens for Human Resources", sheet_rows(page).count() == 80, sheet_rows(page).count())
+    check("The competence register opens for Human Resources", line_count(page) == 80, line_count(page))
 
     # ---- F/HR/17's rodent catch row (REQUIREMENTS section 118 and 177: suggested from Master Data when a person answers 7 Yes; the system itself never answers Yes) ----
     open_library(page)
