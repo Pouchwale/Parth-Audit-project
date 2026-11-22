@@ -1133,8 +1133,14 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
 }
 
 /** The blocks as a Word document; given an envelope, with the map of its bound values. */
-export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape", margins?: { top: number; right: number; bottom: number; left: number }, onePage = false): Uint8Array<ArrayBuffer> {
-  if (!envelope) return buildDocx(wordBlocksFrom(blocks), { ...(paper ? { paper } : {}), ...(margins ? { margins } : {}), ...(onePage ? { onePage } : {}) });
+/** F/HR/15 and F/HR/16 in Word: every column as on the printed page, so a long value wraps in its cell and nothing passes the page (§280). */
+const WORD_COLUMNS_MM: Record<string, number[]> = {
+  "hr-daily-cleaning": [6, 58, 42, ...new Array<number>(31).fill(5.3)],
+  "hr-monthly-cleaning": [7, 58, 46, ...new Array<number>(12).fill(13.3)],
+};
+
+export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTripEnvelope, paper?: "portrait" | "landscape", margins?: { top: number; right: number; bottom: number; left: number }, onePage = false, columnsMm?: number[]): Uint8Array<ArrayBuffer> {
+  if (!envelope) return buildDocx(wordBlocksFrom(blocks), { ...(paper ? { paper } : {}), ...(margins ? { margins } : {}), ...(onePage ? { onePage } : {}), ...(columnsMm ? { columnsMm } : {}) });
   const builder = new ExportMapBuilder();
   const docxBlocks = wordBlocksFrom(blocks, builder);
   const json = mapJson(envelope, builder.entries, builder.tables);
@@ -1144,6 +1150,7 @@ export function wordDocumentFromBlocks(blocks: ExportBlock[], envelope?: RoundTr
     ...(paper ? { paper } : {}),
     ...(margins ? { margins } : {}),
     ...(onePage ? { onePage } : {}),
+    ...(columnsMm ? { columnsMm } : {}),
   });
 }
 
@@ -1228,7 +1235,7 @@ export function documentFileBytes(
   const envelope = unique.length ? makeEnvelope(kind, { documentId: doc.id, formatNo: doc.formatNo, revisionNo: doc.revisionNo }, unique, exportedAt) : undefined;
   if (kind === "xlsx") return workbookFromBlocks(knownFormatNo(doc as DocumentDefinition) || doc.name, blocks, envelope, paper);
   // A page drawn as the company's Word original names its own margins (the "paper" blocks, utils/paperSheets.ts).
-  return wordDocumentFromBlocks(blocks, envelope, paper, blocks.some((b) => b.kind === "paper") ? (paperTableWordMargins(doc.id) ?? paperMarginsOf(doc.id)) : undefined, onePage);
+  return wordDocumentFromBlocks(blocks, envelope, paper, blocks.some((b) => b.kind === "paper") ? (paperTableWordMargins(doc.id) ?? paperMarginsOf(doc.id)) : undefined, onePage, WORD_COLUMNS_MM[doc.id]);
 }
 
 /** Puts every line of a long list on screen (utils/useProgressive.ts) and lets the page draw once. */

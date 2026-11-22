@@ -80,6 +80,8 @@ export interface DocxExtras {
    * and 10 mm margins, so a month's 31 lines print on the one page.
    */
   onePage?: boolean;
+  /** The columns of the sheet's grid in mm, set as they print (F/HR/15's 31 days, F/HR/16's twelve months, §280). */
+  columnsMm?: number[];
 }
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -130,8 +132,9 @@ function paragraph(controls: Controls, text: string, opts: { bold?: boolean; siz
 /** A one-page grid's line (DocxExtras.onePage): 12 pt, so 31 lines and the heading fill a landscape A4 page. */
 const CLOSE_ROW = 240;
 
-function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>, fontSize: number, close = false): string {
+function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>, fontSize: number, close = false, columnsMm?: number[]): string {
   const columns = Math.max(1, ...block.rows.map((r) => r.length));
+  const set = columnsMm?.length === columns ? columnsMm.map((mm) => Math.round(mm * 56.693)) : null;
   const headerRows = block.headerRows ?? 0;
   const border = (side: string) => `<w:${side} w:val="single" w:sz="4" w:space="0" w:color="808080"/>`;
   const rows = block.rows
@@ -146,7 +149,7 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
           // (set close, every value in the middle of its box, §262; and a date stays on one line: "01-11-2026" broke at its dashes in a narrow column and drew its line twice as tall)
           const text = typeof cell === "string" ? cell : cell.map((c) => c.text).join("");
           const noWrap = close && /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/.test(text.trim()) ? "<w:noWrap/>" : "";
-          return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>${shade}${noWrap}</w:tcPr><w:p><w:pPr>${close ? '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>' : '<w:spacing w:before="20" w:after="20"/>'}</w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
+          return `<w:tc><w:tcPr><w:tcW w:w="${set ? set[ci] : 0}" w:type="${set ? "dxa" : "auto"}"/>${shade}${noWrap}</w:tcPr><w:p><w:pPr>${close ? '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>' : set ? '<w:spacing w:before="0" w:after="0" w:line="228" w:lineRule="auto"/>' : '<w:spacing w:before="20" w:after="20"/>'}</w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
         })
         .join("");
       // (set close, a line is ruled CLOSE_ROW high at least, as a paper's ruled line, so the month fills its page)
@@ -154,11 +157,11 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
     })
     .join("");
   return (
-    `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>` +
+    `<w:tbl><w:tblPr>${set ? `<w:tblW w:w="${set.reduce((a, b) => a + b, 0)}" w:type="dxa"/>` : '<w:tblW w:w="5000" w:type="pct"/>'}` +
     `<w:tblBorders>${["top", "left", "bottom", "right", "insideH", "insideV"].map(border).join("")}</w:tblBorders>` +
-    `<w:tblLayout w:type="autofit"/><w:tblCellMar><w:left w:w="60" w:type="dxa"/><w:right w:w="60" w:type="dxa"/></w:tblCellMar>` +
+    `<w:tblLayout w:type="${set ? "fixed" : "autofit"}"/><w:tblCellMar><w:left w:w="${set ? 20 : 60}" w:type="dxa"/><w:right w:w="${set ? 20 : 60}" w:type="dxa"/></w:tblCellMar>` +
     `${block.caption ? `<w:tblCaption w:val="${escape(block.caption)}"/>` : ""}</w:tblPr>` +
-    `<w:tblGrid>${Array.from({ length: columns }, () => "<w:gridCol/>").join("")}</w:tblGrid>${rows}</w:tbl>` +
+    `<w:tblGrid>${Array.from({ length: columns }, (_, ci) => (set ? `<w:gridCol w:w="${set[ci]}"/>` : "<w:gridCol/>")).join("")}</w:tblGrid>${rows}</w:tbl>` +
     // (set close, the line Word needs after a table is drawn 1 pt high: at the page's foot it started a blank page)
     paragraph(controls, "", close ? { spacingAfter: 0, size: 2 } : { spacingAfter: 60 })
   );
@@ -230,7 +233,7 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
   const landscape = extras.paper ? extras.paper === "landscape" : widest > 6;
   const fontSize = widest > 12 ? 14 : widest > 8 ? 16 : 18;
   const controls = new Controls();
-  const body = blocks.map((b) => (b.type === "paragraph" ? paragraph(controls, b.text, b) : b.type === "paper" ? paperTable(controls, b) : table(controls, b, extras.onePage ? Math.max(fontSize, 16) : fontSize, !!extras.onePage))).join("");
+  const body = blocks.map((b) => (b.type === "paragraph" ? paragraph(controls, b.text, b) : b.type === "paper" ? paperTable(controls, b) : table(controls, b, extras.onePage || extras.columnsMm ? Math.max(fontSize, 16) : fontSize, !!extras.onePage, extras.columnsMm))).join("");
   // A page drawn as paper tables ends on its own small spacing line: no empty line of the body's size after it, which on a
   // page filled to its foot would start a blank page (the owner, 31-Oct-2026: "not even a single page should be blank").
   const endsOnPaper = blocks.length > 0 && blocks[blocks.length - 1].type === "paper";
