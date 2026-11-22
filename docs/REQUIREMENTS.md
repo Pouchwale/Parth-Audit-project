@@ -13075,3 +13075,18 @@ automatically it should come in this according to his department".
 - The people already on HR Master Data are not added, and no score already on F/HR/03 changes. A line added by hand with no person
   still starts at 5 under every operation (§167). A verified F/HR/03 goes back for submitting and verifying, with the reason written.
 - Proved: frontend/tests/hrSkillByDepartment.test.ts; an operator and a guard added on the local copy, the score changed and reloaded.
+
+## §291 HR Master Data on a record: a short name is offered to confirm, never filled on a guess (22-Nov-2026)
+
+The owner, 22-Nov-2026: "in some document the Data is not fetching from master data in Hr module perfectly".
+
+- Cause: the registers write short names ("Meet Patel", "Azazbhai Bharach") and HR Master Data holds full ones ("Meet Shaileshbhai
+  Patel", "Azaz Bharach"). The fetch compared whole names, so Fill blanks found nobody, and picking the person added a second line.
+- A first and last name do not prove who it is: of 49 such names on the plant that point to one person, 20 have another role written
+  on the record. So nothing is filled on a guess (engine/hrMaster.ts likelyPeople). Fill blanks lists each short name with a blank
+  box and the person or people it may be; one click fills that line's blank boxes, keeps the name as written and marks whose line it
+  is (HR_MASTER_TAG). A role that differs is shown; "Confirm all" takes only names with one match and no clash.
+- A person picked in the fetch bar now takes the line written with their short name instead of adding a second line.
+- Automatic filing and what registers feed back to HR Master Data stay on exact names.
+- F/HR/03: two Dates of Joining kept as spreadsheet day numbers (43893, 45439) read as dates; both agree with HR Master Data.
+- Checked through the real fetch bar on all 11 formats that name a person (F/HR/01, 03, 04, 05, 06, 08, 10, 11, 12, 13, 20).

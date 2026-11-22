@@ -8,12 +8,15 @@ import {
   applyFills,
   describePerson,
   fillBlanksFromMaster,
+  isShortNameOf,
+  lineAgrees,
   lineForPerson,
   lineOfPerson,
   namesPerson,
   personFill,
   sameGp3,
   searchPeople,
+  withConfirmedPerson,
   type FieldFill,
   type HrMasterLink,
 } from "../../engine/hrMaster";
@@ -42,6 +45,14 @@ interface Pending {
   conflicts: FieldFill[];
 }
 
+/** A short name on the form, and who it may be: nothing is written until a person picks (REQUIREMENTS §291). */
+interface ToConfirm {
+  /** The register line's id; null for the form's header. */
+  rowId: string | null;
+  name: string;
+  people: HrMasterPerson[];
+}
+
 /** A new line with no id yet, blank in every box (engine/recordDefaults.ts blankLogRow, REQUIREMENTS §98). */
 export function blankLogRow(layout: LogSheetLayout): LogSheetRow {
   return engineBlankLogRow(layout, "");
@@ -67,6 +78,7 @@ export function HrMasterFetch({
   // A person whose role is not this format's (a Manager on the operators' matrix): fetched only when HR says so.
   const [roleAsk, setRoleAsk] = useState<HrMasterPerson | null>(null);
   const [outcome, setOutcome] = useState<{ result: Result; text: string } | null>(null);
+  const [toConfirm, setToConfirm] = useState<ToConfirm[]>([]);
   const perHeader = link.where === "header";
 
   const labelOf = (key: string) => [...layout.headerFields, ...(layout.footerFields ?? []), ...layout.columns].find((f) => f.key === key)?.label ?? key;
@@ -98,7 +110,8 @@ export function HrMasterFetch({
     const people = hrMasterRepository.all();
     let rowId: string | null = null;
     if (!perHeader) {
-      const match = lineOfPerson(link, data.rows, person, people);
+      // (the person was picked by hand, so a line written with their short name is theirs: no second line for them)
+      const match = lineOfPerson(link, data.rows, person, people, true);
       if (match.kind === "several") {
         say("several-lines", `${person.fullName} could be line ${match.indexes.map((i) => i + 1).join(" or line ")} of this register — nothing fetched; fill the right line by hand.`);
         return;
@@ -142,11 +155,13 @@ export function HrMasterFetch({
     setPending(null);
     setRoleAsk(null);
     setCandidates([]);
-    const { data: next, filled, notOnSheet, onSeveralLines } = fillBlanksFromMaster(link, data, hrMasterRepository.all());
+    const { data: next, filled, notOnSheet, onSeveralLines, toConfirm: unsure } = fillBlanksFromMaster(link, data, hrMasterRepository.all());
+    setToConfirm(unsure.map((u) => ({ rowId: u.index === null ? null : data.rows[u.index].id, name: u.name, people: u.people })));
+    const ask = unsure.length > 0 ? ` ${unsure.length} short name${unsure.length === 1 ? " needs" : "s need"} you to confirm who it is, below.` : "";
     const missing = notOnSheet.length > 0 ? ` ${notOnSheet.length} name${notOnSheet.length === 1 ? " is" : "s are"} not on HR Master Data: ${notOnSheet.slice(0, 5).join(", ")}${notOnSheet.length > 5 ? "…" : ""}.` : "";
     const several = onSeveralLines.length > 0 ? ` Left alone, being on more than one line: ${onSeveralLines.join(", ")}.` : "";
     if (filled.length === 0) {
-      say("nothing", `Nothing to fill — ${perHeader ? "the form's person has no blank boxes the sheet can fill" : "no line of a person on the sheet has a blank box the sheet can fill"}.${missing}${several}`);
+      say(unsure.length > 0 ? "several" : "nothing", `Nothing filled yet — ${perHeader ? "the form's person has no blank boxes the sheet can fill" : "no line of a person on the sheet has a blank box the sheet can fill"}.${ask}${missing}${several}`);
       return;
     }
     onChange(next);
@@ -154,8 +169,8 @@ export function HrMasterFetch({
     say(
       "filled",
       perHeader
-        ? `Filled from HR Master Data — ${filled[0].name}: ${listed(filled[0].fills)}.${missing}`
-        : `Filled ${boxes} blank box${boxes === 1 ? "" : "es"} on ${filled.length} line${filled.length === 1 ? "" : "s"} from HR Master Data.${missing}${several}`
+        ? `Filled from HR Master Data — ${filled[0].name}: ${listed(filled[0].fills)}.${ask}${missing}`
+        : `Filled ${boxes} blank box${boxes === 1 ? "" : "es"} on ${filled.length} line${filled.length === 1 ? "" : "s"} from HR Master Data.${ask}${missing}${several}`
     );
   };
 
@@ -165,7 +180,7 @@ export function HrMasterFetch({
     const { person, rowId } = pending;
     setPending(null);
     const current = rowId === null ? (data.header ?? {}) : data.rows.find((r) => r.id === rowId);
-    if (!current || (rowId !== null && !(namesPerson(current[link.nameField], person) || (!!person.gp3No && sameGp3(current[link.nameField], person.gp3No))))) {
+    if (!current || (rowId !== null && !(namesPerson(current[link.nameField], person) || isShortNameOf(current[link.nameField], person) || (!!person.gp3No && sameGp3(current[link.nameField], person.gp3No))))) {
       say("nothing", "That line has changed since — nothing fetched. Fetch again.");
       return;
     }
@@ -179,6 +194,28 @@ export function HrMasterFetch({
     const writing = replace ? [...fills, ...conflicts] : fills;
     if (writing.length === 0) say("nothing", "Left as it was — nothing to fill.");
     else write(person, rowId, writing);
+  };
+
+  // A SHORT NAME CONFIRMED (§291): only its blank boxes are filled, the name stays as written, and only if the line still says it.
+  const currentOf = (c: ToConfirm) => (c.rowId === null ? (data.header ?? {}) : data.rows.find((r) => r.id === c.rowId));
+  const stillNamed = (c: ToConfirm) => String(currentOf(c)?.[link.nameField] ?? "").trim() === c.name;
+  const agreement = (c: ToConfirm, p: HrMasterPerson) => lineAgrees(link, p, currentOf(c) ?? {});
+  const clearOnes = toConfirm.filter((c) => c.people.length === 1 && stillNamed(c) && agreement(c, c.people[0]) !== "differs");
+  const confirm = (picks: { entry: ToConfirm; person: HrMasterPerson }[]) => {
+    const live = picks.filter((x) => stillNamed(x.entry));
+    if (live.length === 0) {
+      setToConfirm((list) => list.filter((c) => !picks.some((x) => x.entry === c)));
+      say("nothing", "That line has changed since — nothing fetched. Fetch again.");
+      return;
+    }
+    let header = data.header ?? {};
+    const byRow = new Map(live.filter((x) => x.entry.rowId !== null).map((x) => [x.entry.rowId, x.person]));
+    const head = live.find((x) => x.entry.rowId === null);
+    if (head) header = withConfirmedPerson(link, head.person, header) as typeof header;
+    const rows = data.rows.map((r) => (byRow.has(r.id) ? withConfirmedPerson(link, byRow.get(r.id)!, r) : r));
+    onChange({ ...data, header, rows });
+    setToConfirm((list) => list.filter((c) => !picks.some((x) => x.entry === c)));
+    say("filled", live.length === 1 ? `Filled the blank boxes of ${live[0].entry.name} from ${describePerson(live[0].person)}.` : `Filled the blank boxes of ${live.length} confirmed names from HR Master Data.`);
   };
 
   return (
@@ -254,6 +291,37 @@ export function HrMasterFetch({
                 {describePerson(p)}
               </button>
             ))}
+          </div>
+        )}
+
+        {toConfirm.length > 0 && (
+          <div className="mt-2" data-section="hr-master-confirm">
+            <div className="text-sm font-semibold">Who is this? {toConfirm.length} short name{toConfirm.length === 1 ? "" : "s"} on this record</div>
+            <div className="text-xs text-muted mb-2">Pick the right person. Only blank boxes are filled, and the name stays as it is written.</div>
+            {clearOnes.length > 1 && (
+              <button className="btn btn-primary btn-sm mb-2" data-action="hr-master-confirm-all" onClick={() => confirm(clearOnes.map((entry) => ({ entry, person: entry.people[0] })))}>
+                Confirm all {clearOnes.length} with one match and no clash
+              </button>
+            )}
+            <div style={{ maxHeight: 300, overflowY: "auto" }}>
+              {toConfirm.map((c) => (
+                <div key={`${c.rowId ?? "form"}|${c.name}`} className="flex items-center gap-2 wrap mb-1" data-confirm-name={c.name}>
+                  <span className="text-sm">
+                    {c.rowId === null ? "" : `Line ${lineNo(c.rowId)}: `}
+                    <strong>{c.name}</strong>
+                  </span>
+                  {c.people.map((p) => (
+                    <button key={p.id} className="btn btn-secondary btn-sm" data-action="hr-master-confirm-person" data-candidate={p.id} onClick={() => confirm([{ entry: c, person: p }])}>
+                      {describePerson(p)}
+                      {agreement(c, p) === "differs" ? " (differs from this line)" : ""}
+                    </button>
+                  ))}
+                  <button className="btn btn-ghost btn-sm" data-action="hr-master-confirm-skip" onClick={() => setToConfirm((list) => list.filter((x) => x !== c))}>
+                    Not this person
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

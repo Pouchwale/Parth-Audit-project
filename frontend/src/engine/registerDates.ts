@@ -41,6 +41,8 @@ export function asAppDate(value: unknown, slash: "mdy" | "dmy", read?: (text: st
   const t = value.trim();
   if (!t) return value;
   const one = (s: string): string | null => {
+    // A date a spreadsheet carried over as its day number: F/HR/03's "43893" is 03-03-2020 (§291). Only 1990 to 2040.
+    if (!read && /^\d{5}$/.test(s) && +s >= 32874 && +s <= 51501) return dayFirst(new Date(Date.UTC(1899, 11, 30) + +s * 86400000).toISOString().slice(0, 10));
     if (!WRITTEN.test(s)) return null;
     const iso = read ? read(s) : parseWrittenDate(s, slash);
     return iso ? dayFirst(iso) : null;

@@ -529,6 +529,58 @@ export interface PersonFill {
   conflicts: FieldFill[];
 }
 
+// A SHORT NAME ON A REGISTER (REQUIREMENTS §291; the owner, 22-Nov-2026: "in some document the Data is not fetching from master data").
+// The registers write "Meet Patel" or "Azazbhai Bharach"; HR Master Data holds "Meet Shaileshbhai Patel" and "Azaz Bharach", so an
+// exact comparison found nobody. On the plant's records 49 such names point to one person, yet on 20 of them the role written differs
+// from the sheet's: a first and last name alone do not prove who it is. So a short name is never filled by itself. It is OFFERED with
+// the person it may be, and only a person's click puts that person's details on the record, in its blank boxes.
+const SHORT_WORDS = new WeakMap<readonly HrMasterPerson[], Map<HrMasterPerson, string[][]>>();
+
+/** A name's words as compared for a short name: -bhai, -ben and -kumar off, and the usual spellings of one name made one. */
+export function shortNameWords(value: unknown): string[] {
+  return nameKey(value)
+    .split(" ")
+    .filter((w) => w.length > 1 && w !== "bhai" && w !== "ben")
+    .map((w) => w.replace(/(?:bhai|ben|kumar)$/, "") || w)
+    .map((w) =>
+      w
+        .replace(/w/g, "v")
+        .replace(/ph/g, "f")
+        .replace(/([sktdgbcj])h/g, "$1")
+        .replace(/ee/g, "i")
+        .replace(/oo/g, "u")
+        .replace(/aa/g, "a")
+        .replace(/(.)\1+/g, "$1")
+        .replace(/iya$/, "ia")
+        .replace(/ayi$/, "ai")
+    );
+}
+
+function wordsOfPeople(people: readonly HrMasterPerson[]): Map<HrMasterPerson, string[][]> {
+  const known = SHORT_WORDS.get(people);
+  if (known) return known;
+  const made = new Map(people.map((p) => [p, [p.fullName, ...(p.aliases ?? [])].map(shortNameWords)] as [HrMasterPerson, string[][]]));
+  SHORT_WORDS.set(people, made);
+  return made;
+}
+
+/** The words could be this person's name shortened: the same first and last name, and no other word of their own. */
+export function isShortNameOf(value: unknown, person: HrMasterPerson): boolean {
+  const q = shortNameWords(value);
+  if (q.length < 2 || q[0] === q[q.length - 1]) return false;
+  return [person.fullName, ...(person.aliases ?? [])].map(shortNameWords).some((w) => w[0] === q[0] && w[w.length - 1] === q[q.length - 1] && q.every((x) => w.includes(x)));
+}
+
+/** Who a name not on the sheet as written may be: everyone holding both its names, when one of them has them as first and last. */
+export function likelyPeople(value: unknown, people: readonly HrMasterPerson[]): HrMasterPerson[] {
+  if (!String(value ?? "").trim() || personNamed(value, people as HrMasterPerson[])) return [];
+  const q = shortNameWords(value);
+  if (q.length < 2 || q[0] === q[q.length - 1]) return [];
+  const table = wordsOfPeople(people);
+  const all = people.filter((p) => (table.get(p) ?? []).some((w) => w.includes(q[0]) && w.includes(q[q.length - 1])));
+  return all.some((p) => isShortNameOf(value, p)) ? all : [];
+}
+
 /** What fetching this person onto a header, or onto one line of a register, would write. */
 export function personFill(link: HrMasterLink, person: HrMasterPerson, current: Record<string, unknown>): PersonFill {
   const fills: FieldFill[] = [];
@@ -545,7 +597,7 @@ export function personFill(link: HrMasterLink, person: HrMasterPerson, current: 
     if (f.key === link.nameField) {
       // The same name written another way is the register's own spelling, and
       // stays; a GP3 No. typed where the name goes becomes the name.
-      if (namesPerson(before, person)) continue;
+      if (namesPerson(before, person) || isShortNameOf(before, person)) continue;
       if (person.gp3No && sameGp3(before, person.gp3No)) {
         fills.push({ key: f.key, before, after });
         continue;
@@ -616,8 +668,10 @@ export function fetchedForAnother(link: HrMasterLink, current: Record<string, un
  * A box a person typed something else into is never touched.
  */
 export function withPersonNamed(link: HrMasterLink, current: Record<string, unknown>, value: string, people: readonly HrMasterPerson[]): Record<string, unknown> | null {
-  const named = String(value ?? "").trim() ? personNamed(value, people as HrMasterPerson[]) : null;
   const tag = String(current[HR_MASTER_TAG] ?? "").trim();
+  // (a short name someone confirmed stays that person's: its mark says whose it is, §291)
+  const marked = tag ? people.find((p) => sameGp3(p.gp3No, tag)) : undefined;
+  const named = String(value ?? "").trim() ? (personNamed(value, people as HrMasterPerson[]) ?? (marked && isShortNameOf(value, marked) ? marked : null)) : null;
   const unknownName = !named && !!String(value ?? "").trim();
   const stale = unknownName && !tag ? [] : fetchedForAnother(link, current, people, named);
   const next: Record<string, unknown> = { ...current, [link.nameField]: value };
@@ -664,7 +718,7 @@ export const taggedForAnother = (row: Record<string, unknown>, person: HrMasterP
  * the sheet is preferred; if that still leaves more than one, the answer is
  * "several" and nothing is guessed.
  */
-export function lineOfPerson(link: HrMasterLink, rows: LogSheetRow[], person: HrMasterPerson, people: HrMasterPerson[]): LineMatch {
+export function lineOfPerson(link: HrMasterLink, rows: LogSheetRow[], person: HrMasterPerson, people: HrMasterPerson[], shortNames = false): LineMatch {
   const namesake = [person.fullName, ...(person.aliases ?? [])].some((n) => namedBy(n, people).some((p) => p.id !== person.id));
   const marked = rows.map((_, i) => i).filter((i) => taggedFor(rows[i], person));
   if (marked.length === 1) return { kind: "line", index: marked[0] };
@@ -674,7 +728,8 @@ export function lineOfPerson(link: HrMasterLink, rows: LogSheetRow[], person: Hr
     .filter((i) => {
       if (taggedForAnother(rows[i], person)) return false;
       const box = rows[i][link.nameField];
-      return (!namesake && namesPerson(box, person)) || (!!person.gp3No && sameGp3(box, person.gp3No));
+      // (shortNames: a person someone picked by hand is the line written with their short name, not a second line for them, §291)
+      return (!namesake && namesPerson(box, person)) || (!!person.gp3No && sameGp3(box, person.gp3No)) || (shortNames && !namesPerson(box, person) && isShortNameOf(box, person));
     });
   if (candidates.length === 0) return { kind: "none" };
   if (candidates.length === 1) return { kind: "line", index: candidates[0] };
@@ -707,6 +762,39 @@ export interface BlankFill {
   notOnSheet: string[];
   /** Names on more than one line of the register that could each be the person — left alone. */
   onSeveralLines: string[];
+  /** Short names that may be someone on the sheet: nothing is filled for them until a person says who it is (§291). */
+  toConfirm: NameToConfirm[];
+}
+
+export interface NameToConfirm {
+  /** The line of the register; null for the form's header. */
+  index: number | null;
+  name: string;
+  people: HrMasterPerson[];
+}
+
+/** The person a box names: by the name as written, or the person its mark says a short name was confirmed as. */
+function personOfBox(name: string, current: Record<string, unknown>, people: HrMasterPerson[]): HrMasterPerson | null {
+  const sure = personNamed(name, people);
+  if (sure) return sure;
+  const tag = String(current[HR_MASTER_TAG] ?? "").trim();
+  const marked = tag ? people.find((p) => sameGp3(p.gp3No, tag)) : undefined;
+  return marked && isShortNameOf(name, marked) ? marked : null;
+}
+
+/** Whether what a line already holds agrees with this person: "unknown" when it holds nothing to compare. */
+export function lineAgrees(link: HrMasterLink, person: HrMasterPerson, current: Record<string, unknown>): "agrees" | "differs" | "unknown" {
+  const fields = link.fields.filter((f) => f.key !== link.nameField && String(current[f.key] ?? "").trim());
+  if (fields.length === 0) return "unknown";
+  const words = (s: unknown) => nameKey(s).split(" ").filter((w) => w.length > 2).map((w) => w.replace(/s$/, ""));
+  const sheet = new Set([person.department, person.subDepartment, person.designation].flatMap(words));
+  return fields.every((f) => holdsPersonValue(f, person, current[f.key]) || (!isDateSource(f) && words(current[f.key]).some((w) => sheet.has(w)))) ? "agrees" : "differs";
+}
+
+/** The line (or header) once a person has said who a short name is: its blank boxes filled, the name as written, their mark on it. */
+export function withConfirmedPerson<T extends Record<string, unknown>>(link: HrMasterLink, person: HrMasterPerson, current: T): T {
+  const next = applyFills(current, personFill(link, person, current).fills);
+  return person.gp3No.trim() ? ({ ...next, [HR_MASTER_TAG]: person.gp3No.trim() } as T) : next;
 }
 
 /**
@@ -717,13 +805,20 @@ export function fillBlanksFromMaster(link: HrMasterLink, data: LogSheetData, peo
   const filled: BlankFill["filled"] = [];
   const notOnSheet: string[] = [];
   const onSeveralLines: string[] = [];
+  const toConfirm: NameToConfirm[] = [];
+  const unknownName = (index: number | null, name: string, current: Record<string, unknown>) => {
+    const likely = likelyPeople(name, people);
+    if (likely.length === 0) notOnSheet.push(name);
+    // (asked only where there is a blank box to fill: a line already complete has nothing to fetch)
+    else if (likely.some((p) => personFill(link, p, current).fills.length > 0)) toConfirm.push({ index, name, people: likely });
+  };
   let header = data.header ?? {};
   let rows = data.rows ?? [];
   if (link.where === "header") {
     const name = String(header[link.nameField] ?? "").trim();
     if (name) {
-      const person = personNamed(name, people);
-      if (!person) notOnSheet.push(name);
+      const person = personOfBox(name, header, people);
+      if (!person) unknownName(null, name, header);
       else {
         const { fills } = personFill(link, person, header);
         if (fills.length > 0) {
@@ -736,7 +831,7 @@ export function fillBlanksFromMaster(link: HrMasterLink, data: LogSheetData, peo
     const source = rows;
     const named = source.map((row) => {
       const name = String(row[link.nameField] ?? "").trim();
-      return name ? { name, person: personNamed(name, people) } : null;
+      return name ? { name, person: personOfBox(name, row, people) } : null;
     });
     const count = new Map<string, number>();
     for (const n of named) if (n?.person) count.set(n.person.id, (count.get(n.person.id) ?? 0) + 1);
@@ -753,7 +848,7 @@ export function fillBlanksFromMaster(link: HrMasterLink, data: LogSheetData, peo
       if (!entry) return row;
       const { name, person } = entry;
       if (!person) {
-        notOnSheet.push(name);
+        unknownName(index, name, row);
         return row;
       }
       if (theirLine.has(person.id) && theirLine.get(person.id) !== index) {
@@ -766,7 +861,7 @@ export function fillBlanksFromMaster(link: HrMasterLink, data: LogSheetData, peo
       return applyFills(row, fills);
     });
   }
-  return { data: filled.length > 0 ? { ...data, header, rows } : data, filled, notOnSheet, onSeveralLines };
+  return { data: filled.length > 0 ? { ...data, header, rows } : data, filled, notOnSheet, onSeveralLines, toConfirm };
 }
 
 // ---------------------------------------------------------------------------
