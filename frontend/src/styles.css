@@ -4495,7 +4495,7 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
 .paper-plain-twin { position: fixed; left: -30000px; top: 0; width: 1400px; pointer-events: none; }
 .pt-table .pt-line-add { position: absolute; left: -58px; top: 50%; transform: translateY(-50%); min-width: 24px; padding: 0 4px; line-height: 1; }
 .paper-sheet[data-paper-form="table"]:has(.pt-line-add) { padding-left: 62px; }
-/* NO COLOUR ON A COMPANY PAPER (§279): its boxes are white on the screen, marked only while a person is on them; a choice shows its
+/* NO COLOUR ON A COMPANY PAPER (§280): its boxes are white on the screen, marked only while a person is on them; a choice shows its
    value alone, without an arrow in every cell, and opens as any choice does. */
 @media screen {
   .paper-sheet[data-paper-own] .pt-table :is(td.pt-c, .pt-over) > :is(.field-in-table, .pt-box) > .input:not(:disabled), .paper-sheet[data-paper-own] .pt-table .pt-sentence .field-in-table > .input:not(:disabled) { background: transparent; }
@@ -4522,10 +4522,11 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
   .paper-sheet[data-sheet="hr-daily-cleaning"] .doc-table table.log-sheet tr > :nth-child(n+4) { padding-left: 0; padding-right: 0; text-align: center; }
   .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet td .input-sm { min-width: 0; width: 100%; padding-left: 1px; padding-right: 1px; text-align: center; }
 }
-/* F/HR/15's 31 days and F/HR/16's twelve months on one landscape A4 page at a size anyone can read (§279): every column set, none left
+/* F/HR/15's 31 days and F/HR/16's twelve months on one landscape A4 page at a size anyone can read (§280): every column set, none left
    to the browser, so the sheet is never shrunk to fit. */
 @media print {
   .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table { overflow: visible; }
+  .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) :is(.doc-header, .doc-header *, .doc-table table, .doc-table th, .doc-table td) { border-color: #000; color: #000; background: transparent; }
   .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet { table-layout: fixed; width: 271mm; min-width: 0; }
   .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet tbody tr { height: 6.4mm; }
   .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table table.log-sheet :is(th, td) { height: auto; padding: 0.4mm 0.6mm; font-size: 8pt; line-height: 1.12; min-width: 0; overflow-wrap: anywhere; vertical-align: middle; }

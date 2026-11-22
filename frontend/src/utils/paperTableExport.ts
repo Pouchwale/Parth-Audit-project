@@ -364,7 +364,7 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
     }
   }
   // The size it prints on A4, inside the page's margins.
-  // (the page and the size the sheet itself is drawn at: a paper fitted to be read may have turned its page, §279)
+  // (the page and the size the sheet itself is drawn at: a paper fitted to be read may have turned its page, §280)
   const sheet = papers[0] as HTMLElement;
   const page = sheet.getAttribute("data-paper") === "landscape" ? "landscape" : "portrait";
   const roomPt = (page === "portrait" ? 595.28 : 841.89) - 2 * WORD_MARGIN;

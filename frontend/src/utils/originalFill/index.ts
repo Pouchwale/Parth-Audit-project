@@ -127,7 +127,7 @@ export async function originalFileBytes(documentId: string, blocks: ExportBlock[
   const words = (record?.data as { words?: { headings?: Record<string, string>; paperRows?: { added?: unknown[]; removed?: unknown[] } } } | undefined)?.words;
   const headings = words?.headings;
   // (rows put in or taken off, or words where the file has no place: the file is drawn from the paper itself, §276)
-  // (and a paper whose letters had to be fitted to be read, §279: its Word and Excel are that same readable paper)
+  // (and a paper whose letters had to be fitted to be read, §280: its Word and Excel are that same readable paper)
   if (fileIsDrawn(documentId, paperTableFor(documentId)) || words?.paperRows?.added?.length || words?.paperRows?.removed?.length || paperWordsWithoutPlace(paperTableFor(documentId), headings)) return null;
   const buffer = await template(file);
   const { bytes, report } = await fillTemplate(file, buffer, blocks, envelope, documentId);

@@ -1,4 +1,4 @@
-// EVERY HR PAPER READS: NO COLOUR ON IT, NO LETTER TOO SMALL, NOTHING PAST THE PAGE (REQUIREMENTS §279).
+// EVERY HR PAPER READS: NO COLOUR ON IT, NO LETTER TOO SMALL, NOTHING PAST THE PAGE (REQUIREMENTS §280).
 // Run: npm run test:unit -- paperReadable
 import test from "node:test";
 import assert from "node:assert/strict";

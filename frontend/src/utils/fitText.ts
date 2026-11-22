@@ -9,7 +9,7 @@ const MIN = 0.55;
 const OTHER_MIN = 0.85;
 // (a paper's copy: drawn on its paper's own measures; a sheet of DCRS's own make keeps its words readable, 22-Oct-2026)
 const PAPER = "[data-paper-form], [data-paper-left], .soc-sheet, .svc-paper";
-// (an HR paper fitted so that every letter reads, §279: its words wrap in their cell and are never written smaller)
+// (an HR paper fitted so that every letter reads, §280: its words wrap in their cell and are never written smaller)
 const floorOf = (el: HTMLElement): number => (el.closest("[data-paper-read]") ? 1 : el.closest(PAPER) ? MIN : OTHER_MIN);
 // (a locked standard - F/QC/12's weights since 30-Oct-2026 - is words in a span, not a box: fitted all the same, or "100.000gm" is cut to "100.000gr")
 // (and a date read only - a sheet waiting for its day, a signed one: written as its date box would be, on one line at the

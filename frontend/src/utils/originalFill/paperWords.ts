@@ -116,7 +116,7 @@ function colourFill(fill: string): boolean {
   return indexed !== undefined && ![8, 9, 15, 16, 22, 23, 55, 63, 64, 65].includes(Number(indexed));
 }
 
-/** The company's file with no coloured shading or highlight left on it (§279): its rules, words and greys stay. */
+/** The company's file with no coloured shading or highlight left on it (§280): its rules, words and greys stay. */
 export async function withoutColours(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   const copy = bytes.slice();
   const zip = await unzip(copy.buffer);

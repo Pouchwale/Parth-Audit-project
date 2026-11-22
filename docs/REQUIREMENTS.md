@@ -12951,3 +12951,21 @@ cell under 1 mm wide, left over from the company's Word table, which ruled its t
 stuck out past the table's right-hand line like a comb. The thin cell is now part of the last real cell of its row (14 rows), so
 each table ends in one straight line, level with the heading above it. All 18 HR papers measured on the local copy: none left.
 Proved: frontend/tests/hrPapers.test.ts; screen, print, Word and Excel of the two papers.
+
+## §282 Every HR record readable: on the screen, on paper, in Word and Excel, with no colour (22-Nov-2026)
+
+The owner, 22-Nov-2026, with F/HR/03 on the screen: "it hard to see anything ... remove colour from record like yellow, orange ... no
+line cut when user take print, no font is too small on print ... make sure excel and word is download is perfect ... check all hr
+document except pest control module".
+
+- Measured on the 20 HR formats outside pest control, from each one's fullest record. Before: 10 printed letters under 7 pt, the
+  smallest 4.2 pt; F/HR/03 read at 6.6 px on the screen; yellow, orange and green stood on the sheets and in their files.
+- A paper whose letters would print under 8 pt has its columns measured from what they hold (engine/paperReadable.ts): each column
+  gets the room its longest word needs, from columns with room to spare, at the largest size that keeps written values on one line.
+  Its rows, words and rules stay the company's. Narrow register headings may be 7 pt. The same paper is the screen, the print,
+  and its Word and Excel files.
+- No colour on an HR record: the paper's yellow, orange and green shading and the screen's yellow boxes are gone, in the company's
+  own Word and Excel files too (utils/originalFill/paperWords.ts withoutColours). Grey headings stay. A choice shows no arrow.
+- F/HR/15 and F/HR/16 show every day and month on the screen and print on one A4 page at 8 pt.
+- Word and Excel: all 40 files opened and printed through Word and Excel themselves. A one-page paper stays on one page; a number in
+  a narrow Excel column no longer shows as ###.
