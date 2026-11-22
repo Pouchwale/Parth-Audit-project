@@ -103,3 +103,14 @@ test("§280 the HR forms' Yes / No are tick boxes; F/HR/20's scale keeps its rin
     }
   }
 });
+
+test("§281 no ruled line runs past a paper's right-hand line: no thin open cell ends a row", () => {
+  for (const [id, form] of Object.entries(HR_PAPER_TABLES)) {
+    for (const row of [...form.head, ...(form.body ?? []), ...(form.lines ? [form.lines] : []), ...(form.foot ?? [])]) {
+      const last = row.cells[row.cells.length - 1];
+      if (row.cells.length < 2 || !last.edges) continue;
+      const rulesAcross = last.edges.includes("t") || last.edges.includes("b");
+      assert.ok(!(last.w <= 1 && rulesAcross && !last.edges.includes("r")), `${id}: a ${last.w} mm cell draws its lines past the right-hand line`);
+    }
+  }
+});

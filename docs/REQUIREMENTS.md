@@ -12943,3 +12943,11 @@ this all type of document where yes and no is present in hr module only except p
   clear of the column lines; "Signature :" and "Date :" each followed by a box wide enough to write in. One A4 page as before.
 - Proved: frontend/tests/hrPapers.test.ts; the four forms clicked, reloaded and printed on the local copy; their Word and Excel
   downloads opened in Word and Excel; tests/verify_with_test_account.py.
+
+## §281 F/HR/10 and F/HR/11: no line past the right-hand line (22-Nov-2026)
+
+The owner, 22-Nov-2026, with F/HR/10: "in right side lines is not proper so fix it". Each row of the two papers ended in a blank
+cell under 1 mm wide, left over from the company's Word table, which ruled its top and bottom but no right side: every line
+stuck out past the table's right-hand line like a comb. The thin cell is now part of the last real cell of its row (14 rows), so
+each table ends in one straight line, level with the heading above it. All 18 HR papers measured on the local copy: none left.
+Proved: frontend/tests/hrPapers.test.ts; screen, print, Word and Excel of the two papers.
