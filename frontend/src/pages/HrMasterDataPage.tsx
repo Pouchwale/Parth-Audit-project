@@ -20,7 +20,7 @@ import {
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { Modal } from "../components/common/Modal";
 import { HrMasterFileEveryoneDialog, HrMasterFilingDialog } from "../components/hr/HrMasterFilingDialog";
-import { ROLE_WORDS, roleOf } from "../engine/hrMasterFiling";
+import { fileNewOperators, ROLE_WORDS, roleOf } from "../engine/hrMasterFiling";
 import { takeFromRegisters, takeWords } from "../engine/hrMasterRegisters";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { buildXlsx, readFirstSheet, sniffSpreadsheet, SpreadsheetReadError } from "../utils/xlsx";
@@ -196,6 +196,22 @@ export function HrMasterDataPage() {
       setMessage({ tone: "warn", text: `${file.name}: ${e instanceof SpreadsheetReadError ? e.message : "the file could not be read as an Excel workbook or a CSV."}` });
     }
   };
+
+  // AN OPERATOR ADDED TO THE SHEET COMES ON F/HR/03 BY THEMSELVES, 5 under their own operation (engine/hrMasterFiling.ts, §290).
+  const toldNoColumn = useRef("");
+  useEffect(() => {
+    if (isDemo || !currentUser) return;
+    const { filed, noColumn } = fileNewOperators({ actorName: currentUser, isDemo: false });
+    const names = noColumn.map((p) => p.fullName).join(", ");
+    if (filed.length > 0) {
+      const reopened = filed.some((f) => f.reopened) ? " F/HR/03 has gone back for submitting and verifying." : "";
+      setMessage({ tone: "ok", text: `On F/HR/03: ${filed.map((f) => `${f.name}, line ${f.line}, 5 under ${f.operation}`).join("; ")}. The score can be changed there.${reopened}` });
+      bump();
+    } else if (names && names !== toldNoColumn.current) {
+      setMessage({ tone: "warn", text: `Not put on F/HR/03: ${names}. Their Sub Department or Machine names no operation on it. Correct it here, or add them on F/HR/03 by hand.` });
+    }
+    toldNoColumn.current = names;
+  }, [people, isDemo, currentUser, bump]);
 
   const applyImport = () => {
     if (!pending) return;

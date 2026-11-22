@@ -13060,3 +13060,18 @@ automatically except qc-12".
 - F/HR/20: the January forms no longer answer themselves. They are made with the person's name, department and designation, and open
   with their answers blank for the employee.
 - Proved: frontend/tests/fillOnOpen.test.ts, calibrationSigner.test.ts; clicked through on the local copy.
+
+## §290 A new operator on HR Master Data comes on F/HR/03 by themselves, 5 under their own operation (22-Nov-2026)
+
+The owner, 22-Nov-2026: "in HR-03 by default for all operator the score is 5 and editable so for any new comes in master data then
+automatically it should come in this according to his department".
+
+- An operator ADDED to HR Master Data (Add employee, an Excel upload, a CV) goes on F/HR/03 as soon as the sheet has their name and
+  designation: name, process and date of joining, and 5 under their own operation. The company's matrix gives each operator one 5,
+  under the process they work, so that is what a new line holds; the other boxes stay blank, and every box stays the 5 / 3 / 1 choice.
+- The operation is read from the Sub Department, Department and Machine (engine/skillOperation.ts). A 5 says "can operate
+  individually", so nobody gets one for work with no column on the matrix (security, stores, dispatch, housekeeping, machinery...)
+  or a process the sheet does not name: the sheet says so, and they stay waiting until it is corrected or are added by hand.
+- The people already on HR Master Data are not added, and no score already on F/HR/03 changes. A line added by hand with no person
+  still starts at 5 under every operation (§167). A verified F/HR/03 goes back for submitting and verifying, with the reason written.
+- Proved: frontend/tests/hrSkillByDepartment.test.ts; an operator and a guard added on the local copy, the score changed and reloaded.

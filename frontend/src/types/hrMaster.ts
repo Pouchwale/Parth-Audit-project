@@ -8,6 +8,8 @@ export type HrMasterColumnKey = "gp3No" | "joiningDate" | "fullName" | "departme
 
 export interface HrMasterPerson {
   id: string;
+  /** Added to the sheet and not yet put on F/HR/03, the operators' skill matrix (REQUIREMENTS §290). */
+  newForSkillMatrix?: boolean;
   /** The employee's number at GP-3, as HR writes it. */
   gp3No: string;
   /** YYYY-MM-DD, or "" when not known. */

@@ -92,7 +92,7 @@ export type UpsertResult = "added" | "updated" | "unchanged";
 
 function addPerson(values: Partial<HrMasterValues>, actor: string): HrMasterPerson {
   const store = load();
-  const person: HrMasterPerson = { id: generateId("hrm"), ...blankHrMasterValues(), ...clean(values), updatedAt: new Date().toISOString(), updatedBy: actor };
+  const person: HrMasterPerson = { id: generateId("hrm"), newForSkillMatrix: true, ...blankHrMasterValues(), ...clean(values), updatedAt: new Date().toISOString(), updatedBy: actor };
   save({ ...store, people: [...store.people, person] });
   return person;
 }
@@ -122,6 +122,21 @@ export const hrMasterRepository = {
     });
     if (saved) save({ ...store, people });
     return saved;
+  },
+
+  /** These people are on F/HR/03 now (§290): the sheet no longer waits to put them there. */
+  settleSkillMatrix(ids: readonly string[]): void {
+    if (ids.length === 0) return;
+    const store = load();
+    const done = new Set(ids);
+    save({
+      ...store,
+      people: store.people.map((p) => {
+        if (!done.has(p.id)) return p;
+        const { newForSkillMatrix: _settled, ...rest } = p;
+        return rest;
+      }),
+    });
   },
 
   remove(id: string): void {
@@ -171,7 +186,7 @@ export const hrMasterRepository = {
       if (!u) return p;
       return { ...p, ...Object.fromEntries(u.changes.map((c) => [c.key, c.after])), updatedAt: now, updatedBy: actor };
     });
-    const added = plan.additions.map((a) => ({ id: generateId("hrm"), ...a.values, updatedAt: now, updatedBy: actor }));
+    const added = plan.additions.map((a) => ({ id: generateId("hrm"), newForSkillMatrix: true, ...a.values, updatedAt: now, updatedBy: actor }));
     save({ ...store, people: [...people, ...added] });
     return { added: added.length, updated: updates.size };
   },

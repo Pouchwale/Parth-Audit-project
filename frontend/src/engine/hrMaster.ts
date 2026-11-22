@@ -1,3 +1,4 @@
+import { skillOperationFor, skillPointsFor } from "./skillOperation";
 import type { HrMasterColumnKey, HrMasterPerson, LogSheetData, LogSheetRow } from "../types";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { serialToIso } from "../utils/xlsx";
@@ -693,6 +694,8 @@ export function lineForPerson(link: HrMasterLink, person: HrMasterPerson, blank:
     if (value) line[f.key] = value;
   }
   if (person.gp3No.trim()) line[HR_MASTER_TAG] = person.gp3No.trim();
+  // F/HR/03: the 5 under the person's own operation, as the company's matrix has it (§290).
+  if (link.docId === "hr-skill-matrix" && skillOperationFor(person)) Object.assign(line, skillPointsFor(person));
   return line;
 }
 

@@ -2,7 +2,8 @@ import type { LogSheetData, LogSheetRow, RecordInstance, RecordStatus } from "..
 import { documentRepository } from "../data/repositories/documentRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
-import { SKILL_OPERATIONS, TRAINING_TOPICS } from "../data/seed/hrLayouts";
+import { TRAINING_TOPICS } from "../data/seed/hrLayouts";
+import { skillPointsFor } from "./skillOperation";
 import { createRecordForDocument } from "./recordCrud";
 import { isEditableStatus, reopenForCorrection, saveDraft } from "./recordLifecycle";
 import { fieldLabels } from "./recordPatch";
@@ -306,7 +307,7 @@ function lineFor(docId: string, j: NewJoiner): Record<string, string> {
         dateOfLeaving: "",
       };
     case "hr-skill-matrix":
-      return { name: j.name, designation: j.designation, dateOfJoining: appDate(j.dateOfJoining), ...Object.fromEntries(SKILL_OPERATIONS.map((o) => [o.key, ""])), remarks: "" };
+      return { name: j.name, designation: j.designation, dateOfJoining: appDate(j.dateOfJoining), ...skillPointsFor({ department: j.department, subDepartment: "", machine: "", designation: j.designation }), remarks: "" };
     case "hr-training-needs":
       return { name: j.name, designation: j.designation, ...Object.fromEntries(TRAINING_TOPICS.map((t) => [t.key, ""])) };
     case "hr-induction-operators":

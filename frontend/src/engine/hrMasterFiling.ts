@@ -10,6 +10,7 @@ import { fieldLabels } from "./recordPatch";
 import { followHeader } from "./headerFollowers";
 import { categoryFor, defaultTargets, hasEntries, JOINER_TARGETS, registerOnFile, type JoinerCategory, type JoinerTarget } from "./hrJoiner";
 import { describePerson, HR_MASTER_TAG, hrMasterLinkFor, lineForPerson, lineOfPerson, linkedValue, namesakesOf, namesPerson, sameGp3, taggedFor, taggedForAnother, type HrMasterLink } from "./hrMaster";
+import { skillOperationFor, skillOperationLabel } from "./skillOperation";
 import { generateId } from "../utils/id";
 import { todayISO } from "../utils/date";
 
@@ -297,6 +298,38 @@ export function filePerson(person: HrMasterPerson, targetIds: string[], opts: { 
     outcomes.push({ ...base, recordId: saved.id, result: "started", reopened: false });
   }
   return outcomes;
+}
+
+// ---------------------------------------------------------------------------
+// a new operator, on F/HR/03 by themselves (REQUIREMENTS §290)
+
+export interface NewOperatorsOutcome {
+  filed: { name: string; line: number; operation: string; reopened: boolean }[];
+  /** Operators added to the sheet whose work has no column on F/HR/03, or whose process the sheet does not say yet. */
+  noColumn: HrMasterPerson[];
+}
+
+/**
+ * Everyone ADDED to HR Master Data who is an operator goes on F/HR/03 with 5 under their own operation, as soon as the sheet
+ * says who they are and what they work on. The people already on the sheet are not touched: only a line added from now on
+ * carries the mark. One who stands unclear (a shared name with no GP3 No.) waits until the sheet can tell them apart.
+ */
+export function fileNewOperators(opts: { actorName: string; isDemo: boolean }): NewOperatorsOutcome {
+  const outcome: NewOperatorsOutcome = { filed: [], noColumn: [] };
+  const waiting = hrMasterRepository.all().filter((p) => p.newForSkillMatrix && p.fullName.trim() && p.designation.trim() && roleOf(p) === "operator");
+  const settled: string[] = [];
+  for (const person of waiting) {
+    const operation = skillOperationFor(person);
+    if (!operation) {
+      outcome.noColumn.push(person);
+      continue;
+    }
+    const [filed] = filePerson(person, ["hr-skill-matrix"], opts);
+    if (filed?.result === "added") outcome.filed.push({ name: person.fullName, line: filed.line ?? 0, operation: skillOperationLabel(operation), reopened: filed.reopened });
+    if (filed?.result === "added" || filed?.result === "already") settled.push(person.id);
+  }
+  hrMasterRepository.settleSkillMatrix(settled);
+  return outcome;
 }
 
 // ---------------------------------------------------------------------------
