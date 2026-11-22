@@ -12976,10 +12976,21 @@ document except pest control module".
 The owner, 22-Nov-2026, with the menu on a record: "when user go inside any record then in menu the system should give show
 where user like in which document".
 
-- Inside any record the left menu lights that record's own document: its format's page where it has one, otherwise the list that
-  holds it (QC Records, a module's collection). F/PUR's service agreement lights Purchase's link, the Complaint Acknowledgement
-  lights Internal CAPA, the page it is kept on.
+- Inside any record the left menu lights that record's own document. A format with no link of its own is given a row with its
+  number and name at the top of its module while it is open (§284).
 - One link is lit in the whole menu, the most specific one.
 - Going into a record opens its module once and scrolls the menu to the link. A module shut by hand afterwards stays shut.
-- Proved: frontend/tests/menuOfRecord.test.ts (all 132 documents that make records have a link); 27 records across every module
-  opened on the local copy, and after a reload.
+- Proved: tests/e2e_menu_current_document.py; records of every module opened on the local copy, and after a reload.
+
+## §284 The menu shows which document you are in (22-Nov-2026)
+
+The owner: when a user enters a module and goes into a document, the menu should show which document they are in.
+
+- On a document's page **and inside any of its records**, that document's own menu link is lit and scrolled into view.
+- A document with no link of its own (every QC format) gets a row at the top of its module, with its number and name,
+  for as long as it is open.
+- Going into a document opens its module if it was closed. Closing the module again stays closed until a different
+  document is opened.
+
+Proved: tests/e2e_menu_current_document.py.
+
