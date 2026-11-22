@@ -76,7 +76,7 @@ const SCOPED = "print-scoped";
 /** A box printed as its words: the words, and the box's own inline display where the print hid the box itself. */
 type Written = { box: Element; text: Element; display?: string };
 
-let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: Written[]; split?: SplitPages; tidied?: Element[]; evened?: HTMLElement[] } | null = null;
+let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: Written[]; split?: SplitPages; tidied?: Element[]; evened?: HTMLElement[]; sheets?: HTMLElement[] } | null = null;
 
 const EMPTY_ATTR = "data-empty";
 const EMPTY_BOXES = "input[type='date'], input[type='time'], input[type='datetime-local'], input[type='month'], select";
@@ -1146,9 +1146,6 @@ function unsplit(split: SplitPages): void {
 function scope(targets: Element[]): void {
   unscope();
   if (outermost(targets).length === 0) return;
-  prepareScope(targets);
-  // A long HR register: each page with its own head and number (§277). Its pages are measured with the sheet ready to print
-  // (its lines evened, its boxes written as words), then it is drawn so and made ready again.
   const measuring = <T,>(measure: () => T): T => {
     document.documentElement.classList.add("print-measure");
     try {
@@ -1157,10 +1154,79 @@ function scope(targets: Element[]): void {
       document.documentElement.classList.remove("print-measure");
     }
   };
+  // A value shown as words prints in a box (§279), unless that would run the sheet to a page more: F/MNT/04's blank month is
+  // one page because its empty cells keep it small. Measured both ways, ready to print.
+  valuesAsBoxes = true;
+  if (outermost(targets).some((d) => d.querySelector(READ_ONLY_VALUE) !== null)) {
+    const tallest = () => measuring(() => tallestSheet(active?.sheets ?? []));
+    valuesAsBoxes = false;
+    prepareScope(targets);
+    const asWords = tallest();
+    clearScope();
+    valuesAsBoxes = true;
+    prepareScope(targets);
+    if (tallest() > Math.max(1, asWords) + 0.01) {
+      clearScope();
+      valuesAsBoxes = false;
+      prepareScope(targets);
+    }
+  } else prepareScope(targets);
+  // A long HR register: each page with its own head and number (§277). Its pages are measured with the sheet ready to print
+  // (its lines evened, its boxes written as words), then it is drawn so and made ready again.
   if (pagePapers(outermost(targets), measuring)) {
     clearScope();
     prepareScope(targets);
   }
+}
+
+// A RECORD THAT CANNOT BE WRITTEN ON PRINTS AS ONE THAT CAN (REQUIREMENTS §279; the owner, 22-Nov-2026, with F/QC/12 printed from
+// its document's page on two sheets: "when i click on open record ... it should come perfect but when i click print on outside
+// ... this problem is happening", every module). The page outside the record, and a submitted or verified record, show a value
+// as words (LogSheetRecordView); an open record shows it in a box. The print fits, centres and wraps boxes, so words took other
+// column widths, wrapped a name over three lines and ran past the page. For the print each such value stands in a box of the
+// open record's kind; a value of several lines stays as words. Taken off when the print is done (clearScope).
+const READ_ONLY_VALUE = "table.log-sheet td .cell-text:not([data-computed]):not([data-locked]):not([data-printed]):not([data-heading-box])";
+const SHOWN_DATE = /^(\d{2})-(\d{2})-(\d{4})$/;
+let valuesAsBoxes = true;
+
+function readOnlyValuesAsBoxes(docs: Element[]): Written[] {
+  const written: Written[] = [];
+  const standIn = (words: HTMLElement, box: HTMLInputElement | HTMLSelectElement) => {
+    box.className = "input input-sm";
+    box.tabIndex = -1;
+    // (on a sheet laid out for the page, no taller than the words: a line never grows, so a sheet runs to no more pages. A paper's
+    // cell keeps the paper's own height.)
+    if (!words.closest(PAPER_FORM)) Object.assign(box.style, { height: "auto", minHeight: "0", paddingTop: "0", paddingBottom: "0" });
+    words.insertAdjacentElement("afterend", box);
+    written.push({ box: words, text: box, display: words.style.display });
+    words.style.display = "none";
+  };
+  for (const d of docs) {
+    for (const words of Array.from(d.querySelectorAll<HTMLElement>(READ_ONLY_VALUE))) {
+      const value = words.textContent ?? "";
+      if (value.includes("\n")) continue;
+      if (words.dataset.boxKind === "select" || words.dataset.boxKind === "yesno") {
+        const choice = document.createElement("select");
+        choice.add(new Option("—", "", !value, !value));
+        if (value) choice.add(new Option(value, value, true, true));
+        standIn(words, choice);
+        continue;
+      }
+      const box = document.createElement("input");
+      box.readOnly = true;
+      const date = words.classList.contains("cell-date") ? SHOWN_DATE.exec(value.trim()) : null;
+      box.type = date ? "date" : "text";
+      box.value = date ? `${date[3]}-${date[2]}-${date[1]}` : value;
+      // (a date the calendar has no such day for stays its words)
+      if (date && box.value === "") {
+        box.type = "text";
+        box.value = value;
+      }
+      box.setAttribute("value", box.value);
+      standIn(words, box);
+    }
+  }
+  return written;
 }
 
 function prepareScope(targets: Element[]): void {
@@ -1184,13 +1250,16 @@ function prepareScope(targets: Element[]): void {
     if (a !== document.body) a.classList.add(ANCESTOR);
   }
   document.documentElement.classList.add(SCOPED);
-  active = { hidden, ancestors, emptied: markEmptyBoxes(outermost(targets)), written: writeBoxesAsText(outermost(targets)) };
+  // (a value shown as words, on a record that cannot be written on, printed as an open record prints it: §279)
+  const asBoxes = valuesAsBoxes ? readOnlyValuesAsBoxes(outermost(targets)) : [];
+  active = { hidden, ancestors, emptied: markEmptyBoxes(outermost(targets)), written: [...writeBoxesAsText(outermost(targets)), ...asBoxes] };
   // A month on two pages (§263): its second page a copy of the sheet, from the 16th on - made once its boxes are written.
   const { docs: pages, split } = splitPages(docs);
   if (split.copies.length) active.split = split;
   // The HR sheets' values: numbers in the middle, short words on one line (§266) - before the sheet is fitted to its page.
   active.tidied = tidyHrCells(pages);
   docs.splice(0, docs.length, ...pages);
+  active.sheets = docs as HTMLElement[];
   fitToPage(docs);
   footsOnce = footsTooTall(docs);
   // Words wider than their box print smaller, never cut (utils/fitText.ts)...

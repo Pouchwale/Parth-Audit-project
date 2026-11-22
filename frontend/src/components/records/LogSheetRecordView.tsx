@@ -3033,7 +3033,7 @@ function CellInput({
     // A date stays on one line, never broken at a dash (REQUIREMENTS §183: F/HR/01's "01-04-" over "2014"); the print fits
     // the grid to the page with it.
     return (
-      <span className={`cell-text notranslate${CELL_DATE.test(shown.trim()) ? " cell-date" : ""}`} translate="no" {...bind}>
+      <span className={`cell-text notranslate${CELL_DATE.test(shown.trim()) ? " cell-date" : ""}`} translate="no" data-box-kind={col.type} {...bind}>
         {shown}
       </span>
     );

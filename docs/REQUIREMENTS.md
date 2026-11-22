@@ -12915,3 +12915,16 @@ logged in or verified that document, their name should come there automatically 
 - Editable. A name typed by hand is kept through Submit and Verify (data.typedNames); emptying the box hands it back to DCRS. Every
   name DCRS changes is in the record's history.
 - Records already Verified are not changed.
+
+## §279 A record prints the same from outside it as from inside it, in every module (22-Nov-2026)
+
+The owner, 22-Nov-2026, with F/QC/12 printed from its document's page on two sheets: "when i click on open record ... it should
+come perfect but when i click print on outside ... this problem is happening", for QC, HR, Purchase, Production, Dispatch, Store and
+Maintenance.
+
+- Cause: the document's page, and any submitted or verified record, show a value as words; an open record shows it in a box. The
+  print fits, centres and wraps boxes, so the words took other column widths and a name wrapped over three lines.
+- Fix (utils/print.ts readOnlyValuesAsBoxes): for the print only, each such value stands in a box of the open record's kind (a date,
+  a choice, a text box). A value of several lines stays as words. The boxes come off when the print is done. Where boxes
+  would run the sheet to a page more than its words take (a blank F/MNT/04 month), it stays as words.
+- Measured on all 138 documents, each printed to A4 from outside and from inside.
