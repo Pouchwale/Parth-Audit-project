@@ -149,7 +149,7 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
           // (set close, every value in the middle of its box, §262; and a date stays on one line: "01-11-2026" broke at its dashes in a narrow column and drew its line twice as tall)
           const text = typeof cell === "string" ? cell : cell.map((c) => c.text).join("");
           const noWrap = close && /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/.test(text.trim()) ? "<w:noWrap/>" : "";
-          return `<w:tc><w:tcPr><w:tcW w:w="${set ? set[ci] : 0}" w:type="${set ? "dxa" : "auto"}"/>${shade}${noWrap}</w:tcPr><w:p><w:pPr>${close ? '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>' : set ? '<w:spacing w:before="0" w:after="0" w:line="228" w:lineRule="auto"/>' : '<w:spacing w:before="20" w:after="20"/>'}</w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
+          return `<w:tc><w:tcPr><w:tcW w:w="${set ? set[ci] : 0}" w:type="${set ? "dxa" : "auto"}"/>${shade}${noWrap}</w:tcPr><w:p><w:pPr>${set ? '<w:spacing w:before="0" w:after="0" w:line="228" w:lineRule="auto"/>' : close ? '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>' : '<w:spacing w:before="20" w:after="20"/>'}</w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
         })
         .join("");
       // (set close, a line is ruled CLOSE_ROW high at least, as a paper's ruled line, so the month fills its page)
