@@ -37,6 +37,9 @@ import { formulaTestedValue } from "./calibration";
  */
 export const READINGS_TO_CONFIRM = "readingsToConfirm";
 
+/** What each changed sheet's history says when F/QC/12 is given a line for each week of its month. */
+export const SCALE_WEEKS_NOTE = "A line for each week of the month, four or five, the first from the last sheet's Next Due Date (the owner, 16-Nov-2026, REQUIREMENTS §235)";
+
 /** What the record's history says of the fill. */
 export const NOMINAL_FILL_NOTE = "Filled as the plant's pages are filled, on opening: every point read as the master's / every plate at its size / F/QC/12's Tested Values as the standard weights (to be confirmed), Pass, the opener's name (REQUIREMENTS §136)";
 

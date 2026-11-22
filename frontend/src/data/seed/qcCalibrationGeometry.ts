@@ -78,21 +78,27 @@ export const CALIBRATION_GEOMETRY: Record<string, CalibrationGeometry> = {
  * format number at the foot - its words at their size. The paper's own measures stay above, as read off it.
  */
 const A4_LANDSCAPE_WIDTH = 297;
-const FITTED_TO_A4: Record<string, { width: number; taller: number }> = {
-  "qc-gsm-plate-calibration": { width: 286.86, taller: 1.25 },
+// NO LINE CUT ON A PHYSICAL PRINT (REQUIREMENTS §278; the owner, 22-Nov-2026): both sheets stand 10 mm clear of every edge of
+// the A4 page, where every office printer can print. At 5 mm their outer rules fell in the strip a printer cannot reach.
+// F/QC/12's grid gives its Date, Tested By and Sign the room a full name and a date need (the weights' columns hold theirs at 9 pt).
+const FITTED_TO_A4: Record<string, { width: number; taller: number; top: number; footY: number; gridCols?: number[] }> = {
+  "qc-gsm-plate-calibration": { width: 277, taller: 1.22, top: 10, footY: 195.5 },
+  "qc-weight-scale-calibration": { width: 277, taller: 1, top: 10, footY: 195.5, gridCols: [21, 25, 16.9, 16.9, 16.9, 16.9, 16.9, 16.9, 16.9, 16.9, 16.9, 16.9, 14.5, 24, 22.31] },
 };
 
-function fittedToA4(g: CalibrationGeometry, fit: { width: number; taller: number }): CalibrationGeometry {
+function fittedToA4(g: CalibrationGeometry, fit: { width: number; taller: number; top: number; footY: number; gridCols?: number[] }): CalibrationGeometry {
   const sx = fit.width / g.width;
   const across = (xs: number[]) => xs.map((x) => Math.round(x * sx * 100) / 100);
   const down = (ys: number[]) => ys.map((y) => Math.round(y * fit.taller * 100) / 100);
   return {
     ...g,
     left: Math.round(((A4_LANDSCAPE_WIDTH - fit.width) / 2) * 100) / 100,
+    top: fit.top,
+    foot: { y: fit.footY },
     width: fit.width,
     gridWidth: Math.round(g.gridWidth * sx * 100) / 100,
     boxes: { ...g.boxes, cols: across(g.boxes.cols), rows: down(g.boxes.rows) },
-    grid: { ...g.grid, cols: across(g.grid.cols), head: down(g.grid.head), lines: down(g.grid.lines) },
+    grid: { ...g.grid, cols: fit.gridCols ?? across(g.grid.cols), head: down(g.grid.head), lines: down(g.grid.lines) },
   };
 }
 

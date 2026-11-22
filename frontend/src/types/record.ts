@@ -173,6 +173,8 @@ export interface LogSheetData {
    * boxes in the record's order - the format's and the person's own ("extra-…") - a row taken off left out.
    */
   boxRows?: Record<string, string[]>;
+  /** The name boxes a person typed in ("rowId:key", F/QC/11, 12, 17, REQUIREMENTS §278): Submit and Verify leave them as typed. */
+  typedNames?: string[];
 }
 
 /** A record's own wording of its paper's paragraphs, line by line (an empty place keeps the format's line). */

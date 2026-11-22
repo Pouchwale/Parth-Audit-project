@@ -152,6 +152,8 @@ export interface PaperTable {
    * that margin each side (paperTablePrint). On the screen it is drawn as it is.
    */
   fillA4?: true;
+  /** Printed to fill A4, its foot kept 10 mm clear of the page's edge however many rows are added (F/QC/17, §278). */
+  clearFoot?: true;
   /** Each cell rules its own edges (PaperCell.edges), where the paper has lines and words outside its tables (F/QC/25). */
   rules?: "cells";
   /**
@@ -686,6 +688,7 @@ const rulerTable = (first: string, keys: string[], centred: boolean): PaperRow[]
 ];
 
 const RULER: PaperTable = {
+  clearFoot: true,
   page: "portrait",
   left: 34.34,
   top: 19.22,
@@ -1609,7 +1612,7 @@ export function paperTablePrint(form: PaperTable, fill: boolean = !!form.fillA4)
   const width = form.head[0]?.cells.reduce((a, c) => a + c.w, 0) ?? pageW;
   const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
   // An HR paper keeps its margin at the foot of every page too (§277), and each page it draws for itself fits inside them.
-  const room = form.ownWords ? pageH - A4_MARGIN_MM - 10 : pageH - A4_MARGIN_MM - 6;
+  const room = form.clearFoot ? pageH - A4_MARGIN_MM - 13 : form.ownWords ? pageH - A4_MARGIN_MM - 10 : pageH - A4_MARGIN_MM - 6;
   const pages: number[] = [0];
   for (const r of [...form.head, ...form.body, ...form.foot]) {
     if (r.pb) pages.push(0);

@@ -69,6 +69,7 @@ import { GSM_DOC, gsmLineInserted, gsmLinesInOrder, isGsmTestLine } from "../../
 import { followHeader } from "../../engine/headerFollowers";
 import { registerFills } from "../../engine/hrMasterRegisters";
 import { READINGS_TO_CONFIRM, nominalFillAdded, settleScaleLines } from "../../engine/nominalFill";
+import { typedNameMark } from "../../engine/calibrationSigner";
 import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
 import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
@@ -346,6 +347,8 @@ export function LogSheetRecordView({
   const setCell = (rowId: string, key: string, value: string | number | null) =>
     (key === "date" || key === "nextDueDate" ? saveDates : save)({
       ...data,
+      // A name typed in a sign box stays as typed through Submit and Verify (F/QC/11, 12, 17, §278).
+      ...typedNameMark(doc.id, data, rowId, key, value),
       rows: data.rows.map((r) => {
         if (r.id !== rowId) return r;
         // The person's name taken out of a line: what was fetched for them goes with it at once (REQUIREMENTS §268).

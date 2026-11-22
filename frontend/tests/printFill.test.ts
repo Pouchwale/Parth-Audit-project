@@ -175,8 +175,8 @@ test("§228: a QC, HR or Purchase paper drawn short of its page has its lines dr
   assert.match(print, /const fills = paperRowMax === undefined && fillsPage\(doc\);/, "no ruled lines added to a paper, nothing spread");
   assert.match(print, /tr\.cells\.length === 1 && !tr\.textContent\?\.trim\(\)/, "a paper's empty spacer line stays its height");
   const geo = calibrationGeometryFor("qc-gsm-plate-calibration")!;
-  assert.equal(geo.width, 286.86, "F/QC/11 as wide as F/QC/12's sheet");
-  assert.equal(geo.left, 5.07, "centred on A4 landscape");
-  assert.ok(Math.abs(geo.boxes.cols.reduce((a, b) => a + b, 0) - 286.86) < 0.1 && Math.abs(geo.grid.cols.reduce((a, b) => a + b, 0) - geo.gridWidth) < 0.1, "its boxes and grid across the width");
+  assert.equal(geo.width, 277, "F/QC/11 as wide as F/QC/12's sheet, 10 mm clear of each edge (§278)");
+  assert.equal(geo.left, 10, "centred on A4 landscape");
+  assert.ok(Math.abs(geo.boxes.cols.reduce((a, b) => a + b, 0) - 277) < 0.1 && Math.abs(geo.grid.cols.reduce((a, b) => a + b, 0) - geo.gridWidth) < 0.1, "its boxes and grid across the width");
   assert.ok(geo.grid.lines[0] > 11, "its lines taller");
 });

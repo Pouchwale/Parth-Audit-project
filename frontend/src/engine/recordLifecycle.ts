@@ -3,6 +3,7 @@ import { withVisitMonthYear } from "./flyMonthYear";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { validateForSubmit, validateForVerify, ValidationResult } from "./validation";
 import { withSuggestionsConfirmed } from "./rodentCatches";
+import { signedOnSubmit, signedOnVerify } from "./calibrationSigner";
 import { appendHistory, diffRecordData, makeEntry, recordLabel, withEditHistory } from "./recordHistory";
 import { REACTION_EVENT, type ReactionEvent } from "./reactions";
 import { computeReminders } from "./reminders";
@@ -169,14 +170,17 @@ export function submitRecord(
   record: RecordInstance,
   actorName: string
 ): { record: RecordInstance; result: ValidationResult } {
-  const result = validateForSubmit(doc, record);
+  // F/QC/11, 12, 17: the sign boxes in the submitter's name, where DCRS wrote them or they are blank (§278).
+  const signed = signedOnSubmit(record, actorName);
+  const result = validateForSubmit(doc, signed);
   if (!result.valid) return { record, result };
   const now = new Date().toISOString();
   const wasCorrection = record.correction;
+  const nameChanges = signed === record ? [] : diffRecordData(record.data, signed.data);
   const updated: RecordInstance = appendHistory(
     {
-      ...record,
-      data: submittedData(doc, record.data),
+      ...signed,
+      data: submittedData(doc, signed.data),
       status: "Pending Verification",
       submittedBy: actorName,
       submittedAt: now,
@@ -189,7 +193,7 @@ export function submitRecord(
       verifiedAt: undefined,
       correction: undefined,
     },
-    makeEntry("submitted", actorName, { note: wasCorrection ? `Resubmitted after correction: ${wasCorrection.reason}` : undefined, fromStatus: record.status })
+    makeEntry("submitted", actorName, { note: wasCorrection ? `Resubmitted after correction: ${wasCorrection.reason}` : undefined, fromStatus: record.status, ...(nameChanges.length ? { changes: nameChanges } : {}) })
   );
   const stored = recordRepository.upsert(updated);
   // Handed in before and put right since: the scorecard judges a record by when it was
@@ -215,12 +219,15 @@ export function verifyRecord(
   record: RecordInstance,
   actorName: string
 ): { record: RecordInstance; result: ValidationResult } {
-  const result = validateForVerify(doc, record);
+  // F/QC/11, 12: the Sign boxes in the verifier's name; F/QC/17's performer only where it is blank (§278).
+  const signed = signedOnVerify(record, actorName);
+  const result = validateForVerify(doc, signed);
   if (!result.valid) return { record, result };
   const now = new Date().toISOString();
+  const nameChanges = signed === record ? [] : diffRecordData(record.data, signed.data);
   const updated: RecordInstance = appendHistory(
-    { ...record, status: "Verified", verifiedBy: actorName, verifiedAt: now },
-    makeEntry("verified", actorName, { fromStatus: record.status })
+    { ...signed, status: "Verified", verifiedBy: actorName, verifiedAt: now },
+    makeEntry("verified", actorName, { fromStatus: record.status, ...(nameChanges.length ? { changes: nameChanges } : {}) })
   );
   const stored = recordRepository.upsert(updated);
   announce(stored, actorName, () => ({ kind: "verified", what: recordLabel(stored), documentId: stored.documentId, recordId: stored.id }));

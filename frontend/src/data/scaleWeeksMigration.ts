@@ -4,14 +4,14 @@ import { getLogSheetLayoutForRecord } from "./seed/logSheetLayouts";
 import { appendHistory, diffRecordData, historyOf, makeEntry } from "../engine/recordHistory";
 import { mayWriteRecordsOf } from "../engine/departmentScope";
 import { withComputedCells } from "../engine/computedCells";
-import { onStandardWeights } from "../engine/nominalFill";
+import { onStandardWeights, SCALE_WEEKS_NOTE } from "../engine/nominalFill";
 import { newRow } from "../engine/recordLines";
 import { previousNextDue } from "../engine/calibrationWeeks";
 import { SCALE_DOC, unreadScaleLine, weekMonth, withScaleWeeks } from "../engine/scaleWeeks";
 import { generateId } from "../utils/id";
 
 /** What each changed sheet's history says. */
-export const SCALE_WEEKS_NOTE = "A line for each week of the month, four or five, the first from the last sheet's Next Due Date (the owner, 16-Nov-2026, REQUIREMENTS §235)";
+export { SCALE_WEEKS_NOTE };
 
 const OPEN: ReadonlySet<string> = new Set(["Scheduled", "Due", "In Progress", "Rejected"]);
 

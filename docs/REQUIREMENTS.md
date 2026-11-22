@@ -12898,3 +12898,20 @@ The owner, 21-Nov-2026, with F/HR/01's second page, its heading cut at the top: 
   Its pages are measured with the sheet ready to print; a continued page repeats the letterhead down to its number band, then the
   column headings. The page border of the company's paper is drawn on the printed page only, never on the screen.
 - Measured: every document printed to A4 from its fullest record, every page, the nearest word or rule to each edge.
+
+## §278 F/QC/11, 12 and 17: no line cut on a physical A4 print, and the sign columns in the name of who filled or verified (22-Nov-2026)
+
+The owner, 22-Nov-2026: "no line should cut and everything present on page perfectly", and in the sign column "those who have
+logged in or verified that document, their name should come there automatically and it should be editable".
+
+- Print. F/QC/11 and F/QC/12 stood 5 mm from the page's edges, inside the strip many printers cannot print. Both now stand 10 mm
+  clear of all four edges (qcCalibrationGeometry.ts FITTED_TO_A4). The number at the foot follows the sheet, so a month of five weeks
+  never prints it over the PROCEDURE. F/QC/12's values are one size (9 pt), in the middle of their lines, and its Date, Tested By and
+  Sign columns have room for a full date and name. F/QC/17 keeps 12 mm at the sides and at least 10 mm at the foot however many
+  rows are added (PaperTable.clearFoot).
+- Names (engine/calibrationSigner.ts). Submit: a blank box, or a name DCRS wrote on opening, takes the submitter's name. Verify: F/QC/11's
+  Sign. line and F/QC/12's Sign take the verifier's name. F/QC/12's Tested By and F/QC/17's Calibration performed by say who did the
+  work, so a verifier's name goes there only where the box is blank. F/QC/12's weeks not read yet get no name.
+- Editable. A name typed by hand is kept through Submit and Verify (data.typedNames); emptying the box hands it back to DCRS. Every
+  name DCRS changes is in the record's history.
+- Records already Verified are not changed.
