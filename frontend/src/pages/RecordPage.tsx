@@ -66,6 +66,8 @@ import { recordLabel } from "../engine/recordHistory";
 import { documentLayoutIn, documentTextIn, isGujaratiDocument } from "../i18n/documentText";
 import { formatDisplayDate, formatDisplayDateTime, todayISO } from "../utils/date";
 import { waitsUntil } from "../engine/notBeforeDay";
+import { shownOnItsDay } from "../engine/beforeItsDay";
+import { masterRepository } from "../data/repositories/masterRepository";
 import { printDocument } from "../utils/print";
 import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
@@ -664,7 +666,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       {doc.kind === "log-sheet" && (
         <LogSheetRecordView
           doc={doc}
-          record={{ ...record, data: data as LogSheetData }}
+          record={waitsFor ? (shownOnItsDay(doc, record, masterRepository.get()) as RecordInstance<LogSheetData>) : { ...record, data: data as LogSheetData }}
           editable={editable}
           onChange={handleChange}
           header={{ editable, enabled: !superseded, save: saveHeader }}

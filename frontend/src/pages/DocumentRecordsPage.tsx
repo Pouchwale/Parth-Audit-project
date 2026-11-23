@@ -20,6 +20,7 @@ import { newRecordFromButton, noteOnOpen } from "../engine/newRecord";
 import { slotOf } from "../engine/rulerSlots";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 import { createDefaultData } from "../engine/recordDefaults";
+import { shownOnItsDay } from "../engine/beforeItsDay";
 import { routeForRecord } from "../engine/reminders";
 import { hrMasterLinkFor } from "../engine/hrMaster";
 import { LogSheetRecordView } from "../components/records/LogSheetRecordView";
@@ -275,7 +276,8 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
           updatedAt: today,
         }
       : undefined;
-  const preview = shown ?? blank;
+  // (a sheet whose day has not come shows blank, here and in its print and downloads: §299)
+  const preview = shown ? shownOnItsDay(doc, shown, master, today) : blank;
   const next = doc.schedule.type === "as-required" ? null : nextDueDate(doc, today);
   const done = records.filter((r) => DONE.has(r.status)).length;
   // F/QC/17: Serial number in place of Details (the owner, 15-Nov-2026, REQUIREMENTS §220).
@@ -426,7 +428,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
                 )}
                 <RecordLines
                   doc={doc}
-                  records={listed}
+                  records={listed.map((r) => shownOnItsDay(doc, r, master, today))}
                   lang={lang}
                   numbers={numbers}
                   selectedId={shown?.id}

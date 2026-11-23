@@ -13174,3 +13174,10 @@ it is visible properly while entering and this is applicable to all the hr docum
 - The screen only: the paper's layout, its print and its Word and Excel files keep their measures. Pest control records are not touched.
 - Measured on the local copy: all 1,637 boxes that can be written on the 20 HR formats are tall enough (29 were not).
 - Proved: frontend/tests/hrBoxesReadable.test.ts.
+
+## §299 A sheet before its day is shown blank, in every module (23-Nov-2026)
+
+The owner, 23-Nov-2026, with F/QC/11 of 24-11-2026 showing its readings on the 23rd: "no document should come already filled before that date".
+
+- 31 future sheets on the plant held words from before §201 and §289. Until the first day a sheet covers, its list line, page, print and downloads show the blank format (engine/beforeItsDay.ts).
+- What they hold is not deleted, because some was typed by people; it shows on the sheet's day. A sheet covering a month opens on that month's first day (§201).
