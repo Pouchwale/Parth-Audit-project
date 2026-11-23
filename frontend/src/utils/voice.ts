@@ -842,6 +842,8 @@ export interface BriefingFacts {
   ready: number;
   needsInput: number;
   overdue: number;
+  /** Due today and not opened yet: today's work, not late (REQUIREMENTS §289). */
+  dueToday?: number;
   awaiting: number;
   /** The first things to do, by name — two at most are said. */
   top: string[];
@@ -858,6 +860,7 @@ export function briefingLine(f: BriefingFacts, lang: Language): string {
   if (f.ready > 0) parts.push(words(lang, "voice.brief.ready", { n: f.ready }));
   if (f.needsInput > 0) parts.push(words(lang, "voice.brief.needsInput", { n: f.needsInput }));
   if (f.overdue > 0) parts.push(words(lang, "voice.brief.overdue", { n: f.overdue }));
+  if ((f.dueToday ?? 0) > 0) parts.push(words(lang, "voice.brief.dueToday", { n: f.dueToday ?? 0 }));
   if (f.awaiting > 0) parts.push(words(lang, "voice.brief.awaiting", { n: f.awaiting }));
   const list = parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")}${words(lang, "voice.brief.and")}${parts[parts.length - 1]}`;
   const headline = parts.length ? words(lang, "voice.brief.have", { list }) : words(lang, "voice.brief.clear");

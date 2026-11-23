@@ -145,6 +145,9 @@ def main():
             page.locator(".briefing button:has-text('View')").count() >= 1,
             briefing_text[:300],
         )
+        if PREPARED_EXPECTED:
+            # (REQUIREMENTS s293: today's work is never called late)
+            check("Today's records stand under Due today, not Still open from earlier", "Due today (" in briefing_text, briefing_text[:300])
         dismiss_briefing(page)
 
         check("Dashboard heading renders after signup", "Digital Controlled Record System" in page.content())

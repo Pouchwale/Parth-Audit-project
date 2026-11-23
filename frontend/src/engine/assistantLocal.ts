@@ -1376,6 +1376,7 @@ function answerHere(message: string, isDemo: boolean, userName?: string): LocalA
       const ready = b.ready.length + b.needsInput.length;
       if (ready) prepared = ` I've already prepared ${ready} of them — ${b.ready.length} ready for your OK${b.needsInput.length ? `, ${b.needsInput.length} needing a detail only you know` : ""}.`;
       if (b.awaitingVerification.length) prepared += ` ${b.awaitingVerification.length} ${b.awaitingVerification.length === 1 ? "is" : "are"} waiting for a verifier.`;
+      if (b.dueToday.length) prepared += ` ${b.dueToday.length} ${b.dueToday.length === 1 ? "is" : "are"} still to open today.`;
       if (b.overdue.length) prepared += ` ${b.overdue.length} older ${b.overdue.length === 1 ? "record is" : "records are"} overdue.`;
     }
     const dayNote = info.isHoliday ? ` (${info.label} — so nothing is expected today)` : "";
@@ -1395,6 +1396,7 @@ function answerHere(message: string, isDemo: boolean, userName?: string): LocalA
       b.ready.length ? `${b.ready.length} record${b.ready.length === 1 ? "" : "s"} prepared and ready for your OK` : "",
       b.needsInput.length ? `${b.needsInput.length} needing a detail only you know` : "",
       b.awaitingVerification.length ? `${b.awaitingVerification.length} waiting for a verifier` : "",
+      b.dueToday.length ? `${b.dueToday.length} due today` : "",
       b.overdue.length ? `${b.overdue.length} overdue` : "",
     ].filter(Boolean);
     return {
@@ -1445,7 +1447,7 @@ export function buildAssistantContext(isDemo: boolean, userName?: string, messag
   let workload = `Records due today: ${due.length} (${done} submitted or verified, ${due.length - done} still open).`;
   if (!isDemo) {
     const b = computeBriefing(userName);
-    workload += ` Prepared by the assistant and waiting for review: ${b.ready.length + b.needsInput.length}. Awaiting verification: ${b.awaitingVerification.length}. Overdue: ${b.overdue.length}.`;
+    workload += ` Prepared by the assistant and waiting for review: ${b.ready.length + b.needsInput.length}. Awaiting verification: ${b.awaitingVerification.length}. Due today and not opened yet: ${b.dueToday.length}. Overdue from an earlier day: ${b.overdue.length}.`;
   }
   const extra: string[] = [];
   if (message !== undefined) {

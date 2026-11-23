@@ -36,7 +36,7 @@ const MAX_ROWS = 12;
  * detail, then what is ready — and why the work matters (utils/voice.ts).
  */
 function spokenBriefing(b: Briefing, userName: string | undefined, slot: BriefingSlot | "manual", lang: Language, today: string): string {
-  const first = [...b.overdue, ...b.needsInput, ...b.ready];
+  const first = [...b.overdue, ...b.dueToday, ...b.needsInput, ...b.ready];
   const top = first.slice(0, 2).map((i) => i.documentName);
   return briefingLine(
     {
@@ -46,6 +46,7 @@ function spokenBriefing(b: Briefing, userName: string | undefined, slot: Briefin
       ready: b.ready.length,
       needsInput: b.needsInput.length,
       overdue: b.overdue.length,
+      dueToday: b.dueToday.length,
       awaiting: b.awaitingVerification.length,
       top,
       module: first[0] ? documentRepository.getById(first[0].documentId)?.module : undefined,
@@ -191,7 +192,7 @@ export function AssistantBriefingPopup() {
       return next;
     });
 
-  const total = briefing.ready.length + briefing.needsInput.length + briefing.overdue.length + briefing.awaitingVerification.length;
+  const total = briefing.ready.length + briefing.needsInput.length + briefing.overdue.length + briefing.dueToday.length + briefing.awaitingVerification.length;
   const subtitle =
     slot === "evening"
       ? "end of the day — this is what's still waiting on you before you go"
@@ -299,6 +300,15 @@ export function AssistantBriefingPopup() {
                 <ItemRow key={item.recordId} item={item} onView={() => go(item.route)} showErrors />
               ))}
               <More count={briefing.overdue.length - MAX_ROWS} hint="Open the Calendar to see the rest." onMore={() => go("/calendar")} />
+            </Section>
+          )}
+
+          {briefing.dueToday.length > 0 && (
+            <Section icon={<FiClock size={13} />} tone="info" title={`${t("brief.dueTodayTitle")} (${briefing.dueToday.length})`}>
+              {briefing.dueToday.slice(0, MAX_ROWS).map((item) => (
+                <ItemRow key={item.recordId} item={item} onView={() => go(item.route)} showErrors />
+              ))}
+              <More count={briefing.dueToday.length - MAX_ROWS} hint="Open the Calendar to see the rest." onMore={() => go("/calendar")} />
             </Section>
           )}
 

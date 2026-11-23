@@ -13102,3 +13102,15 @@ that tick mark should come and also you can see there is not sufficient space in
   written as a ticked or an empty box (hints.ts formTicks).
 - The Date's value stands clear of the word Date, with a box the size of a date.
 - Proved: frontend/tests/hrPapers.test.ts; clicked, reloaded, printed and downloaded on the local copy; Word and Excel opened.
+
+## §293 The briefing: today's records are "Due today", not "Still open from earlier" (23-Nov-2026)
+
+Since §289 nothing is filled until a person opens it, so on a working morning every record of the day that nobody had opened yet
+stood in the briefing's red section as "Still open from earlier", as if it were late. The owner agreed to have it fixed, 23-Nov-2026.
+
+- A record due today and not opened stands in a section of its own, "Due today" (Gujarati "આજે ભરવાના"), in the calm colour. One sent
+  back today stands there too, with its reason. "Still open from earlier" now holds only records of an earlier day.
+- The headline, the spoken briefing and Mitra's answers about the day say the same. The evening briefing still counts today's work.
+- Lateness, reminders and the scorecard are not changed.
+
+Proved: frontend/tests/briefingDueToday.test.ts; tests/e2e_smoke.py on a working day.

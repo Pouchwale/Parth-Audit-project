@@ -903,6 +903,8 @@ const en = {
   "brief.toEnter": "{n} readings to enter, then submit.",
   "brief.toEnterOne": "1 reading to enter, then submit.",
   "brief.overdue": "{n} still open from earlier",
+  "brief.dueToday": "{n} due today",
+  "brief.dueTodayTitle": "Due today",
   "brief.awaiting": "{n} waiting for verification",
   "brief.allClear": "Everything is up to date — nothing is waiting on you right now.",
   // ---- the theme (REQUIREMENTS §90): the top bar's switch, the sign-in card's, Master Data's card ----
@@ -1768,6 +1770,8 @@ const gu: Record<StringKey, string> = {
   "brief.toEnter": "{n} રીડિંગ ભરો, પછી સબમિટ કરો.",
   "brief.toEnterOne": "1 રીડિંગ ભરો, પછી સબમિટ કરો.",
   "brief.overdue": "{n} અગાઉથી બાકી છે",
+  "brief.dueToday": "{n} આજે ભરવાના છે",
+  "brief.dueTodayTitle": "આજે ભરવાના",
   "brief.awaiting": "{n} ચકાસણીની રાહ જુએ છે",
   "brief.allClear": "બધું અદ્યતન છે — હાલ તમારા પર કંઈ બાકી નથી.",
   // ---- the theme (REQUIREMENTS §90) ----

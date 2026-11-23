@@ -42,7 +42,10 @@ export interface Briefing {
   greeting: string;
   ready: BriefingItem[]; // prepared by the assistant and passes validation — one click to submit
   needsInput: BriefingItem[]; // prepared, but something only a person can add
-  overdue: BriefingItem[]; // pending and past due that the assistant couldn't prepare (e.g. CAPA)
+  overdue: BriefingItem[]; // pending from an EARLIER day
+  // Due today and nobody has opened it yet: nothing is filled until a person opens it (REQUIREMENTS §289), and that is
+  // today's work, never "still open from earlier".
+  dueToday: BriefingItem[];
   awaitingVerification: BriefingItem[];
   upcoming: BriefingItem[];
   renewals: ComplianceRenewal[];
@@ -81,6 +84,7 @@ export function computeBriefing(userName: string | undefined): Briefing {
   const ready: BriefingItem[] = [];
   const needsInput: BriefingItem[] = [];
   const overdue: BriefingItem[] = [];
+  const dueToday: BriefingItem[] = [];
   const awaitingVerification: BriefingItem[] = [];
 
   // WHAT IS THIS PERSON'S (REQUIREMENTS §96): the work of the documents they answer for and may fill, and the records
@@ -109,7 +113,7 @@ export function computeBriefing(userName: string | undefined): Briefing {
       }
       // A closed day (weekly off / festival holiday) is never "overdue work".
       if (["Scheduled", "Due", "In Progress", "Rejected"].includes(r.status) && !isCompanyHoliday(r.dueDate, master)) {
-        overdue.push(toItem(doc, r, r.status === "Rejected" && r.rejectionReason ? [`Rejected: ${r.rejectionReason}`] : []));
+        (r.dueDate === today ? dueToday : overdue).push(toItem(doc, r, r.status === "Rejected" && r.rejectionReason ? [`Rejected: ${r.rejectionReason}`] : []));
       }
     }
   }
@@ -118,6 +122,7 @@ export function computeBriefing(userName: string | undefined): Briefing {
   ready.sort(byDate);
   needsInput.sort(byDate);
   overdue.sort(byDate);
+  dueToday.sort(byDate);
   awaitingVerification.sort(byDate);
 
   const upcoming = computeReminders(false)
@@ -143,6 +148,7 @@ export function computeBriefing(userName: string | undefined): Briefing {
     ready,
     needsInput,
     overdue,
+    dueToday,
     awaitingVerification,
     upcoming,
     renewals,
@@ -154,7 +160,7 @@ export function computeBriefing(userName: string | undefined): Briefing {
 // Anything a person still has to act on today — what the end-of-day
 // briefing checks before deciding whether it's worth interrupting.
 export function pendingCount(b: Briefing): number {
-  return b.ready.length + b.needsInput.length + b.overdue.length;
+  return b.ready.length + b.needsInput.length + b.overdue.length + b.dueToday.length;
 }
 
 // One-click "Submit everything you prepared". Each record is re-validated
@@ -183,6 +189,7 @@ export function briefingHeadline(b: Briefing): string {
   if (b.ready.length) parts.push(t("brief.ready", { n: b.ready.length }));
   if (b.needsInput.length) parts.push(t("brief.needsInput", { n: b.needsInput.length }));
   if (b.overdue.length) parts.push(t("brief.overdue", { n: b.overdue.length }));
+  if (b.dueToday.length) parts.push(t("brief.dueToday", { n: b.dueToday.length }));
   if (b.awaitingVerification.length) parts.push(t("brief.awaiting", { n: b.awaitingVerification.length }));
   if (parts.length === 0) return t("brief.allClear");
   return parts.join(", ") + ".";
