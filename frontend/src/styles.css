@@ -1290,6 +1290,11 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
      themselves, below (REQUIREMENTS §59). */
   margin: 0;
 }
+/* THE PRINT NEEDS NO SETTING IN THE BROWSER'S DIALOG (REQUIREMENTS §297; the owner, 23-Nov-2026, with Chrome's dialog: Background
+   graphics on). A page can neither read nor change that dialog, so every shade, rule and mark is printed whether the box is ticked or not. */
+@media print {
+  *, *::before, *::after { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 @media print {
   .app-sidebar, .app-topbar, .mode-banner, .no-print { display: none !important; }
   /* The margin the page gave up (see @page above). A register and a complaint

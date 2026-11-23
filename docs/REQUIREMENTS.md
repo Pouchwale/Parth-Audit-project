@@ -13149,3 +13149,16 @@ which is due date which is today should come in date of tube light installation 
   tubeLightRollDay): on 23-11-2026 its lines read 23-11-2026 / 22-11-2027, from 22-11-2027 22-11-2027 / 21-11-2028, and so on every year.
   Before the due date nothing changes. A submitted or verified visit keeps the dates it was signed with.
 - Proved: frontend/tests/tubeLightYears.test.ts.
+
+## §297 The print does not depend on the browser's print settings (23-Nov-2026)
+
+The owner, 23-Nov-2026, with Chrome's print dialog (Pages All, 1 page per sheet, Margins Default, Background graphics on): "when user
+click on print original style then it should check user setting and do this setting if not proper".
+
+- A web page can neither read nor change the browser's print dialog. So the sheet no longer needs the setting: every shade, rule and
+  mark prints whether Background graphics is ticked or not (styles.css, print-color-adjust on every element). A4, the orientation and
+  the page margin were already set by the sheet (@page), which is what Margins: Default follows.
+- Measured: every document with a Print on the local copy (126) printed with the box on and off. Before, 13 lost their shading with it
+  off (F/HR/15, 16, F/PUR/05, F/DISP/02, F/SYS/20, the seven F/QC/15, F/QC/30); now the shades and page counts are the same both ways.
+- What stays the person's in the dialog: the printer or Save as PDF, Pages, Pages per sheet, and a margin or scale they change by hand.
+- Proved: frontend/tests/printSettings.test.ts.
