@@ -12,10 +12,10 @@ import { formatEditFor } from "../../data/formatEdits";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { useAppStore } from "../../store/AppStore";
-import { formatDisplayDate } from "../../utils/date";
+import { formatDisplayDate, todayISO } from "../../utils/date";
 import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 import { visitsInMonth } from "../../engine/flyRegister";
-import { flyCountText, flyCountTyped, flyMonthRange, seasonalFlyCount, tubeLightCycle, tubeLightDueFor, withTubeLightsOn } from "../../engine/flyPattern";
+import { flyCountText, flyCountTyped, flyMonthRange, seasonalFlyCount, tubeLightCycle, tubeLightDueFor, tubeLightRollDay, withTubeLightsOn } from "../../engine/flyPattern";
 import { makeRng } from "../../utils/random";
 import type { HistoryEntry } from "../../types";
 import { FHR18_PAPER_CELLS, FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate } from "./FlyCatcherRegisterSheet";
@@ -369,7 +369,7 @@ export function FlyCatcherRecordView({
       const led = first && it !== first ? clearDatesUnderBlankFirst(it.data, first.data) : it.data;
       const down = carryDatesDown(led, items.slice(0, j).flatMap((x) => (x ? [x.data] : [])));
       // The tube light changed on its due date, every year (§253): a visit on or after it carries the next pair.
-      const carried = withTubeLightsOn(down, it.r.dueDate) ?? down;
+      const carried = withTubeLightsOn(down, tubeLightRollDay(it.r.dueDate, todayISO())) ?? down;
       const counted = withAutoCounts(carried, it.r.dueDate) ?? carried;
       // ...and the counts the assistant filled in before §257, for the season now.
       it.data = withSeasonalCounts(counted, it.r.dueDate, it.r.history) ?? counted;

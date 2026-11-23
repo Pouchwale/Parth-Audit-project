@@ -87,6 +87,14 @@ export function tubeLightPairOn(
   return { install, due };
 }
 
+/**
+ * THE DAY A VISIT BEING FILLED ROLLS ITS TUBE LIGHT DATES BY (§296; the owner, 23-Nov-2026: the due date is today, so today's date
+ * goes in the installation box and a year on in the due box). A visit written before its due date passed rolled only by its own
+ * date, so a visit dated 21-11 still showed 24-11-2025 / 23-11-2026 on 23-11-2026. An open visit rolls by the later of its date
+ * and today; a signed visit never comes here.
+ */
+export const tubeLightRollDay = (visitISO: string, todayISO: string): string => (visitISO < todayISO ? todayISO : visitISO);
+
 /** The register's tube-light dates on a visit's day: the stated pair (24-11-2025 / 23-11-2026), a year on for each due date passed (§253). */
 export function tubeLightCycle(visitISO?: string): { installed: string; due: string } {
   if (!visitISO) return { installed: TUBE_LIGHT_INSTALLED, due: TUBE_LIGHT_DUE };

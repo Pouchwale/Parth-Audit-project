@@ -13137,3 +13137,15 @@ The owner, 23-Nov-2026, with F/HR/14's "NAME:Pankajbhai": "name has not space an
   name, Designation), F/HR/22 (Month & Year). Each now starts about 1.7 mm after its label, its right end where it was.
 - F/HR/14's Date box was 8 mm wide, too narrow for a date; it takes the room of its line.
 - F/HR/22's Doc. No., Rev. no. and Date stand on their own three lines again (a paper's letterhead keeps its line breaks).
+
+## §296 F/HR/18: the tube light dates roll by today as well (23-Nov-2026)
+
+The owner, 23-Nov-2026, with a visit showing 24-11-2025 / 23-11-2026 on the day: "the date should automatically change as 23-11-2026
+which is due date which is today should come in date of tube light installation and due date ... next year from today which is
+22-11-2027 ... and it should continue likewise for every year".
+
+- §253 rolled a visit's dates by the visit's own date, so a visit dated before the due date (a draft made ahead) kept the old pair even
+  on the due date itself. A visit that can still be written now rolls by the later of its date and today (engine/flyPattern.ts
+  tubeLightRollDay): on 23-11-2026 its lines read 23-11-2026 / 22-11-2027, from 22-11-2027 22-11-2027 / 21-11-2028, and so on every year.
+  Before the due date nothing changes. A submitted or verified visit keeps the dates it was signed with.
+- Proved: frontend/tests/tubeLightYears.test.ts.

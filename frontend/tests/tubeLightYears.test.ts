@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { tubeLightCycle, tubeLightPairOn, withTubeLightsOn } from "../src/engine/flyPattern";
+import { tubeLightCycle, tubeLightPairOn, tubeLightRollDay, withTubeLightsOn } from "../src/engine/flyPattern";
 
 const ROOT = process.env.DCRS_REPO_ROOT ?? process.cwd();
 const src = (f: string) => readFileSync(path.join(ROOT, "frontend", "src", ...f.split("/")), "utf8");
@@ -17,6 +17,15 @@ test("before the due date the pair stands; on it and after, installed on the due
   assert.deepEqual(tubeLightCycle("2026-12-07"), { installed: "2026-11-23", due: "2027-11-22" });
   assert.deepEqual(tubeLightCycle("2027-11-22"), { installed: "2027-11-22", due: "2028-11-21" }, "and again every year");
   assert.deepEqual(tubeLightCycle("2029-01-01"), { installed: "2028-11-21", due: "2029-11-20" });
+});
+
+test("§296: a visit being filled rolls by the later of its date and today, so a visit dated before the due date still shows today's pair on the day", () => {
+  assert.equal(tubeLightRollDay("2026-11-21", "2026-11-23"), "2026-11-23");
+  assert.equal(tubeLightRollDay("2026-12-07", "2026-11-23"), "2026-12-07");
+  assert.deepEqual(tubeLightCycle(tubeLightRollDay("2026-11-21", "2026-11-23")), { installed: "2026-11-23", due: "2027-11-22" });
+  assert.deepEqual(tubeLightCycle(tubeLightRollDay("2026-11-21", "2027-11-22")), { installed: "2027-11-22", due: "2028-11-21" }, "and the year after");
+  assert.deepEqual(tubeLightCycle(tubeLightRollDay("2026-11-21", "2026-11-22")), { installed: "2025-11-24", due: "2026-11-23" }, "not before the due date");
+  assert.ok(/tubeLightRollDay\(it\.r\.dueDate, todayISO\(\)\)/.test(src("components/records/FlyCatcherRecordView.tsx")), "the open visit uses it");
 });
 
 test("a date typed by hand rolls on the same way; a visit before it is left alone", () => {
@@ -35,7 +44,7 @@ test("every place a visit gets its tube light dates moves them on: a new visit, 
   assert.match(src("engine/autoFill.ts"), /tubeLightPairOn\(prev\?\.tubeLightInstallDate \?\? cycle\.installed/);
   assert.match(src("engine/knownParts.ts"), /tubeLightPairOn\(p\?\.tubeLightInstallDate \|\| e\.tubeLightInstallDate/);
   assert.match(src("engine/flyRegister.ts"), /tubeLightPairOn\(p\.tubeLightInstallDate \|\| e\.tubeLightInstallDate/);
-  assert.match(src("components/records/FlyCatcherRecordView.tsx"), /const carried = withTubeLightsOn\(down, it\.r\.dueDate\) \?\? down;/);
+  assert.match(src("components/records/FlyCatcherRecordView.tsx"), /const carried = withTubeLightsOn\(down, tubeLightRollDay\(it\.r\.dueDate, todayISO\(\)\)\) \?\? down;/);
   assert.match(src("engine/tubeLightMigration.ts"), /tubeLightPairOn\(fixedInstall, fixedDue, r\.dueDate\)/);
   assert.ok(!/TUBE_LIGHT_INSTALLED|TUBE_LIGHT_DUE/.test(src("components/records/FlyCatcherRegisterSheet.tsx")), "the register's blanks follow the visit's day");
 });
