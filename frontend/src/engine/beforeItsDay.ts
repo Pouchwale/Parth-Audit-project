@@ -9,8 +9,11 @@ import { todayISO } from "../utils/date";
 // some of them: until the first day the sheet covers, the screen, the print and the downloads show its blank format, and on
 // that day it shows what it holds.
 
+// F/MNT/02 is a machine's card for the whole year, dated at its end and already holding this year's past services: it stays shown.
+const YEAR_CARDS = new Set(["mnt-pm-record"]);
+
 /** The record as it may be shown today: a live sheet whose day has not come carries its blank format. */
 export function shownOnItsDay<T extends RecordInstance>(doc: DocumentDefinition, record: T, master: MasterData, today: string = todayISO()): T {
-  if (doc.kind !== "log-sheet" || waitsUntil(doc, record, today) === null) return record;
+  if (doc.kind !== "log-sheet" || YEAR_CARDS.has(doc.id) || waitsUntil(doc, record, today) === null) return record;
   return { ...record, data: createDefaultData(doc, record.dueDate, master) };
 }

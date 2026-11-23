@@ -147,7 +147,7 @@ function RecordLines({
           <td className="text-sm" translate="no">
             {describeRecord(doc, r, lang, numbers) || <span className="text-faint">—</span>}
           </td>
-          <td className="text-sm">{linesFilled(doc, r)}</td>
+          <td className="text-sm">{linesFilled(doc, shownOnItsDay(doc, r, masterRepository.get()))}</td>
           <td>
             <StatusBadge status={r.status} />
             {r.isDemo && <DemoTag />}
@@ -428,7 +428,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
                 )}
                 <RecordLines
                   doc={doc}
-                  records={listed.map((r) => shownOnItsDay(doc, r, master, today))}
+                  records={listed}
                   lang={lang}
                   numbers={numbers}
                   selectedId={shown?.id}
