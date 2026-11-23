@@ -52,7 +52,7 @@ def next_working_day(d):
 
 def display_date(iso):
     """Mirrors the app's formatDisplayDate (utils/date.ts): DD-MM-YY, in numbers (24-10-2026)."""
-    return date.fromisoformat(iso).strftime("%d-%m-%y")
+    return date.fromisoformat(iso).strftime("%d-%m-%Y")
 
 
 def dismiss_briefing(page):
@@ -137,13 +137,13 @@ def main():
             pass
         page.wait_for_timeout(300)
         check("Assistant briefing popup greets the user on login", "Good morning" in page.content() or "Good afternoon" in page.content() or "Good evening" in page.content())
-        # REQUIREMENTS s98 (8-Oct-2026): the assistant prepares only the known parts of a Live record, so on a
-        # working day the day's records arrive needing the readings, and the briefing says how many wait. On a
-        # closed day the pest register arrives marked as a holiday, ready for the OK.
-        briefing_text = page.content()
+        # REQUIREMENTS s289 (22-Nov-2026): nothing is filled until a person opens it, F/QC/12 apart, so the briefing lists
+        # the day's records as work waiting; what a record's known parts are is written when it is opened.
+        briefing_text = page.locator(".briefing").first.inner_text() if page.locator(".briefing").count() else ""
         check(
-            "Briefing lists the records the assistant prepared, and the readings that wait for a person",
-            ("readings to enter, then submit" in briefing_text or "reading to enter, then submit" in briefing_text) if PREPARED_EXPECTED else ("ready for your OK" in briefing_text or "to enter, then submit" in briefing_text),
+            "Briefing lists the records waiting for a person",
+            page.locator(".briefing button:has-text('View')").count() >= 1,
+            briefing_text[:300],
         )
         dismiss_briefing(page)
 
@@ -200,7 +200,13 @@ def main():
 
         if opened_record:
             check("Record page shows checkpoint table", page.locator(".doc-table").count() > 0)
-            check("Daily record was pre-filled by the assistant", "Your assistant has filled this in" in page.content() or not PREPARED_EXPECTED)
+            # The owner, 15-Nov-2026 (REQUIREMENTS s218): the assistant still prepares the record, and no message says so on the page.
+            daily = page.evaluate(
+                "(id) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find((r) => r.id === id) || null",
+                page.url.split("/record/")[-1].split("?")[0],
+            ) or {}
+            check("Daily record was prepared by the assistant", (daily.get("prepared") or {}).get("by") == "assistant" or not PREPARED_EXPECTED, daily.get("prepared"))
+            check("...with no 'Your assistant has filled this in' message on the page (s218)", "Your assistant has filled this in" not in page.content())
             # Fill all checkpoint selects
             selects = page.locator("table select.input")
             count = selects.count()
@@ -248,7 +254,13 @@ def main():
             check("Log sheet was pre-filled with 23 hourly rows", page.locator("[data-print-doc] tbody tr:has([data-bind])").count() == 23)
             # REQUIREMENTS s98: the prepare writes the 23 time slots, never a reading or who tested it. The banner
             # says so, and the person enters each reading and signs it, as on the paper, before it can be submitted.
-            check("Prepared banner says the slots are there and the readings are the person's", "23 time slots are on the sheet" in page.content() or not PREPARED_EXPECTED)
+            # (the message on the page is gone since s218: what was prepared stands in the record's notes and history)
+            viscosity = page.evaluate(
+                "(id) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find((r) => r.id === id) || null",
+                page.url.split("/record/")[-1].split("?")[0],
+            ) or {}
+            notes = (viscosity.get("prepared") or {}).get("notes") or []
+            check("The record's notes say the slots are there and the readings are the person's", any("23 time slots are on the sheet" in n for n in notes) or not PREPARED_EXPECTED, notes)
             if PREPARED_EXPECTED:
                 readings = page.locator("[data-bind$='/viscosity']")
                 testers = page.locator("[data-bind$='/testedBy']")
@@ -349,10 +361,9 @@ def main():
         # non-zero digital total with per-location detail.
         # (href selector: the sidebar's "Service Reports" sub-heading also
         # contains the word "Reports", so a text= selector would hit it first.)
-        page.click("a[href='#/reports']")
-        page.wait_for_timeout(300)
-        page.click(".pill-tab:has-text('Rodent Catch Trend')")
-        page.wait_for_timeout(400)
+        # (a trend is read on its own page of the Trend Analysis menu since REQUIREMENTS s195, no longer a tab of Reports)
+        page.goto(f"{BASE}/index.html#/pest/trend/rodent")
+        page.wait_for_timeout(900)
         # inner_text honours the table-header text-transform (uppercase), so
         # compare case-insensitively.
         rodent_report = page.locator(".app-content").inner_text().lower()
@@ -368,11 +379,12 @@ def main():
             )
 
         check(
-            "Rodent report is in the company's format: its title, one row per year from 2024, and the bar chart JAN-DEC + Total",
+            "Rodent report is in the company's format: its title, one row per year from 2024, and a bar a month for each year",
             "RODENT CATCH REPORT AND TREND ANALYSIS" in page.locator(".trend-head").first.inner_text()
             and all(page.locator(f".trend-table tbody tr[data-year='{y}']").count() == 1 for y in (2024, 2025, date.today().year))
-            and page.locator(".trend-chart .bar").count() == 13
-            and "Number or Quantity Trapped" in page.locator(".trend-chart").first.inner_text(),
+            and page.locator(".trend-chart .bar").count() == 12 * page.locator(".trend-table tbody tr[data-year]").count()
+            and "Number or Quantity Trapped" in page.locator(".trend-chart").first.text_content(),
+            (page.locator(".trend-chart .bar").count(), page.locator(".trend-table tbody tr[data-year]").count()),
         )
         r2025 = trend_row(2025)
         # cells: source, unit, target pest, year, JAN..DEC (index 4..15), Total (16)
@@ -449,7 +461,8 @@ def main():
         # The fly catcher counts follow the seasonal per-unit pattern from the
         # same tool, so the Fly Catcher Infestation trend over the demo year
         # must add up to something (and list every unit in the company layout).
-        page.click(".pill-tab:has-text('Fly Catcher Infestation')")
+        page.goto(f"{BASE}/index.html#/pest/trend/fly-catcher")
+        page.wait_for_timeout(500)
         page.wait_for_timeout(400)
         fly_report = page.locator(".app-content").inner_text().lower()
         fly_total = re.search(r"(\d+) flies caught in", fly_report)
@@ -491,16 +504,18 @@ def main():
                     sum(rainy) / len(rainy) > sum(summer) / len(summer),
                 )
         check(
-            "Fly trend uses the same company format (title and the JAN-DEC + Total chart)",
-            "FLIES CATCH REPORT AND TREND ANALYSIS" in page.locator(".trend-head").first.inner_text() and page.locator(".trend-chart .bar").count() == 13,
+            "Fly trend uses the same company format (its title and a bar a month for each year)",
+            "FLIES CATCH REPORT AND TREND ANALYSIS" in page.locator(".trend-head").first.inner_text()
+            and page.locator(".trend-chart .bar").count() == 12 * page.locator(".trend-table tbody tr[data-year]").count(),
+            (page.locator(".trend-chart .bar").count(), page.locator(".trend-table tbody tr[data-year]").count()),
         )
 
         # The F/HR/18 register in the company's own two-page format, filled
         # from last month's two demo visits ("Fly catcher reports .pdf").
         if date.today().month > 1:
-            page.goto(f"{BASE}/index.html#/pest/trend/fly-catcher")
-            page.wait_for_timeout(500)
-            page.locator(".app-content select").nth(1).select_option(str(date.today().month - 2))
+            page.goto(f"{BASE}/index.html#/pest/fly-catcher")
+            page.wait_for_timeout(700)
+            page.locator("[data-field='records-month']").select_option(str(date.today().month - 2))
             page.wait_for_timeout(500)
             pc01 = page.evaluate(
                 "() => Array.from(document.querySelectorAll('tbody.fhr18-unit[data-pc=\"PC-01\"] tr'))"
@@ -508,16 +523,18 @@ def main():
             )
             first, second = (pc01 + [[], []])[:2]
             check(
-                "F/HR/18 register is filled from the visit records, written as the specimen writes it (d/mm/yy, two-digit counts)",
+                "F/HR/18 register is filled from the visit records (dd-mm-yyyy, two-digit counts)",
                 len(first) == 7
-                and re.fullmatch(r"\d{1,2}/\d{2}/\d{2}", first[1]) is not None
+                and re.fullmatch(r"\d{2}-\d{2}-\d{4}", first[1]) is not None
                 and re.fullmatch(r"\d{2}", first[2]) is not None
                 and first[5] == "Vijay"
                 and first[6] == "Roshni",
+                first,
             )
             check(
-                "Tube-light dates are the register's own fixed pair (installed 24/11/25, due 23/11/26), with ditto marks on the line below",
-                len(first) == 7 and first[3] == "24/11/25" and first[4] == "23/11/26" and len(second) == 6 and second[2] == '"' and second[3] == '"',
+                "Tube-light dates are the register's own fixed pair (installed 24-11-2025, due 23-11-2026), with ditto marks on the line below (its one Verified By merged down, s256)",
+                len(first) == 7 and first[3] == "24-11-2025" and first[4] == "23-11-2026" and len(second) == 5 and second[2] == '"' and second[3] == '"',
+                (first, second),
             )
 
         # The same formats beside the services they belong to.
@@ -539,11 +556,14 @@ def main():
         # 2026, February in 2027, ...), so: the demo year's visits exist, none
         # is dated a Thursday, and some of them are NOT on the 4th/18th.
         page.goto(f"{BASE}/index.html#/pest/service/rodent/{date.today().year}")
-        page.wait_for_timeout(400)
-        svc_dates = [datetime.strptime(m, "%d-%m-%y").date() for m in re.findall(r"(?<![\d-])\d{2}-\d{2}-\d{2}(?![\d-])", page.locator("table[data-table='visits'] tbody").inner_text())]
+        page.wait_for_timeout(600)
+        page.locator("[data-field='records-month']").select_option("all")
+        page.wait_for_timeout(500)
+        svc_dates = [datetime.strptime(m, "%d-%m-%Y").date() for m in re.findall(r"(?<![\d-])\d{2}-\d{2}-\d{4}(?![\d-])", page.locator("table[data-table='visits'] tbody").inner_text())]
         check(
-            "Demo service visits never sit on the Thursday weekly off — a visit scheduled on a Thursday is dated the next working day",
-            len(svc_dates) >= 4 and all(d.weekday() != 3 for d in svc_dates) and any(d.day not in (4, 18) for d in svc_dates),
+            "Demo service visits never sit on the Thursday weekly off, and stand on their Saturdays (s221)",
+            len(svc_dates) >= 4 and all(d.weekday() != 3 for d in svc_dates) and any(d.weekday() == 5 for d in svc_dates),
+            svc_dates[:8],
         )
 
         # switch back to live and confirm demo doesn't leak
@@ -578,9 +598,9 @@ def main():
         # ---- 7b. CAPA External: the assistant walks a new complaint through A→E, then approval ----
         page.click("a:has-text('External — Customer Complaints')")
         page.wait_for_timeout(300)
-        check("CAPA External list shows the F/MKT/05 checklist", "F/MKT/05" in page.content())
         page.click("button:has-text('New Complaint')")
         page.wait_for_timeout(700)
+        check("New Complaint opens the F/MKT/05 checklist", "F/MKT/05" in page.content(), page.url)
         # Mitra waits to be asked (REQUIREMENTS s123): shut, its pill names the new complaint; one click starts the walk-through.
         pill = page.locator(".assistant-pill")
         pill_title = pill.first.get_attribute("title") if pill.count() else ""
@@ -822,11 +842,12 @@ def main():
         )
         check("Register carries the format's own instruction wording (Yes / No, except point no. 7)", "except point no. 7" in page.locator(".register-instructions").inner_text())
         check("Register page 3 carries the Summary of Actions Taken if Pest Observed", page.locator(".register-summary-title").count() == 1)
-        page.click("a:has-text('Fly Catcher Infestation')")
-        page.wait_for_timeout(300)
+        # (the register has its own link and page since REQUIREMENTS s222; Fly Catcher Infestation is the trend alone)
+        page.click("a[href='#/pest/fly-catcher']")
+        page.wait_for_timeout(500)
         check(
-            "Fly Catcher Infestation opens on the F/HR/18 register in the company's two-page format (Live)",
-            "#/pest/trend/fly-catcher" in page.url
+            "Fly Catcher Inspection & Cleaning opens on the F/HR/18 register in the company's two-page format (Live)",
+            "#/pest/fly-catcher" in page.url
             and page.locator(".fhr18-sheet .register-page").count() == 2
             and page.locator("tbody.fhr18-unit").count() == 13
             and page.locator(".fhr18-legend").first.locator("tr").count() == 7
@@ -838,9 +859,9 @@ def main():
             [t.strip() for t in page.locator(".fhr18-grid").first.locator("thead th").all_inner_texts()]
             == ["PC ID NO.", "DATE OF SERVICE", "FLIES CATCH COUNT APPROX.", "DATE OF TUBE LIGHT INSTALLATION", "DUE DATE FOR TUBE LIGHT REPLACEMENT", "CLEANING DONE BY", "VERIFIED BY"],
         )
-        page.click(".pill-tab[data-view='trend']")
-        page.wait_for_timeout(300)
-        check("Its trend view still lists every unit PC-01..PC-13 (Live)", page.locator("table.fly-units tbody tr").count() == 13)
+        page.click("a[href='#/pest/trend/fly-catcher']")
+        page.wait_for_timeout(500)
+        check("Its trend page still lists every unit PC-01..PC-13 (Live)", page.locator("table.fly-units tbody tr").count() == 13)
         page.click("a[href='#/pest-control']")
         page.wait_for_timeout(300)
         overview = page.locator(".app-content").inner_text()
@@ -928,7 +949,7 @@ def main():
 
         # ---- 13b. Back from the Record Calendar (REQUIREMENTS s48) ----
         # Back returns to the page the calendar was opened from; a day opened
-        # from the calendar and "Back to Calendar" is a real step back, so the
+        # from the calendar and Back is a real step back, so the
         # calendar's Back still leads to where you were before it; and opened
         # straight from its address, Back goes to the Dashboard rather than out
         # of the app.
@@ -946,9 +967,10 @@ def main():
         page.wait_for_timeout(500)
         page.locator(".calendar-cell.today").click()
         page.wait_for_timeout(500)
-        page.click("button:has-text('Back to Calendar')")
+        # (one Back button on every page since REQUIREMENTS s207, the one in the top bar)
+        page.locator("button[data-action='back']").click()
         page.wait_for_timeout(500)
-        check("Back to Calendar from a day returns to the calendar", "#/calendar" in page.url and page.locator(".calendar-cell.today").count() == 1)
+        check("Back from a day returns to the calendar", "#/calendar" in page.url and page.locator(".calendar-cell.today").count() == 1, page.url)
         page.locator("button[data-action='back']").click()
         page.wait_for_timeout(500)
         check("...and the calendar's Back then leads to where the calendar was opened from, not the day", page.url.endswith("#/library"))
