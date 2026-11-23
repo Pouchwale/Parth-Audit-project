@@ -40,6 +40,7 @@ import { recordRepository } from "../src/data/repositories/recordRepository";
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { entriesWaiting, prepareKnownParts, PREPARED_NOTE } from "../src/engine/knownParts";
+import { tubeLightPairOn } from "../src/engine/flyPattern";
 import { latestConfirmedRecord, prepareDueRecords } from "../src/engine/assistantPrepare";
 import { SHARP_FILL_NOTE, SHARP_TOOL_DOCS } from "../src/engine/sharpTools";
 import { sampleFillRecord } from "../src/engine/sampleFill";
@@ -358,7 +359,11 @@ test("what is known IS written: the date, the fixed rows, the standing values ca
   const flyPrior = confirmedBefore(fly, workDay) as RecordInstance<FlyCatcherData>;
   const units = prepareKnownParts(fly, workDay, master, flyPrior)!.data as FlyCatcherData;
   assert.equal(units.entries.length, master.pcLocations.length);
-  for (const e of units.entries) assert.equal(e.tubeLightDueDate, flyPrior.data.entries.find((p) => p.pcId === e.pcId)?.tubeLightDueDate);
+  // (a year on once the sheet's day reaches the due date, §253: this test runs on whatever day it is, 23-11-2026 included)
+  for (const e of units.entries) {
+    const p = flyPrior.data.entries.find((x) => x.pcId === e.pcId);
+    assert.equal(e.tubeLightDueDate, p?.tubeLightInstallDate ? tubeLightPairOn(p.tubeLightInstallDate, p.tubeLightDueDate, workDay).due : p?.tubeLightDueDate);
+  }
   // A yearly list: the people, never their assessment.
   const skills = byId("hr-skill-matrix");
   const skillsPrior = confirmedBefore(skills, workDay) as RecordInstance<LogSheetData>;
