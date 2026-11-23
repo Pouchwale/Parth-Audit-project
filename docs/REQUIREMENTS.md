@@ -13127,3 +13127,13 @@ in any document ... applicable to all fields ... for HR module except Pest contr
 - Measured on the local copy, every written value of all 20 HR formats (pest control left out): in print layout none off the middle,
   in the Word and Excel downloads none off the middle; the Word files open in Word.
 - Proved: frontend/tests/hrValuesCentred.test.ts.
+
+## §295 HR papers: a clear space between every label and what is written beside it (22/23-Nov-2026)
+
+The owner, 23-Nov-2026, with F/HR/14's "NAME:Pankajbhai": "name has not space and like wise in many documents".
+
+- Every label-and-box on the 20 HR formats was measured on the screen and in print. Thirteen boxes stood on or against their label:
+  F/HR/07 (Signature, Date), F/HR/11 (HOD's comments), F/HR/14 (Name, Designation, Company, Purpose, Date), F/HR/20 (Date, Employee
+  name, Designation), F/HR/22 (Month & Year). Each now starts about 1.7 mm after its label, its right end where it was.
+- F/HR/14's Date box was 8 mm wide, too narrow for a date; it takes the room of its line.
+- F/HR/22's Doc. No., Rev. no. and Date stand on their own three lines again (a paper's letterhead keeps its line breaks).

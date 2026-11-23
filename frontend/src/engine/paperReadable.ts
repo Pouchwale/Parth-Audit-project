@@ -384,7 +384,8 @@ function flatWords(form: PaperTable): PaperTable {
   // (a question with its answer box inside it keeps its line break: the box stands on that second line, §286)
   const cell = (c: PaperCell): PaperCell => (c.t?.includes("\n") && !c.ul && !c.over?.length ? { ...c, t: c.t.replace(/\s*\n\s*/g, " ") } : c);
   const row = (r: PaperRow): PaperRow => ({ ...r, cells: r.cells.map(cell) });
-  return { ...form, head: form.head.map(row), body: form.body.map(row), foot: form.foot.map(row) };
+  // (the letterhead's lines are the paper's own: F/HR/22's Doc. No., Rev. no. and Date each stand on a line of their own, §295)
+  return { ...form, body: form.body.map(row), foot: form.foot.map(row) };
 }
 
 /**
