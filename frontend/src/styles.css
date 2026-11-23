@@ -4546,6 +4546,8 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
   .paper-sheet[data-paper-own][data-paper-read] .pt-table td.pt-c:has(> :is(.field-in-table, .pt-box) > .print-box-text) { vertical-align: middle; padding-top: 0; }
   .paper-sheet[data-paper-own] .pt-table textarea.print-as-text + .print-box-text { white-space: pre-wrap; overflow-wrap: break-word; }
   .paper-sheet[data-paper-own] .pt-table td.pt-c > .field-in-table.pt-lines > textarea.input.print-as-text { display: none; }
+  /* A typed answer standing inside the paper's words prints whole: its box is as tall as its letters, on the middle of its place (F/HR/04's 2.3 mm box cut the tails of p, g and y). */
+  .paper-sheet[data-paper-own] .pt-table .pt-over:not(.pt-over-rule):not(.pt-over-checks) > :is(.field-in-table, .pt-box) > input.input:not(.print-as-text) { inset: 50% 0 auto 0; height: calc(1.3em + 4px); line-height: 1.3em; transform: translateY(-50%); overflow: visible; }
 }
 @media screen and (min-width: 1000px) {
   .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table { overflow-x: visible; }

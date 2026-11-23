@@ -13181,3 +13181,13 @@ The owner, 23-Nov-2026, with F/QC/11 of 24-11-2026 showing its readings on the 2
 
 - 31 future sheets on the plant held words from before §201 and §289. Until the first day a sheet covers, its list line, page, print and downloads show the blank format (engine/beforeItsDay.ts).
 - What they hold is not deleted, because some was typed by people; it shows on the sheet's day. A sheet covering a month opens on that month's first day (§201).
+
+## §300 F/HR/04: nothing cut on the print, the paper's spacing and ruled grid back (23-Nov-2026)
+
+The owner, 23-Nov-2026, with the Pre-Employment Medical Health Declaration's Signature and Date cut by the box's bottom line: "the spacing and word are not present properly".
+
+- Signature and Date stand clear inside the declaration's box. The letterhead has its own spacing and one rule under the title.
+- Question 06 is ruled row by row as on the paper, each two-line label wrapping in its own cell.
+- Every question's answer has the whole second line, as 02 and 03 already had. A short space beside the words made a written answer run over the next question.
+- A typed answer inside an HR paper's words prints with the tails of p, g and y whole (styles.css).
+- The paper's wording is unchanged.
