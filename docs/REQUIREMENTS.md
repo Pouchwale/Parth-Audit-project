@@ -13162,3 +13162,15 @@ click on print original style then it should check user setting and do this sett
   off (F/HR/15, 16, F/PUR/05, F/DISP/02, F/SYS/20, the seven F/QC/15, F/QC/30); now the shades and page counts are the same both ways.
 - What stays the person's in the dialog: the printer or Save as PDF, Pages, Pages per sheet, and a margin or scale they change by hand.
 - Proved: frontend/tests/printSettings.test.ts.
+
+## §298 Every box on an HR paper is tall enough to read while it is filled in (23-Nov-2026)
+
+The owner, 23-Nov-2026, with F/HR/04's Name: "See how small this name field is ... if user enter name or system enter name then atleast
+it is visible properly while entering and this is applicable to all the hr document except pest control records".
+
+- The paper's own blanks are about 3 mm high, less than a line of letters: F/HR/04's Name was 11 px high for 10.7 px letters. On the
+  screen every box of an HR paper now stands at least a line and a half high, on its centre and inside its cell; a box on a ruled blank
+  grows up from its rule. On F/HR/04 the Name box fills its row.
+- The screen only: the paper's layout, its print and its Word and Excel files keep their measures. Pest control records are not touched.
+- Measured on the local copy: all 1,637 boxes that can be written on the 20 HR formats are tall enough (29 were not).
+- Proved: frontend/tests/hrBoxesReadable.test.ts.
