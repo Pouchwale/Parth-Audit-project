@@ -97,13 +97,16 @@ function markEmptyBoxes(docs: Element[]): Element[] {
 /** The class of a written date or time box while its words print in its place, and of those words. */
 export const PRINTED_AS_TEXT = "print-as-text";
 export const PRINT_BOX_TEXT = "print-box-text";
-const WRITTEN_BOXES = "input[type='date'], input[type='time']";
+// (and a written box of several lines on an HR paper: a textarea's words cannot stand in the middle of its height, §294)
+const WRITTEN_BOXES = "input[type='date'], input[type='time'], .paper-sheet[data-paper-own] .pt-table :is(td.pt-c, .pt-over) > :is(.field-in-table, .pt-box) > textarea";
 /** A box that prints its own words beside it (components/records/FormField.tsx): given no second copy (REQUIREMENTS §183). */
 const OWN_PRINTED_WORDS = "caf-screen-only";
 
 /** What a written date or time box prints: the date as the sheet writes dates, the time as written. */
 export function printedBoxText(type: string, value: string): string {
   if (type === "date" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDisplayDate(value);
+  // (the blank lines some papers' values were written with, to push them down their cell, are not words: §294)
+  if (type === "textarea") return value.trim();
   return value;
 }
 

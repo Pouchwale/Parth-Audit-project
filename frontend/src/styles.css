@@ -4519,6 +4519,15 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
 @media print {
   .paper-sheet[data-paper-read] .pt-table td.pt-c > :is(.field-in-table, .pt-box):has(> .print-box-text) { position: static; }
   .paper-sheet[data-paper-read] .pt-table td.pt-c > :is(.field-in-table, .pt-box) > .print-box-text { position: static; display: block; padding: 0.3mm calc(0.5 * var(--u)) 0.3mm calc(var(--pt-x) * var(--u)); line-height: 1.12; overflow-wrap: break-word; }
+  /* EVERY VALUE ON AN HR PAPER PRINTS IN THE MIDDLE OF ITS CELL'S HEIGHT (§294; the owner, 23-Nov-2026, F/HR/05's Date of Joining standing at
+     the top of its box: "this applicable to all fields"). A date or a written box prints as words in its place, and those stood at the top. */
+  .paper-sheet[data-paper-own]:not([data-paper-read]) .pt-table td.pt-c > :is(.field-in-table, .pt-box):has(> .print-box-text) { display: flex; flex-direction: column; justify-content: safe center; padding-top: 0; padding-bottom: 0; }
+  .paper-sheet[data-paper-own] .pt-table .pt-over > :is(.field-in-table, .pt-box):has(> .print-box-text) { display: flex; flex-direction: column; justify-content: center; }
+  .paper-sheet[data-paper-own]:not([data-paper-read]) .pt-table td.pt-c > :is(.field-in-table, .pt-box) > .print-box-text,
+  .paper-sheet[data-paper-own] .pt-table .pt-over > :is(.field-in-table, .pt-box) > .print-box-text { position: static; display: block; flex: none; width: 100%; box-sizing: border-box; padding-top: 0; padding-bottom: 0; color: #000; font: inherit; text-align: inherit; }
+  .paper-sheet[data-paper-own][data-paper-read] .pt-table td.pt-c:has(> :is(.field-in-table, .pt-box) > .print-box-text) { vertical-align: middle; padding-top: 0; }
+  .paper-sheet[data-paper-own] .pt-table textarea.print-as-text + .print-box-text { white-space: pre-wrap; overflow-wrap: break-word; }
+  .paper-sheet[data-paper-own] .pt-table td.pt-c > .field-in-table.pt-lines > textarea.input.print-as-text { display: none; }
 }
 @media screen and (min-width: 1000px) {
   .paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .doc-table { overflow-x: visible; }

@@ -19,7 +19,7 @@ import type { Cell, ExportBlock } from "../documentExport";
 import { wordText } from "../../engine/roundTrip/readFile";
 import { ENVELOPE_PROPERTY, ExportMapBuilder, MAP_XML_NAMESPACE, envelopePropertyValue, mapJson, rowSignature, type ExportBinding, type ExportSegment, type ExportTableBinding, type RoundTripEnvelope } from "../../engine/roundTrip/exportMap";
 import { Pkg, setCustomProperty } from "./pkg";
-import { el, kid, kids, all, clone, insertAfter, parents, removeChild, type XmlElement, type XmlNode } from "./xml";
+import { el, kid, kids, all, clone, insertAfter, parents, removeChild, setAttr, type XmlElement, type XmlNode } from "./xml";
 import { modelOf, bandValue, labelsOf, numberedGroups, withPaperWords, type DcrsModel, type ModelField, type ModelGrid } from "./model";
 import { COMPANY_RE, FORMAT_NO_RE, afterLabel, bandWordOf, headingPrefix, isBlankish, isSerialHeading, norm, numberPrinted, same, similarity } from "./text";
 import { bandEdit, choiceWords, labelInside, replaceFormat } from "./xlsxFill";
@@ -309,8 +309,23 @@ function clearCell(c: TCell): boolean {
   return had;
 }
 
+/** The cells a value was written into (an HR paper's stand in the middle of their height, §294). */
+const writtenCells = new WeakSet<XmlElement>();
+
+function centreCell(tc: XmlElement): void {
+  let pr = kid(tc, "tcPr");
+  if (!pr) {
+    pr = el("w:tcPr");
+    tc.children.unshift(pr);
+  }
+  const set = kid(pr, "vAlign");
+  if (set) setAttr(set, "w:val", "center");
+  else putInOrder(pr, el("w:vAlign", { "w:val": "center" }), ["hideMark", "headers", "cellIns", "cellDel", "cellMerge", "tcPrChange"]);
+}
+
 /** The value into a cell: its first paragraph, in the paper's font for that cell. */
 function writeCell(c: TCell, cell: Cell, controls: Controls, fallbackLabel?: string): void {
+  writtenCells.add(c.tc);
   let p = kids(c.tc, "p")[0];
   if (!p) {
     p = el("w:p");
@@ -343,6 +358,8 @@ export interface DocxFillOptions {
   envelope?: RoundTripEnvelope;
   hints?: FillHints;
   company: string;
+  /** Every value written stands in the middle of its cell's height (an HR paper, §294). */
+  centreValues?: boolean;
 }
 
 export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opts: DocxFillOptions): Promise<{ bytes: Uint8Array<ArrayBuffer>; report: FillReport }> {
@@ -908,6 +925,7 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     rels.children.push(el("Relationship", { Id: Pkg.freeRelId(rels), Type: `${R_NS}/customXml`, Target: `../customXml/item${n}.xml` }));
     setCustomProperty(pkg, ENVELOPE_PROPERTY, envelopePropertyValue(opts.envelope));
   }
+  if (opts.centreValues) for (const tc of all(body, "tc")) if (writtenCells.has(tc)) centreCell(tc);
   void W_NS;
   return { bytes: pkg.build(), report };
 }

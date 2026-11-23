@@ -101,7 +101,7 @@ export async function fillTemplate(
   documentId: string
 ): Promise<{ bytes: Uint8Array<ArrayBuffer>; report: FillReport }> {
   const hints = hintsOf(documentId);
-  const out = file.kind === "xlsx" ? await fillXlsx(buffer, blocks, { envelope, sheet: file.sheet, hints, company: paperTableFor(documentId)?.ownWords ? "$&" : COMPANY.name }) : await fillDocx(buffer, blocks, { envelope, hints, company: paperTableFor(documentId)?.ownWords ? "$&" : COMPANY.name });
+  const out = file.kind === "xlsx" ? await fillXlsx(buffer, blocks, { envelope, sheet: file.sheet, hints, company: paperTableFor(documentId)?.ownWords ? "$&" : COMPANY.name }) : await fillDocx(buffer, blocks, { envelope, hints, company: paperTableFor(documentId)?.ownWords ? "$&" : COMPANY.name, centreValues: !!paperTableFor(documentId)?.ownWords });
   // A value DCRS shows that found no place on the paper: the file would not be the record, so it is not handed over (the
   // generic download is made instead) - unless the paper is known not to print it (hints.ts notOnPaper).
   if (out.report.notPlaced.length) throw new Error(`no place on the paper for: ${out.report.notPlaced.slice(0, 5).join(", ")}`);

@@ -13114,3 +13114,16 @@ stood in the briefing's red section as "Still open from earlier", as if it were 
 - Lateness, reminders and the scorecard are not changed.
 
 Proved: frontend/tests/briefingDueToday.test.ts; tests/e2e_smoke.py on a working day.
+
+## §294 Every value on an HR form stands in the middle of its cell, printed and in Word (23-Nov-2026)
+
+The owner, 23-Nov-2026, with F/HR/05's Date of Joining printed at the top of its box: "this kind of problem should not found again
+in any document ... applicable to all fields ... for HR module except Pest control".
+
+- Cause: a date (and a written box of several lines) prints as its words in the place of its box, pinned to the cell's top. On an HR
+  paper such words now stand in the middle of the cell's height, and a long box keeps the blank lines out of its printed words.
+- Word: a value written into the company's own Word file, and every value in F/HR/15 and F/HR/16's Word tables, is set in the middle
+  of its cell. Excel already was.
+- Measured on the local copy, every written value of all 20 HR formats (pest control left out): in print layout none off the middle,
+  in the Word and Excel downloads none off the middle; the Word files open in Word.
+- Proved: frontend/tests/hrValuesCentred.test.ts.
