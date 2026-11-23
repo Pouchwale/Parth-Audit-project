@@ -13191,3 +13191,12 @@ The owner, 23-Nov-2026, with the Pre-Employment Medical Health Declaration's Sig
 - Every question's answer has the whole second line, as 02 and 03 already had. A short space beside the words made a written answer run over the next question.
 - A typed answer inside an HR paper's words prints with the tails of p, g and y whole (styles.css).
 - The paper's wording is unchanged.
+
+## §301 F/HR/04: three wording mistakes of the paper corrected (23-Nov-2026)
+
+The owner, 23-Nov-2026, shown the three mistakes: "Yes, correct them".
+
+- "I understand that is any of the information" now reads "that if any of the information".
+- "(slipped disc, sciatica" has its closing bracket.
+- "shoulders elbows, wrists, hands, knees, elbow" now reads "shoulders, elbows, wrists, hands, knees".
+- The format number and revision (00/01.12.2021) are as they were. Every F/HR/04 record, old or new, draws these words. The company's original Word file is not changed.

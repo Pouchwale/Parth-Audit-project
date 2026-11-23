@@ -169,7 +169,7 @@ const PRE_EMPLOYMENT_QUESTIONS = [
   "06. — Kidney or bladder trouble",
   "06. — High blood pressure",
   "06. — Tetanus immunization",
-  "06. — Painful joints e.g. shoulders elbows, wrists, hands, knees, elbow",
+  "06. — Painful joints e.g. shoulders, elbows, wrists, hands, knees",
   "06. — COVID19 infection",
   "07. Do you suffer from any foot condition preventing the wearing of protective footwear? If yes, please give details:",
   "08. Do you have any problems standing, climbing stairs, working at heights, lifting or carrying? If yes, please give details:",
@@ -187,7 +187,7 @@ const preEmployment: LogSheetLayout = {
   instructions: [
     "Only to be completed by applicants prior to employment.",
     "MEDICAL INFORMATION SUPPLIED WILL BE TREATED AS PRIVATE AND CONFIDENTIAL AND WILL NOT BE DISCLOSED TO THIRD PARTIES.",
-    "I declare that I have had no other disorder, mental or physical, not already mentioned. I understand that is any of the information is incorrect or there is any other omission that I may become liable to dismissal.",
+    "I declare that I have had no other disorder, mental or physical, not already mentioned. I understand that if any of the information is incorrect or there is any other omission that I may become liable to dismissal.",
   ],
   // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
   screenNotes: [
