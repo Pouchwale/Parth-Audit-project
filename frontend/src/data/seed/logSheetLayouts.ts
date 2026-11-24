@@ -405,7 +405,8 @@ Object.assign(LOG_SHEET_LAYOUTS, {
       // The two spaces after "2nd" are the paper's own.
       { key: "substrate2", label: "2nd  SUBSTRATE DETAILS", type: "text", autoFill: { carryForward: true } },
       // The header box's last line is this box alone, its answer the width of the sheet (REQUIREMENTS §111).
-      { key: "pass", label: "1st Pass / 2nd Pass / 3rd Pass", type: "select", options: ["1st Pass", "2nd Pass", "3rd Pass"], required: true, autoFill: { default: "1st Pass" }, boxesPerLine: 1 },
+      // A blank box the person writes in (§320): no choice list, nothing filled in.
+      { key: "pass", label: "1st Pass / 2nd Pass / 3rd Pass", type: "text", boxesPerLine: 1 },
     ],
     columns: [
       { key: "parameter", label: "TEST PARAMETERS", type: "text", fixed: true, width: 300 },
@@ -446,7 +447,7 @@ Object.assign(LOG_SHEET_LAYOUTS, {
     // Nothing was supplied filled in: these are typical values for the assistant, worded as F/QC/35's register words them.
     specimenHeader: {
       fgCode: "5703", poNumber: "81857", laminatedRoll: "1",
-      substrate1: "25 mic Matt BOPP", substrate2: "12 mic MetPET", pass: "1st Pass", lotStatus: "ACCEPTED", deviationReason: "",
+      substrate1: "25 mic Matt BOPP", substrate2: "12 mic MetPET", pass: "", lotStatus: "ACCEPTED", deviationReason: "",
     },
     specimenRows: [{ observation: "As per FG specification" }, { observation: "NA" }, { observation: "Pass" }],
     specimenSource: "F-QC-36_Inspection record for SB Lamination Film.pdf (blank form supplied 02-Oct-2026 — typical values as on the F/QC/35 register)",

@@ -13469,3 +13469,8 @@ The owner, 24-Nov-2026, sending a photo of a filled F/QC/37 (30/4/25, 1st shift)
 - The paper's foot reads "Page 1 of 2"; DCRS prints the page count of what it prints (1 of 1) until the second page is supplied.
 - Files: data/seed/logSheetLayouts.ts, qcIncomingGeometry.ts, qcPageFrames.ts, documentDefinitions.ts, data/qc35WordsMigration.ts,
   data/bootstrap.ts. Tests: tests/qc37Paper.test.ts.
+## §320 F/QC/36: the 1st Pass / 2nd Pass / 3rd Pass box is a blank box (24-Nov-2026)
+
+The owner: "in qc 36 remove the dropdown of 1st pass/2nd pass/3rd pass. just keep the box blank."
+The box is a plain box the person writes in: no choice list, nothing filled in by itself, not required.
+It keeps its place and its lines across the table (§312, §314). Records saved before keep what they hold.
