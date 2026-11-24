@@ -13451,3 +13451,21 @@ section), and making a new format from an uploaded Word file after it (to come).
 - Files: engine/formatStyles.ts, components/documents/StylePanel.tsx, components/records/useFormatStyleSheet.ts, SheetDesigner.tsx,
   LogSheetRecordView.tsx, engine/formatOps.ts, types/logSheet.ts, utils/documentExport.ts, utils/docx.ts, styles.css. Tests:
   frontend/tests/formatStyles.test.ts.
+
+## §319 F/QC/37 Inspection Record – Pouching Process, as the owner's paper (24-Nov-2026)
+
+The owner, 24-Nov-2026, sending a photo of a filled F/QC/37 (30/4/25, 1st shift): "So do this format as it is in qc module in qc-37".
+
+- F/QC/37 is drawn and printed as its paper, the way F/QC/35 and F/QC/36 are (§313, §111, §117): the logo and the title in the band
+  (INSPECTION RECORD – POUCHING / PROCESS, as the paper wraps it); the header two boxes to a line - JOB CODE (FG CODE), PO NUMBER,
+  CUSTOMER NAME, JOB NAME, DATE/ SHIFT, SUBSTRATE DETAILS; the grid SR. NO., TEST PARAMETERS, SPECIFICATION, OBSERVATION with its
+  eleven lines "1." to "11." in the paper's words (POUCH HEIGHT (mm) ... Wt. OF POUCH, TYPE OF POUCH, LEAK TEST / NO LEAK); the LOT
+  STATUS table with its four statuses across and the REASON line; INSPECTED BY (QA INSPECTOR) and APPROVED BY (QA MANAGER); the
+  Format number line and the address at the foot. Measured off the photo in mm; one A4 page.
+- DATE/ SHIFT is one box, filled "24-11-2026 / 1st" (the sheet's own day). The keys are the old ones, so the sheets on file read on.
+- The sheets still open take the paper's words once (the parameters, and "Accepted" as "ACCEPTED"), with a line in their history;
+  submitted and verified sheets stay as they are (data/qc35WordsMigration.ts, now for F/QC/35 and F/QC/37).
+- The photo is kept as the format's original page (public/source/fqc37-inspection-pouching-p1.jpg).
+- The paper's foot reads "Page 1 of 2"; DCRS prints the page count of what it prints (1 of 1) until the second page is supplied.
+- Files: data/seed/logSheetLayouts.ts, qcIncomingGeometry.ts, qcPageFrames.ts, documentDefinitions.ts, data/qc35WordsMigration.ts,
+  data/bootstrap.ts. Tests: tests/qc37Paper.test.ts.

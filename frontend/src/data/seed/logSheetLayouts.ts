@@ -311,45 +311,73 @@ const SB_LAMINATION_LOT_STATUS = ["ACCEPTED", "REJECT / SCRAP", "SEGREGATION", "
 
 Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/37 — Inspection Record – Pouching Process (00/15.12.2024)
+  // Laid out as its paper (the owner's photograph of 24-Nov-2026, REQUIREMENTS §319): the header box two boxes to a line
+  // in the paper's capitals, the grid's lines numbered "1." to "11." in the paper's words, the four lot statuses printed
+  // across their line, INSPECTED BY / QA INSPECTOR and APPROVED BY / QA MANAGER side by side, the address at the foot.
+  // The keys are the ones every F/QC/37 already holds, so no record loses a word; the lot statuses keep their stored
+  // sheets still open take the paper's words once (data/qc35WordsMigration.ts).
   "qc-inspection-pouching": {
     documentId: "qc-inspection-pouching",
-    // "Approved by / QA Manager" on the paper is the Verify step (REQUIREMENTS §74, §111).
-    approvedOnVerify: true,
+    headerColumns: 2,
+    srNoFullStop: true,
     headerFields: [
-      { key: "fgCode", label: "Job Code (FG Code)", type: "text", required: true, autoFill: { carryForward: true } },
-      { key: "poNumber", label: "PO Number", type: "text", required: true, autoFill: { carryForward: true } },
-      { key: "customerName", label: "Customer Name", type: "text", autoFill: { carryForward: true } },
-      { key: "jobName", label: "Job Name", type: "text", required: true, autoFill: { carryForward: true } },
-      { key: "shift", label: "Shift", type: "select", options: ["1st", "2nd", "3rd"], required: true, autoFill: { default: "1st" } },
-      { key: "substrate", label: "Substrate Details", type: "text", autoFill: { carryForward: true } },
+      { key: "fgCode", label: "JOB CODE (FG CODE)", type: "text", required: true, autoFill: { carryForward: true } },
+      { key: "poNumber", label: "PO NUMBER", type: "text", required: true, autoFill: { carryForward: true } },
+      { key: "customerName", label: "CUSTOMER NAME", type: "text", autoFill: { carryForward: true } },
+      { key: "jobName", label: "JOB NAME", type: "text", required: true, autoFill: { carryForward: true } },
+      // One box on the paper, the date and the shift written together ("30/4/25 / 1st"): the sheet's own day and the 1st shift.
+      { key: "shift", label: "DATE/ SHIFT", type: "text", required: true, autoFill: { dueDateAndShift: "1st" } },
+      { key: "substrate", label: "SUBSTRATE DETAILS", type: "text", autoFill: { carryForward: true } },
     ],
-    columns: inspectionColumns(),
+    columns: [
+      { key: "parameter", label: "TEST PARAMETERS", type: "text", fixed: true, width: 300 },
+      { key: "specification", label: "SPECIFICATION", type: "text", fixed: true, width: 200 },
+      { key: "observation", label: "OBSERVATION", type: "text", required: true, autoFill: { carryForward: true }, width: 200 },
+    ],
+    notesAtFoot: [INCOMING_ADDRESS],
     rowMode: {
       kind: "fixedRows",
       rows: fixedParams([
-        ["Pouch Height (mm)", "FG Product specification"],
-        ["Pouch Width (mm)", "FG Product specification"],
-        ["Centre Seal Width (mm)", "FG Product specification"],
-        ["Side Seal Width (mm)", "FG Product specification"],
-        ["Gusset Width (mm) (Side/Bottom)", "FG Product specification"],
-        ["Total Pouch Thickness (micron)", "FG Product specification"],
-        ["Zipper Position From Top (Only if customer requirement)", "FG Product specification"],
-        ["Total GSM", "FG Product specification"],
-        ["Wt. of Pouch", "FG Product specification"],
-        ["Type of Pouch", "FG Product specification"],
-        ["Leak Test", "NO LEAK"],
+        ["POUCH HEIGHT (mm)", "FG Product specification"],
+        ["POUCH WIDTH (mm)", "FG Product specification"],
+        ["CENTRE SEAL WIDTH (mm)", "FG Product specification"],
+        ["SIDE SEAL WIDTH (mm)", "FG Product specification"],
+        ["GUSSET WIDTH (mm) (SIDE/BOTTOM)", "FG Product specification"],
+        ["TOTAL POUCH THICKNESS (micron)", "FG Product specification"],
+        ["ZIPPER POSITION FROM TOP (Only if customer requirement)", "FG Product specification"],
+        ["TOTAL GSM", "FG Product specification"],
+        ["Wt. OF POUCH", "FG Product specification"],
+        ["TYPE OF POUCH", "FG Product specification"],
+        ["LEAK TEST", "NO LEAK"],
       ]),
     },
-    footerFields: inspectionFooter(),
+    footerFields: [
+      {
+        key: "lotStatus",
+        label: "LOT STATUS",
+        type: "select",
+        options: SB_LAMINATION_LOT_STATUS,
+        choicesAcross: SB_LAMINATION_LOT_STATUS,
+        required: true,
+        autoFill: { default: "ACCEPTED" },
+        boxesPerLine: 1,
+      },
+      { key: "deviationReason", label: "REASON FOR DEVIATION / REJECTION / SEGREGATION", type: "text" },
+      // The inspector signs; APPROVED BY is the QA Manager's, never required of the inspector.
+      ...signatureBoxes().map((f) => (f.key === "inspectedBy" ? { ...f, required: true } : f)),
+    ],
     specimenHeader: {
-      fgCode: "5420", poNumber: "81509", customerName: "Gulab Oil And Food", jobName: "California Almonds and Whole Cashews", shift: "1st",
-      substrate: "25 mic Matte BOPP + 12 mic METPET + 85 mic Nat LDPE", lotStatus: "Accepted", deviationReason: "",
+      fgCode: "5420", poNumber: "81509", customerName: "Gulab Oil And Food", jobName: "California Almonds and Whole Cashews", shift: "06-03-2026 / 1st",
+      substrate: "25 mic Matte BOPP + 12 mic METPET + 85 mic Nat LDPE", lotStatus: "ACCEPTED", deviationReason: "",
     },
     specimenRows: [
       { observation: "181" }, { observation: "119" }, { observation: "-" }, { observation: "10" }, { observation: "41" }, { observation: "95" },
       { observation: "-" }, { observation: "97.0" }, { observation: "5.84" }, { observation: "Standy + Zipper" }, { observation: "PASS" },
     ],
-    specimenSource: "Photographed F/QC/37 register (filled 06/03/26, 1st shift)",
+    specimenSource: "Photographed F/QC/37 register (filled 06/03/26, 1st shift); laid out as the paper the owner sent on 24-Nov-2026",
+    originalPages: [
+      { src: "/source/fqc37-inspection-pouching-p1.jpg", caption: "F/QC/37 (00 / 15.12.2024) - Inspection Record – Pouching Process, the paper as sent on 24-Nov-2026" },
+    ],
   } satisfies LogSheetLayout,
 
   // ---- F/QC/36 — Inspection Record – Solvent Base Lamination Film (00/15.12.2024)

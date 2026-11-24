@@ -135,7 +135,7 @@ export function bootstrap(): void {
   gmpYesOnOpenSheets();
   // F/QC/11, 12, 17: the names DCRS wrote on the sheets still open come off; the sign boxes are the person's (REQUIREMENTS §288).
   qcSignsClearedOnOpenSheets();
-  // F/QC/35's open sheets in the paper's words (REQUIREMENTS §313).
+  // F/QC/35's and F/QC/37's open sheets in the paper's words (REQUIREMENTS §313, §319).
   qc35SheetsInPaperWords();
 
   const today = new Date(todayISO());

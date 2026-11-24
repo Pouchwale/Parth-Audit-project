@@ -995,7 +995,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     id: "qc-inspection-pouching",
     kind: "log-sheet",
     section: "In-Process & Inspection",
-    name: "Inspection Record — Pouching Process",
+    name: "Inspection Record – Pouching Process",
     formatNo: "F/QC/37",
     revisionNo: "00",
     revisionDate: "2024-12-15",
@@ -1004,7 +1004,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Daily",
     status: "Configured",
     description: "Per-job pouch inspection: 11 test parameters (height, width, seal widths, gusset, thickness, zipper position, GSM, pouch weight, pouch type, leak test) against the FG product specification, lot status and QA inspector sign.",
-    sourceFile: "Photographed F/QC/37 register (WhatsApp, 07-Sep-2026)",
+    sourceFile: "Photographed F/QC/37 register (WhatsApp, 07-Sep-2026); laid out as the paper the owner sent on 24-Nov-2026 (REQUIREMENTS §319)",
     schedule: { type: "daily" },
   },
   // F/QC/36, supplied on 02-Oct-2026 (REQUIREMENTS §86), between F/QC/37 and F/QC/35 — the

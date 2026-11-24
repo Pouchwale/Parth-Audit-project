@@ -10,13 +10,15 @@ import { getLogSheetLayout } from "./seed/logSheetLayouts";
 // stays as it is. Each sheet changed has a line in its history; run again it changes nothing.
 
 export const QC35_WORDS_NOTE = "The paper's words: the test parameters and the lot status in the capitals F/QC/35 prints (REQUIREMENTS §313)";
-const DOC = "qc-inspection-slitting";
+// F/QC/37 the same, from its paper of the same day (§319): "Pouch Height (mm)" becomes "POUCH HEIGHT (mm)", "Accepted" "ACCEPTED".
+export const QC37_WORDS_NOTE = "The paper's words: the test parameters and the lot status as F/QC/37 prints them (REQUIREMENTS §319)";
+const NOTES: Record<string, string> = { "qc-inspection-slitting": QC35_WORDS_NOTE, "qc-inspection-pouching": QC37_WORDS_NOTE };
 const OPEN: ReadonlySet<string> = new Set(["Scheduled", "Due", "In Progress"]);
 const same = (a: unknown, b: string) => String(a ?? "").trim().toLowerCase() === b.trim().toLowerCase();
 
 /** The sheet in the paper's words; null where it already is. */
 export function inPaperWords(r: RecordInstance): LogSheetData | null {
-  const layout = getLogSheetLayout(DOC);
+  const layout = NOTES[r.documentId] ? getLogSheetLayout(r.documentId) : undefined;
   const d = r.data as LogSheetData | undefined;
   if (!layout || layout.rowMode.kind !== "fixedRows" || !d || !Array.isArray(d.rows)) return null;
   const words = layout.rowMode.rows.map((x) => String(x.parameter));
@@ -37,14 +39,15 @@ export function inPaperWords(r: RecordInstance): LogSheetData | null {
   return changed ? { ...d, header, rows } : null;
 }
 
-/** Every open F/QC/35 sheet, once; returns how many changed. */
+/** Every open F/QC/35 and F/QC/37 sheet, once; returns how many changed. */
 export function qc35SheetsInPaperWords(): number {
   const updates: RecordInstance[] = [];
   for (const r of recordRepository.snapshot()) {
-    if (r.documentId !== DOC || r.correction || !OPEN.has(r.status) || !mayWriteRecordsOf(DOC)) continue;
+    const note = NOTES[r.documentId];
+    if (!note || r.correction || !OPEN.has(r.status) || !mayWriteRecordsOf(r.documentId)) continue;
     const data = inPaperWords(r);
     if (!data) continue;
-    const entry = appendHistory({ ...r, history: [] }, makeEntry("edited", "System", { changes: diffRecordData(r.data, data), note: QC35_WORDS_NOTE })).history![0];
+    const entry = appendHistory({ ...r, history: [] }, makeEntry("edited", "System", { changes: diffRecordData(r.data, data), note })).history![0];
     updates.push({ ...r, data, history: [...historyOf(r), entry] });
   }
   if (updates.length) recordRepository.upsertMany(updates);

@@ -398,7 +398,9 @@ test("F34: the screen's line that the paper's approval is the Verify step shows 
   for (const id of ["qc-test-reliability-label", "qc-inprocess-printing", "qc-line-clearance-materials"]) {
     assert.ok(!text(await sheet(id, blank(id))).includes(note), `${id}: its paper prints no approval`);
   }
-  for (const id of ["qc-inspection-printed-film", "qc-inspection-pouching"]) {
+  // F/QC/37 prints APPROVED BY / QA MANAGER as a box of its own since §319.
+  assert.ok(!text(await sheet("qc-inspection-pouching", blank("qc-inspection-pouching"))).includes(note), "F/QC/37: its approval is its own box");
+  for (const id of ["qc-inspection-printed-film"]) {
     assert.ok(text(await sheet(id, blank(id))).includes(note), `${id}: its paper prints "Approved by / QA Manager"`);
   }
 });

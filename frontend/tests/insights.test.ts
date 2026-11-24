@@ -354,15 +354,15 @@ function printing(id: string, dueDate: string, lines: { grade: string; pass: str
 
 test("C1: a lot Accepted while its Leak Test reads FAIL, and an F grade marked Pass? — Yes", () => {
   const records = [
-    inspection("leak-fail-accepted", "qc-inspection-pouching", day(-4), { lotStatus: "Accepted", deviationReason: "" }, { "Leak Test": "FAIL" }),
+    inspection("leak-fail-accepted", "qc-inspection-pouching", day(-4), { lotStatus: "Accepted", deviationReason: "" }, { "LEAK TEST": "FAIL" }),
     // Consistent: a failed test on a lot that was segregated for it.
-    inspection("leak-fail-segregated", "qc-inspection-pouching", day(-5), { lotStatus: "Segregation", deviationReason: "Leak test failed on 4 pouches of the first 50 — lot segregated." }, { "Leak Test": "FAIL" }),
+    inspection("leak-fail-segregated", "qc-inspection-pouching", day(-5), { lotStatus: "Segregation", deviationReason: "Leak test failed on 4 pouches of the first 50 — lot segregated." }, { "LEAK TEST": "FAIL" }),
     // Consistent: every test passed, lot accepted.
     inspection("all-pass", "qc-inspection-pouching", day(-6), { lotStatus: "Accepted", deviationReason: "" }, {}, { status: "Verified" }),
     // A draft still being written is not judged.
-    inspection("draft", "qc-inspection-pouching", day(-1), { lotStatus: "Accepted" }, { "Leak Test": "FAIL" }, { status: "In Progress", history: [{ id: "h", at: `${day(-1)}T08:00:00.000Z`, by: "HNP", action: "edited" }] }),
+    inspection("draft", "qc-inspection-pouching", day(-1), { lotStatus: "Accepted" }, { "LEAK TEST": "FAIL" }, { status: "In Progress", history: [{ id: "h", at: `${day(-1)}T08:00:00.000Z`, by: "HNP", action: "edited" }] }),
     // Longer ago than a lot can be held back.
-    inspection("old", "qc-inspection-pouching", day(-200), { lotStatus: "Accepted" }, { "Leak Test": "FAIL" }),
+    inspection("old", "qc-inspection-pouching", day(-200), { lotStatus: "Accepted" }, { "LEAK TEST": "FAIL" }),
     // F/QC/35: "Fail" on the Odour Test of an Accepted slit roll.
     inspection("odour-fail", "qc-inspection-slitting", day(-3), { lotStatus: "Accepted" }, { "ODOUR TEST": "Fail" }, { status: "Verified", verifiedBy: "Kapila Barad" }),
     // F/QC/34: "NOT OK" on the shade of an Accepted printed roll.
@@ -383,7 +383,7 @@ test("C1: a lot Accepted while its Leak Test reads FAIL, and an F grade marked P
     assert.equal(i.evidence.length, 1);
   }
   const leak = c1.find((i) => i.id === "c1|qc-inspection-pouching|leak-fail-accepted");
-  assert.match(leak?.title ?? "", /Leak Test reads "FAIL"/);
+  assert.match(leak?.title ?? "", /LEAK TEST reads "FAIL"/);
   assert.equal(leak?.evidence[0].recordId, "leak-fail-accepted");
 });
 
@@ -391,10 +391,10 @@ test("C2: a lot's reason stating a figure its own observation does not read", ()
   const reason = "Pouch height 178 mm against 181 mm specified (-3 mm) — within customer's agreed tolerance, accepted on deviation.";
   const bond = "Bond strength 0.240 kg against 0.300 kg specified — accepted on deviation for a non-retort application after QA review.";
   const records = [
-    inspection("height-disagrees", "qc-inspection-pouching", day(-4), { lotStatus: "Accepted on Deviation", deviationReason: reason }, { "Pouch Height (mm)": "181" }),
-    inspection("height-agrees", "qc-inspection-pouching", day(-5), { lotStatus: "Accepted on Deviation", deviationReason: reason }, { "Pouch Height (mm)": "178" }),
+    inspection("height-disagrees", "qc-inspection-pouching", day(-4), { lotStatus: "Accepted on Deviation", deviationReason: reason }, { "POUCH HEIGHT (mm)": "181" }),
+    inspection("height-agrees", "qc-inspection-pouching", day(-5), { lotStatus: "Accepted on Deviation", deviationReason: reason }, { "POUCH HEIGHT (mm)": "178" }),
     // Nothing written beside it: a gap, not a second figure.
-    inspection("height-blank", "qc-inspection-pouching", day(-6), { lotStatus: "Accepted on Deviation", deviationReason: reason }, { "Pouch Height (mm)": "-" }),
+    inspection("height-blank", "qc-inspection-pouching", day(-6), { lotStatus: "Accepted on Deviation", deviationReason: reason }, { "POUCH HEIGHT (mm)": "-" }),
     inspection("bond-disagrees", "qc-inspection-slitting", day(-3), { lotStatus: "Accepted on Deviation", deviationReason: bond }, { "BOND STRENGTH": "L1 = 0.306 kg (BRK); L2 = 0.435 kg (BRK)" }),
     inspection("bond-agrees", "qc-inspection-slitting", day(-2), { lotStatus: "Accepted on Deviation", deviationReason: bond }, { "BOND STRENGTH": "L1 = 0.240 kg (BRK); L2 = 0.435 kg (BRK)" }),
     // A spread, not a reading: never compared.
@@ -410,7 +410,7 @@ test("C2: a lot's reason stating a figure its own observation does not read", ()
 });
 
 test("C1 and C2 are about records the person may open: a Maintenance account is told of neither", () => {
-  const records = [inspection("leak-fail", "qc-inspection-pouching", day(-4), { lotStatus: "Accepted" }, { "Leak Test": "FAIL" })];
+  const records = [inspection("leak-fail", "qc-inspection-pouching", day(-4), { lotStatus: "Accepted" }, { "LEAK TEST": "FAIL" })];
   setDepartmentScope(["MNT"]);
   try {
     assert.equal(computeInsights(input(records, { documents: documentRepository.getAll() })).filter((i) => i.rule === "C1").length, 0);

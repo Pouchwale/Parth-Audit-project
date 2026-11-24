@@ -137,6 +137,14 @@ export const INCOMING_GEOMETRY: Record<string, IncomingGeometry> = {
     lotGap: 12.3, signGap: 4.3, signRows: [9.2, 9.2, 9.2], lotRows: [13, 12],
     sr: 8.3, lh: 5.46, par: 0, headMore: true,
   },
+  // F/QC/37, read off the owner's photograph of the paper (24-Nov-2026, §319): three lines of two boxes, eleven lines in the grid
+  // (ZIPPER POSITION's two lines the tallest), the same LOT STATUS and signature tables, its width the other papers'.
+  "qc-inspection-pouching": {
+    head: { cols: [43, 47.5, 40.3, 55.6], rows: [7.3, 9.8, 10.4] },
+    grid: { cols: [23.1, 64.8, 44.3, 54.2], rows: [14.4, 7.8, 7.8, 7.8, 7.8, 7.8, 8, 10.4, 9.8, 9.8, 9.6, 8] },
+    lotGap: 12.3, signGap: 4.2, signRows: [9.2, 9.2, 9.3], lotRows: [13, 12],
+    sr: 8.3, lh: 5.46, par: 0,
+  },
 };
 
 // F/QC/35, measured off the owner's paper of 24-Nov-2026 (§313): F/QC/36's grid and columns; the header two lines of boxes, the
