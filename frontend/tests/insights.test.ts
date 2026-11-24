@@ -364,7 +364,7 @@ test("C1: a lot Accepted while its Leak Test reads FAIL, and an F grade marked P
     // Longer ago than a lot can be held back.
     inspection("old", "qc-inspection-pouching", day(-200), { lotStatus: "Accepted" }, { "Leak Test": "FAIL" }),
     // F/QC/35: "Fail" on the Odour Test of an Accepted slit roll.
-    inspection("odour-fail", "qc-inspection-slitting", day(-3), { lotStatus: "Accepted" }, { "Odour Test": "Fail" }, { status: "Verified", verifiedBy: "Kapila Barad" }),
+    inspection("odour-fail", "qc-inspection-slitting", day(-3), { lotStatus: "Accepted" }, { "ODOUR TEST": "Fail" }, { status: "Verified", verifiedBy: "Kapila Barad" }),
     // F/QC/34: "NOT OK" on the shade of an Accepted printed roll.
     inspection("shade-not-ok", "qc-inspection-printed-film", day(-2), { lotStatus: "Accepted" }, { "Shade / Colour": "NOT OK" }),
     printing("f-passed", day(-2), [{ grade: "F", pass: "Yes" }]),
@@ -395,8 +395,8 @@ test("C2: a lot's reason stating a figure its own observation does not read", ()
     inspection("height-agrees", "qc-inspection-pouching", day(-5), { lotStatus: "Accepted on Deviation", deviationReason: reason }, { "Pouch Height (mm)": "178" }),
     // Nothing written beside it: a gap, not a second figure.
     inspection("height-blank", "qc-inspection-pouching", day(-6), { lotStatus: "Accepted on Deviation", deviationReason: reason }, { "Pouch Height (mm)": "-" }),
-    inspection("bond-disagrees", "qc-inspection-slitting", day(-3), { lotStatus: "Accepted on Deviation", deviationReason: bond }, { "Bond Strength": "L1 = 0.306 kg (BRK); L2 = 0.435 kg (BRK)" }),
-    inspection("bond-agrees", "qc-inspection-slitting", day(-2), { lotStatus: "Accepted on Deviation", deviationReason: bond }, { "Bond Strength": "L1 = 0.240 kg (BRK); L2 = 0.435 kg (BRK)" }),
+    inspection("bond-disagrees", "qc-inspection-slitting", day(-3), { lotStatus: "Accepted on Deviation", deviationReason: bond }, { "BOND STRENGTH": "L1 = 0.306 kg (BRK); L2 = 0.435 kg (BRK)" }),
+    inspection("bond-agrees", "qc-inspection-slitting", day(-2), { lotStatus: "Accepted on Deviation", deviationReason: bond }, { "BOND STRENGTH": "L1 = 0.240 kg (BRK); L2 = 0.435 kg (BRK)" }),
     // A spread, not a reading: never compared.
     inspection("variation", "qc-inspection-printed-film", day(-2), { lotStatus: "Accepted on Deviation", deviationReason: "Print registration variation of 0.3 mm on the repeat — accepted on deviation." }, {}),
   ];

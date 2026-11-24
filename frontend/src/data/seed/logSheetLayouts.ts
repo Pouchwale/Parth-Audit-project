@@ -428,32 +428,61 @@ Object.assign(LOG_SHEET_LAYOUTS, {
   } satisfies LogSheetLayout,
 
   // ---- F/QC/35 — Inspection Record – Slitting - Lamination Grade Film (00/15.12.2024)
+  // As the paper the owner sent on 24-Nov-2026 (REQUIREMENTS §313), laid out as F/QC/36 is (§86, §111): the header two boxes
+  // to a line, "Date / SHIFT" one box ("28-2-26 / 1st" on the paper), SUBSTRATE DETAILS across the sheet; the lines numbered
+  // "1.", "2.", "3." in the paper's capitals; the four statuses across the LOT STATUS line; INSPECTED BY (QA INSPECTOR) and
+  // APPROVED BY (QA MANAGER) side by side; the address at the foot. The keys are the old ones, so the sheets on file read on.
   "qc-inspection-slitting": {
     documentId: "qc-inspection-slitting",
-    approvedOnVerify: true,
+    headerColumns: 2,
+    srNoFullStop: true,
     headerFields: [
-      { key: "fgCode", label: "Job Code (FG Code)", type: "text", required: true, autoFill: { carryForward: true } },
-      { key: "poNumber", label: "PO Number", type: "text", required: true, autoFill: { carryForward: true } },
-      { key: "shift", label: "Shift", type: "select", options: ["1st", "2nd", "3rd"], required: true, autoFill: { default: "1st" } },
+      { key: "fgCode", label: "JOB CODE (FG CODE)", type: "text", required: true, autoFill: { carryForward: true } },
+      { key: "poNumber", label: "PO NUMBER", type: "text", required: true, autoFill: { carryForward: true } },
+      // (the key is the old Shift box's: a sheet on file shows its "1st")
+      { key: "shift", label: "Date / SHIFT", type: "text", required: true, autoFill: { dueDateAndShift: "1st" } },
       { key: "motherRoll", label: "Laminated – Mother Roll number", type: "text", autoFill: { carryForward: true } },
-      { key: "substrate", label: "Substrate Details", type: "text", autoFill: { carryForward: true } },
+      { key: "substrate", label: "SUBSTRATE DETAILS", type: "text", autoFill: { carryForward: true }, boxesPerLine: 1 },
     ],
-    columns: inspectionColumns(),
+    columns: [
+      { key: "parameter", label: "TEST PARAMETERS", type: "text", fixed: true, width: 300 },
+      { key: "specification", label: "SPECIFICATION", type: "text", fixed: true, width: 200 },
+      { key: "observation", label: "OBSERVATION", type: "text", required: true, autoFill: { carryForward: true }, width: 200 },
+    ],
+    specBand: OBSERVATION_BAND,
+    notesAtFoot: [INCOMING_ADDRESS],
     rowMode: {
       kind: "fixedRows",
       rows: fixedParams([
-        ["Bond Strength", "FG Product Specification"],
-        ["Odour Test", "No abnormal odour"],
-        ["Slitted Roll Width (mm)", "As per Job card"],
+        ["BOND STRENGTH", "FG Product Specification"],
+        ["ODOUR TEST", "No abnormal odour"],
+        ["SLITTED ROLL WIDTH (mm)", "As per Job card"],
       ]),
     },
-    footerFields: inspectionFooter(),
+    footerFields: [
+      {
+        key: "lotStatus",
+        label: "LOT STATUS",
+        type: "select",
+        options: SB_LAMINATION_LOT_STATUS,
+        choicesAcross: SB_LAMINATION_LOT_STATUS,
+        required: true,
+        autoFill: { default: "ACCEPTED" },
+        boxesPerLine: 1,
+      },
+      { key: "deviationReason", label: "REASON FOR DEVIATION / REJECTION / SEGREGATION", type: "text" },
+      ...signatureBoxes().map((f) => (f.key === "inspectedBy" ? { ...f, required: true } : f)),
+    ],
+    // The owner's paper of 24-Nov-2026, filled 28-2-26, 1st shift.
     specimenHeader: {
-      fgCode: "5703", poNumber: "81857", shift: "1st", motherRoll: "1",
-      substrate: "L1 = 25 mic Matt BOPP + 12 mic MetPET; L2 = L1 + 85 mic LDPE (Nat)", lotStatus: "Accepted", deviationReason: "",
+      fgCode: "5703", poNumber: "81857", shift: "28-02-2026 / 1st", motherRoll: "1",
+      substrate: "L1 = 25 mic Matt BOPP + 12 mic MetPET", lotStatus: "ACCEPTED", deviationReason: "",
     },
-    specimenRows: [{ observation: "L1 = 0.306 kg (BRK); L2 = 0.435 kg (BRK)" }, { observation: "Pass" }, { observation: "260 mm" }],
-    specimenSource: "Photographed F/QC/35 register (filled 1-3-26, 1st shift)",
+    specimenRows: [{ observation: "L1 = 0.267 kg" }, { observation: "Pass" }, { observation: "260 mm" }],
+    specimenSource: "The F/QC/35 paper the owner sent on 24-Nov-2026 (filled 28-2-26, 1st shift)",
+    originalPages: [
+      { src: "/source/fqc35-slitting-lamination-film-p1.jpg", caption: "F/QC/35 (00 / 15.12.2024) - Inspection Record – Slitting - Lamination Grade Film, the paper as sent on 24-Nov-2026" },
+    ],
   } satisfies LogSheetLayout,
 
   // ---- F/QC/34 — Inspection Record – Lamination Grade Printed Film (00/15.12.2024)

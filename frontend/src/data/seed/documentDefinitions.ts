@@ -1030,7 +1030,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     id: "qc-inspection-slitting",
     kind: "log-sheet",
     section: "In-Process & Inspection",
-    name: "Inspection Record — Slitting - Lamination Grade Film",
+    name: "Inspection Record – Slitting - Lamination Grade Film",
     formatNo: "F/QC/35",
     revisionNo: "00",
     revisionDate: "2024-12-15",
@@ -1039,7 +1039,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Daily",
     status: "Configured",
     description: "Slitting inspection of laminated mother rolls: bond strength, odour test and slitted roll width against the job card, lot status and QA inspector sign.",
-    sourceFile: "Photographed F/QC/35 register (WhatsApp, 07-Sep-2026)",
+    sourceFile: "Photographed F/QC/35 register (WhatsApp, 07-Sep-2026); laid out as the paper the owner sent on 24-Nov-2026 (REQUIREMENTS §313)",
     schedule: { type: "daily" },
   },
   {

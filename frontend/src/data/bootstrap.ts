@@ -27,6 +27,7 @@ import { standardWeightsOnOpenSheets } from "./standardWeightsMigration";
 import { scaleWeeksOnOpenSheets } from "./scaleWeeksMigration";
 import { gmpYesOnOpenSheets } from "./gmpYesMigration";
 import { qcSignsClearedOnOpenSheets } from "./qcSignsMigration";
+import { qc35SheetsInPaperWords } from "./qc35WordsMigration";
 import { sharpDailyFrequencyLifted, sharpDaySheetsFolded, sharpTypedLinesRestored } from "./sharpMonthMigration";
 import { hrCriteriaBullets, hrDirectorDetails, hrDirectorNumbers, hrFeedbackSheetsOnFile, hrImpartedSheetsOnFile } from "./hrSuppliedOnFile";
 import { demoModeRuledOut } from "../engine/features";
@@ -134,6 +135,8 @@ export function bootstrap(): void {
   gmpYesOnOpenSheets();
   // F/QC/11, 12, 17: the names DCRS wrote on the sheets still open come off; the sign boxes are the person's (REQUIREMENTS §288).
   qcSignsClearedOnOpenSheets();
+  // F/QC/35's open sheets in the paper's words (REQUIREMENTS §313).
+  qc35SheetsInPaperWords();
 
   const today = new Date(todayISO());
   // F/QC/17's twenty records of this year for each scale, its records of the time before filed (REQUIREMENTS §220).

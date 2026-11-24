@@ -866,6 +866,7 @@ function fillLogSheet(
     else if (f.autoFill?.newest) header[f.key] = f.key === "calibrationDate" ? dueDate : f.autoFill.carryForward ? (prev ?? specimen) : "";
     // "Date of Inspection", "Date :" — the day the record is for, not the day the last one was.
     else if (f.autoFill?.dueDate) header[f.key] = dueDate;
+    else if (f.autoFill?.dueDateAndShift) header[f.key] = `${formatDisplayDate(dueDate)} / ${f.autoFill.dueDateAndShift}`;
     else if (f.autoFill?.carryForward && prev) header[f.key] = prev;
     // The twelve months the sheet covers, from its due date (F/HR/09, engine/trainingCalendar.ts).
     else if (f.autoFill?.financialYear) header[f.key] = calendarPeriod(dueDate);
@@ -1279,7 +1280,7 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       // Not "carried forward": the observations are worked out for today's lot
       // (observeRow), and the person writes in what was actually measured.
       return [
-        `Filled all ${rows.length} test-parameter observations for ${job || "the current job"} (shift ${h.shift}) with this job's usual figures, and every pass / fail test set by today's lot (${h.lotStatus}) rather than copied from the last inspection. Write in what was actually measured.`,
+        `Filled all ${rows.length} test-parameter observations for ${job || "the current job"} (${String(h.shift ?? "").includes("/") ? h.shift : `shift ${h.shift}`}) with this job's usual figures, and every pass / fail test set by today's lot (${h.lotStatus}) rather than copied from the last inspection. Write in what was actually measured.`,
         `Inspected by ${h.inspectedBy}. Update the job / PO if a different lot is being inspected today; "Approved by (QA Manager)" is the Verify step.`,
       ];
     }

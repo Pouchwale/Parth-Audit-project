@@ -1101,7 +1101,7 @@ function* qcWork(ctx: Ctx): Work<EvidenceSection> {
       const status = text(header.lotStatus);
       const field = status ? [...layout.headerFields, ...(layout.footerFields ?? [])].find((f) => f.key === "lotStatus") : undefined;
       if (status && field) {
-        for (const option of field.options ?? []) lot.offered.add(option);
+        for (const option of field.options ?? []) lot.offered.add(option.toLowerCase());
         lot.total += 1;
         if (isLotAccepted(status)) lot.accepted += 1;
         else {
@@ -1134,7 +1134,7 @@ function* qcWork(ctx: Ctx): Work<EvidenceSection> {
   lots.sort((a, b) => notAccepted(b) - notAccepted(a) || b.total - a.total);
   for (const l of lots.slice(0, LIST_MAX)) {
     const top = [...l.reasons.values()].sort((a, b) => b.n - a.n)[0];
-    const statuses = [...l.statuses].map(([s, k]) => `${k} ${l.offered.has(s) ? s : quoteFree(s, 30)}`).join(", ");
+    const statuses = [...l.statuses].map(([s, k]) => `${k} ${l.offered.has(s.toLowerCase()) ? s : quoteFree(s, 30)}`).join(", ");
     facts.push({
       text:
         `${called(l.doc, l.doc.name)} lots, ${label}: ${l.total} with a status, ${l.accepted} accepted, ${notAccepted(l)} not${statuses ? ` (${statuses})` : ""}` +

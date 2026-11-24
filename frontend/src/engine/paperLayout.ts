@@ -176,7 +176,7 @@ export function choiceWords(f: Pick<LogHeaderField, "type" | "options" | "choice
   const words = f.choicesAcross;
   const options = f.type === "yesno" ? ["Yes", "No"] : (f.options ?? []);
   if (!words || words.length === 0 || words.length !== options.length || (f.type !== "select" && f.type !== "yesno")) return null;
-  return options.map((option, i) => ({ option, word: words[i], chosen: value !== "" && value === option }));
+  return options.map((option, i) => ({ option, word: words[i], chosen: value !== "" && value.trim().toLowerCase() === option.toLowerCase() }));
 }
 
 /** The heading the sheet draws over a column: the paper's own words where they differ from its name, "" for none (REQUIREMENTS §111). */

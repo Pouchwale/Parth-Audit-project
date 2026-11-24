@@ -39,6 +39,8 @@ export interface LogHeaderField {
     default?: string;
     sign?: boolean;
     dueDate?: boolean;
+    /** The record's date and this shift in one box, as the paper's "Date / SHIFT" is written: "24-11-2026 / 1st" (F/QC/35, §313). */
+    dueDateAndShift?: string;
     newest?: boolean;
     /** The record's own date, `n` days on (F/QC/11's weekly Calibration Date 0, Due Date 7: the owner, 16-Nov-2026, REQUIREMENTS §223). */
     afterRecordDate?: number;

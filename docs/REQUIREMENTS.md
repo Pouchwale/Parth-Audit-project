@@ -13385,3 +13385,22 @@ The owner, 24-Nov-2026, marking on a printed F/QC/36 the line under the 1st Pass
   background graphics. The screen looks as before.
 - Checked printed on F/QC/36 and F/QC/21, with and without background graphics; one A4 page each.
 - File: frontend/src/styles.css.
+
+## §313 F/QC/35 Inspection Record – Slitting - Lamination Grade Film, as the owner's paper (24-Nov-2026)
+
+The owner, 24-Nov-2026, sending a photo of a filled F/QC/35 (28-2-26, 1st shift): "So this is F-QC-35 so i want this document as it
+is in my system in qc module."
+
+- F/QC/35 is drawn and printed as its paper, the way F/QC/36 is (§86, §111, §117): the logo and the title on two lines in the band; the
+  header two boxes to a line - JOB CODE (FG CODE), PO NUMBER, Date / SHIFT, Laminated – Mother Roll number - and SUBSTRATE DETAILS
+  across; the grid SR. NO., TEST PARAMETERS, SPECIFICATION, OBSERVATION with its lines "1.", "2.", "3." in the paper's capitals (BOND
+  STRENGTH, ODOUR TEST, SLITTED ROLL WIDTH (mm)); the LOT STATUS table with its four statuses across and the REASON line; INSPECTED BY
+  (QA INSPECTOR) and APPROVED BY (QA MANAGER); the Format number line and the address at the foot. Measured off the photo in mm.
+- Date / SHIFT is one box as the paper writes it, filled "24-11-2026 / 1st" when the sheet is filled; the Live prepare leaves it, as
+  the shift is the inspector's answer. The keys are the old ones, so the sheets on file read on (an old sheet shows its "1st").
+- The sheets still open take the paper's words once (the three test parameters, and a lot status "Accepted" as "ACCEPTED"), with a
+  line in their history; submitted and verified sheets, and anything anybody wrote, stay as they are. A status written before in
+  small letters is still ticked, and Mitra still counts it as one the form offers.
+- APPROVED BY is a box of its own now, as on F/QC/36, so the screen no longer says the approval is the Verify step.
+- Files: data/seed/logSheetLayouts.ts, qcIncomingGeometry.ts, qcPageFrames.ts, data/qc35WordsMigration.ts, engine/autoFill.ts
+  (dueDateAndShift), engine/paperLayout.ts, engine/historyDigest.ts. Tests: tests/qc35Paper.test.ts.

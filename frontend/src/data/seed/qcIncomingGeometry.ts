@@ -139,4 +139,13 @@ export const INCOMING_GEOMETRY: Record<string, IncomingGeometry> = {
   },
 };
 
+// F/QC/35, measured off the owner's paper of 24-Nov-2026 (§313): F/QC/36's grid and columns; the header two lines of boxes, the
+// second tall ("Laminated – Mother Roll" over "number"), and SUBSTRATE DETAILS across; LOT STATUS and the signatures as printed.
+INCOMING_GEOMETRY["qc-inspection-slitting"] = {
+  head: { cols: [53.3, 46.6, 52, 34.5], rows: [7.2, 13.9, 12.8] },
+  grid: { cols: [23.1, 60.6, 45.1, 57.6], rows: [15.4, 8.9, 7.1, 8.5] },
+  lotGap: 11.8, signGap: 11.8, signRows: [8.6, 9.9, 7.8], lotRows: [12.3, 11.3],
+  sr: 8.3, lh: 5.46, par: 0, headMore: true,
+};
+
 export const incomingGeometryFor = (documentId: string): IncomingGeometry | undefined => INCOMING_GEOMETRY[documentId];

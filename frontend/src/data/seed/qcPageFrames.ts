@@ -29,6 +29,8 @@ export const QC_PAGE_FRAMES: Record<string, PageFrame> = {
   "qc-duplex-board": left,
   "qc-incoming-lamination-film": left,
   "qc-inspection-sb-lamination": leftBroken,
+  // F/QC/35's title stands on two lines the same way: "INSPECTION RECORD –" / "SLITTING - LAMINATION GRADE FILM" (§313).
+  "qc-inspection-slitting": leftBroken,
   "qc-kraft-paper": centre,
   // F/QC/21 Flexo Ink: its own page (a single hairline frame, the band and foot inside it), styles.css "QC-FLEXO".
   "qc-flexo-ink": centre,
