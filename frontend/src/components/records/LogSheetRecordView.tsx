@@ -2,6 +2,8 @@ import { JOB_ROLES, isDraftJobRole, withJobRole } from "../../engine/jobRoles";
 import { isEditableStatus } from "../../engine/recordLifecycle";
 import { JOB_ROLES_LIST } from "../../data/seed/hrJobRoles";
 import React from "react";
+import { styleScope } from "../../engine/formatStyles";
+import { FormatStyled, useFormatStyleSheet } from "./useFormatStyleSheet";
 import { createPortal } from "react-dom";
 import { PLAIN_TWIN_ATTR, registerPaperTwin } from "../../utils/paperTwin";
 import { EXTRA_BOX, isExtraBox, listTables, rowWords, shownRows, withRecordBoxRows, withRowAdded, withRowRemoved } from "../../engine/boxRows";
@@ -158,6 +160,9 @@ export function LogSheetRecordView({
   // own boxes and columns (REQUIREMENTS §74).
   const issued = getLogSheetLayoutForRecord(doc.id, record);
   const layout = documentLayoutIn(issued, lang);
+  // The look set in Edit format (REQUIREMENTS §318, engine/formatStyles.ts): its style sheet, while this sheet is drawn.
+  const styledAs = styleScope(doc.id, layout);
+  useFormatStyleSheet(styledAs, layout?.styles);
   const superseded = supersededRevisionOf(record);
   // A form the department issues in Gujarati already reads in Gujarati, so with
   // ગુજરાતી chosen it is not handed to Google at all — it reads as issued.
@@ -567,6 +572,7 @@ export function LogSheetRecordView({
   // A paper that is one Word table from its letterhead to its foot (the certificates of analysis, data/seed/qcPaperTables.ts,
   // §117 round 2) is drawn as that table, row by row, in the paper's millimetres (components/records/PaperTableSheet.tsx).
   // (only while the paper still fits the format: one the plant has edited since is drawn as every grid is)
+  // (a record written on a revision since replaced keeps its own page, never the format's paper: F/MNT/11's 2024 and 2025 rounds, §315)
   const ptForm = !frame && !lc && !asPlainTwin ? paperTableFor(layout.documentId) : undefined;
   // ...its tables of boxes with the record's own rows (§246, engine/boxRows.ts).
   const ptFormed = ptForm && paperTableFits(ptForm, layout) ? withRecordBoxRows(ptForm, layout, data) : undefined;
@@ -1195,9 +1201,11 @@ export function LogSheetRecordView({
     );
   }
   return (
+    <FormatStyled.Provider value={!!styledAs}>
     <div
       className={rootClass}
       translate={asIssued ? "no" : undefined}
+      data-format-styles={styledAs}
       data-bind-record={record.id}
       data-paper={layout.paper ?? (frame ? "portrait" : lc ? "landscape" : undefined)}
       data-print-words={layout.printWordsAll ? "all" : undefined}
@@ -1275,6 +1283,7 @@ export function LogSheetRecordView({
             {recordWords("instructions", layout.instructions ?? []).map((line, i) => (
               <p
                 key={i}
+                data-style-line={styledAs ? i : undefined}
                 className={`text-sm ${i === 0 ? "font-semibold" : "text-muted"} ${i < (layout.instructions?.length ?? 0) - 1 ? "mb-1" : ""}${boxesFirst && i === 0 ? " mt-3" : ""}`}
               >
                 <EditableWords shown={line} editable={editable} onChange={(w) => setWords("instructions", layout.instructions ?? [], i, w)} label="A line of the paper's instructions">
@@ -1459,7 +1468,7 @@ export function LogSheetRecordView({
                       <ColumnHead key={c.key} col={c} rowSpan={headRows} bound={freeRows} paper={!!gridCols} shown={headingWords(c.key, columnHeading(c))} editable={editable} onWords={(w) => setHeadingWords(c.key, w)} />
                     ))
                   ) : (
-                    <th className="col-group" colSpan={run.columns.length} rowSpan={headless(run) ? headRows : undefined} data-group-alone={headless(run) ? "" : undefined}>
+                    <th className="col-group" colSpan={run.columns.length} rowSpan={headless(run) ? headRows : undefined} data-group-alone={headless(run) ? "" : undefined} data-style-group={styledAs ? run.group : undefined}>
                       <EditableWords shown={headingWords(`group:${run.group}`, run.group)} editable={editable} onChange={(w) => setHeadingWords(`group:${run.group}`, w)} label={`The heading ${run.group}`}>
                         {headingWords(`group:${run.group}`, run.group)}
                       </EditableWords>
@@ -1641,6 +1650,7 @@ export function LogSheetRecordView({
       )}
       <div className="text-xs text-faint mt-3 no-print">Specimen source: {layout.specimenSource}</div>
     </div>
+    </FormatStyled.Provider>
   );
 }
 
@@ -1847,6 +1857,8 @@ function ColumnHead({
   editable?: boolean;
   onWords?: (words: string) => void;
 }) {
+  // (the markers a style is laid over by, on a styled format only: every other sheet's markup is as before, §318)
+  const styled = React.useContext(FormatStyled);
   const b = bound ? logColumnBind(col) : null;
   const own = columnHeading(col);
   // The paper's own heading, "" where it prints none (F/QC/25's descriptions, REQUIREMENTS §111); the record's own words once typed over.
@@ -1864,6 +1876,7 @@ function ColumnHead({
       }
       // ...except a column of the sheet's own pre-printed words (a question, an attribute), which keeps its width in print.
       data-col-fixed={col.fixed && col.width && !paper ? "" : undefined}
+      data-style-col={styled ? col.key : undefined}
       rowSpan={rowSpan}
       colSpan={colSpan}
       title={col.nominal !== undefined ? `Nominal ${col.nominal}${col.unit ? " " + col.unit : ""}; band ${col.min}–${col.max}` : undefined}
@@ -2531,6 +2544,8 @@ const SheetRow = React.memo(function SheetRow({
   /** A line put in under this one (F/QC/11, REQUIREMENTS §233). */
   onInsert?: (afterId: string) => void;
 }) {
+  // (the markers a style is laid over by, on a styled format only: every other sheet's markup is as before, §318)
+  const styled = React.useContext(FormatStyled);
   // What the line is called in a downloaded file's list of boxes: its time slot, its parameter (REQUIREMENTS §81).
   const rowName = logRowName(row, columns);
   const merge = lineMergeFor(lineMerges, row, columns);
@@ -2583,6 +2598,7 @@ const SheetRow = React.memo(function SheetRow({
             // (F/PUR/03's SERVICE AGREEMENT across its six document columns, centred; a supplier's name on one line: §309)
             data-line-merge={mergedAcross > 1 ? "" : undefined}
             data-one-line={c.oneLine ? "" : undefined}
+            data-style-col={styled ? c.key : undefined}
           >
             <CellInput
               col={col}
@@ -2765,6 +2781,8 @@ function HeaderFieldInput({
   labelShown?: string;
   onLabel?: (words: string) => void;
 }) {
+  // (the markers a style is laid over by, on a styled format only: every other sheet's markup is as before, §318)
+  const styled = React.useContext(FormatStyled);
   // THE LABEL AS THIS RECORD WORDS IT (REQUIREMENTS §189): the paper's label (set as the paper sets it) until typed over;
   // on a record that can be written on, the words take the caret where they stand, asked first.
   const ownLabel = field.printedLabel ?? field.label;
@@ -2791,11 +2809,11 @@ function HeaderFieldInput({
   const box = (plain: string, label: React.ReactNode, body: React.ReactNode) => {
     const className = outOfBand ? `${plain} field-out-of-band` : plain;
     return inTable ? (
-      <div className={`${className} field-in-table`} data-box={field.key}>
+      <div className={`${className} field-in-table`} data-box={field.key} data-style-box={styled ? field.key : undefined}>
         {body}
       </div>
     ) : (
-      <div className={below ? `${className} field-printed-below` : className} {...paperColumnProps(field)}>
+      <div className={below ? `${className} field-printed-below` : className} {...paperColumnProps(field)} data-style-box={styled ? field.key : undefined}>
         {label}
         {body}
         {below}

@@ -395,7 +395,40 @@ export interface PageFrame {
   titleBreak?: true;
 }
 
+/**
+ * HOW ONE PART OF A SHEET LOOKS, SET IN EDIT FORMAT (REQUIREMENTS §318, engine/formatStyles.ts): its words' style, their
+ * alignment, the room around and inside the part, the line's height and the part's edge. Sizes in points, room in mm.
+ * Absent, the part is drawn as issued.
+ */
+export interface PartStyle {
+  /** true bold, false not bold (a heading the sheet draws bold, made plain). */
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  /** Points. */
+  size?: number;
+  /** A font name (formatStyles.ts STYLE_FONTS). */
+  font?: string;
+  align?: "left" | "center" | "right" | "justify";
+  /** mm above and below the part. */
+  spaceBefore?: number;
+  spaceAfter?: number;
+  /** Line height as a multiple of the size (1, 1.15, 1.5, 2). */
+  lineSpacing?: number;
+  /** mm inside the part's box or cell. */
+  padding?: number;
+  /** mm: a grid line's height (a column's values, a heading) or a box's least height. */
+  rowHeight?: number;
+  border?: "none" | "thin" | "thick";
+}
+
 export interface LogSheetLayout {
+  /**
+   * THE LOOK OF THE SHEET'S PARTS, SET IN EDIT FORMAT (REQUIREMENTS §318), by part: "sheet", "title", "company",
+   * "instructions" / "instruction:<n>", "headings" / "heading:<key>", "group:<name>", "values" / "column:<key>", "labels" /
+   * "label:<key>", "boxes" / "box:<key>" (engine/formatStyles.ts). Absent on every format nobody styled.
+   */
+  styles?: Record<string, PartStyle>;
   documentId: string;
   /**
    * THE TITLE AS THE PAPER PRINTS IT, where the name the document is filed and found under says more

@@ -32,6 +32,26 @@ export interface DocxRun {
 
 export type DocxCell = string | DocxRun[];
 
+/** The look a format's style gives some words (engine/formatStyles.ts WordsLook, REQUIREMENTS §318). Size in points. */
+export interface DocxLook {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  size?: number;
+  font?: string;
+  align?: "left" | "center" | "right" | "justify";
+}
+
+/** A run's properties: bold and size as the writer chose, laid over by the look where it says otherwise (in Word's own order). */
+function runProps(bold: boolean, halfPoints: number | undefined, look?: DocxLook): string {
+  if (!look) return `${bold ? "<w:b/>" : ""}${halfPoints ? `<w:sz w:val="${halfPoints}"/><w:szCs w:val="${halfPoints}"/>` : ""}`;
+  const b = look.bold ?? bold;
+  const sz = look.size ? Math.round(look.size * 2) : halfPoints;
+  const font = look.font ? `<w:rFonts w:ascii="${escape(look.font)}" w:hAnsi="${escape(look.font)}" w:cs="${escape(look.font)}"/>` : "";
+  return `${font}${b ? "<w:b/>" : ""}${look.italic ? "<w:i/>" : ""}${sz ? `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>` : ""}${look.underline ? '<w:u w:val="single"/>' : ""}`;
+}
+const jcOf = (align: DocxLook["align"]): string => (align ? `<w:jc w:val="${align === "justify" ? "both" : align}"/>` : "");
+
 /** A cell of a table drawn as the company's own Word page (type "paper"): its words, how they are set, and its four edges. */
 export interface DocxPaperCell {
   text: DocxCell;
@@ -56,13 +76,13 @@ export interface DocxPaperCell {
 }
 
 export type DocxBlock =
-  | { type: "paragraph"; text: string; bold?: boolean; size?: number; center?: boolean; parts?: DocxRun[] }
+  | { type: "paragraph"; text: string; bold?: boolean; size?: number; center?: boolean; parts?: DocxRun[]; look?: DocxLook }
   /**
    * A table laid in points, as the company's Word original draws it: fixed column widths, row heights, merged cells, a face
    * and size to each cell, edges to each cell. `indent` is its distance from the margin, `pageBreakBefore` starts a page.
    */
   | { type: "paper"; widths: number[]; rows: { height?: number; keepNext?: boolean; cells: DocxPaperCell[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number; cellPad?: number }
-  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true; spans?: Record<string, number> };
+  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true; spans?: Record<string, number>; looks?: Record<string, DocxLook> };
 
 /** What a document carries besides its body. */
 export interface DocxExtras {
@@ -122,9 +142,10 @@ class Controls {
   }
 }
 
-function paragraph(controls: Controls, text: string, opts: { bold?: boolean; size?: number; center?: boolean; spacingAfter?: number; parts?: DocxRun[] } = {}): string {
-  const rPr = `${opts.bold ? "<w:b/>" : ""}${opts.size ? `<w:sz w:val="${opts.size}"/><w:szCs w:val="${opts.size}"/>` : ""}`;
-  const pPr = `<w:pPr>${opts.center ? '<w:jc w:val="center"/>' : ""}<w:spacing w:before="0" w:after="${opts.spacingAfter ?? 80}"/></w:pPr>`;
+function paragraph(controls: Controls, text: string, opts: { bold?: boolean; size?: number; center?: boolean; spacingAfter?: number; parts?: DocxRun[]; look?: DocxLook } = {}): string {
+  const rPr = runProps(!!opts.bold, opts.size, opts.look);
+  const jc = opts.look?.align ? jcOf(opts.look.align) : opts.center ? '<w:jc w:val="center"/>' : "";
+  const pPr = `<w:pPr>${jc}<w:spacing w:before="0" w:after="${opts.spacingAfter ?? 80}"/></w:pPr>`;
   const body = opts.parts && opts.parts.some((p) => p.tag) ? controls.pieces(opts.parts, rPr) : runs(text, rPr);
   return `<w:p>${pPr}${body}</w:p>`;
 }
@@ -152,14 +173,18 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
           // A table of boxes laid several to a line (labelColumns) has a label in every other column.
           const bold = header || (!!block.boldFirstColumn && ci === 0) || (!!block.labelColumns && ci % 2 === 0);
           const shade = header ? '<w:shd w:val="clear" w:color="auto" w:fill="E7E9EE"/>' : "";
-          const rPr = `${bold ? "<w:b/>" : ""}<w:sz w:val="${fontSize}"/><w:szCs w:val="${fontSize}"/>`;
+          // (the look the format's style gives this cell, §318: its words' style and alignment)
+          const look = block.looks?.[`${ri}:${ci}`];
+          const rPr = runProps(bold, fontSize, look);
           // (set close, every value in the middle of its box, §262; and a date stays on one line: "01-11-2026" broke at its dashes in a narrow column and drew its line twice as tall)
           const text = typeof cell === "string" ? cell : cell.map((c) => c.text).join("");
           const noWrap = close && /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/.test(text.trim()) ? "<w:noWrap/>" : "";
           const width = set ? set.slice(ci, ci + span).reduce((a, b) => a + b, 0) : 0;
           const across = span > 1 ? `<w:gridSpan w:val="${span}"/>` : "";
-          const centred = span > 1 && !close ? '<w:jc w:val="center"/>' : "";
-          return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="${set ? "dxa" : "auto"}"/>${across}${shade}${noWrap}${columnsMm ? '<w:vAlign w:val="center"/>' : ""}</w:tcPr><w:p><w:pPr>${set ? '<w:spacing w:before="0" w:after="0" w:line="228" w:lineRule="auto"/>' : close ? '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>' : '<w:spacing w:before="20" w:after="20"/>'}${centred}</w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
+          const centred = look?.align ? jcOf(look.align) : span > 1 && !close ? '<w:jc w:val="center"/>' : "";
+          const tc = `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="${set ? "dxa" : "auto"}"/>${across}${shade}${noWrap}${columnsMm ? '<w:vAlign w:val="center"/>' : ""}</w:tcPr><w:p><w:pPr>${set ? '<w:spacing w:before="0" w:after="0" w:line="228" w:lineRule="auto"/>' : close ? '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>' : '<w:spacing w:before="20" w:after="20"/>'}${centred}</w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
+          // (a styled cell's own alignment stands alone: the centring a close table gives every cell gives way to it, §318)
+          return close && look?.align ? tc.replace('<w:jc w:val="center"/>', "") : tc;
         })
         .join("");
       // (set close, a line is ruled CLOSE_ROW high at least, as a paper's ruled line, so the month fills its page)

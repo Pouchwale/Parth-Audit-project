@@ -13414,3 +13414,40 @@ switch on then it should come".
   the super admin included. Switched on again, it comes back. The super admin's menu changes the moment the switch is turned; the
   staff's at their next page load, as before.
 - The super admin keeps the floating Mitra and the /assistant page itself; the server still refuses Mitra to the staff while it is off.
+## §318 Edit format: the look of every part of a sheet, its spacing and its page (24-Nov-2026)
+
+The owner, 24-Nov-2026: "in edit format section we can able to control full things perfectly from space to bold text center text
+justify text all things whichever is possible ... without affecting the current system". Asked which controls, the owner chose all
+four: text style, alignment, spacing and table layout. Asked what comes first, the owner chose styling in Edit format (this
+section), and making a new format from an uploaded Word file after it (to come).
+
+- **On the sheet, in Edit format.** Every heading's, box's and printed line's menu has **Style…**, and the toolbar has **Style**
+  for the whole sheet. A column is styled as its heading, its values, and the heading over its run of columns if it has one. A box
+  is styled as its label and its value. The whole sheet is styled as one, and so are its title, its company name, its printed
+  lines, every heading, every value, every box's label and every box's value. A part's own style is laid over the broad ones.
+- **What can be set.**
+  - Text: bold (or not bold), italic, underline, size (7 to 24 pt), and font (Arial, Calibri, Cambria, Times New Roman, Verdana,
+    Tahoma, Segoe UI, Book Antiqua).
+  - Alignment: left, centre, right or justified.
+  - Spacing in mm: space before, space after, line spacing (1, 1.15, 1.5, 2), room inside, and line height.
+  - Edges: none, thin or thick.
+  - A column's printed width, in mm (LogColumn.printWidth, §309).
+  - The page: portrait or landscape (LogSheetLayout.paper).
+  - Every control starts "as issued". **As issued** takes a part's style off.
+- **Saved as a format change** (engine/formatOps.ts commitFormatChange): a style is kept in the format's layout
+  (LogSheetLayout.styles), so it is a new revision with a reason. The save names each change ("styled the heading “SUPPLIER NAME”:
+  italic, 12 pt Times New Roman, centre"), and the issued format can be restored. Undo and redo take a style off and put it back like
+  any other step. A preview line shows the style before Apply.
+- **The same on the screen, on paper and in the downloads.**
+  - The style sheet is scoped to the format and its styles (engine/formatStyles.ts formatStyleCss, the sheet's
+    data-format-styles), laid over the designer's sheet and every record's.
+  - The print is the same page.
+  - The Word file and the workbook carry each styled cell's, box's and line's bold, italic, underline, size, font and alignment
+    (documentExport.ts wordsLookOf, docx.ts DocxLook, the workbook's own cell formats). Only what a style sets is carried.
+- **Nothing changes for a format nobody styled.** It has no `styles`, and its markup, print and downloads are exactly as before:
+  the parts carry their style markers (data-style-col, data-style-box, data-style-line, data-style-group) only on a styled sheet.
+- **Not in this section.** The owner's paper formats drawn cell by cell (the HR papers, the QC papers: PaperTable) are styled as
+  they are drawn now. They come with the Word upload, which makes the same kind of paper.
+- Files: engine/formatStyles.ts, components/documents/StylePanel.tsx, components/records/useFormatStyleSheet.ts, SheetDesigner.tsx,
+  LogSheetRecordView.tsx, engine/formatOps.ts, types/logSheet.ts, utils/documentExport.ts, utils/docx.ts, styles.css. Tests:
+  frontend/tests/formatStyles.test.ts.

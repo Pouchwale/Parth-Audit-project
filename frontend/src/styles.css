@@ -4668,6 +4668,17 @@ html.print-measure .paper-sheet table.log-sheet[data-print-cols] { table-layout:
 html.print-measure .paper-sheet table.log-sheet[data-print-cols] > thead > tr > th { min-width: 0; }
 html.print-measure .paper-sheet table.log-sheet[data-print-cols] > thead > tr > th[style*="--col-print"] { width: var(--col-print); }
 html.print-measure .paper-sheet table.log-sheet td[data-one-line] .print-box-text { white-space: nowrap; }
+/* THE STYLE PANEL OF EDIT FORMAT (REQUIREMENTS §318, components/documents/StylePanel.tsx). */
+.style-panel .style-targets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.style-panel .style-sample { margin: 6px 0 2px; color: #000; background: #fff; }
+.style-panel .style-group { border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 12px 8px; margin-top: 10px; }
+.style-panel .style-group > legend { font-size: 12px; font-weight: 600; color: var(--color-text-muted); padding: 0 4px; }
+.style-panel .style-row { display: flex; align-items: center; gap: 10px; margin: 5px 0; }
+.style-panel .style-row-label { flex: 0 0 190px; font-size: 13px; }
+.style-panel .style-row .input { max-width: 200px; }
+.style-panel .style-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; }
+.style-panel .style-buttons > select { max-width: 170px; }
+.style-panel .style-check { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,

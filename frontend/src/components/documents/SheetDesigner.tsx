@@ -19,6 +19,9 @@ import { closeDesignSession, openDesignSession } from "../../engine/designSessio
 import { setLeaveGuard, useRouter } from "../../store/router";
 import { useAuth } from "../../store/AuthContext";
 import { startTextDesign } from "../../../../indexing/TextDesigner";
+import { styleScope } from "../../engine/formatStyles";
+import { useFormatStyleSheet } from "../records/useFormatStyleSheet";
+import { StylePanel, type StyleTarget } from "./StylePanel";
 import {
   BOX_TYPES,
   COLUMN_TYPES,
@@ -241,6 +244,8 @@ export function SheetDesigner({
   const [renaming, setRenaming] = useState<RenameTarget | null>(null);
   const [menu, setMenu] = useState<ItemTarget | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  // THE LOOK OF A PART, BEING SET (REQUIREMENTS §318): which parts the style panel styles, opened from a menu or the toolbar.
+  const [styling, setStyling] = useState<{ title: string; targets: StyleTarget[]; widthOf?: string; page?: boolean } | null>(null);
   const [focusCell, setFocusCell] = useState<{ index: number; key: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -260,6 +265,10 @@ export function SheetDesigner({
     },
     [put]
   );
+  const openStyle = (title: string, targets: StyleTarget[], extra: { widthOf?: string; page?: boolean } = {}) => {
+    setMenu(null);
+    setStyling({ title, targets, ...extra });
+  };
   // What was being renamed, or had a menu open, may not be on the sheet after a step back.
   const undo = useCallback(() => {
     const h = live.current;
@@ -303,6 +312,9 @@ export function SheetDesigner({
 
   const draft = history.present;
   const layout = draft.layout;
+  // The look being set (REQUIREMENTS §318): the draft's own style sheet, so a style shows on the sheet as it is chosen.
+  const styledAs = styleScope(doc.id, layout);
+  useFormatStyleSheet(styledAs, layout?.styles);
   const changes = useMemo(() => describeFormatChange(base, draft), [base, draft]);
   const dirty = changes.length > 0;
 
@@ -575,6 +587,23 @@ export function SheetDesigner({
           <MenuItem action="move-column-right" icon={<FiArrowRight size={13} />} disabled={i === columns.length - 1} onClick={() => putLayout((l) => moveColumn(l, key, 1))}>
             Move right
           </MenuItem>
+          <MenuItem
+            action="style-column"
+            icon={<FiType size={13} />}
+            onClick={() =>
+              openStyle(
+                `Style of the column “${c.label}”`,
+                [
+                  { key: `heading:${key}`, name: "Heading", sample: c.label },
+                  { key: `column:${key}`, name: "Values", sample: "A value written in the column" },
+                  ...(c.group ? [{ key: `group:${c.group}`, name: `Heading over (“${c.group}”)`, sample: c.group }] : []),
+                ],
+                { widthOf: key }
+              )
+            }
+          >
+            Style…
+          </MenuItem>
           <div className="designer-menu-rule" />
           <ItemSettings
             key={key}
@@ -626,6 +655,18 @@ export function SheetDesigner({
           </MenuItem>
           <MenuItem action="move-box-after" icon={<FiArrowRight size={13} />} disabled={i === boxes.length - 1} onClick={() => putLayout((l) => moveBox(l, area, key, 1))}>
             Move later
+          </MenuItem>
+          <MenuItem
+            action="style-box"
+            icon={<FiType size={13} />}
+            onClick={() =>
+              openStyle(`Style of the box “${b.label}”`, [
+                { key: `label:${key}`, name: "Label", sample: b.label },
+                { key: `box:${key}`, name: "Value", sample: "What is written in the box" },
+              ])
+            }
+          >
+            Style…
           </MenuItem>
           <div className="designer-menu-rule" />
           <ItemSettings
@@ -686,6 +727,9 @@ export function SheetDesigner({
         </MenuItem>
         <MenuItem action="move-instruction-down" icon={<FiArrowDown size={13} />} disabled={index === prose.length - 1} onClick={() => moveProse(index, 1)}>
           Move down
+        </MenuItem>
+        <MenuItem action="style-instruction" icon={<FiType size={13} />} onClick={() => openStyle(`Style of printed line ${index + 1}`, [{ key: `instruction:${index}`, name: "This line", sample: prose[index] }])}>
+          Style…
         </MenuItem>
         <div className="designer-menu-rule" />
         <MenuItem action="reword-instructions" icon={<FiEdit3 size={13} />} onClick={rewordAllProse}>
@@ -756,7 +800,7 @@ export function SheetDesigner({
           const open = menu?.kind === "box" && menu.key === f.key;
           return (
             // A prose box takes the whole width of the row of boxes, as the paper draws it (REQUIREMENTS §68).
-            <div key={f.key} className={`field designer-box${f.type === "paragraph" ? " field-paragraph" : ""}`} data-designer-item="box" data-key={f.key} data-area={area} {...paperColumnProps(f)}>
+            <div key={f.key} className={`field designer-box${f.type === "paragraph" ? " field-paragraph" : ""}`} data-designer-item="box" data-key={f.key} data-area={area} data-style-box={f.key} {...paperColumnProps(f)}>
               <div className="designer-heading">
                 {isRenaming ? (
                   <RenameBox field="rename-box" label="Name of the box" initial={f.label} onCommit={commitRename} onCancel={cancelRename} />
@@ -827,7 +871,7 @@ export function SheetDesigner({
 
   /** One column's heading: typed over in place, with its own menu beside it. */
   const columnHead = (c: LogColumn, rowSpan?: number) => (
-    <th key={c.key} style={c.width ? { minWidth: c.width } : undefined} rowSpan={rowSpan} data-designer-item="column" data-key={c.key}>
+    <th key={c.key} style={c.width ? { minWidth: c.width } : undefined} rowSpan={rowSpan} data-designer-item="column" data-key={c.key} data-style-col={c.key}>
       {columnName(c)}
     </th>
   );
@@ -928,6 +972,29 @@ export function SheetDesigner({
           {countLabel(changes.length)}
         </span>
         <span className="designer-gap" />
+        <button
+          className="btn btn-ghost btn-sm"
+          data-action="designer-style"
+          title="The look of the whole sheet: its font and size, the title, every heading, every value, every box, the printed lines, the page"
+          onClick={() =>
+            openStyle(
+              "Style of the whole sheet",
+              [
+                { key: "sheet", name: "Whole sheet", sample: "Every word of the sheet" },
+                { key: "title", name: "Title", sample: draft.name },
+                { key: "company", name: "Company name", sample: draft.companyName ?? doc.companyName ?? COMPANY.name },
+                { key: "instructions", name: "Printed lines", sample: prose[0] ?? "A printed line" },
+                { key: "headings", name: "Headings", sample: columns[0]?.label ?? "A heading" },
+                { key: "values", name: "Values", sample: "A value written in the grid" },
+                { key: "labels", name: "Box labels", sample: layout.headerFields[0]?.label ?? "A box's label" },
+                { key: "boxes", name: "Box values", sample: "What is written in a box" },
+              ],
+              { page: true }
+            )
+          }
+        >
+          <FiType size={13} /> Style
+        </button>
         {/* The dialog starts from the STORED format, so it is offered only when the sheet holds nothing it would lose. */}
         <button
           className="btn btn-ghost btn-sm"
@@ -990,7 +1057,7 @@ export function SheetDesigner({
       </div>
 
       {/* The sheet as it will print: everything that is a control on it is .no-print (utils/print.ts). */}
-      <div className="designer-sheet mt-2" data-print-doc>
+      <div className="designer-sheet mt-2" data-print-doc data-format-styles={styledAs}>
         {/* The header block is designed in place too (REQUIREMENTS §77): each
             of its values is clicked and typed over where it stands. The
             revision box starts from the number the save will be given. */}
@@ -1069,7 +1136,7 @@ export function SheetDesigner({
                   const isRenaming = renaming?.kind === "instruction" && renaming.index === i;
                   const open = menu?.kind === "instruction" && menu.index === i;
                   return (
-                    <div key={i} className="designer-prose-line" data-designer-item="instruction" data-index={i}>
+                    <div key={i} className="designer-prose-line" data-designer-item="instruction" data-index={i} data-style-line={i}>
                       {isRenaming ? (
                         <RenameBox field="rename-instruction" label={`Printed line ${i + 1}`} initial={line} onCommit={commitRename} onCancel={cancelRename} />
                       ) : (
@@ -1145,7 +1212,7 @@ export function SheetDesigner({
                           const first = run.columns[0];
                           const isRenaming = renaming?.kind === "group" && renaming.key === first.key;
                           return (
-                            <th className="col-group" colSpan={run.columns.length} data-designer-item="group" data-key={first.key}>
+                            <th className="col-group" colSpan={run.columns.length} data-designer-item="group" data-key={first.key} data-style-group={run.group}>
                               <div className="designer-heading">
                                 {isRenaming ? (
                                   <RenameBox field="rename-group" label="Heading over these columns — leave it empty to take it off" initial={run.group ?? ""} onCommit={commitRename} onCancel={cancelRename} />
@@ -1209,7 +1276,7 @@ export function SheetDesigner({
                         {layout.srNoShowsDate ? (i === 0 ? <span className="text-xs no-print">the record&apos;s date</span> : null) : `${i + 1}${layout.srNoFullStop ? "." : ""}`}
                       </td>
                       {lines.first.map((c) => (
-                        <td key={c.key} className="notranslate" translate="no">
+                        <td key={c.key} className="notranslate" translate="no" data-style-col={c.key}>
                           {layout.rowMode.kind === "timeSlots" && layout.rowMode.slotKey === c.key ? (layout.rowMode.slots[i] ?? "") : ""}
                         </td>
                       ))}
@@ -1296,6 +1363,21 @@ export function SheetDesigner({
             <p className="text-xs text-faint">Nothing is final until the format is saved — Undo puts it back.</p>
           </div>
         </Modal>
+      )}
+
+      {styling && (
+        <StylePanel
+          title={styling.title}
+          targets={styling.targets}
+          layout={layout}
+          widthOf={styling.widthOf}
+          page={styling.page}
+          onClose={() => setStyling(null)}
+          onApply={(next) => {
+            setStyling(null);
+            putLayout(() => next);
+          }}
+        />
       )}
 
       {dialog?.kind === "save" && (

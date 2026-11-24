@@ -1,5 +1,6 @@
 import { TBC, type DocumentDefinition } from "../types";
-import { buildDocx, type DocxBlock, type DocxCell, type DocxRun } from "./docx";
+import { wordsLookOf, type WordsLook } from "../engine/formatStyles";
+import { buildDocx, type DocxBlock, type DocxCell, type DocxLook, type DocxRun } from "./docx";
 import { columnName, isoToSerial, xmlText, zipStored, customPropertiesXml, CUSTOM_PROPERTIES_PART, CUSTOM_PROPERTIES_REL, CUSTOM_PROPERTIES_TYPE } from "./xlsx";
 import { downloadBlob } from "./csv";
 import { displayDateToISO, formatDisplayDate, todayISO } from "./date";
@@ -171,6 +172,10 @@ export interface Cell {
    * (REQUIREMENTS §309); the blank cells after it in the row keep their places.
    */
   across?: number;
+  /** The look the format's style gives the cell's words (REQUIREMENTS §318): carried into the Word file and the workbook. */
+  look?: WordsLook;
+  /** A box's label's own look (the value's is `look`). */
+  labelLook?: WordsLook;
 }
 
 /**
@@ -225,7 +230,7 @@ export interface PaperCellSpec extends Cell {
 }
 
 export type ExportBlock =
-  | { kind: "text"; text: string; strong: boolean; title?: boolean; parts?: ExportSegment[] }
+  | { kind: "text"; text: string; strong: boolean; title?: boolean; parts?: ExportSegment[]; look?: WordsLook }
   /** A table laid in points as the company's Word original draws it: widths (pt), rows with heights (pt) and merged cells. For a Word file only. */
   | { kind: "paper"; widths: number[]; rows: { height?: number; keepNext?: boolean; cells: PaperCellSpec[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number; cellPad?: number }
   /**
@@ -468,7 +473,9 @@ function tableBlock(table: HTMLTableElement): ExportBlock | null {
       const at = cells.length;
       const across = Math.max(1, cell.colSpan);
       if (cell.hasAttribute(BIND_COL_ATTR)) columnsAt.set(cell, at);
-      cells.push(across > 1 && cell.hasAttribute("data-line-merge") ? { ...cellOf(cell), across } : cellOf(cell));
+      const read = across > 1 && cell.hasAttribute("data-line-merge") ? { ...cellOf(cell), across } : cellOf(cell);
+      const look = wordsLookOf(cell);
+      cells.push(look ? { ...read, look } : read);
       own++;
       for (let i = 1; i < across; i++) cells.push({ text: "" });
       for (let down = 1; down < cell.rowSpan; down++) {
@@ -593,7 +600,8 @@ function walk(el: Element, out: ExportBlock[]): void {
         }
       } else {
         const text = clean(textOf(part));
-        if (text) out.push({ kind: "text", text, strong: true, title: true });
+        const look = wordsLookOf(part);
+        if (text) out.push(look ? { kind: "text", text, strong: true, title: true, look } : { kind: "text", text, strong: true, title: true });
       }
     }
     // THE PAPER'S OWN HEAD (REQUIREMENTS §183): a framed QC paper's title beside its logo; a line clearance's company, title,
@@ -627,7 +635,11 @@ function walk(el: Element, out: ExportBlock[]): void {
       Array.from(el.childNodes).filter((n) => n !== label),
       " "
     );
-    const cell: Cell = dateInput?.value ? { ...value, text: formatDisplayDate(dateInput.value), date: dateInput.value } : value;
+    const dated: Cell = dateInput?.value ? { ...value, text: formatDisplayDate(dateInput.value), date: dateInput.value } : value;
+    // (the look the format's style gives the box's label and its value, §318)
+    const look = wordsLookOf(Array.from(el.children).find((c) => c !== label));
+    const labelLook = wordsLookOf(label);
+    const cell: Cell = look || labelLook ? { ...dated, ...(look ? { look } : {}), ...(labelLook ? { labelLook } : {}) } : dated;
     // A field's bound value that the view gave no label is named by the field.
     for (const p of cell.parts ?? []) if (p.bind && !p.bind.label && name) p.bind.label = name;
     if (cell.bind && !cell.bind.label && name) cell.bind.label = name;
@@ -652,6 +664,8 @@ function walk(el: Element, out: ExportBlock[]): void {
     if (text || parts) {
       const block: ExportBlock = { kind: "text", text, strong: /^H[1-6]$/.test(el.tagName) || /^(bold|[6-9]00)$/.test(getComputedStyle(el).fontWeight) };
       if (parts) block.parts = parts;
+      const look = wordsLookOf(el);
+      if (look) block.look = look;
       out.push(block);
     }
     return;
@@ -756,7 +770,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
   const heightsAt = new Map<number, number>();
   const pageBreaks: number[] = [];
   const fixedWidths: number[] = [];
-  const paperFonts: { size: number; bold: boolean; underline: boolean; name: string }[] = [];
+  const paperFonts: { size: number; bold: boolean; underline: boolean; name: string; italic?: boolean }[] = [];
   const paperBorders: string[] = [];
   const paperXfs: string[] = [];
   const paperXfAt = new Map<string, number>();
@@ -787,7 +801,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     const key = JSON.stringify([st.size, st.bold, !!st.underline, face, st.align, st.valign, st.wrap, edges, numberCell, st.fill ?? ""]);
     const known = paperXfAt.get(key);
     if (known !== undefined) return known;
-    let font = paperFonts.findIndex((f) => f.size === st.size && f.bold === st.bold && f.underline === !!st.underline && f.name === face);
+    let font = paperFonts.findIndex((f) => f.size === st.size && f.bold === st.bold && f.underline === !!st.underline && f.name === face && !f.italic);
     if (font < 0) font = paperFonts.push({ size: st.size, bold: st.bold, underline: !!st.underline, name: face }) - 1;
     const borderXml = `<border>${edgeXml("left", edges[0])}${edgeXml("right", edges[1])}${edgeXml("top", edges[2])}${edgeXml("bottom", edges[3])}<diagonal/></border>`;
     let border = paperBorders.indexOf(borderXml);
@@ -798,6 +812,30 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     paperXfs.push(xf);
     paperXfAt.set(key, BASE_XFS + paperXfs.length - 1);
     return BASE_XFS + paperXfs.length - 1;
+  };
+  // A CELL IN THE LOOK THE FORMAT'S STYLE GIVES IT (REQUIREMENTS §318): the workbook's own cell format for it (`base`: 1 strong
+  // words, 2 the title, 3 a value, 4 a heading, 5 a date, 6 a number, 7 words, 8 a label), with the style's bold, italic,
+  // underline, size, font and alignment over it. A cell nothing styles keeps its own format.
+  const lookXfAt = new Map<string, number>();
+  const lookXf = (look: WordsLook | undefined, base: number): number => {
+    if (!look) return base;
+    const key = JSON.stringify([look, base]);
+    const known = lookXfAt.get(key);
+    if (known !== undefined) return known;
+    const baseBold = [1, 2, 4, 8, 10].includes(base);
+    const want = { size: look.size ?? ([2, 10].includes(base) ? 12 : 10), bold: look.bold ?? baseBold, underline: !!look.underline, italic: !!look.italic, name: look.font ?? "Calibri" };
+    let font = paperFonts.findIndex((f) => f.size === want.size && f.bold === want.bold && f.underline === want.underline && f.name === want.name && !!f.italic === want.italic);
+    if (font < 0) font = paperFonts.push(want) - 1;
+    const bordered = [3, 4, 5, 6].includes(base);
+    const numFmt = base === 3 ? 49 : base === 5 ? 164 : 0;
+    const horizontal = look.align ? ` horizontal="${look.align}"` : "";
+    const xf =
+      `<xf numFmtId="${numFmt}" fontId="${BASE_FONTS + font}" fillId="${base === 4 ? 2 : 0}" borderId="${bordered ? 1 : 0}" xfId="0"${numFmt ? ' applyNumberFormat="1"' : ""} applyFont="1"` +
+      `${base === 4 ? ' applyFill="1"' : ""}${bordered ? ' applyBorder="1"' : ""} applyAlignment="1"><alignment${horizontal} vertical="${base === 4 ? "center" : "top"}" wrapText="1"/></xf>`;
+    paperXfs.push(xf);
+    const at = BASE_XFS + paperXfs.length - 1;
+    lookXfAt.set(key, at);
+    return at;
   };
   const measure = (ci: number, text: string) => {
     const longest = Math.max(0, ...text.split("\n").map((l) => l.length));
@@ -820,7 +858,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     if (block.kind === "text") {
       if (previous && previous !== "text") gap();
       textRows.add(rows.length);
-      rows.push([{ text: block.text, style: block.title ? 2 : block.strong ? 1 : 7, pieces: piecesFor(block.parts) }]);
+      rows.push([{ text: block.text, style: lookXf(block.look, block.title ? 2 : block.strong ? 1 : 7), pieces: piecesFor(block.parts) }]);
     } else if (block.kind === "paper") {
       continue;
     } else if (block.kind === "sheet") {
@@ -861,7 +899,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
           // A long label wraps in its own column rather than widening it for the grid below or being cut off by its box.
           widths[i * 2] = Math.max(widths[i * 2] ?? 8, Math.min(28, Math.max(0, ...label.split("\n").map((l) => l.length)) + 2));
           measure(i * 2 + 1, cell.text);
-          line.push({ text: label, style: 8 },{ text: cell.text, style: cell.date ? 5 : 3, date: cell.date, pieces: piecesFor(cell.parts) });
+          line.push({ text: label, style: lookXf(cell.labelLook, 8) },{ text: cell.text, style: lookXf(cell.look, cell.date ? 5 : 3), date: cell.date, pieces: piecesFor(cell.parts) });
         });
         rows.push(line);
       }
@@ -893,13 +931,13 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
               return { text: cell.text, style: CENTRED_ACROSS, pieces, anchor: pieces && a && seen.get(rowSignature([a.text])) === 1 ? a : undefined };
             }
             measure(ci, header ? cell.text.split("\n")[0] : cell.text);
-            if (header) return { text: cell.text, style: 4 };
+            if (header) return { text: cell.text, style: lookXf(cell.look, 4) };
             const pieces = piecesFor(cell.parts);
             const a = anchors[ri];
             const anchor = pieces && a && seen.get(rowSignature([a.text])) === 1 ? a : undefined;
-            if (cell.date) return { text: cell.text, style: 5, date: cell.date, pieces, anchor };
-            if (NUMBER_RE.test(cell.text)) return { text: cell.text, style: 6, number: true, pieces, anchor };
-            return { text: cell.text, style: 3, pieces, anchor };
+            if (cell.date) return { text: cell.text, style: lookXf(cell.look, 5), date: cell.date, pieces, anchor };
+            if (NUMBER_RE.test(cell.text)) return { text: cell.text, style: lookXf(cell.look, 6), number: true, pieces, anchor };
+            return { text: cell.text, style: lookXf(cell.look, 3), pieces, anchor };
           })
         );
       });
@@ -921,7 +959,8 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       const own = c.text.split("\n");
       const lines = own.reduce((n, l) => n + Math.max(1, Math.ceil((l.length * perChar) / across)), 0);
       if (lines === own.length) continue;
-      c.style = title ? 10 : c.style === 1 ? 8 : 9;
+      // (a line in the look the format's style gives it keeps that look, wrapped by it: §318)
+      if (c.style < BASE_XFS) c.style = title ? 10 : c.style === 1 ? 8 : 9;
       merges.push(`A${ri + 1}:${columnName(columns - 1)}${ri + 1}`);
       heightsAt.set(ri, Math.ceil(lines * (title ? 16 : 13.5) + 2));
     }
@@ -1038,7 +1077,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       `<styleSheet xmlns="${MAIN}">` +
         `<numFmts count="1"><numFmt numFmtId="164" formatCode="[$-409]dd\\-mm\\-yyyy"/></numFmts>` +
         `<fonts count="${BASE_FONTS + paperFonts.length}"><font><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="10"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="12"/><name val="Calibri"/><family val="2"/></font>` +
-        paperFonts.map((f) => `<font>${f.bold ? "<b/>" : ""}${f.underline ? "<u/>" : ""}<sz val="${f.size}"/><name val="${xmlText(f.name)}"/><family val="2"/></font>`).join("") +
+        paperFonts.map((f) => `<font>${f.bold ? "<b/>" : ""}${f.italic ? "<i/>" : ""}${f.underline ? "<u/>" : ""}<sz val="${f.size}"/><name val="${xmlText(f.name)}"/><family val="2"/></font>`).join("") +
         `</fonts>` +
         `<fills count="${3 + paperFills.length}"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7E9EE"/><bgColor indexed="64"/></patternFill></fill>` +
         paperFills.map((rgb) => `<fill><patternFill patternType="solid"><fgColor rgb="FF${rgb}"/><bgColor indexed="64"/></patternFill></fill>`).join("") +
@@ -1112,15 +1151,25 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
       const parts = runsOf(b.parts);
       const block: DocxBlock = { type: "paragraph", text: b.text, bold: b.strong, size: b.title ? 24 : undefined, center: b.title };
       if (parts) block.parts = parts;
+      if (b.look) block.look = b.look;
       return block;
     }
     if (b.kind === "fields") {
       const perLine = b.perLine && b.perLine > 1 ? b.perLine : 1;
-      if (perLine === 1) return { type: "table", rows: b.pairs.map(([label, cell]) => [label, cellOfWord(cell, label)]), boldFirstColumn: true };
+      // (each box's label and value in the look the format's style gives them, §318)
+      const looks: Record<string, DocxLook> = {};
+      b.pairs.forEach(([, cell], i) => {
+        const ri = Math.floor(i / perLine);
+        const ci = (i % perLine) * 2;
+        if (cell.labelLook) looks[`${ri}:${ci}`] = cell.labelLook;
+        if (cell.look) looks[`${ri}:${ci + 1}`] = cell.look;
+      });
+      const styled = Object.keys(looks).length ? { looks } : {};
+      if (perLine === 1) return { type: "table", rows: b.pairs.map(([label, cell]) => [label, cellOfWord(cell, label)]), boldFirstColumn: true, ...styled };
       // As many boxes to a line as the paper draws them (REQUIREMENTS §117): each line a row of label, box, label, box ...
       const rows: DocxCell[][] = [];
       for (let at = 0; at < b.pairs.length; at += perLine) rows.push(b.pairs.slice(at, at + perLine).flatMap(([label, cell]) => [label, cellOfWord(cell, label)]));
-      return { type: "table", rows, labelColumns: true };
+      return { type: "table", rows, labelColumns: true, ...styled };
     }
     if (b.kind === "paper") {
       return {
@@ -1142,7 +1191,16 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
     const rows = b.rows.map((r) => r.map((c) => cellOfWord(c)));
     const spans: Record<string, number> = {};
     b.rows.forEach((r, ri) => r.forEach((c, ci) => c.across && c.across > 1 && (spans[`${ri}:${ci}`] = c.across)));
-    const block: DocxBlock = { type: "table", rows, headerRows: b.headerRows, ...(b.band ? { band: true as const } : {}), ...(Object.keys(spans).length ? { spans } : {}) };
+    const looks: Record<string, DocxLook> = {};
+    b.rows.forEach((r, ri) => r.forEach((c, ci) => c.look && (looks[`${ri}:${ci}`] = c.look)));
+    const block: DocxBlock = {
+      type: "table",
+      rows,
+      headerRows: b.headerRows,
+      ...(b.band ? { band: true as const } : {}),
+      ...(Object.keys(spans).length ? { spans } : {}),
+      ...(Object.keys(looks).length ? { looks } : {}),
+    };
     if (builder && b.bindTable) {
       const fixed = b.rows.filter((r, ri) => ri < b.headerRows || !r.some(isBound)).map((r) => rowSignature(r.map((c) => c.text)));
       const table = builder.addTable(b.bindTable, { headerRows: b.headerRows, ...(fixed.length ? { fixedRows: fixed } : {}) });

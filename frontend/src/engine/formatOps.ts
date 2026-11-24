@@ -4,6 +4,7 @@ import { SEED_DOCUMENTS } from "../data/seed/documentDefinitions";
 import { dropFormatEdit, formatEditFor, nextRevisionNo, saveFormatEdit, type FormatRevision } from "../data/formatEdits";
 import { COMPANY } from "../data/seed/masterData";
 import { logActivity } from "../utils/activityLog";
+import { describeStyleChanges } from "./formatStyles";
 import { formatDisplayDate, todayISO } from "../utils/date";
 
 // WHAT CAN BE DONE TO A FORMAT, AND THE ONE WAY A CHANGE IS SAVED
@@ -538,6 +539,8 @@ export function describeFormatChange(before: FormatDraft, after: FormatDraft): s
   if (rowsA && rowsB && JSON.stringify(rowsA) !== JSON.stringify(rowsB)) {
     out.push(rowsA.length === rowsB.length ? "reworded the printed lines" : `changed the printed lines (${rowsA.length} → ${rowsB.length})`);
   }
+  // How its parts look (REQUIREMENTS §318): each part styled, the page way round, a column's set width.
+  out.push(...describeStyleChanges(a, b));
   return out;
 }
 
