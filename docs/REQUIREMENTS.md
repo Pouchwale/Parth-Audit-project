@@ -13221,3 +13221,20 @@ I also need other option of SAP like AUTOMATIC, MANUAL START, REFERENCE ONLY"; a
 - The tiles above the list count and filter all six modes. The Formulas, ranges & automation tab explains each one. The CSV has the mode.
 - Files: indexing/modes.ts (the modes and `systemFills`), indexRows.ts, IndexingPage.tsx, data/repositories/documentRepository.ts (Manual start,
   Reference only and SAP laid over the format), engine/assistantPrepare.ts (no fill for Manual, Reference only, SAP). Tests: indexing/tests/modes.test.ts.
+
+## §305 Indexing: QC 09, 10, 38, STR 02, PRD 11, 12 and MNT 02, 05, 06, 07 can be Automatic (24-Nov-2026)
+
+The owner, 24-Nov-2026: "convert QC 9,10, 38 to Automatic, str 2 manual to Automatic, prd 11, 12 not in to Automatic, Mnt 2,5 ,6 7
+manual to Automatic". Asked what Automatic means for each: the Statements of Compliance, "Auto renewal reminder"; F/PRD/11 and 12, "write
+now show in automatic and also show that it dont have format and also give option to sort that format is not present"; the As Required
+formats, "daily, all five for now then we will decide".
+
+- **A Statement of Compliance** (F/QC-09, 10, 38) can be Automatic. It stays read only. Its line shows the date it is valid until, and its
+  renewal is reminded in the daily briefing from 90 days before. The reminder now follows the switch: only an Automatic statement is
+  reminded, and Reference only means no reminder. Other reference documents cannot be Automatic.
+- **A Master List line with no format in DCRS** (F-PRD-11, 12) can be marked Automatic. It keeps a red **No format in DCRS** mark, and nothing
+  falls due until its format is made. Above the list, **Format in DCRS or not** picks out the lines with or without a format, and
+  **No format first** puts those without one at the top.
+- **An As Required format** (F/STR/02, F/MNT/02, F/MNT/05 memo and clearance, F/MNT/06, F/MNT/07) can be Automatic. Choosing Automatic sets its
+  frequency to Daily in the same draft, and the frequency can be changed before saving. Saving Automatic with As Required is refused.
+- Files: indexing/modes.ts, indexRows.ts, indexActions.ts, IndexingPage.tsx, engine/assistantBriefing.ts. Tests: indexing/tests/automatic305.test.ts.

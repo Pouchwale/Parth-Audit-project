@@ -29,8 +29,10 @@ test("each line shows its mode as issued, and the modes it may be switched to", 
   assert.deepEqual(auto.automation.options, ["Automatic", "Manual", "Manual start", "Reference only", "SAP"]);
   assert.equal(auto.changed.has("mode"), false);
   const notHeld = lines.find((l) => !l.doc);
-  if (notHeld) assert.deepEqual(notHeld.automation.options, ["Not in DCRS", "SAP"]);
+  if (notHeld) assert.deepEqual(notHeld.automation.options, ["Not in DCRS", "Automatic", "SAP"]);
   assert.deepEqual(modeOptions("Reference only"), ["Reference only", "SAP"]);
+  assert.deepEqual(modeOptions("Reference only", true), ["Reference only", "Automatic", "SAP"]);
+  assert.deepEqual(modeOptions("Manual start"), ["Manual start", "Automatic", "Manual", "Reference only", "SAP"]);
   assert.ok(lines.every((l) => systemFills(l.doc?.id ?? "x")), "nothing is switched yet");
 });
 

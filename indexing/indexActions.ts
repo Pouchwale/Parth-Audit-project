@@ -365,6 +365,18 @@ export function saveIndexDraft(draft: IndexDraft, reason: string, actor: string,
     if (problem) return { ok: false, error: `${def.formatNo} ${def.what}: ${problem}` };
   }
 
+  // An As Required format made Automatic needs a frequency to fall due on (§305).
+  {
+    const lineOf = new Map(formatLines.map((l) => [l.key, l]));
+    for (const [key, fields] of Object.entries(draft.formats)) {
+      const line = lineOf.get(key);
+      if (!line?.doc || line.defaults.mode === "Reference only") continue;
+      const mode = fields.mode ?? line.values.mode;
+      const frequency = fields.frequency ?? line.values.frequency;
+      if (mode === "Automatic" && frequency === "As Required") return { ok: false, error: `${lineLabel(line)}: Automatic needs a frequency to fall due on. Choose one in Frequency (Daily, Weekly…).` };
+    }
+  }
+
   const state = readIndexState();
   const versionNo = currentVersionNo(state) + 1;
   const at = new Date().toISOString();

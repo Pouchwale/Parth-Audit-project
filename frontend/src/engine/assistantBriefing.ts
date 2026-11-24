@@ -5,6 +5,8 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { complianceValidUntil } from "../data/seed/complianceStatements";
 import { allComplianceStatements } from "../data/repositories/referenceRepository";
+// A statement's renewal is reminded only while the super admin has it Automatic in Indexing (REQUIREMENTS §305).
+import { renewalReminderOn } from "../../../indexing/modes";
 import { findPreLaunchNoise } from "./backlogCleanup";
 import { isCompanyHoliday } from "./holidays";
 import { computeReminders, routeForRecord } from "./reminders";
@@ -134,6 +136,7 @@ export function computeBriefing(userName: string | undefined): Briefing {
     .sort(byDate);
 
   const renewals: ComplianceRenewal[] = allComplianceStatements()
+    .filter((s) => renewalReminderOn(s.documentId))
     .map((s) => {
       const doc = documentRepository.getById(s.documentId);
       const validUntil = complianceValidUntil(s);

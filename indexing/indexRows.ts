@@ -23,6 +23,9 @@ import { resolveResponsibleEmployees } from "../frontend/src/engine/documentInfo
 import { BUILT_IN_RULES, formulaSlotsOf, type FormulaSlot } from "./formulas";
 import { PUSHED_FORMAT_FIELDS, readIndexState, type DocumentField, type FormatField, type IndexSnapshot } from "./indexState";
 import { MODE_HELP, modeOptions, type IndexMode } from "./modes";
+import { allComplianceStatements } from "../frontend/src/data/repositories/referenceRepository";
+import { complianceValidUntil } from "../frontend/src/data/seed/complianceStatements";
+import { formatDisplayDate } from "../frontend/src/utils/date";
 
 export const FREQUENCIES: Frequency[] = ["Daily", "Weekly", "Fortnightly", "Monthly", "Quarterly", "Half-yearly", "Yearly", "As Required"];
 export const STATUSES = ["Active", "Not in DCRS yet", "Obsolete", "On hold"];
@@ -85,10 +88,29 @@ function baseModeOf(doc: DocumentDefinition | undefined, seed: DocumentDefinitio
   return schedule.type === "as-required" ? "Manual start" : "Automatic";
 }
 
+export const NO_FORMAT_TAG = "No format in DCRS";
+
 function automationOf(doc: DocumentDefinition | undefined, status: string, mode: string, baseMode: string): AutomationInfo {
-  const options = modeOptions(baseMode);
+  const renewable = doc?.kind === "compliance-statement";
+  const options = modeOptions(baseMode, renewable);
+  // A Master List line DCRS holds no format for, marked Automatic (§305): it says so, and that there is no format yet.
+  if (!doc && mode === "Automatic") return { mode, baseMode, options, tags: [NO_FORMAT_TAG, "Marked Automatic in the index", "Nothing falls due until its format is made"], formulas: [], rules: [] };
+  // A Statement of Compliance made Automatic (§305): still read only, its renewal reminded.
+  if (doc && renewable && baseMode === "Reference only" && mode === "Automatic") {
+    const statement = allComplianceStatements().find((s) => s.documentId === doc.id);
+    const until = statement ? complianceValidUntil(statement) : "";
+    return {
+      mode,
+      baseMode,
+      options,
+      tags: ["Read only, not filled", until ? `Valid until ${formatDisplayDate(until)}` : "Validity date to be confirmed", "Renewal reminded 90 days before (daily briefing)", `Switched in Indexing (was ${baseMode})`],
+      formulas: [],
+      rules: [],
+    };
+  }
   if (!doc || mode === "Not in DCRS" || mode === "SAP") {
     const tags = mode === "SAP" ? ["Kept in SAP", "Not filled in DCRS"] : ["Kept on paper / SAP", "Filled by hand"];
+    if (!doc) tags.push(NO_FORMAT_TAG);
     if (doc && mode === "SAP") tags.push("Records already filled stay");
     return { mode, baseMode, options, tags, formulas: doc ? formulaSlotsOf(doc.id) : [], rules: [] };
   }

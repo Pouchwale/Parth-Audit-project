@@ -140,7 +140,13 @@ export function IndexingPage() {
   }
 
   const setFormatField = (key: string, f: FormatField, value: string) =>
-    setDraft((d) => ({ ...d, formats: { ...d.formats, [key]: { ...(d.formats[key] ?? {}), [f]: value } } }));
+    setDraft((d) => {
+      const fields: Partial<Record<FormatField, string>> = { ...(d.formats[key] ?? {}), [f]: value };
+      // An As Required format made Automatic falls due Daily, which can be changed (the owner, 24-Nov-2026, §305).
+      const line = f === "mode" && value === "Automatic" ? draftLines.formats.find((l) => l.key === key) : undefined;
+      if (line?.doc && line.defaults.mode !== "Reference only" && (fields.frequency ?? line.values.frequency) === "As Required") fields.frequency = "Daily";
+      return { ...d, formats: { ...d.formats, [key]: fields } };
+    });
   const setDocumentField = (key: string, f: DocumentField, value: string) =>
     setDraft((d) => ({ ...d, documents: { ...d.documents, [key]: { ...(d.documents[key] ?? {}), [f]: value } } }));
   const setFormula = (slotId: string, expr: string | null) => setDraft((d) => ({ ...d, formulas: { ...d.formulas, [slotId]: expr } }));
@@ -373,6 +379,9 @@ function FormatsTab({
   const [dept, setDept] = useState("");
   const [mode, setMode] = useState("");
   const [status, setStatus] = useState("");
+  // Formats DCRS has no sheet for (§305): picked out, or put first.
+  const [held, setHeld] = useState("");
+  const [noFormatFirst, setNoFormatFirst] = useState(false);
   const [changedOnly, setChangedOnly] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -388,6 +397,8 @@ function FormatsTab({
     if (dept && l.values.department !== dept) return false;
     if (mode && modeOf(l) !== mode) return false;
     if (status && valueOf(l, "status") !== status) return false;
+    if (held === "held" && !l.doc) return false;
+    if (held === "none" && l.doc) return false;
     if (changedOnly && l.changed.size === 0 && !draft.formats[l.key]) return false;
     if (q.trim()) {
       const hay = `${l.values.formatNo} ${l.values.name} ${l.values.department} ${l.values.remarks} ${l.values.fileLocation}`.toLowerCase();
@@ -395,6 +406,7 @@ function FormatsTab({
     }
     return true;
   });
+  if (noFormatFirst) shown.sort((a, b) => Number(!!a.doc) - Number(!!b.doc) || a.srNo - b.srNo);
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
     for (const l of lines) c[modeOf(l)] = (c[modeOf(l)] ?? 0) + 1;
@@ -455,6 +467,14 @@ function FormatsTab({
             <option key={s}>{s}</option>
           ))}
         </select>
+        <select className="input input-sm" style={{ width: "auto" }} value={held} onChange={(e) => setHeld(e.target.value)} data-field="format-held">
+          <option value="">Format in DCRS or not</option>
+          <option value="held">Has a format in DCRS ({lines.filter((l) => l.doc).length})</option>
+          <option value="none">No format in DCRS ({lines.filter((l) => !l.doc).length})</option>
+        </select>
+        <label className="text-sm flex items-center gap-1">
+          <input type="checkbox" checked={noFormatFirst} onChange={(e) => setNoFormatFirst(e.target.checked)} data-field="no-format-first" /> No format first
+        </label>
         <label className="text-sm flex items-center gap-1">
           <input type="checkbox" checked={changedOnly} onChange={(e) => setChangedOnly(e.target.checked)} /> Changed only
         </label>
@@ -548,6 +568,13 @@ function FormatsTab({
                   return (
                     <td style={{ minWidth: 160 }} className={cls} title={l.changed.has("mode") || drafted !== undefined ? `As issued: ${l.defaults.mode}` : MODE_HELP[value as keyof typeof MODE_HELP]}>
                       {editing ? <FieldInput f="mode" value={value} options={l.automation.options} onChange={(v) => onField(l.key, "mode", v)} /> : <span className={modeClass(value)}>{value}</span>}
+                      {!l.doc && (
+                        <div>
+                          <span className="ix-tag ix-mode-Not-in-DCRS" data-tag="no-format">
+                            No format in DCRS
+                          </span>
+                        </div>
+                      )}
                     </td>
                   );
                 })()}
