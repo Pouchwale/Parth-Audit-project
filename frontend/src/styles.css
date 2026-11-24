@@ -3412,6 +3412,8 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .paper-sheet[data-paper-form] [data-pf] .field { display: contents; }
   /* a box of the header keeps a box of its own (two columns of the table, by subgrid): the sheet's checks and a screen reader place it */
   .paper-sheet[data-paper-form] [data-pf~="head"] .field { display: grid; grid-template-columns: subgrid; grid-column: span 2; }
+  /* no gap inside the box: a .field's own 5px gap set the value cell off its label, so its lines missed the table's (§311) */
+  .paper-sheet[data-paper-form] [data-pf] .field { gap: 0; }
   .paper-sheet[data-paper-form] [data-pf~="more"] .field { grid-column: 1 / -1; }
   /* a label, a blank cell, the words under a signature, a choice of the LOT STATUS: one cell of a table */
   .paper-sheet[data-paper-form] [data-pf] .field > label,
@@ -4272,12 +4274,21 @@ table.svc-paper {
 /* its face on the screen too, so its narrower first column holds its words (Product Description, Date of Inspection) */
 @media print, (min-width: 760px) {
   .paper-sheet[data-frame][data-sheet="qc-flexo-ink"] { --pf-fs: calc(10.56 * var(--pt)); }
+  /* the screen keeps the paper's frame too (§311): the title band, the header boxes and the grid end on one right rule,
+     not the tables 8 mm short of the band */
+  .paper-sheet[data-frame][data-sheet="qc-flexo-ink"] { width: calc(180.44 * var(--u) + var(--b1)); padding: 0; border: var(--b1) solid #000; box-sizing: border-box; }
+  .paper-sheet[data-frame][data-sheet="qc-flexo-ink"]::before, .paper-sheet[data-frame][data-sheet="qc-flexo-ink"]::after { display: none; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header.doc-header-frame { border: 0; border-bottom: var(--b1) solid #000; }
+  .paper-sheet[data-sheet="qc-flexo-ink"] [data-pf] { margin-left: calc(-1 * var(--b1)); }
+  .paper-sheet[data-sheet="qc-flexo-ink"] .paper-body > .doc-table { margin-left: calc(-1 * var(--b1)); }
 }
 @media print {
   [data-print-doc]:has(.paper-sheet[data-sheet="qc-flexo-ink"]) { padding: calc(4.76 * var(--u)) 0 0 calc(15.58 * var(--u)); }
   .paper-sheet[data-frame][data-sheet="qc-flexo-ink"] {
     --title-pt: 19.56; --pf-fs: calc(10.56 * var(--pt));
-    width: calc(180.44 * var(--u)); min-height: calc(281.84 * var(--u)); border: var(--b1) solid #000; padding: 0;
+    /* one rule wider than the tables' columns: a table draws its own left rule too, so at 180.44 mm its right rule stood
+       one rule outside the frame's and printed doubled (§311); now both outer rules lie on the frame's */
+    width: calc(180.44 * var(--u) + var(--b1)); min-height: calc(281.84 * var(--u)); border: var(--b1) solid #000; padding: 0;
   }
   .paper-sheet[data-frame][data-sheet="qc-flexo-ink"]::before, .paper-sheet[data-frame][data-sheet="qc-flexo-ink"]::after { display: none; }
   .paper-sheet[data-sheet="qc-flexo-ink"] .doc-header.doc-header-frame { height: calc(25.49 * var(--u)); border: 0; border-bottom: var(--b1) solid #000; }

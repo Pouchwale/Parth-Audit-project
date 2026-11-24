@@ -13341,3 +13341,19 @@ different all time."
   issues and replaces nothing.
 - Proved: tests/sharpTools.test.ts runs every day from Nov-2026 to Dec-2027 through both shifts: 30 on every line, store visits at
   five or more different stock levels, part returns and whole returns, every month's pattern different.
+
+## §311 QC incoming header boxes: every line meets; F/QC/21's tables end on its frame (24-Nov-2026)
+
+The owner, 24-Nov-2026, of F/QC/21 Flexo Ink's header box (Supplier Name ... Date of Inspection): "the lines are not perfectly
+aligned, do that and make it perfect".
+
+- Inside each box of the header (a label and its value cell) the app's own 5px gap between a field's parts stood between the
+  label and its value cell, so every value cell's lines started 5px right of the label's rule and missed the empty cells of the
+  fourth line. No gap now: label, value cell and the empty cells share one rule. The same for all the QC incoming records drawn
+  as the paper (the header box table is theirs in common); checked on F/QC/21 and F/QC/22 on the screen and printed.
+- F/QC/21's frame was exactly its 180.44 mm while each table inside also draws its own left rule, so the tables' right rule stood
+  one rule outside the frame's and printed as a double line. The frame is one rule wider now, and both outer rules of every
+  table lie on the frame's.
+- On the screen F/QC/21 keeps the paper's frame too: the title band, the header boxes, the grid, LOT STATUS and the signatures
+  end on one right rule (they stood about 8 mm short of the band). Printed it is still one A4 page.
+- File: frontend/src/styles.css.
