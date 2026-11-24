@@ -1,3 +1,6 @@
+import { JOB_ROLES, isDraftJobRole, withJobRole } from "../../engine/jobRoles";
+import { isEditableStatus } from "../../engine/recordLifecycle";
+import { JOB_ROLES_LIST } from "../../data/seed/hrJobRoles";
 import React from "react";
 import { createPortal } from "react-dom";
 import { PLAIN_TWIN_ATTR, registerPaperTwin } from "../../utils/paperTwin";
@@ -316,7 +319,9 @@ export function LogSheetRecordView({
   // A column that follows a header box (engine/headerFollowers.ts, REQUIREMENTS §159) is brought in line on every
   // save: a typed box, one fetched from HR Master Data, and a line added later all go through here.
   const save = (next: LogSheetData) => {
-    onChange(withComputedCells(doc.id, followHeader(layout, data, next), data));
+    // F/HR/07: the role chosen in Position fills its sheet (engine/jobRoles.ts, §307).
+    const roled = doc.id === "hr-job-responsibility" ? withJobRole(data, next) : next;
+    onChange(withComputedCells(doc.id, followHeader(layout, data, roled), data));
     // THE REGISTER FEEDS THE SHEET (engine/hrMasterRegisters.ts, REQUIREMENTS §161): a line of F/HR/01 — or the header
     // of F/HR/05 — just written fills the blanks of its person on HR Master Data at once, so every other format
     // fetches the date of joining from then on. The sheet's own words are never changed from here.
@@ -1059,6 +1064,13 @@ export function LogSheetRecordView({
         style={{ "--pt-left": String(ptPrint.left), "--pt-top": String(ptPrint.top), ...(ptFill ? { "--pt-print-scale": String(ptPrint.scale) } : {}) } as React.CSSProperties}
       >
         {/* The working tool that fetches a person: on the screen, above the paper, never part of it (REQUIREMENTS §275). */}
+        {doc.id === "hr-job-responsibility" && isDraftJobRole(data.header?.position) && isEditableStatus(record.status) && (
+          <div className="card mt-4 no-print" data-section="job-role-draft" style={{ borderStyle: "dashed" }}>
+            <div className="card-pad text-sm">
+              <strong>Draft for HR to check.</strong> The company's F/HR/07 files do not describe this role, so these responsibilities were written by DCRS. Check and change them before this sheet is submitted and signed.
+            </div>
+          </div>
+        )}
         {pt.ownWords && fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
         {plainTwin &&
           createPortal(
@@ -1156,6 +1168,13 @@ export function LogSheetRecordView({
           <PaperTablePart part="foot" parts={ptParts} />
         </div>
         {pt.ownWords && <div className="paper-page-foot" aria-hidden="true" />}
+        {doc.id === "hr-job-responsibility" && (
+          <datalist id={JOB_ROLES_LIST}>
+            {JOB_ROLES.map((r) => (
+              <option key={r.key} value={r.title} />
+            ))}
+          </datalist>
+        )}
         <datalist id="log-sheet-employees">
           {employees.map((e) => (
             <option key={e.id} value={e.name} />

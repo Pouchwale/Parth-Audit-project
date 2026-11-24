@@ -275,7 +275,7 @@ export const SEED_HR_INDUCTION_OPERATORS: RecordInstance<LogSheetData> = seeded(
 // ---------------------------------------------------------------------------
 // F/HR/07 — JOB RESPONSIBILITY & AUTHORITY — one record per position
 
-interface Position {
+export interface Position {
   slug: string;
   position: string;
   reportsTo: string;
@@ -284,7 +284,8 @@ interface Position {
   responsibilities: string;
 }
 
-const POSITIONS: Position[] = [
+/** The eight positions the company's two F/HR/07 files describe, word for word (and engine/jobRoles.ts fills a sheet from them). */
+export const WRITTEN_JOB_POSITIONS: Position[] = [
   {
     slug: "executive-lab", position: "Executive-Lab", reportsTo: "Manager-QA",
     duties: [
@@ -390,7 +391,7 @@ const POSITIONS: Position[] = [
   },
 ];
 
-export const SEED_HR_JOB_RESPONSIBILITIES: RecordInstance<LogSheetData>[] = POSITIONS.map((p) =>
+export const SEED_HR_JOB_RESPONSIBILITIES: RecordInstance<LogSheetData>[] = WRITTEN_JOB_POSITIONS.map((p) =>
   seeded(`hr-job-responsibility-${p.slug}`, "hr-job-responsibility", "2021-12-01", {
     header: {
       position: p.position,

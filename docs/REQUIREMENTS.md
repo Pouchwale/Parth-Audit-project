@@ -13253,3 +13253,22 @@ formats, "daily, all five for now then we will decide".
 - **An As Required format** (F/STR/02, F/MNT/02, F/MNT/05 memo and clearance, F/MNT/06, F/MNT/07) can be Automatic. Choosing Automatic sets its
   frequency to Daily in the same draft, and the frequency can be changed before saving. Saving Automatic with As Required is refused.
 - Files: indexing/modes.ts, indexRows.ts, indexActions.ts, IndexingPage.tsx, engine/assistantBriefing.ts. Tests: indexing/tests/automatic305.test.ts.
+
+## §307 F/HR/07: the job description of every role, filled by choosing the role (24-Nov-2026)
+
+The owner, 23-Nov-2026: "there is document is already there somewhere in Hr module in which according to roles the Job description is
+written over that so for all type of roles and designation it should also filled automatically by system ... fetch description on all
+roles"; asked what to do for the roles no file describes: "Draft them for HR".
+
+- The company's two F/HR/07 files describe eight positions (Executive-Lab, Executive-Hr, Manager Dispatch & Logistics, Executive, Pouching
+  Manager, Sales Coordination, Pouch-Manager, Quality Executive). Those are used word for word. HR Master Data's 463 people hold 29
+  designations in many departments, so 51 more roles were written as drafts in the same style (data/seed/hrJobRoles.ts): every
+  designation and department on the sheet has a role (engine/jobRoles.ts jobRoleOfPerson).
+- F/HR/07's page lists all 59 roles: who each reports to, how many people on HR Master Data hold it, whether it is the company's file or a
+  draft, and its sheet. Open makes the role's sheet, filled (Reports to, the delegation, every responsibility line, the qualification
+  line), or opens the one already made. The signature and date are left for the person.
+- On any sheet, choosing a role in Position (it offers all 59) fills the same; a box or lines a person wrote are left alone.
+- A drafted role's sheet says on the screen, never on the paper or in its files, that HR is to check it before it is signed.
+- Sheets are made only when HR opens a role, so no unasked sheet stands in anybody's reminders.
+- Proved: frontend/tests/hrJobRoles.test.ts; all 59 roles opened, filled, printed (58 on one page, Manager Dispatch & Logistics' 16 lines
+  on two) and their Word and Excel files read on the local copy.

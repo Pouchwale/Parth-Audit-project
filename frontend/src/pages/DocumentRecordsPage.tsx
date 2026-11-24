@@ -43,6 +43,7 @@ import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types"
 import { runningNumbers as numberedRecords } from "../engine/runningNumbers";
 import { serialNumbersOnSheets } from "../data/serialNumbersMigration";
 import { mayDo } from "../engine/departmentScope";
+import { JobRolesPanel } from "../components/hr/JobRolesPanel";
 import { AccessReason } from "../components/common/AccessReason";
 
 // ONE DOCUMENT'S OWN PAGE (REQUIREMENTS §47) — /hr/{slug} for the sixteen HR
@@ -359,6 +360,9 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
 
       {/* No button for the supplied original (the owner, 15-Nov-2026, REQUIREMENTS §210): the page is the format and its records. */}
       {cvOpen && <CvImportDialog onClose={() => setCvOpen(false)} />}
+
+      {/* F/HR/07: every role, its description one click away (§307). */}
+      {!designing && doc.id === "hr-job-responsibility" && <JobRolesPanel doc={doc} />}
 
       {designing ? (
         // The sheet, to be designed. A save shows in the page's header at once; leaving puts the page back.

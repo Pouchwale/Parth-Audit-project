@@ -1,5 +1,6 @@
 import type { LogColumn, LogSheetLayout } from "../../types";
 import { CALENDAR_MONTH_NAMES } from "../../engine/trainingCalendar";
+import { JOB_ROLES_LIST } from "./hrJobRoles";
 import { HR_COMPETENCE_CRITERIA } from "./hrCompetenceCriteria";
 
 // THE HUMAN RESOURCES FORMATS — sixteen of the company's F/HR/… formats,
@@ -320,7 +321,8 @@ const jobResponsibility: LogSheetLayout = {
     "JOB RESPONSIBILITY & AUTHORITY — one record per position. Each line of the grid is one responsibility or authority, in the order printed.",
   ],
   headerFields: [
-    { key: "position", label: "Position", type: "text", required: true, autoFill: { carryForward: true } },
+    // Choosing a role fills the whole sheet (engine/jobRoles.ts, §307).
+    { key: "position", label: "Position", type: "text", required: true, list: JOB_ROLES_LIST, autoFill: { carryForward: true } },
     { key: "reportsTo", label: "Reports to", type: "text", required: true, autoFill: { carryForward: true } },
   ],
   columns: [text("responsibility", "Responsibility / Authority", 700, true)],
