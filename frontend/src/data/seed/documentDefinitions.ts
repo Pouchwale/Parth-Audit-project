@@ -2130,17 +2130,18 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     kind: "log-sheet",
     name: "Lux Level Measurement Record",
     formatNo: "F/MNT/11",
-    revisionNo: "01",
-    revisionDate: "2024-12-15",
+    // As the owner's page prints it, "(00/01.12.2021)" (REQUIREMENTS §316).
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
     department: "Maintenance",
     module: "Maintenance",
     section: "Glass & Lighting",
     frequency: "As Required",
     status: "Configured",
     description:
-      "The light level measured in every area of the plant with the Kusam-Meco KM-LUX-99 lux meter (Sr.No. S1135510). Two rounds were supplied: 12.08.2025 on the current Rev 01, one reading in each of 26 areas, and 11.05.2024 on the superseded Rev 00, which measured 19 areas by day and by night — that record keeps its own layout. Comparing the two shows where the light has fallen, which matters most at the colour-matching cabinets.",
+      "The light level measured in every area of the plant with the Kusam-Meco KM-LUX-99 lux meter (Sr.No. S1135510), on the owner's page of 15.10.2025: 26 areas, a Date of Measurement and a Lux Level for each, written by the person who measures. The rounds of 12.08.2025 (Rev 01) and 11.05.2024 (Day and Night over 19 areas) stay on the pages they were written on. Comparing rounds shows where the light has fallen, which matters most at the colour-matching cabinets.",
     sourceFile:
-      "F-MNT-11_LUX LEVEL MEASUREMENT RECORD.pdf (Rev 01, filled 12.08.2025); the Rev 00 page of 11.05.2024 is F-MNT-11_LUX LEVEL MEASUREMENT RECORD-2.pdf; the round of 15.10.2025, shown as supplied, is F-MNT-11_LUX LEVEL MEASUREMENT RECORD-1.pdf",
+      "F-MNT-11_LUX LEVEL MEASUREMENT RECORD-1.pdf (the owner's page of 15.10.2025, the format since 24-Nov-2026); the Rev 01 page of 12.08.2025 is F-MNT-11_LUX LEVEL MEASUREMENT RECORD.pdf; the Day and Night page of 11.05.2024 is F-MNT-11_LUX LEVEL MEASUREMENT RECORD-2.pdf",
     schedule: { type: "as-required" },
   },
 

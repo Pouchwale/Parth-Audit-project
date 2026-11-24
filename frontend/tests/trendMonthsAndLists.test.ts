@@ -36,12 +36,16 @@ test("every list of records centred, Open at the right", () => {
   assert.equal((src("pages/GapPage.tsx").match(/className="records-list"/g) ?? []).length, 2, "CAPA records and acknowledgements");
 });
 
-test("F/HR/17's first page a ruled form: the instructions boxed, the ten check points a table", () => {
+test("F/HR/17's first page: the instructions and the ten check points a table, with no lines (§308)", () => {
   const sheet = src("components/records/DailyRegisterSheet.tsx");
   assert.match(sheet, /<div className="register-instruction-box">/);
   assert.match(sheet, /<table className="register-grid register-checkpoints">/);
   assert.match(sheet, /<th className="cp-no">Sr\. No\.<\/th>/);
-  assert.match(src("styles.css"), /\.register-instruction-box \{ border: 1\.5px solid #2c3e50;/);
+  // the owner, 24-Nov-2026: no lines round the instructions nor in the check points, the check points 1px smaller
+  const css = src("styles.css");
+  assert.match(css, /\.register-instruction-box \{ border: none;/);
+  assert.match(css, /\.doc-table \.register-grid\.register-checkpoints th, \.doc-table \.register-grid\.register-checkpoints td \{ border: none; \}/);
+  assert.match(css, /\.doc-table \.register-grid\.register-checkpoints td \{ font-size: 12px; \}/);
 });
 
 test("F/HR/17's register has the month's own days, not a line more: page 3 the 20th to the month's last (§244)", () => {

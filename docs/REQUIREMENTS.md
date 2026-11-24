@@ -13474,3 +13474,27 @@ The owner, 24-Nov-2026, sending a photo of a filled F/QC/37 (30/4/25, 1st shift)
 The owner: "in qc 36 remove the dropdown of 1st pass/2nd pass/3rd pass. just keep the box blank."
 The box is a plain box the person writes in: no choice list, nothing filled in by itself, not required.
 It keeps its place and its lines across the table (§312, §314). Records saved before keep what they hold.
+
+
+
+## §316 F/MNT/11 Lux Level Measurement Record: the owner's page is the format (24-Nov-2026)
+
+The owner, 24-Nov-2026, sending F-MNT-11_LUX LEVEL MEASUREMENT RECORD-1.pdf: "add this format in mnt 11 document, the format that is
+present right now is not correct replace it with this. but dont fill the data of date of management and lux level it will be
+filled manually. but keep the format exactly just like how i provided you now".
+
+- F/MNT/11 is drawn as that page (data/seed/mntPaperTables.ts, measured off the PDF): the band of the paper's own logo, LUX LEVEL
+  MEASUREMENT RECORD and "Doc No.: F/MNT/11 (00/01.12.2021)"; Make/Model: Kusam-Meco/KM-LUX-99 with Sr.No.: S1135510 at the right,
+  no rule between them; Range: 0 to 2000/20000 Lux; the headings Area & Location, Date of Measurement, Lux Level; and its 26 areas
+  in its order and words (Ink Kitchen, Conference room, Change room - Ground Floor, Ground floor - Packing Area ...). No Sr. No.
+  column, as the page has none. Its rules as the page's: the band, the frame and the header's lines heavier than the grid's.
+- Every printed word can be typed over where it stands, as on the HR papers (§275).
+- The Date of Measurement and the Lux Level are never filled by the system: no date on opening, no sample readings. The meter's
+  Make/Model, Sr.No. and Range stand written as the page prints them.
+- The format's revision is the page's: 00, 01.12.2021.
+- Nothing on file changes: the 11.05.2024 Day and Night page stays pinned to its revision (§74), and the 12.08.2025 page, written
+  on Rev 01 (01/15.12.2024) with Rev 01's area names, is pinned to Rev 01 at start-up (data/luxRevisionMigration.ts) and drawn as
+  it was written, never on the new page.
+- Files: data/seed/mntPaperTables.ts, maintenanceLayouts.ts, maintenanceRecords.ts, documentDefinitions.ts, qcPaperTables.ts,
+  data/luxRevisionMigration.ts, data/bootstrap.ts, components/records/LogSheetRecordView.tsx,
+  frontend/public/brand/gpp-logo-fmnt11.jpg.

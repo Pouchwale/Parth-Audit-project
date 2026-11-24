@@ -1151,7 +1151,44 @@ const LUX_METER_FIELDS = [
 
 const LUX_METER_VALUES = { makeModel: "Kusam-Meco/KM-LUX-99", serialNo: "S1135510", range: "0 to 2000/20000 Lux" };
 
-/** Rev 01 (01/15.12.2024): 26 areas and one Lux Level, filled 12.08.2025. */
+/**
+ * THE FORMAT (REQUIREMENTS §316): the owner's page of 15.10.2025, "(00/01.12.2021)", made F/MNT/11's format on 24-Nov-2026
+ * ("keep the format exactly just like how i provided you now"). Its 26 areas, in its order and its words (the page's own
+ * spacing and spelling, "Poucing" among them). The Date of Measurement and the Lux Level are the person's, never filled.
+ */
+/** The page's own readings of 15.10.2025, line for line: Demo Mode's sample, never a Live record's. */
+const LUX_PAGE_READINGS = [1750, 880, 1250, 843, 760, 810, 860, 1007, 1130, 1240, 1048, 1024, 690, 1060, 445, 560, 926, 1840, 549, 540, 560, 1522, 1025, 1184, 1970, 1100];
+
+export const LUX_AREAS: string[] = [
+  "Printing machine - Ground Floor",
+  "Anilox cleaning area - Ground floor",
+  "Store - Label stock & PVC / PET Films - Ground floor",
+  "Ink Kitchen",
+  "FG Dispatch room - Ground floor",
+  "Walkways - Ground Floor",
+  "First floor - Walkways",
+  "First floor - Slitting & Packing",
+  "First floor - Offline punching & QC Inspection",
+  "First floor - Printing machine",
+  "Conference room",
+  "First floor - Shrink Sleeve production",
+  "First floor - Intermediate Store",
+  "Change room - Ground Floor",
+  "Ground floor - Doctoring Area",
+  "Ground floor - Slitting Area",
+  "Ground floor - Printing Area",
+  "Ground floor - Printing Area -AKO 520",
+  "Ground floor - Lamination Area",
+  "Ground floor - Poucing Area",
+  "Ground floor - Packing Area",
+  "QC Lab",
+  "QC Lab - Colour matching cabinet",
+  "Printing machine - Ground Floor- Colour matching cabinet",
+  "First floor - Printing machine - Colour matching cabinet",
+  "Canteen",
+];
+
+/** Rev 01 (01/15.12.2024): 26 areas and one Lux Level, filled 12.08.2025 (a page of the past since §316). */
 export const LUX_REV01_READINGS: [area: string, lux: number][] = [
   ["Printing machine - Ground Floor", 1750],
   ["Anilox cleaning area - Ground floor", 880],
@@ -1224,38 +1261,60 @@ const LUX_REV00: LogSheetLayout = {
   specimenSource: "F-MNT-11_LUX LEVEL MEASUREMENT RECORD-2.pdf — F/MNT/11 (00/01.12.2021), filled 11.05.2024",
 };
 
+/**
+ * Rev 01 (01/15.12.2024), the format until 24-Nov-2026: its 26 areas as Rev 01 named them. The rounds written on it (the
+ * 12.08.2025 page) are pinned to "01" (data/luxRevisionMigration.ts) and drawn with this layout, as written (§316).
+ */
+const LUX_REV01: LogSheetLayout = {
+  documentId: "mnt-lux-level",
+  headerFields: LUX_METER_FIELDS,
+  columns: [
+    { key: "parameter", label: "Area & Location", type: "text", fixed: true, width: 380 },
+    { key: "measurementDate", label: "Date of Measurement", type: "date", required: true, width: 150 },
+    { key: "luxLevel", label: "Lux Level", type: "number", decimals: 0, required: true, width: 130 },
+  ],
+  rowMode: { kind: "fixedRows", rows: LUX_REV01_READINGS.map(([parameter]) => ({ parameter })) },
+  specimenSource: "F-MNT-11_LUX LEVEL MEASUREMENT RECORD.pdf — F/MNT/11 (01/15.12.2024), filled 12.08.2025",
+};
+
+/**
+ * THE FORMAT, AS THE OWNER'S PAGE (REQUIREMENTS §316): drawn as that page (data/seed/mntPaperTables.ts). The meter's three
+ * boxes stand written as the page prints them; the Date of Measurement and the Lux Level of every area are left for the
+ * person who measures, never filled by the system.
+ */
 const LUX_LEVEL: LogSheetLayout = {
   documentId: "mnt-lux-level",
   headerFields: LUX_METER_FIELDS,
   columns: [
     { key: "parameter", label: "Area & Location", type: "text", fixed: true, width: 380 },
-    { key: "measurementDate", label: "Date of Measurement", type: "date", required: true, width: 150, autoFill: { dueDate: true } },
+    { key: "measurementDate", label: "Date of Measurement", type: "date", required: true, width: 150 },
     { key: "luxLevel", label: "Lux Level", type: "number", decimals: 0, required: true, width: 130 },
   ],
-  rowMode: { kind: "fixedRows", rows: LUX_REV01_READINGS.map(([parameter]) => ({ parameter })) },
+  rowMode: { kind: "fixedRows", rows: LUX_AREAS.map((parameter) => ({ parameter })) },
   specimenHeader: LUX_METER_VALUES,
-  // The supplied 12.08.2025 readings are the specimen — a sample fill shows
-  // them as sample data to be measured again, never as a new measurement.
-  specimenRows: LUX_REV01_READINGS.map(([, luxLevel]) => ({ luxLevel })),
+  // Demo Mode's sample only (synthetic, its band says so): the owner's page of 15.10.2025, its date and readings. A Live
+  // record is never filled from it: its Date of Measurement and Lux Level are the person's (§316).
+  specimenRows: LUX_PAGE_READINGS.map((luxLevel) => ({ measurementDate: "2025-10-15", luxLevel })),
   supersededRevisions: {
+    // Rev 00's Day and Night page of 11.05.2024 (pinned "00" since §74), and Rev 01's page of 12.08.2025 (pinned "01", §316).
     "00": {
       revisionDate: "2021-12-01",
       layout: LUX_REV00,
-      note: "Rev 00 measured Day and Night over 19 areas; Rev 01 (15.12.2024) measures one Lux Level over 26.",
+      note: "The 2024 page measured Day and Night over 19 areas; the format (the page of 15.10.2025) measures one Lux Level over 26.",
+    },
+    "01": {
+      revisionDate: "2024-12-15",
+      layout: LUX_REV01,
+      note: "Rev 01 named its 26 areas its own way (Ink store, First floor - Ink Kitchen, Change room & Locker room, QC & Packing Area); the format (the page of 15.10.2025) names them as that page does.",
     },
   },
   originalPages: [
     page("fmnt11-rev01-lux-2025-p1.jpg", "F/MNT/11 Rev 01 (01/15.12.2024) — filled 12.08.2025, as supplied"),
     page("fmnt11-rev00-lux-2024-p1.jpg", "F/MNT/11 Rev 00 (00/01.12.2021), the SUPERSEDED revision — filled 11.05.2024, as supplied"),
-    // Supplied on 29-Sep-2026 (REQUIREMENTS §82) and NOT made into a record: it
-    // prints the Rev 00 code on the Rev 01 page and names four of the 26 areas
-    // differently from Rev 01's lines, so it fits neither layout faithfully.
-    page(
-      "fmnt11-lux-2025-10-15-p1.jpg",
-      "F/MNT/11 — the round of 15.10.2025, as supplied. Not on file as a record: it prints \"(00/01.12.2021)\" on the 26-line page, and lines 4, 11, 14 and 21 name areas the Rev 01 list does not (Ink Kitchen, Conference room, Change room, Packing Area) — for the department to confirm"
-    ),
+    // The owner's page, made the format on 24-Nov-2026 (REQUIREMENTS §316; supplied first on 29-Sep-2026, §82).
+    page("fmnt11-lux-2025-10-15-p1.jpg", "F/MNT/11 (00/01.12.2021) — the owner's page of 15.10.2025, the format since 24-Nov-2026 (its readings are not on file: the Date of Measurement and the Lux Level are written by the person who measures)"),
   ],
-  specimenSource: "F-MNT-11_LUX LEVEL MEASUREMENT RECORD.pdf — F/MNT/11 (01/15.12.2024), filled 12.08.2025",
+  specimenSource: "F-MNT-11_LUX LEVEL MEASUREMENT RECORD-1.pdf — F/MNT/11 (00/01.12.2021), the owner's page of 15.10.2025",
 };
 
 export const LUX_METER = LUX_METER_VALUES;

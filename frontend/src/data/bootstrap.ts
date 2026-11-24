@@ -13,6 +13,7 @@ import { alignRecordsToWorkingCalendar, datedByFrequency, removeOffScheduleShell
 import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
 import { alignTubeLightDates } from "../engine/tubeLightMigration";
 import { pinSchedulesWrittenOnRev00 } from "../engine/pmSchedule";
+import { pinLuxRoundsWrittenOnRev01 } from "./luxRevisionMigration";
 import { alignCompanyName } from "./companyNameMigration";
 import { alignSeededLineNumbers } from "./lineNumbersMigration";
 import { alignPapersOnFile } from "./paperOnFileMigration";
@@ -83,6 +84,8 @@ export function bootstrap(): void {
   // with them, now that Rev 01 reads each Actual from F/MNT/02 (REQUIREMENTS
   // §82) — before the month's generation and preparation, so both see them so.
   pinSchedulesWrittenOnRev00();
+  // F/MNT/11's rounds written on Rev 01 keep that page; the owner's page of 15.10.2025 is the format (REQUIREMENTS §316).
+  pinLuxRoundsWrittenOnRev01();
   // The company's name as the owner gave it on 02-Oct-2026, in what this
   // installation had already stored: a header typed over with an old spelling,
   // a format's stored layout, a corrected statement, the master data and every

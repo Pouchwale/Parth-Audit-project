@@ -28,6 +28,7 @@
 //          down, the cells it covers on the lines under it standing as skip (F/QC/17's Status and Calibration performed by).
 
 import { HR_PAPER_TABLES } from "./hrPaperTables";
+import { MNT_PAPER_TABLES } from "./mntPaperTables";
 
 /** One answer of a choice the paper sets across its cells or inside a cell: a scale's 7 to 1, Yes / No, a tick box (§275). */
 export interface PaperPick {
@@ -1592,7 +1593,7 @@ export function paperTableFits(
 }
 
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
-export const paperTableFor = (documentId: string): PaperTable | undefined => QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId];
+export const paperTableFor = (documentId: string): PaperTable | undefined => QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId];
 
 /** The paper as the page draws it now, with the record's own rows (§246): what the download is cut from. */
 const SHOWN_PAPER = new Map<string, PaperTable>();

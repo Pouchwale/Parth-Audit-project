@@ -83,10 +83,17 @@ export const SEED_MNT_EQUIPMENT_LIST_2026_09_29 = seededOn(
   "2026-09-29T00:00:00.000Z"
 );
 
-export const SEED_MNT_LUX_2025 = seeded("seed-mnt-lux-2025", "mnt-lux-level", "2025-08-12", {
-  header: { ...LUX_METER },
-  rows: LUX_REV01_READINGS.map(([parameter, luxLevel], i) => ({ id: `a${i + 1}`, parameter, measurementDate: "2025-08-12", luxLevel })),
-});
+// Written on Rev 01: pinned to it (REQUIREMENTS §316), the owner's page of 15.10.2025 being the format since 24-Nov-2026.
+export const SEED_MNT_LUX_2025 = seeded(
+  "seed-mnt-lux-2025",
+  "mnt-lux-level",
+  "2025-08-12",
+  {
+    header: { ...LUX_METER },
+    rows: LUX_REV01_READINGS.map(([parameter, luxLevel], i) => ({ id: `a${i + 1}`, parameter, measurementDate: "2025-08-12", luxLevel })),
+  },
+  "01"
+);
 
 export const SEED_MNT_LUX_2024 = seeded(
   "seed-mnt-lux-2024",

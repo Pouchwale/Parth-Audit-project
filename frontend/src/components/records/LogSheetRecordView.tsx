@@ -225,7 +225,7 @@ export function LogSheetRecordView({
   const [showReference, setShowReference] = React.useState(false);
   // An HR paper's plain sheet, drawn off the screen while a download reads it (REQUIREMENTS §275).
   const [plainTwin, setPlainTwin] = React.useState(false);
-  const paperId = !asPlainTwin && paperTableFor(doc.id)?.ownWords ? record.id : null;
+  const paperId = !asPlainTwin && !superseded && paperTableFor(doc.id)?.ownWords ? record.id : null;
   React.useEffect(() => (paperId ? registerPaperTwin(paperId, setPlainTwin) : undefined), [paperId]);
   // The pages of a long register, while it prints (§277).
   const [pageBreaks, setPageBreaks] = React.useState<number[] | null>(null);
@@ -572,8 +572,8 @@ export function LogSheetRecordView({
   // A paper that is one Word table from its letterhead to its foot (the certificates of analysis, data/seed/qcPaperTables.ts,
   // §117 round 2) is drawn as that table, row by row, in the paper's millimetres (components/records/PaperTableSheet.tsx).
   // (only while the paper still fits the format: one the plant has edited since is drawn as every grid is)
-  // (a record written on a revision since replaced keeps its own page, never the format's paper: F/MNT/11's 2024 and 2025 rounds, §315)
-  const ptForm = !frame && !lc && !asPlainTwin ? paperTableFor(layout.documentId) : undefined;
+  // (a record written on a revision since replaced keeps its own page, never the format's paper: F/MNT/11's 2024 and 2025 rounds, §316)
+  const ptForm = !frame && !lc && !asPlainTwin && !superseded ? paperTableFor(layout.documentId) : undefined;
   // ...its tables of boxes with the record's own rows (§246, engine/boxRows.ts).
   const ptFormed = ptForm && paperTableFits(ptForm, layout) ? withRecordBoxRows(ptForm, layout, data) : undefined;
   // The rows this record put in or took off (§276).
