@@ -900,6 +900,28 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     schedule: { type: "monthly", dayOfMonth: 31 },
     scheduleSince: "2026-11-01",
   },
+  // F/PRD/12 (01/01.01.2026), the Label & Sleeve section's own razor blade sheet, supplied 24-Nov-2026 (REQUIREMENTS §306):
+  // F/PRD/24's ten headings, its stock kept at 30.
+  {
+    id: "prd-label-sleeve-blade",
+    kind: "log-sheet",
+    name: "Razor Blade Stock & Monitoring Record (Used On - Label & Sleeve Section Slitting Machines)",
+    formatNo: "F/PRD/12",
+    revisionNo: "01",
+    revisionDate: "2026-01-01",
+    department: "Production",
+    module: "Production",
+    section: "Sharp Objects & Blades",
+    frequency: "Monthly",
+    status: "Configured",
+    description:
+      "The razor blades of the Label & Sleeve section's slitting machines, counted each day: the opening stock of OK blades, the new blades issued from the store, the total, how many new blades were put on the machines and in which shift, the closing stock of OK and of discarded blades, and the discarded blades returned to the store, checked by the production manager. The loose blades in stock, those installed on the machines included, are always kept at 30.",
+    sourceFile: "F-PRD-12_RAZOR BLADE STOCK & MONITORING RECORD_LABEL & SLEEVE_01_01.01.2026.xlsx (supplied 24-Nov-2026), its sheet of Rev 01",
+    // One sheet a month, a line for every date of it, like F/PRD/22 and F/PRD/24 (§259).
+    schedule: { type: "monthly", dayOfMonth: 31 },
+    scheduleSince: "2026-11-01",
+  },
+
   {
     id: "prd-pouching-blade",
     kind: "log-sheet",

@@ -261,7 +261,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   (daily-pest-monitoring, fly-catcher, service-report-rodent, service-report-general, service-report-fly,
   gap-inspection, capa-customer-complaint, training-record, qc-viscosity, qc-adhesive-mixing, qc-temperature,
   prd-alc-production, prd-process-parameter, prd-slitting-alc, prd-pouching-line-clearance, prd-doctoring-alc,
-  prd-sharp-object-issue, prd-pouching-blade, prd-pouching-cutter-issue, prd-slitting-blade,
+  prd-sharp-object-issue, prd-label-sleeve-blade, prd-pouching-blade, prd-pouching-cutter-issue, prd-slitting-blade,
   qc-inspection-pouching, qc-inspection-sb-lamination, qc-inspection-slitting,
   qc-inspection-printed-film, qc-inprocess-printing, hr-competence, hr-competence-criteria, hr-skill-matrix, hr-pre-employment-health,
   hr-induction-staff, hr-induction-operators, hr-job-responsibility, hr-training-needs, hr-training-calendar,
@@ -341,7 +341,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   Solvent Base Lamination - Process Parameter Record), prd-slitting-alc (F-PRD-20 Slitting - ALC & Production
   Report), prd-pouching-line-clearance (F/PRD/21 Area Line Clearance Report - Pouching, one per pouching machine),
   prd-doctoring-alc (F-PRD-26 Doctoring - ALC & Production Report), prd-sharp-object-issue (F/PRD/10 daily issue &
-  return of scissors and manual cutters), prd-pouching-blade (F/PRD/22 razor blades of the pouching machines),
+  return of scissors and manual cutters), prd-label-sleeve-blade (F/PRD/12 razor blades of the Label & Sleeve slitting machines), prd-pouching-blade (F/PRD/22 razor blades of the pouching machines),
   prd-pouching-cutter-issue (F/PRD/23 manual cutters of the pouching section) and prd-slitting-blade (F/PRD/24
   razor blades of the slitting machine); for "the production documents" as a whole use /library/production
 - /insights — Insights: what the plant's records show when read together (readings out of band or drifting, the

@@ -230,7 +230,7 @@ function logSheetObservations(doc: DocumentDefinition, d: LogSheetData, dueDate:
         continue;
       }
       // H-10: a running stock ledger opens with the last sheet's closing stock, and only that.
-      if (c.key === "openingStock" && (doc.id === "prd-pouching-blade" || doc.id === "prd-slitting-blade")) {
+      if (c.key === "openingStock" && (doc.id === "prd-pouching-blade" || doc.id === "prd-slitting-blade" || doc.id === "prd-label-sleeve-blade")) {
         const closing = [...(prior?.data.rows ?? [])].reverse().find((r) => typeof r.closingOkStock === "number")?.closingOkStock;
         if (i !== 0 || v !== closing) say(`line ${i + 1} opening stock ${v} is not the last sheet's closing stock (${closing})`);
         continue;
@@ -391,7 +391,7 @@ test("H-9: a blank form never arrives answered: Line Clearance, ALC, the cleanin
 
 test("H-10: the blade ledgers open with the last closing stock; the sharp-object counts and anything broken are never copied", () => {
   const byId = (id: string) => recordable.find((d) => d.id === id)!;
-  for (const id of ["prd-pouching-blade", "prd-slitting-blade"]) {
+  for (const id of ["prd-pouching-blade", "prd-slitting-blade", "prd-label-sleeve-blade"]) {
     const prior = confirmedBefore(byId(id), workDay) as RecordInstance<LogSheetData>;
     prior.data.rows[prior.data.rows.length - 1].closingOkStock = 9;
     const line = (prepareKnownParts(byId(id), workDay, master, prior)!.data as LogSheetData).rows[0];

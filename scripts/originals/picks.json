@@ -2625,5 +2625,23 @@
   "pages": null,
   "bytes": 29731,
   "copiedToSourceDocuments": "F-HR-02_Personnel competence criteria (SS) - D.doc"
+ },
+ {
+  "id": "prd-label-sleeve-blade",
+  "kind": "xlsx",
+  "file": "originals/prd-label-sleeve-blade.xlsx",
+  "original": "F-PRD-12_RAZOR BLADE STOCK & MONITORING RECORD_LABEL & SLEEVE_01_01.01.2026.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "F-PRD-24",
+  "notes": "The owner's workbook of 24-Nov-2026 holds two sheets: the old Rev 00 of 01.12.21 (sheet \"F-SYS-17 (2)\", slitting machine, 50 NOS) and the current Rev 01 of 01.01.2026 (sheet \"F-PRD-24\", Label & Sleeve slitting machines, 30 NOS), the one kept.",
+  "scores": [],
+  "sheets": [
+   "F-PRD-24"
+  ],
+  "pagesAsSupplied": 1,
+  "paper": [
+   "F-PRD-24: A4 already, kept only this sheet with Excel (24-Nov-2026)"
+  ],
+  "pages": 1
  }
 ]

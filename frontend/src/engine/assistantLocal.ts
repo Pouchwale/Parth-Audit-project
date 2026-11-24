@@ -494,6 +494,24 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
     ],
   },
   {
+    id: "prd-label-sleeve-blade",
+    aliases: [
+      "razor blade stock & monitoring record (used on - label & sleeve section slitting machines)",
+      "razor blade stock & monitoring record (used on - lable & sleeve section slitting machines)",
+      "razor blade stock & monitoring record",
+      "razor blade stock and monitoring record",
+      "razor blade stock",
+      "label & sleeve razor blade",
+      "label and sleeve razor blade",
+      "label & sleeve blade",
+      "label and sleeve blade",
+      "label & sleeve section slitting machines",
+      "label and sleeve section slitting machines",
+      "f/prd/12",
+      "f-prd-12",
+    ],
+  },
+  {
     id: "prd-slitting-blade",
     aliases: [
       "razor blade ( used on - laminated film's slitting machine blade holder) monitoring record",

@@ -75,6 +75,9 @@ export const FPRD22_BLADE_NOTE =
 export const FPRD24_BLADE_NOTE =
   "LOOSE BLADES IN STOCK  (INSTALLED ON MACHINE + LOOSE OK BLADE + LOOSE DISCARDED BLADE) SHALL BE ALWAYS MAINTAINED 20 NOS";
 
+export const FPRD12_BLADE_NOTE =
+  "LOOSE BLADES IN STOCK  (INSTALLED ON MACHINE + LOOSE OK BLADE + LOOSE DISCARDED BLADE) SHALL BE ALWAYS MAINTAINED 30 NOS";
+
 /** The Line Clearance definition the slitting, pouching and doctoring papers print, with its two spaces after the colon. */
 export const LINE_CLEARANCE_DEFINITION =
   "Line Clearance * :  Activity to make sure a production line & its processing area are completely cleared of any material from the previous process";
@@ -255,6 +258,26 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
     ],
   } satisfies LogSheetLayout,
 
+  // ---- F/PRD/12 (01/01.01.2026) - RAZOR BLADE STOCK & MONITORING RECORD (USED ON - LABLE & SLEEVE SECTION SLITTING MACHINES)
+  // The same ten headings as F/PRD/24, the stock kept at 30 (REQUIREMENTS §306).
+  "prd-label-sleeve-blade": {
+    documentId: "prd-label-sleeve-blade",
+    instructions: [FPRD12_BLADE_NOTE],
+    // A month, two lines a date (shift I and II), printed on two A4 pages, the 1st-15th and the 16th-end, like F/PRD/24.
+    onePage: true,
+    printPages: 2,
+    headerFields: [],
+    columns: bladeColumns(),
+    rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
+    // 20 loose OK blades and 2 discarded at the close, with 8 on the slitting machines' blade holders: the 30 NOS.
+    specimenRows: [{ date: "", openingStock: 22, newIssuedFromStore: 0, totalStock: 22, replacedShift: "I", replacedNos: 2, closingOkStock: 20, closingDiscarded: 2, discardedReturned: 0, verifiedBy: "" }],
+    specimenSource:
+      "F-PRD-12_RAZOR BLADE STOCK & MONITORING RECORD_LABEL & SLEEVE_01_01.01.2026.xlsx, F/PRD/12 (01/01.01.2026), the blank format: a typical day for the assistant, its counts adding up to the 30 NOS the note maintains",
+    originalPages: [
+      { src: "/source/fprd12-label-sleeve-razor-blade-p1.jpg", caption: "F/PRD/12 (01/01.01.2026) - Razor Blade Stock & Monitoring Record (Used On - Label & Sleeve Section Slitting Machines), the blank format as supplied" },
+    ],
+  } satisfies LogSheetLayout,
+
   // ---- F/PRD/21 (00-15.12.2024) - AREA LINE CLEARANCE REPORT -  POUCHING ( MACHINE NO. : )
   // One sheet per pouching machine, a line per job change: the left half when the old job is complete, the right
   // half when the new job starts, only after the line is cleared. The paper prints "Format no. - F/PRD/21
@@ -371,6 +394,7 @@ export const PRODUCTION_LAYOUTS: Record<string, LogSheetLayout> = {
 /** The Production formats this file lays out, in the order the Master List of Formats numbers them. */
 export const PRODUCTION_LAYOUT_IDS = [
   "prd-sharp-object-issue",
+  "prd-label-sleeve-blade",
   "prd-slitting-alc",
   "prd-pouching-line-clearance",
   "prd-pouching-blade",

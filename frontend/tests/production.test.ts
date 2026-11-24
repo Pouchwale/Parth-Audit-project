@@ -59,6 +59,7 @@ const groups = (id: string) => layout(id).columns.map((c) => c.group ?? "");
 /** The nine Production formats in DCRS: number, revision, revision date, section, schedule. */
 const FORMATS: { id: string; formatNo: string; rev: string; revDate: string; section: string; schedule: string }[] = [
   { id: "prd-sharp-object-issue", formatNo: "F/PRD/10", rev: "00", revDate: "2021-12-01", section: "Sharp Objects & Blades", schedule: "monthly" },
+  { id: "prd-label-sleeve-blade", formatNo: "F/PRD/12", rev: "01", revDate: "2026-01-01", section: "Sharp Objects & Blades", schedule: "monthly" },
   { id: "prd-alc-production", formatNo: "F-PRD-18", rev: "01", revDate: "2025-06-25", section: "Lamination", schedule: "daily" },
   { id: "prd-process-parameter", formatNo: "F-PRD-19", rev: "00", revDate: "2024-12-15", section: "Lamination", schedule: "daily" },
   { id: "prd-slitting-alc", formatNo: "F-PRD-20", rev: "01", revDate: "2025-06-25", section: "Slitting", schedule: "daily" },
@@ -95,7 +96,7 @@ test("the Production module holds the nine formats, in the five sections of the 
   noProblems("Production formats out of place", problems);
   // The Lamination section lists F-PRD-18 before F-PRD-19, and the blades and cutters in their numbers' order.
   const order = SEED_DOCUMENTS.filter((d) => d.module === "Production").map((d) => d.formatNo);
-  assert.deepEqual(order, ["F-PRD-18", "F-PRD-19", "F-PRD-20", "F/PRD/21", "F-PRD-26", "F/PRD/10", "F/PRD/22", "F/PRD/23", "F/PRD/24"]);
+  assert.deepEqual(order, ["F-PRD-18", "F-PRD-19", "F-PRD-20", "F/PRD/21", "F-PRD-26", "F/PRD/10", "F/PRD/12", "F/PRD/22", "F/PRD/23", "F/PRD/24"]);
 });
 
 test("the module is named Production in English and in Gujarati, with a link for each format", () => {
@@ -150,7 +151,8 @@ test("each format carries its paper's number and revision, in its department, as
     if (d.schedule.type !== f.schedule) problems.push(`${f.id}: scheduled ${d.schedule.type}, expected ${f.schedule}`);
     if (departmentOfDocument(f.id, d.formatNo) !== "PRD" || DOCUMENT_DEPARTMENTS[f.id] !== "PRD") problems.push(`${f.id}: not Production's`);
     if (documentFileKind(d) !== "xlsx") problems.push(`${f.id}: downloads as ${documentFileKind(d)}, not the company's workbook`);
-    if (!/\.xlsx?\b/.test(d.sourceFile) || !/\.pdf\b/.test(d.sourceFile)) problems.push(`${f.id}: sourceFile cites the PDF and the original: ${d.sourceFile}`);
+    // (F/PRD/12 came as its workbook alone, 24-Nov-2026: no PDF to cite)
+    if (!/\.xlsx?\b/.test(d.sourceFile) || (!/\.pdf\b/.test(d.sourceFile) && f.id !== "prd-label-sleeve-blade")) problems.push(`${f.id}: sourceFile cites the PDF and the original: ${d.sourceFile}`);
     if (d.companyName !== undefined) problems.push(`${f.id}: sets a company name of its own`);
   }
   noProblems("Production formats not as their papers print them", problems);
@@ -389,6 +391,7 @@ test("every page of every paper is shown beside its form, with a caption, and no
     "prd-pouching-blade": 1,
     "prd-pouching-cutter-issue": 2,
     "prd-slitting-blade": 2,
+    "prd-label-sleeve-blade": 1,
     "prd-doctoring-alc": 1,
   };
   const problems: string[] = [];

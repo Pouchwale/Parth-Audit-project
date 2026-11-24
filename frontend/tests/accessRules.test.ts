@@ -113,6 +113,7 @@ const EXPECTED: Record<string, string> = {
   "mnt-new-equipment":                "Raghunath",  // F/MNT/08
   "mnt-glass-breakage":               "Zala",  // F/MNT/09
   "prd-sharp-object-issue":           "Dharmik+Anil+AjaySinh",  // F/PRD/10
+  "prd-label-sleeve-blade":           "Dharmik+Anil+AjaySinh",  // F/PRD/12
   "prd-alc-production":               "Vishnu+AjaySinh",  // F-PRD-18
   "prd-process-parameter":            "Vishnu+AjaySinh",  // F-PRD-19
   "prd-slitting-alc":                 "Vishnu+AjaySinh",  // F-PRD-20

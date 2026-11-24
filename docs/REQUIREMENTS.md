@@ -13284,3 +13284,23 @@ and make the check-point table's font 1px smaller, not the instructions'. Asked 
 - The same on screen, on the printed page (still three A4 pages, page 1 filled) and in the Word/Excel downloads, which take the
   page's own styles. Pages 2 and 3, the register and the summary, keep their ruled lines (supersedes §243's ruled first page).
 - File: frontend/src/styles.css.
+
+## §306 F/PRD/12 Razor Blade Stock & Monitoring Record, Label & Sleeve slitting machines (24-Nov-2026)
+
+The owner, 24-Nov-2026, sending F-PRD-12_RAZOR BLADE STOCK & MONITORING RECORD_LABEL & SLEEVE_01_01.01.2026.xlsx and a photo of an old
+filled sheet: "add this document first ... keep format as it is which you can see it in excel".
+
+- The workbook holds two sheets: the old Rev 00 (01.12.21, slitting machine, 50 NOS) and the current **F/PRD/12 (01/01.01.2026)**,
+  "RAZOR BLADE STOCK & MONITORING RECORD (USED ON - LABLE & SLEEVE SECTION SLITTING MACHINES)", 30 NOS. The current one is the format.
+- Its ten headings are F/PRD/24's, word for word, and its note is the paper's. It works like F/PRD/22 and F/PRD/24 (§259, §263, §265):
+  one sheet a month, shift I and II lines a date, nothing issued in shift II, the opening stock the day before's closing, the
+  production manager's column left for him, printed on two A4 pages. Its stock adds up to 30: 8 blades on the machines' holders, as
+  the old filled paper shows (36 OK + 6 discarded + 8 = 50 on its first line), so 22 loose to start.
+- It is in Production under Sharp Objects & Blades, after F/PRD/10, answered for like F/PRD/10 (PRD up to 13: Dharmik Mistry,
+  Anil Ravad, Ajay Sinh Vaghela). The Master List line F-PRD-12 now holds this format. Word and Excel download the owner's own sheet.
+- **Excel prints the month on two A4 pages, like the app**, for every month sheet printed on two (F/PRD/10, 12, 22, 23, 24): the
+  download's print area ran only to the paper's last empty row, so Excel printed the 1st to the 12th and dropped the rest. Now the
+  print area runs to the last line, a new page starts at the 16th with the paper's headings repeated, the paper's width is set
+  across A4 and the lines' rows are as tall as fills the pages. Checked in Excel: two pages each, the 1st-15th and the 16th-end.
+- Files: data/seed/documentDefinitions.ts, productionLayouts.ts, originalFiles.ts, engine/sharpTools.ts,
+  utils/originalFill/xlsxFill.ts (printOnTwoPages), frontend/public/originals/prd-label-sleeve-blade.xlsx.

@@ -150,4 +150,5 @@ export const LIST_COLUMNS: Record<string, string[]> = {
 export const CARRIED_FIGURES: Record<string, { to: string; from: string }[]> = {
   "prd-pouching-blade": [{ to: "openingStock", from: "closingOkStock" }],
   "prd-slitting-blade": [{ to: "openingStock", from: "closingOkStock" }],
+  "prd-label-sleeve-blade": [{ to: "openingStock", from: "closingOkStock" }],
 };

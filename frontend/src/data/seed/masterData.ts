@@ -265,6 +265,7 @@ export const SEED_MASTER_DATA: MasterData = {
     "prd-pouching-blade": "Manager – Pouch",
     "prd-pouching-cutter-issue": "Manager – Pouch",
     "prd-slitting-blade": "Manager – Pouch",
+    "prd-label-sleeve-blade": "Manager – Pouch",
     "qc-inspection-pouching": "QA Inspector",
     "qc-inspection-sb-lamination": "QA Inspector",
     "qc-inspection-slitting": "QA Inspector",

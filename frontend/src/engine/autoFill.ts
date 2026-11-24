@@ -1267,6 +1267,7 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       ];
     case "prd-pouching-blade":
     case "prd-slitting-blade":
+    case "prd-label-sleeve-blade":
       return [
         `Filled the day's line with ${previous ? "the last sheet's" : "a typical"} blade stock. Count the blades and write today's opening and closing stock, the blades replaced and in which shift.`,
         "The Production Manager checks and signs the line; that is left for him.",

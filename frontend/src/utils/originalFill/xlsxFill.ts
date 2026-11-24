@@ -511,6 +511,8 @@ export interface XlsxFillOptions {
   hints?: FillHints;
   /** The company's one name (COMPANY.name). */
   company: string;
+  /** A month DCRS prints on two A4 pages, the 1st-15th and the 16th-end (LogSheetLayout.printPages): Excel prints it so (§306). */
+  printPages?: 2;
 }
 
 export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opts: XlsxFillOptions): Promise<{ bytes: Uint8Array<ArrayBuffer>; report: FillReport }> {
@@ -682,6 +684,12 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
       place.rowOf.set(line, last + 1 + i);
       place.body.push(last + 1 + i);
     });
+  }
+
+  // ---- a month on two A4 pages, as DCRS prints it (§306)
+  if (opts.printPages === 2) {
+    const place = places.find((p) => !p.unbound && p.body.length > 1);
+    if (place) printOnTwoPages(sheet, workbook, sheetName, sheetEls.indexOf(target), place);
   }
 
   // ---- boxes the paper writes as lines in an area of its own (hints.ts areaOf): "Label: value", a line each, under the
@@ -1460,6 +1468,99 @@ export function labelInside(text: string, label: string): { head: string; rest: 
     at += words[i].length;
   }
   return null;
+}
+
+// ---- a month printed on two A4 pages (REQUIREMENTS §306)
+
+/**
+ * The month's lines printed by Excel as DCRS prints them: the print area down to the last line (the paper's own ended at its
+ * last empty row, so the added lines were left off the printout), a new page at the 16th, the paper's headings again on it,
+ * the paper's width across A4, and the lines' rows as tall as fills both pages.
+ */
+function printOnTwoPages(sheet: XSheet, workbook: XmlElement, sheetName: string, sheetIndex: number, place: GridPlace): void {
+  const lines = place.grid.rows.slice(place.grid.headerRows);
+  const at16 = lines.findIndex((row) => row.some((c) => !!c.date && Number(c.date.slice(8, 10)) >= 16));
+  const breakRow = at16 > 0 ? place.rowOf.get(at16) : undefined;
+  const firstBody = Math.min(...place.body);
+  const lastBody = Math.max(...place.body);
+  if (!breakRow || breakRow <= firstBody || breakRow > lastBody) return;
+  const quoted = `'${sheetName.replace(/'/g, "''")}'`;
+  const local = String(sheetIndex);
+
+  // The print area to the last line, and the headings on every page.
+  let defined = kid(workbook, "definedNames");
+  if (!defined) {
+    defined = el("definedNames");
+    const sheetsEl = kid(workbook, "sheets")!;
+    workbook.children.splice(workbook.children.indexOf(sheetsEl) + 1, 0, defined);
+  }
+  const named = (name: string) => kids(defined!, "definedName").find((d) => d.attrs.name === name && (d.attrs.localSheetId ?? local) === local);
+  const area = named("_xlnm.Print_Area");
+  const old = area ? /\$?([A-Z]{1,3})\$?(\d+):\$?([A-Z]{1,3})\$?(\d+)/.exec(textAll(area)) : null;
+  const lastCol = old ? old[3] : columnName(Math.max(...[...sheet.cells.keys()].map((k) => k % 20000)));
+  const endRow = Math.max(old ? Number(old[4]) : 0, lastBody);
+  const areaText = `${quoted}!$${old ? old[1] : "A"}$${old ? old[2] : 1}:$${lastCol}$${endRow}`;
+  if (area) area.children = [areaText];
+  else defined.children.push(el("definedName", { name: "_xlnm.Print_Area", localSheetId: local }, [areaText]));
+  const titles = named("_xlnm.Print_Titles");
+  const titlesText = `${quoted}!$1:$${firstBody - 1}`;
+  if (titles) titles.children = [titlesText];
+  else defined.children.push(el("definedName", { name: "_xlnm.Print_Titles", localSheetId: local }, [titlesText]));
+
+  // The page: A4 the paper's way, a set scale (Excel leaves out a page break when told to fit), the paper's width across it.
+  const root = sheet.root;
+  const margins = kid(root, "pageMargins");
+  const inch = (k: string, d: number) => (margins?.attrs[k] !== undefined ? Number(margins.attrs[k]) : d);
+  const wide = kid(root, "pageSetup")?.attrs.orientation === "landscape";
+  const usableW = (wide ? 841.9 : 595.3) - (inch("left", 0.7) + inch("right", 0.7)) * 72;
+  const usableH = (wide ? 595.3 : 841.9) - (inch("top", 0.75) + inch("bottom", 0.75)) * 72;
+  const widthOf = (c: number) => {
+    const col = kids(kid(root, "cols") ?? el("cols"), "col").find((x) => Number(x.attrs.min) <= c + 1 && c + 1 <= Number(x.attrs.max));
+    const chars = col?.attrs.width !== undefined ? Number(col.attrs.width) : 8.43;
+    return (Math.trunc(chars * 7 + 5) * 3) / 4;
+  };
+  let paperW = 0;
+  for (let c = columnIndex(old ? old[1] : "A"); c <= columnIndex(lastCol); c++) paperW += widthOf(c);
+  const scale = Math.max(10, Math.min(100, Math.floor((usableW / paperW) * 100)));
+  const sheetPr = kid(root, "sheetPr");
+  const fit = sheetPr ? kid(sheetPr, "pageSetUpPr") : null;
+  if (fit) delete fit.attrs.fitToPage;
+  let setup = kid(root, "pageSetup");
+  if (!setup) {
+    setup = el("pageSetup");
+    root.children.splice(margins ? root.children.indexOf(margins) + 1 : root.children.length, 0, setup);
+  }
+  for (const a of ["fitToWidth", "fitToHeight"]) delete setup.attrs[a];
+  setup.attrs.paperSize = "9";
+  setup.attrs.orientation = wide ? "landscape" : "portrait";
+  setup.attrs.scale = String(scale);
+
+  // The lines' rows: as tall as fills the fuller page (the 16th-31st of a long month), never taller than 2.5 times the paper's;
+  // a little to spare, as Excel rounds each row to its pixels and would push the page's last line onto a page of its own.
+  const heightOf = (r: number) => {
+    const row = sheet.rows.get(r);
+    return row?.attrs.ht !== undefined ? Number(row.attrs.ht) : 15;
+  };
+  let headings = 0;
+  for (let r = 1; r < firstBody; r++) headings += heightOf(r);
+  const most = Math.max(breakRow - firstBody, lastBody - breakRow + 1);
+  const paperRow = heightOf(firstBody);
+  const lineH = Math.floor(Math.min(paperRow * 2.5, (((usableH * 100) / scale - headings) / most) * 0.96) * 4) / 4;
+  if (lineH > 8) {
+    for (const r of place.body) {
+      const row = sheet.rows.get(r);
+      if (!row) continue;
+      row.attrs.ht = String(lineH);
+      row.attrs.customHeight = "1";
+    }
+  }
+
+  // The new page at the 16th (a break's id is the row above it, from 0: the last row of the page before).
+  for (const rb of kids(root, "rowBreaks")) root.children.splice(root.children.indexOf(rb), 1);
+  const breaks = el("rowBreaks", { count: "1", manualBreakCount: "1" }, [el("brk", { id: String(breakRow - 1), max: "16383", man: "1" })]);
+  const before = ["colBreaks", "customProperties", "cellWatches", "ignoredErrors", "smartTags", "drawing", "legacyDrawing", "legacyDrawingHF", "picture", "oleObjects", "controls", "webPublishItems", "tableParts", "extLst"];
+  const next = root.children.findIndex((c) => typeof c !== "string" && before.includes(c.local));
+  root.children.splice(next < 0 ? root.children.length : next, 0, breaks);
 }
 
 // ---- the workbook's names and the pictures, moved with the rows

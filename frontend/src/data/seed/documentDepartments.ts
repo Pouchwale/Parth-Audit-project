@@ -155,6 +155,7 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "prd-pouching-blade": "PRD", // F/PRD/22
   "prd-pouching-cutter-issue": "PRD", // F/PRD/23
   "prd-slitting-blade": "PRD", // F/PRD/24
+  "prd-label-sleeve-blade": "PRD", // F/PRD/12
 
   // --- Purchase, Store and Dispatch (REQUIREMENTS §68, §71, §70). Their format
   // numbers already give the department, but the activity log names a document

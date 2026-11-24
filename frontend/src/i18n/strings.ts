@@ -307,6 +307,7 @@ const en = {
   "nav.prdPouchingBlade": "Razor Blades - Pouching Machines",
   "nav.prdPouchingCutterIssue": "Manual Cutter Issue / Return - Pouching",
   "nav.prdSlittingBlade": "Razor Blades - Slitting Machine",
+  "nav.prdLabelSleeveBlade": "Razor Blades - Label & Sleeve",
   "nav.prdSharpMaster": "Sharp Objects Master Data",
   "nav.inspectionRecordDocs": "Inspection Record Documents",
   // Purchase — the two things the department's paperwork divides into
@@ -1200,6 +1201,7 @@ const gu: Record<StringKey, string> = {
   "nav.prdPouchingBlade": "રેઝર બ્લેડ - પાઉચિંગ મશીન",
   "nav.prdPouchingCutterIssue": "મેન્યુઅલ કટર આપ્યા / પરત - પાઉચિંગ",
   "nav.prdSlittingBlade": "રેઝર બ્લેડ - સ્લિટિંગ મશીન",
+  "nav.prdLabelSleeveBlade": "રેઝર બ્લેડ - લેબલ અને સ્લીવ",
   "nav.prdSharpMaster": "શાર્પ ઓબ્જેક્ટ્સ માસ્ટર ડેટા",
   "nav.inspectionRecordDocs": "નિરીક્ષણ રેકોર્ડ દસ્તાવેજો",
   "nav.purSupplierApproval": "સપ્લાયર મંજૂરી",

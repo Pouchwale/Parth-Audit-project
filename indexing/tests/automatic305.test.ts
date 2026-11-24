@@ -45,10 +45,12 @@ test("F/QC/09, 10, 38 Automatic: still read only, their renewal reminded", () =>
   if (other) assert.equal(other.automation.options.includes("Automatic"), false);
 });
 
-test("F/PRD/11 and 12, no format in DCRS: marked Automatic, still shown as having no format", () => {
+// (F-PRD-12 has its format since §306, 24-Nov-2026: F-PRD-11 is the one left without)
+test("F/PRD/11, no format in DCRS: marked Automatic, still shown as having no format; F-PRD-12 holds its format", () => {
   fresh();
   const lines = buildFormatLines().filter((l) => !l.doc && /PRD.1[12]$/.test(l.values.formatNo));
-  assert.equal(lines.length, 2, lines.map((l) => l.values.formatNo).join(","));
+  assert.deepEqual(lines.map((l) => l.values.formatNo.replace(/\D/g, "")), ["11"]);
+  assert.ok(buildFormatLines().some((l) => l.doc?.id === "prd-label-sleeve-blade" && /PRD.12$/.test(l.values.formatNo)));
   const saved = save(Object.fromEntries(lines.map((l) => [l.key, { mode: "Automatic" }])));
   assert.ok(saved.ok, saved.ok ? "" : saved.error);
   for (const before of lines) {

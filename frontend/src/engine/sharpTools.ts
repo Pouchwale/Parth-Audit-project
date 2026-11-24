@@ -30,7 +30,7 @@ import type { DayInfo } from "./holidays";
 //     Manager checks and signs.
 
 export const SHARP_ISSUE_DOCS = ["prd-sharp-object-issue", "prd-pouching-cutter-issue"] as const;
-export const RAZOR_BLADE_DOCS = ["prd-pouching-blade", "prd-slitting-blade"] as const;
+export const RAZOR_BLADE_DOCS = ["prd-pouching-blade", "prd-slitting-blade", "prd-label-sleeve-blade"] as const;
 export const SHARP_TOOL_DOCS: readonly string[] = [...SHARP_ISSUE_DOCS, ...RAZOR_BLADE_DOCS];
 
 /** The paper's stock note, as figures: what is kept of each. */
@@ -42,6 +42,8 @@ export const SHARP_STOCK: Record<string, { scissor?: number; cutter: number }> =
 export const BLADE_STOCK: Record<string, { maintained: number; onMachine: number; start: number; most: number }> = {
   "prd-pouching-blade": { maintained: 20, onMachine: 8, start: 12, most: 3 },
   "prd-slitting-blade": { maintained: 20, onMachine: 5, start: 15, most: 2 },
+  // F/PRD/12, the Label & Sleeve section's slitting machines (§306): its note's 30, 8 on the blade holders as on its old filled paper.
+  "prd-label-sleeve-blade": { maintained: 30, onMachine: 8, start: 22, most: 3 },
 };
 /** The OK stock at which the discarded blades go back to the store and new ones are issued. */
 export const BLADE_LOW = 4;
@@ -130,7 +132,7 @@ export const SHARP_USUAL: Record<string, { scissor?: number; cutter: number }> =
  * line 0 issued, 0 returned, "-" broken and new; F/PRD/22 and 24 replace no blade and take none from the store in shift II,
  * the line carrying the stock as shift I closed it.
  */
-export const NO_SHIFT_II_ISSUE: readonly string[] = ["prd-sharp-object-issue", "prd-pouching-blade", "prd-pouching-cutter-issue", "prd-slitting-blade"];
+export const NO_SHIFT_II_ISSUE: readonly string[] = ["prd-sharp-object-issue", "prd-pouching-blade", "prd-pouching-cutter-issue", "prd-slitting-blade", "prd-label-sleeve-blade"];
 
 /** Shift II's usual crew, with nobody named in it (§263): the F/PRD/10 register's own shift II lines, 4. */
 export const SHIFT_II_USUAL = 4;
@@ -368,6 +370,7 @@ const LINE_KEYS: Record<string, string[]> = {
   "prd-pouching-cutter-issue": ["shift", "qtyIssued", "qtyReturned", "brokenQty", "newQtyIssued", "supervisorSign", "remarks"],
   "prd-pouching-blade": ["openingStock", "newIssuedFromStore", "totalStock", "replacedShift", "replacedNos", "closingOkStock", "closingDiscarded", "discardedReturned", "verifiedBy"],
   "prd-slitting-blade": ["openingStock", "newIssuedFromStore", "totalStock", "replacedShift", "replacedNos", "closingOkStock", "closingDiscarded", "discardedReturned", "verifiedBy"],
+  "prd-label-sleeve-blade": ["openingStock", "newIssuedFromStore", "totalStock", "replacedShift", "replacedNos", "closingOkStock", "closingDiscarded", "discardedReturned", "verifiedBy"],
 };
 
 /** Whether a day's line has anything written on it. */
