@@ -1,3 +1,4 @@
+import { syncInductionDates } from "./inductionRound";
 import type { DocumentDefinition, LogSheetData, LogSheetRow, MasterData, RecordInstance } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -181,6 +182,7 @@ export function prepareRecordOnOpen(recordId: string, referenceISO = todayISO())
   if (!record || record.isDemo || record.documentId === SCALE_ID) return record;
   const doc = documentRepository.getByIdUnscoped(record.documentId);
   if (!doc || !mayWriteRecordsOf(doc.id) || !systemFills(doc.id) || waitsUntil(doc, record, referenceISO) !== null) return record;
+  if (doc.id === "hr-induction-operators") syncInductionDates(recordId);
   prepareDueRecords(referenceISO, { documentId: doc.id, recordId });
   if (doc.id === TRAINING_CALENDAR_ID) fillTrainingCalendarDue(referenceISO, recordId);
   if (doc.id === "hr-psc-survey-analysis") fillPscSurveyDue(referenceISO, { analysisOf: recordId });

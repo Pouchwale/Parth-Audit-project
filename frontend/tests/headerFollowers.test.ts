@@ -27,26 +27,26 @@ const planned = (d: LogSheetData): string[] => d.rows.map((r) => String(r.planne
 
 describe("F/HR/05's Planned Date follows the Date of Joining (REQUIREMENTS §159)", () => {
   it("the induction record's Planned Date is the one column that follows a header box", () => {
-    assert.deepEqual(headerFollowers(layout), [{ key: "plannedDate", from: "dateOfJoining" }]);
+    assert.deepEqual(headerFollowers(layout), [{ key: "plannedDate", from: "dateOfJoining", workingDay: true }]);
     assert.deepEqual(headerFollowers(getLogSheetLayout("hr-pre-employment-health")!), []);
   });
 
   it("choosing the Date of Joining puts it on every topic line's Planned Date; nothing chosen, nothing written", () => {
     const data = fresh();
     assert.equal(followHeader(layout, undefined, data), data, "no joining date: the data comes back as it was");
-    const chosen = followHeader(layout, data, { ...data, header: { ...data.header, dateOfJoining: "2026-11-05" } });
-    assert.deepEqual(planned(chosen), data.rows.map(() => "2026-11-05"));
-    assert.equal(chosen.header.dateOfJoining, "2026-11-05");
+    const chosen = followHeader(layout, data, { ...data, header: { ...data.header, dateOfJoining: "2026-12-01" } });
+    assert.deepEqual(planned(chosen), data.rows.map(() => "2026-12-01"));
+    assert.equal(chosen.header.dateOfJoining, "2026-12-01");
   });
 
   it("a corrected joining date moves the planned dates that followed it; a date the person wrote stays", () => {
     const data = fresh();
-    const chosen = followHeader(layout, data, { ...data, header: { ...data.header, dateOfJoining: "2026-11-05" } });
+    const chosen = followHeader(layout, data, { ...data, header: { ...data.header, dateOfJoining: "2026-12-01" } });
     const own = { ...chosen, rows: chosen.rows.map((r, i) => (i === 2 ? { ...r, plannedDate: "2026-11-12" } : r)) };
-    const corrected = followHeader(layout, own, { ...own, header: { ...own.header, dateOfJoining: "2026-11-07" } });
+    const corrected = followHeader(layout, own, { ...own, header: { ...own.header, dateOfJoining: "2026-12-02" } });
     assert.deepEqual(
       planned(corrected),
-      own.rows.map((_, i) => (i === 2 ? "2026-11-12" : "2026-11-07"))
+      own.rows.map((_, i) => (i === 2 ? "2026-11-12" : "2026-12-02"))
     );
     // The box cleared: the dates that followed it go with it, the person's own stays.
     const cleared = followHeader(layout, corrected, { ...corrected, header: { ...corrected.header, dateOfJoining: "" } });
@@ -58,16 +58,16 @@ describe("F/HR/05's Planned Date follows the Date of Joining (REQUIREMENTS §159
 
   it("a topic line added after the joining date was chosen takes it on the next save", () => {
     const data = fresh();
-    const chosen = followHeader(layout, data, { ...data, header: { ...data.header, dateOfJoining: "2026-11-05" } });
+    const chosen = followHeader(layout, data, { ...data, header: { ...data.header, dateOfJoining: "2026-12-01" } });
     const added = followHeader(layout, chosen, { ...chosen, rows: [...chosen.rows, newRow(layout, chosen.rows)] });
     assert.equal(added.rows.length, 8);
-    assert.equal(added.rows[7].plannedDate, "2026-11-05");
+    assert.equal(added.rows[7].plannedDate, "2026-12-01");
   });
 
   it("Mitra writing the Date of Joining moves the lines too", () => {
     const data = fresh();
-    const out = applyAssistantPatch("log-sheet", doc.id, data, { header: { dateOfJoining: "2026-11-05" } });
+    const out = applyAssistantPatch("log-sheet", doc.id, data, { header: { dateOfJoining: "2026-12-01" } });
     assert.deepEqual(out.problems, []);
-    assert.deepEqual(planned(out.data as LogSheetData), data.rows.map(() => "2026-11-05"));
+    assert.deepEqual(planned(out.data as LogSheetData), data.rows.map(() => "2026-12-01"));
   });
 });

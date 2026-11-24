@@ -36,6 +36,7 @@
 //
 // NOTHING HERE IS WRITTEN BY ITSELF. The host writes; when somebody else wrote
 // in between, it loads again and runs the change again.
+import { runInductionRound } from "../engine/inductionRound";
 import type {
   ChecklistSignoff,
   ComplaintChecklistData,
@@ -1132,6 +1133,8 @@ function calendarLinesForNotice(r: RecordInstance, closed: (d: string) => boolea
 function prepareOp(): Outcome {
   if (!asTheSystem()) return systemOnly();
   const today = todayISO();
+  // F/HR/05 for Supervisor and above, on the day the owner assigned (§303): the new forms are stored by the loop below.
+  runInductionRound(today);
   // Only F/QC/12 is filled with nobody at the screen; every other record when a person opens it (REQUIREMENTS §289).
   const prepared = prepareUnattended(today);
   const preparedIds = new Set(prepared.map((r) => r.id));

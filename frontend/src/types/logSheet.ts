@@ -311,6 +311,8 @@ export interface LogColumn {
     // when it is blank, and moves with when the box is changed — F/HR/05's Planned Date on every topic is the new
     // employee's Date of Joining (engine/headerFollowers.ts). A cell the person wrote differently is left alone.
     fromHeader?: string;
+    // With fromHeader: the cell takes the first working day on or after the box's date (F/HR/05's Planned Date, REQUIREMENTS §303).
+    workingDay?: boolean;
     // A "clock time" column filled with the current/typical time.
     nowTime?: boolean;
     // A date column that answers with the date the record is for, on every

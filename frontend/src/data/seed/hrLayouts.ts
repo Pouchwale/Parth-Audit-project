@@ -239,7 +239,7 @@ const inductionStaff: LogSheetLayout = {
     fixedText("responsibility", "Responsibility", 150),
     // Every topic is planned for the day the new employee joins (the owner, 2-Nov-2026, REQUIREMENTS §159): the
     // Planned Date follows the Date of Joining box, however that box is filled.
-    { key: "plannedDate", label: "Planned Date", type: "date", width: 130, autoFill: { fromHeader: "dateOfJoining" } },
+    { key: "plannedDate", label: "Planned Date", type: "date", width: 130, autoFill: { fromHeader: "dateOfJoining", workingDay: true } },
     text("actualDate", "Actual date & Initial sign", 170),
   ],
   // THE TOPICS ARE OPEN (REQUIREMENTS §158, the owner 2-Nov-2026): a topic is added or taken off this record on the

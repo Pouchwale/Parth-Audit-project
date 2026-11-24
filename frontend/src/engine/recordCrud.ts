@@ -55,6 +55,8 @@ export interface DeletionEntry {
   historyEntries: number;
   /** The record's period key: F/QC/17's numbered place ("…#07") is never made again once deleted (REQUIREMENTS §245). */
   periodKey?: string;
+  /** F/HR/05: whose form it was, so the round for Supervisor and above does not make it again (REQUIREMENTS §303). */
+  person?: string;
 }
 
 const DELETIONS_KEY = "deletions";
@@ -223,6 +225,12 @@ function startedIfUntouched(doc: DocumentDefinition, rec: RecordInstance): Recor
 }
 
 /** Deletes a record for good, and records that it happened. */
+const formPerson = (record: RecordInstance): string => {
+  if (record.documentId !== "hr-induction-staff") return "";
+  const header = (record.data as { header?: Record<string, unknown> } | undefined)?.header ?? {};
+  return String(header.hrMasterGp3 || header.name || "").trim();
+};
+
 export function deleteRecordWithTrail(record: RecordInstance, actorName: string, reason: string): DeletionEntry {
   const doc = documentRepository.getById(record.documentId);
   const entry: DeletionEntry = {
@@ -238,6 +246,7 @@ export function deleteRecordWithTrail(record: RecordInstance, actorName: string,
     reason: reason.trim(),
     historyEntries: historyOf(record).length,
     ...(record.periodKey ? { periodKey: record.periodKey } : {}),
+    ...(formPerson(record) ? { person: formPerson(record) } : {}),
   };
   const log = [entry, ...readJSON<DeletionEntry[]>(DELETIONS_KEY, [])].slice(0, MAX_DELETIONS_KEPT);
   writeJSON(DELETIONS_KEY, log);

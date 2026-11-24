@@ -89,6 +89,13 @@ function send(events: ActivityEvent[], leaving: boolean): void {
     });
 }
 
+// (In Node, the unit tests and the engine host, a retry waiting for a server that is not there must not hold the process open.)
+function flushLater(): number {
+  const id = window.setTimeout(() => flush(), FLUSH_AFTER_MS);
+  (id as unknown as { unref?: () => void }).unref?.();
+  return id;
+}
+
 function flush(leaving = false): void {
   if (timer !== null) {
     window.clearTimeout(timer);
@@ -100,7 +107,7 @@ function flush(leaving = false): void {
     send(batch, leaving);
     if (!leaving) break;
   }
-  if (waiting.length > 0 && !leaving) timer = window.setTimeout(() => flush(), FLUSH_AFTER_MS);
+  if (waiting.length > 0 && !leaving) timer = flushLater();
 }
 
 /** One line for the activity log. `documentId` gives the line its department. */
@@ -113,5 +120,5 @@ export function logActivity(action: string, target = "", detail = "", documentId
   const clientId = newClientId();
   waiting.push({ action, target, detail, department: documentId ? (departmentOfDocument(documentId) ?? "") : "", ...(documentId ? { documentId } : {}), ...(clientId ? { clientId } : {}) });
   if (waiting.length > MAX_WAITING) waiting = waiting.slice(-MAX_WAITING);
-  if (timer === null) timer = window.setTimeout(() => flush(), FLUSH_AFTER_MS);
+  if (timer === null) timer = flushLater();
 }

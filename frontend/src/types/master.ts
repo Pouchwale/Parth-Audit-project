@@ -132,6 +132,8 @@ export interface MasterData {
   // follow it; `since` is the day it took effect (DocumentDefinition.scheduleSince: the old schedule's sheets stand).
   // Read defensively (`?? {}`): stored data from before this field has no key.
   scheduleOverrides?: Record<string, ScheduleOverride>;
+  // The day F/HR/05's forms for Supervisor and above are filled, set on the document's page (REQUIREMENTS §303). Blank: none are.
+  inductionFillDate?: string;
   // The company's working calendar — see src/engine/holidays.ts, the one
   // place that decides whether a date is a working day:
   //   holidays       festival holidays from the Gujarat Print Pack Leave

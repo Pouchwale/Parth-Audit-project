@@ -13201,6 +13201,21 @@ The owner, 23-Nov-2026, shown the three mistakes: "Yes, correct them".
 - "shoulders elbows, wrists, hands, knees, elbow" now reads "shoulders, elbows, wrists, hands, knees".
 - The format number and revision (00/01.12.2021) are as they were. Every F/HR/04 record, old or new, draws these words. The company's original Word file is not changed.
 
+## §303 F/HR/05 for Supervisor and above on the day assigned; F/HR/06 takes its date (24-Nov-2026)
+
+The owner, 23-Nov-2026: "for hr-05 which for role like SUPERVISOR & ABOVE has name should come and filled by system automatically
+according to assigned date and day ... planned date is 1st day of joining and make sure it should not be any kind of holiday. and in
+hr-06 planned date of hr-05 should come according to name and role in induction date in hr-06".
+
+- F/HR/05's page has a Fill date card (for people who may edit the format). Nothing is made until a date is set. From that day (the next
+  working day when it is a holiday) everyone on HR Master Data who is Supervisor, Team Leader, Executive, Sr., Engineer, Manager, HOD,
+  Director or CEO gets one form: name, department, designation, joining date, and every topic's Planned Date. Actual Date and the
+  signatures stay for the people who hold the induction. Set for today, the forms are made at once; set for later, the server's morning
+  job makes them. A person who joins later gets theirs once they have joined. Nobody gets a second; a deleted form stays deleted.
+- Planned Date is the first working day on or after the Date of Joining (weekly off, festival holidays and adjustment days counted).
+- F/HR/06's "Date of Joining & Induction" for a person is their F/HR/05 Planned Date, else the first working day of their joining. An open
+  sheet takes it when it is opened, and follows a later change; a date a person typed stays, and a submitted or verified sheet is not changed.
+
 ## §304 Indexing: switch a format between Automatic, Manual, Manual start, Reference only and SAP (24-Nov-2026)
 
 The owner, 24-Nov-2026: "in indexing give option to convert automatic to manual and many more like this in indexing section only";

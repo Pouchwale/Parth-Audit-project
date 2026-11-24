@@ -1,4 +1,6 @@
 import type { LogSheetData, LogSheetLayout, LogSheetRow } from "../types";
+import { masterRepository } from "../data/repositories/masterRepository";
+import { nextWorkingDay } from "./holidays";
 
 // A COLUMN THAT FOLLOWS A HEADER BOX (REQUIREMENTS §159; the owner, 2-Nov-2026):
 // "in HR 05 the planned date is filled according to date of joining of the
@@ -19,9 +21,14 @@ import type { LogSheetData, LogSheetLayout, LogSheetRow } from "../types";
 const text = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim());
 
 /** The columns of this layout that follow a header box, with the box each follows. */
-export function headerFollowers(layout: LogSheetLayout): { key: string; from: string }[] {
-  return layout.columns.flatMap((c) => (c.autoFill?.fromHeader && !c.fixed && !c.computed && !c.linkedFrom ? [{ key: c.key, from: c.autoFill.fromHeader }] : []));
+export function headerFollowers(layout: LogSheetLayout): { key: string; from: string; workingDay?: boolean }[] {
+  return layout.columns.flatMap((c) =>
+    c.autoFill?.fromHeader && !c.fixed && !c.computed && !c.linkedFrom ? [{ key: c.key, from: c.autoFill.fromHeader, ...(c.autoFill.workingDay ? { workingDay: true } : {}) }] : []
+  );
 }
+
+// F/HR/05's Planned Date is the first day of joining and never a holiday (REQUIREMENTS §303).
+const onWorkingDay = (value: string): string => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? nextWorkingDay(value, masterRepository.get()) : value);
 
 /**
  * `next` with every following column's cells brought in line with its header box, given the record as it was
@@ -34,11 +41,12 @@ export function followHeader(layout: LogSheetLayout, before: LogSheetData | unde
   let changed = false;
   const rows: LogSheetRow[] = next.rows.map((row) => {
     let out = row;
-    for (const { key, from } of followers) {
-      const now = text(next.header?.[from]);
+    for (const { key, from, workingDay } of followers) {
+      const boxNow = text(next.header?.[from]);
       const was = text(before?.header?.[from]);
+      const now = workingDay ? onWorkingDay(boxNow) : boxNow;
       const cell = text(row[key]);
-      const follows = cell === "" || (was !== "" && cell === was);
+      const follows = cell === "" || (was !== "" && (cell === was || (!!workingDay && cell === onWorkingDay(was))));
       if (!follows || cell === now) continue;
       if (now === "" && cell === "") continue;
       if (out === row) out = { ...row };

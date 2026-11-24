@@ -4,6 +4,7 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { serialToIso } from "../utils/xlsx";
 import { todayISO } from "../utils/date";
 import { sexFromName } from "./sexFromName";
+import { inductionDayOf } from "./inductionDay";
 
 // HR MASTER DATA — THE EMPLOYEE MASTER SHEET THE HR FORMATS FETCH FROM
 // (REQUIREMENTS §53).
@@ -218,6 +219,8 @@ export interface LinkedField {
   from: MasterSource;
   /** For a date: how this format writes it. */
   style?: DateStyle;
+  /** F/HR/06's induction date: the person's F/HR/05 Planned Date, else their first working day (engine/inductionDay.ts, §303). */
+  induction?: boolean;
 }
 
 export interface HrMasterLink {
@@ -297,7 +300,7 @@ export const HR_MASTER_LINKS: HrMasterLink[] = [
     fields: [
       { key: "name", from: "fullName" },
       { key: "joining", from: "designationThenDepartment" },
-      { key: "dateOfJoiningInduction", from: "joiningDate", style: "dayFirst" },
+      { key: "dateOfJoiningInduction", from: "joiningDate", style: "dayFirst", induction: true },
     ],
   },
   {
@@ -394,6 +397,7 @@ export function linkedValue(person: HrMasterPerson, field: LinkedField): string 
   if (field.from === "designationThenDepartment") return joined(person.designation, person.department);
   if (field.from === "subDepartmentThenDesignation") return String(person.subDepartment || person.designation || "").trim();
   if (field.from === "sexFromName") return sexFromName(person.fullName);
+  if (field.induction) return writeDate(inductionDayOf(person), field.style ?? "iso");
   if (isDateSource(field)) return writeDate(person[field.from], field.style ?? "iso");
   return String(person[field.from] ?? "").trim();
 }

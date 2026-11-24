@@ -28,6 +28,7 @@ import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { CvImportDialog } from "../components/hr/CvImportDialog";
+import { InductionFillCard } from "../components/hr/InductionFillCard";
 import { nextDueDate } from "./PestControlPages";
 import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
@@ -354,6 +355,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
           number and its records; the description stays in the catalogue for Mitra and the search. */}
       {/* Why New record or Edit format is not here, for a person whose level stops it (REQUIREMENTS §96). */}
       <AccessReason documentId={doc.id} action={doc.isReferenceOnly ? "format" : "start"} className="mb-4" />
+      {doc.id === "hr-induction-staff" && !isDemo && !designing && mayDo(doc.id, "format") && <InductionFillCard onChanged={bump} />}
 
       {/* No button for the supplied original (the owner, 15-Nov-2026, REQUIREMENTS §210): the page is the format and its records. */}
       {cvOpen && <CvImportDialog onClose={() => setCvOpen(false)} />}
