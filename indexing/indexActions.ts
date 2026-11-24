@@ -90,6 +90,7 @@ export const FORMAT_FIELD_LABELS: Record<FormatField, string> = {
   fileLocation: "File location (hard copy)",
   status: "Status",
   remarks: "Remarks",
+  mode: "Automatic / manual",
 };
 
 export const DOCUMENT_FIELD_LABELS: Record<DocumentField, string> = {

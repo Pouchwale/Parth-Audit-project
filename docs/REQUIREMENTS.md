@@ -13200,3 +13200,24 @@ The owner, 23-Nov-2026, shown the three mistakes: "Yes, correct them".
 - "(slipped disc, sciatica" has its closing bracket.
 - "shoulders elbows, wrists, hands, knees, elbow" now reads "shoulders, elbows, wrists, hands, knees".
 - The format number and revision (00/01.12.2021) are as they were. Every F/HR/04 record, old or new, draws these words. The company's original Word file is not changed.
+
+## §304 Indexing: switch a format between Automatic, Manual, Manual start, Reference only and SAP (24-Nov-2026)
+
+The owner, 24-Nov-2026: "in indexing give option to convert automatic to manual and many more like this in indexing section only";
+"AUTO means in the system there are logics which fill data automatically, MANUAL means the data should be filled manually in system,
+I also need other option of SAP like AUTOMATIC, MANUAL START, REFERENCE ONLY"; and a bulk switch, yes.
+
+- Indexing → Formats → Edit index: the **Automatic / manual** column (and the line's Details) is a choice:
+  - **Automatic**: falls due by its frequency, and the system fills the known parts when the sheet is opened (F/QC/12 on its day).
+  - **Manual**: still falls due by its frequency, but the system fills nothing. Every box is typed by a person.
+  - **Manual start**: As Required. Nothing falls due, and a person starts a record when it is needed.
+  - **Reference only**: read only. No records are made or filled in DCRS.
+  - **SAP**: kept in SAP. No records are made or filled in DCRS. A Master List line DCRS holds no format for can be marked SAP too.
+- Records already filled stay as they are under every switch. A sheet the system had already filled before the switch keeps what it holds.
+- **Bulk switch**: while editing, tick lines (or "Tick all shown" after a search or filter), choose the mode and press Apply. A line that cannot
+  take that mode is named and left alone. A reference document can only be Reference only or SAP. A line DCRS holds no format for can only be Not in DCRS or SAP.
+- Like every index change, a switch is a draft until **Review & save as version N** with a reason. Versions compare, restore and reset it.
+  Switching back to the issued mode stores nothing.
+- The tiles above the list count and filter all six modes. The Formulas, ranges & automation tab explains each one. The CSV has the mode.
+- Files: indexing/modes.ts (the modes and `systemFills`), indexRows.ts, IndexingPage.tsx, data/repositories/documentRepository.ts (Manual start,
+  Reference only and SAP laid over the format), engine/assistantPrepare.ts (no fill for Manual, Reference only, SAP). Tests: indexing/tests/modes.test.ts.

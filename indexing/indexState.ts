@@ -34,7 +34,9 @@ export type FormatField =
   | "methodOfDisposition"
   | "fileLocation"
   | "status"
-  | "remarks";
+  | "remarks"
+  /** How the format is kept: Automatic, Manual, Manual start, Reference only, SAP (indexing/modes.ts). */
+  | "mode";
 
 export const PUSHED_FORMAT_FIELDS: readonly FormatField[] = ["formatNo", "name", "companyName", "revisionNo", "revisionDate", "frequency", "responsibleRole"];
 

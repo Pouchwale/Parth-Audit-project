@@ -8,7 +8,7 @@ The **Indexing** page (sidebar → Indexing, `#/indexing`) lists every format an
 |---|---|
 | **Formats** | Every format DCRS holds plus every line of the Master List of Formats (F/SYS/02). Each line shows: format no., name, department, revision no. and date, frequency, responsible role (and who that is), method of recording, retention period, disposal method, hard-copy file location, status, automatic or manual, formulas, and records (filled, open, first and last date). |
 | **Documents (F/SYS/01)** | The 173 manuals, SOPs and procedures: document no., description, document control, latest revision, retention, file location, status, remarks. |
-| **Formulas, ranges & automation** | **Ranges & limits:** every range a format judges readings by, with its paper default, the range in force and its history. For example F/QC/30 Viscosity 19–21 Sec., F/QC/40.C Hot room 43–47 °C, F/PRD/19 nip pressure 2.5–3.5, the COA tolerances ± 2 mm, F/SYS/07 audit frequency 0–4 / 5–15 / 16 and above, F/PUR/05 grade, and the F/MKT/04 Pareto cutoff 80 %. Ranges written on each sheet or line, such as the Acceptable Tolerance box or the Specification column, are shown but not changed. **Formulas:** all 19 worked-out cells with the formula in force, the default formula, the figures each one uses, a calculator to try it, and its history. **Automation:** which formats are **Automatic**, **Manual start**, **Reference only** or **Not in DCRS**. |
+| **Formulas, ranges & automation** | **Ranges & limits:** every range a format judges readings by, with its paper default, the range in force and its history. For example F/QC/30 Viscosity 19–21 Sec., F/QC/40.C Hot room 43–47 °C, F/PRD/19 nip pressure 2.5–3.5, the COA tolerances ± 2 mm, F/SYS/07 audit frequency 0–4 / 5–15 / 16 and above, F/PUR/05 grade, and the F/MKT/04 Pareto cutoff 80 %. Ranges written on each sheet or line, such as the Acceptable Tolerance box or the Specification column, are shown but not changed. **Formulas:** all 19 worked-out cells with the formula in force, the default formula, the figures each one uses, a calculator to try it, and its history. **Automation:** which formats are **Automatic**, **Manual**, **Manual start**, **Reference only**, **SAP** or **Not in DCRS**. |
 | **Versions** | Every saved version (who, when, why, what changed). Any two versions can be compared, any one can be restored, and the whole index can be reset to its defaults. |
 
 ## How changes work
@@ -47,6 +47,7 @@ A formula is parsed, never run as code. A formula that can't be read, or that na
 | File | What it is |
 |---|---|
 | `IndexingPage.tsx` | The screen |
+| `modes.ts` | How each format is kept (Automatic, Manual, Manual start, Reference only, SAP) and `systemFills` |
 | `indexRows.ts` | Builds the lines (defaults, current values, automation, record counts) |
 | `indexActions.ts` | Save as a version, push to the formats, restore, reset, compare, recalculate open records |
 | `indexState.ts` | What is stored: the company item `indexing` (current values, versions, formula timelines) |
@@ -84,3 +85,14 @@ the words it was signed with. What is typed into a record is never offered and n
 
 Files: `textLayout.ts` (what is stored), `paperTextLayer.ts` (lays the changes over every sheet marked
 `data-format-id`), `TextDesigner.tsx` (the panel), `tests/textLayout.test.ts`.
+
+## Automatic / manual switch (REQUIREMENTS §304)
+
+Formats → **Edit index**: the **Automatic / manual** column is a choice for each line.
+
+- **Automatic**: the system fills the known parts.
+- **Manual**: nothing is filled by the system.
+- **Manual start**: As Required.
+- **Reference only** and **SAP**: no records made in DCRS.
+
+Tick lines and use the bulk bar to switch many at once. It saves as a version like any other change.

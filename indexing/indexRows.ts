@@ -22,6 +22,7 @@ import { scheduleLabel } from "../frontend/src/engine/frequencyEngine";
 import { resolveResponsibleEmployees } from "../frontend/src/engine/documentInfo";
 import { BUILT_IN_RULES, formulaSlotsOf, type FormulaSlot } from "./formulas";
 import { PUSHED_FORMAT_FIELDS, readIndexState, type DocumentField, type FormatField, type IndexSnapshot } from "./indexState";
+import { MODE_HELP, modeOptions, type IndexMode } from "./modes";
 
 export const FREQUENCIES: Frequency[] = ["Daily", "Weekly", "Fortnightly", "Monthly", "Quarterly", "Half-yearly", "Yearly", "As Required"];
 export const STATUSES = ["Active", "Not in DCRS yet", "Obsolete", "On hold"];
@@ -47,8 +48,12 @@ export interface FormatLine {
 }
 
 export interface AutomationInfo {
-  /** "Automatic", "Manual start", "Reference only", "Not in DCRS". */
+  /** "Automatic", "Manual", "Manual start", "Reference only", "SAP", "Not in DCRS" (indexing/modes.ts). */
   mode: string;
+  /** What it is as issued (before the super admin's switch). */
+  baseMode: string;
+  /** The modes it may be switched to. */
+  options: IndexMode[];
   tags: string[];
   formulas: FormulaSlot[];
   rules: string[];
@@ -71,30 +76,43 @@ const latestOf = (row: Record<string, string>, keys: readonly string[]): string 
 
 export const formatLineKey = (docId: string | null, listFormatNo: string | null): string => (docId ? `doc:${docId}` : `list:${listFormatNo}`);
 
-function automationOf(doc: DocumentDefinition | undefined, status: string): AutomationInfo {
-  if (!doc) {
-    return { mode: "Not in DCRS", tags: ["Kept on paper / SAP", "Filled by hand"], formulas: [], rules: [] };
+/** What a format is as issued: from its own definition and the frequency set for it, never the index's switch. */
+function baseModeOf(doc: DocumentDefinition | undefined, seed: DocumentDefinition | undefined, master: MasterData): string {
+  if (!doc) return "Not in DCRS";
+  const own = seed ?? doc;
+  if (own.isReferenceOnly) return "Reference only";
+  const schedule = master.scheduleOverrides?.[doc.id]?.schedule ?? own.schedule;
+  return schedule.type === "as-required" ? "Manual start" : "Automatic";
+}
+
+function automationOf(doc: DocumentDefinition | undefined, status: string, mode: string, baseMode: string): AutomationInfo {
+  const options = modeOptions(baseMode);
+  if (!doc || mode === "Not in DCRS" || mode === "SAP") {
+    const tags = mode === "SAP" ? ["Kept in SAP", "Not filled in DCRS"] : ["Kept on paper / SAP", "Filled by hand"];
+    if (doc && mode === "SAP") tags.push("Records already filled stay");
+    return { mode, baseMode, options, tags, formulas: doc ? formulaSlotsOf(doc.id) : [], rules: [] };
   }
   const formulas = formulaSlotsOf(doc.id);
   const rules = BUILT_IN_RULES.filter((r) => r.documentIds.includes(doc.id)).map((r) => r.rule);
   const tags: string[] = [];
-  let mode: string;
-  if (doc.isReferenceOnly) {
-    mode = "Reference only";
+  if (mode === "Reference only") {
     tags.push("Read only, not filled");
-  } else if (doc.schedule.type === "as-required") {
-    mode = "Manual start";
+  } else if (mode === "Manual start") {
     tags.push("Started by a person when needed");
+  } else if (mode === "Manual") {
+    tags.push(`Falls due on its own (${scheduleLabel(doc)})`, "Nothing filled by the system", "Every box typed by a person");
   } else {
-    mode = "Automatic";
-    tags.push(`Falls due on its own (${scheduleLabel(doc)})`, "Mitra pre-fills the known parts", "Reminders sent to the responsible person");
+    tags.push(`Falls due on its own (${scheduleLabel(doc)})`, "The system fills the known parts when opened", "Reminders sent to the responsible person");
   }
   if (formulas.length) tags.push(`${formulas.length} worked-out cell${formulas.length === 1 ? "" : "s"}`);
   if (rules.length) tags.push("Built-in rule");
-  if (!doc.isReferenceOnly) tags.push("Readings and signatures by a person");
+  if (mode !== "Reference only") tags.push("Readings and signatures by a person");
+  if (mode !== baseMode) tags.push(`Switched in Indexing (was ${baseMode})`);
   if (status === "Obsolete") tags.push("Marked obsolete in the index");
-  return { mode, tags, formulas, rules };
+  return { mode, baseMode, options, tags, formulas, rules };
 }
+
+export { MODE_HELP };
 
 function recordStats(all: readonly RecordInstance[]): Map<string, { filled: number; open: number; first: string; last: string }> {
   const out = new Map<string, { filled: number; open: number; first: string; last: string }>();
@@ -147,6 +165,7 @@ export function buildFormatLines(snapshot: IndexSnapshot = readIndexState().curr
       fileLocation: "",
       status: listObsolete ? "Obsolete" : doc ? "Active" : "Not in DCRS yet",
       remarks: "",
+      mode: added ? "Not in DCRS" : baseModeOf(doc, seed, master),
     };
     // The format's own values as they stand now (the plant's format edits and frequencies laid over the issued ones).
     const live: Partial<Record<FormatField, string>> = doc
@@ -187,7 +206,7 @@ export function buildFormatLines(snapshot: IndexSnapshot = readIndexState().curr
       values,
       changed,
       editable,
-      automation: automationOf(doc, values.status),
+      automation: automationOf(doc, values.status, values.mode, defaults.mode),
       records: (doc && stats.get(doc.id)) || { filled: 0, open: 0, first: "", last: "" },
       responsiblePeople: doc ? resolveResponsibleEmployees({ ...doc }, master).map((e) => e.name).join(", ") : "",
       scheduleText: doc ? (doc.isReferenceOnly ? "—" : scheduleLabel(doc)) : "",

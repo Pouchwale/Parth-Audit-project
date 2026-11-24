@@ -45,6 +45,7 @@ import {
   openRecordsUnderFormulas,
   type IndexDraft,
 } from "./indexActions";
+import { INDEX_MODES, MODE_HELP } from "./modes";
 import { PUSHED_FORMAT_FIELDS, currentVersionNo, emptySnapshot, readIndexState, type DocumentField, type FormatField, type IndexSnapshot } from "./indexState";
 
 type Tab = "formats" | "documents" | "formulas" | "versions";
@@ -59,8 +60,11 @@ const CSS = `
 .ix-tag { display: inline-block; padding: 1px 7px; margin: 1px 3px 1px 0; border-radius: 10px; font-size: 11px; background: var(--color-neutral-bg); color: var(--color-text-muted); white-space: nowrap; }
 .ix-mode-Automatic { background: var(--color-success-bg); color: var(--color-success); }
 .ix-mode-Manual { background: var(--color-warning-bg); color: var(--color-warning); }
-.ix-mode-Reference { background: var(--color-info-bg); color: var(--color-info); }
-.ix-mode-Not { background: var(--color-danger-bg); color: var(--color-danger); }
+.ix-mode-Manual-start { background: var(--color-neutral-bg); color: var(--color-text); outline: 1px solid var(--color-warning); }
+.ix-mode-Reference-only { background: var(--color-info-bg); color: var(--color-info); }
+.ix-mode-SAP { background: var(--color-surface-alt); color: var(--color-primary); outline: 1px solid var(--color-primary); }
+.ix-mode-Not-in-DCRS { background: var(--color-danger-bg); color: var(--color-danger); }
+.ix-bulk { position: sticky; top: 0; z-index: 4; border: 1px solid var(--color-primary); background: var(--color-surface); border-radius: 8px; padding: 8px 12px; }
 .ix-code { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; background: var(--color-surface-alt); padding: 2px 6px; border-radius: 4px; white-space: pre-wrap; word-break: break-word; }
 .ix-savebar { position: sticky; bottom: 0; z-index: 5; margin-top: 12px; border: 1px solid var(--color-info); background: var(--color-surface); box-shadow: 0 -2px 10px rgba(0,0,0,.08); }
 .ix-stat { min-width: 130px; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); }
@@ -69,7 +73,7 @@ const CSS = `
 @media print { .ix-scroll { max-height: none; overflow: visible; } .no-print { display: none !important; } }
 `;
 
-const modeClass = (mode: string) => `ix-tag ix-mode-${mode.split(" ")[0]}`;
+const modeClass = (mode: string) => `ix-tag ix-mode-${mode.replace(/\s+/g, "-")}`;
 
 function csvCell(v: unknown): string {
   const s = String(v ?? "");
@@ -321,7 +325,17 @@ const FORMAT_COLUMNS: { f: FormatField; width?: number }[] = [
   { f: "remarks", width: 160 },
 ];
 
-function FieldInput({ f, value, onChange }: { f: FormatField | DocumentField; value: string; onChange: (v: string) => void }) {
+function FieldInput({ f, value, onChange, options }: { f: FormatField | DocumentField; value: string; onChange: (v: string) => void; options?: readonly string[] }) {
+  if (f === "mode")
+    return (
+      <select className="ix-cell-input" value={value} onChange={(e) => onChange(e.target.value)} title={MODE_HELP[value as keyof typeof MODE_HELP]} data-field="mode">
+        {[...new Set([value, ...(options ?? [])])].map((m) => (
+          <option key={m} value={m} title={MODE_HELP[m as keyof typeof MODE_HELP]}>
+            {m}
+          </option>
+        ))}
+      </select>
+    );
   if (f === "frequency")
     return (
       <select className="ix-cell-input" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -362,12 +376,17 @@ function FormatsTab({
   const [changedOnly, setChangedOnly] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // THE BULK SWITCH (REQUIREMENTS §304): tick lines, then switch them all to one mode at once (a draft like any edit).
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
+  const [bulkMode, setBulkMode] = useState<string>("Manual");
+  const [bulkNote, setBulkNote] = useState<string | null>(null);
 
   const depts = useMemo(() => [...new Set(lines.map((l) => l.values.department).filter(Boolean))].sort(), [lines]);
   const valueOf = (l: FormatLine, f: FormatField) => draft.formats[l.key]?.[f] ?? l.values[f];
+  const modeOf = (l: FormatLine) => valueOf(l, "mode");
   const shown = lines.filter((l) => {
     if (dept && l.values.department !== dept) return false;
-    if (mode && l.automation.mode !== mode) return false;
+    if (mode && modeOf(l) !== mode) return false;
     if (status && valueOf(l, "status") !== status) return false;
     if (changedOnly && l.changed.size === 0 && !draft.formats[l.key]) return false;
     if (q.trim()) {
@@ -378,16 +397,41 @@ function FormatsTab({
   });
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
-    for (const l of lines) c[l.automation.mode] = (c[l.automation.mode] ?? 0) + 1;
+    for (const l of lines) c[modeOf(l)] = (c[modeOf(l)] ?? 0) + 1;
     return c;
-  }, [lines]);
+  }, [lines, draft]);
+  const toggle = (key: string) =>
+    setTicked((t) => {
+      const n = new Set(t);
+      if (n.has(key)) n.delete(key);
+      else n.add(key);
+      return n;
+    });
+  const applyBulk = () => {
+    let done = 0;
+    const refused: string[] = [];
+    for (const l of lines) {
+      if (!ticked.has(l.key)) continue;
+      if (!(l.automation.options as string[]).includes(bulkMode)) {
+        refused.push(l.values.formatNo || l.values.name);
+        continue;
+      }
+      if (modeOf(l) !== bulkMode) onField(l.key, "mode", bulkMode);
+      done++;
+    }
+    setBulkNote(
+      `${done} line${done === 1 ? "" : "s"} set to ${bulkMode} (not saved yet).` +
+        (refused.length ? ` ${refused.length} cannot be ${bulkMode}: ${refused.slice(0, 8).join(", ")}${refused.length > 8 ? "…" : ""}.` : "")
+    );
+    setTicked(new Set());
+  };
   const openLine = open ? lines.find((l) => l.key === open) : undefined;
 
   return (
     <>
       <div className="flex gap-2 wrap mb-3 no-print">
-        {["Automatic", "Manual start", "Reference only", "Not in DCRS"].map((m) => (
-          <button key={m} type="button" className="ix-stat" style={{ textAlign: "left", cursor: "pointer", outline: mode === m ? "2px solid var(--color-primary)" : undefined }} onClick={() => setMode(mode === m ? "" : m)}>
+        {INDEX_MODES.map((m) => (
+          <button key={m} type="button" title={MODE_HELP[m]} data-mode-filter={m} className="ix-stat" style={{ textAlign: "left", cursor: "pointer", outline: mode === m ? "2px solid var(--color-primary)" : undefined }} onClick={() => setMode(mode === m ? "" : m)}>
             <b>{counts[m] ?? 0}</b>
             <span className={modeClass(m)}>{m}</span>
           </button>
@@ -423,6 +467,32 @@ function FormatsTab({
           </button>
         )}
       </div>
+      {editing && (
+        <div className="ix-bulk flex gap-2 wrap items-center mb-2 no-print" data-section="index-bulk">
+          <b className="text-sm">{ticked.size} ticked</b>
+          <button className="btn btn-ghost btn-sm" data-action="tick-shown" onClick={() => setTicked(new Set([...ticked, ...shown.map((l) => l.key)]))}>
+            Tick all {shown.length} shown
+          </button>
+          <button className="btn btn-ghost btn-sm" disabled={ticked.size === 0} onClick={() => setTicked(new Set())}>
+            Clear
+          </button>
+          <span className="text-sm">Switch them to</span>
+          <select className="input input-sm" style={{ width: "auto" }} value={bulkMode} onChange={(e) => setBulkMode(e.target.value)} data-field="bulk-mode">
+            {INDEX_MODES.filter((m) => m !== "Not in DCRS").map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+          <button className="btn btn-primary btn-sm" data-action="apply-bulk" disabled={ticked.size === 0} onClick={applyBulk}>
+            Apply to {ticked.size}
+          </button>
+          <span className="text-sm text-muted">{MODE_HELP[bulkMode as keyof typeof MODE_HELP]}</span>
+          {bulkNote && (
+            <span className="text-sm" role="status">
+              {bulkNote}
+            </span>
+          )}
+        </div>
+      )}
       <p className="text-sm text-muted mb-2 no-print">
         <span className="ix-pushed-mark">●</span> marks a format's own detail: changing it changes the format itself (its header, revision, frequency or who is reminded). Yellow = differs from the default; blue = changed, not saved yet.
       </p>
@@ -430,6 +500,7 @@ function FormatsTab({
         <table className="doc-table ix-table" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
+              {editing && <th className="no-print" title="Tick for the bulk switch"></th>}
               <th>Sr.</th>
               {FORMAT_COLUMNS.map((c) => (
                 <th key={c.f}>
@@ -446,6 +517,11 @@ function FormatsTab({
           <tbody>
             {shown.map((l) => (
               <tr key={l.key} data-line={l.key}>
+                {editing && (
+                  <td className="no-print">
+                    <input type="checkbox" aria-label={`Tick ${l.values.formatNo}`} checked={ticked.has(l.key)} onChange={() => toggle(l.key)} />
+                  </td>
+                )}
                 <td className="text-muted">{l.srNo}</td>
                 {FORMAT_COLUMNS.map((c) => {
                   const drafted = draft.formats[l.key]?.[c.f];
@@ -465,9 +541,16 @@ function FormatsTab({
                     </td>
                   );
                 })}
-                <td style={{ minWidth: 160 }}>
-                  <span className={modeClass(l.automation.mode)}>{l.automation.mode}</span>
-                </td>
+                {(() => {
+                  const drafted = draft.formats[l.key]?.mode;
+                  const value = drafted ?? l.values.mode;
+                  const cls = drafted !== undefined && drafted !== l.values.mode ? "ix-draft" : l.changed.has("mode") ? "ix-changed" : "";
+                  return (
+                    <td style={{ minWidth: 160 }} className={cls} title={l.changed.has("mode") || drafted !== undefined ? `As issued: ${l.defaults.mode}` : MODE_HELP[value as keyof typeof MODE_HELP]}>
+                      {editing ? <FieldInput f="mode" value={value} options={l.automation.options} onChange={(v) => onField(l.key, "mode", v)} /> : <span className={modeClass(value)}>{value}</span>}
+                    </td>
+                  );
+                })()}
                 <td>{l.automation.formulas.length ? <span className="ix-tag">{l.automation.formulas.length} formula{l.automation.formulas.length === 1 ? "" : "s"}</span> : <span className="text-faint">—</span>}</td>
                 <td className="text-sm" style={{ whiteSpace: "nowrap" }}>
                   {l.doc ? (
@@ -561,7 +644,7 @@ function FormatDetails({ line, draft, editing, onField, onClose }: { line: Forma
                   {line.doc && PUSHED_FORMAT_FIELDS.includes(f) && <span className="ix-pushed-mark" title="Changes the format itself">●</span>}
                 </td>
                 <td className={drafted !== undefined && drafted !== line.values[f] ? "ix-draft" : differs ? "ix-changed" : ""}>
-                  {editing && line.editable.has(f) ? <FieldInput f={f} value={value} onChange={(v) => onField(line.key, f, v)} /> : showValue(f, value) || <span className="text-faint">—</span>}
+                  {editing && line.editable.has(f) ? <FieldInput f={f} value={value} options={f === "mode" ? line.automation.options : undefined} onChange={(v) => onField(line.key, f, v)} /> : showValue(f, value) || <span className="text-faint">—</span>}
                 </td>
                 <td className="text-muted">{showValue(f, line.defaults[f]) || "—"}</td>
                 {editing && (
@@ -781,10 +864,12 @@ function FormulasTab({ lines, draft, editing, onFormula }: { lines: FormatLine[]
           <table className="doc-table ix-table" style={{ width: "100%" }}>
             <tbody>
               {[
-                ["Automatic", "Falls due on its own by its frequency; Mitra pre-fills the known parts (machines, people, batch from the last record); reminders go to the responsible person. Readings and signatures are always a person's."],
+                ["Automatic", "Falls due on its own by its frequency; the system fills the known parts (machines, people, batch from the last record) when the sheet is opened; reminders go to the responsible person. Readings and signatures are always a person's."],
+                ["Manual", "Falls due by its frequency, but the system fills nothing: every box is typed by a person."],
                 ["Manual start", "As Required: nothing falls due; a person starts a record when the event happens (a complaint, a breakdown, a new supplier…)."],
                 ["Reference only", "Issued documents shown as they are (licence, statements of compliance); never filled."],
-                ["Not in DCRS", "On the Master List, but still kept on paper or in SAP: entirely by hand."],
+                ["SAP", "Kept in SAP: no records are made or filled in DCRS. Records already filled stay."],
+                ["Not in DCRS", "On the Master List, but still kept on paper: entirely by hand."],
               ].map(([m, what]) => (
                 <tr key={m}>
                   <td style={{ width: 170 }}>
@@ -1248,11 +1333,10 @@ function AddDialog({ title, fields, onClose, onAdd }: { title: string; fields: [
 function exportFormats(lines: FormatLine[]): void {
   const fields = Object.keys(FORMAT_FIELD_LABELS) as FormatField[];
   downloadCsv(`Index of formats ${new Date().toISOString().slice(0, 10)}.csv`, [
-    ["Sr.", ...fields.map((f) => FORMAT_FIELD_LABELS[f]), "Automatic / manual", "How it runs", "Formulas", "Records filled", "Records open", "First record", "Last record", "Responsible people", "In DCRS as"],
+    ["Sr.", ...fields.map((f) => FORMAT_FIELD_LABELS[f]), "How it runs", "Formulas", "Records filled", "Records open", "First record", "Last record", "Responsible people", "In DCRS as"],
     ...lines.map((l) => [
       l.srNo,
       ...fields.map((f) => l.values[f]),
-      l.automation.mode,
       l.automation.tags.join("; "),
       l.automation.formulas.map((s) => `${s.cell}: ${currentFormula(s.id)}`).join("; "),
       l.records.filled,

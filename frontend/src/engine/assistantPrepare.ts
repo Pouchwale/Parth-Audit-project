@@ -26,6 +26,8 @@ import { waitsUntil } from "./notBeforeDay";
 import { fillTrainingCalendarDue } from "./trainingCalendarFill";
 import { TRAINING_CALENDAR_ID } from "./trainingCalendar";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
+// A format the super admin made Manual, Reference only or SAP in Indexing is never filled by the system (REQUIREMENTS §304).
+import { systemFills } from "../../../indexing/modes";
 
 // Statuses in which a record is still an untouched shell the assistant may
 // fill. "In Progress" is deliberately excluded: that means a person has
@@ -72,7 +74,7 @@ export function prepareDueRecords(referenceISO = todayISO(), only?: { documentId
   // own (engine/assistantBriefing.ts).
   // Of those, the documents the signed-in person may fill (REQUIREMENTS §96): the server's morning job prepares the
   // rest of the plant's, and refuses a change below Write from a browser (engine/departmentScope.ts).
-  const docs = documentRepository.getRecordableUnscoped().filter((d) => mayWriteRecordsOf(d.id) && (!only?.documentId || d.id === only.documentId));
+  const docs = documentRepository.getRecordableUnscoped().filter((d) => mayWriteRecordsOf(d.id) && systemFills(d.id) && (!only?.documentId || d.id === only.documentId));
   const now = new Date().toISOString();
   const prepared: RecordInstance[] = [];
   // Same launch-date floor as the generator (ensureNearTermRecordsGenerated,
@@ -93,7 +95,7 @@ export function prepareDueRecords(referenceISO = todayISO(), only?: { documentId
   // history. A draft a person has worked on is never touched.
   for (const record of untouchedSimulatedDrafts()) {
     const doc = documentRepository.getByIdUnscoped(record.documentId);
-    if (!doc || !mayWriteRecordsOf(doc.id)) continue;
+    if (!doc || !mayWriteRecordsOf(doc.id) || !systemFills(doc.id)) continue;
     const result = prepareKnownParts(doc, record.dueDate, master, latestConfirmedRecord(doc.id, record.dueDate, false));
     if (!result) continue;
     const entry = makeEntry("prepared", "Assistant", { note: REPREPARED_NOTE, changes: diffRecordData(record.data, result.data, fieldLabels(doc.kind, doc.id)) });
@@ -156,8 +158,8 @@ export function prepareDueRecords(referenceISO = todayISO(), only?: { documentId
   // ...and the Sharp Objects & Blades sheets, from their master data and their stock (§254): see fillSharpToolsDue.
   // ...and F/HR/20's round answered, F/HR/21 worked out from it (§267): see engine/pscFill.ts.
   const later = only
-    ? [...(only.documentId === SCALE_ID ? fillScaleWeeksDue(referenceISO) : []), ...(only.recordId && SHARP_TOOL_DOCS.includes(only.documentId ?? "") ? fillSharpToolsDue(referenceISO, only.recordId) : [])]
-    : [...fillScaleWeeksDue(referenceISO), ...fillSharpToolsDue(referenceISO), ...fillPscSurveyDue(referenceISO)];
+    ? [...(only.documentId === SCALE_ID && systemFills(SCALE_ID) ? fillScaleWeeksDue(referenceISO) : []), ...(only.recordId && SHARP_TOOL_DOCS.includes(only.documentId ?? "") ? fillSharpToolsDue(referenceISO, only.recordId) : [])]
+    : [...(systemFills(SCALE_ID) ? fillScaleWeeksDue(referenceISO) : []), ...fillSharpToolsDue(referenceISO), ...(systemFills("hr-psc-survey") ? fillPscSurveyDue(referenceISO) : [])];
   if (later.length === 0) return prepared;
   const ids = new Set(later.map((r) => r.id));
   return [...prepared.filter((r) => !ids.has(r.id)), ...later];
@@ -178,7 +180,7 @@ export function prepareRecordOnOpen(recordId: string, referenceISO = todayISO())
   const record = recordRepository.getById(recordId);
   if (!record || record.isDemo || record.documentId === SCALE_ID) return record;
   const doc = documentRepository.getByIdUnscoped(record.documentId);
-  if (!doc || !mayWriteRecordsOf(doc.id) || waitsUntil(doc, record, referenceISO) !== null) return record;
+  if (!doc || !mayWriteRecordsOf(doc.id) || !systemFills(doc.id) || waitsUntil(doc, record, referenceISO) !== null) return record;
   prepareDueRecords(referenceISO, { documentId: doc.id, recordId });
   if (doc.id === TRAINING_CALENDAR_ID) fillTrainingCalendarDue(referenceISO, recordId);
   if (doc.id === "hr-psc-survey-analysis") fillPscSurveyDue(referenceISO, { analysisOf: recordId });
@@ -201,6 +203,7 @@ export function fillSharpToolsDue(referenceISO = todayISO(), onlyRecordId?: stri
   const now = new Date().toISOString();
   const changed: RecordInstance[] = [];
   for (const id of SHARP_TOOL_DOCS) {
+    if (!systemFills(id)) continue;
     const doc = documentRepository.getByIdUnscoped(id);
     if (!doc || !mayWriteRecordsOf(doc.id)) continue;
     const all = recordRepository.queryUnscoped({ documentId: id, isDemo: false }).slice().sort((a, b) => compareISO(a.dueDate, b.dueDate));

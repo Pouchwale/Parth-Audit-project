@@ -4,6 +4,8 @@ import { isDocumentVisible, noteAccessCatalogue, registerAccessCatalogue } from 
 import { readJSON, readJSONCached, writeJSON } from "../storageAdapter";
 import { formatEdits } from "../formatEdits";
 import type { MasterData } from "../../types";
+import { readIndexState } from "../../../../indexing/indexState";
+import { indexModeOf } from "../../../../indexing/modes";
 
 const KEY = "documents";
 
@@ -20,7 +22,7 @@ const KEY = "documents";
 // (a format revised, a re-seed, a colleague's edit arriving) is laid over
 // afresh. Nothing here is ever changed in place — upsert and ensureSeeded read
 // with readJSON and get a copy of their own.
-let overlaid: { issued: DocumentDefinition[]; edits: object; schedules: object; value: DocumentDefinition[] } | null = null;
+let overlaid: { issued: DocumentDefinition[]; edits: object; schedules: object; modes: object; value: DocumentDefinition[] } | null = null;
 
 // THE FREQUENCIES THE SUPER ADMIN SET (REQUIREMENTS §143) are Master Data's; read here through the storage adapter
 // (not masterRepository, which would be a cycle), cached by the stored string as everything in this file is.
@@ -34,17 +36,25 @@ function loadAll(): DocumentDefinition[] {
   const issued = readJSONCached<DocumentDefinition[]>(KEY, []);
   const edits = formatEdits();
   const schedules = scheduleOverrides();
-  if (Object.keys(edits).length === 0 && Object.keys(schedules).length === 0) return issued;
-  if (overlaid && overlaid.issued === issued && overlaid.edits === edits && overlaid.schedules === schedules) return overlaid.value;
+  // HOW EACH FORMAT IS KEPT, as the super admin switched it on the Indexing page (indexing/modes.ts, REQUIREMENTS §304).
+  const modes = readIndexState().current.formats;
+  if (Object.keys(edits).length === 0 && Object.keys(schedules).length === 0 && Object.keys(modes).length === 0) return issued;
+  if (overlaid && overlaid.issued === issued && overlaid.edits === edits && overlaid.schedules === schedules && overlaid.modes === modes) return overlaid.value;
   const value = issued.map((d) => {
     const e = edits[d.id];
     // The header's company name and format number too, when the plant changed them (REQUIREMENTS §77).
     const edited = e ? { ...d, name: e.name ?? d.name, companyName: e.companyName ?? d.companyName, formatNo: e.formatNo ?? d.formatNo, revisionNo: e.revisionNo, revisionDate: e.revisionDate } : d;
     // The frequency the super admin set (REQUIREMENTS §143), from the day it took effect; a reference document has none.
     const s = schedules[d.id];
-    return s && !d.isReferenceOnly ? { ...edited, schedule: s.schedule, frequency: s.frequency, scheduleSince: s.since } : edited;
+    const scheduled = s && !d.isReferenceOnly ? { ...edited, schedule: s.schedule, frequency: s.frequency, scheduleSince: s.since } : edited;
+    // Manual start: nothing falls due, a person starts a record when needed. Reference only / SAP: no records made in
+    // DCRS (those already filled stay). Manual is the fill's own (engine/assistantPrepare.ts systemFills).
+    const mode = indexModeOf(d.id, modes);
+    if (mode === "Manual start" && !scheduled.isReferenceOnly) return { ...scheduled, schedule: { type: "as-required" as const }, frequency: "As Required" as const };
+    if (mode === "Reference only" || mode === "SAP") return { ...scheduled, isReferenceOnly: true };
+    return scheduled;
   });
-  overlaid = { issued, edits, schedules, value };
+  overlaid = { issued, edits, schedules, modes, value };
   return value;
 }
 
