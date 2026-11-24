@@ -13326,3 +13326,18 @@ two; every column as wide as its words, so the columns moved from one list to th
   landscape page. Every other sheet prints as before (no other layout names a printWidth or oneLine; lineMerges is F/PUR/03's alone).
 - Files: types/logSheet.ts, LogSheetRecordView.tsx, utils/print.ts, styles.css, data/seed/purchaseLayouts.ts,
   utils/documentExport.ts, utils/docx.ts.
+
+## §310 F/PRD/12: always exactly 30 NOS, and a pattern of its own that never settles (24-Nov-2026)
+
+The owner, 24-Nov-2026: "LOOSE BLADES IN STOCK (INSTALLED ON MACHINE + LOOSE OK BLADE + LOOSE DISCARDED BLADE) SHALL BE ALWAYS
+MAINTAINED 30 NOS in this prd-12 so make sure about it and maintain number accordingly and also make sure pattern should also be very
+different all time."
+
+- Every line the assistant writes on F/PRD/12 closes with OK + discarded + the 8 on the machines = 30, exactly. The store issues what
+  brings it back to 30, so a line a person typed that left the stock off 30 is brought back at the next store visit.
+- The pattern is F/PRD/12's own (F/PRD/22 and 24 unchanged): one, two or three blades put on in shift I at odds of their own; the
+  discarded blades go back to the store on no fixed day - for certain once the OK stock is down to 3 or cannot cover the day, else
+  now and then when it is down to between 3 and 9 - sometimes all of them, sometimes part; no two months alike. Shift II still
+  issues and replaces nothing.
+- Proved: tests/sharpTools.test.ts runs every day from Nov-2026 to Dec-2027 through both shifts: 30 on every line, store visits at
+  five or more different stock levels, part returns and whole returns, every month's pattern different.

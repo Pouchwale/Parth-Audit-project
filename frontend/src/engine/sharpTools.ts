@@ -39,11 +39,12 @@ export const SHARP_STOCK: Record<string, { scissor?: number; cutter: number }> =
   "prd-pouching-cutter-issue": { scissor: 15, cutter: 40 },
 };
 /** The razor blades always maintained (the note's 20), and how many sit on the machines' blade holders (the specimens': 8 and 5). */
-export const BLADE_STOCK: Record<string, { maintained: number; onMachine: number; start: number; most: number }> = {
+export const BLADE_STOCK: Record<string, { maintained: number; onMachine: number; start: number; most: number; varied?: true }> = {
   "prd-pouching-blade": { maintained: 20, onMachine: 8, start: 12, most: 3 },
   "prd-slitting-blade": { maintained: 20, onMachine: 5, start: 15, most: 2 },
   // F/PRD/12, the Label & Sleeve section's slitting machines (§306): its note's 30, 8 on the blade holders as on its old filled paper.
-  "prd-label-sleeve-blade": { maintained: 30, onMachine: 8, start: 22, most: 3 },
+  // (varied: its own pattern, §310 - the store visit on no fixed day, all or part of the discarded back, always exactly 30)
+  "prd-label-sleeve-blade": { maintained: 30, onMachine: 8, start: 22, most: 3, varied: true },
 };
 /** The OK stock at which the discarded blades go back to the store and new ones are issued. */
 export const BLADE_LOW = 4;
@@ -300,10 +301,34 @@ export function razorBladeRow(documentId: string, dueDate: string, before: { ok:
   // Shift I: mostly one or two, three now and then on the pouching machines. Shift II, the smaller crew (§263): often none,
   // one, two now and then on the pouching machines.
   // Shift II replaces none and takes none from the store (§265): its line carries the stock.
-  const wanted = shift === "II" && NO_SHIFT_II_ISSUE.includes(documentId) ? 0 : plan.most >= 3 ? (roll < 0.45 ? 1 : roll < 0.85 ? 2 : 3) : roll < 0.6 ? 1 : 2;
+  const wanted =
+    shift === "II" && NO_SHIFT_II_ISSUE.includes(documentId)
+      ? 0
+      : plan.varied
+        ? roll < 0.38 ? 1 : roll < 0.76 ? 2 : 3
+        : plan.most >= 3 ? (roll < 0.45 ? 1 : roll < 0.85 ? 2 : 3) : roll < 0.6 ? 1 : 2;
   let returned = 0;
   let issued = 0;
-  if (wanted > 0 && (opening <= BLADE_LOW || opening < wanted)) {
+  if (plan.varied && wanted > 0) {
+    // F/PRD/12 (the owner, 24-Nov-2026, REQUIREMENTS §310): "SHALL BE ALWAYS MAINTAINED 30 NOS ... pattern should also be very
+    // different all time". Blades put on: one, two or three, at odds of their own. The discarded go back to the store on no
+    // fixed day - for certain once the OK stock is down to 3 or cannot cover the day, else now and then when it is down to
+    // between 3 and 9 - all of them, or only part; and the store issues exactly what brings the loose blades back to the
+    // note's 30 with the machines' 8: OK + discarded + on the machines = 30 on every line, a person's odd line before it too.
+    const loose = plan.maintained - plan.onMachine;
+    const low = 3 + Math.floor(rng.next() * 7);
+    const visit = opening < wanted || opening <= 3 || (opening <= low && rng.next() < 0.5) || opening + held !== loose;
+    if (visit && (held > 0 || opening + held < loose)) {
+      returned = held <= 2 || rng.next() < 0.55 ? held : Math.max(1, Math.round(held * (0.45 + rng.next() * 0.5)));
+      if (loose - (held - returned) < wanted + 2) returned = held;
+      issued = returned + loose - opening - held;
+      // (more than 30 before it, a person's line: only the blades over go back, nothing issued)
+      if (issued < 0) {
+        returned = Math.min(held, opening + held - loose);
+        issued = Math.max(0, returned + loose - opening - held);
+      }
+    }
+  } else if (wanted > 0 && (opening <= BLADE_LOW || opening < wanted)) {
     returned = held;
     // As many new as go back; with none to give back, enough to bring the stock to what is maintained.
     issued = held > 0 ? held : Math.max(0, plan.maintained - plan.onMachine - opening);

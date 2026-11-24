@@ -106,6 +106,48 @@ test("F/PRD/22 and 24: the day's blades from the day before; always the note's 2
   }
 });
 
+test("F/PRD/12 (§310): always exactly 30 NOS with the machines' 8, and a pattern of its own that never settles", () => {
+  const id = "prd-label-sleeve-blade";
+  const plan = BLADE_STOCK[id];
+  assert.equal(plan.maintained, 30);
+  let before: { ok: number; discarded: number } | null = null;
+  const visits: number[] = [];
+  const parts: boolean[] = [];
+  const months = new Map<string, string>();
+  for (let d = new Date(Date.UTC(2026, 10, 1)); d < new Date(Date.UTC(2028, 0, 1)); d.setUTCDate(d.getUTCDate() + 1)) {
+    const date = d.toISOString().slice(0, 10);
+    for (const shift of ["I", "II"] as const) {
+      const row: LogSheetRow = razorBladeRow(id, date, before, shift)!;
+      const [opening, issued, total, replaced, ok, discarded, returned] = ["openingStock", "newIssuedFromStore", "totalStock", "replacedNos", "closingOkStock", "closingDiscarded", "discardedReturned"].map((k) => Number(row[k]));
+      assert.equal(opening, before ? before.ok : plan.start, `${date} ${shift}: opening = the line before's closing`);
+      assert.equal(total, opening + issued);
+      assert.equal(ok, total - replaced);
+      assert.equal(discarded, (before ? before.discarded : 0) - returned + replaced);
+      assert.equal(ok + discarded + plan.onMachine, 30, `${date} ${shift}: ${ok} OK + ${discarded} discarded + 8 = 30`);
+      assert.ok(ok >= 0 && discarded >= 0 && returned >= 0 && issued >= 0);
+      if (shift === "II") assert.ok(replaced === 0 && issued === 0 && returned === 0, `${date}: nothing in shift II`);
+      else assert.ok(replaced >= 1 && replaced <= 3, `${date}: one to three blades put on`);
+      if (issued > 0) {
+        visits.push(opening);
+        parts.push(returned < (before?.discarded ?? 0));
+      }
+      if (shift === "I") months.set(date.slice(0, 7), (months.get(date.slice(0, 7)) ?? "") + replaced);
+      before = bladeClosing({ header: {}, rows: [row] });
+    }
+  }
+  // The store visit on no fixed stock, sometimes only part of the discarded back, and no two months alike.
+  assert.ok(new Set(visits).size >= 5, `visits at OK stock ${[...new Set(visits)].join(", ")}`);
+  assert.ok(parts.some((p) => p) && parts.some((p) => !p), "all of the discarded back, and only part");
+  const gaps = visits.length;
+  assert.ok(gaps >= 20, `${gaps} store visits in 14 months`);
+  assert.equal(new Set(months.values()).size, months.size, "every month's pattern its own");
+  // A person's line that left the stock off 30: the next store visit brings it back to exactly 30.
+  for (const stock of [{ ok: 5, discarded: 9 }, { ok: 20, discarded: 10 }, { ok: 2, discarded: 0 }]) {
+    const odd = razorBladeRow(id, "2026-12-03", stock, "I")!;
+    assert.equal(Number(odd.closingOkStock) + Number(odd.closingDiscarded) + 8, 30, JSON.stringify(stock));
+  }
+});
+
 test("a sheet a person has written on is never filled over", () => {
   assert.ok(sharpSheetUnwritten("prd-pouching-blade", { header: {}, rows: [{ id: "r", date: "2026-11-17", openingStock: 12 }] }), "only the carried opening stock: still unwritten");
   assert.ok(!sharpSheetUnwritten("prd-pouching-blade", { header: {}, rows: [{ id: "r", replacedNos: 2 }] }));
