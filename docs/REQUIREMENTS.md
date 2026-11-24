@@ -13272,3 +13272,15 @@ roles"; asked what to do for the roles no file describes: "Draft them for HR".
 - Sheets are made only when HR opens a role, so no unasked sheet stands in anybody's reminders.
 - Proved: frontend/tests/hrJobRoles.test.ts; all 59 roles opened, filled, printed (58 on one page, Manager Dispatch & Logistics' 16 lines
   on two) and their Word and Excel files read on the local copy.
+
+## §308 F/HR/17 first page: no lines round the instructions or in the check points; check points 1px smaller (24-Nov-2026)
+
+The owner, 24-Nov-2026, marking page 1 of F/HR/17 (the instruction box and the check-point table): remove the lines of both,
+and make the check-point table's font 1px smaller, not the instructions'. Asked which lines, the owner chose all of them.
+
+- The instruction box has no border; the check-point table has no outer frame and no row or column lines. Its grey heading
+  band (Sr. No. / Check Point) stays.
+- The check points go from 13px to 12px and the heading from 11px to 10px. The instructions keep their size.
+- The same on screen, on the printed page (still three A4 pages, page 1 filled) and in the Word/Excel downloads, which take the
+  page's own styles. Pages 2 and 3, the register and the summary, keep their ruled lines (supersedes §243's ruled first page).
+- File: frontend/src/styles.css.

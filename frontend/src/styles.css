@@ -1684,14 +1684,18 @@ body { top: 0 !important; }
 .register-page .doc-header { border-width: 1.5px; }
 .register-instructions p { font-size: 13px; margin: 0 0 6px; line-height: 1.5; }
 .register-instructions p:last-child { margin-bottom: 0; }
-/* F/HR/17's first page ruled as a form (§243): the instructions boxed, the check points a table across the page. */
-.register-instruction-box { border: 1.5px solid #2c3e50; padding: 10px 12px; margin: 12px 0 10px; background: #fff; }
-.register-checkpoints { width: 100%; font-size: 13px; }
+/* F/HR/17's first page (§243): the instructions, then the check points a table across the page. No lines round the
+   instructions nor in the check-point table, and the check points 1px smaller (the owner, 24-Nov-2026, §308). */
+.register-instruction-box { border: none; padding: 10px 12px; margin: 12px 0 10px; background: #fff; }
+.register-checkpoints { width: 100%; font-size: 12px; }
+.doc-table .register-grid.register-checkpoints th, .doc-table .register-grid.register-checkpoints td { border: none; }
+.register-instructions > .doc-table.register-grid-wrap { border: none; border-radius: 0; }
+.doc-table .register-grid.register-checkpoints td { font-size: 12px; }
+.doc-table .register-grid.register-checkpoints th { font-size: 10px; }
 .register-checkpoints th.cp-no, .register-checkpoints td.cp-no { width: 70px; text-align: center; font-weight: 700; }
 .register-checkpoints th.cp-text, .register-checkpoints td.cp-text { text-align: left; line-height: 1.5; }
 .register-checkpoints td { padding: 9px 10px; vertical-align: middle; }
 @media print {
-  .register-instruction-box { border-color: #000; }
   .register-checkpoints td { padding: 4.2mm 3mm; }
 }
 .register-grid { border-collapse: collapse; width: 100%; font-size: 12px; }
