@@ -13357,3 +13357,18 @@ aligned, do that and make it perfect".
 - On the screen F/QC/21 keeps the paper's frame too: the title band, the header boxes, the grid, LOT STATUS and the signatures
   end on one right rule (they stood about 8 mm short of the band). Printed it is still one A4 page.
 - File: frontend/src/styles.css.
+
+## §312 F/QC/36: the 1st Pass / 2nd Pass / 3rd Pass box runs across; every table ends on one right rule (24-Nov-2026)
+
+The owner, 24-Nov-2026, of F/QC/36 Solvent Base Lamination Film's header: "do the same for qc 36 and also stretch the below line
+of 1st pass/2nd pass/3rd pass".
+
+- The header box's lines meet as on every QC incoming record since §311.
+- Printed with no pass chosen, the 1st Pass / 2nd Pass / 3rd Pass row showed only its label's box: an empty choice box printed
+  nothing at all, its rules with it. A choice box of the header now keeps its box when empty (no words, no arrow), so the row's
+  rule runs across the rest of the table as on the paper. A chosen pass prints its words as before.
+- The grid's columns added up 0.8 mm less than the header's, LOT STATUS's and the signatures' (185.6 against 186.4 mm), so its right
+  rule stood short of theirs. Its OBSERVATION column is 0.8 mm wider now: all four tables end on one rule. Still one A4 page.
+- The other QC incoming records keep their papers' own widths: their header and grid differ by 0.3 to 4.9 mm (F/QC/01 to 05,
+  18 to 20, 22 to 24), left as the papers draw them.
+- Files: frontend/src/styles.css, frontend/src/data/seed/qcIncomingGeometry.ts.

@@ -4015,6 +4015,9 @@ table.svc-paper {
   .paper-sheet[data-paper-form] .doc-table table.log-sheet td .print-box-text { display: block; padding: 0; font: inherit; color: #000; text-align: inherit; }
   /* An empty choice box prints nothing at all (not its hidden first option). */
   .paper-sheet[data-paper-form] select[data-empty] { visibility: hidden; }
+  /* ...but a choice box of the header keeps its box, written or not (F/QC/36's 1st Pass / 2nd Pass / 3rd Pass, §312): its
+     rule runs across the rest of the table, no words and no arrow in it */
+  .paper-sheet[data-paper-form] [data-pf] .field > select.input[data-empty] { visibility: visible; -webkit-appearance: none; appearance: none; background-image: none; color: transparent; }
   /* The page keeps the paper's own margin and its number stands at the paper's place at the foot of the page. */
   [data-print-doc]:has(.paper-sheet[data-paper-form="calib"]) { padding: 0; }
   /* (the number at the foot follows the sheet: however many weeks it holds, it never stands on the PROCEDURE, and it ends 10 mm above the page's edge, §278) */

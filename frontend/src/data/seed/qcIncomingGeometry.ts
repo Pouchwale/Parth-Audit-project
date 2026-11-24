@@ -132,7 +132,8 @@ export const INCOMING_GEOMETRY: Record<string, IncomingGeometry> = {
   },
   "qc-inspection-sb-lamination": {
     head: { cols: [48, 52.5, 45, 40.9], rows: [7.2, 7.3, 7.3, 7.3] },
-    grid: { cols: [23.1, 60.6, 45.1, 56.8], rows: [15.4, 16.8, 12.7, 9.1] },
+    // OBSERVATION 0.8 mm wider than the paper's 56.8, so the grid ends on the header's, LOT STATUS's and the signatures' right rule (§312)
+    grid: { cols: [23.1, 60.6, 45.1, 57.6], rows: [15.4, 16.8, 12.7, 9.1] },
     lotGap: 12.3, signGap: 4.3, signRows: [9.2, 9.2, 9.2], lotRows: [13, 12],
     sr: 8.3, lh: 5.46, par: 0, headMore: true,
   },
