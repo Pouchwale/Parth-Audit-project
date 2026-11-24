@@ -3430,6 +3430,10 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
     border: 0; border-radius: 0; background: transparent; box-shadow: inset calc(-1 * var(--b1)) calc(-1 * var(--b1)) 0 0 #000;
     font-family: var(--pf-font); font-size: var(--pf-fs); line-height: calc(5.46 * var(--u)); color: #000;
   }
+  /* the header's boxes rule their cells with real borders, as the labels do, not the shadow above: a browser printing without
+     background graphics drops shadows, and F/QC/36's 1st Pass / 2nd Pass / 3rd Pass box printed with no line under it (§314) */
+  /* (!important over the print's own "border: none !important" on every input) */
+  .paper-sheet[data-paper-form] [data-pf~="head"] .field > :is(.input, select.input) { box-shadow: none; border-right: var(--pf-bd) !important; border-bottom: var(--pf-bd) !important; }
   .paper-sheet[data-paper-form] [data-pf] .field > .input:focus { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
   /* a written date prints as words in the place of its box (utils/print.ts): the same cell, the same rules */
   .paper-sheet[data-paper-form] [data-pf] .field > .print-box-text {

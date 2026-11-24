@@ -13372,3 +13372,16 @@ of 1st pass/2nd pass/3rd pass".
 - The other QC incoming records keep their papers' own widths: their header and grid differ by 0.3 to 4.9 mm (F/QC/01 to 05,
   18 to 20, 22 to 24), left as the papers draw them.
 - Files: frontend/src/styles.css, frontend/src/data/seed/qcIncomingGeometry.ts.
+
+## §314 QC incoming header boxes ruled with real borders: F/QC/36's pass box prints its line (24-Nov-2026)
+
+The owner, 24-Nov-2026, marking on a printed F/QC/36 the line under the 1st Pass / 2nd Pass / 3rd Pass box and its right end:
+"the line that i have marked with pen, should be there in the format qc 36, add it and make it live".
+
+- The header's value boxes drew their right and bottom rules as a shadow. A browser printing without background graphics (the
+  usual setting) drops shadows, so the pass box printed with no line under it and none at the table's right edge.
+- Every value box of the QC incoming headers now rules its cell with real borders, as the labels do (over the print's own
+  "border: none !important" on inputs). The pass box's line runs under the row to the table's right rule, printed with or without
+  background graphics. The screen looks as before.
+- Checked printed on F/QC/36 and F/QC/21, with and without background graphics; one A4 page each.
+- File: frontend/src/styles.css.
