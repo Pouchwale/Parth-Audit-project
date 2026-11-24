@@ -4687,6 +4687,10 @@ html.print-measure .paper-sheet table.log-sheet td[data-one-line] .print-box-tex
 .style-panel .style-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; }
 .style-panel .style-buttons > select { max-width: 170px; }
 .style-panel .style-check { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+/* A NEW FORMAT FROM A WORD FILE (REQUIREMENTS §324, components/documents/WordFormImport.tsx). */
+.word-import .word-import-grid { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 16px; align-items: start; }
+.word-import table[data-section^="found-"] td { vertical-align: top; padding: 3px 4px; }
+@media (max-width: 900px) { .word-import .word-import-grid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,

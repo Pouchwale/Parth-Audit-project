@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { FiChevronDown, FiChevronUp, FiEdit3, FiExternalLink, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import { FormatEditor } from "../components/documents/FormatEditor";
+import { WordFormImport } from "../components/documents/WordFormImport";
+import { useAuth } from "../store/AuthContext";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { useRouter } from "../store/router";
@@ -57,6 +59,9 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { mode, bump, version, lang, currentUser } = useAppStore();
   const [editingFormat, setEditingFormat] = useState<DocumentDefinition | null>(null);
+  // A NEW FORMAT FROM A WORD FILE (REQUIREMENTS §324): the super admin's.
+  const [importingWord, setImportingWord] = useState(false);
+  const superAdmin = useAuth().user?.role === "admin";
   const [showMaster, setShowMaster] = useState(false);
   const [showKept, setShowKept] = useState(false);
   const isDemo = mode === "demo";
@@ -147,7 +152,25 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
           }}
         />
       )}
-      <h1 className="text-2xl mb-1">{t("lib.title")}</h1>
+      {importingWord && (
+        <WordFormImport
+          actor={currentUser}
+          onClose={() => setImportingWord(false)}
+          onMade={(doc) => {
+            setImportingWord(false);
+            bump();
+            navigate(`/document/${doc.id}`);
+          }}
+        />
+      )}
+      <div className="flex items-center gap-2 wrap">
+        <h1 className="text-2xl mb-1" style={{ flex: 1 }}>{t("lib.title")}</h1>
+        {superAdmin && !isDemo && (
+          <button className="btn btn-secondary btn-sm" data-action="new-format-from-word" onClick={() => setImportingWord(true)} title="Make a new format from a blank form saved in Word (.docx): drawn as the file draws it, its boxes found for you to check">
+            <FiPlus size={13} /> New format from Word
+          </button>
+        )}
+      </div>
       <p className="text-muted mb-4">
         Every controlled document identified from the uploaded source files. {docs.length} documents configured — click
         a row for the full What / How / Who / When summary.

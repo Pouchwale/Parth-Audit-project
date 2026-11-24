@@ -13498,3 +13498,49 @@ filled manually. but keep the format exactly just like how i provided you now".
 - Files: data/seed/mntPaperTables.ts, maintenanceLayouts.ts, maintenanceRecords.ts, documentDefinitions.ts, qcPaperTables.ts,
   data/luxRevisionMigration.ts, data/bootstrap.ts, components/records/LogSheetRecordView.tsx,
   frontend/public/brand/gpp-logo-fmnt11.jpg.
+
+## §324 A new format from a Word file: drawn as the file draws it, its boxes found and checked (24-Nov-2026)
+
+The owner, 24-Nov-2026: "for new format if i upload the word file then same format with same spacing and all things should be
+come and editable in system perfectly". The owner chose: the fill-in boxes found automatically and checked by the owner before
+saving; the format drawn as the exact paper; styling in Edit format first (§318), this second.
+
+- **Document Library → New format from Word** (the super admin, in Live Mode). A blank form saved as .docx is read in the
+  browser (engine/wordForm/readDocx.ts). Nothing is sent anywhere, and no library is needed.
+  - The page: its size, which way round, its margins.
+  - The header and the footer.
+  - Every paragraph: alignment, space before and after, line spacing. Each run of words: bold, underline, size, font.
+  - Word's own list numbers (1., 2., 3.).
+  - Every table: its grid widths, row heights, cells merged across (gridSpan) and down (vMerge), edges, shading, and where the
+    words stand up and down.
+- **Made into the paper DCRS draws** (engine/wordForm/toPaper.ts → PaperTable, the kind the HR papers are drawn as): one row per
+  paragraph and per table row, each cell at its Word width in mm, with its words, edges and merges.
+  - **Boxes found:** an empty cell beside words ("Date :" | [ ]) or under a heading, named by those words; a blank written as
+    ____ or ..... in a line, the words around it kept. A line with two blanks ("Checked By: ____ Verified By: ____") gives two boxes.
+  - **A register:** a table of headings over blank lines (a number down the first column allowed). Its headings become the
+    grid's columns, its blank lines the ruled lines, and a record may add more.
+  - **Header words:** where the file prints its format number, its revision or its title, the paper prints the format's
+    ({formatNo}, {revisionNo}, {title}), so a number given here, or changed later, is the one on every record.
+- **Checked before saving** (components/documents/WordFormImport.tsx):
+  - The paper as it will be drawn, every box shaded and named.
+  - Each box found: keep it, or **Not a box** (it stays printed paper). Rename it, or set what it takes (text, number, date,
+    time, yes/no, paragraph).
+  - The register's columns, renamed and retyped the same way.
+  - The format's name, Format No., Rev No. (read from the file where it prints them) and its module.
+  - A Format No. already used is refused: a changed version of an existing format is made in its Edit format.
+- **Saved as a format** like every other: a document definition (documentRepository), and a format edit holding its layout and
+  its paper (formatEdits `paper`, read by data/seed/qcPaperTables.ts paperTableFor). It is Rev of the file's own number, made by
+  whom from which file, and logged in the activity log. It is As Required until its frequency is set in Indexing or Master Data.
+  - Records are started, filled, printed and downloaded (Word, Excel) as the paper.
+  - Every printed word can be typed over on a record, as on the HR papers.
+- **Kept safe.**
+  - An Edit format save keeps the paper (engine/formatOps.ts commitFormatChange).
+  - "Restore the issued format" refuses a Word-made format: it has no issued one, its format edit is the format.
+- **Not yet.**
+  - Adding or removing boxes of a Word-made format in Edit format: the sheet is then drawn as DCRS's own grid, not the paper.
+    Rename the format, number it, and re-check its boxes at the upload.
+  - Styling (§318) of the paper's cells.
+  - Italic, pictures and text boxes in the Word file: the review lists what was not drawn.
+- Files: engine/wordForm/readDocx.ts, engine/wordForm/toPaper.ts, components/documents/WordFormImport.tsx,
+  pages/DocumentLibraryPage.tsx, data/formatEdits.ts, data/seed/qcPaperTables.ts, engine/formatOps.ts, styles.css. Tests:
+  frontend/tests/wordForm.test.ts (the company's originals, and tests/fixtures/blank-form-sample.docx, a made-up blank form).

@@ -1,4 +1,5 @@
 import type { LogSheetLayout } from "../types";
+import type { PaperTable } from "./seed/qcPaperTables";
 import { storage, writeJSON } from "./storageAdapter";
 
 // A FORMAT THE PLANT HAS CHANGED (REQUIREMENTS §62).
@@ -51,6 +52,11 @@ export interface FormatEdit {
    * in before a change keeps the words it was handed in with; every other report prints the newest.
    */
   printedWords?: Record<string, { words: string; from: string }[]>;
+  /**
+   * THE PAPER A FORMAT MADE FROM A WORD FILE IS DRAWN AS (REQUIREMENTS §324, engine/wordForm/toPaper.ts): its rows and cells
+   * as the Word file draws them. data/seed/qcPaperTables.ts paperTableFor reads it like the papers written into the code.
+   */
+  paper?: PaperTable;
   /** Newest first. */
   revisions: FormatRevision[];
 }

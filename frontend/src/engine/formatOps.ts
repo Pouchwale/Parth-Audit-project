@@ -655,6 +655,8 @@ export function commitFormatChange(
     companyName: company && company !== (issued?.companyName ?? COMPANY.name) ? company : undefined,
     formatNo: formatNo && formatNo !== (issued?.formatNo ?? doc.formatNo) ? formatNo : undefined,
     layout: draft.layout ?? existing?.layout,
+    // The paper a format made from a Word file is drawn as (REQUIREMENTS §324) stays with it through every change.
+    ...(existing?.paper ? { paper: existing.paper } : {}),
     // A place's printed words: the change added after the ones before it, from now (REQUIREMENTS §154).
     printedWords: draft.wordsAt
       ? { ...existing?.printedWords, [draft.wordsAt.place]: [...(existing?.printedWords?.[draft.wordsAt.place] ?? []), { words: draft.wordsAt.words, from: at }] }
@@ -677,6 +679,8 @@ const revisionId = (r: Pick<FormatRevision, "at" | "by" | "revisionNo">): string
 export function restoreIssuedFormat(doc: DocumentDefinition): boolean {
   if (!formatEditFor(doc.id)) return false;
   const issued = SEED_DOCUMENTS.find((d) => d.id === doc.id);
+  // A format made from a Word file (REQUIREMENTS §324) has no issued one to go back to: its format edit IS the format.
+  if (!issued) return false;
   dropFormatEdit(doc.id);
   const number = doc.formatNo.startsWith("TO BE") ? "" : `${doc.formatNo} `;
   logActivity("Format restored to the issued one", `${number}${issued?.name ?? doc.name}`, `Rev ${doc.revisionNo} → ${issued?.revisionNo ?? ""}`, doc.id);
