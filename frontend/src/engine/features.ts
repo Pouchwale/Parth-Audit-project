@@ -62,6 +62,34 @@ export function assistantAvailable(): boolean {
   return mitra;
 }
 
+// THE PLANT'S MITRA SWITCH, for the menu (the owner, 24-Nov-2026: "when superadmin switch off ai assistant then in here also
+// ask mitra assistant should also vanish and when switch on then it should come"). Off, the Ask Mitra link leaves
+// the menu for everybody, the super admin too; the super admin's floating Mitra stays. Read by the super admin's
+// menu from GET /api/assistant/access and set again the moment the switch on Users & Access is turned.
+let mitraForStaff = true;
+const mitraSwitchListeners = new Set<() => void>();
+
+/** Whether the super admin's switch has Mitra on for the plant (true until known otherwise). */
+export function mitraSwitchedOn(): boolean {
+  return mitraForStaff;
+}
+
+export function setMitraSwitchedOn(on: boolean): void {
+  if (on === mitraForStaff) return;
+  mitraForStaff = on;
+  mitraSwitchListeners.forEach((fn) => fn());
+}
+
+export function onMitraSwitch(fn: () => void): () => void {
+  mitraSwitchListeners.add(fn);
+  return () => mitraSwitchListeners.delete(fn);
+}
+
+/** Whether the menu shows Ask Mitra: the person has Mitra and the plant's switch is on. */
+export function assistantInMenu(): boolean {
+  return mitra && mitraForStaff;
+}
+
 /** Whether this server offers the Daylight theme (REQUIREMENTS §166). */
 export function daylightThemeAvailable(): boolean {
   return daylightTheme;

@@ -63,7 +63,8 @@ import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
 import { HR_RECORD_PAGES } from "../../data/seed/hrModule";
 import { QC_OVERVIEW_DOCUMENT_IDS } from "../../data/seed/qcModule";
-import { assistantAvailable, demoModeAvailable } from "../../engine/features";
+import { assistantInMenu, demoModeAvailable, onMitraSwitch, setMitraSwitchedOn } from "../../engine/features";
+import { assistantAccessApi } from "../../api/client";
 import { useAuth } from "../../store/AuthContext";
 import { mayOpenMasterData, mayOpenSystemPages } from "../../engine/masterDataAccess";
 import { currentAddress } from "../../utils/moduleSlug";
@@ -667,6 +668,14 @@ export function Sidebar() {
   const pageAddress = currentAddress(address);
   const t = useT();
   const { user } = useAuth();
+  // Ask Mitra follows the super admin's switch in the super admin's own menu too (engine/features.ts, 24-Nov-2026):
+  // the staff are told by the server at sign-in; the super admin's menu reads the switch and redraws when it turns.
+  const [, redrawMenu] = useState(0);
+  useEffect(() => onMitraSwitch(() => redrawMenu((n) => n + 1)), []);
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    assistantAccessApi.get().then((a) => setMitraSwitchedOn(a.staff)).catch(() => undefined);
+  }, [user?.role]);
   // Demo Mode only where the server has it (§65); Users & Access only for the
   // administrator, whose own it is (§66).
   // THE FREQUENCY OF THE DOCUMENTS ONE ANSWERS FOR (REQUIREMENTS §202): on the workspace for anybody but the super admin, whose panel is System's.
@@ -710,7 +719,7 @@ export function Sidebar() {
         }
       : undefined;
   const modules = baseModules.map((m) => (documentRow && m.module === openDocument?.module ? { ...m, entries: [documentRow, ...m.entries] } : m));
-  const mainItems = [...(assistantAvailable() ? NAV_MAIN : NAV_MAIN.filter((item) => item.to !== "/assistant")), ...(frequencyForMe ? [FREQUENCY_ITEM] : [])];
+  const mainItems = [...(assistantInMenu() ? NAV_MAIN : NAV_MAIN.filter((item) => item.to !== "/assistant")), ...(frequencyForMe ? [FREQUENCY_ITEM] : [])];
   // The most specific link that holds the page is the one lit, and the only one in the whole menu: on /hr/competence that
   // is the competence link, not the HR overview (/hr) too; on a module's collection, not the Document Library too (§283).
   const activeTo = [...mainItems, ...modules.flatMap(({ entries }) => entries), ...systemItems]

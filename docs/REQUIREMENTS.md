@@ -13404,3 +13404,13 @@ is in my system in qc module."
 - APPROVED BY is a box of its own now, as on F/QC/36, so the screen no longer says the approval is the Verify step.
 - Files: data/seed/logSheetLayouts.ts, qcIncomingGeometry.ts, qcPageFrames.ts, data/qc35WordsMigration.ts, engine/autoFill.ts
   (dueDateAndShift), engine/paperLayout.ts, engine/historyDigest.ts. Tests: tests/qc35Paper.test.ts.
+
+## §315 Ask Mitra leaves the menu when the super admin switches Mitra off (24-Nov-2026)
+
+The owner, 24-Nov-2026: "when superadmin switch off ai assitant then in here also ask mitra assistant should also vanish and when
+switch on then it should come".
+
+- While the switch on Users & Access ("Mitra (AI) for the staff") is off, the Ask Mitra link is not in the Workspace menu for anybody,
+  the super admin included. Switched on again, it comes back. The super admin's menu changes the moment the switch is turned; the
+  staff's at their next page load, as before.
+- The super admin keeps the floating Mitra and the /assistant page itself; the server still refuses Mitra to the staff while it is off.

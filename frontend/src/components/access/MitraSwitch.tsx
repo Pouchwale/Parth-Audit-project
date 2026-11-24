@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FiCheckCircle, FiMessageSquare, FiSlash } from "react-icons/fi";
 import { ApiError, assistantAccessApi, type AssistantAccessAnswer } from "../../api/client";
 import { formatDisplayDateTime } from "../../utils/date";
+import { setMitraSwitchedOn } from "../../engine/features";
 
 // MITRA FOR THE STAFF — the super admin's switch on Users & Access (the owner, 2-Nov-2026: "give an option to the
 // super admin only, that he can disable the AI option for all the other users"). One switch for the whole plant
@@ -19,7 +20,11 @@ export function MitraSwitch() {
     let alive = true;
     assistantAccessApi
       .get()
-      .then((a) => alive && setState(a))
+      .then((a) => {
+        if (!alive) return;
+        setState(a);
+        setMitraSwitchedOn(a.staff);
+      })
       .catch((e) => alive && setError(e instanceof ApiError ? e.message : "The switch could not be read."));
     return () => {
       alive = false;
@@ -33,6 +38,7 @@ export function MitraSwitch() {
     try {
       const next = await assistantAccessApi.set(staff);
       setState(next);
+      setMitraSwitchedOn(next.staff);
       setNote(staff ? "Mitra is on for everybody again. Each person sees it at their next page load." : "Mitra is off for everybody but you. Each person loses it at their next page load; the server refuses it for them at once.");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "The switch could not be set.");
