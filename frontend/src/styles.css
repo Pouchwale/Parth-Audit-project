@@ -4507,6 +4507,9 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
 /* Two answers always side by side, never one over the other (§286); a tick box with no words of its own has no gap after it. */
 .pt-table .pt-picks.pt-picks-check:has(> .pt-pick:nth-child(2):last-child) { flex-wrap: nowrap; }
 .pt-table .pt-pick.pt-pick-check:empty { gap: 0; }
+/* "Yes □": the words first, the box after them, at the cell's left as F/MKT/01 prints it (§322). */
+.pt-table .pt-pick.pt-pick-check.pt-pick-after { flex-direction: row-reverse; }
+.pt-table .pt-picks.pt-picks-check:has(> .pt-pick-after) { justify-content: flex-start; }
 /* (a question with its answer box inside it keeps the paper's own line break on a fitted paper, §286) */
 .pt-table.pt-read td.pt-c[data-pt-col]:has(> .pt-over) > .pt-words { white-space: pre-wrap; }
 @media screen {

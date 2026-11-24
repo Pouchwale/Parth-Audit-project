@@ -218,7 +218,8 @@ const CUSTOMER_FEEDBACK: LogSheetLayout = {
   // a person), and none is carried forward — the next form is another
   // customer's.
   headerFields: [
-    { key: "date", label: "Date :", type: "date", required: true, autoFill: { dueDate: true } },
+    // Written by hand (§322, the owner, 24-Nov-2026: "everything that is to be filled ... should be filled manually").
+    { key: "date", label: "Date :", type: "date" },
     // The customer's own block: not required and never carried forward, as
     // F/SYS/13's customer boxes are — the next form is another customer's.
     { key: "organization", label: "Organization :", type: "text", list: "" },
@@ -240,13 +241,12 @@ const CUSTOMER_FEEDBACK: LogSheetLayout = {
     { key: "associateInFuture", label: "Would you like to be associated with us in future :", type: "yesno" },
     { key: "companySealSign", label: "Company Seal & Sign :", type: "text", list: "" },
   ],
-  // Pidilite's page: its boxes and, line by line, its ratings (the rating
-  // column is fresh, so the assistant never copies them).
-  specimenHeader: FEEDBACK_PIDILITE_2025_01,
-  specimenRows: FEEDBACK_ATTRIBUTES.map((attribute, i) => ({ attribute, rating: FEEDBACK_PIDILITE_2025_01_RATINGS[i] })),
+  // A blank form (§322): the attributes only. Pidilite's answers stay on its own filed record (mktRecords.ts), never
+  // offered to a new form. The sheet is drawn as the company's paper (mktPaperTables.ts).
+  specimenRows: FEEDBACK_ATTRIBUTES.map((attribute) => ({ attribute })),
   originalPages: [page("fmkt01-feedback-pidilite-2025-01-p1.jpg", "F/MKT/01 (01/01.12.2021) — Customer Value added Feedback from Pidilite (Tenax wraparound labels), 22.01.2025, as supplied")],
   specimenSource:
-    "F-MKT-01_Customer Feedback Form- Tenax.pdf — F/MKT/01 (01/01.12.2021), the Customer Value added Feedback Pidilite returned on 22.01.2025 for its Tenax wraparound labels; its boxes and ratings are the specimen, the customer's own",
+    "F-MKT-01_Customer Feedback Form- Tenax.pdf — F/MKT/01 (01/01.12.2021), the Customer Value added Feedback Pidilite returned on 22.01.2025 for its Tenax wraparound labels; its layout is the paper drawn here, every box blank for the customer (§322)",
 };
 
 // ===========================================================================

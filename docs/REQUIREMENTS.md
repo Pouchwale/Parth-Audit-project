@@ -13596,3 +13596,22 @@ page DCRS's F/SYS/06 was built from. DCRS drew it as one 13-column grid, the pla
   tests/verify_with_test_account.py sys-audit-plan --print (account made, 8 words kept after a reload, account deleted).
 - Files: data/seed/sysAuditPlanPaper.ts, data/seed/qcPaperTables.ts, data/seed/sysInternalAuditLayouts.ts. Tests:
   frontend/tests/sysAuditPlanPaper.test.ts. Builds on §325's PaperCell.grow.
+
+## §322 F/MKT/01 Customer Value added Feedback, drawn as the owner's paper and left blank (24-Nov-2026)
+
+The owner, 24-Nov-2026, with "F-MKT-01_Customer Feedback Form- Tenax.pdf": "replace the mkt 1 document in the system with this
+format ... keep everything that is to be filled ... filled manually. keep it blank. but the format should be exactly the same".
+
+- **The paper, rule by rule** (data/seed/mktPaperTables.ts, an `ownWords` PaperTable like the HR papers): the company band, the
+  underlined title beside the grey "F/MKT/01 (01/01.12.2021)" box, the instruction, the customer's boxes standing inside the frame
+  (Date, Organization, Contact Person, Designation, Email ID, Mobile, Products), the attributes grid with "Yes □" under each of
+  5 Excellent ... - 5 Poor, the comments, Overall Satisfaction Level with "☺ / ☻ / △ : Yes □", Yes □ / No □, Company Seal & Sign.
+  Measured from the PDF in mm. Every printed word can be typed over in place.
+- **"Yes □"**: a tick box after its words, at the cell's left (PaperPick.after, class pt-pick-after; the Word and Excel files write
+  "Yes ☐" / "Yes ☑"). One tick per attribute line, one satisfaction level, Yes or No.
+- **Blank, filled by hand**: the Date no longer fills with the record's day and is no longer required; the layout offers no
+  specimen answers (Pidilite's stay on its own filed record of 22-01-2025, which shows its ticks on the new paper).
+- Checked on the local copy: screen, ticks kept after a reload, print (one portrait page as the PDF), Word and Excel
+  (check_all_documents.py), test account made and deleted (verify_with_test_account.py).
+- Files: data/seed/mktPaperTables.ts, mktLayouts.ts, qcPaperTables.ts (paperTableFor, PaperPick.after), LogSheetRecordView.tsx,
+  utils/paperTableExport.ts, styles.css.

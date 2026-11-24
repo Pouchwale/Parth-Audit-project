@@ -1010,7 +1010,7 @@ export function LogSheetRecordView({
         };
         return (
           <span
-            className={`pt-pick pt-pick-${p.mark}${on ? " is-on" : ""}`}
+            className={`pt-pick pt-pick-${p.mark}${p.after ? " pt-pick-after" : ""}${on ? " is-on" : ""}`}
             role={can ? "button" : undefined}
             tabIndex={can ? 0 : undefined}
             aria-pressed={can ? on : undefined}
