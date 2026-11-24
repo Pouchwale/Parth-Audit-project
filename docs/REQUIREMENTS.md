@@ -13304,3 +13304,25 @@ filled sheet: "add this document first ... keep format as it is which you can se
   across A4 and the lines' rows are as tall as fills the pages. Checked in Excel: two pages each, the 1st-15th and the 16th-end.
 - Files: data/seed/documentDefinitions.ts, productionLayouts.ts, originalFiles.ts, engine/sharpTools.ts,
   utils/originalFill/xlsxFill.ts (printOnTwoPages), frontend/public/originals/prd-label-sleeve-blade.xlsx.
+## §309 F/PUR/03: SERVICE AGREEMENT centred, a supplier's name on one line, the printed columns fixed (24-Nov-2026)
+
+The owner, 24-Nov-2026, with a picture of the printed list: "in PUR 3 this like SERVICE AGREEMENT like things should be in center
+understand this and make it perfect, supplier name should be in single line and the column box size should be fixed also, make
+sure the current format should not be effected". Measured on the printout of all 65 suppliers before the change: SERVICE AGREEMENT
+and ISO 17025 ACCREDITATION at the left of their six columns; "Fujifilm Sericol India Private Limited" on three lines, other names on
+two; every column as wide as its words, so the columns moved from one list to the next.
+
+- **Cells drawn as one are centred** (LogSheetLayout.lineMerges, the td's `data-line-merge`): a service provider's SERVICE AGREEMENT or
+  ISO 17025 ACCREDITATION stands in the middle of its six document columns, on the screen, printed, and in the Word file and the
+  workbook. Word writes one cell over the six (gridSpan) and the workbook merges them, the words centred. Reading a filled Word file
+  back takes the merged cell's columns into account (readFile.ts already counts gridSpan).
+- **The printed columns are fixed** (LogColumn.printWidth, the table's `data-print-cols`): printed, the eighteen columns keep their set
+  shares of the page whatever is written in them (table-layout fixed), the same on every page and every list. Each is at least as
+  wide as the longest word of its heading, so no heading word breaks ("VENDOR", "MANUFACTURER", "TRACEABILITY", "DECLARATION",
+  "CERTIFICATE"). The screen's widths are as before.
+- **A supplier's name is on one line** (LogColumn.oneLine, the td's `data-one-line`): printed, it never wraps. A name too long for
+  its column is written a little smaller, in its cell only, measured in the cell's own face (utils/print.ts lettersShare).
+- Nothing else of the format changed: the headings, the columns and their order, the merge rule, the 7 lines of a new sheet, the
+  landscape page. Every other sheet prints as before (no other layout names a printWidth or oneLine; lineMerges is F/PUR/03's alone).
+- Files: types/logSheet.ts, LogSheetRecordView.tsx, utils/print.ts, styles.css, data/seed/purchaseLayouts.ts,
+  utils/documentExport.ts, utils/docx.ts.

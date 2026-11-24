@@ -139,6 +139,18 @@ const TWO_LINES = 1.8;
 const WEB_FULL = 0.8;
 /** A sheet whose every written value prints as words that wrap in its cell (LogSheetLayout.printWordsAll, REQUIREMENTS §189). */
 const EVERY_VALUE_AS_WORDS = "[data-print-words='all']";
+/** A grid cell whose value is printed on one line (LogColumn.oneLine, REQUIREMENTS §309). */
+const ONE_LINE_CELL = "td[data-one-line]";
+let lettersCanvas: CanvasRenderingContext2D | null = null;
+/** The largest size, as a share of its cell's width (cqw), at which a one-line value's words fit the cell: measured in its cell's own face. */
+function lettersShare(words: string, box: HTMLElement): number {
+  const cs = getComputedStyle(box.closest("td") ?? box);
+  lettersCanvas ??= document.createElement("canvas").getContext("2d");
+  if (!lettersCanvas) return Math.floor((1000 / (6.2 * words.length + 2)) * 10) / 10;
+  lettersCanvas.font = `${cs.fontStyle} ${cs.fontWeight} 100px ${cs.fontFamily}`;
+  const ems = lettersCanvas.measureText(words).width / 100;
+  return Math.floor((100 / (ems * 1.04 + 0.1)) * 10) / 10;
+}
 
 /** A paper form drawn in the paper's millimetres, the same on the screen and on paper (the incoming records, the line clearances, the
  *  calibration papers, the report forms, a paper's own table). Every other sheet is laid out afresh for the page. */
@@ -184,7 +196,7 @@ const BREAKABLE = "[data-section='sheet-boxes'], .sheet-boxes-paper, [data-secti
 /** Puts the words of every written value too long for its box in its place, for the print (after fitAll); the pairs are returned. */
 function writeLongBoxesAsWords(docs: Element[]): Written[] {
   // Every box read first, then every one written: one layout for the lot.
-  const plan: { box: HTMLInputElement; size: number; floor: number; height: number | null; align: string; oneLine?: boolean }[] = [];
+  const plan: { box: HTMLInputElement; size: number; floor: number; height: number | null; align: string; oneLine?: boolean; letters?: boolean }[] = [];
   for (const d of docs) {
     for (const box of Array.from(d.querySelectorAll<HTMLInputElement>(LONG_BOXES))) {
       if (box.value.trim() === "" || box.classList.contains(PRINTED_AS_TEXT) || box.classList.contains(OWN_PRINTED_WORDS) || box.clientWidth === 0) continue;
@@ -201,6 +213,9 @@ function writeLongBoxesAsWords(docs: Element[]): Written[] {
         // The sheet never grows wider for it (F/MNT/09's week columns ran into the paper's margin): measured on the page below,
         // after every box is written.
         if (ONE_LINE_DATE.test(box.value.trim())) plan.push({ box, size: Math.max(floor, Math.min(now, ((room * own) / need) * 0.97)), floor, height: null, align, oneLine: true });
+        // A column written on one line (LogColumn.oneLine, §309: F/PUR/03's SUPPLIER NAME): at the box's own size, a long name
+        // a little smaller, in its cell only.
+        else if (box.closest(ONE_LINE_CELL)) plan.push({ box, size: own, floor, height: null, align, oneLine: true, letters: true });
         // A sheet whose every value prints as words writes them at the box's own size: they wrap, so none is printed smaller
         // than its neighbours for being long (Purchase Master Data's "water-based specialty coatings", 6-Nov-2026).
         else plan.push({ box, size: box.closest(EVERY_VALUE_AS_WORDS) ? own : now, floor, height: null, align });
@@ -208,7 +223,7 @@ function writeLongBoxesAsWords(docs: Element[]): Written[] {
     }
   }
   const written: Written[] = [];
-  for (const { box, size, height, align, oneLine } of plan) {
+  for (const { box, size, height, align, oneLine, letters } of plan) {
     const text = document.createElement("span");
     text.className = `${PRINT_BOX_TEXT} ${PRINT_BOX_WORDS}`;
     text.textContent = box.value;
@@ -227,7 +242,7 @@ function writeLongBoxesAsWords(docs: Element[]): Written[] {
       // (A container of its own width: what it holds never counts towards the cell's width, so the cell is never widened.)
       Object.assign(text.style, { display: "block", width: "100%", containerType: "inline-size" });
       const words = text.textContent ?? "";
-      const share = Math.floor((1000 / (5.6 * words.length + 2)) * 10) / 10;
+      const share = letters ? lettersShare(words, box) : Math.floor((1000 / (5.6 * words.length + 2)) * 10) / 10;
       text.textContent = "";
       const inner = document.createElement("span");
       inner.textContent = words;

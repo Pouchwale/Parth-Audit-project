@@ -62,7 +62,7 @@ export type DocxBlock =
    * and size to each cell, edges to each cell. `indent` is its distance from the margin, `pageBreakBefore` starts a page.
    */
   | { type: "paper"; widths: number[]; rows: { height?: number; keepNext?: boolean; cells: DocxPaperCell[] }[]; indent?: number; pageBreakBefore?: boolean; spaceAfter?: number; cellPad?: number }
-  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true };
+  | { type: "table"; rows: DocxCell[][]; headerRows?: number; boldFirstColumn?: boolean; caption?: string; band?: true; labelColumns?: true; spans?: Record<string, number> };
 
 /** What a document carries besides its body. */
 export interface DocxExtras {
@@ -140,8 +140,15 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
   const rows = block.rows
     .map((row, ri) => {
       const header = ri < headerRows;
+      // A run of the line's cells drawn as one (`spans`, "row:column" -> columns, §309: F/PUR/03's SERVICE AGREEMENT): one
+      // cell over them, its words in the middle; the cells it covers are not written.
+      const spanAt = (ci: number) => block.spans?.[`${ri}:${ci}`] ?? 1;
+      const covered = new Set<number>();
+      for (let ci = 0; ci < columns; ci++) for (let k = 1; k < spanAt(ci); k++) covered.add(ci + k);
       const cells = Array.from({ length: columns }, (_, ci): DocxCell => row[ci] ?? "")
         .map((cell, ci) => {
+          if (covered.has(ci)) return "";
+          const span = Math.min(spanAt(ci), columns - ci);
           // A table of boxes laid several to a line (labelColumns) has a label in every other column.
           const bold = header || (!!block.boldFirstColumn && ci === 0) || (!!block.labelColumns && ci % 2 === 0);
           const shade = header ? '<w:shd w:val="clear" w:color="auto" w:fill="E7E9EE"/>' : "";
@@ -149,7 +156,10 @@ function table(controls: Controls, block: Extract<DocxBlock, { type: "table" }>,
           // (set close, every value in the middle of its box, §262; and a date stays on one line: "01-11-2026" broke at its dashes in a narrow column and drew its line twice as tall)
           const text = typeof cell === "string" ? cell : cell.map((c) => c.text).join("");
           const noWrap = close && /^\d{1,2}[-./]\d{1,2}[-./]\d{2,4}$/.test(text.trim()) ? "<w:noWrap/>" : "";
-          return `<w:tc><w:tcPr><w:tcW w:w="${set ? set[ci] : 0}" w:type="${set ? "dxa" : "auto"}"/>${shade}${noWrap}${columnsMm ? '<w:vAlign w:val="center"/>' : ""}</w:tcPr><w:p><w:pPr>${set ? '<w:spacing w:before="0" w:after="0" w:line="228" w:lineRule="auto"/>' : close ? '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>' : '<w:spacing w:before="20" w:after="20"/>'}</w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
+          const width = set ? set.slice(ci, ci + span).reduce((a, b) => a + b, 0) : 0;
+          const across = span > 1 ? `<w:gridSpan w:val="${span}"/>` : "";
+          const centred = span > 1 && !close ? '<w:jc w:val="center"/>' : "";
+          return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="${set ? "dxa" : "auto"}"/>${across}${shade}${noWrap}${columnsMm ? '<w:vAlign w:val="center"/>' : ""}</w:tcPr><w:p><w:pPr>${set ? '<w:spacing w:before="0" w:after="0" w:line="228" w:lineRule="auto"/>' : close ? '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>' : '<w:spacing w:before="20" w:after="20"/>'}${centred}</w:pPr>${controls.cell(cell, rPr)}</w:p></w:tc>`;
         })
         .join("");
       // (set close, a line is ruled CLOSE_ROW high at least, as a paper's ruled line, so the month fills its page)

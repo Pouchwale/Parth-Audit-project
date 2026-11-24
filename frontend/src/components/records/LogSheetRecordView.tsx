@@ -670,6 +670,9 @@ export function LogSheetRecordView({
   const paperFirst = paperLayout ? gridLines(paperLayout).first : undefined;
   const gridCols =
     paperCols && paperLayout && paperFirst ? paperGridWidths(paperCols, paperFirst, lines.first, { paper: !numbersOwnLines(paperLayout), drawn: numbered }) : paperCols;
+  // THE GRID'S PRINTED WIDTH WHERE ITS COLUMNS' ARE FIXED (LogColumn.printWidth, §309: F/PUR/03); 0 on every other sheet. A
+  // column added by Edit format names none and takes its screen width.
+  const printWidth = layout.columns.some((c) => c.printWidth) ? layout.columns.reduce((sum, c) => sum + (c.printWidth ?? c.width ?? 100), 0) : 0;
   // One answer across the paper's columns, their headings on a printed line (F/QC/25, §111 part 4); null on every other sheet.
   const answerAcross = answerAcrossOf(layout);
   // The paper's small tables, F-QC-14's checks two to a row (REQUIREMENTS §111, the review of 13-Oct-2026); null elsewhere.
@@ -1418,7 +1421,15 @@ export function LogSheetRecordView({
           // paper a QC, HR or Purchase document's is ruled with blank lines to the page's foot (utils/print.ts ruleToFoot,
           // REQUIREMENTS §194). A form whose printed lines are open (F/HR/15's areas, §158) is a form: spread, not ruled.
           data-lines={mode.kind === "free" && linesRule.canAdd ? "free" : undefined}
-          style={gridCols ? ({ "--pf-w": `calc(${gridCols.reduce((a, b) => a + b, 0)} * var(--u))` } as React.CSSProperties) : undefined}
+          style={
+            gridCols
+              ? ({ "--pf-w": `calc(${gridCols.reduce((a, b) => a + b, 0)} * var(--u))` } as React.CSSProperties)
+              : printWidth
+                ? ({ "--print-w": `${printWidth + (numbered ? (layout.srNoShowsDate ? 96 : 44) : 0)}px` } as React.CSSProperties)
+                : undefined
+          }
+          // Its columns' printed widths are fixed (LogColumn.printWidth, §309: F/PUR/03), whatever is written in them.
+          data-print-cols={!gridCols && printWidth ? "" : undefined}
           {...gridBind}
         >
           {gridCols && (
@@ -1844,7 +1855,13 @@ function ColumnHead({
     <th
       {...(b ? bindColAttrs(b.key, b.type, b.options) : undefined)}
       // The column's width for typing in, on the screen only (styles.css --col-min): printed, it takes what its words need...
-      style={col.width && !paper ? ({ "--col-min": `${col.width}px` } as React.CSSProperties) : undefined}
+      style={
+        col.width && !paper
+          ? ({ "--col-min": `${col.width}px`, ...(col.printWidth ? { "--col-print": `${col.printWidth}px` } : {}) } as React.CSSProperties)
+          : col.printWidth
+            ? ({ "--col-print": `${col.printWidth}px` } as React.CSSProperties)
+            : undefined
+      }
       // ...except a column of the sheet's own pre-printed words (a question, an attribute), which keeps its width in print.
       data-col-fixed={col.fixed && col.width && !paper ? "" : undefined}
       rowSpan={rowSpan}
@@ -2563,6 +2580,9 @@ const SheetRow = React.memo(function SheetRow({
             rowSpan={rowSpan}
             data-merged={span !== undefined && span > 1 ? String(span) : undefined}
             data-pf-arial={arial?.includes(ci) ? "" : undefined}
+            // (F/PUR/03's SERVICE AGREEMENT across its six document columns, centred; a supplier's name on one line: §309)
+            data-line-merge={mergedAcross > 1 ? "" : undefined}
+            data-one-line={c.oneLine ? "" : undefined}
           >
             <CellInput
               col={col}

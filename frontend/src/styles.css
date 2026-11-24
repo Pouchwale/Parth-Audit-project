@@ -4632,6 +4632,24 @@ html.print-measure .paper-sheet[data-one-page] table.log-sheet td .print-box-tex
 @media print {
   .paper-sheet[data-print-pages] table.log-sheet tbody tr[data-page-start] { break-before: page; page-break-before: always; }
 }
+/* F/PUR/03 (the owner, 24-Nov-2026, REQUIREMENTS §309: "SERVICE AGREEMENT like things should be in center ... supplier name
+   should be in single line and the column box size should be fixed also"). A run of a line's cells drawn as one (lineMerges:
+   a service provider's SERVICE AGREEMENT, ISO 17025 ACCREDITATION) is centred across its columns, on the screen and printed.
+   A grid whose columns name their printed widths (LogColumn.printWidth, data-print-cols) prints to those widths - their
+   shares of the page's width - whatever is written in it, and is measured (html.print-measure) at no less than their sum
+   (--print-w), so the sheet is drawn to its page by them. Its one-line column's value never wraps (utils/print.ts writes it
+   smaller where long). */
+.paper-sheet table.log-sheet td[data-line-merge], .paper-sheet table.log-sheet td[data-line-merge] :is(input, select, .cell-text, .print-box-text) { text-align: center; text-align-last: center; }
+@media print {
+  .paper-sheet table.log-sheet[data-print-cols] { table-layout: fixed; width: 100%; min-width: var(--print-w); }
+  .paper-sheet table.log-sheet[data-print-cols] > thead > tr > th { min-width: 0; }
+  .paper-sheet table.log-sheet[data-print-cols] > thead > tr > th[style*="--col-print"] { width: var(--col-print); }
+  .paper-sheet table.log-sheet td[data-one-line] .print-box-text { white-space: nowrap; }
+}
+html.print-measure .paper-sheet table.log-sheet[data-print-cols] { table-layout: fixed; width: 100%; min-width: var(--print-w); }
+html.print-measure .paper-sheet table.log-sheet[data-print-cols] > thead > tr > th { min-width: 0; }
+html.print-measure .paper-sheet table.log-sheet[data-print-cols] > thead > tr > th[style*="--col-print"] { width: var(--col-print); }
+html.print-measure .paper-sheet table.log-sheet td[data-one-line] .print-box-text { white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) {
   .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
   .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,

@@ -188,6 +188,18 @@ export interface LogColumn {
   options?: string[];
   required?: boolean;
   width?: number;
+  /**
+   * THE COLUMN'S PRINTED WIDTH, FIXED (REQUIREMENTS §309; the owner, 24-Nov-2026, of F/PUR/03: "the column box size should be
+   * fixed"): in the sheet's own pixels, before the print draws the sheet to its page. Where a grid's columns name one, the
+   * printed grid is laid out to these widths whatever is written in it (table-layout: fixed), so every printout of the sheet
+   * has the same columns. A grid none of whose columns name one prints as narrow as its words, as before.
+   */
+  printWidth?: number;
+  /**
+   * WRITTEN ON ONE LINE (§309: "supplier name should be in single line"): printed, the value never wraps; a value too long
+   * for its column is written a little smaller, in that cell only, until it fits.
+   */
+  oneLine?: boolean;
   // The heading the paper draws ABOVE this column and its neighbours, spanning
   // them all — the four "METHOD OF APPROVAL" columns of the List of Approved
   // Suppliers (REQUIREMENTS §68). Columns carrying the same group name must sit

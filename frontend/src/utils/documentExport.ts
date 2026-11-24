@@ -165,6 +165,12 @@ export interface Cell {
   bind?: ExportBinding;
   /** The cell's text in pieces — fixed words and bound values — when it holds any bound value. */
   parts?: ExportSegment[];
+  /**
+   * A run of a line's cells drawn as one (LogSheetLayout.lineMerges, data-line-merge: F/PUR/03's SERVICE AGREEMENT across
+   * its six document columns): how many columns it covers. Written merged and centred in the Word file and the workbook
+   * (REQUIREMENTS §309); the blank cells after it in the row keep their places.
+   */
+  across?: number;
 }
 
 /**
@@ -462,7 +468,7 @@ function tableBlock(table: HTMLTableElement): ExportBlock | null {
       const at = cells.length;
       const across = Math.max(1, cell.colSpan);
       if (cell.hasAttribute(BIND_COL_ATTR)) columnsAt.set(cell, at);
-      cells.push(cellOf(cell));
+      cells.push(across > 1 && cell.hasAttribute("data-line-merge") ? { ...cellOf(cell), across } : cellOf(cell));
       own++;
       for (let i = 1; i < across; i++) cells.push({ text: "" });
       for (let down = 1; down < cell.rowSpan; down++) {
@@ -769,7 +775,9 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
   // Rows holding one line of words (a heading, a note): the ones too long for the sheet's width wrap across it (below).
   const textRows = new Set<number>();
   // 8 bold wrapped (a label) · 9 plain wrapped · 10 title wrapped — after the eight above, so their numbers stay.
-  const BASE_XFS = 11;
+  // 11 a value centred across the cells it is merged over (Cell.across, §309).
+  const CENTRED_ACROSS = 11;
+  const BASE_XFS = 12;
   const BASE_FONTS = 3;
   const BASE_BORDERS = 2;
   const ink = '<color rgb="FF000000"/>';
@@ -874,8 +882,16 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       block.rows.forEach((row, ri) => {
         const header = ri < block.headerRows;
         if (block.bindTable && (header || !row.some(isBound))) fixed.push(rowSignature(row.map((c) => c.text)));
+        const at = rows.length;
         rows.push(
           row.map((cell, ci) => {
+            if (!header && cell.across && cell.across > 1) {
+              // (drawn as one cell on the sheet: merged over its columns, its words in the middle; no column widened for them)
+              merges.push(`${columnName(ci)}${at + 1}:${columnName(ci + cell.across - 1)}${at + 1}`);
+              const pieces = piecesFor(cell.parts);
+              const a = anchors[ri];
+              return { text: cell.text, style: CENTRED_ACROSS, pieces, anchor: pieces && a && seen.get(rowSignature([a.text])) === 1 ? a : undefined };
+            }
             measure(ci, header ? cell.text.split("\n")[0] : cell.text);
             if (header) return { text: cell.text, style: 4 };
             const pieces = piecesFor(cell.parts);
@@ -1041,6 +1057,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
         `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
         `<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>` +
+        `<xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf>` +
         paperXfs.join("") +
         `</cellXfs>` +
         `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
@@ -1123,7 +1140,9 @@ export function wordBlocksFrom(blocks: ExportBlock[], builder?: ExportMapBuilder
       return { type: "table", rows: grid.filter((r) => r.some((x) => (typeof x === "string" ? x : "x") !== "")), headerRows: 0 };
     }
     const rows = b.rows.map((r) => r.map((c) => cellOfWord(c)));
-    const block: DocxBlock = { type: "table", rows, headerRows: b.headerRows, ...(b.band ? { band: true as const } : {}) };
+    const spans: Record<string, number> = {};
+    b.rows.forEach((r, ri) => r.forEach((c, ci) => c.across && c.across > 1 && (spans[`${ri}:${ci}`] = c.across)));
+    const block: DocxBlock = { type: "table", rows, headerRows: b.headerRows, ...(b.band ? { band: true as const } : {}), ...(Object.keys(spans).length ? { spans } : {}) };
     if (builder && b.bindTable) {
       const fixed = b.rows.filter((r, ri) => ri < b.headerRows || !r.some(isBound)).map((r) => rowSignature(r.map((c) => c.text)));
       const table = builder.addTable(b.bindTable, { headerRows: b.headerRows, ...(fixed.length ? { fixedRows: fixed } : {}) });
