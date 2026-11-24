@@ -75,6 +75,8 @@ export interface PaperTableParts {
   pick?: (pick: PaperPick, line: number | undefined) => React.ReactNode;
   /** Whether the line holds something in this column (PaperCell.bgIf). */
   holds?: (line: number, col: string) => boolean;
+  /** What the record holds in a column of a line (a cell that grows to its words, PaperCell.grow, §325). */
+  cellText?: (line: number, col: string) => string;
   /** A figure worked out from a column of the line, as the paper works it out (PaperCell.calc). */
   calc?: (line: number, of: string, times: number) => string;
   /** The month of the sheet's financial year a heading names: "Apr-26" (0 is April). */
@@ -91,6 +93,28 @@ export function withUnderlinedLines(text: string, ul: number[] | undefined, rend
     </React.Fragment>
   ));
 }
+
+/** Words with the letters from..to printed bold and the rest plain (PaperCell.bs, F/SYS/04's headings, §325). */
+function boldSpan(text: string, bs: [number, number] | undefined, ul?: number[]): React.ReactNode {
+  if (!bs) return withUnderlinedLines(text, ul);
+  const [from, to] = bs;
+  return (
+    <>
+      {text.slice(0, from)}
+      <span style={{ fontWeight: 700 }}>{text.slice(from, to)}</span>
+      {text.slice(to)}
+    </>
+  );
+}
+
+/** A box's words written again on the paper: a date as the paper writes one, 21.07.2025 (§325). */
+const asWritten = (v: string): string => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : v;
+};
+
+/** A line's number as the paper writes it (PaperCell.numFmt): "1." or "01" (§325). */
+const lineNo = (n: number, fmt: PaperCell["numFmt"]): string => (fmt === "dot" ? `${n}.` : fmt === "pad2" ? String(n).padStart(2, "0") : String(n));
 
 /** The field of the layout a cell names, header or footer. */
 function fieldOf(layout: LogSheetLayout, key: string): LogHeaderField | undefined {
@@ -218,6 +242,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           if (c.ww) classes.push("pt-ww");
           if (c.ov) classes.push("pt-ov");
           if (c.pw && c.box) classes.push("pt-pwc");
+          if (c.grow) classes.push("pt-grow");
           const style: Record<string, string> = {
             "--pt-size": String(pt),
             "--pt-lh": String(lh),
@@ -284,7 +309,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           } else if (c.num && row.line !== undefined) {
             const n = c.ln ?? row.line;
             const shownNo = c.num === "all" || n < (parts.rowCount ?? 0);
-            body = !shownNo ? null : parts.printed && !row.pad ? parts.printed(`num:${n}`, String(n + 1), n + 1) : <span className="pt-words">{n + 1}</span>;
+            const no = lineNo(n + 1, c.numFmt);
+            body = !shownNo ? null : parts.printed && !row.pad ? parts.printed(`num:${n}`, no, no) : <span className="pt-words">{no}</span>;
           } else if (c.col !== undefined && c.ln !== undefined) body = row.line !== undefined && c.ln >= (parts.rowCount ?? 0) ? null : parts.gridCell(c.ln, c.col, c);
           else if (c.sentence) {
             const s = c.sentence;
@@ -295,7 +321,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
             const before = s.before.startsWith("@") ? referenced(layout, s.before.slice(1)) : (f?.inSentence?.before ?? s.before);
             const after = f?.inSentence?.after ?? s.after;
             const gap = " ".repeat(s.space ?? 1);
-            const value = parts.value?.(s.box) ?? "";
+            const value = asWritten(parts.value?.(s.box) ?? "");
             body = (
               <span className={`pt-words pt-sentence${s.pw ? " pt-sw" : ""}`} style={{ "--pt-bw": String(s.boxWidth) } as React.CSSProperties}>
                 {head ? `${head}\n` : null}
@@ -338,8 +364,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
             } else if (c.rowKey && c.rowTable && parts.rowWords) body = <span className="pt-words">{parts.rowWords(c.rowTable, c.rowKey, text)}</span>;
             // (a cell the paper leaves blank can be written in too: every part of the paper is the record's)
             // (not the hair-thin strips between a paper's rules: nothing is ever written there)
-            else if (parts.printed && !c.img && !row.pad && (text || (c.w >= 4 && row.h >= 2.5))) body = parts.printed(c.pl ?? `${row0 + ri}:${ci}`, text, text ? withUnderlinedLines(text, c.ul) : null);
-            else if (text) body = <span className="pt-words">{withUnderlinedLines(text, c.ul, (line) => withHeaderWords(line, words, edit, !!c.caps))}</span>;
+            else if (parts.printed && !c.img && !row.pad && (text || (c.w >= 4 && row.h >= 2.5))) body = parts.printed(c.pl ?? `${row0 + ri}:${ci}`, text, text ? boldSpan(text, c.bs, c.ul) : null);
+            else if (text) body = <span className="pt-words">{c.bs ? boldSpan(text, c.bs) : withUnderlinedLines(text, c.ul, (line) => withHeaderWords(line, words, edit, !!c.caps))}</span>;
           }
           cells.push(
             <td
@@ -401,6 +427,12 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
                   draggable={false}
                   style={{ "--pt-ix": String(c.img.x), "--pt-iy": String(c.img.y), "--pt-iw": String(c.img.w), "--pt-ih": String(c.img.h) } as React.CSSProperties}
                 />
+              )}
+              {/* A cell that grows to its words (§325): their copy sizes the row; the box stands over it, and in print the words do. */}
+              {c.grow && (
+                <span className="pt-sizer" aria-hidden="true">
+                  {(c.box ? parts.value?.(c.box) : c.col && (c.ln ?? row.line) !== undefined ? parts.cellText?.((c.ln ?? row.line)!, c.col) : "") || " "}
+                </span>
               )}
               {body}
               {/* The record's boxes standing inside the paper's words (§275). */}
@@ -487,7 +519,9 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
   const breaks = form.ownWords ? (parts.pageBreaks ?? []) : [];
   // (a paper may draw its first pages itself: the pages after them count on from those)
   const ownPages = 1 + [...form.head, ...form.body].filter((r) => r.pb).length;
-  const pages = breaks.length + ownPages;
+  // (and pages it starts in its foot, after a register: F/SYS/04's items 9 to 11, §325)
+  const footPages = form.ownWords ? form.foot.filter((r) => r.pb).length : 0;
+  const pages = breaks.length + ownPages + footPages;
   // Every page says its true number and how many there are: the papers' own "1 Of 1" over a second page, "1 Of 5" over a single one (§285).
   let ownPage = 1;
   const ownBody: PaperRow[] = form.ownWords
@@ -496,7 +530,15 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
         return { ...r, cells: r.cells.map((c) => onPage(c, ownPage, pages)) };
       })
     : form.body;
-  const rows: DrawnRow[] = part === "head" && form.ownWords ? form.head.map((r) => ({ ...r, cells: r.cells.map((c) => onPage(c, 1, pages)) })) : part === "body" ? [...ownBody, ...lines] : [...form[part], ...lines];
+  let footPage = breaks.length + ownPages;
+  const ownFoot: PaperRow[] =
+    form.ownWords && footPages > 0
+      ? form.foot.map((r) => {
+          if (r.pb) footPage += 1;
+          return { ...r, cells: r.cells.map((c) => onPage(c, footPage, pages)) };
+        })
+      : form.foot;
+  const rows: DrawnRow[] = part === "head" && form.ownWords ? form.head.map((r) => ({ ...r, cells: r.cells.map((c) => onPage(c, 1, pages)) })) : part === "body" ? [...ownBody, ...lines] : part === "foot" ? [...ownFoot, ...lines] : [...form[part], ...lines];
   // (a paper whose words are kept by their place numbers its foot the same however many lines the record holds)
   const row0 = part === "head" ? 0 : part === "body" ? form.head.length : form.head.length + form.body.length + (form.lines ? (form.ownWords ? form.lines.count : Math.max(form.lines.count, held)) : 0);
   if (rows.length === 0) return null;

@@ -41,7 +41,9 @@ function breaksOf(sheet: HTMLElement): number[] {
   const again = band >= 0 ? heightOf(headRows.slice(0, band + 1)) : head;
   const heading = heightOf(Array.from(sheet.querySelectorAll(".paper-body tr[data-pt-heading]")).filter(shown));
   const bodyTop = sheet.querySelector(".paper-body table.pt-table")?.getBoundingClientRect().top ?? lines[0].getBoundingClientRect().top;
-  const foot = heightOf(Array.from(sheet.querySelectorAll(".paper-foot table.pt-table")));
+  // (a foot that starts pages of its own keeps only its first page's rows under the last line: F/SYS/04's item 8 result, §325)
+  const footTables = Array.from(sheet.querySelectorAll(".paper-foot table.pt-table"));
+  const foot = sheet.querySelector(".paper-foot tr.pt-pb") ? heightOf(footTables.slice(0, 1)) : heightOf(footTables);
   const lineOf = (tr: Element) => Number(tr.getAttribute("data-pt-line")) - 1;
   const breaks: number[] = [];
   // (where the paper draws a page of its own above the first line, that page is the one the lines start on)

@@ -29,6 +29,7 @@
 
 import { HR_PAPER_TABLES } from "./hrPaperTables";
 import { formatEditFor } from "../formatEdits";
+import { SYS_PAPER_TABLES } from "./sysPaperTables";
 import { MNT_PAPER_TABLES } from "./mntPaperTables";
 
 /** One answer of a choice the paper sets across its cells or inside a cell: a scale's 7 to 1, Yes / No, a tick box (§275). */
@@ -104,6 +105,12 @@ export interface PaperCell {
   skip?: true;
   /** A register's line number: on every ruled line ("all", the paper prints them) or on the record's lines only ("rows"). */
   num?: "all" | "rows";
+  /** The line number as the paper writes it: "1." (F/SYS/04's objectives) or "01" (F/SYS/04-A's participants), §325. */
+  numFmt?: "dot" | "pad2";
+  /** Its row grows to the words its box or column holds, on the screen and in print (F/SYS/04's discussions, §325). */
+  grow?: true;
+  /** The words from this letter to that one printed bold, the rest plain, as Word sets a heading's bold words (§325). */
+  bs?: [number, number];
   /** A cell the paper shades (F/QC/08's and F/QC/16's number box): its grey. */
   bg?: string;
   /** Its words in the middle of its height, as a spreadsheet's heading sets them (each line lh apart). */
@@ -1596,7 +1603,7 @@ export function paperTableFits(
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
 // (and a format made from a Word file, whose paper is kept with the format: REQUIREMENTS §324)
 export const paperTableFor = (documentId: string): PaperTable | undefined =>
-  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? formatEditFor(documentId)?.paper;
+  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? formatEditFor(documentId)?.paper;
 
 /** The paper as the page draws it now, with the record's own rows (§246): what the download is cut from. */
 const SHOWN_PAPER = new Map<string, PaperTable>();

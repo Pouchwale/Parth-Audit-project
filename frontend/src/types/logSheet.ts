@@ -48,6 +48,8 @@ export interface LogHeaderField {
     financialYear?: boolean;
     formerDefaults?: string[];
     yearsOf?: { prefix: string; date: string; due: string };
+    /** What the last record held in ANOTHER box: F/SYS/04's item 1 takes the last meeting's New Action Items (§325). */
+    fromPrevious?: string;
   };
   width?: number;
   /**

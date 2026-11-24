@@ -984,6 +984,7 @@ export function LogSheetRecordView({
           }
         : undefined,
       holds: (line: number, col: string) => String(data.rows[line]?.[col] ?? "").trim() !== "",
+      cellText: (line: number, col: string) => String(data.rows[line]?.[col] ?? ""),
       calc: (line: number, of: string, times: number) => {
         const v = data.rows[line]?.[of];
         return v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? "" : String(Number(v) * times);

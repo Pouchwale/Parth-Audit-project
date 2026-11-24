@@ -3927,6 +3927,13 @@ table.svc-paper {
   .pt-table .pt-sentence.pt-sw > .pt-pw { display: inline; }
   .pt-table .pt-sentence.pt-sw > .pt-pw:empty { display: inline-block; width: calc(var(--pt-bw) * var(--u)); }
 }
+/* A cell that grows to its words (PaperCell.grow, F/SYS/04, §325): the hidden copy sizes the row, the box stands over it;
+   printed, the words stand in the box's place. */
+.pt-table td.pt-c.pt-grow > .pt-sizer { display: block; visibility: hidden; white-space: pre-wrap; }
+@media print {
+  .pt-table td.pt-c.pt-grow > .field-in-table, .pt-table td.pt-c.pt-grow > .pt-box { display: none; }
+  .pt-table td.pt-c.pt-grow > .pt-sizer { visibility: visible; }
+}
 /* QC-PAPER-TABLES end */
 
 /* QC-CALIBRATION begin */
@@ -4570,6 +4577,8 @@ html.print-measure [data-print-doc].print-close .paper-sheet:not([data-paper-for
   /* EVERY VALUE ON AN HR PAPER PRINTS IN THE MIDDLE OF ITS CELL'S HEIGHT (§294; the owner, 23-Nov-2026, F/HR/05's Date of Joining standing at
      the top of its box: "this applicable to all fields"). A date or a written box prints as words in its place, and those stood at the top. */
   .paper-sheet[data-paper-own]:not([data-paper-read]) .pt-table td.pt-c > :is(.field-in-table, .pt-box):has(> .print-box-text) { display: flex; flex-direction: column; justify-content: safe center; padding-top: 0; padding-bottom: 0; }
+  /* (a cell that grows to its words prints them in its box's place, F/SYS/04, §325: the box itself not, written or not) */
+  .paper-sheet[data-paper-own]:not([data-paper-read]) .pt-table td.pt-c.pt-grow > :is(.field-in-table, .pt-box):has(> .print-box-text) { display: none; }
   .paper-sheet[data-paper-own] .pt-table .pt-over > :is(.field-in-table, .pt-box):has(> .print-box-text) { display: flex; flex-direction: column; justify-content: center; }
   .paper-sheet[data-paper-own]:not([data-paper-read]) .pt-table td.pt-c > :is(.field-in-table, .pt-box) > .print-box-text,
   .paper-sheet[data-paper-own] .pt-table .pt-over > :is(.field-in-table, .pt-box) > .print-box-text { position: static; display: block; flex: none; width: 100%; box-sizing: border-box; padding-top: 0; padding-bottom: 0; color: #000; font: inherit; text-align: inherit; }

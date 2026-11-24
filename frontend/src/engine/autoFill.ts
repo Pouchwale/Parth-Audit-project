@@ -863,6 +863,8 @@ function fillLogSheet(
     // sample) - the certificate's dates would stand after the earlier months' sheets.
     // The record's own date, n days on (F/QC/11's week and the next, REQUIREMENTS §223).
     else if (f.autoFill?.afterRecordDate !== undefined) header[f.key] = addDays(dueDate, f.autoFill.afterRecordDate);
+    // What the last record held in another box (F/SYS/04's item 1 follows up the last meeting's New Action Items, §325).
+    else if (f.autoFill?.fromPrevious !== undefined) header[f.key] = isPlaceholder(previous?.data.header?.[f.autoFill.fromPrevious]) ? "" : (previous?.data.header?.[f.autoFill.fromPrevious] ?? "");
     else if (f.autoFill?.newest) header[f.key] = f.key === "calibrationDate" ? dueDate : f.autoFill.carryForward ? (prev ?? specimen) : "";
     // "Date of Inspection", "Date :" — the day the record is for, not the day the last one was.
     else if (f.autoFill?.dueDate) header[f.key] = dueDate;

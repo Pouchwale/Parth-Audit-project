@@ -308,15 +308,17 @@ const attendanceFields: LogHeaderField[] = Array.from({ length: ATTENDANCE_LINES
 ]);
 
 // Item 1's table: the last meeting's action items and how they stand now. Not
-// carried from the last record — its item 1 lists the actions of the meeting
-// BEFORE it; this meeting follows up the last one's New Action Item Detail.
+// carried from the last record's item 1 — that lists the actions of the meeting
+// BEFORE it; this meeting follows up the last one's New Action Item Detail, so
+// each line starts with that table's action, when and who (the owner's choice,
+// 24-Nov-2026, §325). The status is this meeting's own.
 const followUpFields: LogHeaderField[] = Array.from({ length: ACTION_LINES }, (_, i) => i + 1).flatMap((n): LogHeaderField[] => {
   const line = (label: string) => itemLabel(mrmItem(1), `Line ${n} — ${label}`);
   return [
-    { key: `item1Line${n}Action`, label: line("Action item:"), type: "paragraph" },
+    { key: `item1Line${n}Action`, label: line("Action item:"), type: "paragraph", autoFill: { fromPrevious: `newAction${n}Item` } },
     { key: `item1Line${n}Status`, label: line("Status :"), type: "text" },
-    { key: `item1Line${n}When`, label: line("When:"), type: "date" },
-    { key: `item1Line${n}Who`, label: line("Who:"), type: "text", list: EMPLOYEES },
+    { key: `item1Line${n}When`, label: line("When:"), type: "date", autoFill: { fromPrevious: `newAction${n}When` } },
+    { key: `item1Line${n}Who`, label: line("Who:"), type: "text", list: EMPLOYEES, autoFill: { fromPrevious: `newAction${n}Who` } },
   ];
 });
 

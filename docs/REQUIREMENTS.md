@@ -13544,3 +13544,55 @@ saving; the format drawn as the exact paper; styling in Edit format first (§318
 - Files: engine/wordForm/readDocx.ts, engine/wordForm/toPaper.ts, components/documents/WordFormImport.tsx,
   pages/DocumentLibraryPage.tsx, data/formatEdits.ts, data/seed/qcPaperTables.ts, engine/formatOps.ts, styles.css. Tests:
   frontend/tests/wordForm.test.ts (the company's originals, and tests/fixtures/blank-form-sample.docx, a made-up blank form).
+
+## §325 F/SYS/04 and F/SYS/04-A as the owner's own papers (24-Nov-2026)
+
+The owner, 24-Nov-2026, with "F-SYS-04-Management review meeting agenda & Record_July 2025.doc" from his Google Drive: "i want
+this format perfectly in system understand the requirements and changes what we have to do and let me know before making
+changes in format". The proposal was put to him first; he answered "Yes, as proposed".
+
+- F/SYS/04 (Management Review Meeting Record) and F/SYS/04-A (its notice) are drawn and printed as his papers, measured in mm off
+  the PDFs of his July 2025 files (data/seed/sysPaperTables.ts): the three-line head on every page (company and period, title and
+  meeting date, Format No. / Rev No / Date / Page No. X Of Y), the meeting table, the attendance table (Name, Designation, Sign
+  twice across), the eleven agenda items each in its numbered block with its heading's bold words, Reporting Responsibility,
+  Items/records reviewed, the discussion and Discussion Results, item 1's follow-up table, item 8's objectives table ("1." to
+  "19."), the New Action Item Detail table; F/SYS/04-A's three lines, its participants "01" to "08" and the eleven agenda points.
+  Printed: 9 pages and 1 page, as his.
+- Every printed word is the record's to type over (as the HR papers, §275); any row may be added under or deleted (§276). The
+  boxes are the format's own as before, so the meeting of 21.07.2025 and the notice of 07.07.2025 read on unchanged.
+- His choices: the paper's wording kept exactly as written (Pant Head, PTSL, coursed, Mr. Vivek ...); the Sign column left empty
+  for a hand signature; each Discussion Results a tick box of the three results his pages print; item 1 of a new meeting starts
+  from the last meeting's New Action Items (action, when, who; the status is the new meeting's own: autoFill.fromPrevious); no
+  colour (item 8's yellow is not drawn).
+- A discussion, the purpose, an objective or its justification grows its row to its words, on the screen and in print
+  (PaperCell.grow). A register's later page keeps only the foot's first page with its last line (utils/paperPages.ts), so the
+  objectives no longer leave one line alone on a page. Headings print part bold (PaperCell.bs); line numbers as the paper writes
+  them (PaperCell.numFmt).
+- His Word files are kept in source-documents/ (F-SYS-04-..._July 2025.doc, F-SYS-04A-..._July2025.doc).
+- Files: data/seed/sysPaperTables.ts, data/seed/qcPaperTables.ts, data/seed/sysManagementReviewLayouts.ts,
+  components/records/PaperTableSheet.tsx, components/records/LogSheetRecordView.tsx, engine/autoFill.ts, types/logSheet.ts,
+  utils/paperPages.ts, styles.css. Tests: frontend/tests/sysMrmPaper.test.ts.
+
+## §326 F/SYS/06 Internal Audit Schedule & Plan as the owner's Drive page (24-Nov-2026)
+
+The owner, 24-Nov-2026: "check and find the sys/06 and check the current format and drive format and make format like drive
+... make it perfect format". His Google Drive holds the blank original (F-SYS-06-Internal Audit Plan.doc, Rev 00) and the filled
+sheets; the newest, the plan of audit 01/2025 ("F-SYS-06-Internal Audit Plan (R).doc", Rev No: 01, Date: 01.03.2023), is the
+page DCRS's F/SYS/06 was built from. DCRS drew it as one 13-column grid, the plan's columns and the AUDIT SUMMARY's side by side.
+
+- F/SYS/06 is drawn and printed as that page, measured in mm off its PDF (data/seed/sysAuditPlanPaper.ts): the double page border,
+  the three-line head, the Audit Sr. No. / Date / Audit Team Leader table, the auditors' table (Sr. No., Auditor's Name,
+  Department), the paragraph, the plan table (Sr. No., Function, Audit Date, Audit Time, Auditors, Auditee, Acknowledge), AUDIT
+  SUMMARY and its table (Sr. No., Dept. Name/Clause Name, No. of Critical NC, Status, No. of Major NC, Status, No. of Minor NC,
+  Status), "Verified By: ____". Calibri 10 pt, the head 13 pt; one A4 page.
+- The boxes and the grid are the format's own as before: the plan table writes the grid's function ... acknowledge, the summary
+  table the same lines' summaryName ... minorStatus, so audit 01/2025 reads on unchanged. Every printed word is the record's to
+  type over (§275); any row may be added under or deleted (§276).
+- A record keeps at least the two lines the page prints (rowMode minRows 2, typicalRows 2), so both rows of each table can be
+  typed in. The Audit Date prints as the sheet writes dates (17-02-2025), in the middle of its cell (§294).
+- Left as the page has it: the summary's two Minor NC lines in one cell ("4.2.1, 4.7.6"); the dotted rules between the auditors'
+  lines drawn solid.
+- Checked on the local copy: the screen, the Print button's PDF (one page), the Word and Excel downloads opened in Office, and
+  tests/verify_with_test_account.py sys-audit-plan --print (account made, 8 words kept after a reload, account deleted).
+- Files: data/seed/sysAuditPlanPaper.ts, data/seed/qcPaperTables.ts, data/seed/sysInternalAuditLayouts.ts. Tests:
+  frontend/tests/sysAuditPlanPaper.test.ts. Builds on §325's PaperCell.grow.
