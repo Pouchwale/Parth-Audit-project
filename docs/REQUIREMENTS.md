@@ -13822,3 +13822,21 @@ gone from there".
 - The account directory (GET /api/users/directory) gives each account's sign-in for this; a server change, live at its restart.
 - Files: backend/index.ts, frontend/src/engine/departmentScope.ts, engine/documentInfo.ts, store/AuthContext.tsx,
   components/access/AccessSection.tsx, api/client.ts; tests/responsibleWho.test.ts.
+
+## §334 HR: a person's detail changed on a record is asked of HR Master Data, then "are you sure" (25-Nov-2026)
+
+The owner, 25-Nov-2026: "if the data which is came from master data and user tried to change anything of his details like date of
+joining, date of birth, Designation, department ... system will ask him whether to update the data ... if user select yes then it
+should ask are you sure ... this is for HR module only".
+
+- On every HR format that fetches a person (hrMaster.ts HR_MASTER_LINKS: F/HR/01, 03, 04, 05, 06, 08, 10, 11, 13, 20), a box filled
+  from HR Master Data (Department, Designation, Sub Department, Date of Joining, Date of Birth, or a combined Department &
+  Designation box) typed over with something the sheet does not say for the person the line or header names is asked when the box
+  is left: "Update HR Master Data too?" with the sheet's value beside the one typed. Yes asks "Are you sure?" (the sheet will change,
+  every HR format takes the new details from then on, records already filed keep theirs); Yes, I am sure changes HR Master Data. Either
+  No changes only the record. The questions have to be answered (no cross, no click beside).
+- A blank on the sheet is filled without asking (as the registers have always fed it, §161), now with the whole value typed rather
+  than its first letters. A date half typed, a box emptied, the same words written another way, the name box, the sex read from the
+  name, F/HR/06's induction date and F/HR/04's signature date are never asked. Demo records and read-only records never ask.
+- Files: engine/hrMasterChange.ts, components/records/HrMasterChangeAsk.tsx, components/records/LogSheetRecordView.tsx,
+  engine/hrMaster.ts (slashOrderOf exported). Tests: frontend/tests/hrMasterChange.test.ts.

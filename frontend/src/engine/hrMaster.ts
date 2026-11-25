@@ -187,7 +187,7 @@ export function writeDate(iso: string, style: DateStyle): string {
 }
 
 // F/HR/01's slashed dates are month first like F/HR/03's; F/HR/06's are day first.
-const slashOrderOf = (style: DateStyle): SlashOrder => (style === "dotted" || style === "monthFirst" ? "mdy" : "dmy");
+export const slashOrderOf = (style: DateStyle): SlashOrder => (style === "dotted" || style === "monthFirst" ? "mdy" : "dmy");
 
 const ROLE_WORD = /\b(?:operator|manager|exe?cutive|exucutive|helper|assi|assistant|hod|head|caller|supervisor|engineer|co-?ordinator|trainee)\b/i;
 

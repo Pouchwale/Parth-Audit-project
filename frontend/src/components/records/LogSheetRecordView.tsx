@@ -35,6 +35,9 @@ import { applyFills, hrMasterLinkFor, personNamed, withPersonNamed } from "../..
 import { sexFromName } from "../../engine/sexFromName";
 import { printFillOf } from "../../engine/printFill";
 import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
+import { HrMasterChangeAsk, type MasterAsk } from "./HrMasterChangeAsk";
+import { askedOfMaster, masterChanges, personOfBox } from "../../engine/hrMasterChange";
+import type { HrMasterPerson } from "../../types";
 import { trainingBoxOf, trainingFill, trainingLabel, trainingsFor, TRAININGS_LIST } from "../../engine/trainingLinks";
 import { equipmentLinkFor, equipmentMasterVisible, machineBlankFills, machineByNumber, machineValue } from "../../engine/equipmentMaster";
 import {
@@ -205,6 +208,7 @@ export function LogSheetRecordView({
     removeRow: (rowId: string) => void;
     insertRow: (afterId: string) => void;
     setHeadingWords: (key: string, words: string) => void;
+    checkMaster: () => void;
   } | null>(null);
   const onCell = React.useCallback((rowId: string, key: string, value: string | number | null) => handlers.current?.setCell(rowId, key, value), []);
   const onBox = React.useCallback((key: string, value: string) => handlers.current?.setHeader(key, value), []);
@@ -216,6 +220,15 @@ export function LogSheetRecordView({
   const onTrainingBlur = React.useCallback((_rowId: string | null, value: string) => handlers.current?.fillFromTraining(value), []);
   const onRemoveRow = React.useCallback((rowId: string) => handlers.current?.removeRow(rowId), []);
   const onInsertRow = React.useCallback((afterId: string) => handlers.current?.insertRow(afterId), []);
+  // A detail fetched from HR Master Data and typed over (REQUIREMENTS §334): the box being typed in, its person as the
+  // sheet had them when typing began, and the question asked once the box is left (any box losing the cursor).
+  const masterEdit = React.useRef<{ rowId: string | null; key: string; value: string; person: HrMasterPerson } | null>(null);
+  const [masterAsk, setMasterAsk] = React.useState<MasterAsk | null>(null);
+  React.useEffect(() => {
+    const left = () => window.setTimeout(() => handlers.current?.checkMaster(), 0);
+    document.addEventListener("focusout", left);
+    return () => document.removeEventListener("focusout", left);
+  }, []);
   // Before the early return below: a hook called only on some renders breaks
   // React ("rendered fewer hooks than expected") the moment this component is
   // reused for a document without a layout.
@@ -337,7 +350,32 @@ export function LogSheetRecordView({
   };
   // (editable only: a read-only sheet never changes)
   const hrNameLink = editable ? hrMasterLinkFor(doc.id) : undefined;
+  // A box filled from HR Master Data being typed in (REQUIREMENTS §334): noted, with its person as the sheet has them now.
+  const noteMasterEdit = (rowId: string | null, key: string, value: unknown, box: Record<string, unknown> | undefined) => {
+    if (!hrNameLink || !box || record.isDemo || !askedOfMaster(hrNameLink, key)) return;
+    const was = masterEdit.current;
+    const person = was && was.rowId === rowId && was.key === key ? was.person : personOfBox(hrNameLink, box, hrMasterRepository.all());
+    masterEdit.current = person ? { rowId, key, value: String(value ?? ""), person: { ...person } } : null;
+  };
+  /** The box left: a blank on the sheet is filled, a different detail is asked (update? are you sure?). */
+  const checkMaster = () => {
+    const e = masterEdit.current;
+    masterEdit.current = null;
+    const field = e && hrNameLink ? askedOfMaster(hrNameLink, e.key) : undefined;
+    if (!e || !field) return;
+    const changes = masterChanges(field, e.value, e.person);
+    for (const c of changes.filter((x) => !x.from)) hrMasterRepository.update(e.person.id, c.key, c.to, currentUser || "the record");
+    const asks = changes.filter((x) => x.from);
+    const box = [...layout.headerFields, ...layout.columns].find((f) => f.key === e.key)?.label ?? e.key;
+    if (asks.length > 0) setMasterAsk({ person: e.person, box, changes: asks });
+  };
+  const masterSure = () => {
+    if (masterAsk) for (const c of masterAsk.changes) hrMasterRepository.update(masterAsk.person.id, c.key, c.to, currentUser || "the record");
+    setMasterAsk(null);
+  };
+  const masterDialog = masterAsk && <HrMasterChangeAsk key={`${masterAsk.person.id}-${masterAsk.box}`} ask={masterAsk} onSure={masterSure} onNo={() => setMasterAsk(null)} />;
   const setHeader = (key: string, value: string) => {
+    if (hrNameLink?.where === "header") noteMasterEdit(null, key, value, data.header);
     // The person's name taken out of its box: what was fetched for them goes with it at once (REQUIREMENTS §268).
     const cleared = !String(value ?? "").trim() && hrNameLink?.where === "header" && hrNameLink.nameField === key ? withPersonNamed(hrNameLink, data.header, value, hrMasterRepository.all()) : null;
     save({ ...data, header: (cleared ?? { ...data.header, [key]: value }) as LogSheetData["header"] });
@@ -350,7 +388,8 @@ export function LogSheetRecordView({
   };
   // The worked-out columns a person may type over (REQUIREMENTS §188).
   const typableKeys = new Set(layout.columns.filter((c) => c.computed && c.typable).map((c) => c.key));
-  const setCell = (rowId: string, key: string, value: string | number | null) =>
+  const setCell = (rowId: string, key: string, value: string | number | null) => {
+    if (hrNameLink?.where === "rows") noteMasterEdit(rowId, key, value, data.rows.find((r) => r.id === rowId));
     (key === "date" || key === "nextDueDate" ? saveDates : save)({
       ...data,
       // A name typed in a sign box stays as typed through Submit and Verify (F/QC/11, 12, 17, §278).
@@ -365,6 +404,7 @@ export function LogSheetRecordView({
         return next;
       }),
     });
+  };
   /** F/QC/12: the person confirms the scale showed the filled readings of a line. */
   const confirmReadings = (rowId: string) =>
     save({
@@ -514,7 +554,7 @@ export function LogSheetRecordView({
   // box's label above or below the grid are typed over where they stand (EditableWords, asked first), the format's until then.
   const headingWords = (key: string, own: string): string => data.words?.headings?.[key] ?? own;
   const setHeadingWords = (key: string, words: string) => save({ ...data, words: { ...data.words, headings: { ...data.words?.headings, [key]: words } } });
-  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, fillFromSupplier, fillFromTraining, removeRow, insertRow, setHeadingWords };
+  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, fillFromSupplier, fillFromTraining, removeRow, insertRow, setHeadingWords, checkMaster };
 
   // One box above the grid: a person's or a machine's box offers the people or the machines it can be filled from.
   // `inTable`: a cell of the paper's table of boxes (boxTable, REQUIREMENTS §111), headed by the table's words.
@@ -1089,6 +1129,7 @@ export function LogSheetRecordView({
           </div>
         )}
         {pt.ownWords && fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
+        {masterDialog}
         {plainTwin &&
           createPortal(
             <div className="paper-plain-twin" {...{ [PLAIN_TWIN_ATTR]: record.id }}>
@@ -1346,6 +1387,7 @@ export function LogSheetRecordView({
       )}
 
       {fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
+      {masterDialog}
       {eqFetching && eqLink && <EquipmentFetch key={`eq-${record.id}`} link={eqLink} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
       {supFetching && supLink && (
         <SupplierFetch
