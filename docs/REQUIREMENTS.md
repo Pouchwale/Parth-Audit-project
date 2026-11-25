@@ -13720,3 +13720,36 @@ The owner, 25-Nov-2026: "So in hr-8 there should be come X instead of Yes or no"
   The choice offered is X alone; the screen note says so.
 - Sheets answered before take the mark once, with a line in their history: "Yes" becomes X, "No" a blank cell (the same meaning).
 - Files: data/seed/hrLayouts.ts, data/hrTniXMigration.ts, data/bootstrap.ts. Tests: tests/hrTniX.test.ts.
+
+## §328 The DCRS-style sheets print as the owner's papers are drawn: headings, ruled lines to the foot, ruled boxes and notes (25-Nov-2026)
+
+The owner, 25-Nov-2026, shown the review of every format against his Google Drive (60 of DCRS's own printouts far from his
+papers: grey capital headings, boxes as loose labels, notes as grey text, only the written lines printed): "Yes, shared fixes
+first".
+
+- **Every module's sheets fill their A4 page** as QC, HR and Purchase have since §194: Production, Maintenance, System /
+  Management, Marketing, Store, Dispatch and CAPA too (engine/printFill.ts). A register is ruled with blank lines to the foot
+  of the page, as the papers are; the words are drawn bigger and a form's boxes set apart to fill the page. The Statements of
+  Compliance (Quality — Compliance) are letters with no lines, and print as before.
+- **A sheet DCRS draws in its own style** (not one of the owner's papers, not a framed QC page), printed:
+  - its column headings as the paper writes them: its own letters (no capitals put on them), black, bold, in the middle of
+    their cell, no grey band;
+  - each box in a ruled cell, its label in bold black before what is written, the cells joined into one ruled block (a short
+    last row ends on the block's frame);
+  - the paper's notes above the grid (a line clearance's points, an ALC protocol, a register's rule) in a ruled box, in black.
+- The screen is unchanged. Each rule holds while the sheet is measured for its page and while it prints, so a sheet is
+  fitted to the page as it prints (styles.css, html.print-scoped).
+- A sheet's foot taller than 15% of the page (it was 20%) prints once, after the last line, with the page's 12 mm kept in a
+  short foot of its own: printed upright, F/SYS/12's foot of HARA team boxes was 18% of the page and the browser did not
+  repeat it, so its first page ran to 2.3 mm of the paper's foot (utils/print.ts, footsTooTall, §277). No other sheet that
+  runs to a second page has a foot between 11% (F/MNT/04, repeated) and 20%.
+- An owner's paper in those modules prints the blank ruled lines its paper rules, as QC's papers do (§194) - except F/SYS/04's
+  MRM record, which keeps only the lines written, as §325 drew it: its objectives table's nineteen lines put a line and the
+  discussion results on a ninth page of their own.
+- Still each document's own: the header band (FORMAT NO. / REV NO. / REV DATE / PAGE NO. in place of the paper's own line),
+  the company's name (§87), the SR. NO. column, the order of a sheet's parts. Those come with drawing each document as the
+  owner's paper, one by one.
+- Checked on the local copy: every document printed before and after, a sample set beside the owner's originals (F-PRD-18,
+  20, 21, F/MNT/05, 06, 07, F/PUR/05, F/SYS/17, F/STR/02, F/DISP/04, F/MKT/02 and the CAPA findings report).
+- Files: engine/printFill.ts, styles.css, utils/print.ts, components/records/LogSheetRecordView.tsx (a box line's gap is read from --box-gap,
+  which the print rule sets to 0, so no !important is added). Tests: frontend/tests/printFill.test.ts.

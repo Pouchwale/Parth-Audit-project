@@ -942,7 +942,11 @@ let footsOnce: Element[] = [];
  * The browser repeats a table's footer only while it is short beside the page. A taller foot (F/SYS's HARA sheet, 63 mm) was not
  * repeated, so its 12 mm went with it and the first page's lines ran to 0.6 mm of the paper's edge. Such a sheet prints that foot
  * once, after its last line, and keeps its margin in its own short foot (.paper-page-foot).
+ * (Over FOOT_ONCE_OVER of the page, REQUIREMENTS §328: printed upright, the HARA sheet's foot was 18% of the page and still not
+ * repeated - its first page ran to 2.3 mm of the paper's foot - where F/MNT/04's, 11%, is. Measured on every sheet that runs to
+ * a second page, none other has a foot between the two.)
  */
+const FOOT_ONCE_OVER = 0.15;
 function footsTooTall(docs: Element[]): Element[] {
   const pageH = (document.documentElement.dataset.printPage === "landscape" ? 210 : 297) * PX_PER_MM;
   const out: Element[] = [];
@@ -953,7 +957,7 @@ function footsTooTall(docs: Element[]): Element[] {
         const sel = ".paper-sheet:not([data-frame]):not([data-paper-form]):not([data-foot])";
         for (const sheet of d.matches(sel) ? [d] : Array.from(d.querySelectorAll(sel))) {
           const foot = sheet.querySelector(":scope > .paper-foot");
-          if (foot && sheet.querySelector(":scope > .paper-page-foot") && foot.getBoundingClientRect().height > pageH * 0.2) out.push(sheet);
+          if (foot && sheet.querySelector(":scope > .paper-page-foot") && foot.getBoundingClientRect().height > pageH * FOOT_ONCE_OVER) out.push(sheet);
         }
       }
     });

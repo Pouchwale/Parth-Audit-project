@@ -89,13 +89,12 @@ test("each page filled: a sheet's own pages drawn bigger one by one, then a shor
 // QC papers' own ruled lines printed again. Measured in a browser on every QC, HR and Purchase document by the scratch run
 // of 6-Nov-2026 (F/HR/13 44% -> 83% of the page, F/HR/06 35% -> 82%, F/QC/15-A 35% -> 81%, F/QC/16 30% -> 96%,
 // F-QC-40.A 18% -> 70% at its paper's 31 lines, F/PUR/01's first page 30% -> 95%).
-test("§194: only a QC, HR or Purchase document fills its page - the module decides, and every page that prints a record marks it", () => {
-  assert.deepEqual([...PAGE_FILL_MODULES], ["Quality Control — Inspection Records", "Lamination — Quality Control", "Human Resources", "Purchase"]);
-  assert.equal(printFillOf({ module: "Human Resources" }), "page");
-  assert.equal(printFillOf({ module: "Purchase" }), "page");
-  assert.equal(printFillOf({ module: "Quality Control — Inspection Records" }), "page");
-  assert.equal(printFillOf({ module: "Lamination — Quality Control" }), "page");
-  for (const other of ["Production", "Maintenance", "Marketing", "Store", "Dispatch", "System / Management", "Quality — Compliance", "CAPA (Corrective & Preventive Action)", ""]) {
+// §328 (25-Nov-2026): every other module's sheets fill their page too, but the Statements of Compliance (letters, no lines).
+test("§194, §328: every module's document fills its page but the Statements of Compliance - the module decides, and every page that prints a record marks it", () => {
+  const filling = ["Quality Control — Inspection Records", "Lamination — Quality Control", "Human Resources", "Purchase", "Production", "Maintenance", "System / Management", "Marketing", "Store", "Dispatch", "CAPA (Corrective & Preventive Action)"];
+  assert.deepEqual([...PAGE_FILL_MODULES], filling);
+  for (const m of filling) assert.equal(printFillOf({ module: m }), "page", m);
+  for (const other of ["Quality — Compliance", ""]) {
     assert.equal(printFillOf({ module: other }), undefined, other || "(no module)");
   }
   assert.equal(printFillOf(undefined), undefined);

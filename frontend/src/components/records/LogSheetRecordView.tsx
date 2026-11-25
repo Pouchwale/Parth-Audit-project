@@ -1980,6 +1980,7 @@ function BoxLine({ group, minWidth, section, className, paper, children }: { gro
         "--pf-gap": `calc(${paper.gap} * var(--u))`,
       } as React.CSSProperties)
     : undefined;
+  // (--box-gap: 0 when a DCRS-style sheet prints its boxes as ruled cells, styles.css REQUIREMENTS §328)
   return (
     <div
       className={`grid${className ? ` ${className}` : ""}${group.perLine ? " sheet-boxes-paper" : ""}`}
@@ -1987,8 +1988,8 @@ function BoxLine({ group, minWidth, section, className, paper, children }: { gro
       data-pf={paper?.kind}
       style={
         group.perLine
-          ? ({ "--paper-box-columns": group.perLine, gap: paper ? "var(--pf-gap-rc, 10px 16px)" : "10px 16px", ...paperVars } as React.CSSProperties)
-          : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: paper ? "var(--pf-gap-rc, 10px 16px)" : "10px 16px", ...paperVars }
+          ? ({ "--paper-box-columns": group.perLine, gap: paper ? "var(--pf-gap-rc, var(--box-gap, 10px 16px))" : "var(--box-gap, 10px 16px)", ...paperVars } as React.CSSProperties)
+          : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: paper ? "var(--pf-gap-rc, var(--box-gap, 10px 16px))" : "var(--box-gap, 10px 16px)", ...paperVars }
       }
     >
       {children}
