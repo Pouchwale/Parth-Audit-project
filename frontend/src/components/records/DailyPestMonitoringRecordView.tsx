@@ -9,7 +9,7 @@ import { dayInfo } from "../../engine/holidays";
 import { totalRodents } from "../../engine/rodentPattern";
 import { newRodentCatch, rodentAreaNames, withCatchEdited, withCheckpointAnswer, withoutSuggested } from "../../engine/rodentCatches";
 import { Link } from "../../store/router";
-import { FHR17_INSTRUCTION_1, FHR17_INSTRUCTION_2 } from "./DailyRegisterSheet";
+import { DailyRegisterSheet, FHR17_INSTRUCTION_1, FHR17_INSTRUCTION_2 } from "./DailyRegisterSheet";
 import { MONTH_NAMES, fromISODate } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { bindProps, dailyPestBind } from "../../engine/roundTrip/bindingsFor";
@@ -104,6 +104,15 @@ export function DailyPestMonitoringRecordView({
   // file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
   return (
     <div data-bind-record={record.id}>
+      {/* PRINTED, THE DAY IS ITS LINE OF THE OWNER'S PAPER (REQUIREMENTS §373; the audit of 24-Nov-2026: "a one-day screen-style
+          form on 1 page"): the register's three pages - the instructions and the ten check points, the dates 1 to 19, the 20th
+          to the month's end and the summary - with this day's answers, time and checker on its date's line and its actions in
+          the summary. The form below is the screen's, where the day is written; it is what the Word and Excel files are read
+          from, as before (the paper is hidden from them: aria-hidden). */}
+      <div className="print-only fhr17-day-paper" aria-hidden="true">
+        <DailyRegisterSheet year={due.getFullYear()} month={due.getMonth()} isDemo={record.isDemo} only={record} />
+      </div>
+      <div className="fhr17-day-form">
       <DocumentHeader doc={doc} pageLabel={record.headerBlock?.page ?? headerDefaults.page} edit={headerEdit} />
       {headerPanel}
       <div className="text-xs text-muted mt-2 no-print">
@@ -483,6 +492,7 @@ export function DailyPestMonitoringRecordView({
             </tbody>
           </table>
         </div>
+      </div>
       </div>
     </div>
   );

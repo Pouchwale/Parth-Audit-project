@@ -14382,3 +14382,83 @@ keeps its key; no colour is printed (§282); dates print dd-mm-yyyy.
   components/records/OwnPaperSheet.tsx, PaperTableSheet.tsx, LogSheetRecordView.tsx, components/charts/SheetChart.tsx,
   pages/CapaPage.tsx, pages/GapPage.tsx, types/record.ts (words on the two CAPA records), i18n/documentText.ts, styles.css,
   public/brand/gpp-logo-fmkt05.png. Tests: frontend/tests/papers355.test.ts.
+
+## §373 Human Resources: F/HR/15, 16, 17, 18, the rodent service report, the training record and the Pesticide Application Chart drawn and printed as the owner's papers (25-Nov-2026)
+
+The owner, 24/25-Nov-2026: "same format present in my system which is present in google drive ... whenever user download any
+document of any module or take a print on A4 size paper, that should be very perfect". The review of 24-Nov-2026
+(FORMAT-AUDIT-24-11-2026.md) found these seven HR documents far from his papers. Each is now drawn as his, or as the pest
+control contractor's, and printed on A4 as it stands. What the owner settled for the HR papers stays (§275 own words, §282 no
+colour and 8 pt, §294-§298, §308, §197, §214, §237, §251, §256).
+
+- **F/HR/15 Daily Cleaning Record** (data/seed/hrPapers357.ts, a paper of its own like the other HR papers): drawn from his sheet,
+  Calibri bold: the company's name underlined across the sheet; the title row with "Month & Year : - " and the month written after
+  it, DAILY CLEANING RECORD underlined, and "F/HR/15 (01/15.12.2024)" in its right cell; the NOTE inside the frame; "#", the two
+  area columns with no heading, 1 to 31; the seventeen areas and what is cleaned in each, a row each, the two-line names with room
+  above and below them; "Cleaning done by" and "Cleaning verified by" right-aligned in one cell across #, the area and the cleaning;
+  his medium rules round the sheet and its header, thin inside. One A4 landscape page, every letter 8 pt (§282): his sheet prints
+  at 49 %, about 7 pt, so its day columns are drawn 5.6 mm, narrower than his, and the area columns keep his proportions. The
+  company's name is his sheets' spelling (the supplied .xls prints "PACA1:AH16K" in it, a slip his Drive copy of 13-Mar-2026
+  corrects). Every printed word is the record's to type over; the record keeps its keys (monthYear; no, parameter, cleaning, d1 to
+  d31) and its 19 lines.
+- **F/HR/16 Monthly Cleaning Record** (hrPapers357.ts): the company's name; "MONTHLY CLEANING RECORD ( YEAR : ... )" underlined,
+  the year written in its blank; "F/HR/16 (01/15.12.2024)"; the NOTE in the frame; "#" down two rows, "Area" over the three area
+  columns, Jan to Dec in his letters; the Date line with his arrow pointing to the months (drawn black: no colour, §282); eighteen
+  areas, each with "Walls & Ceiling + Glass doors" and "Cleaning by" in his two cells; "Cleaning verified by" right-aligned. One A4
+  landscape page, 8 pt and more. The record's one Cleaning cell, which held both words, is kept on the record and not drawn.
+  Both cleaning records now download as the paper is drawn, Word and Excel (every HR paper's own words, §275); they were the grids
+  of §118 drawn on his workbook.
+- **F/HR/17 Daily Pest Control Monitoring Record** (components/records/DailyRegisterSheet.tsx, DailyPestMonitoringRecordView.tsx):
+  the register's three pages stand under his own header: his company's name, the title underlined with the month (no dash, §197),
+  and one row "Format No.: F/HR/17 | Rev No: 00 | Date: 01.12.2021 | Page No.: 1 Of 3"; both instruction lines bold; the grids'
+  headings in his words and letters, black on the grey band, every rule black; SUMMARY OF ACTIONS TAKEN IF PEST OBSERVED the first
+  row of its table; Calibri on paper. A DAY'S RECORD NOW PRINTS ON THESE THREE PAGES: its ten answers, time and checker on its
+  date's line, its actions in the summary (the paper's three ruled lines until one is written), the other dates' lines ruled and
+  blank. Its form stays the screen's, where the day is written, and its Word and Excel are read from it as before. Left as the
+  owner decided: page 1's check points stay a table with no lines under the grey Sr. No. / Check Point band (§308; his page is a
+  numbered list), and the notes of points 8 and 9, the catch details and a holiday's reason have no place on his paper (the
+  summary carries the catch and the dead rodent, §177, §180; a holiday is written across its line).
+- **F/HR/18 Fly Catcher Inspection & Cleaning Record** (FlyCatcherRecordView.tsx, FlyCatcherRegisterSheet.tsx): his company's name
+  on both pages; the units named as his Word page names them, "PC – 01" to "PC – 11", "PC - 12", "PC - 13" in the legend and
+  "PC - 01" to "PC - 10", "PC – 11" to "PC – 13" in the grid (Master Data's PC-01 stays the records' key); a visit prints both ruled
+  lines of every unit, the second blank until the month's other visit is written, so page 1 runs to its foot as his (§126 had kept
+  the blank line off the printout); that blank line's tube-light dates dittoed from the line above (it printed the year before's
+  pair under this year's); Calibri on the band, the legend and the grid as his page (the forms' own face, a rule on .doc-header
+  and .register-grid, printed them in Segoe UI). Left: the unit's number in the middle of its two lines (the owner, 7-Nov-2026,
+  §201: "keep this column in pc in center"; his page sets it at the top left), the grid's rules at 0.75 pt (his are about 0.5 pt;
+  the browser prints no finer rule), the tube-light dates and their ditto marks on every line (§44, §118).
+- **Pest Control Service Report - Rat / Mice** (ServiceReportRecordView.tsx): the plant addressed in the contractor's own words,
+  "Unit: GUJARAT PRINTPACK PUBLICATION PRIVATE LIMITED, 308/9, GIDC, DEDIYASAN, MEHSANA, GUAJRAT, INDIA - 384002", its line breaking
+  after "308/9," as his sheet's does; the Ants & Cockroaches and Fly reports are the same sheet and read the same. Left as the
+  owner chose the March 2026 sheet (§118: "make sure it looks like it only"): its fourth area "First floor - Ink store" and its first
+  row one line tall (the April sheet the review compared reads "Ink store - Ground floor" and a tall first row), the room above
+  the signatures (about 28 pt; April's about 33); every rule 2 px (§214), where his Date cell is heavier than his grid.
+- **Pest Control Training Record** (pages/TrainingPage.tsx): drawn as Gurudev Pest Control's letter ("Training - Yrl (1).doc"):
+  his letterhead not drawn (§251), its room at the top of the page left blank as his Word file leaves it; "Date:" and the record's
+  date at the right (24-12-2025, dd-mm-yyyy, §171; his 24.12.2025); the plant addressed in his words; "Subject: Pest control
+  awareness Training Program" underlined; "Training Topics covered" in Times bold underlined; the topics bulleted, then "List of
+  Personnel who attended the training"; the people numbered in a ruled two-column table; the sign-off, the record's Trainer /
+  Provider and "Rohit Patel". Every topic and name is typed on the letter, + and the bin beside it on the screen only. Training
+  Type, Certificate / Reference, Remarks and each person's department are kept on the record under the letter, on the screen only.
+  The training of 24-12-2025 prints as his letter, line for line. Word and Excel are drawn from the letter page (utils/originalFill
+  NOT_YET): his 2025 file filled kept his example topics and seven names on a record that has none, read his "Date:" as the
+  header's date cell and blanked it, and renamed the plant he addresses.
+- **Pesticide Application Chart** (pages/ChemicalMasterPage.tsx): the title in his ruled box over the middle of the chart, then
+  his grid ruled throughout, at his column widths, under his headings in his words and letters - "Sr. No | Services Name | Pest
+  Covered | Chemicals to be use | Dilution Ratio", not bold - the words at the top of their cells, double-spaced, a chemical to a
+  line; no shading, no bold service names; printed in the middle of its page as his. Left: the title is the owner's words of
+  17-Nov-2026 (§251, "Pesticide Application Chart (Chemical Master)"), his chart prints PESTICIDE APPLICATION CHART; the cells are
+  Master Data's, typed with Edit, and differ from his chart's spellings ("Tempor Proof", "K othrine", "Read & Black Ants",
+  "(Rat, Mice & Bandicoots)", "25 ml / ml/Sq. Mt", "20ml/ 1 liter of water"); his first row runs its chemicals on with commas.
+- Checked on a build of this change served beside the local copy (scratch database): each document started with New (or opened),
+  typed into, downloaded (Excel and Word read back) and printed with Print Original-Style Record, the PDFs looked at beside his
+  originals: F/HR/15 and F/HR/16 one landscape page each, F/HR/17 three portrait pages, F/HR/18 two, the service report, the letter
+  and the chart one each, nothing within 8 mm of the paper's top or foot, no word at its edge. tests/verify_with_test_account.py on
+  the seven: the words typed kept after a reload, the test account deleted (the chart holds no records, so it has no New to start).
+- Files: data/seed/hrPapers357.ts (new), qcPaperTables.ts (paperTableFor), components/records/DailyRegisterSheet.tsx,
+  DailyPestMonitoringRecordView.tsx, FlyCatcherRecordView.tsx, FlyCatcherRegisterSheet.tsx, ServiceReportRecordView.tsx,
+  pages/TrainingPage.tsx, ChemicalMasterPage.tsx, utils/originalFill/index.ts (NOT_YET), styles.css (rules scoped to these sheets:
+  [data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"], .fhr17-sheet, .fhr18-record / .fhr18-sheet,
+  .training-paper, .chem-paper). No !important.
+- Tests: frontend/tests/hrPapers357.test.ts (new). Updated where they held the print these replace: hrPaperFormats.test.ts (F/HR/18's
+  units named as his page, a visit's second line printed), registerMonth.test.ts (F/HR/17's first header with his company and cells).

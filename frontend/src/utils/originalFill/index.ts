@@ -79,6 +79,10 @@ export const NOT_YET = new Set([
   // Code, the six documents, the re-approval due date, the file number - which the 2021 workbook does not; downloaded as
   // the page draws it.
   "pur-approved-suppliers",
+  // The Pest Control Training Record: its page is Gurudev Pest Control's letter (REQUIREMENTS §373), downloaded as the page
+  // draws it. His 2025 Word file filled kept his example topics and seven names on a record that has none, read its "Date:"
+  // as the header's date cell and blanked it, and renamed the plant he addresses (it was not filled before §373 either).
+  "training-record",
 ]);
 
 const cache = new Map<string, ArrayBuffer>();

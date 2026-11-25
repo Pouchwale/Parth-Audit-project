@@ -1,6 +1,6 @@
 import React from "react";
 import type { DocumentDefinition, RecordInstance, ServiceReportAreaLine, ServiceReportData } from "../../types";
-import { COMPANY } from "../../data/seed/masterData";
+import { SERVICE_PAPER_UNIT_LINE } from "../../data/seed/hrPapers357";
 import {
   SERVICE_PAPER_COLUMNS,
   SERVICE_PAPER_LABELS,
@@ -172,8 +172,9 @@ export function ServiceReportRecordView({
           </tr>
           <tr className="svc-unit-row">
             {/* The provider, the plant and its address read as issued in either language (REQUIREMENTS §58). */}
+            {/* ...in the contractor's own words, as his sheet addresses the plant (REQUIREMENTS §373; DCRS's name and address before). */}
             <td colSpan={3} className="svc-band svc-left notranslate" translate="no" data-cell="unit">
-              {at("unit", `${SERVICE_PAPER_LABELS.unit} ${COMPANY.name}, ${COMPANY.address.toUpperCase().replace("–", "-")}`)}
+              {at("unit", SERVICE_PAPER_UNIT_LINE)}
             </td>
             <td colSpan={2} className="svc-band svc-left" data-cell="service-name">
               {at(

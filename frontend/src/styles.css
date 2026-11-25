@@ -1748,6 +1748,25 @@ body { top: 0 !important; }
 .doc-table .register-grid tr.is-today td.date-cell { outline: 2px solid var(--color-primary); outline-offset: -2px; }
 .register-summary-title { background: #d9d9d9; border: 1px solid #2c3e50; border-bottom: none; font-weight: 700; font-size: 12px; padding: 6px 8px; margin-top: 16px; }
 .register-summary td { text-align: left; height: 30px; }
+/* F/HR/17 UNDER THE OWNER'S OWN HEADER (REQUIREMENTS §373): his company's name, the title underlined, and one row of four
+   cells, each label and its value on one line in his words ("Format No.: F/HR/17", "Rev No: 00", "Date: 01.12.2021",
+   "Page No.: 1 Of 3"), in Calibri as his page. A day's record prints on these pages, its own form hidden (§373). */
+.fhr17-sheet .doc-header .company-name { font-size: 17px; letter-spacing: 0; padding: 8px 10px; }
+.fhr17-sheet .doc-header .doc-title { font-size: 14px; padding: 7px 10px; }
+.fhr17-sheet .doc-header .meta-cell { padding: 5px 8px; font-size: 12.5px; }
+.fhr17-sheet .doc-header .meta-cell .k { display: inline; font-size: inherit; text-transform: none; color: inherit; font-weight: 400; margin-right: 4px; }
+.fhr17-sheet .doc-header .meta-cell .v { display: inline; font-weight: 400; margin-top: 0; }
+/* His grids: the headings in his words and letters, black on the grey band, every rule black; the SUMMARY's band the first
+   row of its table (the shared .doc-table th rule had put them in grey capitals, §373). Page 1's check points keep no lines (§308). */
+.fhr17-sheet .doc-table .register-grid th { text-transform: none; letter-spacing: 0; color: #000; background: #d9d9d9; font-weight: 700; }
+.fhr17-sheet .doc-table .register-grid:not(.register-checkpoints) :is(th, td) { border: 1px solid #000; }
+.fhr17-sheet .doc-table.register-grid-wrap { border: 0; border-radius: 0; }
+.fhr17-sheet .register-summary-title { border-color: #000; color: #000; }
+.fhr17-sheet .register-summary-title + .register-grid-wrap { margin-top: 0; }
+@media print {
+  .fhr17-sheet :is(.register-page, .doc-header, .register-grid) { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; color: #000; }
+  .fhr17-day-form { display: none; }
+}
 .register-original { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .register-original img { width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fff; }
 
@@ -3720,6 +3739,9 @@ table.svc-paper {
 .fhr18-gap { display: none; }
 @media print {
   .fhr18-sheet .register-page, .fhr18-record .register-page { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; color: #000; }
+  /* Calibri on the band, the legend and the grid too, as the Word page (§373): the forms' own face (public/styles/brand.css,
+     a rule on .doc-header and .register-grid themselves) had them print in Segoe UI. */
+  .fhr18-sheet :is(.doc-header, .register-grid), .fhr18-record :is(.doc-header, .register-grid) { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; }
   .fhr18-sheet .doc-header, .fhr18-record .doc-header { width: 538.9pt; border: 2px solid #000; border-radius: 0; margin: -16pt 0 0 -5.3pt; box-sizing: border-box; }
   .fhr18-sheet .doc-header .company-name, .fhr18-record .doc-header .company-name { font-size: 20pt; font-weight: 700; letter-spacing: 0; height: 34.9pt; line-height: 33pt; padding: 0; border-bottom: 1px solid #000; }
   .fhr18-sheet .doc-header .doc-title, .fhr18-record .doc-header .doc-title { font-size: 14pt; font-weight: 700; letter-spacing: 0; text-decoration: none; height: 35pt; line-height: 33pt; padding: 0; border-bottom: 1px solid #000; }
@@ -3787,6 +3809,66 @@ table.svc-paper {
   .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td .cell-text, .paper-sheet[data-sheet="hr-monthly-cleaning"] .doc-table table.log-sheet td > span { font-size: 12.5px; line-height: 1.2; white-space: pre-line; }
   .paper-sheet[data-sheet="hr-monthly-cleaning"] :is(.input, select, textarea) { font-size: 12.5px; }
   .paper-sheet[data-sheet="hr-monthly-cleaning"] textarea { resize: none; }
+}
+/* F/HR/15 AND F/HR/16 DRAWN AS THE OWNER'S SHEETS (REQUIREMENTS §373, data/seed/hrPapers357.ts): "Cleaning done by" and "Cleaning
+   verified by" right-aligned across the area columns, as his sheet sets them, a little in from the rule. */
+.paper-sheet:is([data-sheet="hr-daily-cleaning"], [data-sheet="hr-monthly-cleaning"]) .pt-table td.pt-c.pt-ar { padding-right: calc(1.2 * var(--u)); }
+/* F/HR/16's title is underlined to its end, the YEAR's blank with it, as his sheet underlines it. */
+.paper-sheet[data-sheet="hr-monthly-cleaning"] .pt-table td.pt-c.pt-u .pt-sentence .field-in-table { box-sizing: border-box; border-bottom: calc(0.3 * var(--u)) solid #000; }
+/* THE PEST CONTROL TRAINING RECORD AS GURUDEV PEST CONTROL'S LETTER (REQUIREMENTS §373, pages/TrainingPage.tsx): his Word page,
+   Calibri 11 pt - the date at the right, the plant addressed, the subject underlined, "Training Topics covered" in Times bold
+   underlined, the topics bulleted, the people numbered in a ruled two-column table, his sign-off. What the record holds is
+   written where the letter writes it, in boxes that look like the letter's words (a dashed line under them on the screen). */
+.training-paper { max-width: 190mm; margin-top: 16px; padding: 14mm 12mm 16mm 16mm; background: #fff; color: #000; border: 1px solid var(--color-border); font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 11pt; line-height: 1.35; }
+.training-paper p { margin: 0; }
+.training-paper .tp-input { display: inline-block; width: 100%; max-width: 150mm; height: auto; min-height: 0; padding: 0 2px; border: 0; border-bottom: 1px dashed var(--color-border-strong); border-radius: 0; background: transparent; color: #000; font: inherit; line-height: inherit; }
+.training-paper .tp-input:disabled { border-bottom-color: transparent; opacity: 1; -webkit-text-fill-color: #000; }
+.training-paper .tp-date { text-align: right; padding-right: 20mm; }
+.training-paper .tp-date .tp-date-input { width: 34mm; text-align: left; }
+.training-paper .tp-to { margin-top: 1mm; }
+.training-paper .tp-to p { margin-bottom: 4mm; }
+.training-paper .tp-subject { margin-top: 6mm; font-size: 16pt; line-height: 1.2; text-decoration: underline; }
+.training-paper .tp-topics-head { margin-top: 0.5mm; padding-left: 2.5mm; font-family: "Times New Roman", Times, serif; font-size: 12pt; font-weight: 700; text-decoration: underline; }
+.training-paper .tp-topics { margin: 4mm 0 0; padding-left: 14mm; list-style: disc; }
+.training-paper .tp-topics li { margin: 0; padding: 0.9mm 0 0.9mm 1.5mm; }
+.training-paper .tp-topics li.tp-add { list-style: none; }
+.training-paper .tp-tool { margin-left: 4px; }
+.training-paper .tp-people { width: 124.2mm; margin: 0.5mm 0 0 0; border-collapse: collapse; table-layout: fixed; }
+.training-paper .tp-people td { border: 1px solid #000; padding: 0.6mm 1.8mm; vertical-align: middle; }
+.training-paper .tp-people td.tp-no { width: 16.5mm; text-align: center; }
+.training-paper .tp-people .tp-input { width: calc(100% - 34px); }
+.training-paper .tp-add { margin-top: 6px; }
+.training-paper .tp-sign { margin-top: 13mm; }
+.training-paper .tp-sign .tp-input { max-width: 80mm; }
+.training-paper .tp-signatory { margin-top: 12mm; }
+@media print {
+  /* the room his letterhead stationery takes at the top of the page, left blank (§251) */
+  .training-paper { max-width: none; border: 0; margin: 0; padding: 34mm 0 0 3mm; }
+  .training-paper .tp-input { border-bottom: 0; }
+  .training-paper .tp-people .tp-input { width: 100%; }
+  /* the written date prints as its words in the letter's face (utils/print.ts), the box itself not */
+  .training-paper input.print-as-text { display: none; }
+  .training-paper .print-box-text { font-size: inherit; padding: 0; }
+}
+/* THE PESTICIDE APPLICATION CHART AS THE COMPANY'S CHART (REQUIREMENTS §373, pages/ChemicalMasterPage.tsx): the title in his ruled
+   box over the middle of the chart, then his grid ruled throughout - his headings in his letters (not bold), the words at the
+   top of their cells, a chemical to a line, double-spaced as his page; his 14 pt and 11 pt on 206 mm drawn on the A4 page's
+   186 mm (12.5 pt and 10 pt), so his lines break where his do. No shading, no rounded frame. */
+.chem-title-box { display: flex; justify-content: center; margin-top: 4mm; }
+.chem-title-box .doc-header.title-only { display: inline-block; min-width: 54%; border: 1px solid #000; border-radius: 0; background: #fff; }
+.chem-title-box .doc-header.title-only .doc-title { padding: 1.2mm 6mm 1.4mm; font-size: 14pt; font-weight: 400; text-decoration: none; text-align: center; color: #000; }
+.doc-table.chem-paper-wrap { margin-top: 5mm; border: 0; border-radius: 0; overflow-x: auto; }
+.doc-table .chem-paper { table-layout: fixed; border-collapse: collapse; background: #fff; color: #000; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; }
+.doc-table .chem-paper :is(th, td) { border: 1px solid #000; padding: 0.4mm 1.6mm; vertical-align: top; text-align: left; white-space: normal; color: #000; background: #fff; }
+.doc-table .chem-paper th { font-size: 12.5pt; font-weight: 400; text-transform: none; letter-spacing: 0; line-height: 1.35; }
+.doc-table .chem-paper td { font-size: 10pt; line-height: 2.05; }
+.doc-table .chem-paper td.chem-no { text-align: center; }
+/* (the shared .doc-table rule leaves a table's last line open at the foot: his chart is ruled under it) */
+.doc-table .chem-paper tbody tr:last-child td { border-bottom: 1px solid #000; }
+.chem-paper .chem-line { display: block; }
+@media print {
+  /* his chart stands in the middle of its page, under the room his Word file leaves above it */
+  .chem-title-box { margin-top: 62mm; }
 }
 /* HR-DOCS end */
 

@@ -10,6 +10,7 @@ import { printDocument } from "../utils/print";
 import { printFillOf } from "../engine/printFill";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { bindProps, chemicalBind } from "../engine/roundTrip/bindingsFor";
+import { CHEMICAL_COLUMNS, CHEMICAL_HEADINGS } from "../data/seed/hrPapers357";
 
 const CHEMICAL_DOC_ID = "chemical-master";
 
@@ -89,26 +90,34 @@ export function ChemicalMasterPage() {
       {/* THE TITLE ALONE, NO HEADER (the owner, 17-Nov-2026, REQUIREMENTS §251: "in chemical master remove header and it
           should only written there with title:- Pesticide Application Chart (Chemical Master)"): no company name, no
           Format No. / Rev No. - on the page, on paper and in the Word and Excel files. */}
+      {/* ...in the ruled box his chart draws round its title, over its middle columns (REQUIREMENTS §373). */}
+      <div className="chem-title-box">
       <div className="doc-header title-only notranslate" translate="no" data-section="chemical-title">
         <div className="doc-title">{CHEMICAL_TITLE}</div>
       </div>
+      </div>
       {/* Only while editing: a hint for the editor (no page information at the start, REQUIREMENTS §204). */}
       {editing && <p className="text-muted mt-3 mb-4 no-print">Editing — correct any cell that is wrong, then Save. Chemicals: one per line.</p>}
-      <div className="doc-table mt-4">
-        <table>
+      {/* HIS CHART, RULED THROUGHOUT (the company's "Chemical Cahrt new.docx", REQUIREMENTS §373): his five headings in his words
+          and letters, each cell ruled, the words at the top of their cells, a chemical to a line; the rows are Master Data's. */}
+      <div className="doc-table chem-paper-wrap mt-4">
+        <table className="chem-paper">
+          <colgroup>
+            {CHEMICAL_COLUMNS.map((w, i) => (
+              <col key={i} style={{ width: `${w}%` }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
-              <th style={{ width: 40 }}>Sr. No</th>
-              <th>Services Name</th>
-              <th>Pest Covered</th>
-              <th>Chemicals to be Used</th>
-              <th>Dilution Ratio</th>
+              {CHEMICAL_HEADINGS.map((h) => (
+                <th key={h}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody className="notranslate" translate="no">
             {rows.map((r, i) => (
               <tr key={r.id}>
-                <td>{i + 1}</td>
+                <td className="chem-no">{i + 1}</td>
                 {editing ? (
                   <>
                     <td>
@@ -126,20 +135,18 @@ export function ChemicalMasterPage() {
                   </>
                 ) : (
                   <>
-                    <td className="font-semibold" {...bindProps(chemicalBind.field(r, i, "serviceName"))}>
+                    <td {...bindProps(chemicalBind.field(r, i, "serviceName"))}>
                       {r.serviceName}
                     </td>
                     <td {...bindProps(chemicalBind.field(r, i, "pestCovered"))}>{r.pestCovered}</td>
                     <td>
-                      <ul style={{ margin: 0, paddingLeft: 18 }}>
-                        {r.chemicals.map((c, ci) => (
-                          <li key={c} className="text-sm" {...bindProps(chemicalBind.chemical(r, i, ci))}>
-                            {c}
-                          </li>
-                        ))}
-                      </ul>
+                      {r.chemicals.map((c, ci) => (
+                        <div key={c} className="chem-line" {...bindProps(chemicalBind.chemical(r, i, ci))}>
+                          {c}
+                        </div>
+                      ))}
                     </td>
-                    <td className="text-sm" {...bindProps(chemicalBind.field(r, i, "dilutionRatio"))}>
+                    <td {...bindProps(chemicalBind.field(r, i, "dilutionRatio"))}>
                       {r.dilutionRatio}
                     </td>
                   </>

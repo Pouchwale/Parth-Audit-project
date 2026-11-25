@@ -11,6 +11,7 @@ import { totalRodents } from "../../engine/rodentPattern";
 import { MONTH_NAMES, daysInMonth, formatDisplayDate, pad2, todayISO } from "../../utils/date";
 import { BIND_RECORD_ATTR } from "../../engine/roundTrip/bindPath";
 import { bindProps, dailyPestBind } from "../../engine/roundTrip/bindingsFor";
+import { FHR17_PAPER_CELLS, HR_PAPER_COMPANY } from "../../data/seed/hrPapers357";
 
 // THE DAILY PEST CONTROL MONITORING RECORD IN ITS OWN FORMAT — F/HR/17,
 // exactly as the company prints it ("Daily pest control monitoring record
@@ -73,6 +74,7 @@ export function DailyRegisterSheet({
   onOpenDay,
   headerEditable = false,
   onMonthChange,
+  only,
 }: {
   year: number;
   month: number;
@@ -86,6 +88,12 @@ export function DailyRegisterSheet({
    * follows (its own pickers say the same). Given by the register's own page; a report shows the month only.
    */
   onMonthChange?: (year: number, month: number) => void;
+  /**
+   * A DAY'S RECORD PRINTED ON ITS PAPER (REQUIREMENTS §373): the three pages with this record alone on its date's line and
+   * in the summary, as it stands on its page (what is typed and not yet saved too). Drawn inside the record's own printed
+   * document (DailyPestMonitoringRecordView), so the sheet is no document of its own.
+   */
+  only?: RecordInstance<DailyPestMonitoringData>;
 }) {
   const doc = documentRepository.getById(DAILY_DOC_ID);
   // The first page's header takes the clicks; the other two repeat it. Its Date cell
@@ -96,12 +104,14 @@ export function DailyRegisterSheet({
   });
   const checkpoints = masterRepository.get().checkpoints;
   const dim = daysInMonth(year, month);
-  const records = recordRepository.query({
-    documentId: DAILY_DOC_ID,
-    isDemo,
-    fromDate: `${year}-${pad2(month + 1)}-01`,
-    toDate: `${year}-${pad2(month + 1)}-${pad2(dim)}`,
-  }) as RecordInstance<DailyPestMonitoringData>[];
+  const records = only
+    ? [only]
+    : (recordRepository.query({
+        documentId: DAILY_DOC_ID,
+        isDemo,
+        fromDate: `${year}-${pad2(month + 1)}-01`,
+        toDate: `${year}-${pad2(month + 1)}-${pad2(dim)}`,
+      }) as RecordInstance<DailyPestMonitoringData>[]);
   const byDay = new Map<number, RecordInstance<DailyPestMonitoringData>>();
   for (const r of records) byDay.set(Number(r.dueDate.slice(8, 10)), r);
   const today = todayISO();
@@ -226,17 +236,21 @@ export function DailyRegisterSheet({
 
   return (
     // An HR register: printed, each of its three pages fills its A4 sheet (§194's fill; the owner, 7-Nov-2026, §198).
-    <div className="register-sheet" data-print-doc data-print-fill={printFillOf(doc)}>
+    // (a day's record printed on it is its record page's document: no document of its own here, §373)
+    <div className="register-sheet fhr17-sheet" {...(only ? {} : { "data-print-doc": "", "data-print-fill": printFillOf(doc) })}>
       <section className="register-page">
         {/* "DAILY PEST CONTROL MONITORING RECORD November 2026": no dash before the month (the owner, 6-Nov-2026, §197). */}
-        <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " extraTitleEdit={monthEdit} pageLabel="1 Of 3" edit={headerEdit} />
+        {/* THE PAPER'S OWN HEADER (§373): his company's name, the title, and one row "Format No.: F/HR/17 | Rev No: 00 | Date:
+            01.12.2021 | Page No.: 1 Of 3" (FHR17_PAPER_CELLS; styles.css .fhr17-sheet). */}
+        <DocumentHeader doc={doc} companyName={HR_PAPER_COMPANY} extraTitle={monthLabel} extraTitleSeparator=" " extraTitleEdit={monthEdit} pageLabel="1 Of 3" edit={headerEdit} labels={FHR17_PAPER_CELLS} dotDates />
         {headerPanel}
         {/* THE FIRST PAGE A FORM, NOT A QUESTION PAPER (REQUIREMENTS §243; the owner, 17-Nov-2026, of the printed page: "it
             is looking like question paper"): the instructions in a ruled box, the ten check points a ruled table across
             the page - Sr. No. and Check Point - as the register's own pages after it are ruled. */}
         <div className="register-instructions">
+          {/* Both lines bold, as the paper prints them (§373). */}
           <div className="register-instruction-box">
-            <p>{FHR17_INSTRUCTION_1}</p>
+            <p className="font-semibold">{FHR17_INSTRUCTION_1}</p>
             <p className="font-semibold">{FHR17_INSTRUCTION_2}</p>
           </div>
           <div className="doc-table register-grid-wrap">
@@ -261,12 +275,12 @@ export function DailyRegisterSheet({
       </section>
 
       <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " pageLabel="2 Of 3" />
+        <DocumentHeader doc={doc} companyName={HR_PAPER_COMPANY} extraTitle={monthLabel} extraTitleSeparator=" " pageLabel="2 Of 3" labels={FHR17_PAPER_CELLS} dotDates />
         {grid(1, 19)}
       </section>
 
       <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={monthLabel} extraTitleSeparator=" " pageLabel="3 Of 3" />
+        <DocumentHeader doc={doc} companyName={HR_PAPER_COMPANY} extraTitle={monthLabel} extraTitleSeparator=" " pageLabel="3 Of 3" labels={FHR17_PAPER_CELLS} dotDates />
         {/* THE MONTH'S OWN DAYS, NOT A LINE MORE (REQUIREMENTS §244; the owner, 17-Nov-2026, of November's page 3 with a blank
             line after the 30th: "after 30 there is new month so make sure in this record i want only one month all days not
             one extra row"): the 20th to the month's last day - the 30th, the 31st, February's 28th or 29th. */}
@@ -308,7 +322,7 @@ export function DailyRegisterSheet({
         </div>
       </section>
 
-      {onOpenDay && (
+      {onOpenDay && !only && (
         <div className="text-xs text-faint mt-2 no-print">
           Click a date row to open that day's record. Date cell colour: green = Verified, blue = Submitted / Pending Verification, red = Rejected; a red check
           point = a finding; a note written against a point shows when its cell is pointed at. None of that prints.

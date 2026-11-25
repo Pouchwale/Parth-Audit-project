@@ -19,6 +19,7 @@ import { flyCountText, flyCountTyped, flyMonthRange, seasonalFlyCount, tubeLight
 import { makeRng } from "../../utils/random";
 import type { HistoryEntry } from "../../types";
 import { FHR18_PAPER_CELLS, FHR18_TITLE, Fhr18GridHead, Fhr18Legend, paperDate } from "./FlyCatcherRegisterSheet";
+import { HR_PAPER_COMPANY, fhr18GridLabel } from "../../data/seed/hrPapers357";
 
 // A FLY CATCHER VISIT ON ITS OWN PAGE, LAID OUT AS F/HR/18 PRINTS — the
 // company's own Word original (source-documents/F-HR-18_Fly Catcher Inspection
@@ -463,8 +464,8 @@ export function FlyCatcherRecordView({
 
   // ANOTHER LINE OF THE UNIT, AS THE REGISTER WRITES IT: the month's other visit — typed in here while it is a draft
   // (above), read only once it is submitted or verified — or the paper's blank line. The tube-light dates are the
-  // register's fixed pair, dittoed under a line that reads the same. A line with nothing written stays off the
-  // printout unless it is the unit's first (it carries the unit's number), as on the register (REQUIREMENTS §126).
+  // register's fixed pair, dittoed under a line that reads the same. Printed, every unit has its two ruled lines, as the
+  // owner's page rules them, the second blank until its visit is written (REQUIREMENTS §373; §126 hid it before).
   const otherLine = (e: FlyCatcherEntry, i: number, pcCell: React.ReactNode, vCell: React.ReactNode) => {
     const line = lines[i];
     const r = line.record;
@@ -473,12 +474,15 @@ export function FlyCatcherRecordView({
     const above = i > 0 ? entryOf(lines[i - 1], e, e.pcId) : undefined;
     const tube = (value: string | null | undefined, previous: string | null | undefined) =>
       !value ? "" : i > 0 && previous === value ? DITTO : paperDate(value);
+    // (the paper's blank line, no visit on it: the tube in the unit is the line above's, dittoed - not the pair of a visit
+    // that is not there, which printed the year before's dates under this year's, §373)
+    const aboveInstalled = above?.tubeLightInstallDate ?? tubeLightCycle(lines[i - 1]?.record?.dueDate ?? r?.dueDate).installed;
+    const aboveDue = above?.tubeLightDueDate ?? tubeLightCycle(lines[i - 1]?.record?.dueDate ?? r?.dueDate).due;
     return (
       <tr
         key={r?.id ?? `blank-${i}`}
         className="register-row"
         data-visit={r?.dueDate}
-        data-empty-line={i > 0 && !o ? "" : undefined}
         title={r ? `${e.pcId} — visit of ${formatDisplayDate(r.dueDate)} (${r.status}) · open that visit to change this line` : undefined}
       >
         {pcCell}
@@ -490,10 +494,10 @@ export function FlyCatcherRecordView({
           {paperCount(r && waitsUntil(flyDoc, r) ? null : o?.catchCountApprox)}
         </td>
         <td className="notranslate" translate="no">
-          {tube(o?.tubeLightInstallDate ?? tubeLightCycle(r?.dueDate).installed, above?.tubeLightInstallDate ?? tubeLightCycle(lines[i - 1]?.record?.dueDate ?? r?.dueDate).installed)}
+          {tube(o?.tubeLightInstallDate ?? (r ? tubeLightCycle(r.dueDate).installed : aboveInstalled), aboveInstalled)}
         </td>
         <td className="notranslate" translate="no">
-          {tube(o?.tubeLightDueDate ?? tubeLightCycle(r?.dueDate).due, above?.tubeLightDueDate ?? tubeLightCycle(lines[i - 1]?.record?.dueDate ?? r?.dueDate).due)}
+          {tube(o?.tubeLightDueDate ?? (r ? tubeLightCycle(r.dueDate).due : aboveDue), aboveDue)}
         </td>
         {/* The names signed read exactly as they were written, in either language (REQUIREMENTS §58). */}
         <td className="name-cell notranslate" translate="no">
@@ -573,7 +577,7 @@ export function FlyCatcherRecordView({
                   const pcCell =
                     i === 0 ? (
                       <td className="pc-cell notranslate" translate="no" rowSpan={lines.length}>
-                        {at(`pc:${e.pcId}`, e.pcId, "Catcher")}
+                        {at(`pc:${e.pcId}`, fhr18GridLabel(e.pcId), "Catcher")}
                       </td>
                     ) : null;
                   // Its Verified By, merged down its lines the same way: one name a PC (§256).
@@ -659,6 +663,7 @@ export function FlyCatcherRecordView({
         <DocumentHeader
           doc={doc}
           title={formatChanged?.name ? undefined : FHR18_TITLE}
+          companyName={HR_PAPER_COMPANY}
           pageLabel={record.headerBlock?.page ?? headerDefaults.page}
           edit={headerEdit}
           labels={FHR18_PAPER_CELLS}
@@ -703,7 +708,7 @@ export function FlyCatcherRecordView({
       {/* The pages after the first: the same header block, read as it stands (typed over on the first page), then their units. */}
       {pages.slice(1).map((units, k) => (
         <section className="register-page" key={`page-${k + 2}`} data-page={k + 2}>
-          <DocumentHeader doc={doc} title={formatChanged?.name ? undefined : FHR18_TITLE} pageLabel={`${k + 2} of ${pages.length}`} labels={FHR18_PAPER_CELLS} dotDates />
+          <DocumentHeader doc={doc} title={formatChanged?.name ? undefined : FHR18_TITLE} companyName={HR_PAPER_COMPANY} pageLabel={`${k + 2} of ${pages.length}`} labels={FHR18_PAPER_CELLS} dotDates />
           <div className="fhr18-month">
             <span className="k">Month &amp; Year</span>
             <span className="v notranslate" translate="no">

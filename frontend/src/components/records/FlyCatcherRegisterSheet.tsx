@@ -6,6 +6,7 @@ import { flushSync } from "react-dom";
 import { FiCheck, FiEdit3, FiLoader, FiPlus, FiPrinter, FiX } from "react-icons/fi";
 import type { FlyCatcherData, FlyCatcherEntry, PCLocation, RecordInstance } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
+import { HR_PAPER_COMPANY, fhr18GridLabel, fhr18LegendLabel } from "../../data/seed/hrPapers357";
 import { useHeaderEditing } from "../documents/HeaderEditing";
 import { formatEditFor } from "../../data/formatEdits";
 import { documentRepository } from "../../data/repositories/documentRepository";
@@ -53,8 +54,9 @@ import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roun
 export { FLY_DOC_ID };
 
 // Printed wording, verbatim: the title and the date as the form prints them.
-// The company's name is not the paper's own spelling: the header prints it as
-// the owner gave it on 02-Oct-2026 (COMPANY.name), as on every format.
+// The company's name is the paper's own spelling, "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED", as on every HR
+// paper drawn as the owner's (REQUIREMENTS §275, §373; DCRS's header name, COMPANY.name, before). The units are named as
+// his page names them, "PC – 01" in the legend and "PC - 01" in the grid (data/seed/hrPapers357.ts).
 export const FHR18_TITLE = "FORTNIGHTLY – FLY CATCHER INSPECTION & CLEANING RECORD";
 export const FHR18_DATE = "15.12.2024";
 /** The words of the paper's four cells (the Word original, REQUIREMENTS §118): its Rev cell reads "Rev No:" and its date cell "Date:". */
@@ -148,13 +150,13 @@ export function Fhr18Legend({ pcLocations, host }: { pcLocations: readonly PCLoc
           <tr key={i}>
             {/* The catcher numbers and the areas they hang in are master data, named as the plant names them (REQUIREMENTS §58). */}
             <td className="pc-id notranslate" translate="no">
-              {left ? wordsHere(host, `legendId:${left}`, left) : ""}
+              {left ? wordsHere(host, `legendId:${left}`, fhr18LegendLabel(left)) : ""}
             </td>
             <td className="pc-loc notranslate" translate="no">
               {left ? wordsHere(host, `legendArea:${left}`, label(left), "Area") : ""}
             </td>
             <td className="pc-id notranslate" translate="no">
-              {right ? wordsHere(host, `legendId:${right}`, right) : ""}
+              {right ? wordsHere(host, `legendId:${right}`, fhr18LegendLabel(right)) : ""}
             </td>
             <td className="pc-loc notranslate" translate="no">
               {right ? wordsHere(host, `legendArea:${right}`, label(right), "Area") : ""}
@@ -374,6 +376,7 @@ export function FlyCatcherRegisterSheet({
       <DocumentHeader
         doc={doc}
         title={formatChanged?.name ? undefined : FHR18_TITLE}
+        companyName={HR_PAPER_COMPANY}
         pageLabel={page}
         edit={first ? headerEdit : undefined}
         labels={FHR18_PAPER_CELLS}
@@ -478,7 +481,7 @@ export function FlyCatcherRegisterSheet({
                   >
                     {i === 0 && (
                       <td rowSpan={rows.length} className="pc-cell">
-                        {pc.id}
+                        {fhr18GridLabel(pc.id)}
                       </td>
                     )}
                     <td className={`date-cell st-${status}`}>{showDate ? paperDate(r!.dueDate) : ""}</td>

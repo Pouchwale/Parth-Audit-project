@@ -29,7 +29,8 @@ test("the daily register offers its month and year in the title's place, and the
   assert.match(sheet, /data-field="register-month"[^>]*value=\{month\} onChange=\{\(e\) => onMonthChange\(year, Number\(e\.target\.value\)\)\}/);
   assert.match(sheet, /data-field="register-year"[^>]*value=\{year\} onChange=\{\(e\) => onMonthChange\(Number\(e\.target\.value\), month\)\}/);
   assert.match(sheet, /className="register-month-box no-print"/, "the screen's only: never printed");
-  assert.match(sheet, /<DocumentHeader doc=\{doc\} extraTitle=\{monthLabel\} extraTitleSeparator=" " extraTitleEdit=\{monthEdit\} pageLabel="1 Of 3" edit=\{headerEdit\} \/>/, "the first page's header takes the click; the other two repeat the month");
+  // (under the owner's own header since §373: his company's name and his four cells' words)
+  assert.match(sheet, /<DocumentHeader doc=\{doc\} companyName=\{HR_PAPER_COMPANY\} extraTitle=\{monthLabel\} extraTitleSeparator=" " extraTitleEdit=\{monthEdit\} pageLabel="1 Of 3" edit=\{headerEdit\} labels=\{FHR17_PAPER_CELLS\} dotDates \/>/, "the first page's header takes the click; the other two repeat the month");
   assert.equal((sheet.match(/extraTitleSeparator=" "/g) ?? []).length, 3, "no dash before the month on any of the three pages");
   const pest = read("frontend", "src", "pages", "PestControlPages.tsx");
   assert.match(pest, /onMonthChange=\{\(y, m\) => setPeriod\(\{ year: y, month: m \}\)\}/, "the page's own month, which its month bar shows too (§240)");

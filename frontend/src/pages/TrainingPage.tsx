@@ -38,6 +38,7 @@ import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { useT } from "../i18n";
 import { bindProps, trainingBind } from "../engine/roundTrip/bindingsFor";
 import { waitsUntil } from "../engine/notBeforeDay";
+import { TRAINING_LETTER } from "../data/seed/hrPapers357";
 
 const TRAINING_DOC_ID = "training-record";
 
@@ -317,139 +318,147 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
           Awareness Training Program (annual) record"): Gurudev Pest Control's letterhead is off the record - on the page,
           on paper and in the Word file. The title and the Format No. / Rev No. / Date row came off it on 12-Sep-2026. */}
 
-      {/* The three written boxes share the row's room, and a programme's name and its reference wrap in theirs: read whole (the owner, 22-Oct-2026). */}
-      <div className="card mt-4">
-        <div className="card-pad flex gap-4 wrap">
-          <div className="field" style={{ minWidth: 160 }}>
-            <label>Training Date</label>
-            <input type="date" className="input" {...bindProps(trainingBind.field("trainingDate"))} disabled={!editable} value={data.trainingDate} onChange={(e) => update({ trainingDate: e.target.value })} />
+      {/* THE RECORD IS GURUDEV PEST CONTROL'S TRAINING LETTER ("Training - Yrl (1).doc", REQUIREMENTS §373): the room his
+          letterhead stationery takes (left blank, §251), the date at the right, the plant as his letter addresses it, the
+          subject, "Training Topics covered" and its bullets, the list of personnel who attended, numbered, and his sign-off.
+          The record's own words stand where the letter writes them; what the letter has no place for is kept on the record
+          under it, on the screen only. */}
+      <div className="training-paper" data-section="training-letter">
+        <div className="tp-date notranslate" translate="no">
+          {TRAINING_LETTER.date}{" "}
+          <input type="date" className="input tp-input tp-date-input" {...bindProps(trainingBind.field("trainingDate"))} disabled={!editable} value={data.trainingDate} onChange={(e) => update({ trainingDate: e.target.value })} aria-label="Training date" />
+        </div>
+        <div className="tp-to notranslate" translate="no">
+          {TRAINING_LETTER.to.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
+        <p className="tp-subject">{TRAINING_LETTER.subject}</p>
+        <p className="tp-topics-head">{TRAINING_LETTER.topicsHeading}</p>
+        <ul className="tp-topics">
+          {data.topics.map((t, i) => (
+            <li key={i}>
+              <input
+                className="input tp-input"
+                {...bindProps(trainingBind.topic(i))}
+                disabled={!editable}
+                value={t}
+                aria-label={`Topic ${i + 1}`}
+                onChange={(e) => update({ topics: data.topics.map((x, xi) => (xi === i ? e.target.value : x)) })}
+              />
+              {editable && (
+                <button className="btn btn-ghost btn-sm btn-icon tp-tool no-print" title="Remove this topic" aria-label={`Remove topic ${i + 1}`} onClick={() => update({ topics: data.topics.filter((_, xi) => xi !== i) })}>
+                  <FiTrash2 size={13} />
+                </button>
+              )}
+            </li>
+          ))}
+          {editable && (
+            <li className="tp-add no-print">
+              <button className="btn btn-secondary btn-sm" onClick={addTopic}>
+                <FiPlus size={13} /> Add Topic
+              </button>
+            </li>
+          )}
+          <li>{TRAINING_LETTER.personnel}</li>
+        </ul>
+        <table className="tp-people">
+          <tbody>
+            {data.attendees.map((a, ai) => (
+              <tr key={a.id}>
+                <td className="tp-no">{ai + 1}.</td>
+                <td>
+                  <input
+                    className="input tp-input"
+                    {...bindProps(trainingBind.attendee(a, ai, "employeeName"))}
+                    list="employee-options"
+                    disabled={!editable}
+                    value={a.employeeName}
+                    aria-label={`Attendee ${ai + 1}`}
+                    onChange={(e) => update({ attendees: data.attendees.map((x) => (x.id === a.id ? { ...x, employeeName: e.target.value } : x)) })}
+                  />
+                  {editable && (
+                    <button className="btn btn-ghost btn-sm btn-icon tp-tool no-print" title="Remove this person" aria-label={`Remove attendee ${ai + 1}`} onClick={() => update({ attendees: data.attendees.filter((x) => x.id !== a.id) })}>
+                      <FiTrash2 size={13} />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {editable && (
+          <div className="tp-add no-print">
+            <button className="btn btn-secondary btn-sm" onClick={addAttendee}>
+              <FiPlus size={13} /> Add Attendee
+            </button>
           </div>
+        )}
+        <datalist id="employee-options">
+          {employees.map((e) => (
+            <option key={e.id} value={e.name} />
+          ))}
+        </datalist>
+        <div className="tp-sign notranslate" translate="no">
+          <input className="input tp-input" {...bindProps(trainingBind.field("trainerProvider"))} disabled={!editable} value={data.trainerProvider} aria-label="Trainer / Provider" onChange={(e) => update({ trainerProvider: e.target.value })} />
+          <p className="tp-signatory">{TRAINING_LETTER.signatory}</p>
+        </div>
+      </div>
+      </div>
+
+      {/* What the letter has no place for, kept on the record: on the screen only, never printed (§373). */}
+      <div data-bind-record={record.id}>
+      <div className="card mt-4 no-print" data-section="training-off-paper">
+        <div className="card-header">
+          <h3 className="text-base font-semibold">Kept on the record, not on the letter</h3>
+        </div>
+        {/* The three written boxes share the row's room, and a programme's name and its reference wrap in theirs: read whole (the owner, 22-Oct-2026). */}
+        <div className="card-pad flex gap-4 wrap">
           <div className="field" style={{ minWidth: 220, flex: "1 1 220px" }}>
             <label>Training Type</label>
             <textarea className="input input-cell-multiline wrap-text" rows={1} {...bindProps(trainingBind.field("trainingType"))} disabled={!editable} value={data.trainingType} onChange={(e) => update({ trainingType: e.target.value })} />
-          </div>
-          <div className="field" style={{ minWidth: 220, flex: "1 1 220px" }}>
-            <label>Trainer / Provider</label>
-            <input className="input" {...bindProps(trainingBind.field("trainerProvider"))} disabled={!editable} value={data.trainerProvider} onChange={(e) => update({ trainerProvider: e.target.value })} />
           </div>
           <div className="field" style={{ minWidth: 220, flex: "1 1 220px" }}>
             <label>Certificate / Reference</label>
             <textarea className="input input-cell-multiline wrap-text" rows={1} {...bindProps(trainingBind.field("certificateRef"))} disabled={!editable} value={data.certificateRef} onChange={(e) => update({ certificateRef: e.target.value })} />
           </div>
         </div>
-      </div>
-
-      <div className="card mt-4">
-        <div className="card-header">
-          <h3 className="text-base font-semibold">Topics Covered</h3>
-          {editable && (
-            <button className="btn btn-secondary btn-sm" onClick={addTopic}>
-              <FiPlus size={13} /> Add Topic
-            </button>
-          )}
-        </div>
-        <div className="card-pad">
-          {data.topics.map((t, i) => (
-            <div key={i} className="flex gap-2 mb-2">
-              <span className="text-muted text-sm" style={{ width: 20 }}>
-                {i + 1}.
-              </span>
-              <input
-                className="input"
-                {...bindProps(trainingBind.topic(i))}
-                disabled={!editable}
-                value={t}
-                onChange={(e) => update({ topics: data.topics.map((x, xi) => (xi === i ? e.target.value : x)) })}
-              />
-              {editable && (
-                <button className="btn btn-ghost btn-icon" onClick={() => update({ topics: data.topics.filter((_, xi) => xi !== i) })}>
-                  <FiTrash2 size={13} />
-                </button>
-              )}
-            </div>
-          ))}
-          {data.topics.length === 0 && <p className="text-muted text-sm">No topics added.</p>}
-        </div>
-      </div>
-
-      <div className="card mt-4">
-        <div className="card-header">
-          <h3 className="text-base font-semibold">Attendees</h3>
-          {editable && (
-            <button className="btn btn-secondary btn-sm" onClick={addAttendee}>
-              <FiPlus size={13} /> Add Attendee
-            </button>
-          )}
-        </div>
-        <div className="doc-table" style={{ border: "none" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Department</th>
-                {editable && <th></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {data.attendees.map((a, ai) => (
-                <tr key={a.id}>
-                  <td>
-                    <input
-                      className="input input-sm"
-                      {...bindProps(trainingBind.attendee(a, ai, "employeeName"))}
-                      list="employee-options"
-                      disabled={!editable}
-                      value={a.employeeName}
-                      onChange={(e) =>
-                        update({ attendees: data.attendees.map((x) => (x.id === a.id ? { ...x, employeeName: e.target.value } : x)) })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="input input-sm"
-                      {...bindProps(trainingBind.attendee(a, ai, "department"))}
-                      disabled={!editable}
-                      value={a.department}
-                      onChange={(e) => update({ attendees: data.attendees.map((x) => (x.id === a.id ? { ...x, department: e.target.value } : x)) })}
-                    />
-                  </td>
-                  {editable && (
-                    <td>
-                      <button
-                        className="btn btn-ghost btn-sm btn-icon"
-                        onClick={() => update({ attendees: data.attendees.filter((x) => x.id !== a.id) })}
-                      >
-                        <FiTrash2 size={13} />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {data.attendees.length === 0 && (
+        {data.attendees.length > 0 && (
+          <div className="doc-table" style={{ border: "none" }}>
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={3} className="text-muted text-center" style={{ padding: 16 }}>
-                    No attendees added.
-                  </td>
+                  <th>Employee</th>
+                  <th>Department</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <datalist id="employee-options">
-          {employees.map((e) => (
-            <option key={e.id} value={e.name} />
-          ))}
-        </datalist>
-      </div>
-
-      <div className="card mt-4">
+              </thead>
+              <tbody>
+                {data.attendees.map((a, ai) => (
+                  <tr key={a.id}>
+                    <td className="notranslate" translate="no">
+                      {a.employeeName}
+                    </td>
+                    <td>
+                      <input
+                        className="input input-sm"
+                        {...bindProps(trainingBind.attendee(a, ai, "department"))}
+                        disabled={!editable}
+                        value={a.department}
+                        aria-label={`Attendee ${ai + 1}: department`}
+                        onChange={(e) => update({ attendees: data.attendees.map((x) => (x.id === a.id ? { ...x, department: e.target.value } : x)) })}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <div className="card-pad field">
           <label>Remarks</label>
           <textarea className="input" {...bindProps(trainingBind.field("remarks"))} disabled={!editable} value={data.remarks} onChange={(e) => update({ remarks: e.target.value })} />
         </div>
       </div>
-
       </div>
 
       <RecordHistoryPanel record={record} />
