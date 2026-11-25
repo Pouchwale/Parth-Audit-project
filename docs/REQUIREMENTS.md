@@ -14547,3 +14547,13 @@ under them: "pur-06 has error in while taking print and even on user Screen it i
 - Files: frontend/src/data/seed/purPapers353.ts (SERVICE_REGISTER's lines: WORDY, SP_LH), utils/originalFill/hints.ts, types.ts
   (FillHints.wrapWords), xlsxFill.ts (Styles.size, Styles.wrapped, XSheet.columnPoints, wrappedLines, wrapGridWords);
   frontend/tests/purStrPapers353.test.ts, printedPage.test.ts.
+## §386 A paper's page 2 starts a new page in Word (F/MNT/02, 25-Nov-2026)
+
+The owner, 25-Nov-2026, on the downloaded F/MNT/02: "the table is breaking, it should be in the second page and allign the lines".
+
+- The Word download is drawn from the paper on screen (utils/paperTableExport.ts paperDrawnBlocks). It made one table of both
+  pages, so F/MNT/02's page 2 ran on under page 1's Remarks and its head box parted across the two pages. A paper's new page
+  (a row marked pb, drawn tr.pt-pb) now starts a new page in the Word file, as it does on screen and in print; every paper with
+  a page of its own after the first gets this. The lines were put on one left and one right edge by §379.
+- Proved: mntPapers351 and qcPaperTables tests; on a local copy the Word download of F/MNT/02 is two tables, the second after a
+  page break, and Word counts 2 pages, page 1's table all on page 1 and page 2's on page 2; the test account check (§206).

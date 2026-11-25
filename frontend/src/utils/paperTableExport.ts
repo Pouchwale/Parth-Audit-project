@@ -324,6 +324,9 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
       const held = new Map<number, Set<number>>();
       for (const tr of Array.from(table.rows)) {
         const ri = heightsMm.length;
+        // A new page of the paper (its head again, PaperRow.pb) starts a new page in Word too: F/MNT/02's page 2 ran on
+        // under page 1's foot, its head box parted across the two (§386).
+        if (kind === "docx" && tr.classList.contains("pt-pb") && ri > (starts[starts.length - 1] ?? 0)) starts.push(ri);
         const own = Number(tr.style.getPropertyValue("--pt-h")) || 0;
         heightsMm.push(Math.max(own, tr.getBoundingClientRect().height / perMm));
         const blankLine = tr.classList.contains("pt-pad");
