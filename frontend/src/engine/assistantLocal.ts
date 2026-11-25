@@ -327,6 +327,8 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
     ],
   },
   { id: "qc-temperature-sleeve", aliases: ["temperature monitoring", "sleeve division temperature", "sleeve division temperature monitoring", "sleeve temperature"] },
+  // F/QC/42 (REQUIREMENTS §341).
+  { id: "qc-portable-items", aliases: ["list of portable items & its monitoring record", "list of portable items", "portable items", "portable item", "f/qc/42"] },
   // THE PRODUCTION MODULE (REQUIREMENTS §91). Each format is found by its whole name, so a name typed in full beats
   // every shorter word inside it ("pouching" is F/QC/37's, "slitting" F/QC/35's): only the longest alias a
   // document matches is weighed, and a longer one that contains another's wins. The words three of them share

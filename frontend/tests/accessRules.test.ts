@@ -180,6 +180,7 @@ const EXPECTED: Record<string, string> = {
   "qc-temperature":                   "Ankur",  // F-QC-40.C
   "qc-temperature-humidity":          "Zala",  // F-QC-40.A
   "qc-temperature-sleeve":            "Zala",  // F-QC-40.B
+  "qc-portable-items":                "Kapila",  // F/QC/42 (§341)
   "qc-ruler-verification":            "Kapila",  // F/QC/17, the 600 mm scale
   "qc-ruler-verification-300":        "Kapila",  // F/QC/17, the 300 mm scale (17-Oct-2026)
   "qc-pvc-pet-film":                  "Kapila",  // F/QC/05

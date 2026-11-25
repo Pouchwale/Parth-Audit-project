@@ -1882,6 +1882,24 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     schedule: { type: "daily" },
   },
   {
+    id: "qc-portable-items",
+    kind: "log-sheet",
+    section: "Registers & Records",
+    // From the owner's Drive (REQUIREMENTS §341): the Master List of BRCGS 25-26 numbers it F-QC-42 (01.04.2025).
+    name: "List of Portable Items & its Monitoring Record",
+    formatNo: "F/QC/42",
+    revisionNo: "00",
+    revisionDate: "2025-04-01",
+    department: "Quality Control",
+    module: "Quality Control — Inspection Records",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The plant's portable items - stop watch, viscosity cup, spectrophotometer, dial gauge and eye glass - where each is kept and how many, and for each item a year's monthly check (April to March): the date, its place, its integrity, checked by the QC supervisor and verified by the QC manager. A portable item found missing, damaged or broken is handled as a product safety incident.",
+    sourceFile: "F-QC-42_LIST OF PORTABLE ITEMS & ITS MONITORING RECORD .doc (the owner's Google Drive, BRCGS 25-26), F/QC/42 (00/01.04.2025)",
+    schedule: { type: "as-required" },
+  },
+  {
     id: "qc-ruler-verification",
     kind: "log-sheet",
     section: "Calibration",

@@ -25,6 +25,7 @@ import { MKT_LAYOUTS } from "./mktLayouts";
 import { PRODUCTION_LAYOUTS } from "./productionLayouts";
 import { SLEEVE_LOGBOOK_LAYOUTS } from "./sleeveLogbookLayouts";
 import { DRIVE_LAYOUTS_332 } from "./driveLayouts332";
+import { QC_PORTABLE_ITEMS_LAYOUT } from "./qcPortableItems341";
 import { formatEditFor } from "../formatEdits";
 import { withoutLineNumber } from "../../engine/lineNumbers";
 
@@ -605,6 +606,8 @@ Object.assign(LOG_SHEET_LAYOUTS, PRODUCTION_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, SLEEVE_LOGBOOK_LAYOUTS);
 // The formats added from the owner's Google Drive (REQUIREMENTS §332).
 Object.assign(LOG_SHEET_LAYOUTS, DRIVE_LAYOUTS_332);
+// F/QC/42, drawn from the owner's Drive page (REQUIREMENTS §341).
+LOG_SHEET_LAYOUTS[QC_PORTABLE_ITEMS_LAYOUT.documentId] = QC_PORTABLE_ITEMS_LAYOUT;
 
 // EVERY FORM THAT PRINTS ITS LINES TAKES ADD ROW (REQUIREMENTS §207; the owner, 15-Nov-2026, with F/MKT/02's attributes:
 // "add add row button in those documents which have row like this"): §158 opened the HR forms' printed lines; now every
