@@ -10,6 +10,7 @@
 // Level are the person's, never filled.
 
 import type { PaperTable } from "./qcPaperTables";
+import { MNT_PAPERS_351 } from "./mntPapers351";
 
 /** The paper's own logo, taken from the owner's PDF. */
 const LUX_LOGO = "brand/gpp-logo-fmnt11.jpg";
@@ -76,6 +77,8 @@ const LUX_PAPER: PaperTable = {
   foot: [],
 };
 
+// F/MNT/01 to F/MNT/10 drawn as the owner's papers too (REQUIREMENTS §351, mntPapers351.ts).
 export const MNT_PAPER_TABLES: Record<string, PaperTable> = {
   "mnt-lux-level": LUX_PAPER,
+  ...MNT_PAPERS_351,
 };

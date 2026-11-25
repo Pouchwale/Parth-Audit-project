@@ -3841,6 +3841,8 @@ table.svc-paper {
    box's words written again where the paper prints them again; where nothing is written yet, the box's blank. */
 .pt-table .pt-pw { display: none; }
 .pt-table .pt-copy:empty { display: inline-block; width: calc(var(--pt-bw) * var(--u)); }
+/* A date read from another record is a link on the screen and black ink on the paper (F/MNT/03's Actuals, §351). */
+@media print { .paper-sheet[data-sheet="mnt-yearly-pm-schedule"] .pt-table a[data-linked-record] { color: #000; } }
 .pt-table :is(td.pt-c, .pt-over) > .field-in-table > .paragraph-text { margin: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; white-space: pre-wrap; }
 /* A register in a heavy frame (F/QC/16): its outer edges heavier than its cells'. */
 .pt-table.pt-frame { border-left: var(--pt-hv); }

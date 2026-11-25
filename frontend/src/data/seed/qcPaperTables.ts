@@ -121,6 +121,8 @@ export interface PaperCell {
   grow?: true;
   /** The words from this letter to that one printed bold, the rest plain, as Word sets a heading's bold words (§325). */
   bs?: [number, number];
+  /** Those bold words underlined too, where the paper underlines them (F/MNT/05's "Hygiene clearance: -", §351). */
+  bsu?: true;
   /** A cell the paper shades (F/QC/08's and F/QC/16's number box): its grey. */
   bg?: string;
   /** Its words in the middle of its height, as a spreadsheet's heading sets them (each line lh apart). */

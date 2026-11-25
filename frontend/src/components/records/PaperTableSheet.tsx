@@ -95,13 +95,13 @@ export function withUnderlinedLines(text: string, ul: number[] | undefined, rend
 }
 
 /** Words with the letters from..to printed bold and the rest plain (PaperCell.bs, F/SYS/04's headings, §325). */
-function boldSpan(text: string, bs: [number, number] | undefined, ul?: number[]): React.ReactNode {
+function boldSpan(text: string, bs: [number, number] | undefined, ul?: number[], underlined?: boolean): React.ReactNode {
   if (!bs) return withUnderlinedLines(text, ul);
   const [from, to] = bs;
   return (
     <>
       {text.slice(0, from)}
-      <span style={{ fontWeight: 700 }}>{text.slice(from, to)}</span>
+      <span style={underlined ? { fontWeight: 700, textDecoration: "underline" } : { fontWeight: 700 }}>{text.slice(from, to)}</span>
       {text.slice(to)}
     </>
   );
@@ -364,8 +364,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
             } else if (c.rowKey && c.rowTable && parts.rowWords) body = <span className="pt-words">{parts.rowWords(c.rowTable, c.rowKey, text)}</span>;
             // (a cell the paper leaves blank can be written in too: every part of the paper is the record's)
             // (not the hair-thin strips between a paper's rules: nothing is ever written there)
-            else if (parts.printed && !c.img && !row.pad && (text || (c.w >= 4 && row.h >= 2.5))) body = parts.printed(c.pl ?? `${row0 + ri}:${ci}`, text, text ? boldSpan(text, c.bs, c.ul) : null);
-            else if (text) body = <span className="pt-words">{c.bs ? boldSpan(text, c.bs) : withUnderlinedLines(text, c.ul, (line) => withHeaderWords(line, words, edit, !!c.caps))}</span>;
+            else if (parts.printed && !c.img && !row.pad && (text || (c.w >= 4 && row.h >= 2.5))) body = parts.printed(c.pl ?? `${row0 + ri}:${ci}`, text, text ? boldSpan(text, c.bs, c.ul, c.bsu) : null);
+            else if (text) body = <span className="pt-words">{c.bs ? boldSpan(text, c.bs, undefined, c.bsu) : withUnderlinedLines(text, c.ul, (line) => withHeaderWords(line, words, edit, !!c.caps))}</span>;
           }
           cells.push(
             <td

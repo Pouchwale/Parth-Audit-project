@@ -14007,3 +14007,88 @@ colour (§282). Each prints on A4 with nothing within 8 mm of the paper's edge a
   reload, printed, account deleted).
 - Files: data/seed/sysPapers352.ts (new), data/seed/qcPaperTables.ts (the lookup), data/seed/sysInternalAuditLayouts.ts
   (F/SYS/10's correctionAction), styles.css. Tests: frontend/tests/sysPapers352.test.ts.
+
+## §351 Maintenance: F/MNT/01 to F/MNT/10 drawn and printed as the owner's papers (25-Nov-2026)
+
+The owner: "same format present in my system which is present in google drive ... whenever user download any document of any
+module or take a print on A4 size paper, that should be very perfect". The review of 24-Nov-2026 (FORMAT-AUDIT-24-11-2026.md)
+found all ten Maintenance documents drawn in DCRS's own style (MAJOR). Each is now drawn as the owner's page
+(data/seed/mntPapers351.ts), measured in mm off the printout of his own file, every printed word typed over where it stands
+(as the HR papers, §275), no colour (§282), printed as large as A4 holds it with no letter under 8 pt. Every place a person
+writes is the record's own box or grid cell under the layout's own keys, so records, auto-fill, Indexing (§305), the PM
+schedule's Actual dates and every check work as before. F/MNT/11 (§316) is unchanged.
+
+- **F/MNT/01 List of Equipments & Utilities** - the workbook's Flexo sheet as its PDF prints it: the company over the whole
+  width, LIST OF EQUIPMENTS & UTILITIES beside "F/MNT/01 (00/01.12.2021)", the eleven headings in the sheet's own words and
+  letters ("Machine No.", "Location / Room", "Month of manufacture"), no Sr. No., a ruled line for each machine (47 blank
+  lines on a new list). Landscape, the heading repeated on each page of a long list. Drawn from DCRS's workbook of 29-09-2026:
+  the Drive's Formats copy of 05-12-2025 is the older list (no M-16, M-17, M-43, M-86).
+- **F/MNT/02 Preventive Maintenance Schedule & Record** - the Word original's two pages: the head box with "Format No.:
+  F/MNT/02 | Rev No: 01 | Date: 01.12.2021 | Page No.: 1 Of 2" on both; Machine Name: / Machine Identification No; the four
+  check-point lists side by side ("Monthly Check points" twice, as the original on file prints them); Monthly (four bands of
+  three), Quarterly ("Maint.", "S/visor"), Six monthly and Yearly Date / Maintenance / Supervisor, the record's nineteen PM
+  slots in that order; the Hygiene clearance under them, its lead in bold; the Remarks box at the foot of page 1; page 2's
+  Date of Preventive maintenance / Any abnormal findings / Action taken. Left different: page 2 rules a line for each of the
+  19 visits (the paper rules 16), the visit's date written again beside its findings, since each slot keeps its own.
+- **F/MNT/03 Yearly Preventive Maintenance Schedule** - the workbook's Sheet1 as printed, four landscape pages each headed by
+  the company, "YEARLY PREVENTIVE MAINTENANCE SCHEDULE - 2023" and "F/MNT/03 (01/15.07.2026)" and M/C No. | Equipment Name |
+  Frequency | Jan ... Dec.; one block per machine, its number and name down the block, each frequency two lines, Plan over
+  Actual, the months as single columns; five machines a page (six on the last), as the workbook prints them. No Sr. No.; the
+  note under the table is not printed. M-07's long name is set a little smaller, as the workbook sets it, and prints whole
+  (the workbook's own print cuts "MACHINE"). The Actual is still read from F/MNT/02: on the paper each Actual date is a link
+  to the F/MNT/02 it is read from, as on the grid, printed in black; the notice of where the Actuals come from (and why M-07's
+  lines are not linked) stands above the paper and the note "Actual dates read from F/MNT/02 ..." under it, on the screen
+  only. F/MNT/02's line of the machine's next planned PM stands above its paper on the screen, as before.
+- **F/MNT/04 Daily Equipment Health Status & Cleaning Record** - its PDF: logo | the title over "Month & Year : -" |
+  "F/MNT/04 (00/01.12.2021)"; Machine discription : / Machine No. :; Check Parameter in Hindi and Gujarati in their ruled table;
+  the two notes (the Gujarati in bold); DAY SHIFT and NIGHT SHIFT each with the dates across the page (1-16, 17-31), the tick
+  and the Operator under each date, the sentence and PTO under each shift; the back side with the same head and Date /
+  Observation / Concerns reported / Action Taken / Maintenance Technician Sign / Machine Operator Sign. Left different: the
+  back rules 31 lines, one for each day (its Date the day's), where the paper rules 30. The old box for the back side's details
+  (§74) is kept on the record, off the paper.
+- **F/MNT/05 (1) Breakdown Maintenance Memo & Post Maintenance Hygiene Record** - two slips to the page as printed, each a
+  ruled form: Machine Name- | Date of Breakdown Intimation : -, Machine No.- | Time of Breakdown Intimation : -, PROBLEM | WORK
+  CARRIED OUT | SPARES USED | PREVENTIVE MEASURE TAKEN side by side over their boxes, the repair's date, time and minutes,
+  Machine Operator- | Maintenance Technician -, the Hygiene clearance, Production Supervisor : - | Maintenance Supervisor : -.
+  The lower slip is the record's copy (the same boxes); the paper's lower slip cuts its hygiene paragraph, here it is whole.
+- **F/MNT/05 (2) Breakdown Maintenance Memo & Hygiene Clearance Record** - its PDF: "GUJARAT PRINT PACK PUBLICATION LIMITED"
+  (the slip's own words), the underlined title beside "F/MNT/05 (00/01.12.2021)", the user, date, machine, ID and breakdown time,
+  the three boxed writing areas under their underlined labels, the handover time, the training question with Yes / No to ring,
+  the Hygiene clearance, Problem attended by : - | Sign of the User dept. : -.
+- **F/MNT/06 Equipments Breakdown Maintenance Record** - its PDF and the Drive's workbook of 19-11-2025 (the same format, the
+  same fifteen headings and 26 lines): logo | title | "F/MNT/06 (00/01.12.2021)"; BREAKDOWN HISTORY over SR.NO. to FAULT ATTEND.
+  BY, ACTION TAKEN down both heading rows, USED MATERIALS, BREAKDOWN HISTORY & SUMMARY; "REASON For Breakdown"; 26 ruled lines,
+  SR.NO. numbering the record's lines. The A3 sheet printed on A4: five columns whose heading words would not fit at 8 pt take
+  a little width from EQUIPMENT NAME, FAULT REPORTED and REASON For Breakdown; QTY. keeps the paper's width.
+- **F/MNT/07 Temporary Engineering Log** - its PDF: the company, the title beside "F/MNT/07 (00/01.12.2021)", notes 1 to 5 inside
+  the frame in black, the ten headings in the paper's words with the description the widest column, nine ruled lines, no Sr. No.
+- **F/MNT/08 New Equipment Installation Report** - the Word original's two pages: logo | NEW EQUIPMENT INSTALLATION REPORT |
+  "F/MNT/08 (00/01.12.2021)" on both; the five equipment boxes beside their bold labels; Requirement | Assessment of Equipment
+  Y/N | Comments along with date of action, each requirement row as tall as the paper's; page 2 Benefits:, Risks including
+  deviation accepted conditionally:, the declaration in bold, Hand over & Take over Protocol centred, each head with his Date.
+- **F/MNT/09 List of Glass Articles & Weekly Glass Brekage Monitoring Record** - the Word original's two pages: logo | title |
+  "F/MNT/09 (02 / 01.09.2025)"; page 1 the list of glass and brittle plastic articles of the 01.09.2025 issue (the revision DCRS
+  is on, as the Drive's Formats copy of 01-12-2025) with its TOTAL row, the grand total blank as the paper leaves it, and the
+  revision history; page 2 Month & Year and Monitoring Weeks as the table's own rows, the twelve areas plain and the other rows
+  bold, the four instructions in the column at the right with "CA / Incident record" in bold.
+- **F/MNT/10 List of Wooden Articles & Weekly Wooden Article Monitoring Record** - the Word original's three pages (Rev 02,
+  15.12.2024): the company, the underlined title and "Format No.: F/MNT/10 | Rev No: 02 | Date: 15.12.2024 | Page No.: 1 Of 3"
+  on every page; page 1 the wooden articles by area with its Total row and the revision history (its line 3 on page 2, as the
+  paper breaks it); page 2 Month & Year, Monitoring Weeks, Date of monitoring and the twelve areas, the three instructions at the
+  right; page 3 BREAKAGE, Nos. of Discarded Wooden Pallets (Store & Production), CHECKED BY and VARIFIED BY (no orange).
+- **Left as they were**: the downloads. F/MNT/01, 02, 03, 08, 09 and 10 download as the owner's own files filled
+  (originalFiles.ts); F/MNT/04-07 have no Word or Excel original of his on file (§329) and download as DCRS's own. The values
+  written on a record print in the middle of their cell's height, the owner's rule for his papers (§294). "Hygiene clearance: -"
+  on the two F/MNT/05 slips prints bold and underlined, as printed: a cell's bold words may now be underlined too
+  (PaperCell.bsu).
+- **For the owner**: F/MNT/10's later issue in the Drive (BRCGS 25-26 folder, "Rev No: 02 | Date: 01.09.2025", a changed list
+  and a second revision line) keeps the old Total row (170 / 23 / 21 / 26 / 320 / 560, where its rows add to 190 / 37 / 24 /
+  27 / 320 / 598) and the Master List F-SYS-02 still gives 15.12.2024, so F/MNT/10 stays on 15.12.2024 until he says. F/MNT/03
+  prints "- 2023" as his workbook does. F/MNT/05 (1)'s lower slip prints the record again; it can print blank if he prefers.
+  F/MNT/02's second list is headed "Monthly Check points" as the original on file prints it; the Drive's blank format of 2022
+  heads it "3 Monthly Check points".
+- **Files**: data/seed/mntPapers351.ts (new), data/seed/mntPaperTables.ts (the lookup takes them), data/seed/qcPaperTables.ts
+  (PaperCell.bsu), components/records/PaperTableSheet.tsx (bold words underlined), components/records/LogSheetRecordView.tsx (a
+  cell read from another record is a link on a paper too; F/MNT/02's and F/MNT/03's notes above the paper on the screen),
+  styles.css (F/MNT/03's linked dates print in black). Tests: frontend/tests/mntPapers351.test.ts (new);
+  frontend/tests/qcIncomingCoaPaper.test.ts no longer looks for F/MNT/08's DCRS-style printed group, which the paper replaces.

@@ -151,7 +151,11 @@ test("boxes in the paper's groups: F/MNT/08's hand-over is drawn as before, unde
   );
   assert.equal(boxGroups(layoutOf("mnt-new-equipment"), "footer"), groups, "worked out once per layout");
   const html = await sheet("mnt-new-equipment");
-  assert.equal(html.split('data-section="printed-group"').length - 1, 1, "one printed group, as F/MNT/08's page 2 has");
+  // Since §351 F/MNT/08 is drawn as the owner's paper (data/seed/mntPapers351.ts): its page 2 draws the hand-over in its own rows
+  // (the declaration, Hand over & Take over Protocol, each head beside his Date), not as DCRS's printed group.
+  assert.match(html, /data-sheet="mnt-new-equipment"[^>]*data-paper-form="table"/);
+  assert.equal(html.split('data-section="printed-group"').length - 1, 0, "drawn by the paper's own rows");
+  for (const w of ["Hand over &amp; Take over Protocol", "Maintenance Head: -", "Production Head: -", "QC Head: -"]) assert.ok(html.includes(w), w);
   // A sheet whose boxes start no group draws them as it always did.
   const plain = boxGroups(layoutOf("qc-viscosity"), "header");
   assert.deepEqual(plain, []);

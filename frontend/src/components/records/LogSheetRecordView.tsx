@@ -938,6 +938,15 @@ export function LogSheetRecordView({
       const c = layout.columns[ci];
       const fixedRow = printedLineOf(layout, row, line);
       const col = effectiveColumn(c, fixedRow);
+      // A cell read from another document is a link to the record it was read from, as on the grid (F/MNT/03's Actuals
+      // read from F/MNT/02, drawn as the owner's paper since §351): words, never a box.
+      if (c.linkedFrom) {
+        return (
+          <div className="pt-box">
+            <LinkedCell colKey={key} from={c.linkedFrom} cell={rowLinks?.get(row.id)?.[key]} />
+          </div>
+        );
+      }
       // (a printed cell's lines the paper underlines, F-QC-14's specification under each check's name)
       // ...typed over on the record while it can be written on (REQUIREMENTS §135), drawn as the paper draws them.
       if (col.fixed) {
@@ -1207,6 +1216,9 @@ export function LogSheetRecordView({
         </div>
         <div className="paper-body">
           {headerPanel}
+          {/* F/MNT/02's next planned PM and F/MNT/03's notice of where its Actuals come from (§351: on the screen, as above the grid). */}
+          {pmPlanLine && <PmPlanLine line={pmPlanLine} />}
+          {pmLines && <PmLinkNotice lines={pmLines} />}
           {superseded && (
             <div className="card mt-4 no-print" data-superseded-revision={superseded.revisionNo}>
               <div className="card-pad text-sm">
@@ -1227,6 +1239,12 @@ export function LogSheetRecordView({
             </div>
           )}
           <PaperTablePart part="body" parts={ptParts} />
+          {/* (the note is not on the owner's paper: on the screen only, §351) */}
+          {pmLines && (
+            <div className="text-xs text-muted mt-2 no-print" data-section="pm-actuals-note">
+              Actual dates read from F/MNT/02 on {formatDisplayDate(todayISO())}; * marks a PM whose F/MNT/02 is not yet Verified.
+            </div>
+          )}
           {ptCanAdd && (
             <button className="btn btn-secondary btn-sm mt-2 no-print" onClick={addRow}>
               <FiPlus size={13} /> Add Row
