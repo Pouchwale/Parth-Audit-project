@@ -542,7 +542,8 @@ app.get("/api/users/directory", requireAuth, async (req: Request, res: Response)
       const theirs = viewFor(catalogue, accessAccountOf(p)).modules();
       return theirs === null || theirs.some((code) => own.includes(code));
     })
-    .map((p) => ({ id: p.id, name: p.name, role: p.role, departments: p.departments }));
+    // The sign-in too, so the screens can name the people Users & Access gives each document (REQUIREMENTS §333).
+    .map((p) => ({ id: p.id, name: p.name, email: p.email, role: p.role, departments: p.departments }));
   res.json({ people });
 });
 

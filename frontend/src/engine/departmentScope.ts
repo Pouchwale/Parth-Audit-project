@@ -272,10 +272,42 @@ const nameFromEmail = (email: string): string =>
 export function answerersOf(documentId: string): string[] | null {
   const b = current();
   if (!b) return null;
-  return b.access
-    .responsible(documentId)
+  // Only accounts that are on the plant's list of accounts, by their own names, once that list is read (§333): an
+  // account the super admin removed, or one the owner's table names that was never made, is not named at all.
+  const names = accountNames;
+  // ...and anybody the super admin GAVE Write or Edit there, on the document or its whole module (§333): the people who
+  // answer for it first, then the others by name. Read alone is not responsibility.
+  const department = b.docs.find((d) => d.id === documentId);
+  const module = department ? accessDocOf(department).department ?? "" : "";
+  const grants = (lvl: AccessLevel | undefined): boolean => lvl === "write" || lvl === "edit";
+  const given = Object.entries(storedRules.people)
+    .filter(([, rules]) => grants(rules.documents?.[documentId]) || (rules.documents?.[documentId] === undefined && grants(rules.modules?.[module])))
+    .map(([email]) => canonicalEmail(email));
+  const named = b.access.responsible(documentId);
+  const extra = given.filter((e) => !named.includes(e));
+  const nameOf = (email: string): string => names?.get(canonicalEmail(email)) ?? NAME_BY_EMAIL.get(email) ?? nameFromEmail(email);
+  return [...named, ...extra.sort((x, y) => nameOf(x).localeCompare(nameOf(y)))]
+    .filter((email, i, all) => all.indexOf(email) === i)
     .filter((email) => b.access.may({ email, role: "staff", departments: [] }, documentId, "fill"))
-    .map((email) => NAME_BY_EMAIL.get(email) ?? nameFromEmail(email));
+    .filter((email) => !names || names.has(canonicalEmail(email)))
+    .map(nameOf)
+    .filter((name, i, all) => all.indexOf(name) === i);
+}
+
+// THE PLANT'S ACCOUNTS BY SIGN-IN (GET /api/users/directory, read with the access rules: store/AuthContext.tsx): who the
+// Responsible (Who) of the Document Library names (the owner, 25-Nov-2026: "when superadmin give access from user & access
+// dashboard then name should come in all document ... if superadmin is deleted any user ... name of that also should be
+// gone", REQUIREMENTS §333). Null until read, or from a server that does not give the sign-ins: the names as before.
+let accountNames: Map<string, string> | null = null;
+
+export function setAccountDirectory(people: readonly { email?: string; name: string }[] | null): void {
+  if (!people || !people.some((p) => p.email)) {
+    accountNames = null;
+    return;
+  }
+  const map = new Map<string, string>();
+  for (const p of people) if (p.email) map.set(canonicalEmail(p.email), p.name.trim() || nameFromEmail(p.email));
+  accountNames = map;
 }
 
 /**

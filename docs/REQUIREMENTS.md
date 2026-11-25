@@ -13806,3 +13806,19 @@ DCRS lacked are added:
   scripts/originals/picks.json, public/originals/*, public/source/fprd11-*, fprd30-*. Tests: frontend/tests/drivePapers332.test.ts;
   production.test.ts, accessRules.test.ts, indexing/tests/automatic305.test.ts (F/PRD/11 now has its format; F-PRD-25 is the line
   left without one).
+
+## §333 Responsible (Who) is whom Users & Access gives the document (25-Nov-2026)
+
+The owner, 25-Nov-2026, on the Responsible column: "when superadmin give access from user & access dashboard then name should come
+in all document like wise if superadmin is deleted any user from user and access than in responsible name of that also should be
+gone from there".
+
+- The Document Library's Responsible (Who), and its search, name the accounts Users & Access gives each document: the people who
+  answer for it, then anybody the super admin gave Write or Edit on the document or its whole module. Read alone is not
+  responsibility. Each is named as their account is called.
+- An account the super admin removes is gone from every document at once (the Users & Access page reads the accounts and the
+  rules again after a removal); one the owner's table names that was never made is not named. Nobody left: "Super admin - nobody
+  given it on Users & Access". Master Data's roles are read only where nobody is signed in (the engine host, the tests).
+- The account directory (GET /api/users/directory) gives each account's sign-in for this; a server change, live at its restart.
+- Files: backend/index.ts, frontend/src/engine/departmentScope.ts, engine/documentInfo.ts, store/AuthContext.tsx,
+  components/access/AccessSection.tsx, api/client.ts; tests/responsibleWho.test.ts.

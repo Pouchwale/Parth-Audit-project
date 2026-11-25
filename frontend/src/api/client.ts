@@ -247,7 +247,8 @@ export const assistantApi = {
 };
 
 /** An account as the Performance Scorecard reads it: who it is and which departments it answers for — never the sign-in address. */
-export type DirectoryPerson = Pick<AuthUser, "id" | "name" | "role" | "departments">;
+// (email: a server from before §333 leaves it out)
+export type DirectoryPerson = Pick<AuthUser, "id" | "name" | "role" | "departments"> & { email?: string };
 
 // WHO MAY SEE WHICH DEPARTMENT'S DOCUMENTS. Only the administrator account
 // (the first one created) can read this list or change an assignment — the

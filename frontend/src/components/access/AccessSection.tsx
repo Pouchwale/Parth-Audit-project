@@ -20,6 +20,7 @@ import {
   type AccessChange,
 } from "../../engine/accessEditing";
 import { useAppStore } from "../../store/AppStore";
+import { loadAccountDirectory } from "../../store/AuthContext";
 import { Modal } from "../common/Modal";
 import { Pager, usePaged } from "../common/Pager";
 import { PAGE_SIZE } from "../../engine/paging";
@@ -55,6 +56,8 @@ export function useAccessRules(enabled: boolean): {
   const [error, setError] = useState<string | null>(null);
   const reload = useCallback(() => {
     setError(null);
+    // An account made, removed or brought back: the names Responsible (Who) shows, read again with the rules (§333).
+    void loadAccountDirectory();
     accessApi
       .rules()
       .then((res) => {

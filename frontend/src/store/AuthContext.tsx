@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { api, ApiError, OUTSIDE_HOURS_EVENT, type AuthResponse, type OutsideHoursDetail, type PublicHours, type ServerFeatures } from "../api/client";
-import { setAccessRules, setAccessScope } from "../engine/departmentScope";
+import { setAccessRules, setAccessScope, setAccountDirectory } from "../engine/departmentScope";
 import { setFeatures } from "../engine/features";
 import { setSuperAdminSignedIn } from "../engine/signedInPerson";
 import { DEFAULT_PLANT_TIME_ZONE, END_OF_DAY_REASON, END_OF_HOURS_REASON, OUTSIDE_HOURS_CODE, OUTSIDE_HOURS_REASON } from "../engine/workingHoursCore";
@@ -154,6 +154,20 @@ function startAccessLoad(): Promise<void> {
 
 /** Reads the stored rules and applies them. Never throws: a rule that cannot be read leaves the owner's table. */
 export async function loadAccessRules(): Promise<void> {
+  await Promise.all([loadAccessRulesOnly(), loadAccountDirectory()]);
+}
+
+/** The plant's accounts by sign-in, for the names Responsible (Who) shows (§333). Never throws: unread, the names stay as they were. */
+export async function loadAccountDirectory(): Promise<void> {
+  try {
+    const res = await api.get<{ people?: { email?: string; name: string }[] }>("/users/directory");
+    setAccountDirectory(Array.isArray(res?.people) ? res.people : null);
+  } catch {
+    /* the names as before */
+  }
+}
+
+async function loadAccessRulesOnly(): Promise<void> {
   try {
     const res = await api.get<{ rules?: unknown; version?: unknown }>("/access/rules");
     setAccessRules(res?.rules ?? null);
