@@ -49,7 +49,8 @@ export const keepFormAsIssued = (documentId: string, lang: Language): boolean =>
  * translation ("LINE CLEARANCE", "Process | Materials | Operator's sign"), which is not the paper. What is said
  * about them — Mitra's questions, the guided interview, the library's list — still follows the chosen language.
  */
-export const SHEETS_PRINTED_AS_ISSUED: readonly string[] = ["qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality"];
+// F/DISP/02 too (REQUIREMENTS §372): drawn as the owner's Gujarati paper, it prints his Gujarati in every language.
+export const SHEETS_PRINTED_AS_ISSUED: readonly string[] = ["qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality", "disp-container-stuffing"];
 
 export const sheetAsIssued = (documentId: string): boolean => SHEETS_PRINTED_AS_ISSUED.includes(documentId);
 

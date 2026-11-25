@@ -3918,6 +3918,25 @@ table.svc-paper {
 .pt-table td.pt-c .pt-at.pt-f-arial { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; }
 .pt-table td.pt-c .pt-at.pt-f-times { font-family: "Times New Roman", Times, serif; }
 .pt-table .pt-img { position: absolute; left: calc(var(--pt-ix) * var(--u)); top: calc(var(--pt-iy) * var(--u)); width: calc(var(--pt-iw) * var(--u)); height: calc(var(--pt-ih) * var(--u)); object-fit: fill; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+/* A chart where the paper draws it (PaperCell.chart, F/MKT/04's trend and Pareto, §372): in its place, in black and greys (§282). */
+.pt-table .pt-chart { position: absolute; left: calc(var(--pt-ix) * var(--u)); top: calc(var(--pt-iy) * var(--u)); width: calc(var(--pt-iw) * var(--u)); height: calc(var(--pt-ih) * var(--u)); }
+.pt-table .pt-chart .trend-chart.on-paper { box-sizing: border-box; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
+.pt-table .pt-chart .trend-chart.on-paper svg { width: 100%; height: 100%; }
+.pt-table .pt-chart .trend-chart.on-paper :is(.tick, .cat, .value, .axis-title, .chart-title, .legend text) { fill: #000; }
+.pt-table .pt-chart .trend-chart.on-paper .axis { stroke: #000; }
+.pt-table .pt-chart .trend-chart.on-paper .mark { fill: #404040; stroke: #000; }
+.pt-table .pt-chart .trend-chart.on-paper :is(.bar.useful .mark, .useful-swatch) { fill: #bfbfbf; }
+.pt-table .pt-chart .trend-chart.on-paper :is(.cumulative, .cutoff) { stroke: #000; }
+.pt-table .pt-chart .trend-chart.on-paper .cumulative-dot { fill: #000; }
+/* (his charts' figures and names print at about 8 pt: the drawing is smaller on paper than on the screen, its words larger) */
+.pt-table .pt-chart .trend-chart.on-paper[data-chart="bars"] :is(.tick, .cat, .value) { font-size: 18px; }
+.pt-table .pt-chart .trend-chart.on-paper[data-chart="bars"] .chart-title { font-size: 20px; }
+/* (his trend chart names no axis) */
+.pt-table .pt-chart .trend-chart.on-paper[data-chart="bars"] .axis-title { display: none; }
+.pt-table .pt-chart .trend-chart.on-paper[data-chart="pareto"] :is(.tick, .cat, .value, .legend text) { font-size: 14px; }
+.pt-table .pt-chart .trend-chart.on-paper[data-chart="pareto"] .axis-title { font-size: 15px; }
+/* F/DISP/04's grid, two sets of four columns on each ruled line: the second set's last column rules the grid's right edge (§372). */
+.paper-sheet[data-sheet="disp-vehicle-cleaning"] .pt-table tr[data-pt-line] > td.pt-c:last-child { border-right: var(--pt-bd); }
 /* A bulleted line: the paper's round bullet, where its bullet picture stands. */
 .pt-table .pt-bullet { display: block; position: relative; }
 .pt-table .pt-bullet::before {
@@ -3991,6 +4010,8 @@ table.svc-paper {
   .pt-table td.pt-c.pt-pwc > .pt-pw { display: block; }
   .pt-table .pt-sentence.pt-sw > .pt-pw { display: inline; }
   .pt-table .pt-sentence.pt-sw > .pt-pw:empty { display: inline-block; width: calc(var(--pt-bw) * var(--u)); }
+  /* (an underlined title's blank stays underlined, as his "[ Vehicle number: ____ ]" is: F/DISP/04, F/MKT/02, F/MKT/04, §372) */
+  .paper-sheet:is([data-sheet="disp-vehicle-cleaning"], [data-sheet="mkt-feedback-analysis"], [data-sheet="mkt-complaint-trend"]) .pt-table td.pt-c.pt-u .pt-sentence.pt-sw > .pt-pw:empty { border-bottom: calc(0.42 * var(--u)) solid #000; }
 }
 /* A cell that grows to its words (PaperCell.grow, F/SYS/04, §325): the hidden copy sizes the row, the box stands over it;
    printed, the words stand in the box's place. */

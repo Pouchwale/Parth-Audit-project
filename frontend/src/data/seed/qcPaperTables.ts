@@ -44,6 +44,8 @@ import { STR_PAPERS_353 } from "./strPapers353";
 import { QC_PAPERS_370 } from "./qcPapers370";
 import { CALIBRATION_MASTER_LIST_NOTE } from "./qcRegisterLayouts";
 import { SYS_PAPERS_354 } from "./sysPapers354";
+import { DISP_PAPERS_355 } from "./dispPapers355";
+import { MKT_PAPERS_355 } from "./mktPapers355";
 
 /** One answer of a choice the paper sets across its cells or inside a cell: a scale's 7 to 1, Yes / No, a tick box (§275). */
 export interface PaperPick {
@@ -157,6 +159,11 @@ export interface PaperCell {
   bgIf?: string;
   /** A figure the paper works out from a column of the line: that column's figure times this (F/HR/21's two working columns). */
   calc?: { of: string; times: number };
+  /**
+   * A chart of the format's (LogSheetLayout.charts[n]) drawn from the record's own figures where the paper draws it, mm in
+   * from the cell's corner; title: false where the paper prints the chart's title in a row of its own (F/MKT/04, §372).
+   */
+  chart?: { n: number; x: number; y: number; w: number; h: number; title?: false };
 }
 
 export interface PaperRow {
@@ -1621,7 +1628,7 @@ export function paperTableFits(
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
 // (and a format made from a Word file, whose paper is kept with the format: REQUIREMENTS §324)
 export const paperTableFor = (documentId: string): PaperTable | undefined =>
-  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? DRIVE_PAPERS_332[documentId] ?? (documentId === QC_PORTABLE_ITEMS_ID ? QC_PORTABLE_ITEMS_PAPER : undefined) ?? PRD_PAPERS_350[documentId] ?? LAMINATION_QC_PAPERS_350[documentId] ?? SYS_PAPERS_352[documentId] ?? PUR_PAPERS_353[documentId] ?? STR_PAPERS_353[documentId] ?? QC_PAPERS_370[documentId] ?? SYS_PAPERS_354[documentId] ?? formatEditFor(documentId)?.paper;
+  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? DRIVE_PAPERS_332[documentId] ?? (documentId === QC_PORTABLE_ITEMS_ID ? QC_PORTABLE_ITEMS_PAPER : undefined) ?? PRD_PAPERS_350[documentId] ?? LAMINATION_QC_PAPERS_350[documentId] ?? SYS_PAPERS_352[documentId] ?? PUR_PAPERS_353[documentId] ?? STR_PAPERS_353[documentId] ?? QC_PAPERS_370[documentId] ?? SYS_PAPERS_354[documentId] ?? DISP_PAPERS_355[documentId] ?? MKT_PAPERS_355[documentId] ?? formatEditFor(documentId)?.paper;
 
 /** The paper as the page draws it now, with the record's own rows (§246): what the download is cut from. */
 const SHOWN_PAPER = new Map<string, PaperTable>();

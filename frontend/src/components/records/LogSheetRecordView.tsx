@@ -1058,6 +1058,8 @@ export function LogSheetRecordView({
             );
           }
         : undefined,
+      // A chart the paper draws in its own place, from this record's figures (PaperCell.chart, F/MKT/04, §372).
+      chart: (n: number, titled: boolean) => (layout.charts?.[n] ? <SheetChart chart={layout.charts[n]} data={data} onPaper title={titled} /> : null),
       holds: (line: number, col: string) => String(data.rows[line]?.[col] ?? "").trim() !== "",
       cellText: (line: number, col: string) => String(data.rows[line]?.[col] ?? ""),
       calc: (line: number, of: string, times: number) => {

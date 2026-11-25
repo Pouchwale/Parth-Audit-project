@@ -14304,3 +14304,81 @@ format's own box or column, so the records already written read on as they were.
 - Files: data/seed/sysPapers354.ts, qcPaperTables.ts (the lookup), sysHaraTraceabilityLayouts.ts, sysHaraTraceabilityRecords.ts,
   sysManagementReviewLayouts.ts, styles.css. Tests: frontend/tests/sysPapers354.test.ts; sysModule.test.ts (a new F/SYS/12 has 28
   questions, was 24).
+
+## §372 Dispatch, Marketing and CAPA formats drawn and printed as the owner's papers (25-Nov-2026)
+
+The owner, 24/25-Nov-2026: "same format present in my system which is present in google drive ... whenever user download any
+document of any module or take a print on A4 size paper, that should be very perfect". The format audit of 24-Nov-2026
+(FORMAT-AUDIT-24-11-2026.md) found these seven printed in DCRS's own style (MAJOR). Each is now drawn as the owner's paper, read
+off the printout of his own file (source-documents/originals-pdf, every rule and line of words measured in mm with pymupdf), on
+the screen and in print; every printed word is his and can be typed over on a record (ownWords, §275); every box of the record
+keeps its key; no colour is printed (§282); dates print dd-mm-yyyy.
+
+- **F/DISP/01 Safe Transporter Agreement**: his three portrait pages, each under the underlined title his Word header repeats
+  (with the empty space above it), the clauses with their bullets and his line breaks, the five headings bold and underlined,
+  "GUJARAT PRINT PACK PUBLICATIONS PRIVATE LIMITED" bold in clause 3, and the signature table on page 3 with the two parties side
+  by side. His file prints no company box and no format number (§329): none is printed; the number is shown on the screen only.
+  The period the agreement holds for is the record's two dates, bold, where clause 2 prints "01.04.2025 to 31.03.2026"; the
+  transporter is the record's box after "For Transporter - M/s". Left as it differs: his table's double rules print single.
+- **F/DISP/02 Container Stuffing & Vehicle Inspection Record**: his two Gujarati pages: the letterhead on both with "Page No.: 1
+  Of 2" / "2 Of 2", the seven instructions, the consignment's ruled boxes, "પરિવહન વાહન નિરીક્ષણ અહેવાલ", the checklist with
+  હા and નાં printed in two cells on every check (the answer ringed; NA, his third answer, is struck out by hand), the two
+  authorisations at the foot of page 1 and their names, designations and signs on page 2. It now prints his Gujarati whatever
+  language is chosen (i18n/documentText.ts SHEETS_PRINTED_AS_ISSUED, as the Gujarati QC papers do); with English chosen it had
+  printed an English translation, and its printed checklist lines as boxes.
+- **F/DISP/04 Vehicle (Company Owned) Cleaning Protocol & Record**: landscape as his file: the letterhead with the vehicle in
+  the title's blank "[ Vehicle number: ____ ]" and his three-box number band (Format No.: F / DISP / 04 | Rev. no. – 01 |
+  Effective date: - 01-11-2023), the protocol in its box with the four vehicles in their cells and the three bold bullets, and
+  the grid of two sets of four columns: its heading and first line at the foot of page 1 (his empty lines above them), fifteen
+  lines on page 2 under the letterhead again. The record's lines fill the first set, then the second (lines 17 to 32).
+- **F/MKT/02 Customer Feedback analysis**: his sheet: the company, the underlined title beside "F/MKT/02 (01/01.12.2021)",
+  Product and Evaluation Period (the record's product and two dates in his words), the attributes under "Experience with Our
+  Products & Services" with his three unheaded cells outside the frame on each line (the line's Average Rating, Ideal Rating
+  and Satisfied %), the Average Rating and Ideal Rating rows, the totals and % Satisfaction Index, his second table "Analysis
+  with respect to average rating achieved against each attribute | Satisfied % average | Further action / analysis" and the
+  Conclusion. His letters print at 7.4 pt; here none prints under 8 pt (the owner's rule, §282), so "Completeness of documents -
+  Invoice, Test certificate, Packing list" takes two lines.
+- **F/MKT/04 Customer Complaints Trend Analysis**: page 1 his trend sheet in its frame: the company, the title with the product,
+  "F/MKT/04 (00/01.12.2021)", the "Nos. of Customer complaints" table (Sr. no. and the periods, the series' row, Total), the
+  blank row, "Calender Year :" with Jan to Dec beside Jul to Dec, and the "Customer complaint Trend" bar chart on the right,
+  drawn from the record's figures. Page 2 his Pareto sheet of the same workbook: "Pareto Analysis", the chart "Customer
+  Complaints - ...", the sentence under it, "Cumulative Percentage Cutoff:", the table "# | Causes | Defects | Cumulative%"
+  with its eight ruled lines and "Insert new rows above this line". The table has six periods, as his 2026 sheets
+  (DEC 2021 ... CY 2026) and DCRS's record have; his printed 2025 sheet has five. The Vital Few / Useful Many column is his
+  chart's shading only and is kept off the paper (offPaper). His Pareto sheet prints portrait; here it is the second page of
+  the landscape paper.
+- **F/MKT/05 Customer Complaint Handling Checklist** (CAPA, External): his three portrait pages, each in its double page border
+  with his logo (brand/gpp-logo-fmkt05.png, from his Word file) beside "CUSTOMER COMPLAINT HANDLING CHECKLIST" and, at the foot,
+  "Format number: - F/MKT/05 (00 / 21.07.2026) | Page n of 3" over the address. Page 1 the customer's ruled table and sections A
+  and B, page 2 C, D and E, page 3 APPROVAL (Prepared By | Approved By, Designation, Sign & Date) and the closing sentence. Each
+  section is his table Sr. No. | Activity | Date | Comments. The filled Job Code, PO No. and approver now print (the audit's
+  fault: they printed empty). Done and N/R, the one-at-a-time checklist's answers, are screen controls beside each line, outside
+  the paper; the "0 / 5" counters and the added Name rows are gone. His title prints black, not orange (§282).
+- **Pest contol service - Gaps Analysis report** (CAPA, Internal; "TO BE CONFIRMED" kept, his file has no number): his
+  landscape sheet: the title in the table, Date Of Inspection, Name and Address of Premises Inspected on two lines, Contact
+  Person, the findings with "Corrective Action to be Taken" over "By Pest contol contractor | By Client" (his order), Target Date
+  by GP-3, Actual date of action taken, Verified by Service provider, five ruled rows (one more for each finding past five),
+  and GENERAL COMMENT with its numbered lines (two at least). Source and Status, which DCRS keeps for each finding, are on the
+  screen under the paper with Close and remove; they are not printed.
+- How the CAPA pages draw them: their records are not log sheets, so components/records/OwnPaperSheet.tsx draws a paper for any
+  page on the same sheet, rules and print as a log sheet's paper (PaperTableSheet), each place a person writes handed its box by
+  the page. The words typed over are kept on the record (data.words.headings, as a log sheet keeps them). Their downloads are
+  his Word and Excel files filled as before: for the moment of a download each page's plain sheet is drawn off the screen and
+  read (utils/paperTwin.ts, as the HR papers do).
+- Engine additions, scoped: PaperCell.chart (a format's chart drawn in a paper's cell, components/charts/SheetChart.tsx onPaper:
+  no caption, black and greys, its figures and names about 8 pt on paper, the trend chart without DCRS's axis title, which his
+  chart does not have), two scoped style rules (F/DISP/04's grid right edge; an underlined title's empty blank stays underlined
+  on F/DISP/04, F/MKT/02 and F/MKT/04).
+- Downloads: unchanged; each is his own file filled (originalFiles.ts). With his paper drawn, his own spelling of the company and
+  his format number stay in the file ("Format No.: F / DISP / 04"), as on every paper drawn as his (§275).
+- Checked on a build of this change served beside the local copy (port 5186, the scratch database): each started, typed into,
+  downloaded (Word and Excel read back with the typed words) and printed with Print Original-Style Record, the PDFs set beside his
+  printouts page by page: the same pages, parts, words and rules; nothing within 5 mm of an edge (the nearest, F/MKT/05's page
+  border, 8 mm); no letter under 8 pt, the charts' too. tests/check_all_documents.py still names three things that are his:
+  F/DISP/01 prints no format number, F/DISP/04 writes it "F / DISP / 04", and the two CAPA records open on their own pages.
+  The filled F/MKT/05 printed its Job Code, PO No. and dates. tests/verify_with_test_account on all seven: 7 of 7, the account
+  deleted.
+- Files: data/seed/dispPapers355.ts, mktPapers355.ts, capaPapers355.ts, qcPaperTables.ts (paperTableFor, PaperCell.chart),
+  components/records/OwnPaperSheet.tsx, PaperTableSheet.tsx, LogSheetRecordView.tsx, components/charts/SheetChart.tsx,
+  pages/CapaPage.tsx, pages/GapPage.tsx, types/record.ts (words on the two CAPA records), i18n/documentText.ts, styles.css,
+  public/brand/gpp-logo-fmkt05.png. Tests: frontend/tests/papers355.test.ts.

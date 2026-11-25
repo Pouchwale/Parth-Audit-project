@@ -81,6 +81,8 @@ export interface PaperTableParts {
   calc?: (line: number, of: string, times: number) => string;
   /** The month of the sheet's financial year a heading names: "Apr-26" (0 is April). */
   fyMonth?: (month: number) => string;
+  /** A chart of the format's drawn from the record's figures where the paper draws it (PaperCell.chart, §372). */
+  chart?: (n: number, title: boolean) => React.ReactNode;
 }
 
 /** Words whose lines the paper underlines (PaperCell.ul, F-QC-14's specifications): each such line in its own underlined span. */
@@ -331,7 +333,15 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
             const no = lineNo(n + 1, c.numFmt);
             body = !shownNo ? null : parts.printed && !row.pad ? parts.printed(`num:${n}`, no, no) : <span className="pt-words">{no}</span>;
           } else if (c.col !== undefined && c.ln !== undefined) body = row.line !== undefined && c.ln >= (parts.rowCount ?? 0) ? null : parts.gridCell(c.ln, c.col, c);
-          else if (c.sentence) {
+          // (a chart where the paper draws it, from the record's figures: F/MKT/04's trend and Pareto, §372)
+          else if (c.chart) {
+            const ch = c.chart;
+            body = (
+              <span className="pt-chart" style={{ "--pt-ix": String(ch.x), "--pt-iy": String(ch.y), "--pt-iw": String(ch.w), "--pt-ih": String(ch.h) } as React.CSSProperties}>
+                {parts.chart?.(ch.n, ch.title !== false)}
+              </span>
+            );
+          } else if (c.sentence) {
             const s = c.sentence;
             const f = fieldOf(layout, s.box);
             // The cell's own words on the line above ("Inspector - 1" over the name), the words before the box (its own

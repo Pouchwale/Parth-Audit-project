@@ -326,6 +326,8 @@ export interface GapInspectionData {
   contactPerson: string;
   findings: GapFinding[];
   generalComments: string[];
+  /** The paper's printed words as this record words them, by their place (headings "paper:<place>", REQUIREMENTS §372). */
+  words?: SheetWords;
 }
 
 // ---- 4b. CAPA — External: Customer Complaint Handling Checklist (F/MKT/05)
@@ -364,6 +366,8 @@ export interface ComplaintChecklistData {
   sections: ChecklistSection[];
   preparedBy: ChecklistSignoff;
   approvedBy: ChecklistSignoff; // stamped by the Verify (approval) step
+  /** The paper's printed words as this record words them, by their place (headings "paper:<place>", REQUIREMENTS §372). */
+  words?: SheetWords;
 }
 
 // ---- 5. Training Record ----------------------------------------------------

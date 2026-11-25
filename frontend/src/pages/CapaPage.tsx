@@ -1,6 +1,7 @@
 import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import { MonthBar, inPeriod, periodOf, periodWords, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
 import React, { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { FiArrowLeft, FiArrowRight, FiPlus, FiZap, FiUsers, FiSearch } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
@@ -45,6 +46,9 @@ import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { useT } from "../i18n";
 import { bindProps, checklistBind, type ChecklistHeaderKey } from "../engine/roundTrip/bindingsFor";
 import { waitsUntil } from "../engine/notBeforeDay";
+import { OwnPaperSheet } from "../components/records/OwnPaperSheet";
+import { complaintChecklistPaper } from "../data/seed/capaPapers355";
+import { PLAIN_TWIN_ATTR, registerPaperTwin } from "../utils/paperTwin";
 
 const GAP_DOC_ID = "gap-inspection";
 
@@ -298,6 +302,11 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
 
   const t = useT();
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
+  // THE OWNER'S PAPER ON THE PAGE, HIS WORD FILE FILLED FROM THE PLAIN SHEET (§372): the page draws and prints F/MKT/05 as his
+  // paper; for the moment of a download the checklist's plain sheet is drawn off the screen and read, as before
+  // (utils/paperTwin.ts), so his Word file is filled exactly as it was.
+  const [plainTwin, setPlainTwin] = useState(false);
+  React.useEffect(() => (record ? registerPaperTwin(record.id, setPlainTwin) : undefined), [record?.id]);
   // Below Write on its document the record is read only (REQUIREMENTS §96, engine/departmentScope.ts).
   // ...and not before the first day it covers (REQUIREMENTS §201, engine/notBeforeDay.ts).
   const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill") && !waitsUntil(doc, record);
@@ -556,6 +565,215 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
     );
   };
 
+  // THE OWNER'S PAPER (§372): each place a person writes is the record's box, bound as on the plain sheet.
+  const codeProblems = (Object.keys(codeRules) as ChecklistHeaderKey[])
+    .map((key) => ({ key, says: editable ? codeRules[key as string]?.problem(String((data[key] as string | null) ?? "")) : null }))
+    .filter((x): x is { key: ChecklistHeaderKey; says: string } => !!x.says);
+  const paperBox = (key: string): React.ReactNode => {
+    if (key.includes(".")) {
+      const [who, field] = key.split(".") as ["preparedBy" | "approvedBy", "name" | "designation" | "date"];
+      const sign = data[who];
+      // Approved By's name and date are stamped by the approval (Verify); only its designation is the approver's to write.
+      const can = who === "preparedBy" ? editable : field === "designation" && canApprove;
+      const hint = who === "preparedBy" ? (field === "name" ? currentUser : undefined) : field === "name" ? "Stamped on approval" : field === "designation" ? "QA Head" : undefined;
+      return (
+        <div className="field field-in-table">
+          <input
+            type={field === "date" ? "date" : "text"}
+            className="input input-sm"
+            {...bindProps(checklistBind.signoff(who, field))}
+            aria-label={`${who === "preparedBy" ? "Prepared By" : "Approved By"} — ${field === "date" ? "Sign & Date" : field === "name" ? "Name" : "Designation"}`}
+            disabled={!can}
+            value={sign[field] ?? ""}
+            placeholder={hint}
+            onChange={(e) => patch({ [who]: { ...sign, [field]: e.target.value || (field === "date" ? null : "") } } as Partial<ComplaintChecklistData>)}
+          />
+        </div>
+      );
+    }
+    const k = key as ChecklistHeaderKey;
+    const rule = codeRules[k as string];
+    const type = k === "complaintReceivedDate" ? "date" : "text";
+    const says = codeProblems.find((x) => x.key === k)?.says;
+    return (
+      <div className="field field-in-table">
+        <input
+          type={type}
+          className={`input input-sm${says ? " error" : ""}`}
+          data-field={k}
+          {...bindProps(checklistBind.header(k))}
+          placeholder={rule ? rule.example : undefined}
+          title={says}
+          disabled={!editable}
+          value={(data[k] as string | null) ?? ""}
+          onChange={(e) => patch({ [k]: e.target.value || (type === "date" ? null : "") } as Partial<ComplaintChecklistData>)}
+          onBlur={
+            rule
+              ? (e) => {
+                  const tidied = rule.normalise(e.target.value);
+                  if (tidied !== e.target.value) patch({ [k]: tidied } as Partial<ComplaintChecklistData>);
+                }
+              : undefined
+          }
+        />
+      </div>
+    );
+  };
+  // Each activity's line on the paper: its place among the record's activities, A1 to E32.
+  const activities = data.sections.flatMap((s, si) => s.items.map((it, ii) => ({ s, si, it, ii })));
+  const paperCell = (ln: number, col: string): React.ReactNode => {
+    const a = activities[ln];
+    if (!a) return null;
+    const { s, si, it, ii } = a;
+    const open = editable && isItemOpen(data, si, ii);
+    if (col === "srNo")
+      return (
+        <>
+          <span className="pt-words">{it.srNo}</span>
+          {/* Done and N/R, the one-at-a-time checklist's answers: the screen's, outside the paper (his paper has no such column). */}
+          {editable && (
+            <span className="pt-rowtools no-print" data-activity={`${s.key}${it.srNo}`} data-locked={open ? undefined : "1"}>
+              <input
+                type="checkbox"
+                title={`${s.key}${it.srNo} — Done`}
+                aria-label={`${s.key}${it.srNo} — Done`}
+                checked={it.done}
+                disabled={!open}
+                data-field="done"
+                {...bindProps(checklistBind.item(s, it, "done"))}
+                onChange={(e) => updateItem(si, ii, { done: e.target.checked, notRequired: e.target.checked ? false : it.notRequired, date: e.target.checked ? it.date ?? todayISO() : it.date })}
+              />
+              <button
+                type="button"
+                className={`btn btn-sm ${it.notRequired ? "btn-secondary" : "btn-ghost"}`}
+                style={{ padding: "1px 4px", fontSize: 10 }}
+                disabled={!open}
+                data-field="not-required"
+                title={isConditionalActivity(it.activity) ? "Not required for this complaint" : "Not applicable to this complaint"}
+                onClick={() =>
+                  updateItem(si, ii, {
+                    notRequired: !it.notRequired,
+                    done: false,
+                    // Pressed again, the note this button wrote is taken back with it.
+                    comment: it.notRequired ? (it.comment.trim() === "Not required" ? "" : it.comment) : it.comment || "Not required",
+                  })
+                }
+              >
+                N/R
+              </button>
+            </span>
+          )}
+        </>
+      );
+    if (col === "date")
+      return (
+        <div className="field field-in-table">
+          <input type="date" className="input input-sm" {...bindProps(checklistBind.item(s, it, "date"))} aria-label={`${s.key}${it.srNo} — Date`} disabled={!open} value={it.date ?? ""} onChange={(e) => updateItem(si, ii, { date: e.target.value || null })} />
+        </div>
+      );
+    if (col === "comment")
+      return (
+        <div className="field field-in-table pt-lines">
+          <textarea className="input input-sm" rows={2} {...bindProps(checklistBind.item(s, it, "comment"))} aria-label={`${s.key}${it.srNo} — Comments`} disabled={!open} value={it.comment} onChange={(e) => updateItem(si, ii, { comment: e.target.value })} />
+        </div>
+      );
+    return null;
+  };
+  // The paper's printed words as this record words them (ownWords, §275), by their place.
+  const setPaperWords = (key: string, w: string) => patch({ words: { ...data.words, headings: { ...data.words?.headings, [key]: w } } });
+
+  // The checklist's plain sheet (as DCRS drew it before §372): drawn off the screen for a download only.
+  const plainSheet = (
+    <>
+      <DocumentHeader doc={doc} pageLabel={record.headerBlock?.page ?? "1 of 1"} edit={headerEdit} />
+      <div className="card mt-4">
+        <div className="card-pad">
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px 16px" }}>
+            {headerField("Customer Name", "customerName")}
+            {headerField("Complaint No.", "complaintNo")}
+            {headerField("Job Name", "jobName")}
+            {headerField("Job Code", "jobCode")}
+            {headerField("Complaint Received Date", "complaintReceivedDate", "date")}
+            {headerField("PO No.", "poNo")}
+          </div>
+        </div>
+      </div>
+      {data.sections.map((s, si) => (
+        <div key={s.key} className="card mt-4" data-section={s.key}>
+          <div className="card-header">
+            <span className="checklist-section-title">
+              {s.key}. {s.title}
+            </span>
+          </div>
+          <div className="doc-table" style={{ border: "none" }}>
+            <table className="compact">
+              <thead>
+                <tr>
+                  <th style={{ width: 56 }}>Sr. No.</th>
+                  <th>Activity</th>
+                  <th style={{ width: 70, textAlign: "center" }}>Done</th>
+                  <th style={{ width: 140 }}>Date</th>
+                  <th>Comments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.items.map((it) => (
+                  <tr key={it.srNo} data-activity={`${s.key}${it.srNo}`}>
+                    <td className="text-muted">{it.srNo}</td>
+                    <td className="text-sm">
+                      {it.activity}
+                      {it.notRequired && (
+                        <span className="badge badge-Scheduled" style={{ marginLeft: 6 }}>
+                          Not required
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <input type="checkbox" checked={it.done} disabled data-field="done" {...bindProps(checklistBind.item(s, it, "done"))} readOnly />
+                    </td>
+                    <td>
+                      <input type="date" className="input input-sm" {...bindProps(checklistBind.item(s, it, "date"))} disabled value={it.date ?? ""} readOnly />
+                    </td>
+                    <td>
+                      <textarea className="input input-sm input-cell-multiline wrap-text" rows={1} {...bindProps(checklistBind.item(s, it, "comment"))} disabled value={it.comment} readOnly />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+      <div className="card mt-4">
+        <div className="card-header">
+          <span className="checklist-section-title">APPROVAL</span>
+        </div>
+        <div className="card-pad">
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
+            {(["preparedBy", "approvedBy"] as const).map((who) => (
+              <div key={who}>
+                <div className="text-xs text-muted font-semibold mb-2">{who === "preparedBy" ? "PREPARED BY" : "APPROVED BY"}</div>
+                <div className="field mb-2">
+                  <label>Name</label>
+                  <input className="input input-sm" {...bindProps(checklistBind.signoff(who, "name"))} disabled value={data[who].name} readOnly />
+                </div>
+                <div className="field mb-2">
+                  <label>Designation</label>
+                  <input className="input input-sm" {...bindProps(checklistBind.signoff(who, "designation"))} disabled value={data[who].designation} readOnly />
+                </div>
+                <div className="field">
+                  <label>Sign &amp; Date</label>
+                  <input type="date" className="input input-sm" {...bindProps(checklistBind.signoff(who, "date"))} disabled value={data[who].date ?? ""} readOnly />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <p className="text-xs text-muted mt-3">{COMPLAINT_FOOTER_NOTE}</p>
+    </>
+  );
+
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>
       <div className="flex items-center justify-between mb-3 no-print">
@@ -579,15 +797,10 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
         </div>
       )}
 
-      {/* The document itself — the part that prints (utils/print.ts) — and whose
-          values a downloaded file binds to this record (REQUIREMENTS §81). */}
-      {/* data-print-flow: every printed page keeps its 12 mm, head and foot (REQUIREMENTS §183, styles.css "Print"). */}
-      <div data-print-doc data-print-flow="" data-bind-record={record.id} data-format-id={doc.id} data-format-asof={formulaTimeOf(record)}>
-      <DocumentHeader doc={doc} pageLabel={record.headerBlock?.page ?? "1 of 1"} edit={headerEdit} />
       {headerPanel}
 
       {/* The checklist's own panel on the sheet is the app's, so its rail is the theme's accent (REQUIREMENTS §90). */}
-      <div className="card mt-4 no-print" style={{ borderLeft: "4px solid var(--accent)" }}>
+      <div className="card mt-4 mb-4 no-print" style={{ borderLeft: "4px solid var(--accent)" }}>
         <div className="card-pad flex items-center justify-between gap-4 wrap">
           <div style={{ flex: 1, minWidth: 220 }}>
             <div className="flex items-center gap-2 mb-1">
@@ -628,192 +841,42 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
         </div>
       </div>
 
-      <div className="card mt-4">
-        <div className="card-pad">
-          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px 16px" }}>
-            {headerField("Customer Name", "customerName")}
-            {headerField("Complaint No.", "complaintNo")}
-            {headerField("Job Name", "jobName")}
-            {headerField("Job Code", "jobCode")}
-            {headerField("Complaint Received Date", "complaintReceivedDate", "date")}
-            {headerField("PO No.", "poNo")}
+      {codeProblems.length > 0 && (
+        <div className="card mb-4 no-print" data-section="code-problems">
+          <div className="card-pad text-xs text-danger">
+            {codeProblems.map((x) => (
+              <div key={x.key} data-problem={x.key}>
+                {x.says}
+              </div>
+            ))}
           </div>
         </div>
+      )}
+
+      {/* The document itself — the part that prints (utils/print.ts): the owner's own paper, his three pages (§372). */}
+      <div data-print-doc data-bind-record={record.id} data-format-id={doc.id} data-format-asof={formulaTimeOf(record)}>
+        <OwnPaperSheet
+          form={complaintChecklistPaper(data.sections)}
+          documentId={doc.id}
+          recordId={record.id}
+          box={paperBox}
+          gridCell={paperCell}
+          words={data.words?.headings}
+          onWords={editable ? setPaperWords : undefined}
+        />
       </div>
-
-      {data.sections.map((s, si) => (
-        <div key={s.key} className="card mt-4" data-section={s.key}>
-          <div className="card-header">
-            <span className="checklist-section-title">
-              {s.key}. {s.title}
-            </span>
-            <div className="flex items-center gap-2">
-              {editable && waitingOn && waitingOn.sectionIndex < si && (
-                <span className="badge badge-Scheduled no-print" data-section-locked={s.key}>
-                  Locked — finish Section {data.sections[waitingOn.sectionIndex].key} first
-                </span>
-              )}
-              {editable && waitingOn && waitingOn.sectionIndex === si && (
-                <span className="badge badge-Due no-print">Waiting on {waitingOn.label}</span>
-              )}
-              <span className="text-xs text-muted">
-                {s.items.filter((it) => it.done || it.notRequired).length} / {s.items.length}
-              </span>
-            </div>
-          </div>
-          <div className="doc-table" style={{ border: "none" }}>
-            <table className="compact">
-              <thead>
-                <tr>
-                  <th style={{ width: 56 }}>Sr. No.</th>
-                  <th>Activity</th>
-                  {/* Over its ticks, which sit in the middle (the owner, 7-Nov-2026, REQUIREMENTS §198). */}
-                  <th style={{ width: 70, textAlign: "center" }}>Done</th>
-                  <th style={{ width: 140 }}>Date</th>
-                  <th>Comments</th>
-                </tr>
-              </thead>
-              <tbody>
-                {s.items.map((it, ii) => {
-                  // Answered, or the one being waited on: anything else stays
-                  // locked until the checklist gets past it. A signed-off
-                  // checklist answers nothing — `editable` still decides that,
-                  // or an answered activity on a verified sheet would be
-                  // writable again.
-                  const open = editable && isItemOpen(data, si, ii);
-                  const locked = editable && !open;
-                  const isCurrent = !!waitingOn && waitingOn.sectionIndex === si && waitingOn.itemIndex === ii;
-                  return (
-                    <tr
-                      key={it.srNo}
-                      className={`${it.done ? "checklist-done" : ""}${locked ? " checklist-locked" : ""}${editable && isCurrent ? " checklist-current" : ""}`.trim()}
-                      data-activity={`${s.key}${it.srNo}`}
-                      data-locked={locked ? "1" : undefined}
-                      title={locked && waitingOn ? `Answer ${waitingOn.label} first — this checklist is filled one activity at a time.` : undefined}
-                    >
-                      <td className="text-muted">{it.srNo}</td>
-                      <td className="text-sm">
-                        {it.activity}
-                        {it.notRequired && <span className="badge badge-Scheduled" style={{ marginLeft: 6 }}>Not required</span>}
-                        {editable && isCurrent && <span className="badge badge-Due no-print" style={{ marginLeft: 6 }}>Answer this one next</span>}
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={it.done}
-                          disabled={!open}
-                          data-field="done"
-                          {...bindProps(checklistBind.item(s, it, "done"))}
-                          onChange={(e) => updateItem(si, ii, { done: e.target.checked, notRequired: e.target.checked ? false : it.notRequired, date: e.target.checked ? it.date ?? todayISO() : it.date })}
-                        />
-                        {/* "Not required" is one of the three valid answers (the
-                            "(If required)" activities on the printed form expect
-                            it), so it has to be answerable here too — otherwise
-                            the one-at-a-time rule would trap an activity that
-                            genuinely doesn't apply. Screen only; what prints is
-                            the badge beside the activity. */}
-                        {editable && (
-                          <button
-                            type="button"
-                            className={`btn btn-sm no-print ${it.notRequired ? "btn-secondary" : "btn-ghost"}`}
-                            style={{ marginTop: 4, padding: "1px 6px", fontSize: 10 }}
-                            disabled={!open}
-                            data-field="not-required"
-                            title={isConditionalActivity(it.activity) ? "Not required for this complaint" : "Not applicable to this complaint"}
-                            onClick={() =>
-                              updateItem(si, ii, {
-                                notRequired: !it.notRequired,
-                                done: false,
-                                // Pressed again, the note this button wrote is
-                                // taken back with it — otherwise the activity
-                                // would stay "answered" on a comment nobody
-                                // typed, and the next one would stay open.
-                                comment: it.notRequired ? (it.comment.trim() === "Not required" ? "" : it.comment) : it.comment || "Not required",
-                              })
-                            }
-                          >
-                            N/R
-                          </button>
-                        )}
-                      </td>
-                      <td>
-                        <input
-                          type="date"
-                          className="input input-sm"
-                          {...bindProps(checklistBind.item(s, it, "date"))}
-                          disabled={!open}
-                          value={it.date ?? ""}
-                          onChange={(e) => updateItem(si, ii, { date: e.target.value || null })}
-                        />
-                      </td>
-                      <td>
-                        {/* A comment is a sentence: it wraps in its column, on the screen and on paper (the owner, 22-Oct-2026). */}
-                        <textarea
-                          className="input input-sm input-cell-multiline wrap-text"
-                          rows={1}
-                          {...bindProps(checklistBind.item(s, it, "comment"))}
-                          disabled={!open}
-                          value={it.comment}
-                          onChange={(e) => updateItem(si, ii, { comment: e.target.value })}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ))}
-
-      <div className="card mt-4">
-        <div className="card-header">
-          <span className="checklist-section-title">APPROVAL</span>
-        </div>
-        <div className="card-pad">
-          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
-            <div>
-              <div className="text-xs text-muted font-semibold mb-2">PREPARED BY</div>
-              <div className="field mb-2">
-                <label>Name</label>
-                <input className="input input-sm" {...bindProps(checklistBind.signoff("preparedBy", "name"))} disabled={!editable} value={data.preparedBy.name} placeholder={currentUser} onChange={(e) => patch({ preparedBy: { ...data.preparedBy, name: e.target.value } })} />
-              </div>
-              <div className="field mb-2">
-                <label>Designation</label>
-                <input className="input input-sm" {...bindProps(checklistBind.signoff("preparedBy", "designation"))} disabled={!editable} value={data.preparedBy.designation} onChange={(e) => patch({ preparedBy: { ...data.preparedBy, designation: e.target.value } })} />
-              </div>
-              <div className="field">
-                <label>Sign &amp; Date</label>
-                <input type="date" className="input input-sm" {...bindProps(checklistBind.signoff("preparedBy", "date"))} disabled={!editable} value={data.preparedBy.date ?? ""} onChange={(e) => patch({ preparedBy: { ...data.preparedBy, date: e.target.value || null } })} />
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-muted font-semibold mb-2">APPROVED BY</div>
-              <div className="field mb-2">
-                <label>Name</label>
-                <input className="input input-sm" {...bindProps(checklistBind.signoff("approvedBy", "name"))} disabled value={data.approvedBy.name} placeholder="Stamped on approval" />
-              </div>
-              <div className="field mb-2">
-                <label>Designation</label>
-                <input className="input input-sm" {...bindProps(checklistBind.signoff("approvedBy", "designation"))} disabled={!canApprove} value={data.approvedBy.designation} placeholder="QA Head" onChange={(e) => patch({ approvedBy: { ...data.approvedBy, designation: e.target.value } })} />
-              </div>
-              <div className="field">
-                <label>Sign &amp; Date</label>
-                <input type="date" className="input input-sm" {...bindProps(checklistBind.signoff("approvedBy", "date"))} disabled value={data.approvedBy.date ?? ""} />
-              </div>
-              <div className="text-xs text-muted mt-2">Approval is the Verify step — the approver's name and date are stamped automatically.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted mt-3" style={{ fontStyle: "italic" }}>
-        {COMPLAINT_FOOTER_NOTE}
-      </p>
       <div className="text-xs text-faint mt-1 no-print">
         Format number: {doc.formatNo} ({doc.revisionNo} / {formatDisplayDate(doc.revisionDate)}) · {COMPLAINT_ACTIVITY_COUNT} activities · Source: {doc.sourceFile}
       </div>
-      </div>
+      {plainTwin &&
+        createPortal(
+          <div className="paper-plain-twin" {...{ [PLAIN_TWIN_ATTR]: record.id }}>
+            <div data-bind-record={record.id} data-format-id={doc.id} data-format-asof={formulaTimeOf(record)}>
+              {plainSheet}
+            </div>
+          </div>,
+          document.body
+        )}
 
       <RecordHistoryPanel record={record} />
 

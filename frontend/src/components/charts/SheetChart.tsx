@@ -40,11 +40,12 @@ const roundedBar = (x0: number, yTop: number, w: number, base: number): string =
   return `M${x0},${base} L${x0},${yTop + r} Q${x0},${yTop} ${x0 + r},${yTop} L${x0 + w - r},${yTop} Q${x0 + w},${yTop} ${x0 + w},${yTop + r} L${x0 + w},${base} Z`;
 };
 
-export function SheetChart({ chart, data }: { chart: LogSheetChart; data: LogSheetData }) {
-  return chart.kind === "bars" ? <BarsChart chart={chart} data={data} /> : <ParetoChart chart={chart} data={data} />;
+/** onPaper: drawn in the place a paper gives it (PaperCell.chart, F/MKT/04, §372) - no caption under it, and no title where the paper prints its own. */
+export function SheetChart({ chart, data, onPaper, title = true }: { chart: LogSheetChart; data: LogSheetData; onPaper?: boolean; title?: boolean }) {
+  return chart.kind === "bars" ? <BarsChart chart={chart} data={data} onPaper={onPaper} title={title} /> : <ParetoChart chart={chart} data={data} onPaper={onPaper} title={title} />;
 }
 
-function BarsChart({ chart, data }: { chart: Extract<LogSheetChart, { kind: "bars" }>; data: LogSheetData }) {
+function BarsChart({ chart, data, onPaper, title: titled = true }: { chart: Extract<LogSheetChart, { kind: "bars" }>; data: LogSheetData; onPaper?: boolean; title?: boolean }) {
   const header = data.header ?? {};
   const bars = useMemo(
     () =>
@@ -71,11 +72,13 @@ function BarsChart({ chart, data }: { chart: Extract<LogSheetChart, { kind: "bar
   for (let v = 0; v <= top + 1e-9; v += step) ticks.push(Math.round(v * 100) / 100);
   const summary = bars.map((b) => `${b.label} ${b.value}`).join(", ");
   return (
-    <figure className="trend-chart" data-chart="bars" style={{ margin: "14px 0 0" }}>
+    <figure className={`trend-chart${onPaper ? " on-paper" : ""}`} data-chart="bars" style={onPaper ? undefined : { margin: "14px 0 0" }}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${chart.title}: ${summary}`}>
-        <text x={left + plotW / 2} y={20} className="chart-title" textAnchor="middle">
-          {chart.title}
-        </text>
+        {titled && (
+          <text x={left + plotW / 2} y={20} className="chart-title" textAnchor="middle">
+            {chart.title}
+          </text>
+        )}
         <line x1={left} y1={topPad} x2={left} y2={base} className="axis" />
         {ticks.map((t) => (
           <g key={t}>
@@ -116,9 +119,11 @@ function BarsChart({ chart, data }: { chart: Extract<LogSheetChart, { kind: "bar
           </text>
         )}
       </svg>
-      <figcaption className="text-xs text-muted mt-1">
-        {chart.title} — {summary}.
-      </figcaption>
+      {!onPaper && (
+        <figcaption className="text-xs text-muted mt-1">
+          {chart.title} — {summary}.
+        </figcaption>
+      )}
     </figure>
   );
 }
@@ -134,7 +139,7 @@ export function paretoSeries(rows: { label: string; value: number }[], cutoffPct
   });
 }
 
-function ParetoChart({ chart, data }: { chart: Extract<LogSheetChart, { kind: "pareto" }>; data: LogSheetData }) {
+function ParetoChart({ chart, data, onPaper, title: titled = true }: { chart: Extract<LogSheetChart, { kind: "pareto" }>; data: LogSheetData; onPaper?: boolean; title?: boolean }) {
   const header = data.header ?? {};
   const cutoff = (chart.cutoffKey && num(header[chart.cutoffKey])) || 80;
   const series = useMemo(() => {
@@ -166,11 +171,13 @@ function ParetoChart({ chart, data }: { chart: Extract<LogSheetChart, { kind: "p
   const total = series.reduce((n, s) => n + s.value, 0);
   const summary = `${series.length} causes, ${total} defects; the first ${vital} within the ${cutoff}% cut-off`;
   return (
-    <figure className="trend-chart" data-chart="pareto" style={{ margin: "14px 0 0" }}>
+    <figure className={`trend-chart${onPaper ? " on-paper" : ""}`} data-chart="pareto" style={onPaper ? undefined : { margin: "14px 0 0" }}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}: ${summary}`}>
-        <text x={left + plotW / 2} y={20} className="chart-title" textAnchor="middle">
-          {title}
-        </text>
+        {titled && (
+          <text x={left + plotW / 2} y={20} className="chart-title" textAnchor="middle">
+            {title}
+          </text>
+        )}
         <line x1={left} y1={topPad} x2={left} y2={base} className="axis" />
         {ticks.map((t) => (
           <g key={t}>
@@ -252,9 +259,11 @@ function ParetoChart({ chart, data }: { chart: Extract<LogSheetChart, { kind: "p
           Cumulative %
         </text>
       </svg>
-      <figcaption className="text-xs text-muted mt-1">
-        {title} — {summary}.
-      </figcaption>
+      {!onPaper && (
+        <figcaption className="text-xs text-muted mt-1">
+          {title} — {summary}.
+        </figcaption>
+      )}
     </figure>
   );
 }

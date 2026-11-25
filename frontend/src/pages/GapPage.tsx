@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { MonthBar, inPeriod, periodOf, periodWords, yearsOf, type RecordsPeriod } from "../components/common/MonthBar";
 import { formulaTimeOf } from "../../../indexing/formulaRuntime";
 import { FiPlus, FiTrash2, FiArrowLeft } from "react-icons/fi";
@@ -37,6 +38,9 @@ import { DownloadDocumentButton } from "../components/common/DownloadDocumentBut
 import { COMPANY } from "../data/seed/masterData";
 import { FINDING_SOURCES, bindProps, gapBind } from "../engine/roundTrip/bindingsFor";
 import { waitsUntil } from "../engine/notBeforeDay";
+import { OwnPaperSheet } from "../components/records/OwnPaperSheet";
+import { gapInspectionPaper } from "../data/seed/capaPapers355";
+import { PLAIN_TWIN_ATTR, registerPaperTwin } from "../utils/paperTwin";
 
 const GAP_DOC_ID = "gap-inspection";
 
@@ -247,6 +251,10 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   const [errors, setErrors] = useState<string[]>([]);
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
   const doc = documentRepository.getById(GAP_DOC_ID);
+  // THE OWNER'S PAPER ON THE PAGE, HIS EXCEL FILE FILLED FROM THE PLAIN SHEET (§372): the page draws and prints the report as his
+  // sheet; for the moment of a download its plain sheet is drawn off the screen and read, as before (utils/paperTwin.ts).
+  const [plainTwin, setPlainTwin] = useState(false);
+  React.useEffect(() => (record ? registerPaperTwin(record.id, setPlainTwin) : undefined), [record?.id]);
 
   // Below Write on its document the record is read only (REQUIREMENTS §96, engine/departmentScope.ts).
   // ...and not before the first day it covers (REQUIREMENTS §201, engine/notBeforeDay.ts).
@@ -425,6 +433,81 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
 
   actions.current = { submit: handleSubmit, verify: handleVerify, cancelCorrection: handleCancelCorrection, remove: handleDelete };
 
+  // THE OWNER'S PAPER (§372): each place a person writes is the record's box, bound as on the plain sheet.
+  const paperBox = (key: string): React.ReactNode => {
+    const k = key as "inspectionDate" | "premisesName" | "premisesAddress" | "contactPerson";
+    return (
+      <div className="field field-in-table">
+        <input
+          type={k === "inspectionDate" ? "date" : "text"}
+          className="input input-sm"
+          {...bindProps(gapBind.meta(k))}
+          disabled={!editable}
+          value={data[k] ?? ""}
+          placeholder={k === "premisesAddress" ? "Address" : undefined}
+          onChange={(e) => update({ [k]: e.target.value } as Partial<GapInspectionData>)}
+        />
+      </div>
+    );
+  };
+  const findingWords = (f: GapFinding, field: "findingOfInspection" | "commentsOnFindings" | "correctiveActionContractor" | "correctiveActionClient") => (
+    <div className="field field-in-table pt-lines">
+      <textarea className="input input-sm" rows={2} {...bindProps(gapBind.finding(f, field))} disabled={!editable} value={f[field]} onChange={(e) => updateFinding(f.id, { [field]: e.target.value })} />
+    </div>
+  );
+  const paperCell = (ln: number, col: string): React.ReactNode => {
+    if (col === "generalComment") {
+      // A general comment's line: written on, it is the record's comment of that number (the lines between kept blank).
+      const held = data.generalComments[ln];
+      if (held === undefined && !editable) return null;
+      return (
+        <div className="field field-in-table">
+          <input
+            className="input input-sm"
+            {...(held !== undefined ? bindProps(gapBind.comment(ln)) : {})}
+            aria-label={`General comment ${ln + 1}`}
+            disabled={!editable}
+            value={held ?? ""}
+            onChange={(e) => {
+              const next = [...data.generalComments];
+              while (next.length <= ln) next.push("");
+              next[ln] = e.target.value;
+              update({ generalComments: next });
+            }}
+          />
+        </div>
+      );
+    }
+    const f = data.findings[ln];
+    if (!f) return null;
+    switch (col) {
+      case "sNo":
+        return <span className="pt-words">{f.sNo}</span>;
+      case "findingOfInspection":
+      case "commentsOnFindings":
+      case "correctiveActionContractor":
+      case "correctiveActionClient":
+        return findingWords(f, col);
+      case "targetDate":
+      case "actualDateOfAction":
+        return (
+          <div className="field field-in-table">
+            <input type="date" className="input input-sm" {...bindProps(gapBind.finding(f, col))} disabled={!editable} value={f[col] ?? ""} onChange={(e) => updateFinding(f.id, { [col]: e.target.value || null })} />
+          </div>
+        );
+      case "verifiedByServiceProvider":
+        return (
+          <div className="field field-in-table">
+            <input className="input input-sm" {...bindProps(gapBind.finding(f, col))} disabled={!canClose} value={f.verifiedByServiceProvider} onChange={(e) => updateFinding(f.id, { verifiedByServiceProvider: e.target.value })} />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+  // The paper's printed words as this record words them (ownWords, §275), by their place.
+  const setPaperWords = (key: string, w: string) => update({ words: { ...data.words, headings: { ...data.words?.headings, [key]: w } } });
+
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>
       <div className="flex items-center justify-between mb-3 no-print">
@@ -440,10 +523,89 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
 
       <ErrorList errors={errors} heading={errorsFor === "verify" ? t("record.fixBeforeVerify") : t("record.fixBeforeSubmit")} />
 
-      {/* The document itself — the part that prints (utils/print.ts) — and whose
-          values a downloaded file binds to this record (REQUIREMENTS §81). */}
-      {/* data-print-flow: every printed page keeps its 12 mm, head and foot (REQUIREMENTS §183, styles.css "Print"). */}
-      <div data-print-doc data-print-flow="" data-bind-record={record.id} data-format-id={GAP_DOC_ID} data-format-asof={formulaTimeOf(record)}>
+      {/* The document itself — the part that prints (utils/print.ts): the owner's own sheet (§372). */}
+      <div data-print-doc data-bind-record={record.id} data-format-id={GAP_DOC_ID} data-format-asof={formulaTimeOf(record)}>
+        <OwnPaperSheet
+          form={gapInspectionPaper(data.findings.length, data.generalComments.length)}
+          documentId={GAP_DOC_ID}
+          recordId={record.id}
+          box={paperBox}
+          gridCell={paperCell}
+          rowCount={data.findings.length}
+          words={data.words?.headings}
+          onWords={editable ? setPaperWords : undefined}
+        />
+      </div>
+
+      {/* What DCRS keeps of each finding beyond his sheet - where it came from, whether it is closed - on the screen only. */}
+      {data.findings.length > 0 && (
+        <div className="doc-table mt-4 no-print" data-section="finding-status">
+          <table className="compact">
+            <thead>
+              <tr>
+                <th style={{ width: 48 }}>S.No</th>
+                <th style={{ width: 130 }}>Source</th>
+                <th>Status</th>
+                {editable && <th></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {data.findings.map((f) => (
+                <tr key={f.id}>
+                  <td>{f.sNo}</td>
+                  <td>
+                    <select className="input input-sm" {...bindProps(gapBind.finding(f, "source"))} disabled={!editable} value={f.source} onChange={(e) => updateFinding(f.id, { source: e.target.value as GapFinding["source"] })}>
+                      {FINDING_SOURCES.map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <span className={`badge badge-${f.status === "Overdue" ? "Overdue" : f.status === "Open" ? "Due" : "Verified"}`}>{f.status}</span>
+                    {(f.status === "Open" || f.status === "Overdue") && canClose && (
+                      <button className="btn btn-ghost btn-sm" style={{ marginLeft: 4 }} onClick={() => closeFinding(f.id)}>
+                        Close
+                      </button>
+                    )}
+                  </td>
+                  {editable && (
+                    <td style={{ textAlign: "right" }}>
+                      <button className="btn btn-ghost btn-sm btn-icon" aria-label={`Remove finding ${f.sNo}`} onClick={() => removeFinding(f.id)}>
+                        <FiTrash2 size={13} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {(editable || (canClose && openFindings.length > 0)) && (
+        <div className="flex gap-2 mt-2 wrap no-print">
+          {editable && (
+            <button className="btn btn-secondary btn-sm" onClick={addFinding}>
+              <FiPlus size={13} /> Add Finding
+            </button>
+          )}
+          {canClose && openFindings.length > 0 && (
+            <button className="btn btn-success btn-sm" onClick={closeAll} title="Stamp today's date as the actual date of action on every open finding">
+              Close all {openFindings.length} open finding{openFindings.length === 1 ? "" : "s"} (action done today)
+            </button>
+          )}
+          {editable && (
+            <button className="btn btn-secondary btn-sm" onClick={() => update({ generalComments: [...data.generalComments, ""] })}>
+              <FiPlus size={13} /> Add General Comment
+            </button>
+          )}
+        </div>
+      )}
+      {plainTwin &&
+        createPortal(
+          <div className="paper-plain-twin" {...{ [PLAIN_TWIN_ATTR]: record.id }}>
+            <div data-bind-record={record.id} data-format-id={GAP_DOC_ID} data-format-asof={formulaTimeOf(record)}>
       <div className="doc-header">
         <div className="company-name">CAPA — Internal: Pest Control Inspection Findings Report</div>
         <div className="meta-row">
@@ -650,7 +812,10 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
         </div>
       </div>
 
-      </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       <RecordHistoryPanel record={record} />
 
