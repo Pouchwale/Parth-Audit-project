@@ -48,6 +48,12 @@ export interface FillHints {
    * the area's heading -> DCRS's labels.
    */
   areaOf?: Record<string, string[]>;
+  /**
+   * xlsx: a grid's words longer than their cell wrap inside it, and the line grows to them, never lower than the paper's own
+   * line (F/PUR/06's service and supplier names in his narrow columns, the owner, 25-Nov-2026, §382). Otherwise a long name
+   * is cut at its cell's edge, the cell beside it being written.
+   */
+  wrapWords?: boolean;
 }
 
 export interface FillReport {

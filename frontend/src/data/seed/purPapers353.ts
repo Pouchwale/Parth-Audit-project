@@ -825,6 +825,10 @@ const PERFORMANCE_REGISTER: PaperTable = {
 const SP = [10.08, 33.87, 29.05, 35.02, 40.47, 27.91, 28.24];
 const SP_W = SP.reduce((a, b) => a + b, 0);
 const SP_COLS = ["serviceDescription", "supplierName", "deliveryRating", "qualityRating", "overallRating", "status"];
+/** The columns of words, whose line grows to them; the ratings are figures, one line. */
+const WORDY = new Set(["serviceDescription", "supplierName", "status"]);
+/** A line of words in them: the sheet's Calibri 9.36 pt, set close as his cells set two lines. */
+const SP_LH = 3.9;
 const SP_HEADS = ["Sr. No.", "Description of Service", "Supplier Name", "Delivery Parameter\nrating (Max 50)", "Quality & Product Safety\nParameter rating (Max 50)", "Overall Rating", "Status / Decision"];
 
 const SERVICE_REGISTER: PaperTable = {
@@ -859,13 +863,23 @@ const SERVICE_REGISTER: PaperTable = {
     gapRow(SP_W, 1.31, { edges: "lr", heavy: "r" }),
     { h: 8.43, head: true, cells: SP_HEADS.map((t, k): PaperCell => ({ w: SP[k], t, edges: "ltrb", b: true, a: "c", vm: true, lh: 4.28, ...(k === SP.length - 1 ? { heavy: "r" as const } : {}) })) },
   ],
-  // Thirteen ruled lines, numbered 1 to 13 as the sheet prints them.
+  // Thirteen ruled lines, numbered 1 to 13 as the sheet prints them. A line is the sheet's 7.28 mm and grows to its words where a
+  // service or a supplier's name runs to two or three lines in his narrow columns ("QUALITY & PRODUCT SAFETY MANAGEMENT
+  // CONSULTANT", "Hindustan Security Services", as Purchase Master Data writes them): on the screen a box of several lines, in
+  // print the words, never over the line under them (the owner, 25-Nov-2026, REQUIREMENTS §382).
   lines: {
     h: 7.28,
     count: 13,
     cells: [
       { w: SP[0], num: "all", edges: "ltrb", a: "c", vm: true },
-      ...SP_COLS.map((col, k): PaperCell => ({ w: SP[k + 1], col, edges: "ltrb", vm: true, ...(col === "serviceDescription" || col === "supplierName" || col === "status" ? { x: 0.8 } : { a: "c" as const }), ...(k === SP_COLS.length - 1 ? { heavy: "r" as const } : {}) })),
+      ...SP_COLS.map((col, k): PaperCell => ({
+        w: SP[k + 1],
+        col,
+        edges: "ltrb",
+        vm: true,
+        ...(WORDY.has(col) ? { x: 0.8, lh: SP_LH, lines: true as const, grow: true as const } : { a: "c" as const }),
+        ...(k === SP_COLS.length - 1 ? { heavy: "r" as const } : {}),
+      })),
     ],
   },
   foot: [],

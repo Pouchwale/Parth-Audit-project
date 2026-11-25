@@ -70,6 +70,9 @@ class Styles {
   private highlight: boolean[] = [];
   private xfs: XmlElement | null = null;
   private plainOf = new Map<number, number>();
+  /** Each style's letters' size, points. */
+  private sizeOf: number[] = [];
+  private wrapOf = new Map<number, number>();
   constructor(styles: XmlElement | null) {
     if (!styles) return;
     const fills = all(styles, "fills")[0];
@@ -82,6 +85,8 @@ class Styles {
     for (const f of all(styles, "numFmt")) custom.set(Number(attrOf(f, "numFmtId")), attrOf(f, "formatCode") ?? "");
     const borders = all(styles, "borders")[0];
     const sided = (borders ? kids(borders, "border") : []).map((b) => ["left", "right", "top", "bottom"].some((side) => !!kid(b, side)?.attrs.style && kid(b, side)!.attrs.style !== "none"));
+    const fonts = all(styles, "fonts")[0];
+    const sizes = (fonts ? kids(fonts, "font") : []).map((f) => Number(kid(f, "sz")?.attrs.val ?? 11) || 11);
     const xfs = all(styles, "cellXfs")[0];
     this.xfs = xfs ?? null;
     for (const xf of xfs ? kids(xfs, "xf") : []) {
@@ -90,7 +95,40 @@ class Styles {
       this.text.push(id === 49 || (custom.get(id) ?? "").trim() === "@");
       this.ruled.push(!!sided[Number(attrOf(xf, "borderId") ?? 0)]);
       this.fillOf.push(Number(attrOf(xf, "fillId") ?? 0));
+      this.sizeOf.push(sizes[Number(attrOf(xf, "fontId") ?? 0)] ?? 11);
     }
+  }
+
+  /** The size of the style's letters, points. */
+  size(s: number): number {
+    return this.sizeOf[s] ?? 11;
+  }
+
+  /** The style with its words wrapping inside the cell, added once; the style itself where they wrap already (§382). */
+  wrapped(s: number): number {
+    const xf = this.xfs ? kids(this.xfs, "xf")[s] : undefined;
+    if (!this.xfs || !xf || kid(xf, "alignment")?.attrs.wrapText === "1") return s;
+    const had = this.wrapOf.get(s);
+    if (had !== undefined) return had;
+    const copy = clone(xf);
+    let alignment = kid(copy, "alignment");
+    if (!alignment) {
+      // (an xf's alignment comes before its protection: its first child)
+      alignment = el(`${copy.name.includes(":") ? copy.name.slice(0, copy.name.indexOf(":") + 1) : ""}alignment`);
+      copy.children.unshift(alignment);
+    }
+    alignment.attrs.wrapText = "1";
+    copy.attrs.applyAlignment = "1";
+    this.xfs.children.push(copy);
+    const n = kids(this.xfs, "xf").length - 1;
+    this.xfs.attrs.count = String(n + 1);
+    this.kinds.push(this.kinds[s]);
+    this.text.push(this.text[s]);
+    this.ruled.push(this.ruled[s]);
+    this.fillOf.push(this.fillOf[s]);
+    this.sizeOf.push(this.size(s));
+    this.wrapOf.set(s, n);
+    return n;
   }
 
   /** The style without the owner's highlight, added once; the style itself where it has none. */
@@ -108,6 +146,7 @@ class Styles {
     this.text.push(this.text[s]);
     this.ruled.push(this.ruled[s]);
     this.fillOf.push(0);
+    this.sizeOf.push(this.size(s));
     this.plainOf.set(s, n);
     return n;
   }
@@ -284,6 +323,16 @@ class XSheet {
     else row.children.push(cell);
     this.cells.set(key(r, c), cell);
     return cell;
+  }
+
+  /** A column's width, points, as Excel draws it: its width in the default font's digits, 7 px each (§382). */
+  columnPoints(c: number): number {
+    const cols = kid(this.root, "cols");
+    const col = (cols ? kids(cols, "col") : []).find((x) => Number(x.attrs.min) - 1 <= c && c <= Number(x.attrs.max) - 1);
+    if (col?.attrs.hidden === "1") return 0;
+    const dflt = kid(this.root, "sheetFormatPr")?.attrs.defaultColWidth;
+    const chars = col?.attrs.width !== undefined ? Number(col.attrs.width) : dflt !== undefined ? Number(dflt) : 8.43;
+    return Math.trunc(chars * 7) * 0.75;
   }
 
   private colStyle(c: number): string | undefined {
@@ -913,6 +962,8 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
         else if (cell.text.trim() && !same(sheet.text(at.r1, at.c1), cell.text)) sheet.write(at.r1, at.c1, cell.text, { plainText: true });
       });
     });
+    // (a long name wraps in its cell and its line grows to it, where the paper asks: hints.ts wrapWords, F/PUR/06, §382)
+    if (hints.wrapWords) wrapGridWords(sheet, place);
     report.grids.push({ rows: body.length, paperRows: place.body.length - place.extra.length, added: place.extra.length, where: `${columnName(Math.min(...place.colOf.values()))}${place.headingRow}` });
     if (place.grid.bindTable) {
       const columns = place.grid.bindTable.columns.filter((col) => place.colOf.has(col.col)).map((col) => ({ ...col, col: place.colOf.get(col.col)! }));
@@ -1631,6 +1682,84 @@ function printOnTwoPages(sheet: XSheet, workbook: XmlElement, sheetName: string,
 }
 
 // ---- the workbook's names and the pictures, moved with the rows
+
+// ---- a long name wrapped in its cell (§382)
+
+/** Calibri's letters' widths, thousandths of an em: A to Z, a to z, and the marks a name holds (a digit 507). */
+const CALIBRI_UPPER = [579, 544, 533, 615, 488, 459, 631, 623, 252, 319, 520, 420, 855, 646, 662, 517, 673, 543, 459, 487, 642, 567, 890, 519, 487, 468];
+const CALIBRI_LOWER = [479, 525, 423, 525, 498, 305, 471, 525, 229, 239, 455, 229, 799, 525, 527, 525, 525, 349, 391, 335, 525, 452, 715, 433, 453, 395];
+const CALIBRI_MARKS: Record<string, number> = { " ": 226, "&": 682, ".": 252, ",": 250, "(": 303, ")": 303, "-": 306, "/": 386, ":": 268, "'": 221 };
+
+/** How wide Calibri sets words, ems, with 5% to spare: a line is never taken to fit when Excel would wrap it. */
+function emsOf(words: string): number {
+  let w = 0;
+  for (const ch of words) {
+    const code = ch.charCodeAt(0);
+    w += code >= 65 && code <= 90 ? CALIBRI_UPPER[code - 65] : code >= 97 && code <= 122 ? CALIBRI_LOWER[code - 97] : code >= 48 && code <= 57 ? 507 : (CALIBRI_MARKS[ch] ?? 600);
+  }
+  return (w / 1000) * 1.05;
+}
+
+/** The lines words take in a cell `room` points wide at `pt` points, wrapped as Excel wraps them: at the spaces, a word too
+ * long for a line on lines of its own. */
+export function wrappedLines(text: string, room: number, pt: number): number {
+  if (room <= 0) return 1;
+  const space = emsOf(" ") * pt;
+  let lines = 0;
+  for (const para of text.split(/\r?\n/)) {
+    lines++;
+    let line = 0;
+    for (const word of para.split(/ +/).filter(Boolean)) {
+      const w = emsOf(word) * pt;
+      if (line > 0 && line + space + w <= room) {
+        line += space + w;
+        continue;
+      }
+      if (line > 0) lines++;
+      lines += Math.ceil(w / room) - 1;
+      line = w - (Math.ceil(w / room) - 1) * room;
+    }
+  }
+  return lines;
+}
+
+/**
+ * A GRID'S WORDS LONGER THAN THEIR CELL WRAP INSIDE IT (hints.ts wrapWords; F/PUR/06, the owner, 25-Nov-2026: "pur-06 has error in
+ * while taking print"): the cell's style wraps its words, and the line is as tall as its longest cell's lines, never lower than
+ * the paper's own line. A figure, and words that fit their cell, stay as the paper sets them.
+ */
+function wrapGridWords(sheet: XSheet, place: GridPlace): void {
+  const cols = Array.from(new Set(place.colOf.values()));
+  const dflt = Number(kid(sheet.root, "sheetFormatPr")?.attrs.defaultRowHeight ?? 15) || 15;
+  for (const r of new Set(place.rowOf.values())) {
+    let need = 0;
+    for (const c of cols) {
+      if (sheet.covered(r, c)) continue;
+      const text = sheet.text(r, c).trim();
+      if (!text || /^[-+]?[\d.,]+%?$/.test(text)) continue;
+      const merge = sheet.mergeOf(r, c);
+      // (a merge over more than this line is left as it is: its rows share the words)
+      if (merge && merge.r2 > merge.r1) continue;
+      let room = 0;
+      for (let x = c; x <= (merge ? merge.c2 : c); x++) room += sheet.columnPoints(x);
+      // (Excel's padding inside a cell, about 3 px a side)
+      room -= 4.5;
+      const s = sheet.styleOf(r, c);
+      const pt = sheet.styles.size(s);
+      const lines = wrappedLines(text, room, pt);
+      if (lines < 2) continue;
+      sheet.cellEl(r, c).attrs.s = String(sheet.styles.wrapped(s));
+      // (a line of Calibri is about 1.36 times its size in Excel, 15 pt at 11 pt; a little to spare at the top and foot)
+      need = Math.max(need, Math.ceil((lines * pt * 1.36 + 3) * 4) / 4);
+    }
+    const row = sheet.rows.get(r);
+    if (!need || !row) continue;
+    const had = row.attrs.ht !== undefined ? Number(row.attrs.ht) : dflt;
+    if (need <= had) continue;
+    row.attrs.ht = String(need);
+    row.attrs.customHeight = "1";
+  }
+}
 
 // ---- the printed page (REQUIREMENTS §329)
 

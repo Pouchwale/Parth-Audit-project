@@ -14514,3 +14514,36 @@ The owner, 25-Nov-2026: "only do backup when user manually click on backup butto
 - Proved: backend/tests/backup.test.ts (the button passes the mark; the script without it makes nothing and deletes
   nothing), databaseBackup.test.ts; on a local copy: npm run db:backup said "No backup was made" and wrote nothing, the
   button wrote dcrs-…dump and roles-…sql.
+
+## §382 F/PUR/06: a long service or supplier name grows its line, on the screen, in print and in the Excel download (25-Nov-2026)
+
+The owner, 25-Nov-2026, with a picture of F/PUR/06's print, the names Purchase Master Data writes on it running over the lines
+under them: "pur-06 has error in while taking print and even on user Screen it is bad and it is not proper so do this".
+
+- His sheet's word columns are narrow (Description of Service 33.87 mm, Supplier Name 29.05 mm, Status / Decision 28.24 mm) and
+  his line is 7.28 mm, so "QUALITY & PRODUCT SAFETY MANAGEMENT CONSULTANT", "Hindustan Security Services" or "Gurudev Pest
+  Control" take two to four lines there. The print set them on one 7.28 mm line, over the line under it, and the screen's
+  one-line box showed only the start of a name.
+- Now those three cells grow to their words (PaperCell grow + lines, as F/SYS/04's cells since §325). On the screen each is a box
+  of several lines with the whole name in it. In print the words stand in the cell, and the line is as tall as they need, never
+  over the next one. A line of short words stays his 7.28 mm, and the ratings stay one line in the middle. His widths, his 13
+  numbered lines and his half page are kept: his own print has the 13 lines on the top half of the page.
+- The supplier's line box was a one-line box that offered the list's names. It is now a box of several lines, so the names are
+  offered by the bar above the paper ("Fetch from Purchase Master Data", Add line, Add all), as they were. A name typed on a line
+  still fetches the rest of that line when the box is left.
+- The Excel download (his workbook, written in) cut the same names at the cell's edge: his cells do not wrap and his lines are
+  27 pt. Now a name longer than its cell wraps inside it and its line grows to it (utils/originalFill hints.ts wrapWords, only
+  for F/PUR/06; xlsxFill.ts wrapGridWords): the lines a name takes are worked out from Calibri's own letter widths with 5% to
+  spare, and a line is as tall as its longest cell's lines, never lower than his 27 pt. A name that fits, and every figure,
+  stays as his sheet sets it. The Word download's lines already grow (their heights are "at least").
+- Proved: purStrPapers353.test.ts (the three columns grow and are boxes of several lines, the ratings stay one line; a register
+  rendered with the plant's names, each name in its cell's sizer and in a textarea); printedPage.test.ts (a long name wraps and
+  its line grows only where the paper asks; the lines F/PUR/06's names take at Calibri 12 pt). On a build of this change beside
+  the local copy (scratch database), in Demo Mode, because the test build's live register is dated 01-12-2026 and §201 keeps it
+  shut until then: New F/PUR/06 filled itself from Purchase Master Data with the 12 service providers. On the screen every name
+  showed whole (the consultant's line 45 px tall, the others 27-30 px). Printed with Print Original-Style Record: one A4 portrait
+  page, every name inside its cell. The Excel download opened and printed by Excel: one A4 portrait page, the five long names
+  wrapped in their cells (lines of 35.75 and 68.5 pt), the others on his 27 pt lines.
+- Files: frontend/src/data/seed/purPapers353.ts (SERVICE_REGISTER's lines: WORDY, SP_LH), utils/originalFill/hints.ts, types.ts
+  (FillHints.wrapWords), xlsxFill.ts (Styles.size, Styles.wrapped, XSheet.columnPoints, wrappedLines, wrapGridWords);
+  frontend/tests/purStrPapers353.test.ts, printedPage.test.ts.

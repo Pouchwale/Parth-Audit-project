@@ -13,6 +13,9 @@ export const FILL_HINTS: Record<string, FillHints> = {
   // F/QC/12: one landscape page, four weekly lines of two rows each; a Tested Value or a name written at the paper's own size
   // wraps in its column and pushes the sheet onto a second page. The grid's words are written smaller instead.
   "qc-weight-scale-calibration": { onePage: true },
+  // F/PUR/06: the service and supplier names Purchase Master Data writes ("QUALITY & PRODUCT SAFETY MANAGEMENT CONSULTANT")
+  // run past his narrow columns: each wraps in its cell and its line grows to it, as the print does (§382).
+  "pur-service-provider-performance": { wrapWords: true },
   // F/HR/07: the paper prints no heading over the position's responsibilities - one to a row of its first table, under the
   // Position row (rows 2 to 11); and the owner's Word file holds five filled position sheets of the one form, the first being
   // the paper and the other four his examples (REQUIREMENTS §98), left out from the third table on.

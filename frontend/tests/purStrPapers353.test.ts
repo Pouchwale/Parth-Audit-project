@@ -201,3 +201,29 @@ test("a Purchase paper keeps the fetch from Purchase Master Data above it, never
   assert.ok(tools < html.indexOf("paper-head"), "above the paper");
   assert.match(html.slice(tools - 60, tools), /no-print/);
 });
+
+test("F/PUR/06: a long service or supplier name grows its line - a box of several lines on the screen, the words in print (§382)", async () => {
+  const cells = PAPERS["pur-service-provider-performance"].lines!.cells;
+  const byCol = (col: string) => cells.find((c) => c.col === col)!;
+  for (const col of ["serviceDescription", "supplierName", "status"]) assert.ok(byCol(col).grow && byCol(col).lines, `${col}: grows to its words`);
+  // the ratings are figures: one line, in the middle, as the sheet sets them
+  for (const col of ["deliveryRating", "qualityRating", "overallRating"]) assert.ok(!byCol(col).grow && !byCol(col).lines && byCol(col).a === "c", col);
+  const doc = documentRepository.getById("pur-service-provider-performance") as DocumentDefinition;
+  const data = createDefaultData(doc, DAY, master) as LogSheetData;
+  // as Purchase Master Data writes them on the plant's register
+  data.rows = [
+    { id: "a", serviceDescription: "QUALITY & PRODUCT SAFETY MANAGEMENT CONSULTANT", supplierName: "Shree Vinayak Consol LLP", deliveryRating: 40, qualityRating: 45, status: "Continue" },
+    { id: "b", serviceDescription: "SITE SECURITY", supplierName: "Hindustan Security Services", deliveryRating: 42, qualityRating: 44, status: "Continue" },
+  ] as LogSheetData["rows"];
+  const html = await shown("pur-service-provider-performance", data);
+  const cell = (ln: number, col: string): string => html.match(new RegExp(`<td[^>]*data-pt-ln="${ln}" data-pt-col="${col}"[^>]*>[\\s\\S]*?</td>`))?.[0] ?? "";
+  // the name's copy sizes the line; the box over it is a box of several lines, so the whole name shows on the screen
+  const consultant = cell(0, "serviceDescription");
+  assert.match(consultant, /class="[^"]*pt-grow/);
+  assert.match(consultant, /<span class="pt-sizer"[^>]*>QUALITY &amp; PRODUCT SAFETY MANAGEMENT CONSULTANT<\/span>/);
+  assert.match(consultant, /<textarea/);
+  assert.match(cell(1, "supplierName"), /<span class="pt-sizer"[^>]*>Hindustan Security Services<\/span>/);
+  assert.match(cell(1, "status"), /<span class="pt-sizer"[^>]*>Continue<\/span>/);
+  // a rating stays a figure's one-line box
+  assert.doesNotMatch(cell(0, "deliveryRating"), /pt-grow|<textarea/);
+});

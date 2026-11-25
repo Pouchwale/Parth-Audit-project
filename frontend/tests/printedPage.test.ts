@@ -1,11 +1,12 @@
 // THE PRINTED PAGE OF A DOWNLOAD (REQUIREMENTS §329): the owner's Excel files keep nothing in a printer's unprintable edge, his
 // notes beside the paper stay off it, a paper running onto a second page has its headings again, a highlight he marked his
-// example with goes with the example; a Word table runs no further than the paper; F-QC-40.C's fifty lines end above the print's foot.
+// example with goes with the example; a Word table runs no further than the paper; F-QC-40.C's fifty lines end above the print's foot;
+// F/PUR/06's long names wrap in their cells, their lines grown to them (§382).
 //
 // Run: npm run test:unit -- printedPage
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fillXlsx } from "../src/utils/originalFill/xlsxFill";
+import { fillXlsx, wrappedLines } from "../src/utils/originalFill/xlsxFill";
 import { makeEnvelope, type ExportBinding } from "../src/engine/roundTrip/exportMap";
 import { unzip, zipStored } from "../src/utils/xlsx";
 import { COMPANY } from "../src/data/seed/masterData";
@@ -96,6 +97,57 @@ test("the owner's workbook prints within the printable page, his notes and his h
   assert.match(xfs[Number(b4![1])], /fillId="0"/, "no red on the emptied cell");
   assert.match(xfs[Number(b4![1])], /borderId="1"/, "its ruling kept");
   assert.ok(!sheet.includes("Glue"), "the example gone");
+});
+
+test("a long name wraps in its cell and its line grows to it, where the paper asks (hints.ts wrapWords: F/PUR/06, §382)", async () => {
+  const long = "QUALITY & PRODUCT SAFETY MANAGEMENT CONSULTANT";
+  const named = (): ExportBlock[] => {
+    const b = blocks();
+    const table = b[2] as Extract<ExportBlock, { kind: "table" }>;
+    table.rows[1] = [plain("1"), bound("rows/@r0/item", "Hook", "Item"), bound("rows/@r0/qty", "5", "Qty", "number")];
+    table.rows[2] = [plain("2"), bound("rows/@r1/item", long, "Item"), bound("rows/@r1/qty", "3", "Qty", "number")];
+    return b;
+  };
+  const filled = async (wrapWords: boolean) => {
+    const { bytes } = await fillXlsx(ownersWorkbook(), named(), { company: COMPANY.name, hints: wrapWords ? { wrapWords } : {} });
+    const [sheet, styles] = await Promise.all([part(bytes, "xl/worksheets/sheet1.xml"), part(bytes, "xl/styles.xml")]);
+    const xfs = /<cellXfs[^>]*>(.*)<\/cellXfs>/.exec(styles)![1].match(/<xf [^>]*?(?:\/>|>.*?<\/xf>)/g)!;
+    const styleOf = (ref: string) => xfs[Number(new RegExp(`<c r="${ref}" s="(\\d+)"`).exec(sheet)![1])];
+    const rowOf = (r: number) => new RegExp(`<row r="${r}"[^>]*>`).exec(sheet)![0];
+    return { sheet, styleOf, rowOf };
+  };
+  // Every other paper as before: the name in its cell's own style, the line the paper's.
+  const before = await filled(false);
+  assert.ok(before.sheet.includes(long.replace("&", "&amp;")), "the name written");
+  assert.doesNotMatch(before.styleOf("B5"), /wrapText/);
+  assert.doesNotMatch(before.rowOf(5), /ht=/);
+  // F/PUR/06: the long name wraps in its cell (a column of the sheet's default 8.43 characters: about 44 pt), its ruling kept,
+  // and its line is as tall as its lines; a short word and a figure stay on their line in their own style.
+  const after = await filled(true);
+  assert.match(after.styleOf("B5"), /<alignment[^>]*wrapText="1"/);
+  assert.match(after.styleOf("B5"), /borderId="1"/);
+  const ht = Number(/ht="([\d.]+)"/.exec(after.rowOf(5))?.[1] ?? 0);
+  assert.ok(ht >= 5 * 15, `row 5 is ${ht} pt`);
+  assert.match(after.rowOf(5), /customHeight="1"/);
+  assert.doesNotMatch(after.styleOf("B4"), /wrapText/);
+  assert.doesNotMatch(after.styleOf("C5"), /wrapText/);
+  assert.doesNotMatch(after.rowOf(4), /ht=/);
+});
+
+test("the lines a name takes in F/PUR/06's cells, as Excel wraps Calibri 12 pt there (§382)", () => {
+  // Supplier Name (C, 19.55 characters: 97.5 pt inside its padding): a name that fits stays one line, its row the paper's
+  assert.equal(wrappedLines("Industrial Solution", 97.5, 12), 1);
+  assert.equal(wrappedLines("V-Trans (India)Ltd.", 97.5, 12), 1);
+  assert.equal(wrappedLines("Gurudev Pest Control", 97.5, 12), 2);
+  assert.equal(wrappedLines("Hindustan Security Services", 97.5, 12), 2);
+  // Description of Service (B, 22.78 characters: 114.75 pt)
+  assert.equal(wrappedLines("PEST CONTROL", 114.75, 12), 1);
+  assert.equal(wrappedLines("ENVIRONMENT MONITORING", 114.75, 12), 2);
+  const consultant = wrappedLines("QUALITY & PRODUCT SAFETY MANAGEMENT CONSULTANT", 114.75, 12);
+  assert.ok(consultant >= 3 && consultant <= 4, `${consultant} lines`);
+  // a word longer than its cell takes lines of its own; a line the writer broke stays broken
+  assert.equal(wrappedLines("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 40, 12), 5);
+  assert.equal(wrappedLines("Line one\nLine two", 97.5, 12), 2);
 });
 
 test("F-QC-40.C's fifty lines end above the 9 mm the print keeps at the foot of a page", () => {
