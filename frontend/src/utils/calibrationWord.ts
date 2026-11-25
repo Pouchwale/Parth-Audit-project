@@ -14,8 +14,9 @@ import { FORMAT_NO_RE } from "./originalFill/text";
 // bound values are the page's, so a file edited in Word reads back as every download does.
 
 export const GSM_PLATE = "qc-gsm-plate-calibration";
-/** The page's margins (pt): the 262 mm table centred across A4 landscape. */
-export const GSM_MARGINS = { top: 28, right: 46, bottom: 28, left: 46 };
+/** The page's margins (pt): the 277 mm table (fitted to A4, §278) centred across A4 landscape, 10 mm a side (§329: the 46 pt
+ * a side of the 262 mm table put its right edge 3.8 mm from the paper, where a printer cannot print). */
+export const GSM_MARGINS = { top: 28, right: 28, bottom: 28, left: 28 };
 
 const PT = 72 / 25.4;
 const ARIAL = "Arial";

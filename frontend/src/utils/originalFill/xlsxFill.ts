@@ -58,23 +58,58 @@ const key = (r: number, c: number) => r * 20000 + c;
 // ---------------------------------------------------------------------------------------------------------------------
 // the workbook's styles: which cells show a date, which are text, which are ruled
 
+// A bright solid fill the owner marks a change of his list with (F/SYS/02's red "Customer complaint Form (CAPA report)"): on
+// a line DCRS empties, the mark goes with the words it marked (§329).
+const HIGHLIGHTS = new Set(["FF0000", "FFFF00", "00FF00", "00FFFF", "FF00FF", "FFC000", "92D050", "00B050"]);
+
 class Styles {
   kinds: StyleKind[] = [];
   text: boolean[] = [];
   ruled: boolean[] = [];
+  private fillOf: number[] = [];
+  private highlight: boolean[] = [];
+  private xfs: XmlElement | null = null;
+  private plainOf = new Map<number, number>();
   constructor(styles: XmlElement | null) {
     if (!styles) return;
+    const fills = all(styles, "fills")[0];
+    this.highlight = (fills ? kids(fills, "fill") : []).map((f) => {
+      const p = kid(f, "patternFill");
+      const rgb = (p ? kid(p, "fgColor")?.attrs.rgb ?? "" : "").toUpperCase();
+      return p?.attrs.patternType === "solid" && HIGHLIGHTS.has(rgb.slice(-6));
+    });
     const custom = new Map<number, string>();
     for (const f of all(styles, "numFmt")) custom.set(Number(attrOf(f, "numFmtId")), attrOf(f, "formatCode") ?? "");
     const borders = all(styles, "borders")[0];
     const sided = (borders ? kids(borders, "border") : []).map((b) => ["left", "right", "top", "bottom"].some((side) => !!kid(b, side)?.attrs.style && kid(b, side)!.attrs.style !== "none"));
     const xfs = all(styles, "cellXfs")[0];
+    this.xfs = xfs ?? null;
     for (const xf of xfs ? kids(xfs, "xf") : []) {
       const id = Number(attrOf(xf, "numFmtId") ?? 0);
       this.kinds.push(numberFormatKind(id, custom.get(id)));
       this.text.push(id === 49 || (custom.get(id) ?? "").trim() === "@");
       this.ruled.push(!!sided[Number(attrOf(xf, "borderId") ?? 0)]);
+      this.fillOf.push(Number(attrOf(xf, "fillId") ?? 0));
     }
+  }
+
+  /** The style without the owner's highlight, added once; the style itself where it has none. */
+  plain(s: number): number {
+    if (!this.xfs || !this.highlight[this.fillOf[s] ?? 0]) return s;
+    const had = this.plainOf.get(s);
+    if (had !== undefined) return had;
+    const copy = clone(kids(this.xfs, "xf")[s]);
+    copy.attrs.fillId = "0";
+    delete copy.attrs.applyFill;
+    this.xfs.children.push(copy);
+    const n = kids(this.xfs, "xf").length - 1;
+    this.xfs.attrs.count = String(n + 1);
+    this.kinds.push(this.kinds[s]);
+    this.text.push(this.text[s]);
+    this.ruled.push(this.ruled[s]);
+    this.fillOf.push(0);
+    this.plainOf.set(s, n);
+    return n;
   }
 }
 
@@ -166,6 +201,15 @@ class XSheet {
 
   ruled(r: number, c: number): boolean {
     return !!this.styles.ruled[this.styleOf(r, c)];
+  }
+
+  /** The owner's highlight off a cell DCRS empties (§329). */
+  unhighlight(r: number, c: number): void {
+    const cell = this.cells.get(key(r, c));
+    if (!cell) return;
+    const s = Number(cell.attrs.s ?? 0) || 0;
+    const p = this.styles.plain(s);
+    if (p !== s) cell.attrs.s = String(p);
   }
 
   hasFormula(r: number, c: number): boolean {
@@ -686,11 +730,16 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
     });
   }
 
+  // ---- the printed page (§329): nothing in a printer's unprintable edge, the owner's notes beside the paper left off it, a
+  // paper running onto a second page with its headings again
+  safePrintMargins(sheet);
+  printAreaToPaper(sheet, workbook, sheetName, sheetEls.indexOf(target), places);
+
   // ---- a month on two A4 pages, as DCRS prints it (§306)
+  const mainGrid = places.find((p) => !p.unbound && p.body.length > 1);
   if (opts.printPages === 2) {
-    const place = places.find((p) => !p.unbound && p.body.length > 1);
-    if (place) printOnTwoPages(sheet, workbook, sheetName, sheetEls.indexOf(target), place);
-  }
+    if (mainGrid) printOnTwoPages(sheet, workbook, sheetName, sheetEls.indexOf(target), mainGrid);
+  } else if (mainGrid) headingsOnEveryPage(sheet, workbook, sheetName, sheetEls.indexOf(target), mainGrid);
 
   // ---- boxes the paper writes as lines in an area of its own (hints.ts areaOf): "Label: value", a line each, under the
   // area's heading and its note, as a person writes in the box
@@ -769,7 +818,11 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
   for (const place of places) {
     if (place.unbound === "keep") continue;
     if (place.exampleCells) {
-      for (const { r, c } of place.exampleCells) if (!sheet.covered(r, c) && sheet.clear(r, c)) report.cleared++;
+      for (const { r, c } of place.exampleCells) {
+        if (sheet.covered(r, c)) continue;
+        if (sheet.clear(r, c)) report.cleared++;
+        sheet.unhighlight(r, c);
+      }
       continue;
     }
     const cols = Array.from(new Set(place.colOf.values())).sort((a, b) => a - b);
@@ -789,6 +842,7 @@ export async function fillXlsx(template: ArrayBuffer, blocks: ExportBlock[], opt
         // The paper's own working in a column DCRS keeps nothing in (F/HR/21's "=C5*7"): its formula stays, worked out again.
         if (!colSet.has(c) && sheet.hasFormula(r, c)) continue;
         if (sheet.clear(r, c)) report.cleared++;
+        sheet.unhighlight(r, c);
       }
     }
   }
@@ -1507,7 +1561,9 @@ function printOnTwoPages(sheet: XSheet, workbook: XmlElement, sheetName: string,
   if (titles) titles.children = [titlesText];
   else defined.children.push(el("definedName", { name: "_xlnm.Print_Titles", localSheetId: local }, [titlesText]));
 
-  // The page: A4 the paper's way, a set scale (Excel leaves out a page break when told to fit), the paper's width across it.
+  // The page: A4 the paper's way, one page wide (Excel keeps the page break at the 16th when only the width is fitted: proved in
+  // the real Excel, §329; a set scale, worked out from the columns' widths, left F/PRD/10's and F/PRD/23's last column on pages
+  // of its own, as Excel prints a column wider than its width says).
   const root = sheet.root;
   const margins = kid(root, "pageMargins");
   const inch = (k: string, d: number) => (margins?.attrs[k] !== undefined ? Number(margins.attrs[k]) : d);
@@ -1521,19 +1577,30 @@ function printOnTwoPages(sheet: XSheet, workbook: XmlElement, sheetName: string,
   };
   let paperW = 0;
   for (let c = columnIndex(old ? old[1] : "A"); c <= columnIndex(lastCol); c++) paperW += widthOf(c);
+  // (the largest scale Excel can print at, the paper's width across the page: only the lines' heights are worked out from it,
+  // below, so they fill the page at that scale and never more; a font Excel prints wider shrinks the page and they fit the more)
   const scale = Math.max(10, Math.min(100, Math.floor((usableW / paperW) * 100)));
-  const sheetPr = kid(root, "sheetPr");
-  const fit = sheetPr ? kid(sheetPr, "pageSetUpPr") : null;
-  if (fit) delete fit.attrs.fitToPage;
+  let sheetPr = kid(root, "sheetPr");
+  if (!sheetPr) {
+    sheetPr = el("sheetPr");
+    root.children.unshift(sheetPr);
+  }
+  let fit = kid(sheetPr, "pageSetUpPr");
+  if (!fit) {
+    fit = el("pageSetUpPr");
+    sheetPr.children.push(fit);
+  }
+  fit.attrs.fitToPage = "1";
   let setup = kid(root, "pageSetup");
   if (!setup) {
     setup = el("pageSetup");
     root.children.splice(margins ? root.children.indexOf(margins) + 1 : root.children.length, 0, setup);
   }
-  for (const a of ["fitToWidth", "fitToHeight"]) delete setup.attrs[a];
+  delete setup.attrs.scale;
   setup.attrs.paperSize = "9";
   setup.attrs.orientation = wide ? "landscape" : "portrait";
-  setup.attrs.scale = String(scale);
+  setup.attrs.fitToWidth = "1";
+  setup.attrs.fitToHeight = "0";
 
   // The lines' rows: as tall as fills the fuller page (the 16th-31st of a long month), never taller than 2.5 times the paper's;
   // a little to spare, as Excel rounds each row to its pixels and would push the page's last line onto a page of its own.
@@ -1564,6 +1631,98 @@ function printOnTwoPages(sheet: XSheet, workbook: XmlElement, sheetName: string,
 }
 
 // ---- the workbook's names and the pictures, moved with the rows
+
+// ---- the printed page (REQUIREMENTS §329)
+
+const definedNamesOf = (workbook: XmlElement): XmlElement => {
+  let defined = kid(workbook, "definedNames");
+  if (!defined) {
+    defined = el("definedNames");
+    const sheetsEl = kid(workbook, "sheets")!;
+    workbook.children.splice(workbook.children.indexOf(sheetsEl) + 1, 0, defined);
+  }
+  return defined;
+};
+const sheetName$ = (sheetName: string) => `'${sheetName.replace(/'/g, "''")}'`;
+const nameOf = (workbook: XmlElement, name: string, sheetIndex: number) =>
+  kids(definedNamesOf(workbook), "definedName").find((d) => d.attrs.name === name && (d.attrs.localSheetId ?? String(sheetIndex)) === String(sheetIndex));
+
+/**
+ * NOTHING IN THE PRINTER'S EDGE. A printer leaves the paper's outer 4 to 5 mm unprinted; twenty-two of the owner's sheets set a
+ * margin of 0 (F/PRD/10, the line clearances, F/SYS/13's mock recall...), and their ruling and words were cut there. Each margin
+ * is at least 0.2 inch (5 mm); a page number or heading the sheet prints in its footer or header (F/SYS/01's "1 of 5", at 0)
+ * stands 0.2 inch in too, the page's margin clear of it. A sheet printed at a set scale is scaled down by as much as its page
+ * lost, so it keeps its pages.
+ */
+function safePrintMargins(sheet: XSheet): void {
+  const root = sheet.root;
+  const margins = kid(root, "pageMargins");
+  if (!margins) return;
+  const MIN = 0.2;
+  const sides = ["left", "right", "top", "bottom"] as const;
+  const was = Object.fromEntries(sides.map((k) => [k, Number(margins.attrs[k] ?? 0) || 0])) as Record<(typeof sides)[number], number>;
+  const hf = kid(root, "headerFooter");
+  const printed = (part: string) => !!hf && kids(hf).some((e) => e.local.startsWith("odd") && e.local.endsWith(part) && textAll(e).trim() !== "");
+  const wanted = { ...was };
+  for (const k of sides) wanted[k] = Math.max(MIN, was[k]);
+  for (const [part, side, attr] of [["Header", "top", "header"], ["Footer", "bottom", "footer"]] as const) {
+    if (!printed(part)) continue;
+    const at = Math.max(MIN, Number(margins.attrs[attr] ?? 0) || 0);
+    margins.attrs[attr] = String(at);
+    wanted[side] = Math.max(wanted[side], at + 0.15);
+  }
+  if (sides.every((k) => wanted[k] === was[k])) return;
+  for (const k of sides) if (wanted[k] !== was[k]) margins.attrs[k] = String(Math.round(wanted[k] * 1000) / 1000);
+  const now = (k: (typeof sides)[number]) => wanted[k];
+  const fit = kid(kid(root, "sheetPr") ?? el("sheetPr"), "pageSetUpPr")?.attrs.fitToPage === "1";
+  const setup = kid(root, "pageSetup");
+  if (fit || !setup) return;
+  const wide = setup.attrs.orientation === "landscape";
+  const [w, h] = wide ? [11.69, 8.27] : [8.27, 11.69];
+  const ratio = Math.min((w - now("left") - now("right")) / (w - was.left - was.right), (h - now("top") - now("bottom")) / (h - was.top - was.bottom));
+  const scale = Number(setup.attrs.scale ?? 100) || 100;
+  const next = Math.max(10, Math.floor(scale * ratio));
+  if (next < scale) setup.attrs.scale = String(next);
+}
+
+/**
+ * THE OWNER'S NOTES BESIDE THE PAPER ARE NOT PRINTED. F/SYS/02's list has his notes of a revision to the right of it ("Hotroom
+ * -In time added" in L96, "Area added" in K120): Excel printed those two columns on five more pages, three of them blank. A
+ * sheet with no print area of its own prints the paper: its letterhead, its headings and its grids, to the last of their columns.
+ */
+function printAreaToPaper(sheet: XSheet, workbook: XmlElement, sheetName: string, sheetIndex: number, places: GridPlace[]): void {
+  if (nameOf(workbook, "_xlnm.Print_Area", sheetIndex)) return;
+  const bodies = places.filter((p) => p.body.length > 0);
+  const cols = places.flatMap((p) => [...p.colOf.values()]);
+  if (bodies.length === 0 || cols.length === 0) return;
+  const firstBody = Math.min(...bodies.map((p) => Math.min(...p.body)));
+  let last = Math.max(...cols);
+  for (const k of sheet.cells.keys()) {
+    const r = Math.floor(k / 20000);
+    const c = k % 20000;
+    if (r < firstBody && sheet.text(r, c).trim()) last = Math.max(last, sheet.mergeOf(r, c)?.c2 ?? c);
+  }
+  for (const m of sheet.merges) if (m.r1 < firstBody) last = Math.max(last, m.c2);
+  const beside = [...sheet.cells.keys()].some((k) => k % 20000 > last && sheet.text(Math.floor(k / 20000), k % 20000).trim() !== "");
+  if (!beside) return;
+  definedNamesOf(workbook).children.push(el("definedName", { name: "_xlnm.Print_Area", localSheetId: String(sheetIndex) }, [`${sheetName$(sheetName)}!$A$1:$${columnName(last)}$${sheet.maxRow()}`]));
+}
+
+/**
+ * A PAPER RUNNING ONTO A SECOND PAGE HAS ITS HEADINGS AGAIN, as DCRS prints it (§275): F/HR/08's second page was rows of empty
+ * boxes under no heading. The rows above the first line repeat at the top of every page, when they take no more than a quarter
+ * of the page; a one-page paper prints as it did.
+ */
+function headingsOnEveryPage(sheet: XSheet, workbook: XmlElement, sheetName: string, sheetIndex: number, place: GridPlace): void {
+  if (nameOf(workbook, "_xlnm.Print_Titles", sheetIndex)) return;
+  const firstBody = Math.min(...place.body);
+  if (!Number.isFinite(firstBody) || firstBody < 2) return;
+  let head = 0;
+  for (let r = 1; r < firstBody; r++) head += Number(sheet.rows.get(r)?.attrs.ht ?? 15) || 15;
+  const wide = kid(sheet.root, "pageSetup")?.attrs.orientation === "landscape";
+  if (head > (wide ? 595.3 : 841.9) * 0.25) return;
+  definedNamesOf(workbook).children.push(el("definedName", { name: "_xlnm.Print_Titles", localSheetId: String(sheetIndex) }, [`${sheetName$(sheetName)}!$1:$${firstBody - 1}`]));
+}
 
 function shiftNames(workbook: XmlElement, sheetName: string, after: number, count: number): void {
   const defined = kid(workbook, "definedNames");

@@ -986,6 +986,15 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       return `<row r="${ri + 1}"${h ? ` ht="${h}" customHeight="1"` : ""}>${r.map((c, ci) => cellXml(c, `${columnName(ci)}${ri + 1}`)).join("")}</row>`;
     })
     .join("");
+  // A PAPER A LITTLE TALLER THAN ITS PAGE PRINTS ON THAT PAGE (§329): F/HR/06's last empty line, F/QC/11's and F/QC/12's number
+  // under the PROCEDURE went onto a second page alone. Up to a quarter of a page over (measured at the page's width), Excel
+  // shrinks the sheet onto one page; a longer one runs on as before.
+  const orientation = sheetPage ?? paper ?? (columns > 6 ? "landscape" : "portrait");
+  const sheetWidthPt = Array.from({ length: columns }, (_, i) => (Math.trunc(widthOf(i) * 7 + 5) * 3) / 4).reduce((a, b) => a + b, 0);
+  const sheetHeightPt = rows.reduce((t, _r, ri) => t + (heightsAt.get(ri) ?? 14), 0);
+  const acrossScale = Math.min(1, ((orientation === "landscape" ? 841.9 : 595.3) - 0.8 * 72) / Math.max(1, sheetWidthPt));
+  const pagesTall = (sheetHeightPt * acrossScale) / ((orientation === "landscape" ? 595.3 : 841.9) - 1.0 * 72);
+  const onePageTall = sheetOnePage || (pageBreaks.length === 0 && pagesTall <= 1.25);
   const safeName = ((sheetTitle || sheetName).replace(/[\\/?*[\]:]/g, "-").slice(0, 31) || "Document").replace(/'/g, "");
   const lastRef = `${columnName(columns - 1)}${Math.max(1, rows.length)}`;
   const MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -1115,7 +1124,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
         // Printed from Excel: one page wide, as many pages down as it takes.
         // ...on the paper's own page where the layout names it (REQUIREMENTS §117), else as its width needs.
-        `<pageSetup paperSize="9" orientation="${sheetPage ?? paper ?? (columns > 6 ? "landscape" : "portrait")}" fitToWidth="1" fitToHeight="${sheetOnePage ? 1 : 0}"/>` +
+        `<pageSetup paperSize="9" orientation="${orientation}" fitToWidth="1" fitToHeight="${onePageTall ? 1 : 0}"/>` +
         // A new page where the paper starts one (F/HR/18's second page): Excel breaks above the row.
         (pageBreaks.length ? `<rowBreaks count="${pageBreaks.length}" manualBreakCount="${pageBreaks.length}">${pageBreaks.map((r) => `<brk id="${r}" max="16383" man="1"/>`).join("")}</rowBreaks>` : "") +
         `</worksheet>`,

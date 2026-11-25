@@ -13657,3 +13657,57 @@ in google drive and this applies to all documents in all module".
 - Still with the owner: the Drive's F-PRD-01 to 05, 08, 13, F-PUR-04, F-QA-01, F-PRD-09, 14 and 25 are empty workbooks;
   F-MKT-03, F-MKT-06, F-QC-31 and F-PRD-29 are not on the Drive; the adhesive mixing sheet prints F/PRD/31 where the Master List
   says F-PRD-30.
+
+## §329 Every download and printout checked again; what printed wrong is put right (24/25-Nov-2026)
+
+The owner, 24-Nov-2026: "check all documents of all module of their excel and word file by downloading and checking whether it is
+perfect or not ... so even user give will download and take print which come perfectly."
+
+**How it was checked.** All 141 formats (143 on 25-Nov) of the Document Library on the local copy (tests/check_all_documents.py): each started
+with New (or opened), words typed into its boxes, both downloads saved and read back, "Print Original-Style Record" pressed and its
+PDF kept. Then every Excel file printed to PDF by the real Excel and every Word file opened in the real Word, and every page
+measured: its paper, a page with nothing on it, a page holding one line or one number, content within 3 mm of the paper's edge.
+Word could not lay pages out on the plant PC (its PDF export waits without end, as on 4-Nov, §183), so each Word file was opened
+in Word and its page read from the file: A4, its margins, every table's right edge against the paper.
+
+**Put right.**
+1. F-QC-40.C (the hot room's temperature) printed line 50 alone on a second page: its fifty lines are 4.75 mm, not 4.9, so the
+   sheet ends at 285.7 mm, above the 9 mm the print keeps at every page's foot (§277). One page, all fifty lines (qcPaperTables.ts).
+2. F/PRD/10 and F/PRD/23 printed from Excel on four pages, the Remarks column on two of its own: Excel prints a column wider than
+   its width says (the owner's Calibri files by about a sixth), and the set scale of §306 left no room. The month now prints one
+   page wide (Excel keeps the page break at the 16th when only the width is fitted - proved in the real Excel), the lines as tall
+   as fill a page at the largest scale Excel can use. All five sharp sheets (F/PRD/10, 12, 22, 23, 24): two pages in Excel, the 1st
+   to the 15th and the 16th to the end, every column on them.
+3. Twenty-two of the owner's Excel files set page margins of 0 (the line clearances, the ALC sheets, F/PRD/10 and 23, F/SYS/01, 02,
+   13...): a printer leaves the paper's outer 4-5 mm blank, so their ruling and words were cut. Every margin of a filled sheet is at
+   least 0.2 inch (5 mm); a sheet printed at a set scale is scaled down by as much as its page lost, so it keeps its pages.
+4. F/SYS/02 printed five more pages, three of them blank: the owner's notes of a revision to the right of his list ("Hotroom -In
+   time added", "Area added" in K and L). A filled sheet with no print area of its own prints the paper - its letterhead, its
+   headings and its grids, to their last column - and not notes beside it.
+5. The same list printed red blocks on empty lines: the owner's red marking three entries of his example. A bright highlight on a
+   cell DCRS empties goes with the words it marked; the cell's ruling stays.
+6. A sheet of the owner's running onto a second page (F/HR/08's empty lines) had no headings there: the rows above its first line
+   repeat at the top of every page, when they take no more than a quarter of the page. A one-page sheet prints as before.
+7. DCRS's own Excel (for a format whose original is a Word file, or none) put one line alone on a second page: F/HR/06's last empty
+   line, F/QC/11's and F/QC/12's number under the PROCEDURE. A sheet up to a quarter of a page taller than its page is fitted onto
+   that one page; a longer one runs on as before.
+8. A page number in an Excel footer printed at the paper's very foot (F/SYS/01's "1 of 5", its footer at 0): a header or footer
+   the sheet prints stands 0.2 inch in, the page's margin clear of it.
+9. Word: some of the owner's Word files, turned from .doc, hold a table wider than the page (F/HR/11's rows of up to 393 mm on
+   A4's 210, the chemical list 13 mm past the paper) or run one into the edge a printer cannot print (F/MNT/08, the glass breakage
+   record): a table whose widest row would end within 6 mm of the paper's right edge is narrowed, every column by the same share,
+   to end 6 mm from it (docxFill.ts tablesOnThePaper). F/QC/11's Word page kept the margins of its 262 mm table after §278 made it
+   277 mm, so the table ended 3.8 mm from the edge: 10 mm a side now (calibrationWord.ts GSM_MARGINS).
+
+**Found right, and left as they are.** As §183 lists: the certificates of analysis, F/QC/13 and F-QC-14's Sleeve sheet print no
+F/QC number, as their papers print none; F/SYS/07's, F/SYS/13's and F/DISP/01's own files carry none; the contractor's licence is a
+PDF with no download. F/HR/22's number is written "F / HR / 22" on its paper, and the Statements of Compliance print theirs
+("F/QC-09 (Rev - 00 / ...)").
+
+**For the owner.** Thirty-four formats have no Word or Excel original of the owner's (the F/QC/34-37 inspection records, F/MNT/04-07,
+the temperature records, F/SYS/14-17 ...), and for every format one of the two downloads is DCRS's own: a clean sheet of the
+record's boxes and lines, not a picture of the paper. Whether those are to be drawn as the paper is the owner's to say.
+
+**Files.** utils/originalFill/xlsxFill.ts (safePrintMargins, printAreaToPaper, headingsOnEveryPage, Styles.plain, the two-page
+fit), utils/originalFill/docxFill.ts (tablesOnThePaper), utils/documentExport.ts (one page when a little over),
+utils/calibrationWord.ts, data/seed/qcPaperTables.ts. Test: frontend/tests/printedPage.test.ts.

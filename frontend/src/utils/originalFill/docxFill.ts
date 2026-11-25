@@ -926,8 +926,69 @@ export async function fillDocx(template: ArrayBuffer, blocks: ExportBlock[], opt
     setCustomProperty(pkg, ENVELOPE_PROPERTY, envelopePropertyValue(opts.envelope));
   }
   if (opts.centreValues) for (const tc of all(body, "tc")) if (writtenCells.has(tc)) centreCell(tc);
+  tablesOnThePaper(body);
   void W_NS;
   return { bytes: pkg.build(), report };
+}
+
+// ---- every table on the paper (REQUIREMENTS §329)
+
+/** 6 mm, in twips: the edge a printer leaves blank (4-5 mm) and a little. */
+const PAPER_EDGE = 340;
+
+/**
+ * EVERY TABLE ON THE PAPER. Some of the owner's Word files, turned from .doc, hold a table wider than the page - F/HR/11's rows of
+ * up to 393 mm on A4's 210, the chemical list 13 mm past the paper - or run one into the edge a printer cannot print (F/MNT/08,
+ * the glass breakage record, F/QC/11, F/QC/12): Word prints it cut off. A table whose widest row would end within 6 mm of the
+ * paper's right edge is narrowed, every column and cell by the same share, to end 6 mm from it. A table on the paper is untouched.
+ */
+export function tablesOnThePaper(body: XmlElement): void {
+  const num = (e: XmlElement | null, a: string) => Number(e?.attrs[a] ?? NaN);
+  // Each table under the section it is in: the first section break after it, or the body's own last one.
+  const owned: { tbl: XmlElement; sect: XmlElement }[] = [];
+  let waiting: XmlElement[] = [];
+  for (const c of kids(body)) {
+    if (c.local === "tbl") waiting.push(c);
+    const sect = c.local === "sectPr" ? c : c.local === "p" ? kid(kid(c, "pPr") ?? el("w:pPr"), "sectPr") : null;
+    if (sect) {
+      for (const tbl of waiting) owned.push({ tbl, sect });
+      waiting = [];
+    }
+  }
+  for (const { tbl, sect } of owned) {
+    const pageW = num(kid(sect, "pgSz"), "w:w");
+    const mar = kid(sect, "pgMar");
+    const left = num(mar, "w:left");
+    const right = num(mar, "w:right");
+    if (!(pageW > 0) || Number.isNaN(left) || Number.isNaN(right)) continue;
+    const tblPr = kid(tbl, "tblPr");
+    const indent = num(kid(tblPr ?? el("w:tblPr"), "tblInd"), "w:w") || 0;
+    const centred = kid(tblPr ?? el("w:tblPr"), "jc")?.attrs["w:val"] === "center";
+    let widest = 0;
+    for (const tr of kids(tbl, "tr")) {
+      let w = 0;
+      for (const tc of kids(tr, "tc")) {
+        const tcW = kid(kid(tc, "tcPr") ?? el("w:tcPr"), "tcW");
+        if (tcW && (tcW.attrs["w:type"] ?? "dxa") === "dxa") w += Number(tcW.attrs["w:w"] ?? 0) || 0;
+      }
+      widest = Math.max(widest, w);
+    }
+    if (widest <= 0) continue;
+    const textW = pageW - left - right;
+    const ends = centred ? left + (textW + widest) / 2 : left + indent + widest;
+    const room = pageW - PAPER_EDGE;
+    if (ends <= room) continue;
+    const fits = centred ? 2 * (room - left) - textW : room - left - indent;
+    if (fits <= 0) continue;
+    const share = fits / widest;
+    const narrow = (e: XmlElement) => {
+      if ((e.attrs["w:type"] ?? "dxa") !== "dxa" || e.attrs["w:w"] === undefined) return;
+      e.attrs["w:w"] = String(Math.floor((Number(e.attrs["w:w"]) || 0) * share));
+    };
+    for (const g of all(tbl, "gridCol")) if (g.attrs["w:w"] !== undefined) g.attrs["w:w"] = String(Math.floor((Number(g.attrs["w:w"]) || 0) * share));
+    for (const w of all(tbl, "tcW")) narrow(w);
+    for (const w of all(tbl, "tblW")) narrow(w);
+  }
 }
 
 /** The blank lines given the roles' line's places for the names (each role there is replaced by its name when written). */

@@ -37,7 +37,8 @@ test("F/QC/12 filled Word file: the grid's words are at most 8 pt, only when the
     const out = await fillDocx(tpl.buffer.slice(tpl.byteOffset, tpl.byteOffset + tpl.byteLength) as ArrayBuffer, blocks, { hints, company: COMPANY.name });
     const zip = await unzip(out.bytes.slice().buffer);
     const xml = new TextDecoder().decode(await zip.get("word/document.xml")!());
-    const grid = xml.match(/<w:tbl>(?:(?!<w:tbl>).)*?w:gridCol w:w="1185"[\s\S]*?<\/w:tbl>/)![0];
+    // (the grid found by its heading: its columns are narrowed onto the paper since §329, so no longer 1185 twips)
+    const grid = xml.match(/<w:tbl>(?:(?!<w:tbl>).)*?Tested Value 1[\s\S]*?<\/w:tbl>/)![0];
     const sizes = Array.from(grid.matchAll(/<w:sz w:val="(\d+)"/g), (m) => Number(m[1]));
     if (one) {
       assert.ok(sizes.length > 0 && Math.max(...sizes) <= 16 && Math.min(...sizes) >= 10, `grid sizes ${Math.min(...sizes)}..${Math.max(...sizes)}`);

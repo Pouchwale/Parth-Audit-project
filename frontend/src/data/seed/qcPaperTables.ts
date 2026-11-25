@@ -950,7 +950,9 @@ const TEMPERATURE_HOT_ROOM: PaperTable = {
     },
   ],
   body: [{ ...TEMPERATURE_SLEEVE.body[0], h: 10.2 }],
-  lines: { ...TEMPERATURE_SLEEVE.lines!, h: 4.9, count: 50 },
+  // 4.75 mm a line (§329): at 4.9 the sheet ended at 291 mm (at 4.8, 288.2), past the 288 mm the print's 9 mm foot leaves, and line 50 printed
+  // alone on a second page.
+  lines: { ...TEMPERATURE_SLEEVE.lines!, h: 4.75, count: 50 },
 };
 
 /** The band the two lamination papers print: the logo, the title, and the number, its revision and its date on three lines. */
