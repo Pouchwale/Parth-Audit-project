@@ -27,6 +27,7 @@ import { fillPscSurveyDue } from "./pscFill";
 import { waitsUntil } from "./notBeforeDay";
 import { fillTrainingCalendarDue } from "./trainingCalendarFill";
 import { TRAINING_CALENDAR_ID } from "./trainingCalendar";
+import { syncTrainingChain, TRAINING_CHAIN_DOCS } from "./trainingChain";
 import { isRulerVerification } from "../data/seed/qcRulerVerificationLayouts";
 // A format the super admin made Manual, Reference only or SAP in Indexing is never filled by the system (REQUIREMENTS §304).
 import { systemFills } from "../../../indexing/modes";
@@ -185,11 +186,19 @@ export function prepareRecordOnOpen(recordId: string, referenceISO = todayISO())
   if (!doc || !mayWriteRecordsOf(doc.id)) return record;
   // F/HR/10: a line naming a person has its blank boxes filled from HR Master Data, however the name got there (§331).
   fillNamedLinesFromMaster(recordId);
-  if (!systemFills(doc.id) || waitsUntil(doc, record, referenceISO) !== null) return recordRepository.getById(recordId);
+  // F/HR/09 -> 10 -> 11 -> 12: the training chain makes and fills its records when one of them is opened (§337).
+  const chain = () => {
+    if (TRAINING_CHAIN_DOCS.has(doc.id)) syncTrainingChain({ today: referenceISO });
+  };
+  if (!systemFills(doc.id) || waitsUntil(doc, record, referenceISO) !== null) {
+    chain();
+    return recordRepository.getById(recordId);
+  }
   if (doc.id === "hr-induction-operators") syncInductionDates(recordId);
   prepareDueRecords(referenceISO, { documentId: doc.id, recordId });
   if (doc.id === TRAINING_CALENDAR_ID) fillTrainingCalendarDue(referenceISO, recordId);
   if (doc.id === "hr-psc-survey-analysis") fillPscSurveyDue(referenceISO, { analysisOf: recordId });
+  chain();
   return recordRepository.getById(recordId);
 }
 

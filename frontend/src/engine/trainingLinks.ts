@@ -48,6 +48,8 @@ export interface CalendarTraining {
   trainer: string;
   duration: string;
   method: string;
+  /** Its method of evaluation: the calendar's, or the one the Training Imparted Record names (§337). */
+  evaluation?: string;
   /** The day it was held, or is planned for (YYYY-MM-DD). */
   date: string;
   held: boolean;
@@ -81,7 +83,7 @@ export function trainingsOnCalendar(isDemo: boolean, today: string = todayISO())
     for (const t of plannedTrainings(rows, r.dueDate, today, closed)) {
       const row = byId.get(t.key.split("|")[0]);
       if (!t.topic) continue;
-      out.push({ recordId: r.id, source: "calendar", topic: t.topic, trainer: t.by, duration: str(row?.duration), method: str(row?.method), date: t.date, held: t.held, attendees: [] });
+      out.push({ recordId: r.id, source: "calendar", topic: t.topic, trainer: t.by, duration: str(row?.duration), method: str(row?.method), evaluation: str(row?.evaluation), date: t.date, held: t.held, attendees: [] });
     }
   }
   return latestFirst(out);
@@ -99,7 +101,7 @@ export function trainingsImparted(isDemo: boolean): CalendarTraining[] {
     const attendees = (Array.isArray(r.data?.rows) ? r.data.rows : [])
       .filter((row) => str(row.name))
       .map((row) => ({ name: str(row.name), department: str(row.department), designation: str(row.designation) }));
-    out.push({ recordId: r.id, source: "imparted", topic, trainer: str(h.impartedBy), duration: str(h.duration), method: str(h.method), date, held: true, attendees });
+    out.push({ recordId: r.id, source: "imparted", topic, trainer: str(h.impartedBy), duration: str(h.duration), method: str(h.method), evaluation: str(h.evaluationMethod), date, held: true, attendees });
   }
   return latestFirst(out);
 }
@@ -206,7 +208,10 @@ export function trainingFill(documentId: string, data: LogSheetData, trainings: 
   } else {
     put("impartedBy", training.trainer);
     put("duration", training.duration);
-    if (documentId === IMPARTED_ID) put("method", training.method);
+    if (documentId === IMPARTED_ID) {
+      put("method", training.method);
+      put("evaluationMethod", training.evaluation ?? "");
+    }
   }
   let rows = data.rows;
   const listed: string[] = [];

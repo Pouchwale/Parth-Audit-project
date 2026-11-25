@@ -38,7 +38,9 @@ import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
 import { HrMasterChangeAsk, type MasterAsk } from "./HrMasterChangeAsk";
 import { askedOfMaster, masterChanges, personOfBox } from "../../engine/hrMasterChange";
 import type { HrMasterPerson } from "../../types";
-import { trainingBoxOf, trainingFill, trainingLabel, trainingsFor, TRAININGS_LIST } from "../../engine/trainingLinks";
+import { IMPARTED_ID, trainingBoxOf, trainingFill, trainingLabel, trainingsFor, TRAININGS_LIST } from "../../engine/trainingLinks";
+import { trainerWithPost, withPeopleNeeding } from "../../engine/trainingChain";
+import { TRAINING_CALENDAR_ID } from "../../engine/trainingCalendar";
 import { equipmentLinkFor, equipmentMasterVisible, machineBlankFills, machineByNumber, machineValue } from "../../engine/equipmentMaster";
 import {
   currentPmIndex,
@@ -211,6 +213,12 @@ export function LogSheetRecordView({
     checkMaster: () => void;
   } | null>(null);
   const onCell = React.useCallback((rowId: string, key: string, value: string | number | null) => handlers.current?.setCell(rowId, key, value), []);
+  // F/HR/09's Source of Training: a person on HR Master Data is written with their post when the words are left,
+  // "Ajay Vaghela (Flexo Manager)" (§337).
+  const onTrainerLeft = React.useCallback((rowId: string, words: string) => {
+    const withPost = trainerWithPost(words);
+    if (withPost !== words) handlers.current?.setCell(rowId, "source", withPost);
+  }, []);
   const onBox = React.useCallback((key: string, value: string) => handlers.current?.setHeader(key, value), []);
   // A box's label typed over (REQUIREMENTS §189): kept as the record's own words for it.
   const onLabel = React.useCallback((key: string, words: string) => handlers.current?.setHeadingWords(`label:${key}`, words), []);
@@ -482,7 +490,8 @@ export function LogSheetRecordView({
   const fillFromTraining = (value: string) => {
     if (!trainingBox || !editable) return;
     const fill = trainingFill(doc.id, { ...data, header: { ...data.header, [trainingBox]: value } }, trainings, record.isDemo, todayISO(), () => generateId("row"));
-    if (fill) save(fill.data);
+    // F/HR/10 naming nobody yet: everybody F/HR/08 marks for the training, their posts from HR Master Data (§337).
+    if (fill) save(doc.id === IMPARTED_ID ? withPeopleNeeding(fill.data, record.isDemo) : fill.data);
   };
 
   // THE MAINTENANCE FORMATS FETCH A MACHINE FROM THE EQUIPMENT MASTER, F/MNT/01
@@ -923,6 +932,7 @@ export function LogSheetRecordView({
       const personCol = fetching && link?.where === "rows" && link.nameField === key;
       const machineCol = eqFetching && eqLink?.where === "rows" && eqLink.idField === key;
       const supplierCol = supFetching && supLink?.where === "rows" && supLink.idField === key;
+      const trainerCol = doc.id === TRAINING_CALENDAR_ID && key === "source" && editable;
       const ci = layout.columns.findIndex((c) => c.key === key);
       if (!row || ci < 0) return null;
       const c = layout.columns[ci];
@@ -932,6 +942,13 @@ export function LogSheetRecordView({
       // ...typed over on the record while it can be written on (REQUIREMENTS §135), drawn as the paper draws them.
       if (col.fixed) {
         const words = documentTextIn(printedCell(row, key, fixedRow), lang);
+        if (trainerCol) {
+          return (
+            <EditableWords className="pt-words" shown={String(words ?? "")} editable={editable} onChange={(w) => onCell(row.id, key, trainerWithPost(w))} label={c.label}>
+              {withUnderlinedLines(words, cell?.ul)}
+            </EditableWords>
+          );
+        }
         return (
           <EditableWords className="pt-words" shown={String(words ?? "")} editable={editable} onChange={(w) => onCell(row.id, key, w)} label={c.label}>
             {withUnderlinedLines(words, cell?.ul)}
@@ -961,7 +978,7 @@ export function LogSheetRecordView({
               disabled={!(editable && writable(col))}
               value={String(row[key] ?? "")}
               onChange={(e) => onCell(row.id, key, e.target.value)}
-              onBlur={personCol ? (e) => onPersonBlur(row.id, e.target.value) : machineCol ? (e) => onMachineBlur(row.id, e.target.value) : supplierCol ? (e) => onSupplierBlur(row.id, e.target.value) : undefined}
+              onBlur={personCol ? (e) => onPersonBlur(row.id, e.target.value) : machineCol ? (e) => onMachineBlur(row.id, e.target.value) : supplierCol ? (e) => onSupplierBlur(row.id, e.target.value) : trainerCol ? (e) => onTrainerLeft(row.id, e.target.value) : undefined}
             />
           </div>
         );
@@ -977,7 +994,7 @@ export function LogSheetRecordView({
             onChange={(v) => onCell(row.id, key, v)}
             employees={employeeNames}
             list={personCol ? "hr-master-people" : machineCol ? "equipment-machines" : supplierCol ? SUPPLIER_NAMES_LIST : (lists?.[key] ?? c.list)}
-            onBlur={personCol ? (v) => onPersonBlur(row.id, v) : machineCol ? (v) => onMachineBlur(row.id, v) : supplierCol ? (v) => onSupplierBlur(row.id, v) : undefined}
+            onBlur={personCol ? (v) => onPersonBlur(row.id, v) : machineCol ? (v) => onMachineBlur(row.id, v) : supplierCol ? (v) => onSupplierBlur(row.id, v) : trainerCol ? (v) => onTrainerLeft(row.id, v) : undefined}
           />
         </div>
       );

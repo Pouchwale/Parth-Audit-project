@@ -48,6 +48,7 @@ import { RecordRemarks } from "../components/records/RecordRemarks";
 import { periodKeyFor } from "../engine/recordGenerator";
 import { NOMINAL_FILL_NOTE, SCALE_DAY_NOTE, fillScaleLinesDue, nominalFillAdded, nominalFillOnOpen } from "../engine/nominalFill";
 import { prepareRecordOnOpen } from "../engine/assistantPrepare";
+import { syncTrainingChain, TRAINING_CHAIN_DOCS } from "../engine/trainingChain";
 import { SERIAL_NUMBER_NOTE, withSerialNumber } from "../data/serialNumbersMigration";
 import { SCALE_WEEKS_NOTE, scaleSheetFitted } from "../data/scaleWeeksMigration";
 import { firstWeekDate } from "../engine/calibrationWeeks";
@@ -345,6 +346,15 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
   // Leaving the page — inside the app or by closing the tab — never loses a change.
   useEffect(() => () => void flush(), [flush]);
+  // Leaving F/HR/09, 10, 11 or 12 (what was typed saved first, above): the training chain makes and fills the next
+  // records - an F/HR/10 left has had its people checked, and each of them gets an F/HR/11 and a line on F/HR/12 (§337).
+  useEffect(() => {
+    const id = recordId;
+    return () => {
+      const left = id ? recordRepository.getById(id) : undefined;
+      if (left && !left.isDemo && TRAINING_CHAIN_DOCS.has(left.documentId)) syncTrainingChain({ left: left.id });
+    };
+  }, [recordId]);
   useEffect(() => {
     if (!dirty) return;
     const onLeave = () => void flush();
