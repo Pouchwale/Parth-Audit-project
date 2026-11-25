@@ -368,7 +368,8 @@ const AUDIT_PLAN: LogSheetLayout = {
     summary("minorNc", "No. of Minor NC", 120),
     summary("minorStatus", "Status", 110),
   ],
-  rowMode: { kind: "free", minRows: 1, typicalRows: 6 },
+  // The paper prints two lines in each table (§326): a record keeps at least two, so both are there to type in.
+  rowMode: { kind: "free", minRows: 2, typicalRows: 2 },
   footerFields: [{ key: "verifiedBy", label: "Verified By:", type: "text", autoFill: { sign: true } }],
   specimenHeader: AUDIT_PLAN_TEAM,
   specimenRows: AUDIT_PLAN_2025_01.map(({ function: fn, auditors, auditee }) => ({ function: fn, auditors, auditee })),
