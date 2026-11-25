@@ -13950,3 +13950,60 @@ downloads read back), set beside his originals' pages; the test account check (�
 data/seed/laminationQcPapers350.ts, data/seed/qcPaperTables.ts (the lookup; F-QC-32's photograph paper taken out),
 public/brand/gpp-logo-fqc32.png, styles.css. Tests: tests/productionPapers350.test.ts; tests/qcPaperTables.test.ts no longer
 lists F-QC-32 among the papers drawn from photographs.
+
+## §352 F/SYS/03, 05, 07, 08, 10 and 11 drawn and printed as the owner's papers (25-Nov-2026)
+
+The owner, 24-Nov-2026: "same format present in my system which is present in google drive ... whenever user download any
+document of any module or take a print on A4 size paper, that should be very perfect". The format audit of 24-Nov-2026 found
+these six System / Management documents MAJOR: DCRS's own header band, grey loose labels, no ruled boxes. Each is now drawn as the
+owner's own file, measured in mm off its PDF (data/seed/sysPapers352.ts). The boxes and grids are the formats' own as before, so
+every record on file reads on unchanged; every printed word can be typed over (§275) and any row added or deleted (§276); no
+colour (§282). Each prints on A4 with nothing within 8 mm of the paper's edge and no letter under 9 pt.
+
+- F/SYS/03 Document Change Request & Approval Note, his Word format (Drive "BRCGS 25-26/Formats"): the double page border, the
+  company and title in plain letters, the number line, DOCUMENT CHANGE / INTRODUCTION / REMOVAL REQUEST NOTE bold and underlined,
+  "This is a request for" with its three tick boxes, Date of Change request on its writing line, the ruled current-document row
+  with "(Not Applicable for New Document Introduction)" small and italic, the Document Title table, the Description of change
+  and Reason boxes with their underlined headings, the Change requested by row, the dotted rule between the requester's half and
+  the PSTL's, "Change request verified by (Sign.) ____ (PSTL)", the PSTL's comments box, "Yes / No" to ring, Date of approval &
+  implementation on its line. One A4 page.
+- F/SYS/05 Yearly Internal Audit Schedule, the plant's Rev 01 page (01.03.2023) of the 2024 and 2025 schedules, the revision
+  DCRS keeps: landscape, the double border, "YEARLY INTERNAL AUDIT SCHEDULE (BRCGS PACKAGING – Issue 06) for the Year:" with the
+  year, the number line, SN | DEPARTMENT | | JAN ... DEC, each department on a Plan and an Actual line (the names wrapping as
+  printed), Date and Approved by (PSTL) at the foot. The note typed across the 2025 schedule's months prints under the schedule
+  at the months' place: the page has no place of its own for it.
+- F/SYS/07 Internal Audit Risk Assessment, the Rev 01 sheet of 2024 (his Drive: F-SYS-07-Internal Audit Risk assessment
+  (R-2024).xlsx): Number | Audit Scope | Auditee | IQA NC | External NCs | Sum | Audit frequency, each section's four figures one
+  cell down its clauses, the "4 Site Standards" line with no Auditee, the criteria, "Risks will be reviewed ...", the SECTION /
+  IQA NC / EXTERNAL AUDIT NC (2023) table and "Irrespective of Risk rating criteria ..." beside them, "F/SYS/07  Rev. no. - 01
+  Date : 01.03.2023" under it. His sheet prints on one page at 5 pt; to be read (§282) it prints on two portrait pages, page 2 from
+  section 5 with the company, the title and the headings again, its letters 9 pt (engine/paperReadable.ts fits the columns).
+- F/SYS/08 Internal Audit Findings / Observation Report, the Rev 01 report of the audit of 17.02.2025 (his Drive: F-SYS-08 Audit
+  Checklist Compliance Report.docx): page 1 the title and number line, "BRCGS Packaging Materials – ISSUE 6" / "Audit Checklist &
+  Compliance Report" and its rule, the Sr. No. | Function | Audit Date | Audit Time | Auditors table, the company at the page's
+  foot; from page 2 the checklist Clause | Requirements | Compliance/Non compliance | Comments / Outcome, the head and the
+  headings on every page with its own page number, each line growing to its words. A blank report rules 22 lines on page 2; the
+  audit of 17.02.2025 prints on 25 pages, as his report does.
+- F/SYS/10 Internal Audit NC Report, his Word format (Drive "Formats", Rev No: 01, Date: 01.12.2021): every box ruled as printed,
+  "☐ Non-Conformance", the Objective Evidence(s) lines with their dotted rules, the italic Note, ROOT CAUSE(S) with WHY bold,
+  CORRECTION ACTION and CORRECTIVE ACTION as two boxes, Follow–up audit, CAR CLOSING VERIFICATION with Date, Verified by and
+  Sign. on their lines, Satisfactory / Unsatisfactory and Closed / Not Closed to ring. CORRECTION ACTION is a new optional box of
+  the format (correctionAction); report Feb -25/02 keeps its one text under CORRECTIVE ACTION.
+- F/SYS/11 Non-Conformance & Corrective Action Report (CAR), his Word format (Rev No: 00): the same parts with "☐ Non-Conformance
+  ☐ Observation", CORRECTION DONE, "(Action Taken to Prevent Recurrence)" bold italic, the four dashed cut lines across the page,
+  CPAR - Closed / Not Closed, the Planned Follow-up Date and Sign. & Date of Re-verification rows.
+- His Word formats of F/SYS/03, 10 and 11 leave "Format No.:" empty and F/SYS/08's report writes "F / SYS / 08": the papers print
+  the master list's number there (F/SYS/03, F/SYS/08, F/SYS/10, F/SYS/11), as his filled reports do.
+- Drawn differently, and why: Word's double lines round F/SYS/10's and 11's boxes are single rules, their grey shading and
+  F/SYS/08's blue bands are not printed (§282); F/SYS/08's band rows are the checklist's own lines and print as lines; its company
+  line prints at the foot of page 1 and after the last line, not at the foot of every page (a register's later pages repeat its
+  head only); F/SYS/07's key headings are bold, not bold italic.
+- styles.css: a §352 block for these sheets only. An "o" or "d" in a cell's edges rules its foot dotted or dashed, an "i" sets its
+  words in italics, and a box that grows to its words keeps the cell's margin at its right as at its left.
+- Downloads as before (originalFiles.ts): F/SYS/03's Word download is his file filled, whose "Format No.:" stays empty as in his
+  file; the others are drawn from the paper where his file has no place for the record.
+- Checked on the local copy (build served on port 5935): the Print button's PDF of each, new and on file, the Word and Excel
+  downloads read back with the typed words, and tests/verify_with_test_account.py with --print (account made, words kept after a
+  reload, printed, account deleted).
+- Files: data/seed/sysPapers352.ts (new), data/seed/qcPaperTables.ts (the lookup), data/seed/sysInternalAuditLayouts.ts
+  (F/SYS/10's correctionAction), styles.css. Tests: frontend/tests/sysPapers352.test.ts.

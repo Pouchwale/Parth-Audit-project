@@ -38,6 +38,7 @@ import { MNT_PAPER_TABLES } from "./mntPaperTables";
 import { MKT_PAPER_TABLES } from "./mktPaperTables";
 import { PRD_PAPERS_350 } from "./prdPapers350";
 import { LAMINATION_QC_PAPERS_350 } from "./laminationQcPapers350";
+import { SYS_PAPERS_352 } from "./sysPapers352";
 
 /** One answer of a choice the paper sets across its cells or inside a cell: a scale's 7 to 1, Yes / No, a tick box (§275). */
 export interface PaperPick {
@@ -1586,7 +1587,7 @@ export function paperTableFits(
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
 // (and a format made from a Word file, whose paper is kept with the format: REQUIREMENTS §324)
 export const paperTableFor = (documentId: string): PaperTable | undefined =>
-  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? DRIVE_PAPERS_332[documentId] ?? (documentId === QC_PORTABLE_ITEMS_ID ? QC_PORTABLE_ITEMS_PAPER : undefined) ?? PRD_PAPERS_350[documentId] ?? LAMINATION_QC_PAPERS_350[documentId] ?? formatEditFor(documentId)?.paper;
+  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? DRIVE_PAPERS_332[documentId] ?? (documentId === QC_PORTABLE_ITEMS_ID ? QC_PORTABLE_ITEMS_PAPER : undefined) ?? PRD_PAPERS_350[documentId] ?? LAMINATION_QC_PAPERS_350[documentId] ?? SYS_PAPERS_352[documentId] ?? formatEditFor(documentId)?.paper;
 
 /** The paper as the page draws it now, with the record's own rows (§246): what the download is cut from. */
 const SHOWN_PAPER = new Map<string, PaperTable>();

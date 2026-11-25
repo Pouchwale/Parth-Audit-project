@@ -814,6 +814,9 @@ const AUDIT_NC: LogSheetLayout = {
     { key: "rootCause", label: ROOT_CAUSE, type: "paragraph" },
     { key: "rootCauseAuditeeSign", label: "ROOT CAUSE(S) — Auditee’s Sign.", type: "text" },
     { key: "rootCauseAuditorSign", label: "ROOT CAUSE(S) — Auditor’s Sign for acceptance", type: "text" },
+    // The owner's format prints CORRECTION ACTION and CORRECTIVE ACTION as two boxes (REQUIREMENTS §352); the report of
+    // Feb -25/02 wrote both under one heading, kept in correctiveAction.
+    { key: "correctionAction", label: "CORRECTION ACTION", type: "paragraph" },
     {
       key: "correctiveAction",
       label:

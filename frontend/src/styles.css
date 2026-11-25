@@ -3867,6 +3867,15 @@ table.svc-paper {
    so the browser draws it once and whole - on line 1 it vanished, on lines 2 to 6 it doubled (the owner, 31-Oct-2026). */
 .paper-sheet[data-sheet^="qc-ruler-verification"] .pt-table td.pt-c[rowspan]:not([rowspan="1"]) { border-left: var(--pt-bd); }
 .paper-sheet[data-sheet^="qc-ruler-verification"] .pt-table td.pt-c[data-pt-col="difference"] { border-right: 0; }
+/* F/SYS/03, F/SYS/10 AND F/SYS/11 AS THE OWNER'S PAPERS (REQUIREMENTS §352, data/seed/sysPapers352.ts): a cell rules its edges
+   solid; these papers rule some feet dotted (an "o" in the cell's edges: F/SYS/03's rule between the requester's half and the
+   PSTL's, the Objective Evidence lines) or dashed ("d": F/SYS/11's cut lines), and print some words in italics ("i": the Notes). */
+.paper-sheet:is([data-sheet="sys-document-change"], [data-sheet="sys-audit-nc"], [data-sheet="sys-nc-car"]) .pt-table td.pt-c.pt-eo { border-bottom-style: dotted; }
+.paper-sheet:is([data-sheet="sys-document-change"], [data-sheet="sys-audit-nc"], [data-sheet="sys-nc-car"]) .pt-table td.pt-c.pt-ed { border-bottom-style: dashed; }
+.paper-sheet:is([data-sheet="sys-document-change"], [data-sheet="sys-audit-nc"], [data-sheet="sys-nc-car"]) .pt-table td.pt-c.pt-ei { font-style: italic; }
+/* (and their boxes that grow to their words, F/SYS/08's checklist too, keep Word's cell margin at the right as at the left:
+   a word never runs into the cell's rule) */
+.paper-sheet:is([data-sheet="sys-document-change"], [data-sheet="sys-audit-findings"], [data-sheet="sys-audit-nc"], [data-sheet="sys-nc-car"]) .pt-table td.pt-c.pt-grow { padding-right: calc(var(--pt-x) * var(--u)); }
 /* A cell the paper shades (a register's number box), its grey printed. */
 .pt-table td.pt-c.pt-bg { background: var(--pt-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 /* A register's ruled lines beyond the record's (PaperTable.lines): printed blank as the paper rules them, never stored,
