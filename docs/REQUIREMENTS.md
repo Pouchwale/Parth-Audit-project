@@ -13711,3 +13711,12 @@ record's boxes and lines, not a picture of the paper. Whether those are to be dr
 **Files.** utils/originalFill/xlsxFill.ts (safePrintMargins, printAreaToPaper, headingsOnEveryPage, Styles.plain, the two-page
 fit), utils/originalFill/docxFill.ts (tablesOnThePaper), utils/documentExport.ts (one page when a little over),
 utils/calibrationWord.ts, data/seed/qcPaperTables.ts. Test: frontend/tests/printedPage.test.ts.
+
+## §330 F/HR/08: an X under a topic, not Yes / No (25-Nov-2026)
+
+The owner, 25-Nov-2026: "So in hr-8 there should be come X instead of Yes or no".
+
+- Each of F/HR/08's seventeen training topics is a box marked X (or left blank), as the paper marks the training a person needs.
+  The choice offered is X alone; the screen note says so.
+- Sheets answered before take the mark once, with a line in their history: "Yes" becomes X, "No" a blank cell (the same meaning).
+- Files: data/seed/hrLayouts.ts, data/hrTniXMigration.ts, data/bootstrap.ts. Tests: tests/hrTniX.test.ts.

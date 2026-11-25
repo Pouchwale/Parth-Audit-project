@@ -372,10 +372,10 @@ const trainingNeeds: LogSheetLayout = {
   instructions: [],
   // DCRS's own word on keeping the sheet: on the screen only, never on the paper or in a download (REQUIREMENTS §183).
   screenNotes: [
-    "EMPLOYEE WISE TRAINING NEED IDENTIFICATION RECORD — one line per employee; Yes under a topic is the X on the paper.",
+    "EMPLOYEE WISE TRAINING NEED IDENTIFICATION RECORD — one line per employee; mark X under each training the person needs.",
   ],
   headerFields: [{ key: "period", label: "Period", type: "text", autoFill: { default: "01-04-2026 ~ 31-03-2027" }, width: 220 }],
-  columns: [text("name", "Employee Name", 200, true), text("designation", "Designation", 190), ...TRAINING_TOPICS.map(({ key, label }) => yesNo(key, label, 90))],
+  columns: [text("name", "Employee Name", 200, true), text("designation", "Designation", 190), ...TRAINING_TOPICS.map(({ key, label }): LogColumn => ({ key, label, type: "select", options: ["X"], width: 90 }))],
   rowMode: { kind: "free", minRows: 1, typicalRows: ROSTER },
   specimenHeader: { period: "01.04.2026 ~ 31.03.2027" },
   specimenRows: [
