@@ -423,6 +423,15 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
       "f-prd-26",
     ],
   },
+  // The sleeve section's four logbooks (REQUIREMENTS §327): named by their own machine, never by "slitting logbook" alone,
+  // which is F-PRD-20's, nor by "sleeve cutting", which is the shrink sleeve cutting line clearance's.
+  { id: "prd-seaming-logbook", aliases: ["seaming logbook", "seaming log book", "sleeve seaming logbook", "sleeve seaming", "seaming", "f-prd-06"] },
+  { id: "prd-cutting-logbook", aliases: ["cutting logbook", "cutting log book", "sleeve cutting logbook", "f-prd-07"] },
+  { id: "prd-rewinding-logbook", aliases: ["rewinding logbook", "rewinding log book", "sleeve rewinding logbook", "sleeve rewinding", "rewinding", "f-prd-27"] },
+  {
+    id: "prd-sleeve-slitting-logbook",
+    aliases: ["slitting logbook (sleeve", "sleeve slitting logbook", "slitting logbook sleeve", "sleeve slitting log book", "sleeve slitting", "f-prd-28"],
+  },
   {
     id: "prd-sharp-object-issue",
     aliases: [

@@ -86,7 +86,8 @@ export const MKT_SECTIONS = ["Customer Feedback", "Customer Complaints"] as cons
 // Production (REQUIREMENTS §91): the pouch section's floor, in the order the Master List of Formats numbers its
 // papers (F-PRD-18 and 19 lamination, 20 slitting, 21 pouching, 26 doctoring), then the sharp object and blade
 // records every one of those lines keeps (F/PRD/10, 22, 23 and 24), which an auditor reads together.
-export const PRODUCTION_SECTIONS = ["Lamination", "Slitting", "Pouching", "Doctoring", "Sharp Objects & Blades"] as const;
+// The sleeve section's four logbooks (F-PRD-06, 07, 27, 28, REQUIREMENTS §327) after doctoring, before the blade records.
+export const PRODUCTION_SECTIONS = ["Lamination", "Slitting", "Pouching", "Doctoring", "Sleeve", "Sharp Objects & Blades"] as const;
 export const MODULE_SECTIONS: readonly string[] = [
   ...SYS_SECTIONS,
   ...MKT_SECTIONS,
@@ -878,6 +879,77 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     sourceFile:
       "F-PRD-26_Doctoring PRODUCTION LOGBOOK.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-26_Doctoring PRODUCTION LOGBOOK.xlsx",
     schedule: { type: "daily" },
+  },
+  // THE SLEEVE SECTION'S FOUR LOGBOOKS (REQUIREMENTS §327): the four sheets of the owner's "Sleeve - LOGBOOK.xlsx" (Google Drive,
+  // BRCGS 25-26 / Formats, 24-Nov-2026), drawn as his own papers (data/seed/prdSleevePapers.ts). One record per run of a job on
+  // a machine, started with New when the job is run, as the plant's line clearances are (As Required).
+  {
+    id: "prd-seaming-logbook",
+    kind: "log-sheet",
+    name: "Seaming Logbook",
+    formatNo: "F-PRD-06",
+    revisionNo: "01",
+    revisionDate: "2026-09-01",
+    department: "Production",
+    module: "Production",
+    section: "Sleeve",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The shrink sleeve seaming machine's logbook for a run of a job: the date, shift, machine and its speed, the start, end and run time, the operator, the item, PO, SO and its quantity, the job and the customer, the unwinder and rewinder tension, pin hole, material, sampling (done or not done), perforation (vertical or horizontal) and its ratio, the glue, hotmelt (vertical or horizontal) and the number of hotmelts; the output lines (date, input and output metres, joint, roll changeover) with the QC's observation (close width, QC sign, remark); the seam, slitting and printing wastage and their total, the total input and output metres, a remark, the operator's and the in-charge's signs; and the line clearance report before the next job.",
+    sourceFile: "Sleeve - LOGBOOK.xlsx, sheet Seam: SEAMING LOGBOOK F-PRD-06(01/01.09.2026) (the owner's Google Drive, 24-Nov-2026)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "prd-cutting-logbook",
+    kind: "log-sheet",
+    name: "Cutting Logbook",
+    formatNo: "F-PRD-07",
+    revisionNo: "01",
+    revisionDate: "2026-09-01",
+    department: "Production",
+    module: "Production",
+    section: "Sleeve",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The shrink sleeve cutting machine's logbook for a run of a job: the date, shift, machine and its speed, the operator, the item, PO and SO, the start, end and run time, the job, the SO quantity, sampling (done or not done) and the customer; the output lines (date, input and output numbers, roll changeover) with the QC's observation (cut length, close width, QC sign, remark); the seam, slitting and printing wastage in numbers and their total, the total input and output metres, a remark, the operator's and the in-charge's signs; and the line clearance report before the next job.",
+    sourceFile: "Sleeve - LOGBOOK.xlsx, sheet Cutting: CUTTING LOGBOOK F-PRD-07(01/01.09.2026) (the owner's Google Drive, 24-Nov-2026)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "prd-rewinding-logbook",
+    kind: "log-sheet",
+    name: "Rewinding Logbook",
+    formatNo: "F-PRD-27",
+    revisionNo: "00",
+    revisionDate: "2026-09-01",
+    department: "Production",
+    module: "Production",
+    section: "Sleeve",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The shrink sleeve rewinding machine's logbook for a run of a job: the date, shift, machine and its speed, the start, end and run time, the operator, the item, PO, SO and its quantity, the job and the customer, the unwinder and rewinder tension, the winding (normal or zig-zag), the core type (CB or PVC) and size, the roll OD, the direction, the joint type, sampling (done or not done) and the numbers in one coil; the output lines (date, output metres and roll weight, joint, roll changeover) with the QC's observation (close width, QC sign, remark); the wastage, the totals, a remark, the operator's and the in-charge's signs; and the line clearance report before the next job.",
+    sourceFile: "Sleeve - LOGBOOK.xlsx, sheet Rewinding: REWINDING LOGBOOK F-PRD-27(00/01.09.2026) (the owner's Google Drive, 24-Nov-2026)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "prd-sleeve-slitting-logbook",
+    kind: "log-sheet",
+    name: "Slitting Logbook (Sleeve)",
+    formatNo: "F-PRD-28",
+    revisionNo: "00",
+    revisionDate: "2026-09-01",
+    department: "Production",
+    module: "Production",
+    section: "Sleeve",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The shrink sleeve slitting machine's logbook for a run of a job: the date, shift, machine and its speed, the operator, the item, PO and SO, the start, end and run time, the job and the customer, the total slip metres, the unwinder and rewinder tension and the SO quantity; the output lines (date, input and output metres, joint, roll changeover) with the QC's observation (slit width, QC sign, remark); the slitting and printing wastage and their total, the total input and output print metres and the slitting coil metres, a remark, the operator's and the in-charge's signs; and the line clearance report before the next job.",
+    sourceFile: "Sleeve - LOGBOOK.xlsx, sheet SLITTING.: SLITTING LOGBOOK F-PRD-28(00/01.09.2026) (the owner's Google Drive, 24-Nov-2026)",
+    schedule: { type: "as-required" },
   },
   {
     id: "prd-sharp-object-issue",

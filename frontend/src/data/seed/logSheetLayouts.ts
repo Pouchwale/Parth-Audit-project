@@ -23,6 +23,7 @@ import { SYS_INTERNAL_AUDIT_LAYOUTS } from "./sysInternalAuditLayouts";
 import { SYS_HARA_TRACEABILITY_LAYOUTS } from "./sysHaraTraceabilityLayouts";
 import { MKT_LAYOUTS } from "./mktLayouts";
 import { PRODUCTION_LAYOUTS } from "./productionLayouts";
+import { SLEEVE_LOGBOOK_LAYOUTS } from "./sleeveLogbookLayouts";
 import { formatEditFor } from "../formatEdits";
 import { withoutLineNumber } from "../../engine/lineNumbers";
 
@@ -599,6 +600,8 @@ Object.assign(LOG_SHEET_LAYOUTS, MKT_LAYOUTS);
 // Production (REQUIREMENTS §91): the slitting, pouching and doctoring records and the sharp object and blade
 // records, supplied 06-Oct-2026 with the company's own originals (the two lamination records are above).
 Object.assign(LOG_SHEET_LAYOUTS, PRODUCTION_LAYOUTS);
+// The sleeve section's four logbooks, as the owner's Sleeve - LOGBOOK.xlsx (REQUIREMENTS §327).
+Object.assign(LOG_SHEET_LAYOUTS, SLEEVE_LOGBOOK_LAYOUTS);
 
 // EVERY FORM THAT PRINTS ITS LINES TAKES ADD ROW (REQUIREMENTS §207; the owner, 15-Nov-2026, with F/MKT/02's attributes:
 // "add add row button in those documents which have row like this"): §158 opened the HR forms' printed lines; now every

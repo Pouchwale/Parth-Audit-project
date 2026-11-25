@@ -13615,3 +13615,45 @@ format ... keep everything that is to be filled ... filled manually. keep it bla
   (check_all_documents.py), test account made and deleted (verify_with_test_account.py).
 - Files: data/seed/mktPaperTables.ts, mktLayouts.ts, qcPaperTables.ts (paperTableFor, PaperPick.after), LogSheetRecordView.tsx,
   utils/paperTableExport.ts, styles.css.
+
+## §327 The sleeve section's four logbooks from the owner's Google Drive: F-PRD-06, 07, 27 and 28 (24-Nov-2026)
+
+The owner, 24-Nov-2026, attaching his Google Drive ("Parth projects / Audit / Documents"): "if you don't found any document in any
+module then make sure find from it and do add it if not available ... i want same format present in my system which is present
+in google drive and this applies to all documents in all module".
+
+- The Drive's "BRCGS 25-26 / Formats / Sleeve - LOGBOOK.xlsx" holds four formats the Master List of Formats names and DCRS did not
+  have: **F-PRD-06 SEAMING LOGBOOK** and **F-PRD-07 CUTTING LOGBOOK** (01/01.09.2026), **F-PRD-27 REWINDING LOGBOOK** and
+  **F-PRD-28 SLITTING LOGBOOK** (00/01.09.2026). They are in Production under a new Sleeve heading, As Required: one record per
+  run of a job on a machine, started with New.
+- Each is drawn as the owner's sheet, read cell by cell from the workbook (its widths, heights, merges, edges and fonts), as the
+  HR papers are (§275): every printed word can be typed over on a record. The boxes stand where the sheet leaves room to write:
+  the header block's empty cells; the OUTPUT and OBSERVATION grid's four ruled lines (a person may add more, §276); the wastage
+  and total cells; the open space under REMARK:-; the space beside OPERATOR SIGN and INCHARGE SIGN; and the line clearance
+  report (YES / NO and the printed choices VERTICAL / HORIZENTAL, DONE / NOT DONE, NORMAL / ZIG-ZAG and CB / PVC as tick boxes,
+  two boxes either side of each "/").
+- The sheets' own words are kept as written ("CHANGOVER", "HORIZENTAL", "TOTA SLIP MTR.", "CUSTOME NAME", "ONS"", the Slitting
+  sheet's JOB NAME printed twice).
+- Printed on one landscape A4 page each. Three changes from the workbook, so that nothing is cut and it stays on one page:
+  - the line clearance labels take three of the sheet's columns and their answers two (Excel cut the labels off at the sheet's
+    narrow first column: "PREVIOUS SLEE...");
+  - REMARK:-, OPERATOR SIGN and INCHARGE SIGN take two columns, as Excel lets them run on;
+  - the blank band between the signs and the line clearance report is thinner, and the sheet's last row, which only closed its
+    frame, is the line under the report.
+  The blue of the OBSERVATION columns is not printed: no colour stays on an owner's paper (§282).
+- Each shows its sheet of the workbook beside the form, as every Production format shows its paper (public/source/fprd06, 07,
+  27 and 28 ...-p1.jpg, pictured from Excel's own page of the sheet, the blank columns beyond the frame left out).
+- Answered for by Manager – Pouch, as the other Production sheets are, until the owner names the sleeve section's own; by the
+  numbers' rule, F-PRD-06 and 07 reach Dharmik, Anil and Ajay Sinh, F-PRD-27 and 28 Ajay Sinh.
+- Mitra finds each by its number in both spellings and by its name ("seaming logbook", "sleeve slitting" ...). "Slitting
+  logbook" alone stays F-PRD-20's, and "sleeve cutting" the shrink sleeve cutting line clearance's.
+- Checked on the local copy: each record started, its print (one landscape page) set beside the workbook, the Word and Excel
+  downloads, and tests/verify_with_test_account.py on all four (8 words kept after a reload, the account deleted).
+- Files: data/seed/prdSleevePapers.ts, data/seed/sleeveLogbookLayouts.ts, data/seed/documentDefinitions.ts,
+  data/seed/logSheetLayouts.ts, data/seed/qcPaperTables.ts, data/seed/documentDepartments.ts, data/seed/masterData.ts,
+  components/layout/Sidebar.tsx, i18n/strings.ts, engine/assistantLocal.ts, public/source/fprd06/07/27/28-...-p1.jpg. Tests:
+  frontend/tests/sleeveLogbooks.test.ts, production.test.ts (the module's 14 formats, the Sleeve section),
+  accessRules.test.ts.
+- Still with the owner: the Drive's F-PRD-01 to 05, 08, 13, F-PUR-04, F-QA-01, F-PRD-09, 14 and 25 are empty workbooks;
+  F-MKT-03, F-MKT-06, F-QC-31 and F-PRD-29 are not on the Drive; the adhesive mixing sheet prints F/PRD/31 where the Master List
+  says F-PRD-30.

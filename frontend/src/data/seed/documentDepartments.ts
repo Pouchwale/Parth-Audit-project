@@ -151,6 +151,10 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "prd-slitting-alc": "PRD", // F-PRD-20
   "prd-pouching-line-clearance": "PRD", // F/PRD/21
   "prd-doctoring-alc": "PRD", // F-PRD-26
+  "prd-seaming-logbook": "PRD", // F-PRD-06 (REQUIREMENTS §327)
+  "prd-cutting-logbook": "PRD", // F-PRD-07
+  "prd-rewinding-logbook": "PRD", // F-PRD-27
+  "prd-sleeve-slitting-logbook": "PRD", // F-PRD-28
   "prd-sharp-object-issue": "PRD", // F/PRD/10
   "prd-pouching-blade": "PRD", // F/PRD/22
   "prd-pouching-cutter-issue": "PRD", // F/PRD/23

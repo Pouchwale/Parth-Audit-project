@@ -261,6 +261,11 @@ export const SEED_MASTER_DATA: MasterData = {
     "prd-slitting-alc": "Manager – Pouch",
     "prd-pouching-line-clearance": "Manager – Pouch",
     "prd-doctoring-alc": "Manager – Pouch",
+    // The sleeve section's logbooks (§327): answered for as the other Production sheets are, until the owner names their own.
+    "prd-seaming-logbook": "Manager – Pouch",
+    "prd-cutting-logbook": "Manager – Pouch",
+    "prd-rewinding-logbook": "Manager – Pouch",
+    "prd-sleeve-slitting-logbook": "Manager – Pouch",
     "prd-sharp-object-issue": "Manager – Pouch",
     "prd-pouching-blade": "Manager – Pouch",
     "prd-pouching-cutter-issue": "Manager – Pouch",

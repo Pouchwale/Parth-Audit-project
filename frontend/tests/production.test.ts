@@ -68,8 +68,15 @@ const FORMATS: { id: string; formatNo: string; rev: string; revDate: string; sec
   { id: "prd-pouching-cutter-issue", formatNo: "F/PRD/23", rev: "00", revDate: "2025-12-15", section: "Sharp Objects & Blades", schedule: "monthly" },
   { id: "prd-slitting-blade", formatNo: "F/PRD/24", rev: "00", revDate: "2024-12-15", section: "Sharp Objects & Blades", schedule: "monthly" },
   { id: "prd-doctoring-alc", formatNo: "F-PRD-26", rev: "01", revDate: "2025-07-23", section: "Doctoring", schedule: "daily" },
+  // The sleeve section's four logbooks from the owner's Google Drive (REQUIREMENTS §327), drawn as his papers.
+  { id: "prd-seaming-logbook", formatNo: "F-PRD-06", rev: "01", revDate: "2026-09-01", section: "Sleeve", schedule: "as-required" },
+  { id: "prd-cutting-logbook", formatNo: "F-PRD-07", rev: "01", revDate: "2026-09-01", section: "Sleeve", schedule: "as-required" },
+  { id: "prd-rewinding-logbook", formatNo: "F-PRD-27", rev: "00", revDate: "2026-09-01", section: "Sleeve", schedule: "as-required" },
+  { id: "prd-sleeve-slitting-logbook", formatNo: "F-PRD-28", rev: "00", revDate: "2026-09-01", section: "Sleeve", schedule: "as-required" },
 ];
 const IDS = FORMATS.map((f) => f.id);
+/** The four drawn as the owner's papers (§327), whose layouts are their own (data/seed/sleeveLogbookLayouts.ts). */
+const SLEEVE = new Set(["prd-seaming-logbook", "prd-cutting-logbook", "prd-rewinding-logbook", "prd-sleeve-slitting-logbook"]);
 
 /** The long dash the papers never print (the old module name had one). */
 const EM_DASH = String.fromCharCode(0x2014);
@@ -84,7 +91,7 @@ test("the Production module holds the nine formats, in the five sections of the 
   const production = SEED_DOCUMENTS.filter((d) => d.module === "Production").map((d) => d.id);
   assert.deepEqual([...production].sort(), [...IDS].sort(), "the module holds exactly the nine");
   assert.ok(!SEED_DOCUMENTS.some((d) => d.module.includes("Lamination") && d.module.includes("Production")), "no document is left in the old module");
-  assert.deepEqual([...PRODUCTION_SECTIONS], ["Lamination", "Slitting", "Pouching", "Doctoring", "Sharp Objects & Blades"]);
+  assert.deepEqual([...PRODUCTION_SECTIONS], ["Lamination", "Slitting", "Pouching", "Doctoring", "Sleeve", "Sharp Objects & Blades"]);
   for (const s of PRODUCTION_SECTIONS) assert.ok(MODULE_SECTIONS.includes(s), `${s} orders the Document Library`);
   const problems: string[] = [];
   for (const f of FORMATS) {
@@ -96,7 +103,7 @@ test("the Production module holds the nine formats, in the five sections of the 
   noProblems("Production formats out of place", problems);
   // The Lamination section lists F-PRD-18 before F-PRD-19, and the blades and cutters in their numbers' order.
   const order = SEED_DOCUMENTS.filter((d) => d.module === "Production").map((d) => d.formatNo);
-  assert.deepEqual(order, ["F-PRD-18", "F-PRD-19", "F-PRD-20", "F/PRD/21", "F-PRD-26", "F/PRD/10", "F/PRD/12", "F/PRD/22", "F/PRD/23", "F/PRD/24"]);
+  assert.deepEqual(order, ["F-PRD-18", "F-PRD-19", "F-PRD-20", "F/PRD/21", "F-PRD-26", "F-PRD-06", "F-PRD-07", "F-PRD-27", "F-PRD-28", "F/PRD/10", "F/PRD/12", "F/PRD/22", "F/PRD/23", "F/PRD/24"]);
 });
 
 test("the module is named Production in English and in Gujarati, with a link for each format", () => {
@@ -151,8 +158,8 @@ test("each format carries its paper's number and revision, in its department, as
     if (d.schedule.type !== f.schedule) problems.push(`${f.id}: scheduled ${d.schedule.type}, expected ${f.schedule}`);
     if (departmentOfDocument(f.id, d.formatNo) !== "PRD" || DOCUMENT_DEPARTMENTS[f.id] !== "PRD") problems.push(`${f.id}: not Production's`);
     if (documentFileKind(d) !== "xlsx") problems.push(`${f.id}: downloads as ${documentFileKind(d)}, not the company's workbook`);
-    // (F/PRD/12 came as its workbook alone, 24-Nov-2026: no PDF to cite)
-    if (!/\.xlsx?\b/.test(d.sourceFile) || (!/\.pdf\b/.test(d.sourceFile) && f.id !== "prd-label-sleeve-blade")) problems.push(`${f.id}: sourceFile cites the PDF and the original: ${d.sourceFile}`);
+    // (F/PRD/12 and the sleeve logbooks came as workbooks alone, 24-Nov-2026: no PDF to cite)
+    if (!/\.xlsx?\b/.test(d.sourceFile) || (!/\.pdf\b/.test(d.sourceFile) && f.id !== "prd-label-sleeve-blade" && !SLEEVE.has(f.id))) problems.push(`${f.id}: sourceFile cites the PDF and the original: ${d.sourceFile}`);
     if (d.companyName !== undefined) problems.push(`${f.id}: sets a company name of its own`);
   }
   noProblems("Production formats not as their papers print them", problems);
@@ -393,6 +400,11 @@ test("every page of every paper is shown beside its form, with a caption, and no
     "prd-slitting-blade": 2,
     "prd-label-sleeve-blade": 1,
     "prd-doctoring-alc": 1,
+    // the sleeve logbooks: one sheet each of Sleeve - LOGBOOK.xlsx
+    "prd-seaming-logbook": 1,
+    "prd-cutting-logbook": 1,
+    "prd-rewinding-logbook": 1,
+    "prd-sleeve-slitting-logbook": 1,
   };
   const problems: string[] = [];
   for (const id of IDS) {
@@ -405,7 +417,7 @@ test("every page of every paper is shown beside its form, with a caption, and no
     if (words.includes(EM_DASH)) problems.push(`${id}: an em dash the paper does not print`);
   }
   noProblems("Production layouts", problems);
-  assert.deepEqual([...PRODUCTION_LAYOUT_IDS].sort(), IDS.filter((id) => !id.startsWith("prd-alc") && id !== "prd-process-parameter").sort());
+  assert.deepEqual([...PRODUCTION_LAYOUT_IDS].sort(), IDS.filter((id) => !id.startsWith("prd-alc") && id !== "prd-process-parameter" && !SLEEVE.has(id)).sort());
 });
 
 // ---------------------------------------------------------------------------

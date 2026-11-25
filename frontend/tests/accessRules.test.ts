@@ -122,6 +122,11 @@ const EXPECTED: Record<string, string> = {
   "prd-pouching-cutter-issue":        "Vishnu+AjaySinh",  // F/PRD/23
   "prd-slitting-blade":               "Vishnu+AjaySinh",  // F/PRD/24
   "prd-doctoring-alc":                "Vishnu+AjaySinh",  // F-PRD-26
+  // The sleeve section's logbooks (§327), by their numbers: up to PRD-13 Dharmik and Anil, every PRD format Ajay Sinh.
+  "prd-seaming-logbook":              "Dharmik+Anil+AjaySinh",  // F-PRD-06
+  "prd-cutting-logbook":              "Dharmik+Anil+AjaySinh",  // F-PRD-07
+  "prd-rewinding-logbook":            "AjaySinh",  // F-PRD-27
+  "prd-sleeve-slitting-logbook":      "AjaySinh",  // F-PRD-28
   "pur-supplier-registration":        "Chirag",  // F/PUR/01
   "pur-supplier-audit-report":        "Chirag",  // F/PUR/02
   "pur-approved-suppliers":           "Chirag",  // F/PUR/03

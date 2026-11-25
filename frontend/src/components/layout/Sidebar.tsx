@@ -300,6 +300,12 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/document/prd-pouching-line-clearance", labelKey: "nav.prdPouchingLineClearance", icon: FiCheckSquare },
     { headingKey: "nav.prdDoctoring" },
     { to: "/document/prd-doctoring-alc", labelKey: "nav.prdDoctoringAlc", icon: FiClipboard },
+    // The sleeve section's four logbooks, as the owner's Sleeve - LOGBOOK.xlsx (REQUIREMENTS §327).
+    { headingKey: "nav.prdSleeve" },
+    { to: "/document/prd-seaming-logbook", labelKey: "nav.prdSeamingLogbook", icon: FiClipboard },
+    { to: "/document/prd-cutting-logbook", labelKey: "nav.prdCuttingLogbook", icon: FiClipboard },
+    { to: "/document/prd-rewinding-logbook", labelKey: "nav.prdRewindingLogbook", icon: FiClipboard },
+    { to: "/document/prd-sleeve-slitting-logbook", labelKey: "nav.prdSleeveSlittingLogbook", icon: FiClipboard },
     { headingKey: "nav.prdSharpObjects" },
     // Its master data first: name, department, shift - what the four sheets fill from (REQUIREMENTS §254).
     { to: "/production/sharp-master", labelKey: "nav.prdSharpMaster", icon: FiDatabase },
@@ -510,6 +516,10 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
       "prd-slitting-alc",
       "prd-pouching-line-clearance",
       "prd-doctoring-alc",
+      "prd-seaming-logbook",
+      "prd-cutting-logbook",
+      "prd-rewinding-logbook",
+      "prd-sleeve-slitting-logbook",
       "prd-sharp-object-issue",
       "prd-label-sleeve-blade",
       "prd-pouching-blade",
