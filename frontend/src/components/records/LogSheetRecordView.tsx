@@ -1156,6 +1156,28 @@ export function LogSheetRecordView({
         )}
         {pt.ownWords && fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
         {masterDialog}
+        {/* A Purchase paper fetches its supplier from Purchase Master Data as the sheet did (§187, §191, §192; drawn as the paper, §353):
+            the working tools above the paper, never part of it (data-no-mark: no box of the record's). */}
+        {supLink && (
+          <div className="no-print" data-no-mark="">
+            {supFetching && (
+              <SupplierFetch key={`sup-${record.id}`} link={supLink} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} canOpenList={purchaseMasterOpenable()} />
+            )}
+            {supFetching && doc.id === "pur-supplier-registration" && <SupplierFormImport key={`form-${record.id}`} layout={layout} data={data} onChange={save} />}
+            {doc.id === "pur-supplier-registration" && purchaseMasterHeld() && <SupplierAgreementCard key={`agreement-${record.id}`} recordId={record.id} data={data} editable={editable} />}
+            {/* ...and its valid-upto date (§192), which F/PUR/01's paper has no place for: written here, under the card, never printed. */}
+            {pt.offPaper?.includes("agreementValidUpto") &&
+              (() => {
+                const at = fieldAt("agreementValidUpto");
+                return at ? (
+                  <div className="card mb-4" data-section="paper-off-boxes">
+                    <div className="card-pad">{at.footer ? footerBox(at.field, at.index) : headerBox(at.field, at.index)}</div>
+                  </div>
+                ) : null;
+              })()}
+            {supFetching && <SupplierNameList />}
+          </div>
+        )}
         {plainTwin &&
           createPortal(
             <div className="paper-plain-twin" {...{ [PLAIN_TWIN_ATTR]: record.id }}>

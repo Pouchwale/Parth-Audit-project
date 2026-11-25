@@ -194,7 +194,8 @@ function smallestPrinted(form: PaperTable): number {
 
 /** Whether this company paper needs its columns measured so anyone can read it. Such a paper's Word and Excel are drawn from it. */
 export function paperNeedsReading(form: PaperTable | undefined): boolean {
-  return !!form?.ownWords && smallestPrinted(form) < READ_PT;
+  // (not a paper whose columns the owner fixed: F/PUR/03, §309)
+  return !!form?.ownWords && !form.fixedColumns && smallestPrinted(form) < READ_PT;
 }
 
 /** Company files that, once filled, run past the page their paper is on: downloaded as the paper is drawn (§282). */

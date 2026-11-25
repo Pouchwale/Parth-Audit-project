@@ -198,6 +198,20 @@ function fyWords(text: string, parts: PaperTableParts): string {
   return parts.fyMonth && text.includes("{fy:") ? text.replace(/\{fy:(\d+)\}/g, (_, m: string) => parts.fyMonth!(Number(m))) : text;
 }
 
+/**
+ * The run of a register's line the layout draws as one cell (LogSheetLayout.lineMerges, §309): the line's cells of its first
+ * and last columns, where the line holds the value that asks for it (F/PUR/03: a SERVICE PROVIDER's six document cells).
+ */
+function lineMergeOf(layout: LogSheetLayout, cells: PaperCell[], held: (col: string) => string): { first: number; last: number } | null {
+  for (const m of layout.lineMerges ?? []) {
+    if (held(m.whenKey).trim().toUpperCase() !== m.whenValue.trim().toUpperCase()) continue;
+    const first = cells.findIndex((c) => c.col === m.from);
+    const last = cells.findIndex((c) => c.col === m.to);
+    if (first >= 0 && last > first) return { first, last };
+  }
+  return null;
+}
+
 /** A row as drawn: a register's line knows its number, and whether it is one of the paper's blank lines (pad). */
 type DrawnRow = PaperRow & { line?: number; pad?: boolean };
 
@@ -208,9 +222,14 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
       {rows.map((row, ri) => {
         let x = 0;
         const cells: React.ReactNode[] = [];
+        const merged = row.line !== undefined && !row.pad ? lineMergeOf(layout, row.cells, (col) => parts.cellText?.(row.line!, col) ?? "") : null;
         row.cells.forEach((c, ci) => {
           const start = nearest(edges, x);
-          x = Math.round((x + c.w) * 100) / 100;
+          // A run of a register's line drawn as one cell (LogSheetLayout.lineMerges, F/PUR/03's SERVICE AGREEMENT, §309): its first
+          // cell spans the run, its words in the middle; the others are not drawn.
+          if (merged && ci > merged.first && ci <= merged.last) return;
+          const across = merged && ci === merged.first ? row.cells.slice(ci, merged.last + 1).reduce((a, m) => a + m.w, 0) : c.w;
+          x = Math.round((x + across) * 100) / 100;
           const span = Math.max(1, nearest(edges, x) - start);
           // A cell a cell above spans down over (its rs): the paper draws it once, so here it takes its width and nothing else.
           if (c.skip) return;
@@ -219,7 +238,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           const lh = c.lh ?? pt * MM;
           const classes = ["pt-c"];
           if (c.b) classes.push("pt-b");
-          if (c.a === "c") classes.push("pt-ac");
+          if (c.a === "c" || (merged && ci === merged.first)) classes.push("pt-ac");
           if (c.a === "r") classes.push("pt-ar");
           if (c.a === "j" || c.a === "jj") classes.push("pt-aj");
           if (c.a === "jj") classes.push("pt-ajj");
@@ -379,6 +398,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               data-pt-ln={c.col !== undefined && c.ln !== undefined ? c.ln : undefined}
               data-pt-col={c.col}
               data-pt-blank={c.t === "" && !c.box && !c.col && !c.sentence && !c.img && !c.at && !c.num && c.lab === undefined ? "" : undefined}
+              data-line-merge={merged && ci === merged.first ? "" : undefined}
             >
               {/* A row of a table of boxes: a row put in under it, and it taken off - outside the paper's table, never printed (§246). */}
               {ci === 0 && c.rowKey && c.rowTable && parts.addRow && (

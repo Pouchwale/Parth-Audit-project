@@ -14092,3 +14092,64 @@ schedule's Actual dates and every check work as before. F/MNT/11 (§316) is unch
   cell read from another record is a link on a paper too; F/MNT/02's and F/MNT/03's notes above the paper on the screen),
   styles.css (F/MNT/03's linked dates print in black). Tests: frontend/tests/mntPapers351.test.ts (new);
   frontend/tests/qcIncomingCoaPaper.test.ts no longer looks for F/MNT/08's DCRS-style printed group, which the paper replaces.
+
+## §353 Purchase and Store: F/PUR/01, 02, 03, 05, 06, F/STR/01 and 02 drawn and printed as the owner's papers (25-Nov-2026)
+
+The owner, 24-Nov-2026: "same format present in my system which is present in google drive ... whenever user download any
+document of any module or take a print on A4 size paper, that should be very perfect". The review of 24-Nov-2026
+(FORMAT-AUDIT-24-11-2026.md) found all seven far from his files (F/PUR/06 nearer): DCRS's FORMAT NO. / REV NO. band in place of
+his letterhead, a SR. NO. column his paper does not have, boxes as loose labels, choices not printed, notes as grey text, only
+the written lines printed, "1 of 1" on every page.
+
+Each is now drawn as his paper (data/seed/purPapers353.ts, data/seed/strPapers353.ts), read rule by rule and word by word off the
+print of his own file (source-documents/originals-pdf/<id>.pdf; the same files as his Drive's "BRCGS 25-26/Formats"). Every
+printed word is the record's to type over where it stands (§275); every box and column is the layout's, so records, the fetch
+from Purchase Master Data, auto-fill and the downloads read them as before. No colour; his grey bands stay grey.
+
+- F/PUR/01 Supplier Registration Form: three pages as his Word file - on each the table of the logo, SUPPLIER REGISTRATION FORM
+  and Document no. / Rev. no. / Effective date / Page no. (1 Of 3, 2 Of 3, 3 Of 3), the page's double border; GENERAL DETAILS
+  centred; each detail with its ❑ and its colon; the printed choices, the one chosen ringed or ticked (TYPE OF CONCERN, COMPANY
+  ACTIVITIES, the certification YES / NO, Status of Supplier, the five assessment types, ASSESSMENT STATUS); NO. OF EMPLOYEES'
+  two ruled boxes; the underlined headings over their writing spaces, written from the top down; the documents asked for at the
+  foot of page 2 and the head of page 3; INFORMATION FURNISHED BY with NAME / DESIGNATION / DATE / PLACE under it; the rule and
+  INTERNAL OFFICE USE ONLY. SERVICE AGREEMENT / CERTIFICATE VALID UPTO (§192) is not on his paper: kept on the record, written on
+  the screen under the agreement card, never printed.
+- F/PUR/02 Supplier Audit Report: nine pages as his - the logo and the underlined title on each and the footer "Format no. –
+  F/PUR/02 Rev. – 00 Effective Date – 01.12.2021 Page n of 9"; page 1's ruled boxes, SCOPE OF AUDIT shaded, AUDIT CRITERIA over
+  the eight criteria each with "Y / N / NA" (the one in scope ringed), COMMENTS; each section a table of its own with the
+  section's name as its first heading (section 1 C/NC/NA and COMMENTS / ACTIONS, 2 to 8 RATING and COMMENTS), its rows as tall
+  as his, the shaded EXTERNAL LABORATORY - IF USED band; SUMMARY OF OBSERVATIONS; the observation table's four lines (the
+  fourth, on page 9, blank on the record: it keeps three NC lines, §229); "Overall Status - Approved / Rejected" (ringed) and
+  "Sign: -" on its line. His footer is Tahoma, drawn in Arial.
+- F/PUR/03 List of Approved Suppliers: the 2021 sheet's letterhead - GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED, the
+  underlined title with F/PUR/03 (00/01.12.2021) beside it, "UPDATION AS ON :" bold and underlined - over the plant's list's own
+  columns as the owner chose them (§188), SR. NO. numbered on every ruled line, seven ruled lines; the list runs on over pages,
+  the letterhead and the headings on each. What §309 settled stays: a service provider's six document cells are one centred
+  cell (the paper now draws a line's merged run, LogSheetLayout.lineMerges), the columns are fixed - the list is never refitted
+  (PaperTable.fixedColumns) - every value at the list's own size, a long one wrapping in its cell, no word cut, and SUPPLIER NAME
+  as wide as the longest of the 65 names on one line. Filled from Purchase Master Data it prints on three landscape pages.
+- F/PUR/05 RM & PM supplier performance register: his sheet - the letterhead, the title (FILMS etc.), F/PUR/05 (00/01.12.2021),
+  the four rating tables above the register, the two-row headings ((X), (Y), (Z), 50%, 40%, 10%), the band "Enter value ..." /
+  "Don’t enter value ..." inside the table over its own columns, eight ruled lines, 0.00 worked out on each line of the record;
+  the Delayed column where the plant's 2025 register prints it (§188), the rating tables on the register's first nine columns as
+  that register sets them. His sheet is 6 pt: refitted to be read (§282) at 8 pt, landscape; every material supplier runs on over
+  pages.
+- F/PUR/06 Service provider register: his sheet - the letterhead with F/PUR/06 (00/01.12.2021) beside the title, the double
+  rules, "Rating Period :" in its ruled row, the headings in his letters, Sr. No. 1 to 13 on the thirteen ruled lines, the
+  Overall Rating worked out (0 on a line not yet rated).
+- F/STR/01 the rubber stamp: one boxed table - the title in two underlined lines, Received date, the seven checks with "Yes" and
+  "No" each in its cell (the one chosen ringed), Checked by - and no company or number, as the stamp (the number stays on the
+  screen, to be typed over). Drawn across the page, as every Store sheet fills A4 (§328).
+- F/STR/02, the 2021 revision (00/01.12.2021): the company and the title in their heavy frame, the store in-charge's rule in bold
+  under it, the nine headings in a box of their own, the gap, ten ruled lines, "F/STR/02 (00/01.12.2021)" under the grid (9 mm
+  under it where his is 14 mm: so the page's margins hold the sheet on one landscape page, as his). No SR. NO.
+- Shared code, kept to these papers: components/records/PaperTableSheet.tsx draws a register line's merged run (only F/PUR/03's
+  layout has one); engine/paperReadable.ts leaves a paper with fixedColumns as drawn (only F/PUR/03);
+  components/records/LogSheetRecordView.tsx shows the fetch from Purchase Master Data, F/PUR/01's form import and its agreement
+  card above a Purchase paper, as above the sheet before (never printed); data/seed/qcPaperTables.ts looks the two files up.
+- Downloads: F/PUR/02, 05, 06 and F/STR/02 are his own files filled as before (§119); F/PUR/01 and F/PUR/03 (kept from his
+  files, §119 NOT_YET) and F/STR/01 (his is a photograph) are drawn from the paper.
+- Checked on the local copy (the build served on its own port, the scratch database): tests/check_all_documents.py for the
+  seven - New, words typed, Excel and Word read back, the printout - each printout set beside his original page by page;
+  F/PUR/03 and F/PUR/05 filled from Purchase Master Data and printed; the test-account check. Tests:
+  frontend/tests/purStrPapers353.test.ts.

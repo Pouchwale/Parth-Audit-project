@@ -486,6 +486,9 @@ test("every value on every record page carries a binding that leads to it — op
           if (!layout || !lines) return null;
           const td = [...t.ancestors].reverse().find((a) => a.name === "td");
           const tr = [...t.ancestors].reverse().find((a) => a.name === "tr");
+          // (a sheet drawn as the owner's paper names its cell's column itself: F/PUR/05's weightages, F/PUR/06's Overall Rating, §353)
+          const paperCol = td?.attrs["data-pt-col"];
+          if (paperCol) return layout.columns.find((c) => c.key === paperCol)?.computed ? "a worked-out cell" : null;
           const inGrid = t.ancestors.some((a) => a.name === "table" && classes(a).includes("log-sheet"));
           if (!td || !inGrid) return null;
           const col = tr?.attrs["data-line"] === "second" ? lines.second?.under[td.index] : lines.first[td.index - before];
