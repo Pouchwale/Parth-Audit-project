@@ -1,4 +1,5 @@
 import { syncInductionDates } from "./inductionRound";
+import { fillNamedLinesFromMaster } from "./namedLinesFill";
 import type { DocumentDefinition, LogSheetData, LogSheetRow, MasterData, RecordInstance } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -181,7 +182,10 @@ export function prepareRecordOnOpen(recordId: string, referenceISO = todayISO())
   const record = recordRepository.getById(recordId);
   if (!record || record.isDemo || record.documentId === SCALE_ID) return record;
   const doc = documentRepository.getByIdUnscoped(record.documentId);
-  if (!doc || !mayWriteRecordsOf(doc.id) || !systemFills(doc.id) || waitsUntil(doc, record, referenceISO) !== null) return record;
+  if (!doc || !mayWriteRecordsOf(doc.id)) return record;
+  // F/HR/10: a line naming a person has its blank boxes filled from HR Master Data, however the name got there (§331).
+  fillNamedLinesFromMaster(recordId);
+  if (!systemFills(doc.id) || waitsUntil(doc, record, referenceISO) !== null) return recordRepository.getById(recordId);
   if (doc.id === "hr-induction-operators") syncInductionDates(recordId);
   prepareDueRecords(referenceISO, { documentId: doc.id, recordId });
   if (doc.id === TRAINING_CALENDAR_ID) fillTrainingCalendarDue(referenceISO, recordId);

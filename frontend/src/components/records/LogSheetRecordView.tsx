@@ -878,6 +878,11 @@ export function LogSheetRecordView({
     };
     const paperGridCell = (line: number, key: string, cell?: PaperCell): React.ReactNode => {
       const row = data.rows[line];
+      // A name, machine or supplier typed on the paper fetches the rest of its line when the box is left, as on every grid
+      // (F/HR/10, REQUIREMENTS §331).
+      const personCol = fetching && link?.where === "rows" && link.nameField === key;
+      const machineCol = eqFetching && eqLink?.where === "rows" && eqLink.idField === key;
+      const supplierCol = supFetching && supLink?.where === "rows" && supLink.idField === key;
       const ci = layout.columns.findIndex((c) => c.key === key);
       if (!row || ci < 0) return null;
       const c = layout.columns[ci];
@@ -916,6 +921,7 @@ export function LogSheetRecordView({
               disabled={!(editable && writable(col))}
               value={String(row[key] ?? "")}
               onChange={(e) => onCell(row.id, key, e.target.value)}
+              onBlur={personCol ? (e) => onPersonBlur(row.id, e.target.value) : machineCol ? (e) => onMachineBlur(row.id, e.target.value) : supplierCol ? (e) => onSupplierBlur(row.id, e.target.value) : undefined}
             />
           </div>
         );
@@ -930,7 +936,8 @@ export function LogSheetRecordView({
             editable={editable && writable(col)}
             onChange={(v) => onCell(row.id, key, v)}
             employees={employeeNames}
-            list={lists?.[key] ?? c.list}
+            list={personCol ? "hr-master-people" : machineCol ? "equipment-machines" : supplierCol ? SUPPLIER_NAMES_LIST : (lists?.[key] ?? c.list)}
+            onBlur={personCol ? (v) => onPersonBlur(row.id, v) : machineCol ? (v) => onMachineBlur(row.id, v) : supplierCol ? (v) => onSupplierBlur(row.id, v) : undefined}
           />
         </div>
       );

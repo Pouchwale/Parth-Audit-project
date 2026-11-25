@@ -13753,3 +13753,15 @@ first".
   20, 21, F/MNT/05, 06, 07, F/PUR/05, F/SYS/17, F/STR/02, F/DISP/04, F/MKT/02 and the CAPA findings report).
 - Files: engine/printFill.ts, styles.css, utils/print.ts, components/records/LogSheetRecordView.tsx (a box line's gap is read from --box-gap,
   which the print rule sets to 0, so no !important is added). Tests: frontend/tests/printFill.test.ts.
+
+## §331 F/HR/10: a name brings the person's details, typed or filled by the system (25-Nov-2026)
+
+The owner, 25-Nov-2026: "hr-10 ... if user manually enter or even system should fill it then other details about that name should
+come in document in other fields also".
+
+- On F/HR/10 (drawn as the owner's paper since §276) a name typed in a line and left offers HR Master Data's names and fills that
+  line's Designation (and the Department kept off the paper) from the sheet, as every grid already did; the paper's cells had not
+  been wired to it. The same now holds on every paper-drawn register for a person, machine or supplier box.
+- A name put in any other way (Mitra, an import, the system) has its line's blank boxes filled from HR Master Data when the record
+  is opened. Nothing written is changed, a short name is still only offered (§291), a submitted or verified record is not touched.
+- Files: components/records/LogSheetRecordView.tsx, engine/namedLinesFill.ts, engine/assistantPrepare.ts; tests/namedLinesFill.test.ts.
