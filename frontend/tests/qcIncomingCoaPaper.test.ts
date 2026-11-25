@@ -795,9 +795,15 @@ test("F-QC-19 Tolerance card for Beiersdorf AG. Germany: its nine panels, each w
       "ERROR : IN BATCH COADING AREA",
     ]);
   }
+  // Drawn as the card's own four pages of labels since §370 (data/seed/qcPapers370.ts, its own test qcPapers370.test.ts): the
+  // nine ERROR labels, ten TOLERANCE CARD banners, ten DOC NO. labels and seven APPROVED BY: / SIGN. : tables - no grid of DCRS's.
   const html = await sheet(id);
-  assert.deepEqual(headings(html), ["", "APPROVED BY:", "SIGN. :"]);
+  assert.ok(html.includes('data-paper-form="table"'), "the card's paper, not a grid");
   const t = text(html);
+  assert.equal(t.split("ERROR : MISREGISTRATION").length - 1, 3);
+  assert.equal(t.split("TOLERANCE CARD FOR BEIERSDORF AG. GERMANY").length - 1, 10);
+  assert.equal(t.split("DOC NO. : F-QC-19").length - 1, 10);
+  assert.equal(t.split("APPROVED BY:").length - 1, 7);
   for (const w of DCRS_WORDS) assert.ok(!w.test(t), String(w));
   assert.ok(!t.includes("Sr. No."));
 });

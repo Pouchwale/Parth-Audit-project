@@ -14177,3 +14177,67 @@ helpers, make up the 200 with helpers. This replaces §289's line that left F/HR
   its figures changed, so it is In Progress to be verified again. It then follows the forms like any year's.
 - Files: engine/pscSurveyRound.ts, engine/pscFill.ts, engine/assistantPrepare.ts (prepareUnattended), data/bootstrap.ts.
   Tests: frontend/tests/pscRound2026.test.ts; pscFill, pscSurveyRound, fillOnOpen, generationAhead as before.
+
+## §370 Quality Control inspection records drawn and printed as the owner's papers: F/QC/15-A to G, F/QC/08, F/QC/16, F-QC-19 and F/QC/29's utility test (25-Nov-2026)
+
+The owner, 24-Nov-2026: "same format present in my system which is present in google drive ... whenever user download any
+document of any module or take a print on A4 size paper, that should be very perfect". The review of every printout against his
+originals (FORMAT-AUDIT-24-11-2026.md) found these eleven MAJOR. Each is now drawn as his paper, within the way it was drawn.
+
+- **F/QC/15-A to G, the seven area line clearance reports** (one workbook, a sheet each; still drawn on their framed paper,
+  data/seed/qcLineClearanceGeometry.ts, styles.css):
+  - the company as the workbook spells it, GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED (a name typed over the header in Edit
+    format still wins);
+  - the machine's name box ruled off from the title by the paper's heavy line, and the rule under the company straight across;
+  - the heading row in the paper's pale grey (Excel's white 5% darker), and the two "Verified by IPQC executive" headings broken
+    as printed: "Verified by / IPQC / executive", and at the last column "Verified by / IPQC executive" (LogColumn.printedLabel;
+    the columns' names and keys are unchanged);
+  - heavy rules only where the workbook rules them: the frame at the left and right, and left of Starting Date over the heading
+    and the first two lines. The heavy lines down the whole grid left of Line Clearance* and Operator sign are hairlines now;
+  - the frame's right side one straight line from the head through the note to the grid (the grid's outer hairlines made it
+    0.2 mm wider than the head).
+  - the Excel download, his workbook filled, keeps his company line as the print does (it was written over with the owner's one
+    name of 2-Oct-2026, PUBLICATIONS PVT LTD, as every file not drawn as a paper still is); the Word download, drawn from the
+    page, carries the page's.
+  Left as it was: the Effective date prints 16-02-2022 (his 16.02.2022, DCRS's date form), and "Line Clearance * :" stays in the
+  note's bold Calibri (the workbook sets those words in Arial).
+- **F/QC/08 Master List of Calibration Instruments** (data/seed/qcPaperTables.ts): every printed word his and the record's to
+  type over (ownWords, §275): the company as his sheet spells it, MASTER LIST OF CALIBRATION INSTRUMENTS, "F/QC/08 (01 /
+  01.12.2021)", the Note and the sixteen headings in his words. His sheet prints at 5.9 to 7.4 pt, so the paper is measured for
+  reading as the HR papers are (engine/paperReadable.ts, §282): letters 8 pt and more, headings 7 pt and more, each column as wide
+  as its longest word, on one landscape page; its column widths therefore differ from his sheet's. The headings keep 0.8 mm clear
+  of their rules and wrap as his do ("Frequency / of / Calibration", "Date of / Initial / Calibration", "Next due / date of /
+  calibration"); they touched the rules before. As every paper measured for reading, its Excel and Word are drawn from the paper
+  (they were his workbook filled).
+- **F/QC/16 Register of Obsolete Artwork** (qcPaperTables.ts): ownWords, the company as his sheet spells it, the headings broken
+  where his page breaks them ("Updated by - / QC In- / charge"). Its fifteen lines print on one landscape A4 page again: the
+  fifteenth ran onto a second page with the heading repeated over it; the paper now keeps its foot clear (PaperTable.clearFoot).
+  The rule under the headings is thin, as on his page. Excel and Word as before (drawn from the paper, the owner, 31-Oct-2026).
+- **F-QC-19 Tolerance Card for Beiersdorf AG. Germany** (data/seed/qcPapers356.ts, new): drawn as the card's four pages of
+  separate boxed labels, measured rule by rule off his PDF: page 1 ERROR : MISREGISTRATION three times, ERROR : OTHER, IN BATCH
+  COADING AREA, IN NIVEA LOGO, IN PLAIN AREA and OTHER (bold 24 pt, each box as wide as its words); page 2 IN BATCH COADING AREA
+  and eight TOLERANCE CARD FOR BEIERSDORF AG. GERMANY banners (22 pt); page 3 two more banners, ten DOC NO. : F-QC-19 labels
+  (16 pt) and the first APPROVED BY: / SIGN. : table (12 pt); page 4 six more tables. Printed at the card's own size and place
+  (20.5 mm from the page's left edge): no company line and no number band of DCRS's, which the card does not print. The nine ERROR
+  labels are the record's nine printed lines (typed over on the record); the seven approval tables hold lines 1 to 7's APPROVED BY
+  and SIGN. The card prints no approval box for its eighth and ninth labels: what a record holds there is kept, not printed. The
+  Word download is his file filled, as before.
+- **F/QC/29 Utility Test Report (Nivea samples)** (its framed minutes page; styles.css, rules scoped to this sheet): the nine
+  ruled lines print (those beyond the record's blank, never stored); DATE: bold; each line's words at the top of its row and the
+  Job Name 1.91 mm in from its rule; "Testing By" and "(QA Inspector)" 9.74 mm apart as on the paper, the name between them; the
+  page border as the paper draws it, a heavy rule, a white gap and a thin rule. The title MINUTES OF MEETINGS keeps the framed QC
+  pages' dark blue, as every framed QC paper prints it.
+- Checked on a build of this change served beside the local copy (scratch database): each document started with New, typed into,
+  downloaded (Excel and Word read back with the typed words) and printed with Print Original-Style Record, the PDFs set beside his
+  originals: one landscape page each for F/QC/15-A to G, F/QC/08 and F/QC/16, four portrait pages for F-QC-19, one portrait page
+  for F/QC/29; nothing within 5 mm of an edge. tests/verify_with_test_account.py on all eleven (the account deleted); on F-QC-19,
+  which has no box that check types into, names typed into the first and the last approval tables were kept after a reload and
+  printed on pages 3 and 4.
+- Files: data/seed/qcPapers356.ts (new), qcPaperTables.ts (F/QC/08, F/QC/16, paperTableFor), qcRegisterLayouts.ts (the F/QC/08
+  Note exported), qcLineClearanceGeometry.ts, qcLineClearanceLayouts.ts, components/records/LogSheetRecordView.tsx (the line
+  clearances' company passed to their header), utils/originalFill/index.ts (their Excel keeps his company line), styles.css
+  (the line clearance block; F/QC/29's utility test, F/QC/08, F/QC/16 and F-QC-19 rules scoped to their sheets). No !important.
+- Tests: frontend/tests/qcPapers356.test.ts (new). Updated where they held the print these replace: qcIncomingCoaPaper.test.ts
+  (F-QC-19 is the card's pages, not a grid of panels), qcPaperTables.test.ts (F/QC/08 and F/QC/16 stand in the middle of the
+  page's width as every own-words paper, and F/QC/08 is drawn measured for reading), qcPaperFormatsMore.test.ts (a line clearance
+  format saved before §111 carried no printed headings).

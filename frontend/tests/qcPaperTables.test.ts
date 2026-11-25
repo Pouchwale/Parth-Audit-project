@@ -18,6 +18,7 @@ import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/dat
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { QC_PAPER_TABLES, lineRow, paperTableFits, paperTableFor, paperTablePrint, type PaperCell } from "../src/data/seed/qcPaperTables";
 import { createDefaultData } from "../src/engine/recordDefaults";
+import { readablePaper } from "../src/engine/paperReadable";
 
 // store/router.tsx reads window.location the moment it loads; the harness stands up none.
 if (typeof (globalThis as { location?: unknown }).location === "undefined") {
@@ -186,13 +187,16 @@ test("the sheet is drawn in its three parts, its boxes bound as every sheet's, t
   for (const id of Object.keys(QC_PAPER_TABLES)) {
     const html = await sheet(id);
     const form = QC_PAPER_TABLES[id];
+    // (a paper whose every word is the record's is drawn as this record reads it: F/QC/08's sheet measured for reading, §370)
+    const drawn = form.ownWords ? readablePaper(form, createDefaultData(docOf(id), DAY, master) as LogSheetData, `qcPaperTables-${id}`) : form;
     assert.ok(
       // (every QC paper is printed to fill the A4 page since §194: 12 mm from the page's left, as F/QC/17 was)
-      new RegExp(`<div class="paper-sheet[^"]* paper-table-sheet"( translate="no")? data-bind-record="pt-${id}" data-paper="${form.page}" data-paper-left="${paperTablePrint(form, true).left}" data-sheet="${id}" data-paper-form="table" data-fill-a4=""`).test(html),
+      new RegExp(`<div class="paper-sheet[^"]* paper-table-sheet"( translate="no")? data-bind-record="pt-${id}" data-paper="${drawn.page}" data-paper-left="${paperTablePrint(drawn, true).left}" data-sheet="${id}" data-paper-form="table"( data-paper-own="")? data-fill-a4=""`).test(html),
       id
     );
-    for (const part of ["head", "body"]) assert.match(html, new RegExp(`<table class="pt-table pt-${part} pt-font-[a-z]+( pt-frame)?"[^>]*data-paper-part="${part}"`), `${id} ${part}`);
-    if (form.foot.length > 0) assert.match(html, /<table class="pt-table pt-foot pt-font-[a-z]+( pt-frame)?"[^>]*data-paper-part="foot"/, `${id} foot`);
+    // (pt-read: its columns measured for reading, §282)
+    for (const part of ["head", "body"]) assert.match(html, new RegExp(`<table class="pt-table pt-${part} pt-font-[a-z]+( pt-frame)?( pt-read)?"[^>]*data-paper-part="${part}"`), `${id} ${part}`);
+    if (form.foot.length > 0) assert.match(html, /<table class="pt-table pt-foot pt-font-[a-z]+( pt-frame)?( pt-read)?"[^>]*data-paper-part="foot"/, `${id} foot`);
     // The header block of the print suites (the head's doc-header), the body's table, the foot.
     assert.ok(html.indexOf('<div class="paper-head"><div class="doc-header doc-header-paper">') >= 0 && html.indexOf('<div class="paper-foot">') > html.indexOf('<div class="paper-body">'));
     const boxes = Array.from(html.matchAll(/<(input|textarea|select)\b[^>]*>/g), (m) => m[0]);
@@ -301,8 +305,10 @@ test("F/QC/17 prints filling the A4 page: 12 mm from its left and top, its width
     const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
     const width = form.head[0]?.cells.reduce((a, c) => a + c.w, 0) ?? pageW;
     const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
-    assert.deepEqual([p.left, p.top], [12, 12], id);
-    assert.ok(p.scale >= 0.9 && 12 + width * p.scale <= pageW - 12 + 0.05, `${id}: ${12 + width * p.scale} mm of ${pageW} wide at ${p.scale}`);
+    // (a paper whose every word is the record's stands in the middle of the page's width, §285: F/QC/08 and F/QC/16 since §370)
+    const left = form.ownWords ? Math.max(12, Math.round(((pageW - width * p.scale) / 2) * 100) / 100) : 12;
+    assert.deepEqual([p.left, p.top], [left, 12], id);
+    assert.ok(p.scale >= 0.9 && left + width * p.scale <= pageW - 12 + 0.05, `${id}: ${left + width * p.scale} mm of ${pageW} wide at ${p.scale}`);
     assert.ok(12 + height * p.scale <= pageH - 4 + 0.05, `${id}: ${12 + height * p.scale} mm of ${pageH}`);
   }
 });

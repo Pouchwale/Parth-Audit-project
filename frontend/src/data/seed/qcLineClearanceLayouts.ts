@@ -103,14 +103,15 @@ const clearanceColumns = (): LogColumn[] => [
   { key: "previousPoCustomerName", label: "Previous PO Customer name", type: "text", width: 180 },
   // The heading prints the two permitted answers in brackets — kept verbatim.
   { key: "lineClearance", label: "Line Clearance* (Done/Not Done)", type: "select", options: ["Done", "Not Done"], width: 170 },
-  // Same printed heading as the last column of the row (the paper's own), distinct key.
-  { key: "verifiedByIpqcClearance", label: "Verified by IPQC executive", type: "text", width: 170, autoFill: { sign: true } },
+  // Same printed heading as the last column of the row (the paper's own), distinct key. Printed on the paper's three lines
+  // here, and on its two at the last column: "Verified by / IPQC executive" (§370).
+  { key: "verifiedByIpqcClearance", label: "Verified by IPQC executive", printedLabel: "Verified by\nIPQC\nexecutive", type: "text", width: 170, autoFill: { sign: true } },
   { key: "startingDate", label: "Starting Date", type: "date", width: 130 },
   { key: "startingTime", label: "Starting Time", type: "text", width: 110 },
   { key: "newJobPoNo", label: "PO No. of New Job", type: "text", width: 150 },
   { key: "newPoCustomerName", label: "New PO Customer name", type: "text", width: 180 },
   { key: "operatorSign", label: "Operator sign", type: "text", width: 140, autoFill: { sign: true } },
-  { key: "verifiedByIpqcNewJob", label: "Verified by IPQC executive", type: "text", width: 170, autoFill: { sign: true } },
+  { key: "verifiedByIpqcNewJob", label: "Verified by IPQC executive", printedLabel: "Verified by\nIPQC executive", type: "text", width: 170, autoFill: { sign: true } },
 ];
 
 /**

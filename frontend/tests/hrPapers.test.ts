@@ -86,7 +86,8 @@ test("the screen's tools stay off the paper, and a download reads the record's b
   assert.match(view, /pt\.ownWords && fetching && link && <HrMasterFetch/, "the fetch bar above the paper");
   assert.match(view, /!pt\.ownWords && <div className="text-xs text-faint mt-3 no-print">Specimen source/, "no specimen line");
   assert.match(src("utils/documentExport.ts"), /withPlainTwins\(roots/);
-  assert.match(src("utils/originalFill/index.ts"), /ownWords \? "\$&" : COMPANY\.name/, "the file keeps the company's own name");
+  // (a line clearance keeps his spelling too, §370)
+  assert.match(src("utils/originalFill/index.ts"), /ownWords(?: \|\| lineClearanceGeometryFor\(documentId\))? \? "\$&" : COMPANY\.name/, "the file keeps the company's own name");
   assert.match(src("utils/print.ts"), /\[data-paper-own\]/, "a paper keeps its own lines' heights");
 });
 

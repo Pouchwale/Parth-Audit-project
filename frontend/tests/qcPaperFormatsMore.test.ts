@@ -187,7 +187,9 @@ test("a line clearance edited before §111 loses the title DCRS printed above it
   const issued = getIssuedLogSheetLayout(id)!;
   // A format edited before §111 said nothing of the paper: none of what the layouts have said of it since.
   const { ownLineNumbers: _own, headingsAsPrinted: _letters, boxesAboveInstructions: _above, ...rest } = issued;
-  const old: LogSheetLayout = { ...rest, instructions: ["AREA LINE CLEARANCE REPORT -  SLITTING", ...printedAbove(issued)] };
+  // (its columns' headings as the paper breaks them came with §370, printedLabel)
+  const columns = rest.columns.map(({ printedLabel: _printed, ...c }) => c);
+  const old: LogSheetLayout = { ...rest, columns, instructions: ["AREA LINE CLEARANCE REPORT -  SLITTING", ...printedAbove(issued)] };
   try {
     saveFormatEdit(id, { revisionNo: "01", revisionDate: "2026-10-01", layout: old, revisions: [] });
     assert.deepEqual(getLogSheetLayout(id)!.instructions, printedAbove(issued));

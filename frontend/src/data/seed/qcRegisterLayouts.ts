@@ -68,9 +68,9 @@ const blankForm = (file: string) => `${file} (blank form supplied 18-Sep-2026 โ€
 //
 // The Note printed above the table, verbatim. It is the form's own instruction
 // on what belongs on the list, who may calibrate, when the list is updated and
-// where the responsibility lies.
+// where the responsibility lies. (Its paper, qcPaperTables.ts, prints it in the same words, ยง370.)
 
-const CALIBRATION_MASTER_LIST_NOTE =
+export const CALIBRATION_MASTER_LIST_NOTE =
   "Note : List of calibration instruments are those which impact the process conformity as well as product conformity. These instruments are either installed on production equipments, utility equipments, QC testing equipments. Calibration / Verification can be done by internal method (Weighing scale, Measure tape, Measuring scale, pH meter, TDS meter etc.) & External laboratories including Legal metrology for Weighing scale by weight & measure department. This list shall be updated as & when any existing instrument is calibrated / verified by external calibration agency, which may result in failure of calibration status or acceptance of calibration results. This list shall also be updated as & when any instrument is purchased. Responsibility for acceptance of calibration results lies with user department only. User department shall ensure to get their instrument calibrated / verified prior to due date of calibration / verification.";
 
 /**

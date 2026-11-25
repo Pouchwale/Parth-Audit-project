@@ -3348,6 +3348,9 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
 .paper-sheet[data-frame]::after { content: ""; position: absolute; border: var(--b1) solid #000; pointer-events: none; }
 .paper-sheet[data-frame]::before { inset: calc(0.019 * var(--u)); }
 .paper-sheet[data-frame]::after { inset: calc(0.319 * var(--u)); }
+/* F/QC/29's utility test (§370): its page border as the paper draws it, a heavy rule, a white gap and a thin rule inside it */
+.paper-sheet[data-frame][data-sheet="qc-utility-test-report"]::before { content: none; }
+.paper-sheet[data-frame][data-sheet="qc-utility-test-report"]::after { inset: calc(0.25 * var(--u)); }
 .doc-header.doc-header-frame {
   display: flex;
   box-sizing: border-box;
@@ -3571,7 +3574,8 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
   .doc-header-lc .lc-company { display: flex; align-items: center; justify-content: center; box-sizing: border-box; height: calc(7.56 * var(--u)); border: var(--pf-hv); font-size: calc(12.8 * var(--pt)); font-weight: 700; letter-spacing: 0; text-transform: none; }
   .doc-header-lc .lc-titlerow { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--lc-machine); box-sizing: border-box; height: calc(7.09 * var(--u)); border-left: var(--pf-hv); border-right: var(--pf-hv); border-bottom: var(--pf-hv); }
   .doc-header-lc .lc-title { display: flex; align-items: center; justify-content: center; font-size: calc(11.4 * var(--pt)); font-weight: 700; text-decoration: underline; text-underline-offset: calc(0.5 * var(--u)); }
-  .doc-header-lc .lc-machine { display: flex; align-items: center; box-sizing: border-box; height: calc(100% + var(--b1)); margin-top: calc(-1 * var(--b1)); padding: calc(0.5 * var(--u)) calc(1.2 * var(--u)) 0; border-top: var(--pf-hv); }
+  /* the machine's box: its own cell of the title row, ruled off from the title by the paper's heavy line (§370) */
+  .doc-header-lc .lc-machine { display: flex; align-items: center; box-sizing: border-box; height: 100%; padding: calc(0.5 * var(--u)) calc(1.2 * var(--u)) 0; border-left: var(--pf-hv); }
   .doc-header-lc .lc-machine .field { display: flex; flex-direction: row; align-items: baseline; gap: calc(1 * var(--u)); width: 100%; }
   .doc-header-lc .lc-machine .field > label { margin: 0; font-size: calc(8.5 * var(--pt)); font-weight: 700; line-height: 1.2; color: #000; white-space: nowrap; text-transform: none; letter-spacing: 0; }
   .doc-header-lc .lc-machine .field > .input { flex: 1 1 auto; min-width: 0; width: auto; height: auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: inset 0 calc(-1 * var(--b1)) 0 0 #000; font-family: var(--pf-font); font-size: calc(8.5 * var(--pt)); line-height: 1.2; color: #000; }
@@ -3592,13 +3596,22 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
     box-sizing: border-box; padding: 0 calc(0.3 * var(--u)); border: var(--pf-bd); background: transparent;
     font-family: var(--pf-font); font-size: calc(8.5 * var(--pt)); letter-spacing: 0; text-transform: none; text-align: center; vertical-align: middle; color: #000; white-space: normal;
   }
-  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet th { font-weight: 700; line-height: calc(3.9 * var(--u)); }
+  /* the heading row: the paper's pale grey band (Excel's white 5% darker), each heading broken where the paper breaks it (§370) */
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet th { font-weight: 700; line-height: calc(3.9 * var(--u)); white-space: pre-line; background: #f2f2f2; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td { font-weight: 400; line-height: 1.2; }
   .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet th, .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td { position: relative; overflow: visible; }
-  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):is(:nth-child(4), :nth-child(6), :nth-child(10), :nth-child(12))::after,
+  /* the paper's heavy rules down the grid: the frame at its left and right, and left of Starting Date over the heading and the
+     first two lines only, as the paper rules it; every other column line a hairline (§370) */
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):nth-child(12)::after,
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(thead th, tbody > tr:nth-child(-n+2) > td):nth-child(6)::after,
   .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):first-child::before { content: ""; position: absolute; top: calc(-1 * var(--b1)); bottom: calc(-1 * var(--b1)); width: var(--b2); background: #000; }
-  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):is(:nth-child(4), :nth-child(6), :nth-child(10), :nth-child(12))::after { right: calc(-0.5 * var(--b2)); }
-  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):first-child::before { left: calc(-0.5 * var(--b2)); }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):nth-child(6)::after { right: calc(-0.5 * var(--b2)); }
+  /* the frame's two sides inside the grid's own width, on the very line of the head's and the note's (the table's outer
+     hairlines made it a hair wider: its right side stood out of line, §370) */
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):first-child { border-left: 0; }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):nth-child(12) { border-right: 0; }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):first-child::before { left: 0; }
+  .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet :is(th, td):nth-child(12)::after { right: 0; }
   .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet tr:last-child td { border-bottom: var(--pf-bd); }
   .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td { position: relative; }
   .paper-sheet[data-paper-form="lineclear"] .doc-table table.log-sheet td .input {
@@ -3964,6 +3977,8 @@ table.svc-paper {
      clearance papers' own ten ruled lines print again, as the paper rules them, and a register's lines ruled for the
      print (tr.print-ruled-line, copies of its last line emptied) rule as its lines do. */
   [data-print-fill="page"] .paper-sheet[data-paper-form="lineclear"] tr.pf-pad { display: table-row; }
+  /* ...and F/QC/29's utility test its nine, as its paper rules them (§370). */
+  [data-print-fill="page"] .paper-sheet[data-sheet="qc-utility-test-report"] tr.pf-pad { display: table-row; }
   /* ...and a QC paper drawn as its own table (PaperTable.lines: F/QC/08, F/QC/16, F-QC-30, F-QC-32, F-QC-40.A/B/C) prints
      the ruled lines its paper rules beyond the record's, blank, as the paper does. */
   [data-print-fill="page"] .pt-table tr.pt-pad { display: table-row; }
@@ -3984,6 +3999,14 @@ table.svc-paper {
   .pt-table td.pt-c.pt-grow > .field-in-table, .pt-table td.pt-c.pt-grow > .pt-box { display: none; }
   .pt-table td.pt-c.pt-grow > .pt-sizer { visibility: visible; }
 }
+/* F/QC/08 (§370): its headings kept clear of their columns' rules, a word going to the next line sooner, as on the owner's sheet
+   (measured for reading, its columns are as wide as their longest word: the words ran edge to edge). */
+.paper-sheet[data-sheet="qc-calibration-master-list"] .pt-table tr[data-pt-heading] > td.pt-c.pt-ac { padding-left: calc(0.8 * var(--u)); padding-right: calc(0.8 * var(--u)); }
+/* F/QC/16 (§370): drawn with its every word the record's, its headings repeat over each page as a table's head - whose row is
+   that head's last, so the heavy frame's foot rule fell under it too; the paper rules it thin. */
+.paper-sheet[data-sheet="qc-obsolete-artwork"] .pt-table.pt-frame.pt-body thead tr:last-child td.pt-c { border-bottom: var(--pt-bd); }
+/* F-QC-19 (§370): each of the card's labels on its one line, as the card prints it. */
+.paper-sheet[data-sheet="qc-tolerance-card-nivea"] .pt-table td.pt-c { white-space: pre; }
 /* QC-PAPER-TABLES end */
 
 /* QC-CALIBRATION begin */
@@ -4258,8 +4281,12 @@ table.svc-paper {
   .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] { margin-top: calc(11.97 * var(--u)); }
   .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field { padding-left: calc(16.1 * var(--u)); }
   .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field > :is(label, .input, .print-box-text) { font-family: "Times New Roman", Times, serif; font-size: calc(9.96 * var(--pt)); line-height: calc(9.96 * var(--pt)); font-weight: 400; }
-  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field > label { font-weight: 700; }
+  /* (DATE: bold, as printed: the face's rule above, an :is() holding a class, outweighed a plain label's; §370) */
+  .paper-sheet[data-sheet="qc-utility-test-report"] [data-section="sheet-boxes"] > .field > label:not(.input) { font-weight: 700; }
   .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .doc-table { margin: calc(3.94 * var(--u)) 0 0 calc(8.77 * var(--u)); }
+  /* §370: each line's words at the top of its row, as the paper's, and the Job Name set 1.91 mm in from its left rule */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet tbody td .input { top: calc(0.4 * var(--u) - 2px); bottom: auto; height: calc(9 * var(--pt) + 4px); padding: 2px 0; line-height: calc(9 * var(--pt)); }
+  .paper-sheet[data-sheet="qc-utility-test-report"] .doc-table table.log-sheet tbody td:nth-child(2) .input { text-indent: calc(1.91 * var(--u)); }
   /* the signatures of both reports: the words over the space a name is written in, the role under it, two blocks apart
      (the row keeps the 16 px gap its BoxLine sets, so the second block's margin is 4.23 mm less) */
   .paper-sheet[data-paper-form="report"] .paper-body > .card:last-child .sheet-boxes-paper { display: flex; gap: 0; }
@@ -4279,7 +4306,8 @@ table.svc-paper {
   .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field { width: calc(78.4 * var(--u)); gap: 0; }
   .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field + .field { margin-left: calc(26.57 * var(--u)); }
   .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > :is(label, .box-printed-below) { font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(12 * var(--pt)); }
-  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .input { height: calc(4.44 * var(--u)); font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(4.44 * var(--u)); }
+  /* (the paper's "Testing By" and "(QA Inspector)" stand 9.74 mm apart: the name is signed in the 5.51 mm between, §370) */
+  .paper-sheet[data-sheet="qc-utility-test-report"] .paper-body > .card:last-child .sheet-boxes-paper > .field > .input { height: calc(5.51 * var(--u)); font-family: "Times New Roman", Times, serif; font-size: calc(12 * var(--pt)); line-height: calc(5.51 * var(--u)); }
   /* F/QC/30's minutes (the framed page, no grid of the paper's): Client Name, Location and Date a ruled table of two columns
      in Calibri 12 pt, the words bold; Subject: and Participants : on lines of their own under it, unruled; the key points
      under their heading, bold and underlined, each point a paragraph with its number, no rules */

@@ -17,6 +17,11 @@ const NORMAL = [17.2, 17.3, 20.9, 30, 23.7, 18.8, 17.9, 17.8, 19.1, 36.4, 20.1, 
 export const LINE_CLEARANCE_ROWS = { company: 7.56, title: 7.09, format: 7.07, note: 13.7, heading: 14.15, line: 10.83, lines: 10 } as const;
 /** The width of the machine's name box at the right of the title row, on every one of the seven. */
 export const LINE_CLEARANCE_MACHINE_WIDTH = 78;
+/**
+ * The company as the seven papers print it across their head (REQUIREMENTS §370: each document drawn as the owner's own paper;
+ * every sheet of his F/QC/15 workbook spells it so). A name the plant has typed over the format's header (Edit format) still wins.
+ */
+export const LINE_CLEARANCE_COMPANY = "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED";
 
 export const LINE_CLEARANCE_GEOMETRY: Record<string, LineClearanceGeometry> = {
   "qc-line-clearance-printing": { cols: WIDE },

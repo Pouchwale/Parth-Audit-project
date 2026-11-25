@@ -14,7 +14,7 @@ import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSh
 import { DocumentHeader, dottedDate, HeaderWord } from "../documents/DocumentHeader";
 import { pageFrameFor } from "../../data/seed/qcPageFrames";
 import { incomingGeometryFor, LOT_COLS, SIGN_COLS, type IncomingGeometry } from "../../data/seed/qcIncomingGeometry";
-import { lineClearanceGeometryFor, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
+import { lineClearanceGeometryFor, LINE_CLEARANCE_COMPANY, LINE_CLEARANCE_MACHINE_WIDTH, LINE_CLEARANCE_ROWS } from "../../data/seed/qcLineClearanceGeometry";
 import { readablePaper } from "../../engine/paperReadable";
 import { listHolds, listToggled } from "../../data/seed/qcPaperTables";
 import { registerPaperPager } from "../../utils/paperPages";
@@ -840,6 +840,8 @@ export function LogSheetRecordView({
     language: lang,
     numberNotPrinted: !!layout.numberNotPrinted,
     printedWithNumber: layout.printedWithNumber,
+    // The line clearances print the company as their paper spells it (§370); every other sheet, the owner's one name (§87).
+    companyName: lc ? LINE_CLEARANCE_COMPANY : undefined,
     lineClearance: lc
       ? {
           machine: (() => {

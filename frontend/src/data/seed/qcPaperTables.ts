@@ -41,6 +41,8 @@ import { LAMINATION_QC_PAPERS_350 } from "./laminationQcPapers350";
 import { SYS_PAPERS_352 } from "./sysPapers352";
 import { PUR_PAPERS_353 } from "./purPapers353";
 import { STR_PAPERS_353 } from "./strPapers353";
+import { QC_PAPERS_370 } from "./qcPapers370";
+import { CALIBRATION_MASTER_LIST_NOTE } from "./qcRegisterLayouts";
 
 /** One answer of a choice the paper sets across its cells or inside a cell: a scale's 7 to 1, Yes / No, a tick box (§275). */
 export interface PaperPick {
@@ -625,11 +627,21 @@ const COA_CORRUGATED: PaperTable = {
 // number in its shaded box at the right, the Note in bold, the shaded heading row (Accuracy / Acceptable Error on white),
 // eleven numbered lines. The paper stands 2.58 mm from its page's left edge, where a printer cuts: on A4 landscape it is
 // centred (11.38 mm each side), at the paper's own top and sizes.
+// AS THE OWNER'S PAPER (REQUIREMENTS §370): every printed word his and the record's to type over (ownWords, §275), the company
+// as his sheet spells it, "F/QC/08 (01 / 01.12.2021)" as it prints, each heading in the words of his sheet. His sheet's letters
+// are 5.9 to 7.4 pt on paper, so the paper is drawn for reading (engine/paperReadable.ts, §282): its columns are measured from
+// what they hold and its letters printed at 8 pt or more, the headings no smaller than 7 pt, nothing touching a rule.
 
 const F08_COLS = [8.43, 20.49, 18.16, 10.76, 22.86, 17.36, 21.55, 13.51, 18.97, 14.98, 13.34, 13.93, 16.39, 14.39, 21.68, 16.9, 10.54];
 const F08_KEYS = [
   "instrumentName", "instrumentIdNo", "make", "purpose", "locationOfUse", "instrumentRange", "leastCount", "accuracy", "methodOfCalibration",
   "frequency", "initialCalibrationDate", "currentCalibrationDate", "nextDueDate", "calibrationAgency", "reportNumber", "remarks",
+];
+/** The sixteen headings over F08_KEYS, as the owner's sheet words them. */
+const F08_HEADINGS = [
+  "Name of Instrument", "Instrument ID No.", "Make", "Purpose of Instrument", "Location of use", "Instrument - Range", "Least count", "Accuracy / Acceptable Error",
+  "Method of Calibration - Internal / External", "Frequency of Calibration", "Date of Initial Calibration", "Current Calibration date",
+  "Next due date of calibration", "Calibration agency", "Calibration report number", "Remarks",
 ];
 const F08_W = 274.24;
 const F08_GREY = "#f2f2f2";
@@ -640,23 +652,24 @@ const MASTER_LIST: PaperTable = {
   top: 19.22,
   font: "calibri",
   pt: 6.36,
+  ownWords: true,
   head: [
-    { h: 6.36, cells: [{ w: F08_W, t: "{companyName}", caps: true, a: "c", b: true, pt: 10.56, y: 1.57 }] },
+    { h: 6.36, cells: [{ w: F08_W, t: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED", a: "c", b: true, pt: 10.56, y: 1.57 }] },
     {
       h: 7.32,
       cells: [
-        { w: 210.73, t: "{title}", caps: true, a: "c", b: true, u: true, pt: 10.56, y: 2.03 },
-        { w: 63.51, t: "{formatNo} ({revisionNo} / {revisionDate})", a: "c", b: true, u: true, pt: 7.44, y: 2.45, bg: F08_GREY },
+        { w: 210.73, t: "MASTER LIST OF CALIBRATION INSTRUMENTS", a: "c", b: true, u: true, pt: 10.56, y: 2.03 },
+        { w: 63.51, t: "F/QC/08 (01 / 01.12.2021)", a: "c", b: true, u: true, pt: 7.44, y: 2.45, bg: F08_GREY },
       ],
     },
-    { h: 10.46, cells: [{ w: F08_W, lab: "@instructions:0", b: true, pt: 5.88, x: 0.42, y: 1.58, lh: 2.71 }] },
+    { h: 10.46, cells: [{ w: F08_W, t: CALIBRATION_MASTER_LIST_NOTE, b: true, pt: 5.88, x: 0.42, y: 1.58, lh: 2.71 }] },
   ],
   body: [
     {
       h: 11.77,
       cells: [
         { w: F08_COLS[0], t: "Sr. No.", a: "c", b: true, vm: true, lh: 2.92, bg: F08_GREY },
-        ...F08_KEYS.map((key, i): PaperCell => ({ w: F08_COLS[i + 1], lab: `@column:${key}`, a: "c", b: true, vm: true, lh: 2.92, ...(key === "accuracy" ? {} : { bg: F08_GREY }) })),
+        ...F08_HEADINGS.map((t, i): PaperCell => ({ w: F08_COLS[i + 1], t, a: "c", b: true, vm: true, lh: 2.92, ...(F08_KEYS[i] === "accuracy" ? {} : { bg: F08_GREY }) })),
       ],
       head: true,
     },
@@ -674,9 +687,17 @@ const MASTER_LIST: PaperTable = {
 // sheet on a US Letter landscape page): one table in a heavy frame, the company's name large, the title underlined with
 // "F/QC/16 (00/01.12.2021)" underlined in its shaded box, the heading row centred and wrapped, fifteen ruled lines of
 // 9.9 mm (the supplied page's thirteen written and two blank). Centred on A4 landscape, at the paper's own top and sizes.
+// AS THE OWNER'S PAPER (REQUIREMENTS §370): every printed word his and the record's to type over (ownWords, §275), the company
+// as his sheet spells it, the headings broken where his page breaks them ("Updated by - / QC In- / charge"); the fifteen lines
+// on the one A4 page, as his (printed so, the page's 12 mm head and 9 mm foot are kept clear of them).
 
 const F16_COLS = [15.36, 33.62, 49.08, 41.79, 21.67, 38.5, 20.1, 22.78, 21.34];
 const F16_KEYS = ["srNo", "customerName", "jobName", "artworkNumber", "salesPerson", "reasonObsolete", "dateOfObsolete", "updatedBy", "remarks"];
+/** The nine headings over F16_KEYS, broken into lines where the owner's page breaks them. */
+const F16_HEADINGS = [
+  "Sr. No.", "Customer name", "Job name", "Artwork number /\nMaster Shade card\nnumber (FG Code)", "Sales Person", "Reason for artwork\nobsolete", "Date of\nobsolete",
+  "Updated by -\nQC In-\ncharge", "Remarks",
+];
 /** The columns whose words the paper centres (the number, the FG code, the person, the reason). */
 const F16_CENTRED = ["srNo", "artworkNumber", "salesPerson", "reasonObsolete"];
 const F16_W = 264.24;
@@ -688,17 +709,20 @@ const OBSOLETE_ARTWORK: PaperTable = {
   font: "calibri",
   pt: 11.04,
   frame: "heavy",
+  ownWords: true,
+  // (its foot kept clear of the page's: at 1.4 % larger its fifteenth line ran onto a second page, §370)
+  clearFoot: true,
   head: [
-    { h: 11.48, cells: [{ w: F16_W, t: "{companyName}", caps: true, a: "c", b: true, pt: 20.04, y: 2.66, heavy: "b" }] },
+    { h: 11.48, cells: [{ w: F16_W, t: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED", a: "c", b: true, pt: 20.04, y: 2.66, heavy: "b" }] },
     {
       h: 9.82,
       cells: [
-        { w: 199.68, t: "{title}", caps: true, a: "c", b: true, u: true, pt: 18, y: 2.13 },
-        { w: 64.56, t: "{formatNo} ({revisionNo}/{revisionDate})", a: "c", b: true, u: true, pt: 12, y: 2.13, bg: F08_GREY },
+        { w: 199.68, t: "REGISTER OF OBSOLETE ARTWORK", a: "c", b: true, u: true, pt: 18, y: 2.13 },
+        { w: 64.56, t: "F/QC/16 (00/01.12.2021)", a: "c", b: true, u: true, pt: 12, y: 2.13, bg: F08_GREY },
       ],
     },
   ],
-  body: [{ h: 15.36, cells: F16_KEYS.map((key, i): PaperCell => ({ w: F16_COLS[i], lab: `@column:${key}`, a: "c", b: true, vm: true, lh: 4.95 })), head: true }],
+  body: [{ h: 15.36, cells: F16_HEADINGS.map((t, i): PaperCell => ({ w: F16_COLS[i], t, a: "c", b: true, vm: true, lh: 4.95 })), head: true }],
   lines: {
     h: 9.908,
     count: 15,
@@ -1596,7 +1620,7 @@ export function paperTableFits(
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
 // (and a format made from a Word file, whose paper is kept with the format: REQUIREMENTS §324)
 export const paperTableFor = (documentId: string): PaperTable | undefined =>
-  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? DRIVE_PAPERS_332[documentId] ?? (documentId === QC_PORTABLE_ITEMS_ID ? QC_PORTABLE_ITEMS_PAPER : undefined) ?? PRD_PAPERS_350[documentId] ?? LAMINATION_QC_PAPERS_350[documentId] ?? SYS_PAPERS_352[documentId] ?? PUR_PAPERS_353[documentId] ?? STR_PAPERS_353[documentId] ?? formatEditFor(documentId)?.paper;
+  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? DRIVE_PAPERS_332[documentId] ?? (documentId === QC_PORTABLE_ITEMS_ID ? QC_PORTABLE_ITEMS_PAPER : undefined) ?? PRD_PAPERS_350[documentId] ?? LAMINATION_QC_PAPERS_350[documentId] ?? SYS_PAPERS_352[documentId] ?? PUR_PAPERS_353[documentId] ?? STR_PAPERS_353[documentId] ?? QC_PAPERS_370[documentId] ?? formatEditFor(documentId)?.paper;
 
 /** The paper as the page draws it now, with the record's own rows (§246): what the download is cut from. */
 const SHOWN_PAPER = new Map<string, PaperTable>();
