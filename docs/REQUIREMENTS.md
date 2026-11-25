@@ -14497,3 +14497,20 @@ The owner, 25-Nov-2026, with F/MNT/02's top on the screen: "in mnt 2 format, all
 - A record's words typed over the moved cells stay on their cells (their places are kept: row and cell as before).
 - Proved: mntPapers351.test.ts; on the local copy the print's every vertical rule on both pages runs 11.9 to 197.9 mm, two A4
   portrait pages; Word and Excel downloads opened in Word and Excel; the test account check (§206).
+
+## §384 Backups only when someone presses a Backup button (25-Nov-2026)
+
+The owner, 25-Nov-2026: "only do backup when user manually click on backup button otherwise not".
+
+1. The two buttons on Users & Access ("Back up the database", "Back up the code and the database") are the only way a
+   backup is made. They start scripts/database/backup.ts with DCRS_BACKUP_BUTTON=1 (backend/backupRoutes.ts,
+   BACKUP_BUTTON_ENV).
+2. Run any other way (npm run db:backup by hand or by another program, a scheduled task), the script prints "No backup was
+   made. Backups are made only when someone presses a Backup button on Users & Access." and exits 1: no file, nothing
+   older deleted, no line in backup-log.txt.
+3. scripts/database/schedule-backup.ps1 (the 20:30 Scheduled Task) is removed; docs/DEPLOYMENT.md says how to remove the
+   task if an older copy registered it. On the plant PC no "DCRS database backup" task was registered.
+4. Unchanged: a pressed backup still keeps its files 14 days and three code zips, and the super admin's Delete (§182).
+- Proved: backend/tests/backup.test.ts (the button passes the mark; the script without it makes nothing and deletes
+  nothing), databaseBackup.test.ts; on a local copy: npm run db:backup said "No backup was made" and wrote nothing, the
+  button wrote dcrs-…dump and roles-…sql.

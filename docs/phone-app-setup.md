@@ -262,7 +262,7 @@ Then, with **one Android phone and one iPhone** on the company Wi-Fi:
   name a sign-in's device as they liked), and the plant's Expo account password.
 - **The servers run as the standard account** (step 3.1), never as an administrator. Autologon keeps its password
   encrypted, but an administrator of the PC can read it: keep the PC's administrators few.
-- **Backups**: DCRS's database with `npm run db:backup`, every evening by itself (docs/DEPLOYMENT.md, "Backups of the
+- **Backups**: DCRS's database with the Backup buttons on Users & Access, only when pressed (docs/DEPLOYMENT.md, "Backups of the
   shared database"); with `MITRA_DATABASE_URL` in `backend\.env`, the same run takes the Mitra server's own database
   too (REQUIREMENTS §107). A Mitra server still on its own folder (`Audit project chatbot-mobile\server\.data`): copy
   the folder while the servers are stopped, or bring it into PostgreSQL once with `npm --prefix server run db:copy`.

@@ -13,7 +13,7 @@ import path from "node:path";
 import { after, before, describe, it } from "node:test";
 import express, { type NextFunction, type Request, type Response } from "express";
 import type { PublicUser } from "../auth.ts";
-import { BACKUP_RUNNING_CODE, backupFileKind, failureLineOf, listBackups, pruneCodeZips, registerBackupRoutes, stampOf, type BackupStatus, type DatabaseBackupResult } from "../backupRoutes.ts";
+import { BACKUP_BUTTON_ENV, BACKUP_RUNNING_CODE, backupFileKind, failureLineOf, listBackups, pruneCodeZips, registerBackupRoutes, stampOf, type BackupStatus, type DatabaseBackupResult } from "../backupRoutes.ts";
 
 const PEOPLE: Record<string, PublicUser> = {
   "u-admin": { id: "u-admin", name: "Super Admin", email: "superadmin05@gmail.com", role: "admin", departments: [] },
@@ -27,6 +27,8 @@ interface Server {
   lines: { who: string | null; action: string; target: string; detail: string }[];
   /** What the next database step does. */
   next: { kind: "ok" | "fail" | "wait"; release?: () => void };
+  /** The environment the database step was last given. */
+  seenEnv: { value?: NodeJS.ProcessEnv };
   close: () => Promise<void>;
 }
 
@@ -75,7 +77,9 @@ async function start(): Promise<Server> {
     }
     nextFn();
   };
-  const runDatabase = async (ctx: { dir: string }): Promise<DatabaseBackupResult> => {
+  const seenEnv: Server["seenEnv"] = {};
+  const runDatabase = async (ctx: { dir: string; env: NodeJS.ProcessEnv }): Promise<DatabaseBackupResult> => {
+    seenEnv.value = ctx.env;
     if (next.kind === "wait") await new Promise<void>((resolve) => (next.release = resolve));
     if (next.kind === "fail") return { ok: false, output: "Backing up...\nThe backup FAILED. pg_dump is not installed on this computer.\nNothing older was deleted.\n" };
     const stamp = stampOf(new Date());
@@ -101,6 +105,7 @@ async function start(): Promise<Server> {
     repo,
     lines,
     next,
+    seenEnv,
     close: () =>
       new Promise<void>((resolve) => {
         server.close(() => {
@@ -197,6 +202,35 @@ describe("backups from Users & Access", () => {
     assert.equal(line.action, "Backed up the database");
     assert.equal(line.target, "Backup");
     assert.equal(line.who, "superadmin05@gmail.com");
+    // §384: the button marks the script's run as its own; without that mark the script backs up nothing.
+    assert.equal(s.seenEnv.value?.[BACKUP_BUTTON_ENV], "1");
+  });
+
+  it("§384: run any way but the button, the backup script makes no backup, deletes nothing and writes no log line", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "dcrs-backup-refused-"));
+    try {
+      writeFileSync(path.join(dir, "dcrs-2020-01-01-0000.dump"), "very old dump");
+      const env: NodeJS.ProcessEnv = { ...process.env, BACKUP_DIR: dir };
+      delete env[BACKUP_BUTTON_ENV];
+      let code = 0;
+      let said = "";
+      try {
+        execFileSync(process.execPath, ["--no-warnings=ExperimentalWarning", path.join("scripts", "database", "backup.ts")], {
+          cwd: path.resolve(import.meta.dirname, "..", ".."),
+          env,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+      } catch (e) {
+        const err = e as { status: number; stderr: Buffer };
+        code = err.status;
+        said = err.stderr.toString();
+      }
+      assert.equal(code, 1);
+      assert.match(said, /No backup was made\. Backups are made only when someone presses a Backup button on Users & Access\./);
+      assert.deepEqual(readdirSync(dir), ["dcrs-2020-01-01-0000.dump"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("a backup file is downloaded by its name; a name that is not a backup's is refused, a missing one is 404", async () => {

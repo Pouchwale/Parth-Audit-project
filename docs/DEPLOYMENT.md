@@ -356,7 +356,7 @@ BACKUP_DATABASE_URL=postgres://dcrs_backup:<its password>@127.0.0.1:5432/dcrs
 MITRA_DATABASE_URL=postgres://dcrs_backup:<its password>@127.0.0.1:5432/mitra
 ```
 
-`npm run db:backup` (every evening by itself once `scripts\database\schedule-backup.ps1` is registered) then writes
+The "Back up the database" button on Users & Access (the only way a backup is made, REQUIREMENTS §384) then writes
 `dcrs-<date>-<time>.dump`, `mitra-<date>-<time>.dump` and the server's roles file together, and keeps them 14 days
 (below, "Backups of the shared database").
 
@@ -682,23 +682,7 @@ to `backup-log.txt` in the same folder: when, what, how big, and whether it work
 same disk as the database is lost with that disk: set `BACKUP_DIR` to another disk or a network
 folder, or copy the folder somewhere else every week.
 
-**Every evening, by itself.** On Windows, `scripts/database/schedule-backup.ps1` registers a
-Scheduled Task that runs the backup every day at 20:30. Run it in the DCRS folder, as the Windows
-user the backup should run as:
-
-```powershell
-# see what it would register; registers nothing
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\database\schedule-backup.ps1 -WhatIf
-# register it (run it again to change it; add -At 21:00 for another time)
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\database\schedule-backup.ps1
-```
-
-The task runs whether or not anyone is signed in to Windows, without storing a password and without
-opening a window. It runs on battery too, and if the computer was off at 20:30 it runs as soon as the
-computer is on again. It reads its settings from `backend/.env`. If Windows refuses to register it
-("access is denied"), run PowerShell as an administrator, or add `-OnlyWhenSignedIn`. Look at
-`backup-log.txt` now and then. To remove the task: `Unregister-ScheduledTask -TaskName "DCRS database
-backup"`.
+**Only when someone presses the button (§384).** Backups are made only by the two buttons on Users & Access. Nothing backs up by itself: there is no scheduled task, and `npm run db:backup` run by hand (or by any other program) says "No backup was made" and does nothing. If an older copy registered the task "DCRS database backup", remove it: `Unregister-ScheduledTask -TaskName "DCRS database backup" -Confirm:$false`.
 
 **Restoring**, on a new server or after the database was lost. Each step as a superuser (add
 `-h <server>` when the server is another computer):

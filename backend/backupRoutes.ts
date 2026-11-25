@@ -30,6 +30,8 @@ import { repoRoot as defaultRepoRoot } from "./paths.ts";
 export type BackupKind = "database" | "code-and-database";
 export const BACKUP_KINDS: readonly BackupKind[] = ["database", "code-and-database"];
 export const BACKUP_RUNNING_CODE = "backup-running";
+/** Set by the Users & Access buttons only (§384): without it scripts/database/backup.ts backs up nothing. */
+export const BACKUP_BUTTON_ENV = "DCRS_BACKUP_BUTTON";
 
 export type BackupFileKind = "database" | "roles" | "mitra" | "code-and-database" | "other";
 
@@ -316,7 +318,8 @@ export function registerBackupRoutes(app: Express, deps: BackupDeps): { status: 
     const files: string[] = [];
     try {
       mkdirSync(dir, { recursive: true });
-      const db = await runDatabase({ repoRoot, dir, env });
+      // §384: the script backs up only when this button started it (BACKUP_BUTTON_ENV); nothing else may.
+      const db = await runDatabase({ repoRoot, dir, env: { ...env, [BACKUP_BUTTON_ENV]: "1" } });
       if (!db.ok) throw new Error(failureLineOf(db.output));
       files.push(...filesWrittenSince(dir, started.getTime()));
       if (files.length === 0) throw new Error("The backup script finished, but no backup file of this run is in the folder.");

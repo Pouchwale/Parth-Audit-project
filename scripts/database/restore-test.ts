@@ -156,7 +156,7 @@ async function main(): Promise<number> {
   const dumpPath = options.dump ? path.resolve(options.dump) : newestDump(backupDir(), options.mitra ? "mitra" : "dcrs");
   if (!dumpPath) {
     throw new Error(
-      `There is no backup in ${backupDir()} (files named ${options.mitra ? "mitra" : "dcrs"}-YYYY-MM-DD-HHmm.dump). Run npm run db:backup first` +
+      `There is no backup in ${backupDir()} (files named ${options.mitra ? "mitra" : "dcrs"}-YYYY-MM-DD-HHmm.dump). Press "Back up the database" on Users & Access first` +
         `${options.mitra ? " with MITRA_DATABASE_URL set" : ""}, or name the dump: npm run db:restore-test -- <file>.`
     );
   }

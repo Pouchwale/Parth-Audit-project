@@ -34,8 +34,8 @@
 // After a successful backup its own files older than 14 days are deleted: only
 // files named as above, never anything else in the folder, and nothing at all
 // when the backup failed. Every run adds a line to backup-log.txt in the same
-// folder, so a backup that runs by itself (scripts/database/schedule-backup.ps1)
-// can be checked afterwards.
+// folder, so every backup can be checked afterwards. Since §384 nothing runs by
+// itself: the script backs up only when a Users & Access button starts it.
 //
 // THE TOOLS: pg_dump, pg_dumpall and pg_restore, all from one folder: PG_BIN,
 // else PATH, else C:\Program Files\PostgreSQL\<version>\bin, newest first. The
@@ -178,6 +178,14 @@ function logLine(dir: string, line: string): void {
 }
 
 async function main(): Promise<number> {
+  // ONLY FROM THE BUTTON (REQUIREMENTS §384; the owner, 25-Nov-2026: "only do backup when user manually click on
+  // backup button otherwise not"). The Users & Access buttons start this script with DCRS_BACKUP_BUTTON=1
+  // (backend/backupRoutes.ts); run any other way (npm run db:backup, a scheduled task, another program) it backs
+  // up nothing, deletes nothing and writes no log line.
+  if (process.env.DCRS_BACKUP_BUTTON !== "1") {
+    console.error("No backup was made. Backups are made only when someone presses a Backup button on Users & Access.");
+    return 1;
+  }
   const started = new Date();
   const when = stampOf(started).replace(/^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})$/, "$1 $2:$3");
   const dir = backupDir();
