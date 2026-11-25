@@ -14153,3 +14153,27 @@ from Purchase Master Data, auto-fill and the downloads read them as before. No c
   seven - New, words typed, Excel and Word read back, the printout - each printout set beside his original page by page;
   F/PUR/03 and F/PUR/05 filled from Purchase Master Data and printed; the test-account check. Tests:
   frontend/tests/purStrPapers353.test.ts.
+
+## §356 F/HR/20: the year's 200 made and answered by the system; the January 2026 round made now (25-Nov-2026)
+
+The owner, 25-Nov-2026: "in hr-20 it should be filled by system 200 people should be there and like director, hod, operator,
+assistant operator, executive, helper 3 to 4 so and it has every january frequency every year". His choices the same day: make the
+January 2026 round of 200 now and work F/HR/21 January 2026 out from it; and, as only 174 people had joined by then with 3 to 4
+helpers, make up the 200 with helpers. This replaces §289's line that left F/HR/20's answers to each employee.
+
+- Answered by the system: with nobody at the screen (every start and the morning job), from 1 January, each form of the year's
+  round still blank and still the assistant's is answered as §267 says (7 or 6; 1, now and then 2, to attribute 8), every answer a
+  dropdown; F/HR/21 for the year is worked out from the forms and follows them while it is the assistant's.
+- The year's round is made at every start for the year we are in when it is not on file (engine/pscSurveyRound.ts
+  ensureSurveyRound), as well as by January's generation: 200 forms, once a year, each its person's name, department and
+  designation from HR Master Data. Each form's id is fixed by the round and its number (rec-psc-2026-01-31-001 ... -200), so two
+  computers making the round at one moment make one round. A round is never made again after forms are deleted from it.
+- Who: as before (directors, HODs, managers, executives, operators, assistants and the rest of the staff, then three or four
+  helpers, guards / drivers / sweepers / peons only to make up the 200, nobody who joined after the survey's date) and now, when
+  those still fall short of 200, more helpers. January 2026: 153 staff and operators, 17 guards, drivers, sweepers and peons, 30
+  helpers. January 2027 on the present sheet: 195, 1 and 4.
+- The January 2026 round is answered although it is dated before the plant went live (a round is only ever made on purpose), and
+  F/HR/21 January 2026 - the paper's figures, 63 people, 93.99% - is worked out again from the 200, once, with a line in its history;
+  its figures changed, so it is In Progress to be verified again. It then follows the forms like any year's.
+- Files: engine/pscSurveyRound.ts, engine/pscFill.ts, engine/assistantPrepare.ts (prepareUnattended), data/bootstrap.ts.
+  Tests: frontend/tests/pscRound2026.test.ts; pscFill, pscSurveyRound, fillOnOpen, generationAhead as before.

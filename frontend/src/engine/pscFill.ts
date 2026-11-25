@@ -25,6 +25,8 @@ export const PSC_ANALYSIS_DOC = "hr-psc-survey-analysis";
 
 export const PSC_ANSWERS_NOTE =
   "Answered by the assistant (REQUIREMENTS §267): good scores - 7 Strongly Agree or 6 Moderately Agree, and 1 Strongly Disagree to attribute 8 - each answer can be changed in its dropdown.";
+export const PSC_ANALYSIS_REWORK_NOTE =
+  "Worked out again from the year's 200 Product Safety Culture Survey forms made and answered by the system, on the owner's choice (REQUIREMENTS §356): the figures before were the paper's";
 export const PSC_ANALYSIS_NOTE =
   "Worked out by the assistant from the year's Product Safety Culture Survey forms (F/HR/20), as the company's analysis sheet works it out (REQUIREMENTS §267): it follows the forms as they change.";
 
@@ -104,7 +106,7 @@ export function fillPscSurveyDue(referenceISO = todayISO(), opts: { analysisOf?:
       const answers = pscRoundAnswers(Number(date.slice(0, 4)), size);
       for (const r of round) {
         if (waitsUntil(surveyDoc, r, referenceISO) !== null) continue;
-        if (liveStartDate && compareISO(r.dueDate, liveStartDate) < 0) continue;
+        // (no launch-date floor: a round is only ever made on purpose - the owner's 2026 round is before the plant went live, §356)
         const data = r.data as LogSheetData | undefined;
         const mine = answers[formNumber(r) - 1];
         if (!data || !mine || !assistantsOwn(r) || !blankAnswers(data)) continue;
@@ -133,9 +135,14 @@ export function fillPscSurveyDue(referenceISO = todayISO(), opts: { analysisOf?:
     for (const record of recordRepository.queryUnscoped({ documentId: PSC_ANALYSIS_DOC, isDemo: false })) {
       if (opts.analysisOf && record.id !== opts.analysisOf) continue;
       if (waitsUntil(analysisDoc, record, referenceISO) !== null) continue;
-      if (liveStartDate && compareISO(record.dueDate, liveStartDate) < 0) continue;
-      if (!assistantsOwn(record)) continue;
       const year = record.dueDate.slice(0, 4);
+      // An analysis on file from before the plant went live (the paper's January 2026) is worked out again from its year's round
+      // once that round is made (the owner's choice, §356), and follows the forms after that while it is the assistant's own.
+      const preLive = !!liveStartDate && compareISO(record.dueDate, liveStartDate) < 0;
+      const reworked = (record.history ?? []).some((h) => h.note === PSC_ANALYSIS_REWORK_NOTE);
+      const firstRework = preLive && !reworked && [...current.values()].some((f) => roundDateOf(f)?.slice(0, 4) === year);
+      if (preLive && !reworked && !firstRework) continue;
+      if (!firstRework && !assistantsOwn(record)) continue;
       const yearForms = [...current.values()].filter((f) => f.status !== "Rejected" && surveyYear(f) === year);
       if (yearForms.length === 0) continue;
       const answered = yearForms.map((f) => ((f.data as LogSheetData | undefined)?.rows ?? []).map((row) => row.response));
@@ -145,7 +152,12 @@ export function fillPscSurveyDue(referenceISO = todayISO(), opts: { analysisOf?:
       if (!data) continue;
       const rows = data.rows.map((row, i): LogSheetRow => (figures[i] ? { ...row, ...figures[i] } : row));
       const header = { ...(data.header ?? {}), surveyPeriod: `JANUARY ${year}`, overallAchieved: overall };
-      const next = stamped(record, { ...data, header, rows }, PSC_ANALYSIS_NOTE, `${respondents} survey forms of ${year}`, now);
+      // The paper's figures were submitted and verified; the figures now differ, so the sheet is verified again (§356) - the history
+      // keeps who signed the paper's.
+      const base: RecordInstance = firstRework
+        ? { ...record, submittedAt: undefined, submittedBy: undefined, verifiedAt: undefined, verifiedBy: undefined, rejectedAt: undefined }
+        : record;
+      const next = stamped(base, { ...data, header, rows }, firstRework ? PSC_ANALYSIS_REWORK_NOTE : PSC_ANALYSIS_NOTE, `${respondents} survey forms of ${year}`, now);
       if (next) changed.push(next);
     }
   }

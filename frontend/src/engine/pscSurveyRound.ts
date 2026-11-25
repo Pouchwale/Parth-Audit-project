@@ -1,5 +1,8 @@
 import type { DocumentDefinition, HrMasterPerson, LogSheetData, RecordInstance } from "../types";
 import { masterRepository } from "../data/repositories/masterRepository";
+import { documentRepository } from "../data/repositories/documentRepository";
+import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
+import { mayWriteRecordsOf } from "./departmentScope";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { readJSON } from "../data/storageAdapter";
 import { createDefaultData } from "./recordDefaults";
@@ -7,7 +10,7 @@ import { HR_MASTER_TAG, hrMasterLinkFor, isIsoDate, linkedValue, nameKey } from 
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
 import { workingDueDate } from "./holidays";
 import { generateId } from "../utils/id";
-import { compareISO } from "../utils/date";
+import { compareISO, todayISO } from "../utils/date";
 
 // F/HR/20 - THE PRODUCT SAFETY CULTURE SURVEY, ONCE A YEAR IN JANUARY, ABOUT 200 PEOPLE (REQUIREMENTS §266; the owner,
 // 20-Nov-2026: "in HR-20 consider 200 people which include director, HOD, operator, Assistant operator, executive, helper
@@ -22,9 +25,19 @@ import { compareISO } from "../utils/date";
 //   * and three or four helpers, a different few each year;
 //   * and, only when those fall short of 200, guards, drivers, sweepers and peons to make it up (the sheet of 3-Nov-2026
 //     has 195 of the first kind: four helpers and one guard make the 200);
-//   * nobody who joins after the survey's date.
+//   * nobody who joins after the survey's date;
+//   * and, when even those fall short of 200, more helpers to make it up (the owner's choice, 25-Nov-2026, §356: January
+//     2026 had 153 staff and operators and 17 guards, drivers, sweepers and peons on the sheet - 30 helpers make the 200).
 // The answers are filled by the assistant from 1 January - good scores, 7 or 6 (1 to attribute 8), each editable - and
 // F/HR/21 is worked out from them (REQUIREMENTS §267, engine/pscScores.ts, engine/pscFill.ts).
+//
+// THE ROUND IS THE SYSTEM'S, ANSWERED BY ITSELF (REQUIREMENTS §356; the owner, 25-Nov-2026: "in hr-20 it should be filled by system
+// 200 people should be there ... it has every january frequency every year"). §289 had left the forms' answers to each
+// employee; they are answered by the system again (engine/pscFill.ts), from 1 January, with nobody at the screen. The year's
+// round is made at every start for the year we are in (ensureSurveyRound), whatever the calendar's generation did: the
+// plant went live after January 2026, so its 2026 round is made now, on the owner's choice, and F/HR/21 January 2026 is
+// worked out from it. Each form's id is fixed by its round and number (rec-psc-2026-01-31-001), so two computers making
+// the round at one moment make one round.
 //
 // The round is made ONCE a year: never a second time, never put back after somebody deletes forms from it, never added
 // to when someone joins later (New record starts a form for anyone else, as often as wanted, as before). Live records only.
@@ -96,7 +109,9 @@ export function surveyPeople(people: readonly HrMasterPerson[], surveyDate: stri
   const helpersAll = eligible.filter((p) => surveyRank(p.designation) === "helper").sort(byNumberThenName);
   // Guards, drivers, sweepers and peons only make up the 200 when the staff, operators and helpers fall short of it.
   const reserve = eligible.filter((p) => surveyRank(p.designation) === "out").sort(byNumberThenName);
-  const helperCount = Math.min(helpersAll.length, Math.max(PSC_ROUND_HELPERS.least, Math.min(PSC_ROUND_HELPERS.most, size - ranked.length)));
+  // Three or four helpers - more only where the staff, operators, guards, drivers, sweepers and peons cannot make up the round (§356).
+  const usual = Math.max(PSC_ROUND_HELPERS.least, Math.min(PSC_ROUND_HELPERS.most, size - ranked.length));
+  const helperCount = Math.min(helpersAll.length, Math.max(usual, size - ranked.length - reserve.length));
   const staff = [...ranked.map((x) => x.p), ...reserve].slice(0, Math.max(0, size - helperCount));
   // A different few helpers each year, the same few every time for one year.
   const year = Number(surveyDate.slice(0, 4)) || 0;
@@ -132,7 +147,7 @@ export function roundForm(doc: DocumentDefinition, period: SchedulePeriod, perso
   }
   if (person.gp3No.trim()) header[HR_MASTER_TAG] = person.gp3No.trim();
   return {
-    id: generateId("rec"),
+    id: roundFormId(period.scheduled, n),
     documentId: doc.id,
     periodKey: roundKey(period.scheduled, n),
     dueDate: due,
@@ -145,9 +160,28 @@ export function roundForm(doc: DocumentDefinition, period: SchedulePeriod, perso
   };
 }
 
+/** A round form's id, the same on every computer: "rec-psc-2026-01-31-007". */
+export const roundFormId = (scheduled: string, n: number): string => `rec-psc-${scheduled}-${String(n).padStart(3, "0")}`;
+
 /** The forms a year's round needs - all of them the first time, none once the round has been made. */
 export function roundFormsFor(doc: DocumentDefinition, period: SchedulePeriod, people: readonly HrMasterPerson[]): RecordInstance[] {
   if (roundEverMade(period.scheduled)) return [];
   const now = new Date().toISOString();
   return surveyPeople(people, period.scheduled).map((p, i) => roundForm(doc, period, p, i + 1, now));
+}
+
+/**
+ * THE YEAR'S ROUND, MADE FOR THE YEAR WE ARE IN (REQUIREMENTS §356): its January's 200 forms, once, Live only - the calendar's
+ * generation makes it as January comes, and this makes it at every start when it is not on file (the plant's 2026 round,
+ * from before the system went live, or a January the generation passed by). Returns the forms made.
+ */
+export function ensureSurveyRound(today = todayISO()): RecordInstance[] {
+  const doc = documentRepository.getByIdUnscoped(PSC_SURVEY_DOC);
+  if (!doc || !mayWriteRecordsOf(doc.id)) return [];
+  const year = today.slice(0, 4);
+  const scheduled = `${year}-01-31`;
+  const period: SchedulePeriod = schedulePeriodOf(doc, scheduled) ?? { from: `${year}-01-01`, to: scheduled, scheduled };
+  const made = roundFormsFor(doc, period, hrMasterRepository.all());
+  if (made.length > 0) recordRepository.upsertMany(made);
+  return made;
 }

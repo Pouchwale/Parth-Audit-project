@@ -171,13 +171,18 @@ export function prepareDueRecords(referenceISO = todayISO(), only?: { documentId
 /**
  * WHAT RUNS WITH NOBODY AT THE SCREEN (REQUIREMENTS §289; the owner, 22-Nov-2026: "no document should fill before due date until user
  * come on screen and open it on then only it should fills automatically except qc-12"): the month's blank sheets are made, and
- * F/QC/12 alone is prepared and filled on its day. Every other document waits for prepareRecordOnOpen.
+ * F/QC/12 alone is prepared and filled on its day, and F/HR/20's round answered from 1 January (§356). Every other document waits
+ * for prepareRecordOnOpen.
  */
-export const prepareUnattended = (referenceISO = todayISO()): RecordInstance[] => prepareDueRecords(referenceISO, { documentId: SCALE_ID });
+export const prepareUnattended = (referenceISO = todayISO()): RecordInstance[] => [
+  ...prepareDueRecords(referenceISO, { documentId: SCALE_ID }),
+  // ...and F/HR/20's year's round, answered by the system from 1 January, F/HR/21 worked out from it (the owner, 25-Nov-2026, §356).
+  ...(systemFills("hr-psc-survey") ? fillPscSurveyDue(referenceISO) : []),
+];
 
 /**
  * A PERSON OPENS A RECORD: on or after the first day it covers (engine/notBeforeDay.ts), it is filled now, as the morning prepare used
- * to fill it. F/HR/20's answers are not among what is filled: they are each employee's own. Returns the record as it now stands.
+ * to fill it. F/HR/20's round is answered by the system with nobody at the screen (§356). Returns the record as it now stands.
  */
 export function prepareRecordOnOpen(recordId: string, referenceISO = todayISO()): RecordInstance | undefined {
   const record = recordRepository.getById(recordId);

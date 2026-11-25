@@ -30,6 +30,7 @@ import { gmpYesOnOpenSheets } from "./gmpYesMigration";
 import { qcSignsClearedOnOpenSheets } from "./qcSignsMigration";
 import { qc35SheetsInPaperWords } from "./qc35WordsMigration";
 import { hrTniTopicsMarkedX } from "./hrTniXMigration";
+import { ensureSurveyRound } from "../engine/pscSurveyRound";
 import { sharpDailyFrequencyLifted, sharpDaySheetsFolded, sharpTypedLinesRestored } from "./sharpMonthMigration";
 import { hrCriteriaBullets, hrDirectorDetails, hrDirectorNumbers, hrFeedbackSheetsOnFile, hrImpartedSheetsOnFile } from "./hrSuppliedOnFile";
 import { demoModeRuledOut } from "../engine/features";
@@ -148,7 +149,9 @@ export function bootstrap(): void {
   // F/QC/17's twenty records of this year for each scale, its records of the time before filed (REQUIREMENTS §220).
   ensureRulerSlots(todayISO(), (r) => deleteRecordWithTrail(r, "System", RULER_MADE_AHEAD));
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });
-  // Only F/QC/12 fills by itself; every other record is filled when a person opens it (REQUIREMENTS §289).
+  // F/HR/20: the year's round of 200 on file, the plant's 2026 round made now (REQUIREMENTS §356).
+  ensureSurveyRound(todayISO());
+  // Only F/QC/12 and F/HR/20's round fill by themselves; every other record is filled when a person opens it (§289, §356).
   prepareUnattended();
   // ...and the day sheets whose lines the month's sheet now holds, folded away (REQUIREMENTS §259).
   sharpDaySheetsFolded();
