@@ -30,6 +30,7 @@ import { gmpYesOnOpenSheets } from "./gmpYesMigration";
 import { qcSignsClearedOnOpenSheets } from "./qcSignsMigration";
 import { qc35SheetsInPaperWords } from "./qc35WordsMigration";
 import { hrTniTopicsMarkedX } from "./hrTniXMigration";
+import { cleaningBoxesTicked } from "./cleaningTicksMigration";
 import { ensureSurveyRound } from "../engine/pscSurveyRound";
 import { sharpDailyFrequencyLifted, sharpDaySheetsFolded, sharpTypedLinesRestored } from "./sharpMonthMigration";
 import { hrCriteriaBullets, hrDirectorDetails, hrDirectorNumbers, hrFeedbackSheetsOnFile, hrImpartedSheetsOnFile } from "./hrSuppliedOnFile";
@@ -144,6 +145,8 @@ export function bootstrap(): void {
   qc35SheetsInPaperWords();
   // F/HR/08's topics marked X as on the paper: Yes becomes X, No a blank (REQUIREMENTS §330).
   hrTniTopicsMarkedX();
+  // F/HR/15's and F/HR/16's area boxes a tick: a "done" word on the open sheets reads as the tick (REQUIREMENTS §378).
+  cleaningBoxesTicked();
 
   const today = new Date(todayISO());
   // F/QC/17's twenty records of this year for each scale, its records of the time before filed (REQUIREMENTS §220).

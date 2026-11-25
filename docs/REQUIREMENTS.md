@@ -14462,3 +14462,25 @@ colour and 8 pt, §294-§298, §308, §197, §214, §237, §251, §256).
   .training-paper, .chem-paper). No !important.
 - Tests: frontend/tests/hrPapers357.test.ts (new). Updated where they held the print these replace: hrPaperFormats.test.ts (F/HR/18's
   units named as his page, a visit's second line printed), registerMonth.test.ts (F/HR/17's first header with his company and cells).
+
+## §378 F/HR/15 and F/HR/16: a tick in an area's box; F/HR/15 has its month's days (25-Nov-2026)
+
+The owner, 25-Nov-2026, with F/HR/15 on the screen: "In this document give tick mark and the days should come according to the month
+of the days like November has 30 days like wise so do this fast for both hr-15 and 16".
+
+- A tick: on F/HR/15 (17 areas x the month's days) and F/HR/16 (18 areas x Jan to Dec) an area's box is a tick box. One click puts
+  ✓, another takes it off (Space or Enter on the keyboard the same). The lines with no number stay written boxes: F/HR/15's
+  "Cleaning done by" and "Cleaning verified by", F/HR/16's Date line and "Cleaning verified by". The tick prints, and downloads in
+  Word and Excel, as the box shows it (LogColumn.tickOnLinesWith; engine/cleaningMonth.ts; LogSheetRecordView CellInput).
+- The month's days: F/HR/15 is drawn with 1 to 28, 29, 30 or 31 - the month its "Month & Year" names ("November 2026", "Nov-26",
+  "11/2026"), else the sheet's own month - its day columns sharing the 31 columns' width, so the sheet still fills the A4 landscape
+  page; the title spans the days between his two and his seven columns (data/seed/hrPapers357.ts fhr15PaperFor). The print, Word
+  and Excel follow it (Excel A to AG for November). A day the month has not is kept on the record, not drawn. F/HR/16 is a year's
+  sheet, Jan to Dec: only its ticks change.
+- The sheets still open: a word written for done in an area's box before ("ok", "done", "yes", "x", a typed tick) reads as the
+  tick, with a line in the history; a name or anything else stays as written; submitted and verified sheets are not touched
+  (data/cleaningTicksMigration.ts).
+- Proved: frontend/tests/cleaningTicks.test.ts (28-31 days, every row the page's width, the paper fits the format; which boxes
+  tick; the open sheets' words), hrPapers357.test.ts as before; on the local copy: November's F/HR/15 1 to 30, 510 tick boxes,
+  F/HR/16 216, a click ticks and clears and the tick stays after a reload; Word and Excel downloads opened in Word and Excel (Excel
+  one landscape page, 33 columns), the print one A4 landscape page with the tick; the test account check (§206).

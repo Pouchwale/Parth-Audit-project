@@ -994,8 +994,11 @@ export const MONTHLY_CLEANING_AREAS: string[] = [
 const CLEANING_NOTE =
   "NOTE :  Refer Cleaning Schedule for - Area / location to be cleaned, Method of cleaning, Cleaning chemicals to be used, Equipment to be used etc.)";
 
-/** A day's or a month's box: a tick or a name, as the person writes it — never carried forward. */
-const entry = (key: string, label: string, width: number): LogColumn => ({ key, label, type: "text", width, autoFill: { fresh: true } });
+/**
+ * A day's or a month's box: on an area's line a tick, one click to put it and one to take it off (the owner, 25-Nov-2026, §378);
+ * on the signature and date lines a name or a date as written. Never carried forward.
+ */
+const entry = (key: string, label: string, width: number): LogColumn => ({ key, label, type: "text", width, autoFill: { fresh: true }, tickOnLinesWith: "no" });
 
 const dailyCleaning: LogSheetLayout = {
   documentId: "hr-daily-cleaning",

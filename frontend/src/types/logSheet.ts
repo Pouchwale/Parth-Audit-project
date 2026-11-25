@@ -177,6 +177,11 @@ export interface LogHeaderField {
 
 export interface LogColumn {
   key: string;
+  /**
+   * A TICK BOX on the lines that hold something in this other column (F/HR/15's and F/HR/16's numbered area lines, "no";
+   * REQUIREMENTS §378): one click puts the tick (✓), another takes it off. The column's other lines stay written boxes.
+   */
+  tickOnLinesWith?: string;
   label: string; // verbatim column heading
   /**
    * THE HEADING THE PAPER PRINTS OVER THE COLUMN, where its name (`label`, which

@@ -31,81 +31,104 @@ const blank = (w: number, more: Partial<PaperCell> = {}): PaperCell => ({ w, t: 
 // 31 days x 5.7 Excel characters; rows 39 / 42 / 42 / 45 pt, an area 39 pt, the two signature rows 45 pt.
 
 const D15 = { no: 6.0, area: 46.0, cleaning: 43.5, day: 5.6 };
-/** The table's width: 269.1 mm on the A4 landscape page. */
+/** The table's width: 269.1 mm on the A4 landscape page, whatever the month (§378: a shorter month's days are drawn wider). */
 export const FHR15_WIDTH = D15.no + D15.area + D15.cleaning + 31 * D15.day;
-/** The first five columns his "Month & Year" cell spans (A to E), the title's 22 days (F to AA), the number's 7 (AB to AH). */
-const FHR15_MONTH_W = D15.no + D15.area + D15.cleaning + 2 * D15.day;
-const FHR15_TITLE_W = 22 * D15.day;
-const FHR15_NUMBER_W = 7 * D15.day;
 
 const HEAD_PT = 9.2;
 const BODY_PT = 8;
 /** Two lines of an area's words, 3.2 mm apart, with room above and below them in an 8 mm row (§373: the words touched the rules). */
 const AREA_LH = 3.2;
 
-const dayCells = (ln: number): PaperCell[] => Array.from({ length: 31 }, (_, i): PaperCell => ({ w: D15.day, col: `d${i + 1}`, ln, a: "c", vm: true }));
-
 /** The record's 17 areas and its two signature lines (rowMode.rows of hr-daily-cleaning). */
 const FHR15_AREAS = 17;
 
-const fhr15Head: PaperRow[] = [
-  { h: 7.4, cells: [{ w: FHR15_WIDTH, t: HR_PAPER_COMPANY, pt: HEAD_PT, b: true, u: true, a: "c", vm: true, heavy: "b" }] },
-  {
-    h: 8.2,
-    cells: [
-      // "Month & Year : - " and the month written after it, in the cell his sheet merges over A to E.
-      { w: FHR15_MONTH_W, t: "Month & Year : - ", pt: HEAD_PT, b: true, x: 1.2, vm: true, heavy: "rb", over: [{ box: "monthYear", x: 25.5, y: 1.6, w: 77, h: 5.0 }] },
-      { w: FHR15_TITLE_W, t: "DAILY CLEANING RECORD", pt: HEAD_PT, b: true, u: true, a: "c", vm: true, heavy: "rb" },
-      { w: FHR15_NUMBER_W, t: "F/HR/15 (01/15.12.2024)", pt: HEAD_PT, b: true, a: "c", vm: true, heavy: "rb" },
-    ],
-  },
-  // The NOTE inside the frame, across the sheet (the layout's own words, as the format keeps them).
-  { h: 8.0, cells: [{ w: FHR15_WIDTH, lab: "@instructions:0", pt: HEAD_PT, b: true, x: 1.2, vm: true, heavy: "b" }] },
-];
+/**
+ * F/HR/15 DRAWN WITH ITS MONTH'S DAYS (the owner, 25-Nov-2026, REQUIREMENTS §378: "the days should come according to the month of
+ * the days like November has 30 days"): 1 to 28, 29, 30 or 31, the day columns sharing his 31 columns' width so the sheet still
+ * fills the A4 page; the title over the days but his two before it and his seven of the number after it.
+ */
+function fhr15Paper(days: number): PaperTable {
+  const n = Math.min(31, Math.max(28, Math.round(days)));
+  const day = (31 * D15.day) / n;
+  /** The first five columns his "Month & Year" cell spans (A to E), the title over the days between, the number's last 7. */
+  const monthW = D15.no + D15.area + D15.cleaning + 2 * day;
+  const titleW = (n - 9) * day;
+  const numberW = 7 * day;
+  const dayCells = (ln: number): PaperCell[] => Array.from({ length: n }, (_, i): PaperCell => ({ w: day, col: `d${i + 1}`, ln, a: "c", vm: true }));
 
-const fhr15Body: PaperRow[] = [
-  // "#", the two area columns with no heading (as his sheet), and the days 1 to 31.
-  {
-    h: 8.2,
-    head: true,
-    cells: [
-      { w: D15.no, t: "#", pt: BODY_PT, b: true, a: "c", vm: true },
-      blank(D15.area),
-      blank(D15.cleaning),
-      ...Array.from({ length: 31 }, (_, i): PaperCell => ({ w: D15.day, t: String(i + 1), pt: BODY_PT, b: true, a: "c", vm: true })),
-    ],
-  },
-  ...Array.from({ length: FHR15_AREAS }, (_, ln): PaperRow => ({
-    h: 8.0,
-    cells: [
-      { w: D15.no, col: "no", ln, pt: BODY_PT, b: true, a: "c", vm: true },
-      { w: D15.area, col: "parameter", ln, pt: BODY_PT, b: true, x: 1.0, lh: AREA_LH, vm: true },
-      { w: D15.cleaning, col: "cleaning", ln, pt: BODY_PT, b: true, x: 1.0, lh: AREA_LH, vm: true },
-      ...dayCells(ln),
-    ],
-  })),
-  // "Cleaning done by" and "Cleaning verified by": right-aligned in one cell across #, the area and the cleaning (A:C merged).
-  ...[FHR15_AREAS, FHR15_AREAS + 1].map(
-    (ln): PaperRow => ({
+  const head: PaperRow[] = [
+    { h: 7.4, cells: [{ w: FHR15_WIDTH, t: HR_PAPER_COMPANY, pt: HEAD_PT, b: true, u: true, a: "c", vm: true, heavy: "b" }] },
+    {
       h: 8.2,
-      cells: [{ w: D15.no + D15.area + D15.cleaning, col: "parameter", ln, pt: BODY_PT, b: true, a: "r", vm: true }, ...dayCells(ln)],
-    })
-  ),
-];
+      cells: [
+        // "Month & Year : - " and the month written after it, in the cell his sheet merges over A to E.
+        { w: monthW, t: "Month & Year : - ", pt: HEAD_PT, b: true, x: 1.2, vm: true, heavy: "rb", over: [{ box: "monthYear", x: 25.5, y: 1.6, w: 77, h: 5.0 }] },
+        { w: titleW, t: "DAILY CLEANING RECORD", pt: HEAD_PT, b: true, u: true, a: "c", vm: true, heavy: "rb" },
+        { w: numberW, t: "F/HR/15 (01/15.12.2024)", pt: HEAD_PT, b: true, a: "c", vm: true, heavy: "rb" },
+      ],
+    },
+    // The NOTE inside the frame, across the sheet (the layout's own words, as the format keeps them).
+    { h: 8.0, cells: [{ w: FHR15_WIDTH, lab: "@instructions:0", pt: HEAD_PT, b: true, x: 1.2, vm: true, heavy: "b" }] },
+  ];
 
-export const FHR15_PAPER: PaperTable = {
-  page: "landscape",
-  left: 14,
-  top: 12,
-  font: "calibri",
-  pt: BODY_PT,
-  frame: "heavy",
-  ownWords: true,
-  fillA4: true,
-  head: fhr15Head,
-  body: fhr15Body,
-  foot: [],
-};
+  const body: PaperRow[] = [
+    // "#", the two area columns with no heading (as his sheet), and the month's days.
+    {
+      h: 8.2,
+      head: true,
+      cells: [
+        { w: D15.no, t: "#", pt: BODY_PT, b: true, a: "c", vm: true },
+        blank(D15.area),
+        blank(D15.cleaning),
+        ...Array.from({ length: n }, (_, i): PaperCell => ({ w: day, t: String(i + 1), pt: BODY_PT, b: true, a: "c", vm: true })),
+      ],
+    },
+    ...Array.from({ length: FHR15_AREAS }, (_, ln): PaperRow => ({
+      h: 8.0,
+      cells: [
+        { w: D15.no, col: "no", ln, pt: BODY_PT, b: true, a: "c", vm: true },
+        { w: D15.area, col: "parameter", ln, pt: BODY_PT, b: true, x: 1.0, lh: AREA_LH, vm: true },
+        { w: D15.cleaning, col: "cleaning", ln, pt: BODY_PT, b: true, x: 1.0, lh: AREA_LH, vm: true },
+        ...dayCells(ln),
+      ],
+    })),
+    // "Cleaning done by" and "Cleaning verified by": right-aligned in one cell across #, the area and the cleaning (A:C merged).
+    ...[FHR15_AREAS, FHR15_AREAS + 1].map(
+      (ln): PaperRow => ({
+        h: 8.2,
+        cells: [{ w: D15.no + D15.area + D15.cleaning, col: "parameter", ln, pt: BODY_PT, b: true, a: "r", vm: true }, ...dayCells(ln)],
+      })
+    ),
+  ];
+
+  return {
+    page: "landscape",
+    left: 14,
+    top: 12,
+    font: "calibri",
+    pt: BODY_PT,
+    frame: "heavy",
+    ownWords: true,
+    fillA4: true,
+    head,
+    body,
+    foot: [],
+    // A day the month has not (the 31st of November): kept on the record, not drawn.
+    ...(n < 31 ? { offPaper: Array.from({ length: 31 - n }, (_, i) => `d${n + i + 1}`) } : {}),
+  };
+}
+
+const FHR15_BY_DAYS = new Map<number, PaperTable>();
+/** F/HR/15 for a month of this many days (the same drawing every time for one month length). */
+export function fhr15PaperFor(days: number): PaperTable {
+  const n = Math.min(31, Math.max(28, Math.round(days) || 31));
+  let form = FHR15_BY_DAYS.get(n);
+  if (!form) FHR15_BY_DAYS.set(n, (form = fhr15Paper(n)));
+  return form;
+}
+
+/** F/HR/15 as the format stands, 1 to 31 (a sheet is drawn with its own month's days: fhr15PaperFor). */
+export const FHR15_PAPER: PaperTable = fhr15PaperFor(31);
 
 // ---------------------------------------------------------------------------
 // F/HR/16 MONTHLY CLEANING RECORD (01/15.12.2024): A1:P24 of his sheet. Columns # 5 | Area 34.9 | Walls & Ceiling + Glass doors

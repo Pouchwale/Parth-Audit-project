@@ -8,6 +8,8 @@ import { createPortal } from "react-dom";
 import { PLAIN_TWIN_ATTR, registerPaperTwin } from "../../utils/paperTwin";
 import { EXTRA_BOX, isExtraBox, listTables, rowWords, shownRows, withRecordBoxRows, withRowAdded, withRowRemoved } from "../../engine/boxRows";
 import { setShownPaperTable } from "../../data/seed/qcPaperTables";
+import { fhr15PaperFor } from "../../data/seed/hrPapers357";
+import { daysOfSheet, TICK, tickCell } from "../../engine/cleaningMonth";
 import { unitized } from "../../engine/calibration";
 import { FiAlertTriangle, FiPlus, FiRotateCcw, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetLayout, LogSheetRow, RecordInstance, ReferenceTable, SheetPhoto } from "../../types";
@@ -622,7 +624,13 @@ export function LogSheetRecordView({
   // §117 round 2) is drawn as that table, row by row, in the paper's millimetres (components/records/PaperTableSheet.tsx).
   // (only while the paper still fits the format: one the plant has edited since is drawn as every grid is)
   // (a record written on a revision since replaced keeps its own page, never the format's paper: F/MNT/11's 2024 and 2025 rounds, §316)
-  const ptForm = !frame && !lc && !asPlainTwin && !superseded ? paperTableFor(layout.documentId) : undefined;
+  // (F/HR/15 drawn with its month's days, 28 to 31: its Month & Year, else its own month, §378)
+  const ptForm =
+    !frame && !lc && !asPlainTwin && !superseded
+      ? layout.documentId === "hr-daily-cleaning"
+        ? fhr15PaperFor(daysOfSheet(data.header?.monthYear, record.dueDate))
+        : paperTableFor(layout.documentId)
+      : undefined;
   // ...its tables of boxes with the record's own rows (§246, engine/boxRows.ts).
   const ptFormed = ptForm && paperTableFits(ptForm, layout) ? withRecordBoxRows(ptForm, layout, data) : undefined;
   // The rows this record put in or took off (§276).
@@ -998,6 +1006,7 @@ export function LogSheetRecordView({
         <div className={`pt-box${judge(row, c, fixedRow) ? " cell-out-of-band" : ""}`}>
           <CellInput
             col={col}
+            tick={tickCell(col, row)}
             bind={bindProps(logCellBind(row, line, col, logRowName(row, layout.columns)))}
             issuedLabel={issued?.columns[ci]?.label ?? c.label}
             value={row[key]}
@@ -2225,6 +2234,7 @@ function PanelGrid({
                         <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
                           <CellInput
                             col={c}
+                            tick={tickCell(c, row)}
                             bind={bindProps(logCellBind(row, i, c, rowName))}
                             issuedLabel={issuedColumns?.[at]?.label ?? c.label}
                             value={c.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
@@ -2397,6 +2407,7 @@ function AcrossGrid({
                   <td key={row.id} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
                     <CellInput
                       col={col}
+                      tick={tickCell(col, row)}
                       bind={bindProps(logCellBind(row, i, col, logRowName(row, columns)))}
                       issuedLabel={issuedColumns?.[ci]?.label ?? c.label}
                       // A printed cell (the colour's number) reads in the chosen language; a written one as it was written.
@@ -2462,6 +2473,7 @@ function AnswerAcrossGrid({
       <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""} {...extra}>
         <CellInput
           col={col}
+          tick={tickCell(col, row)}
           bind={bindProps(logCellBind(row, i, col, logRowName(row, columns)))}
           issuedLabel={issuedColumns?.[at]?.label ?? c.label}
           // A printed cell (the line's number, its words) reads in the chosen language; a written one as it was written.
@@ -2714,6 +2726,7 @@ const SheetRow = React.memo(function SheetRow({
           >
             <CellInput
               col={col}
+              tick={tickCell(col, row)}
               bind={bindProps(logCellBind(row, index, col, rowName))}
               issuedLabel={issuedColumns?.[ci]?.label ?? c.label}
               // A printed cell — the parameter, the material, the specification
@@ -2783,6 +2796,7 @@ const SheetRow = React.memo(function SheetRow({
             <td key={c.key} className={judge(row, under, fixedRow) ? "cell-out-of-band" : ""} data-beneath={under.key}>
               <CellInput
                 col={under}
+                tick={tickCell(under, row)}
                 bind={bindProps(logCellBind(row, index, under, rowName))}
                 issuedLabel={under.label}
                 value={row[under.key]}
@@ -3132,6 +3146,7 @@ function CellInput({
   onBlur,
   bind,
   paper,
+  tick,
 }: {
   col: LogColumn;
   /** As in HeaderFieldInput: the issued label, so a signature column is one in either language. */
@@ -3146,7 +3161,40 @@ function CellInput({
   bind?: Record<string, string>;
   /** On the paper's own table: a printed cell's lines are the paper's paragraphs, a heading of a few capitals ending in a colon in bold (F/QC/05's PVC BLOWN:). */
   paper?: boolean;
+  /** A tick box (LogColumn.tickOnLinesWith, §378): a click puts the tick, another takes it off. */
+  tick?: boolean;
 }) {
+  // A TICK BOX (F/HR/15's and F/HR/16's area boxes, REQUIREMENTS §378): the box shows the tick, a click (or Space / Enter) puts it or
+  // takes it off. It stays a box with its value, so the print, Word and Excel read the tick as they read a written box; a word
+  // written before the tick shows as written, and a click clears it.
+  if (tick && !col.fixed) {
+    const shown = String(value ?? "").trim();
+    const toggle = () => onChange(shown ? "" : TICK);
+    return (
+      <input
+        className="input input-sm tick-box"
+        {...bind}
+        data-tick={shown === TICK ? "on" : ""}
+        readOnly
+        disabled={!editable}
+        value={shown}
+        aria-label={`${col.label}: ${shown ? "ticked, click to clear" : "click to tick"}`}
+        title={editable ? (shown ? "Click to clear" : "Click to tick") : undefined}
+        onClick={editable ? toggle : undefined}
+        onKeyDown={
+          editable
+            ? (e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  toggle();
+                }
+              }
+            : undefined
+        }
+        style={{ cursor: editable ? "pointer" : undefined, textAlign: "center", caretColor: "transparent", fontWeight: 700 }}
+      />
+    );
+  }
   // A LINE'S PRINTED WORDS (a parameter, a specification, a check point's question) are drawn as the paper draws them,
   // and typed over on the record while it can be written on (REQUIREMENTS §135): the record's own words for the line.
   if (col.fixed && paper) {
