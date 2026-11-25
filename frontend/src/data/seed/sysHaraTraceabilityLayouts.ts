@@ -221,11 +221,48 @@ export function haraTeamValues(team: [name: string, designation: string][]): Rec
 // ===========================================================================
 
 /**
- * The 24 verification attributes and the reference documents printed beside
- * each, in the page's order. Both are the format's: the meeting answers Status,
- * Verification status and Review comments against them.
+ * THE FORMAT'S 28 VERIFICATION ATTRIBUTES, as the owner's own blank page prints them (REQUIREMENTS §371; his "F-SYS-12-Monthly HARA
+ * Verification", MONTHLY HARA VERIFICATION, Rev No: 00, Date: 01.12.2021). Rows 1 to 24 keep their places (and the record's lines
+ * theirs); 2, 16, 17 and 24 are in his words, 25 to 28 are his. His Reference documents / records column is left for the meeting
+ * to write, so no reference is printed. The page of 22 April 2024 was the earlier wording, below.
  */
-export const HARA_MONTHLY_ROWS: { attribute: string; reference: string }[] = (
+export const HARA_MONTHLY_ROWS: { attribute: string }[] = [
+  "Is there any change in Product Safety Policy?",
+  "Has there been any change in the HARA Team / Product safety team?",
+  "Have any changes been made in existing premises?",
+  "Is there any change in plant layout?",
+  "Have any new equipment been installed?",
+  "Is cleaning & sanitation being carried out as per plan?",
+  "Has any new product been introduced?",
+  "Has any new Raw Material been introduced?",
+  "Has any new packing material been introduced?",
+  "Is there any change in process sequence?",
+  "Are there any changes in Process Control Norms?",
+  "Has training been provided to new employees?",
+  "Is pest control being carried out as per planned frequency?",
+  "Has any new Hazards been identified?",
+  "Process noncompliance",
+  "Has any actual recall or withdrawal of products been made due to product safety?",
+  "Does result of mock recall (if carried out) found satisfactory",
+  "Any new supplier / service provider added?",
+  "Any customer complaints received?",
+  "Any Product safety incident reported?",
+  "Any employee found with cut or injury?",
+  "Any site security violation reported?",
+  "Deviation in CCP",
+  "Does personal hygiene monitoring indicate any concerns / area of improvement",
+  "Does Plant sanitation & hygiene monitoring indicate any concerns / area of improvement",
+  "Results of Internal audit / Customer audit / 3rd party audit such as certification body or regulatory body",
+  "New development in terms of process or material or equipment concerning our industry",
+  "Any new hazard or risk identified, through review of HARA system or industry sources or reference materials from the website / magazines of packaging industry",
+].map((attribute) => ({ attribute }));
+
+/**
+ * The 24 verification attributes and the reference documents printed beside
+ * each on the page of 22 April 2024, in that page's order (the meeting's record
+ * holds them as they were written).
+ */
+export const HARA_MONTHLY_2024_04_ROWS: { attribute: string; reference: string }[] = (
   [
     ["Is there any change in Product Safety Policy?", "Annexure – A, (BRCGS Manual – PSMS/M/01)"],
     ["Has there been any change in the HARA Team?", "Appendix A (HARA Manual – PSMS/M/02)"],
@@ -274,13 +311,16 @@ const HARA_MONTHLY: LogSheetLayout = {
   // The title carries the meeting's date: "… MEETING RECORD – 22 April 2024".
   headerFields: [
     { key: "meetingDate", label: "MONTHLY REVIEW & HARA VERIFICATION MEETING RECORD –", type: "date", required: true, autoFill: { dueDate: true } },
+    // His page's "Month: -" beside "Review date: -" (REQUIREMENTS §371).
+    { key: "month", label: "Month", type: "text" },
   ],
-  // The attribute and its references are printed; the three answers are this
-  // month's meeting's, never last month's.
+  // The attribute is printed; the three answers are this month's meeting's,
+  // never last month's. His page leaves Reference documents / records for the
+  // meeting to write (REQUIREMENTS §371).
   columns: [
     { key: "attribute", label: "Verification attributes", type: "text", fixed: true, width: 320 },
     { key: "status", label: "Status (Yes/No)", type: "yesno", width: 100, autoFill: { fresh: true } },
-    { key: "reference", label: "Reference documents / records", type: "text", fixed: true, width: 200 },
+    { key: "reference", label: "Reference documents / records", type: "text", width: 200, multiline: true, autoFill: { fresh: true } },
     { key: "verification", label: "Verification status (C / NC)", type: "select", options: ["C", "NC"], width: 120, autoFill: { fresh: true } },
     // A comment runs to a sentence ("1 complaint received in Sleeve segment in
     // this month & has been actioned as per CAR form"), so it is written in a box
@@ -533,6 +573,14 @@ const MOCK_RECALL: LogSheetLayout = {
     { key: "customerLocation", label: `${CUSTOMER} — Location`, type: "text" },
     { key: "contactName", label: `${CONTACT} — Name`, type: "text", list: NOT_EMPLOYEES },
     { key: "contactPosition", label: `${CONTACT} — Position`, type: "text", list: NOT_EMPLOYEES },
+    // His blank page's rows the plant's 2025 pages left out (REQUIREMENTS §371): the customer's site senior management, and how
+    // the contact person was reached.
+    { key: "siteSeniorName", label: `${CUSTOMER} — Site senior management - Name`, type: "text", list: NOT_EMPLOYEES },
+    { key: "siteSeniorDesignation", label: `${CUSTOMER} — Designation of Site senior management`, type: "text", list: NOT_EMPLOYEES },
+    // (labelled by the table and the paper's own word beside the box, as his file is filled by them: "Contacted by" heads the three)
+    { key: "contactEmail", label: `${CONTACT} — e-mail`, type: "text", list: NOT_EMPLOYEES },
+    { key: "contactPhone", label: `${CONTACT} — Phone`, type: "text", list: NOT_EMPLOYEES },
+    { key: "contactFax", label: `${CONTACT} — Fax`, type: "text", list: NOT_EMPLOYEES },
     { key: "fgCode", label: "FG code", type: "text" },
     { key: "productionOrderNumber", label: "Production order number", type: "text" },
     { key: "salesOrderNumber", label: "Sales order number", type: "text" },

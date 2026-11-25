@@ -14241,3 +14241,66 @@ originals (FORMAT-AUDIT-24-11-2026.md) found these eleven MAJOR. Each is now dra
   (F-QC-19 is the card's pages, not a grid of panels), qcPaperTables.test.ts (F/QC/08 and F/QC/16 stand in the middle of the
   page's width as every own-words paper, and F/QC/08 is drawn measured for reading), qcPaperFormatsMore.test.ts (a line clearance
   format saved before §111 carried no printed headings).
+## §371 F/SYS/12, 13, 14, 15, 16 and 20 drawn and printed as the owner's papers (25-Nov-2026)
+
+The owner, 24-Nov-2026: "same format present in my system which is present in google drive ... whenever user download any
+document of any module or take a print on A4 size paper, that should be very perfect". The six System / Management formats the
+format audit of 24-Nov-2026 marked MAJOR are each drawn as his own page, measured in mm off his file and its printout: his
+letterhead and title, his format line where he prints it, his columns and words in his letter case, his ruled lines, on as many
+A4 pages as his file. Every printed word is the record's to type over (§275); no shade (§282); every place a person writes is the
+format's own box or column, so the records already written read on as they were.
+
+- F/SYS/12 Monthly HARA Verification: his blank Word file (MONTHLY HARA VERIFICATION, Rev No: 00, Date: 01.12.2021) with its
+  double page border, the three-line head with "Page No.: 1 of 2", "Month: -" and "Review date: -", the column headings in his
+  case, 28 verification attributes and the HARA Review Team table of six lines (Sr.no. | Name of Product safety team member |
+  Designation | Sign). The attributes are the register's lines: a page that runs out starts again with the head, Month / Review
+  date and the headings, as his file repeats them. The format's rows follow his page: rows 1, 3 to 15 and 18 to 23 are unchanged
+  and keep their places; row 2 reads "... HARA Team / Product safety team?", row 16 "Has any actual recall or withdrawal of
+  products ...", row 17 "Does result of mock recall (if carried out) found satisfactory", row 24 "Does personal hygiene monitoring
+  indicate any concerns / area of improvement"; rows 25 to 28 are added (plant sanitation & hygiene monitoring, results of
+  internal / customer / 3rd party audits, new developments, new hazard or risk). His Reference documents / records column is
+  written by the meeting (no longer printed text); a Month box is added beside the Review date. The meeting of 22 April 2024 keeps
+  its 24 lines and references as written (data/seed HARA_MONTHLY_2024_04_ROWS); on a record of the earlier 24 lines, rows 2, 16,
+  17 and 24 read as that record wrote them, 25 to 28 print blank, and Edit offers to bring back the printed lines it does not hold.
+  Left as it is: the format number is printed after "Format No.:" (his blank leaves it empty, his filled pages print F/SYS/12);
+  the team's seventh and eighth boxes are kept on the record, not printed (his table has six lines); row 16's "or withdrawal" is
+  not set in bold italic (a printed line is one style).
+- F/SYS/13 Mock Product Withdrawal Record: his blank Excel sheet, its columns and rows, the frame round the page: Date / Start Time
+  / End time / Total time, Customer Information with Site senior management - Name and Designation, Contact Person with Contacted
+  by e-mail / Phone / Fax (five optional boxes added to the format), the Information of the product box (the record's FG code,
+  orders, job, dispatch, invoice, quantity, scenario and telephonic conversation written in it as the plant writes them), Response
+  from Customer, the Responsible table (Quality, Dispatch, Flexo - Production, Sales & Marketing, as the format prints them),
+  Product Traced % on its line, Yes / No in his two boxes, Why was effective? and Comments. The format number
+  "F/SYS/13(00/01.12.2021)" stands in the title row's right cell, as his sheet in use since 2025 prints it (his blank has none);
+  the product (LABEL, SHRINK SLEEVE, Pouch) follows the title. His 8 pt note is set at 9.5 pt so it prints over 8 pt.
+- F/SYS/14 Backward Traceability Record: his numbered Label page (F-SYS-14 ... Label- Aculife), the two-line head on both pages, the
+  lot's table, Description / Observation, Packing Quantity's writing room, page 2 with Box number, Reel number and Verified By, and
+  "F/SYS/14 (00/01.12.2021)" at the foot of each page.
+- F/SYS/15 Forward Traceability Check List: his numbered Label page: the material's table, Description / Observation with the 1st
+  Issue's eleven lines (the record's first line), Verified By, "F/SYS/15 (00/01.12.2021)" at the page's foot. A second issue is
+  written by adding rows (§276).
+- F/SYS/16 Quality & Product Safety Objectives: his 2026 sheet ("2026 - H1", Drive: BRCGS 25-26), landscape: Sr. No. | Department /
+  Processes | Parameter / Attribute | Unit | Plan / Actual | January ... June | Total | % Achieved, each objective a Plan and an
+  Actual row and objective 8 an Actual - meters row too; the months his sheet writes once (objectives 4, 5, 6, 9, 10, 11, 13, 14,
+  16) are one cell, held in January as before. Four pages of five objectives, his print titles (company, title with the year and
+  F/SYS/16 (00/01.12.2021), headings) on each, as his Excel workbook prints them. A sheet now starts with the 18 lines the page
+  prints (rowMode minRows 18), so each objective can be written on.
+- F/SYS/20 Annual HARA Review & Verification Record: his Word file of January 2026 (all four pages, the PDF on file lacks page 4):
+  the logo, the title, "F/SYS/20 (00 / 01.04.2025)" and "Page No.: n of N" and the double border on every page, the site's table,
+  1. Review Purpose, 2. Changes Reviewed with the twelve points (register lines that grow with what is observed), 3. CCMs / PRPs
+  Verified, then a page of its own for 4. Validation/Verification Summary, 5. Recommendations/Updates, 6. Conclusion, Next
+  scheduled review and 7.HARA Review Team (six lines; the seventh and eighth boxes kept, not printed). His page 3 starts the
+  summary under the CCMs; a written box is not split over two pages, so it starts the last page (the review of January 2026
+  prints on four pages, as his file).
+- F/SYS/12's attributes and F/SYS/20's points are the paper's words and size their own lines; one scoped print rule in styles.css
+  ([data-sheet="sys-hara-monthly"], [data-sheet="sys-hara-annual"]) keeps the line's sizing copy for a line a person wrote
+  (§207), so the paper's words are never printed twice.
+- Downloads are unchanged: F/SYS/12 downloads his Word file and F/SYS/13 his Excel file, filled (now that the format has his 28
+  rows, F/SYS/12's fills his file); the others DCRS's own Word and Excel.
+- For the owner: F/SYS/12, his monthly records of 2024-2025 still use a 24-line page titled "MONTHLY REVIEW & HARA VERIFICATION
+  MEETING RECORD" with the references printed, both at Rev 00 / 01.12.2021; F/SYS/13, his 2025 sheets drop the Site senior
+  management and Contacted by rows; F/SYS/14 has a rev 01 (01.04.2025) pouch page in his Drive; his blank files of F/SYS/12 and 13
+  carry no format number, so their downloads have none.
+- Files: data/seed/sysPapers354.ts, qcPaperTables.ts (the lookup), sysHaraTraceabilityLayouts.ts, sysHaraTraceabilityRecords.ts,
+  sysManagementReviewLayouts.ts, styles.css. Tests: frontend/tests/sysPapers354.test.ts; sysModule.test.ts (a new F/SYS/12 has 28
+  questions, was 24).

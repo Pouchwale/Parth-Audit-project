@@ -4,7 +4,7 @@ import {
   HARA_ANNUAL_2026_01_TEAM,
   HARA_ANNUAL_POINTS,
   HARA_MONTHLY_2024_04_TEAM,
-  HARA_MONTHLY_ROWS,
+  HARA_MONTHLY_2024_04_ROWS,
   MOCK_RECALL_2025_02_TEAM,
   MOCK_RECALL_FUNCTIONS,
   SITE_SECURITY_POINTS,
@@ -118,7 +118,7 @@ const HARA_MONTHLY_2024_04_ANSWERS: [status: string, verification: string, comme
 
 export const SEED_SYS_HARA_MONTHLY_2024_04 = seeded("seed-sys-hara-monthly-2024-04", "sys-hara-monthly", "2024-04-22", {
   header: boxes("sys-hara-monthly", { meetingDate: "2024-04-22", ...haraTeamValues(HARA_MONTHLY_2024_04_TEAM) }),
-  rows: HARA_MONTHLY_ROWS.map((printed, i) => {
+  rows: HARA_MONTHLY_2024_04_ROWS.map((printed, i) => {
     const [status, verification, comments] = HARA_MONTHLY_2024_04_ANSWERS[i];
     return line("sys-hara-monthly", `r${i + 1}`, { ...printed, status, verification, comments });
   }),

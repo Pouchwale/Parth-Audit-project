@@ -83,7 +83,8 @@ test("a new monthly HARA verification carries the questions and the team, never 
   assert.ok(filled);
   const data = filled!.data as LogSheetData;
   const lines = data.rows;
-  assert.equal(lines.length, 24, "the 24 printed questions");
+  // (the owner's page prints 28, REQUIREMENTS §371)
+  assert.equal(lines.length, 28, "the 28 printed questions");
   assert.ok(lines.every((r) => String(r.attribute ?? "").trim() !== ""), "every question is printed on it");
   for (const key of ["status", "verification", "comments"]) {
     assert.ok(lines.every((r) => r[key] === "" || r[key] === null || r[key] === undefined), `no ${key} carried from April 2024`);

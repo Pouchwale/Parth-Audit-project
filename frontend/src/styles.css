@@ -4007,6 +4007,9 @@ table.svc-paper {
 .paper-sheet[data-sheet="qc-obsolete-artwork"] .pt-table.pt-frame.pt-body thead tr:last-child td.pt-c { border-bottom: var(--pt-bd); }
 /* F-QC-19 (§370): each of the card's labels on its one line, as the card prints it. */
 .paper-sheet[data-sheet="qc-tolerance-card-nivea"] .pt-table td.pt-c { white-space: pre; }
+/* F/SYS/12's attributes and F/SYS/20's points are the paper's own words in their own cell, and size their line themselves: the
+   copy is for a line a person wrote in a box (a line of their own, §207), never a second print of the paper's words (§371). */
+:is([data-sheet="sys-hara-monthly"], [data-sheet="sys-hara-annual"]) .pt-table td.pt-c.pt-grow:has(> .pt-words) > .pt-sizer { display: none; }
 /* QC-PAPER-TABLES end */
 
 /* QC-CALIBRATION begin */

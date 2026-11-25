@@ -750,7 +750,8 @@ const OBJECTIVES: LogSheetLayout = {
     ...OBJECTIVE_MONTHS.map((m): LogColumn => ({ key: objectiveKey(m.key, "ActualMeters"), label: m.label, type: "text", width: 86, group: METERS, autoFill: { fresh: true } })),
     { key: "totalActualMeters", label: "Total", type: "text", width: 90, group: METERS, autoFill: { fresh: true } },
   ],
-  rowMode: { kind: "free", minRows: 1, typicalRows: 30 },
+  // A sheet keeps the eighteen objectives the owner's paper prints, so each can be written on it (REQUIREMENTS §371).
+  rowMode: { kind: "free", minRows: 18, typicalRows: 30 },
   specimenRows: OBJECTIVES_2026_ROWS.map((row) => Object.fromEntries(OBJECTIVE_CARRIED.map((k) => [k, row[k] ?? ""]))),
   originalPages: [
     page("fsys16-objectives-2026-p1.jpg", "F/SYS/16 — the 2026 objectives, PDF page 1: objectives 1 to 5, January to May, as supplied"),
