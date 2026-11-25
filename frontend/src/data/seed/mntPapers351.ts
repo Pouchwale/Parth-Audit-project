@@ -118,14 +118,23 @@ const EQUIPMENT_LIST_PAPER: PaperTable = {
 const MNT02_HYGIENE =
   "Hygiene clearance: - Prior to start of Maintenance activity, Product & product contact surfaces shall be adequately isolated / protected from maintenance debris, tools, cotton waste, lubricants etc. Maintenance Technician / Production in charge shall ensure that all the Maintenance related tools, lubricants, cotton waste, spares, are removed from the equipments after completion of the maintenance activity. Respective product supervisor/ in charge shall verify & acknowledge that post maintenance activity, equipment & Product contact surface is free from all tools, lubricant, cotton waste etc.";
 
-/** The page's width: 7.83 (the tables' left) to 201.72 (the head box's right) mm. */
-const PM_W = 193.89;
-/** The tables' own width (7.83 to 199.77) and the strip beside them under the head box's right edge. */
+/**
+ * ONE LEFT AND ONE RIGHT EDGE (the owner, 25-Nov-2026, REQUIREMENTS §379: "in mnt 2 format, allign this lines. and make it
+ * perfect"). The Word original stood its head box 2.67 mm right of the tables and page 2's table 1.91 mm in from both; now the
+ * head box, the machine table, the check points, the bands, the Remarks and page 2's table all run 191.94 mm, the tables' own
+ * width, centred on the A4 page (9.03 mm each side).
+ */
 const PM_T = 191.94;
-const PM_R = PM_W - PM_T;
-/** The head box stands 2.67 mm right of the tables (10.50 to 201.72). */
-const PM_HL = 2.67;
-const PM_HW = PM_W - PM_HL;
+const PM_W = PM_T;
+const PM_R = 0;
+const PM_HL = 0;
+const PM_HW = PM_W;
+/** The head box's four cells, in the original's proportions across the full width. */
+const PM_NUMBER_W = [56.87, 43.02, 44.8, 46.53].map((w) => Math.round(((w * PM_HW) / 191.22) * 100) / 100);
+PM_NUMBER_W[3] = Math.round((PM_HW - PM_NUMBER_W[0] - PM_NUMBER_W[1] - PM_NUMBER_W[2]) * 100) / 100;
+/** Page 2's three columns, in the original's proportions across the full width. */
+const PM_FIND_W = [37.26, 79.86, 71.94].map((w) => Math.round(((w * PM_W) / 189.06) * 100) / 100);
+PM_FIND_W[2] = Math.round((PM_W - PM_FIND_W[0] - PM_FIND_W[1]) * 100) / 100;
 const PM_TRIPLE_M = [17.87, 24.68, 21.05, 18.93, 24.68, 21.26, 17.96, 24.63, 20.88];
 const PM_TRIPLE_Q = [15.97, 15.96, 16.0, 16.01, 16.0, 16.01, 15.96, 16.01, 16.0, 16.01, 16.0, 16.01];
 const PM_TRIPLE_6 = [31.93, 32.01, 32.01, 31.97, 32.01, 32.01];
@@ -133,41 +142,56 @@ const PM_TRIPLE_Y = [63.94, 63.98, 64.02];
 const PM_COLS = ["date", "maintenance", "supervisor"];
 const PM_ROW = 7.7;
 
+/**
+ * The rows that lost the gap cell they began with (§379): their printed words keep the places they had (row:cell+1), so the words
+ * a record typed over them stay on their cells.
+ */
+const PM_SHIFTED = new WeakSet<PaperRow>();
+const pmShifted = (r: PaperRow): PaperRow => (PM_SHIFTED.add(r), r);
+function pmKeptPlaces(form: PaperTable): PaperTable {
+  const fix = (r: PaperRow, at: number): PaperRow =>
+    PM_SHIFTED.has(r)
+      ? { ...r, cells: r.cells.map((c, ci) => (c.t ? { ...c, pl: c.pl ? c.pl.replace(/:(\d+)$/, (_, n: string) => `:${Number(n) + 1}`) : `${at}:${ci + 1}` } : c)) }
+      : r;
+  return { ...form, head: form.head.map((r, i) => fix(r, i)), body: form.body.map((r, i) => fix(r, form.head.length + i)) };
+}
+
 function pmHead(page: number): PaperRow[] {
   const first = page === 1;
   const rows: PaperRow[] = [
-    { h: 13.16, cells: [gap(PM_HL), word(PM_HW, COMPANY, { b: true, a: "c", pt: 16, heavy: "b", edges: "ltr" })] },
-    { h: 13.01, cells: [gap(PM_HL), word(PM_HW, "PREVENTIVE MAINTENANCE SCHEDULE & RECORD", { b: true, u: true, a: "c", pt: 14, edges: "lr" })] },
+    { h: 13.16, cells: [...gapEnd(PM_HL), word(PM_HW, COMPANY, { b: true, a: "c", pt: 16, heavy: "b", edges: "ltr" })] },
+    { h: 13.01, cells: [...gapEnd(PM_HL), word(PM_HW, "PREVENTIVE MAINTENANCE SCHEDULE & RECORD", { b: true, u: true, a: "c", pt: 14, edges: "lr" })] },
     {
       h: 8.17,
       cells: [
-        gap(PM_HL),
-        word(56.87, "Format No.: F/MNT/02", { pt: 11, x: 1.65, heavy: "b", edges: "ltr" }),
-        word(43.02, "Rev No: 01", { pt: 11, x: 1.65, heavy: "b", edges: "ltr" }),
-        word(44.8, "Date: 01.12.2021", { pt: 11, x: 1.69, heavy: "b", edges: "ltr" }),
-        word(46.53, `Page No.: ${page} Of 2`, { pt: 11, x: 1.65, heavy: "b", edges: "ltr" }),
+        ...gapEnd(PM_HL),
+        word(PM_NUMBER_W[0], "Format No.: F/MNT/02", { pt: 11, x: 1.65, heavy: "b", edges: "ltr" }),
+        word(PM_NUMBER_W[1], "Rev No: 01", { pt: 11, x: 1.65, heavy: "b", edges: "ltr" }),
+        word(PM_NUMBER_W[2], "Date: 01.12.2021", { pt: 11, x: 1.69, heavy: "b", edges: "ltr" }),
+        word(PM_NUMBER_W[3], `Page No.: ${page} Of 2`, { pt: 11, x: 1.65, heavy: "b", edges: "ltr" }),
       ],
     },
   ];
-  if (first) return rows;
+  if (first) return rows.map(pmShifted);
   // (page 2 prints page 1's words again, typed over once; its own page number stays its own)
-  return rows.map((r, i) => ({ ...samePlaces(r, i, i === 2 ? [4] : []), ...(i === 0 ? { pb: true as const } : {}) }));
+  return rows.map((r, i) => pmShifted({ ...samePlaces(r, i, i === 2 ? [3] : []), ...(i === 0 ? { pb: true as const } : {}) }));
 }
 
 /** A band's label ("Monthly Preventive maintenance") across the table. */
-const pmBand = (t: string, h: number): PaperRow => ({ h, cells: [word(PM_T, t, { b: true, pt: 10, x: 1.91 }), gap(PM_R)] });
+const pmBand = (t: string, h: number): PaperRow => ({ h, cells: [word(PM_T, t, { b: true, pt: 10, x: 1.91 }), ...gapEnd(PM_R)] });
 /** A band's headings (Date / Maintenance / Supervisor, three at a time) and the line under them for its slots. */
 function pmTriples(widths: number[], heads: string[], firstSlot: number, withEntry = true): PaperRow[] {
-  const rows: PaperRow[] = [{ h: PM_ROW, cells: [...widths.map((w, i) => word(w, heads[i % 3], { pt: 10, a: "c" })), gap(PM_R)] }];
-  if (withEntry) rows.push({ h: PM_ROW, cells: [...widths.map((w, i) => gridCell(w, PM_COLS[i % 3], firstSlot + Math.floor(i / 3), { pt: 10, a: "c" })), gap(PM_R)] });
+  const rows: PaperRow[] = [{ h: PM_ROW, cells: [...widths.map((w, i) => word(w, heads[i % 3], { pt: 10, a: "c" })), ...gapEnd(PM_R)] }];
+  if (withEntry) rows.push({ h: PM_ROW, cells: [...widths.map((w, i) => gridCell(w, PM_COLS[i % 3], firstSlot + Math.floor(i / 3), { pt: 10, a: "c" })), ...gapEnd(PM_R)] });
   return rows;
 }
 const PM_HEADS = ["Date", "Maintenance", "Supervisor"];
 const PM_CHECK_W = [47.93, 46.37, 48.14, 49.5];
 
-const PM_RECORD_PAPER: PaperTable = {
+const PM_RECORD_PAPER: PaperTable = pmKeptPlaces({
   page: "portrait",
-  left: 7.83,
+  // Centred on the A4 page (§379).
+  left: Math.round(((210 - PM_W) / 2) * 100) / 100,
   top: 8.13,
   font: "calibri",
   pt: 10,
@@ -186,15 +210,15 @@ const PM_RECORD_PAPER: PaperTable = {
         boxCell(PM_CHECK_W[1], "machineName", { x: 1.91 }),
         word(PM_CHECK_W[2], "Machine Identification No", { b: true, x: 1.9 }),
         boxCell(PM_CHECK_W[3], "machineIdNo", { x: 1.94, b: true }),
-        gap(PM_R),
+        ...gapEnd(PM_R),
       ],
     },
-    { h: 4.48, cells: [...["Monthly Check points", "Monthly Check points", "6 Monthly Check points", "Yearly Check points"].map((t, i) => word(PM_CHECK_W[i], t, { b: true, x: 1.91 })), gap(PM_R)] },
+    { h: 4.48, cells: [...["Monthly Check points", "Monthly Check points", "6 Monthly Check points", "Yearly Check points"].map((t, i) => word(PM_CHECK_W[i], t, { b: true, x: 1.91 })), ...gapEnd(PM_R)] },
     {
       h: 23.88,
       cells: [
         ...["monthlyCheckPoints", "quarterlyCheckPoints", "sixMonthlyCheckPoints", "yearlyCheckPoints"].map((key, i): PaperCell => ({ w: PM_CHECK_W[i], box: key, lines: true, x: 1.91, y: 0.85, lh: 4.6 })),
-        gap(PM_R),
+        ...gapEnd(PM_R),
       ],
     },
     pmBand("Monthly Preventive maintenance", 7.67),
@@ -206,31 +230,29 @@ const PM_RECORD_PAPER: PaperTable = {
     pmBand("Yearly Preventive maintenance", 7.7),
     ...pmTriples(PM_TRIPLE_Y, PM_HEADS, 18),
     // The Hygiene clearance under the grids, its lead in bold, no rules round it.
-    { h: 33.74, cells: [{ w: PM_T, t: MNT02_HYGIENE, bs: [0, 20], pt: 10, x: 1.91, y: 0.84, lh: 4.66, edges: "" }, gap(PM_R)] },
-    { h: 10.62, cells: [gap(1.91), word(189.06, "Remarks / Any abnormal observation or findings during preventive maintenance", { b: true, u: true, x: 1.8 }), gap(PM_W - 1.91 - 189.06)] },
+    { h: 33.74, cells: [{ w: PM_T, t: MNT02_HYGIENE, bs: [0, 20], pt: 10, x: 1.91, y: 0.84, lh: 4.66, edges: "" }, ...gapEnd(PM_R)] },
+    pmShifted({ h: 10.62, cells: [word(PM_W, "Remarks / Any abnormal observation or findings during preventive maintenance", { b: true, u: true, x: 1.91 })] }),
     // PAGE 2: the head again, then the findings of each visit.
     ...pmHead(2),
-    {
+    pmShifted({
       h: 17.06,
       head: true,
       cells: [
-        gap(1.91),
-        word(37.26, "Date of Preventive\nmaintenance", { b: true, x: 1.9, lh: 6.43 }),
-        word(79.86, "Any abnormal findings / learning or observation", { b: true, x: 1.94 }),
-        word(71.94, "Action taken", { b: true, x: 1.94 }),
-        gap(PM_W - 1.91 - 37.26 - 79.86 - 71.94),
+        word(PM_FIND_W[0], "Date of Preventive\nmaintenance", { b: true, x: 1.9, lh: 6.43 }),
+        word(PM_FIND_W[1], "Any abnormal findings / learning or observation", { b: true, x: 1.94 }),
+        word(PM_FIND_W[2], "Action taken", { b: true, x: 1.94 }),
       ],
-    },
+    }),
     ...Array.from(
       { length: 19 },
       (_, ln): PaperRow => ({
         h: 10.33,
-        cells: [gap(1.91), gridCell(37.26, "date", ln, { x: 1.9 }), gridCell(79.86, "findings", ln, { x: 1.94 }), gridCell(71.94, "actionTaken", ln, { x: 1.94 }), gap(PM_W - 1.91 - 37.26 - 79.86 - 71.94)],
+        cells: [gridCell(PM_FIND_W[0], "date", ln, { x: 1.9 }), gridCell(PM_FIND_W[1], "findings", ln, { x: 1.94 }), gridCell(PM_FIND_W[2], "actionTaken", ln, { x: 1.94 })],
       })
     ),
   ],
   foot: [],
-};
+});
 
 // =====================================================================================================================
 // F/MNT/03 YEARLY PREVENTIVE MAINTENANCE SCHEDULE - 2023 (01/15.07.2026). The workbook's Sheet1 as its PDF prints it (Letter

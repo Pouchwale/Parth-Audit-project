@@ -14484,3 +14484,16 @@ of the days like November has 30 days like wise so do this fast for both hr-15 a
   tick; the open sheets' words), hrPapers357.test.ts as before; on the local copy: November's F/HR/15 1 to 30, 510 tick boxes,
   F/HR/16 216, a click ticks and clears and the tick stays after a reload; Word and Excel downloads opened in Word and Excel (Excel
   one landscape page, 33 columns), the print one A4 landscape page with the tick; the test account check (§206).
+
+## §379 F/MNT/02: the head box and the tables on one left and one right edge (25-Nov-2026)
+
+The owner, 25-Nov-2026, with F/MNT/02's top on the screen: "in mnt 2 format, allign this lines. and make it perfect".
+
+- The Word original stood its head box (company, title, Format No. / Rev No / Date / Page No.) 2.67 mm right of the tables under
+  it, and page 2's findings table and the Remarks 1.91 mm in from both edges. Now the head box, the machine table, the check
+  points, every Preventive maintenance band, the Hygiene clearance, the Remarks and page 2's table all run the tables' own width,
+  191.94 mm, centred on the A4 page; the head box's four cells and page 2's three columns keep the original's proportions
+  (data/seed/mntPapers351.ts).
+- A record's words typed over the moved cells stay on their cells (their places are kept: row and cell as before).
+- Proved: mntPapers351.test.ts; on the local copy the print's every vertical rule on both pages runs 11.9 to 197.9 mm, two A4
+  portrait pages; Word and Excel downloads opened in Word and Excel; the test account check (§206).
