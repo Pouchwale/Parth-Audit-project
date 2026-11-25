@@ -45,12 +45,14 @@ test("F/QC/09, 10, 38 Automatic: still read only, their renewal reminded", () =>
   if (other) assert.equal(other.automation.options.includes("Automatic"), false);
 });
 
-// (F-PRD-12 has its format since §306, 24-Nov-2026: F-PRD-11 is the one left without)
-test("F/PRD/11, no format in DCRS: marked Automatic, still shown as having no format; F-PRD-12 holds its format", () => {
+// (F-PRD-12 has its format since §306 and F-PRD-11 since §332, 25-Nov-2026, the owner's workbook from his Drive: F-PRD-25,
+// whose workbook on the Drive is empty, is a line left without)
+test("F/PRD/25, no format in DCRS: marked Automatic, still shown as having no format; F-PRD-11 and F-PRD-12 hold their formats", () => {
   fresh();
-  const lines = buildFormatLines().filter((l) => !l.doc && /PRD.1[12]$/.test(l.values.formatNo));
-  assert.deepEqual(lines.map((l) => l.values.formatNo.replace(/\D/g, "")), ["11"]);
+  const lines = buildFormatLines().filter((l) => !l.doc && /PRD.(11|12|25)$/.test(l.values.formatNo));
+  assert.deepEqual(lines.map((l) => l.values.formatNo.replace(/\D/g, "")), ["25"]);
   assert.ok(buildFormatLines().some((l) => l.doc?.id === "prd-label-sleeve-blade" && /PRD.12$/.test(l.values.formatNo)));
+  assert.ok(buildFormatLines().some((l) => l.doc?.id === "prd-surgical-blade" && /PRD.11$/.test(l.values.formatNo)));
   const saved = save(Object.fromEntries(lines.map((l) => [l.key, { mode: "Automatic" }])));
   assert.ok(saved.ok, saved.ok ? "" : saved.error);
   for (const before of lines) {

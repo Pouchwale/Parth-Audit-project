@@ -127,6 +127,10 @@ const EXPECTED: Record<string, string> = {
   "prd-cutting-logbook":              "Dharmik+Anil+AjaySinh",  // F-PRD-07
   "prd-rewinding-logbook":            "AjaySinh",  // F-PRD-27
   "prd-sleeve-slitting-logbook":      "AjaySinh",  // F-PRD-28
+  // The formats added from the owner's Drive (§332), by their numbers.
+  "prd-ss-adhesive-mixing":           "AjaySinh",  // F/PRD/30
+  "prd-ink-formulation":              "Dharmik+Anil+AjaySinh",  // F-PRD-17
+  "prd-surgical-blade":               "Dharmik+Anil+AjaySinh",  // F/PRD/11
   "pur-supplier-registration":        "Chirag",  // F/PUR/01
   "pur-supplier-audit-report":        "Chirag",  // F/PUR/02
   "pur-approved-suppliers":           "Chirag",  // F/PUR/03
@@ -189,6 +193,9 @@ const EXPECTED: Record<string, string> = {
   "qc-line-clearance-quality":        "Kapila",  // TO BE CONFIRMED
   "str-incoming-material-vehicle":    "Bharat",  // F/STR/01
   "str-sharp-metal-objects":          "Bharat",  // F/STR/02
+  "str-scissor-issuance":             "Bharat",  // F/STR/02A (§332)
+  "str-tio2-blade-issuance":          "Bharat",  // F/STR/02B
+  "str-safety-cutter-issuance":       "Bharat",  // F/STR/02C
   "sys-document-list":                "Kapila",  // F/SYS/01
   "sys-audit-nc":                     "Kapila",  // F/SYS/10
   "sys-nc-car":                       "Kapila",  // F/SYS/11

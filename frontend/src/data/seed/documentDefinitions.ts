@@ -87,7 +87,8 @@ export const MKT_SECTIONS = ["Customer Feedback", "Customer Complaints"] as cons
 // papers (F-PRD-18 and 19 lamination, 20 slitting, 21 pouching, 26 doctoring), then the sharp object and blade
 // records every one of those lines keeps (F/PRD/10, 22, 23 and 24), which an auditor reads together.
 // The sleeve section's four logbooks (F-PRD-06, 07, 27, 28, REQUIREMENTS §327) after doctoring, before the blade records.
-export const PRODUCTION_SECTIONS = ["Lamination", "Slitting", "Pouching", "Doctoring", "Sleeve", "Sharp Objects & Blades"] as const;
+// The ink formulas (F-PRD-17, §332) before the blade records.
+export const PRODUCTION_SECTIONS = ["Lamination", "Slitting", "Pouching", "Doctoring", "Sleeve", "Ink", "Sharp Objects & Blades"] as const;
 export const MODULE_SECTIONS: readonly string[] = [
   ...SYS_SECTIONS,
   ...MKT_SECTIONS,
@@ -952,6 +953,45 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     schedule: { type: "as-required" },
   },
   {
+    id: "prd-ss-adhesive-mixing",
+    kind: "log-sheet",
+    // From the owner's Drive (REQUIREMENTS §332). Numbered as his Master List numbers it, F-PRD-30 (17.08.2026); the workbook
+    // itself prints F/PRD/31.
+    name: "Shrink Sleeve Adhesive Mixing Ratio Record",
+    formatNo: "F/PRD/30",
+    revisionNo: "00",
+    revisionDate: "2026-08-17",
+    department: "Production",
+    module: "Production",
+    section: "Sleeve",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "Each batch of shrink sleeve adhesive mixed, a line per batch: the date and time, the batch or mix ID, the total batch quantity and the quantities of 1.4 Dixolen, Cyclohexane and THF (the standard ratio 1:2:2 - 20% + 40% + 40%), any remark, and the signs of who prepared and who verified it.",
+    sourceFile: "F-PRD-30 -SS_Adhesive_Mixing__Ratio_Record.xlsx (the owner's Google Drive, BRCGS 25-26 / Formats), 00/17.08.2026",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "prd-ink-formulation",
+    kind: "log-sheet",
+    // From the owner's Drive (REQUIREMENTS §332): his Master List's F-PRD-17 (17.A Label, 17.B Sleeve, 17.C Pouch, "merged in
+    // one sheet"), kept as a workbook of formulas; its headings are this register's.
+    name: "Ink Formulation Record",
+    formatNo: "F-PRD-17",
+    revisionNo: "00",
+    revisionDate: null,
+    department: "Production",
+    module: "Production",
+    section: "Ink",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "An ink's formula, a line per ink in it: the bucket number, the Pantone shade, each ink of the formula and its grams, the party, the FGLA code, the batch and the date, under the sheet it belongs to (Label, Sleeve, Pouch and the customers' own sheets of the owner's workbook).",
+    sourceFile: "F-PRD-17- Ink formulation.xlsx (the owner's Google Drive, BRCGS 25-26 / Formats): nine sheets of formulas; its headings",
+    schedule: { type: "as-required" },
+  },
+
+  {
     id: "prd-sharp-object-issue",
     kind: "log-sheet",
     name: "Daily Issue & Return of Sharp Metal Object (Scisssor / Manual Cutter) Monitoring Record",
@@ -974,6 +1014,26 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
   },
   // F/PRD/12 (01/01.01.2026), the Label & Sleeve section's own razor blade sheet, supplied 24-Nov-2026 (REQUIREMENTS §306):
   // F/PRD/24's ten headings, its stock kept at 30.
+  {
+    id: "prd-surgical-blade",
+    kind: "log-sheet",
+    // From the owner's Drive (REQUIREMENTS §332). One copy of his Master List marks it obsolete since 01.01.2026 (the blades no
+    // longer used), the other keeps it: kept here As Required, so it is never due by itself.
+    name: "Surgical Blade ( Used On Slitting Machine Blade Holder) Monitoring Record",
+    formatNo: "F/PRD/11",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Production",
+    module: "Production",
+    section: "Sharp Objects & Blades",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The surgical blades of the slitting machine's blade holder, a line per change: the opening stock of OK blades, the new blades issued from the store, the total, the shift, the new blades put on the machine and the operator who did, the closing stock of OK and of discarded blades, and the discarded blades returned to the store, checked by production. The loose blades in stock, those installed on the machine included, are always kept at 20.",
+    sourceFile: "F-PRD-11_Surgical Machine Blade Change Record.xlsx (the owner's Google Drive, BRCGS 25-26 / Formats / 6 Production), F/PRD/11 (00/01.12.21)",
+    schedule: { type: "as-required" },
+  },
+
   {
     id: "prd-label-sleeve-blade",
     kind: "log-sheet",
@@ -2376,6 +2436,61 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     // Both as supplied; the company's own original is the Word file, so the form downloads as Word (§93).
     sourceFile:
       "F-STR-02_Sharp metal objects issuance & replacement record.pdf (the blank format, as supplied); the company's own original is F-STR-02_Sharp metal objects issuance & replacement record.docx",
+    schedule: { type: "as-required" },
+  },
+
+  {
+    id: "str-scissor-issuance",
+    kind: "log-sheet",
+    // As the owner split F/STR/02 on 01.01.2026 (REQUIREMENTS §332): F/STR/02's own register, for scissor alone.
+    name: "Scissor Blade Issuance (New) & Return (Old) Record",
+    formatNo: "F/STR/02A",
+    revisionNo: "00",
+    revisionDate: "2026-01-01",
+    department: "Store",
+    module: "Store",
+    section: "Sharp Tool Control",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The register of every scissor the store issues and of what comes back against it: the date, the tool, the quantity issued, who it went to and for which department, their signature, the quantity returned, the store keeper's signature and any remark. A new one is issued against the return of the worn-out one intact, or of the complete assembly of a broken one; one may be issued with nothing returned to a new employee, a new machine or a new requirement. In night shift the departmental supervisor issues it and makes the entry himself, and the Store In-charge reconciles issued against returned.",
+    sourceFile: "F-STR-02A_SCISSOR BLADE ISSUANCE (NEW) & RETURN (OLD) RECORD.docx (the owner's Google Drive, BRCGS 25-26 / Store), the blank format",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "str-tio2-blade-issuance",
+    kind: "log-sheet",
+    // As the owner split F/STR/02 on 01.01.2026 (REQUIREMENTS §332): F/STR/02's own register, for TiO2 coated blade alone.
+    name: "TiO2 Coated Blade Issuance (New) & Return (Old) Record",
+    formatNo: "F/STR/02B",
+    revisionNo: "00",
+    revisionDate: "2026-01-01",
+    department: "Store",
+    module: "Store",
+    section: "Sharp Tool Control",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The register of every TiO2 coated blade the store issues and of what comes back against it: the date, the tool, the quantity issued, who it went to and for which department, their signature, the quantity returned, the store keeper's signature and any remark. A new one is issued against the return of the worn-out one intact, or of the complete assembly of a broken one; one may be issued with nothing returned to a new employee, a new machine or a new requirement. In night shift the departmental supervisor issues it and makes the entry himself, and the Store In-charge reconciles issued against returned.",
+    sourceFile: "F-STR-02B_TiO2 COATED BLADE ISSUANCE (NEW) & RETURN (OLD) RECORD.docx (the owner's Google Drive, BRCGS 25-26 / Store), the blank format",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "str-safety-cutter-issuance",
+    kind: "log-sheet",
+    // As the owner split F/STR/02 on 01.01.2026 (REQUIREMENTS §332): F/STR/02's own register, for safety cutter and its blade alone.
+    name: "Safety Cutter & Blade Issuance (New) & Return (Old) Record",
+    formatNo: "F/STR/02C",
+    revisionNo: "00",
+    revisionDate: "2026-01-01",
+    department: "Store",
+    module: "Store",
+    section: "Sharp Tool Control",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The register of every safety cutter and its blade the store issues and of what comes back against it: the date, the tool, the quantity issued, who it went to and for which department, their signature, the quantity returned, the store keeper's signature and any remark. A new one is issued against the return of the worn-out one intact, or of the complete assembly of a broken one; one may be issued with nothing returned to a new employee, a new machine or a new requirement. In night shift the departmental supervisor issues it and makes the entry himself, and the Store In-charge reconciles issued against returned.",
+    sourceFile: "F-STR-02C_SAFETY CUTTER & BLADE ISSUANCE (NEW) & RETURN (OLD) RECORD.docx (the owner's Google Drive, BRCGS 25-26 / Store), the blank format",
     schedule: { type: "as-required" },
   },
 

@@ -2643,5 +2643,60 @@
    "F-PRD-24: A4 already, kept only this sheet with Excel (24-Nov-2026)"
   ],
   "pages": 1
+ },
+ {
+  "id": "str-scissor-issuance",
+  "kind": "docx",
+  "file": "originals/str-scissor-issuance.docx",
+  "original": "F-STR-02A_SCISSOR BLADE ISSUANCE (NEW) & RETURN (OLD) RECORD.docx",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "The owner's Word file from his Google Drive (BRCGS 25-26 / Store), 00/01.01.2026 (§332).",
+  "scores": [],
+  "bytes": 26756
+ },
+ {
+  "id": "str-tio2-blade-issuance",
+  "kind": "docx",
+  "file": "originals/str-tio2-blade-issuance.docx",
+  "original": "F-STR-02B_TiO2 COATED BLADE ISSUANCE (NEW) & RETURN (OLD) RECORD.docx",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "The owner's Word file from his Google Drive (BRCGS 25-26 / Store), 00/01.01.2026 (§332).",
+  "scores": [],
+  "bytes": 26843
+ },
+ {
+  "id": "str-safety-cutter-issuance",
+  "kind": "docx",
+  "file": "originals/str-safety-cutter-issuance.docx",
+  "original": "F-STR-02C_SAFETY CUTTER & BLADE ISSUANCE (NEW) & RETURN (OLD) RECORD.docx",
+  "originalRoot": "source-documents",
+  "sheet": null,
+  "notes": "The owner's Word file from his Google Drive (BRCGS 25-26 / Store), 00/01.01.2026 (§332).",
+  "scores": [],
+  "bytes": 26798
+ },
+ {
+  "id": "prd-surgical-blade",
+  "kind": "xlsx",
+  "file": "originals/prd-surgical-blade.xlsx",
+  "original": "F-PRD-11_Surgical Machine Blade Change Record.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "F-SYS-17",
+  "notes": "The owner's workbook from his Google Drive (BRCGS 25-26 / Formats / 6 Production); its example lines of 03.02.2022 to 07.02.2022 emptied, the Sr. no. 1 to 20 kept (§332).",
+  "scores": [],
+  "bytes": 11623
+ },
+ {
+  "id": "prd-ss-adhesive-mixing",
+  "kind": "xlsx",
+  "file": "originals/prd-ss-adhesive-mixing.xlsx",
+  "original": "F-PRD-30 -SS_Adhesive_Mixing__Ratio_Record.xlsx",
+  "originalRoot": "source-documents",
+  "sheet": "Glue Mixing ",
+  "notes": "The owner's workbook from his Google Drive (BRCGS 25-26 / Formats); printed as F/PRD/30, the Master List's number (the workbook prints F/PRD/31), on A4 portrait one page wide, the Batch / Mix ID column narrowed (§332).",
+  "scores": [],
+  "bytes": 7582
  }
 ]

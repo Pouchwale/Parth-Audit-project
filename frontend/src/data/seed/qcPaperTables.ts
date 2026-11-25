@@ -29,6 +29,7 @@
 
 import { HR_PAPER_TABLES } from "./hrPaperTables";
 import { PRD_SLEEVE_PAPERS } from "./prdSleevePapers";
+import { DRIVE_PAPERS_332 } from "./drivePapers332";
 import { formatEditFor } from "../formatEdits";
 import { SYS_PAPER_TABLES } from "./sysPaperTables";
 import { AUDIT_PLAN_PAPER } from "./sysAuditPlanPaper";
@@ -1610,7 +1611,7 @@ export function paperTableFits(
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
 // (and a format made from a Word file, whose paper is kept with the format: REQUIREMENTS §324)
 export const paperTableFor = (documentId: string): PaperTable | undefined =>
-  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? formatEditFor(documentId)?.paper;
+  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? DRIVE_PAPERS_332[documentId] ?? formatEditFor(documentId)?.paper;
 
 /** The paper as the page draws it now, with the record's own rows (§246): what the download is cut from. */
 const SHOWN_PAPER = new Map<string, PaperTable>();

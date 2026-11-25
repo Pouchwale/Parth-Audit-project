@@ -306,10 +306,15 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/document/prd-cutting-logbook", labelKey: "nav.prdCuttingLogbook", icon: FiClipboard },
     { to: "/document/prd-rewinding-logbook", labelKey: "nav.prdRewindingLogbook", icon: FiClipboard },
     { to: "/document/prd-sleeve-slitting-logbook", labelKey: "nav.prdSleeveSlittingLogbook", icon: FiClipboard },
+    // The adhesive mixing record and the ink formulas, from the owner's Drive (REQUIREMENTS §332).
+    { to: "/document/prd-ss-adhesive-mixing", labelKey: "nav.prdSsAdhesiveMixing", icon: FiClipboard },
+    { headingKey: "nav.prdInk" },
+    { to: "/document/prd-ink-formulation", labelKey: "nav.prdInkFormulation", icon: FiClipboard },
     { headingKey: "nav.prdSharpObjects" },
     // Its master data first: name, department, shift - what the four sheets fill from (REQUIREMENTS §254).
     { to: "/production/sharp-master", labelKey: "nav.prdSharpMaster", icon: FiDatabase },
     { to: "/document/prd-sharp-object-issue", labelKey: "nav.prdSharpObjectIssue", icon: FiScissors },
+    { to: "/document/prd-surgical-blade", labelKey: "nav.prdSurgicalBlade", icon: FiTool },
     { to: "/document/prd-label-sleeve-blade", labelKey: "nav.prdLabelSleeveBlade", icon: FiTool },
     { to: "/document/prd-pouching-blade", labelKey: "nav.prdPouchingBlade", icon: FiTool },
     { to: "/document/prd-pouching-cutter-issue", labelKey: "nav.prdPouchingCutterIssue", icon: FiScissors },
@@ -377,6 +382,10 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/document/str-incoming-material-vehicle", labelKey: "nav.strIncomingMaterialVehicle", icon: FiTruck },
     { headingKey: "nav.strSharpToolControl" },
     { to: "/document/str-sharp-metal-objects", labelKey: "nav.strSharpMetalObjects", icon: FiScissors },
+    // F/STR/02's register for one tool each, as the owner split it on 01.01.2026 (REQUIREMENTS §332).
+    { to: "/document/str-scissor-issuance", labelKey: "nav.strScissorIssuance", icon: FiScissors },
+    { to: "/document/str-tio2-blade-issuance", labelKey: "nav.strTio2BladeIssuance", icon: FiScissors },
+    { to: "/document/str-safety-cutter-issuance", labelKey: "nav.strSafetyCutterIssuance", icon: FiScissors },
   ],
   // Dispatch — what a transporter signs before it carries the plant's product,
   // and the check made on the container before a load leaves (REQUIREMENTS §70).
@@ -490,6 +499,9 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   // links showed to anybody who could see the module at all.
   "/document/str-incoming-material-vehicle": ["str-incoming-material-vehicle"],
   "/document/str-sharp-metal-objects": ["str-sharp-metal-objects"],
+  "/document/str-scissor-issuance": ["str-scissor-issuance"],
+  "/document/str-tio2-blade-issuance": ["str-tio2-blade-issuance"],
+  "/document/str-safety-cutter-issuance": ["str-safety-cutter-issuance"],
   "/document/disp-safe-transporter-agreement": ["disp-safe-transporter-agreement"],
   "/document/disp-container-stuffing": ["disp-container-stuffing"],
   "/document/disp-vehicle-cleaning": ["disp-vehicle-cleaning"],
@@ -521,6 +533,9 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
       "prd-rewinding-logbook",
       "prd-sleeve-slitting-logbook",
       "prd-sharp-object-issue",
+      "prd-ss-adhesive-mixing",
+      "prd-ink-formulation",
+      "prd-surgical-blade",
       "prd-label-sleeve-blade",
       "prd-pouching-blade",
       "prd-pouching-cutter-issue",

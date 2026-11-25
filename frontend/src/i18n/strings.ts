@@ -302,6 +302,10 @@ const en = {
   "nav.prdCuttingLogbook": "Cutting Logbook",
   "nav.prdRewindingLogbook": "Rewinding Logbook",
   "nav.prdSleeveSlittingLogbook": "Slitting Logbook",
+  "nav.prdSsAdhesiveMixing": "Adhesive Mixing Ratio",
+  "nav.prdInk": "Ink",
+  "nav.prdInkFormulation": "Ink Formulation",
+  "nav.prdSurgicalBlade": "Surgical Blades - Slitting Machine",
   "nav.prdSharpObjects": "Sharp Objects & Blades",
   "nav.prdAlcProduction": "SB Lamination ALC & Production",
   "nav.prdProcessParameter": "SB Lamination Process Parameters",
@@ -412,6 +416,9 @@ const en = {
   "nav.strIncomingMaterialVehicle": "Incoming Material Vehicle & Condition",
   "nav.strSharpToolControl": "Sharp Tool Control",
   "nav.strSharpMetalObjects": "Sharp Metal Objects Issuance & Return",
+  "nav.strScissorIssuance": "Scissor Issuance & Return",
+  "nav.strTio2BladeIssuance": "TiO2 Coated Blade Issuance & Return",
+  "nav.strSafetyCutterIssuance": "Safety Cutter & Blade Issuance & Return",
   // The picture the plant supplied, shown unaltered beside the form it was
   // built from (REQUIREMENTS §71). Only on a document that has one.
 
@@ -1201,6 +1208,10 @@ const gu: Record<StringKey, string> = {
   "nav.prdCuttingLogbook": "કટિંગ લોગબુક",
   "nav.prdRewindingLogbook": "રિવાઇન્ડિંગ લોગબુક",
   "nav.prdSleeveSlittingLogbook": "સ્લિટિંગ લોગબુક",
+  "nav.prdSsAdhesiveMixing": "એડહેસિવ મિક્સિંગ રેશિયો",
+  "nav.prdInk": "શાહી",
+  "nav.prdInkFormulation": "શાહી ફોર્મ્યુલેશન",
+  "nav.prdSurgicalBlade": "સર્જિકલ બ્લેડ - સ્લિટિંગ મશીન",
   "nav.prdSharpObjects": "ધારદાર વસ્તુઓ અને બ્લેડ",
   "nav.prdAlcProduction": "SB લેમિનેશન ALC અને ઉત્પાદન",
   "nav.prdProcessParameter": "SB લેમિનેશન પ્રોસેસ પેરામીટર",
@@ -1304,6 +1315,9 @@ const gu: Record<StringKey, string> = {
   "nav.strIncomingMaterialVehicle": "આવતા મટીરિયલનું વાહન અને સ્થિતિ",
   "nav.strSharpToolControl": "ધારદાર ઓજાર નિયંત્રણ",
   "nav.strSharpMetalObjects": "ધારદાર ધાતુ વસ્તુઓ ઇશ્યૂ અને પરત",
+  "nav.strScissorIssuance": "કાતર ઇશ્યૂ અને પરત",
+  "nav.strTio2BladeIssuance": "TiO2 કોટેડ બ્લેડ ઇશ્યૂ અને પરત",
+  "nav.strSafetyCutterIssuance": "સેફ્ટી કટર અને બ્લેડ ઇશ્યૂ અને પરત",
 
   "ai.offline.offline": "ઇન્ટરનેટ વગર જવાબ આપ્યું — આ સિસ્ટમના પોતાના રેકોર્ડ માંથી; મિત્ર સાથે સંપર્ક થર્યો નહીં.",
   "ai.offline.failed": "મિત્રે અત્યારે જવાબ ન આપ્યું, અેટલે આ જવાબ આ સિસ્ટમના પોતાના રેકોર્ડ માંથી આવ્યો છે.",

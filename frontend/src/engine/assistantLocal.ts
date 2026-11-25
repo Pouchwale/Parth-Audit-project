@@ -432,6 +432,17 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
     id: "prd-sleeve-slitting-logbook",
     aliases: ["slitting logbook (sleeve", "sleeve slitting logbook", "slitting logbook sleeve", "sleeve slitting log book", "sleeve slitting", "f-prd-28"],
   },
+  // The formats added from the owner's Drive (REQUIREMENTS §332): each by its own title, never by a word another document is
+  // named by ("scissor" stays F/PRD/10's, "slitting" F-PRD-20's).
+  {
+    id: "prd-ss-adhesive-mixing",
+    aliases: ["shrink sleeve adhesive mixing ratio record", "adhesive mixing ratio record (sleeve", "sleeve adhesive mixing", "shrink sleeve adhesive", "glue mixing", "gluing adhesive mixing ratio", "f/prd/30", "f-prd-30"],
+  },
+  { id: "prd-ink-formulation", aliases: ["ink formulation record", "ink formulation", "ink formula", "ink formulas", "f-prd-17"] },
+  {
+    id: "prd-surgical-blade",
+    aliases: ["surgical blade ( used on slitting machine blade holder) monitoring record", "surgical blade monitoring record", "surgical machine blade change record", "surgical blade", "surgical blades", "f/prd/11"],
+  },
   {
     id: "prd-sharp-object-issue",
     aliases: [
@@ -829,6 +840,10 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
       "f/str/02",
     ],
   },
+  // F/STR/02's register for one tool each, as the owner split it on 01.01.2026 (REQUIREMENTS §332).
+  { id: "str-scissor-issuance", aliases: ["scissor blade issuance (new) & return (old) record", "scissor blade issuance", "scissor issuance (new) & return (old)", "scissor issuance", "f/str/02a"] },
+  { id: "str-tio2-blade-issuance", aliases: ["tio2 coated blade issuance (new) & return (old) record", "tio2 coated blade issuance", "tio2 coated blade", "tio2 blade", "f/str/02b"] },
+  { id: "str-safety-cutter-issuance", aliases: ["safety cutter & blade issuance (new) & return (old) record", "safety cutter & blade issuance", "safety cutter and blade issuance", "safety cutter", "f/str/02c"] },
   // Dispatch (REQUIREMENTS §70): the agreement a transporter signs, and the
   // check on the container before a load goes. "container" and "vehicle
   // inspection" are the words the paper is headed with.

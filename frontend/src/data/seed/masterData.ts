@@ -266,6 +266,10 @@ export const SEED_MASTER_DATA: MasterData = {
     "prd-cutting-logbook": "Manager – Pouch",
     "prd-rewinding-logbook": "Manager – Pouch",
     "prd-sleeve-slitting-logbook": "Manager – Pouch",
+    // The formats added from the owner's Drive (§332), answered for as the other Production sheets are.
+    "prd-ss-adhesive-mixing": "Manager – Pouch",
+    "prd-ink-formulation": "Manager – Pouch",
+    "prd-surgical-blade": "Manager – Pouch",
     "prd-sharp-object-issue": "Manager – Pouch",
     "prd-pouching-blade": "Manager – Pouch",
     "prd-pouching-cutter-issue": "Manager – Pouch",
@@ -373,6 +377,9 @@ export const SEED_MASTER_DATA: MasterData = {
     // the Manager – Store in the employee list above.
     "str-incoming-material-vehicle": "Store",
     "str-sharp-metal-objects": "Store",
+    "str-scissor-issuance": "Store",
+    "str-tio2-blade-issuance": "Store",
+    "str-safety-cutter-issuance": "Store",
     // Maintenance (REQUIREMENTS §74). Every F/MNT format is the maintenance
     // department's, signed by its manager or supervisor — except the daily
     // health sheet, which the MACHINE OPERATOR ticks every shift (its own

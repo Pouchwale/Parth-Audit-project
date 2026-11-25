@@ -155,6 +155,9 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "prd-cutting-logbook": "PRD", // F-PRD-07
   "prd-rewinding-logbook": "PRD", // F-PRD-27
   "prd-sleeve-slitting-logbook": "PRD", // F-PRD-28
+  "prd-ss-adhesive-mixing": "PRD", // F/PRD/30 (REQUIREMENTS §332)
+  "prd-ink-formulation": "PRD", // F-PRD-17
+  "prd-surgical-blade": "PRD", // F/PRD/11
   "prd-sharp-object-issue": "PRD", // F/PRD/10
   "prd-pouching-blade": "PRD", // F/PRD/22
   "prd-pouching-cutter-issue": "PRD", // F/PRD/23
@@ -173,6 +176,9 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "pur-service-provider-performance": "PUR", // F/PUR/06
   "str-incoming-material-vehicle": "STR", // F/STR/01
   "str-sharp-metal-objects": "STR", // F/STR/02
+  "str-scissor-issuance": "STR", // F/STR/02A (REQUIREMENTS §332)
+  "str-tio2-blade-issuance": "STR", // F/STR/02B
+  "str-safety-cutter-issuance": "STR", // F/STR/02C
   "disp-safe-transporter-agreement": "DISP", // F/DISP/01
   "disp-container-stuffing": "DISP", // F/DISP/02
   "disp-vehicle-cleaning": "DISP", // F/DISP/04 (REQUIREMENTS §86)

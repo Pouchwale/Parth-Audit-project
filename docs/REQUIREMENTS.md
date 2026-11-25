@@ -13765,3 +13765,44 @@ come in document in other fields also".
 - A name put in any other way (Mitra, an import, the system) has its line's blank boxes filled from HR Master Data when the record
   is opened. Nothing written is changed, a short name is still only offered (§291), a submitted or verified record is not touched.
 - Files: components/records/LogSheetRecordView.tsx, engine/namedLinesFill.ts, engine/assistantPrepare.ts; tests/namedLinesFill.test.ts.
+
+## §332 The formats in the owner's Google Drive that DCRS did not have, added and drawn as his papers (25-Nov-2026)
+
+The owner, 25-Nov-2026: "many documents are still not in our system. So you need to add that from that document folder which I
+have shared with you yesterday ... whenever user download any document of any module or take a print on A4 size paper, that
+should be very perfect and fine, which I have provided to you likewise".
+
+Every format number in the Drive download's 1,284 file names was set against DCRS's catalogue. Those with a form in them that
+DCRS lacked are added:
+- **F/STR/02A Scissor Blade, F/STR/02B TiO2 Coated Blade and F/STR/02C Safety Cutter & Blade Issuance (New) & Return (Old)
+  Records** (00/01.01.2026, Store, Sharp Tool Control, As Required): the owner's Word files of BRCGS 25-26 / Store, drawn as
+  his pages (the letterhead and title in their ruled box, the Store In-charge's note, the nine headings, ten ruled lines, the
+  number line at the foot) on one landscape A4 page. Each is F/STR/02's own register (its nine columns, keys and rules) for one
+  tool, as his Master List of BRCGS 25-26 splits it from 01.01.2026. F/STR/02 itself is left as the 2021 combined register: the
+  2026 file makes it the razor blade register (01/01.01.2026), which would re-title every record already on file - the owner's
+  to say.
+- **F/PRD/11 Surgical Blade (Used On Slitting Machine Blade Holder) Monitoring Record** (00/01.12.21, Production, Sharp Objects
+  & Blades, As Required): his workbook drawn as his page, twenty numbered lines on one landscape page. One copy of his Master
+  List marks it obsolete since 01.01.2026, the newer one keeps it, and on 24-Nov-2026 he switched its line to Automatic in the
+  indexing (§305): kept As Required, so it is never due by itself.
+- **F/PRD/30 Shrink Sleeve Adhesive Mixing Ratio Record** (00/17.08.2026, Production, Sleeve, As Required): numbered as the
+  Master List numbers it; the workbook itself prints F/PRD/31, which the list gives no format. 38 ruled lines on one portrait
+  page: the workbook is 321 mm wide with no fit (Excel prints it two pages across), so its Batch / Mix ID column is drawn 35 mm
+  (90 in the workbook) and its Remarks 28 mm (42), its headings then 8 pt on paper. The dark blue of its heading row is not
+  printed (no colour on the owner's papers, §282).
+- **F-PRD-17 Ink Formulation Record** (Production, a new Ink section, As Required): his workbook is nine sheets of filled formulas
+  (Label, Sleeve, Pouch and customers' own), not a form; the register takes its headings (bucket no., Pantone, formula, grams,
+  party name, FGLA code, batch, date) under the sheet chosen, printed in DCRS's style. The Master List gives no revision date.
+- Downloads: the Store registers download as the owner's Word files and F/PRD/11 and F/PRD/30 as his workbooks, filled with the
+  record (F/PRD/11's example lines of 2022 emptied, F/PRD/30's number and page fit as above); F-PRD-17 as DCRS's own sheet.
+- Not added: F-PRD-01 to 05, 08, 09, 13, 14, 25, F-PUR-04 and F-QA-01 - every one of their Drive files is an empty workbook (no
+  cell written, checked with Excel). F-QC-42 / F-HR-24 List of Portable Items & its Monitoring Record (the same .doc under two
+  numbers) could not be read: Word does not open it on the plant PC.
+- Checked on a build of this change served beside the local copy: each started, typed into, downloaded (Word and Excel read back)
+  and printed with Print Original-Style Record - one A4 page each, nothing within 5 mm of an edge; tests/verify_with_test_account
+  on all six (the account deleted).
+- Files: data/seed/drivePapers332.ts, data/seed/driveLayouts332.ts, documentDefinitions.ts, logSheetLayouts.ts, qcPaperTables.ts,
+  originalFiles.ts, documentDepartments.ts, masterData.ts, components/layout/Sidebar.tsx, i18n/strings.ts, engine/assistantLocal.ts,
+  scripts/originals/picks.json, public/originals/*, public/source/fprd11-*, fprd30-*. Tests: frontend/tests/drivePapers332.test.ts;
+  production.test.ts, accessRules.test.ts, indexing/tests/automatic305.test.ts (F/PRD/11 now has its format; F-PRD-25 is the line
+  left without one).
