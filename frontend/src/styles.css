@@ -3847,6 +3847,9 @@ table.svc-paper {
 .pt-table.pt-frame.pt-head { border-top: var(--pt-hv); }
 .pt-table.pt-frame td.pt-c:last-child { border-right: var(--pt-hv); }
 .pt-table.pt-frame.pt-body tr:last-child td.pt-c { border-bottom: var(--pt-hv); }
+/* §350: the Production sheets and F-QC-32, ruled cell by cell inside the owner's heavier frame: their header rows' left edge
+   as heavy as their lines' (a head ruled cell by cell otherwise takes no frame at its left). */
+.paper-sheet:is([data-sheet="prd-alc-production"], [data-sheet="prd-slitting-alc"], [data-sheet="prd-pouching-line-clearance"], [data-sheet="prd-doctoring-alc"], [data-sheet="qc-adhesive-mixing"]) .pt-table.pt-frame.pt-head[data-pt-rules="cells"] { border-left: var(--pt-hv); }
 /* A box whose choices the paper prints across its line (F-QC-40.A's AREA: PRINTING/ INK KITCHEN/ WARE HOUSE, the one the
    sheet is for marked): the cell's own face, the words as close as printed. */
 .pt-table .field-choices-across .choices-across { gap: 0 calc(0.8 * var(--u)); font: inherit; color: #000; }

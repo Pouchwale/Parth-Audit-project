@@ -93,10 +93,10 @@ const PAPERS: Record<string, { page: "portrait" | "landscape"; width: number; wr
   // F-QC-40.A and B: a month's 31 lines, a day's record its line.
   "qc-temperature-humidity": { page: "portrait", width: 148.45, lines: 31 },
   "qc-temperature-sleeve": { page: "portrait", width: 184.23, lines: 31 },
-  // The three papers the owner sent as photographs: F-QC-40.C's fifty lines, F-QC-30's two tables of 34, F-QC-32's 33.
+  // The two papers the owner sent as photographs: F-QC-40.C's fifty lines, F-QC-30's two tables of 34. (F-QC-32, drawn from
+  // its photograph here until §350, is drawn as his own sheet from his Google Drive: tests/productionPapers350.test.ts.)
   "qc-temperature": { page: "portrait", width: 184.23, lines: 50 },
   "qc-viscosity": { page: "portrait", width: 190, lines: 34 },
-  "qc-adhesive-mixing": { page: "portrait", width: 190, lines: 33 },
   // F-QC-14's two sheets: every line of every check written; each check's heading (its lines' printed parameter) once,
   // over its table.
   "qc-test-reliability-label": { page: "portrait", width: 190.04, written: reliabilityLines(8) },

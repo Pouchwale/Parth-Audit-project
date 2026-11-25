@@ -36,6 +36,8 @@ import { SYS_PAPER_TABLES } from "./sysPaperTables";
 import { AUDIT_PLAN_PAPER } from "./sysAuditPlanPaper";
 import { MNT_PAPER_TABLES } from "./mntPaperTables";
 import { MKT_PAPER_TABLES } from "./mktPaperTables";
+import { PRD_PAPERS_350 } from "./prdPapers350";
+import { LAMINATION_QC_PAPERS_350 } from "./laminationQcPapers350";
 
 /** One answer of a choice the paper sets across its cells or inside a cell: a scale's 7 to 1, Yes / No, a tick box (§275). */
 export interface PaperPick {
@@ -930,11 +932,11 @@ const TEMPERATURE_SLEEVE: PaperTable = {
 };
 
 // ---------------------------------------------------------------------------
-// F-QC-40.C (the hot room), F-QC-30 (the lamination adhesive's viscosity) and F-QC-32 (the adhesive mixing ratio): the
-// owner sent photographs of these papers only ("WhatsApp Image 2026-09-07 at 2.15.19 PM (1).jpeg", "...2.15.18 PM.jpeg",
-// "...2.15.17 PM.jpeg" in source-documents/), so their measures are judged by eye from the photographs, on A4 portrait:
-// the same logo band as F-QC-40.B (the owner's logo) or the band of logo, title and number the two lamination papers
-// print, their headings, and as many ruled lines as the paper has. A record's lines are its own; the paper's others print
+// F-QC-40.C (the hot room) and F-QC-30 (the lamination adhesive's viscosity): the
+// owner sent photographs of these papers only ("WhatsApp Image 2026-09-07 at 2.15.19 PM (1).jpeg", "...2.15.18 PM.jpeg"
+// in source-documents/), so their measures are judged by eye from the photographs, on A4 portrait:
+// the same logo band as F-QC-40.B (the owner's logo) or the band of logo, title and number the lamination paper
+// prints, their headings, and as many ruled lines as the paper has. A record's lines are its own; the paper's others print
 // blank, never stored.
 
 /** F-QC-40.C: F-QC-40.B's sheet for the hot room, its fifty lines closer together to stand on one page. */
@@ -957,7 +959,7 @@ const TEMPERATURE_HOT_ROOM: PaperTable = {
   lines: { ...TEMPERATURE_SLEEVE.lines!, h: 4.75, count: 50 },
 };
 
-/** The band the two lamination papers print: the logo, the title, and the number, its revision and its date on three lines. */
+/** The band F-QC-30 prints (F-QC-32 did until §350): the logo, the title, and the number, its revision and its date on three lines. */
 const laminationBand = (h: number, caps: boolean): PaperRow => ({
   h,
   cells: [
@@ -1000,35 +1002,8 @@ const VISCOSITY: PaperTable = {
   foot: [],
 };
 
-/** F-QC-32: Sr. No. | Date | Time | Adhesive (kg) | Hardener (kg) | Ethyl (kg) | Viscosity (Sec.) | Remark | Checked by | Verified by. */
-const F32_COLS = [17.2, 16.6, 15.6, 15, 15.9, 15.3, 15.9, 36.6, 20.3, 21.6];
-const F32_KEYS = ["date", "time", "adhesive", "hardener", "ethyl", "viscosity", "remark", "checkedBy", "verifiedBy"];
-
-const ADHESIVE_MIXING: PaperTable = {
-  page: "portrait",
-  left: 10,
-  top: 12,
-  font: "calibri",
-  pt: 9,
-  head: [laminationBand(25, false)],
-  body: [
-    {
-      h: 10,
-      head: true,
-      cells: [
-        { w: F32_COLS[0], t: "Sr. No.", a: "c", b: true, vm: true },
-        // "Adhesive" over "(kg)" as the paper breaks them; "Ethyl (kg)" on its one line.
-        ...F32_KEYS.map((key, i): PaperCell => ({ w: F32_COLS[i + 1], lab: `@column:${key}${["adhesive", "hardener", "viscosity"].includes(key) ? ":br" : ""}`, a: "c", b: true, pt: 8.5, vm: true, lh: 3.8 })),
-      ],
-    },
-  ],
-  lines: {
-    h: 7.1,
-    count: 33,
-    cells: [{ w: F32_COLS[0], num: "rows", a: "c", vm: true }, ...F32_KEYS.map((col, i): PaperCell => ({ w: F32_COLS[i + 1], col, a: "c" }))],
-  },
-  foot: [],
-};
+// (F-QC-32, the adhesive mixing ratio, was drawn here from its photograph until §350: it is drawn as the owner's own sheet
+// from his Google Drive in laminationQcPapers350.ts.)
 
 // ---------------------------------------------------------------------------
 // F-QC-14 — INTERNAL TEST RELIABILITY RECORD, its Label and Sleeve sheets ("F-QC-14 TEST RELIABILITY RECORD.xlsx",
@@ -1560,7 +1535,6 @@ export const QC_PAPER_TABLES: Record<string, PaperTable> = {
   "qc-temperature-sleeve": TEMPERATURE_SLEEVE,
   "qc-temperature": TEMPERATURE_HOT_ROOM,
   "qc-viscosity": VISCOSITY,
-  "qc-adhesive-mixing": ADHESIVE_MIXING,
   "qc-test-reliability-label": RELIABILITY_LABEL,
   "qc-test-reliability-sleeve": RELIABILITY_SLEEVE,
   "qc-inprocess-printing": IN_PROCESS,
@@ -1612,7 +1586,7 @@ export function paperTableFits(
 /** The paper a document is drawn as, row by row, or undefined (every other document is drawn as it was). */
 // (and a format made from a Word file, whose paper is kept with the format: REQUIREMENTS §324)
 export const paperTableFor = (documentId: string): PaperTable | undefined =>
-  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? DRIVE_PAPERS_332[documentId] ?? (documentId === QC_PORTABLE_ITEMS_ID ? QC_PORTABLE_ITEMS_PAPER : undefined) ?? formatEditFor(documentId)?.paper;
+  QC_PAPER_TABLES[documentId] ?? HR_PAPER_TABLES[documentId] ?? MNT_PAPER_TABLES[documentId] ?? MKT_PAPER_TABLES[documentId] ?? SYS_PAPER_TABLES[documentId] ?? (documentId === "sys-audit-plan" ? AUDIT_PLAN_PAPER : undefined) ?? PRD_SLEEVE_PAPERS[documentId] ?? DRIVE_PAPERS_332[documentId] ?? (documentId === QC_PORTABLE_ITEMS_ID ? QC_PORTABLE_ITEMS_PAPER : undefined) ?? PRD_PAPERS_350[documentId] ?? LAMINATION_QC_PAPERS_350[documentId] ?? formatEditFor(documentId)?.paper;
 
 /** The paper as the page draws it now, with the record's own rows (§246): what the download is cut from. */
 const SHOWN_PAPER = new Map<string, PaperTable>();

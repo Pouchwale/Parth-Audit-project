@@ -13894,3 +13894,59 @@ training (engine/trainingChain.ts):
    components/records/LogSheetRecordView.tsx. Tests: frontend/tests/trainingChain.test.ts. Clicked through on the local copy:
    F/HR/09's trainer, F/HR/10 made from the calendar, two names typed and left, two F/HR/11s and the F/HR/12 made, "Partly" on an
    F/HR/11 giving Yes on F/HR/12, F/HR/08 ticks bringing the names onto a new F/HR/10.
+
+## §350 Production: F-PRD-18, F-PRD-19, F-PRD-20, F/PRD/21, F-PRD-26 and F-QC-32 drawn and printed as the owner's papers (25-Nov-2026)
+
+The owner, 24-Nov-2026: "same format present in my system which is present in google drive ... whenever user download any
+document of any module or take a print on A4 size paper, that should be very perfect". The review of that day
+(FORMAT-AUDIT-24-11-2026.md) found each of these six printing in DCRS's own style: DCRS's FORMAT NO. / REV NO. / PAGE NO. row,
+a SR. NO. column the paper does not have, the boxes and the ALC protocol or line clearance as loose grey text, the headings in
+capitals, only the written lines printed. Each is now drawn as its sheet in his Google Drive, cell for cell, and printed so:
+
+- **F-PRD-18 Solvent Base Lamination - ALC & Production Report (01/25.06.2025)**: "F-PRD-18_SB LAMINATION Logbook
+  -24.06.25.xls" (the source-documents copy and both Drive copies are the same cell for cell). His company line
+  (GUJARAT PRINTPACK PUBLICATIONS PRIVATE LIMITED), the title with "F-PRD-18 (01/25.06.2025)" in the row's right cell, the ruled
+  row OPERATOR NAME : / MACHINE NAME : / DATE & SHIFT : with the record's boxes written after the words, the ALC PROTOCOL in
+  its ruled box in bold black, his fourteen headings in his letters (INTERNAL PO No., LAYER 1 - Kgs., OK METERs) and his twelve
+  ruled lines, all on one landscape page (his own PDF put the twelfth on a second page).
+- **F-PRD-19 Solvent Base Lamination - Process Parameter Record (00/15.12.2024)**: his two ruled rows of boxes in his order
+  (ADHESIVE (MAKE) : begins the second; the mixing ratio, whose words fill their cell, written whole on the line under them),
+  fifteen headings at their cells' left as his, sixteen lines, every rule thin as his sheet's. The Drive's copy of 08-07-2026
+  is the same as the one of 09-11-2025.
+- **F-PRD-20 Slitting - ALC & Production Report (01/25.06.2025)**: the line clearance's seven points in their box, fifteen
+  headings, eleven lines.
+- **F/PRD/21 Area Line Clearance Report - Pouching (00-15.12.2024)**: GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED, the
+  underlined title with the machine's number written in its blank ("( MACHINE NO. : ____ )"), "Format no. - F/PRD/21
+  (00-15.12.2024)" underlined in the title row's right cell, the title rows ruled heavy all round, the line clearance in Arial
+  as his printout sets it (his sheet names "Calibri (Body)", which no printer has), the two "Operator shall update ..."
+  headings in his letters, twelve headings and nine lines. Drawn at his own proportions throughout.
+- **F-PRD-26 Doctoring - ALC & Production Report (01/23.07.2025)**: the blank cell between OPERATOR NAME and DATE & SHIFT, the
+  six points, his headings at their cells' left but "Job bag Require KG" centred, his heavier rule between WASTAGE (Kgs) and
+  OK Running Mtr, eleven lines.
+- **F-QC-32 Adhesive Mixing Ratio Record (Rev. 00, 15.12.2024)**: until now drawn from the photograph of a filled page, by eye
+  (33 lines, DCRS's logo). His Drive holds the sheet ("F-QC-32_ Adhesive mixing ratio.xlsx", BRC-25 / Pouch / QC - Formats):
+  his own logo picture where his sheet places it (brand/gpp-logo-fqc32.png), the title, "Format No.: F-QC-32 / Rev. 00 / Date :
+  15.12.2024", the blank band under them, his ten headings with the Date, and his 31 lines (counted on the photograph too). The
+  "One row per adhesive batch mixed ..." line and the capitals of the review's printout are not on his sheet and are not
+  printed; the date written on a line stands inside the Date column's rules.
+
+How they are drawn (data/seed/prdPapers350.ts, data/seed/laminationQcPapers350.ts): each column keeps its share of his sheet's
+width (read from the workbook's XML), across the A4 page less 12 mm each side; his header rows keep their heights at that scale
+and his ruled lines share what the page leaves. His sheets print at 60 to 83 %, their words at 5.5 to 7.7 pt: here no word
+prints under 8 pt (§282), so the papers are never refitted to be read and their Excel download stays his own workbook, filled
+(§119). Where 8 pt words need a third line in a heading, the headings' row takes it from the lines' height (F-PRD-19's lines are
+9 mm, his 10.4 mm at 60 %); F-PRD-20's OPERATOR SIGN column takes 0.66 mm of JOB NAME's so that OPERATOR stands inside its rules.
+Every printed word is the record's to type over (ownWords, §275); every box and column is bound by the layout's own key, none
+renamed, none left off. No fill is kept (F/PRD/21's grey bands print white). His heavier outer frame is drawn heavy
+(styles.css, one rule scoped to these sheets: a paper ruled cell by cell otherwise takes no frame at its header rows' left).
+
+Still differing, and why: a heading may break on another word than his where 8 pt is larger than his printed size; F-PRD-20's
+Drive copy carries a note of its revision beside its frame ("01 - OUT TIME (HOTROOM) - Added"), outside the form, not printed;
+F-QC-32 has no Excel or Word original of its own in DCRS (originalFiles.ts is generated, not edited here), so its downloads are
+drawn from the paper, its logo standing as its words in the file.
+
+Checked: each printed from the built app on A4 (scripts' print check: one page each, 12 mm from every edge, Excel and Word
+downloads read back), set beside his originals' pages; the test account check (§206). Files: data/seed/prdPapers350.ts,
+data/seed/laminationQcPapers350.ts, data/seed/qcPaperTables.ts (the lookup; F-QC-32's photograph paper taken out),
+public/brand/gpp-logo-fqc32.png, styles.css. Tests: tests/productionPapers350.test.ts; tests/qcPaperTables.test.ts no longer
+lists F-QC-32 among the papers drawn from photographs.
