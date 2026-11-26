@@ -70,9 +70,12 @@ const CUSTOMER_FEEDBACK_PAPER: PaperTable = {
     gap(1.91),
     { h: 6.43, cells: [label(23.29, "Organization :", "l"), box(174.58, "organization")] },
     gap(2.63),
-    { h: 6.43, cells: [label(39.72, "Contact Person :", "l"), box(81.26, "contactPerson"), label(38.45, "Designation :", ""), box(38.44, "designation")] },
+    // (Designation and Mobile close with their own end line, as Date does, 2 mm inside the frame: the owner, 26-Nov-2026,
+    // "the designation and mobile boxes should be completed, put the end line as we have in date" - their right edge was the
+    // frame's alone, §389)
+    { h: 6.43, cells: [label(39.72, "Contact Person :", "l"), box(81.26, "contactPerson"), label(38.45, "Designation :", ""), box(36.44, "designation"), { w: 2, t: "", edges: "r" }] },
     gap(2.62),
-    { h: 6.44, cells: [label(23.29, "Email ID :", "l"), box(97.69, "emailId"), label(19.22, "Mobile :", ""), box(57.67, "mobile")] },
+    { h: 6.44, cells: [label(23.29, "Email ID :", "l"), box(97.69, "emailId"), label(19.22, "Mobile :", ""), box(55.67, "mobile"), { w: 2, t: "", edges: "r" }] },
     gap(2.62),
     { h: 6.44, cells: [label(23.29, "Products :", "l"), box(174.58, "products")] },
     gap(2.63),

@@ -14597,3 +14597,14 @@ whole and also give the exact format of in word and also in the excel the format
 - Proved on a local copy with the period typed: the print, the workbook (converted by Excel) and the Word file (converted by
   Word) are each one A4 page with the period on one line and the grid on whole columns.
 - Files: frontend/src/data/seed/mktPapers355.ts, frontend/src/utils/paperTableExport.ts.
+
+## §389 F/MKT/01: the Designation and Mobile boxes close with their own end line (26-Nov-2026)
+
+The owner, 26-Nov-2026, with F/MKT/01 on screen: "in mkt 1 the designation and mobile boxes should be completed, put the end line as
+we have in date and every other".
+
+- The two boxes ran to the page's frame, so their right edge was the frame's thin line alone, which can drop out on a screen at
+  some sizes. Each now stops 2 mm inside the frame and draws its own end line, as the Date box does (data/seed/mktPaperTables.ts):
+  on the screen, in print, in the Word file and in the workbook. Nothing else of the paper moves; the record's boxes are the same.
+- Proved: the mkt and paper unit tests; on a local copy the screen, the print, Word and Excel each show both boxes closed, one
+  page each; the test account check (§206).
