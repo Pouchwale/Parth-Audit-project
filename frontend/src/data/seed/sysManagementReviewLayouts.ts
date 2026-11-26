@@ -649,7 +649,8 @@ const MRM_AGENDA: LogSheetLayout = {
 // F/SYS/16 — QUALITY & PRODUCT SAFETY OBJECTIVES ( Year … )
 // ===========================================================================
 
-// The months the sheet prints, January to June.
+// The months the sheet prints, January to June. A sheet dated July to December prints the same six boxes as July to December
+// (his "2026 - H2" sheet; data/seed/sysPapers354.ts objectivesPaperFor, §397): "jan" is the half's first month.
 const OBJECTIVE_MONTHS: { key: string; label: string }[] = [
   { key: "jan", label: "January" },
   { key: "feb", label: "February" },

@@ -451,8 +451,19 @@ const cw16 = (from: number, to: number): number => Math.round(C16.slice(from, to
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun"];
 const ROW16 = 14.02;
 
+/**
+ * The six months a sheet prints: his "2026 - H1" sheet January to June, his "2026 - H2" sheet July to December (§397). A record
+ * keeps its six months in the same boxes (janPlan ... junActual: the half's first to sixth month), so the plans carry from one
+ * half to the next.
+ */
+const HALF_MONTHS = {
+  H1: ["January", "February", "March", "April", "May", "June"],
+  H2: ["July", "August", "September", "October", "November", "December"],
+} as const;
+export type ObjectivesHalf = keyof typeof HALF_MONTHS;
+
 /** His print titles: the company, the title with the year and the format's number, the column headings (rows 1 to 4). */
-function objectivesHead(first: boolean): PaperRow[] {
+function objectivesHead(first: boolean, half: ObjectivesHalf = "H1"): PaperRow[] {
   // (a page after the first prints the same words: typed over once, on page 1)
   const pl = (p: string): Partial<PaperCell> => (first ? {} : { pl: p });
   const headings: [string, boolean, Partial<PaperCell>][] = [
@@ -461,12 +472,7 @@ function objectivesHead(first: boolean): PaperRow[] {
     ["Parameter / Attribute", true, { a: "c" }],
     ["Unit", true, { a: "c" }],
     ["Plan / Actual", true, { a: "c" }],
-    ["January", false, { a: "c" }],
-    ["February", false, { a: "c" }],
-    ["March", false, { a: "c" }],
-    ["April", false, { a: "c" }],
-    ["May", false, { a: "c" }],
-    ["June", false, { a: "c" }],
+    ...HALF_MONTHS[half].map((m): [string, boolean, Partial<PaperCell>] => [m, false, { a: "c" }]),
     ["Total", false, { a: "c" }],
     ["% Achieved", false, { a: "c" }],
   ];
@@ -562,7 +568,7 @@ const OBJECTIVE_ROWS: PaperRow[][] = [
   objective(17),
 ];
 
-const OBJECTIVES_PAPER: PaperTable = {
+const objectivesPaper = (half: ObjectivesHalf): PaperTable => ({
   page: "landscape",
   left: 5.0,
   top: 5.0,
@@ -573,19 +579,28 @@ const OBJECTIVES_PAPER: PaperTable = {
   fillA4: true,
   clearFoot: true,
   flows: true,
-  head: objectivesHead(true).slice(0, 2),
+  head: objectivesHead(true, half).slice(0, 2),
   body: [
-    ...objectivesHead(true).slice(2),
+    ...objectivesHead(true, half).slice(2),
     ...OBJECTIVE_ROWS.slice(0, 5).flat(),
-    ...objectivesHead(false),
+    ...objectivesHead(false, half),
     ...OBJECTIVE_ROWS.slice(5, 10).flat(),
-    ...objectivesHead(false),
+    ...objectivesHead(false, half),
     ...OBJECTIVE_ROWS.slice(10, 15).flat(),
-    ...objectivesHead(false),
+    ...objectivesHead(false, half),
     ...OBJECTIVE_ROWS.slice(15).flat(),
   ],
   foot: [],
-};
+});
+
+const OBJECTIVES_PAPER: PaperTable = objectivesPaper("H1");
+const OBJECTIVES_PAPER_H2: PaperTable = objectivesPaper("H2");
+
+/** The half a sheet is for, from its date: dated July to December, his "H2" sheet (§397). */
+export const objectivesHalfOf = (dueDate: string | undefined): ObjectivesHalf => (Number((dueDate ?? "").slice(5, 7)) >= 7 ? "H2" : "H1");
+
+/** F/SYS/16 for a sheet dated `dueDate`: January to June, or July to December (§397). */
+export const objectivesPaperFor = (dueDate: string | undefined): PaperTable => (objectivesHalfOf(dueDate) === "H2" ? OBJECTIVES_PAPER_H2 : OBJECTIVES_PAPER);
 
 // ====================================================================================================================
 // F/SYS/20 ANNUAL HARA REVIEW & VERIFICATION RECORD

@@ -2683,10 +2683,11 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "As Required",
     status: "Configured",
     description:
-      "The quality and product safety objectives, department by department — Sales (new customers, and customer feedback for labels, sleeves and pouches), Production (labels produced and label wastage), QC (customer complaints on product quality), Maintenance (breakdown minutes), HR & admin (training programmes and GMP non-compliances), Dispatch (transport and pest complaints), Purchase (supplier rating, and receipts infested or in an improper vehicle) and Store (material wasted in storage) — each with its unit, the plan and the actual for each month from January to June, the total and the percentage achieved. The management review (F/SYS/04) reviews them and revises the targets. On file: the sheet for 2026.",
+      "The quality and product safety objectives, department by department — Sales (new customers, and customer feedback for labels, sleeves and pouches), Production (labels produced and label wastage), QC (customer complaints on product quality), Maintenance (breakdown minutes), HR & admin (training programmes and GMP non-compliances), Dispatch (transport and pest complaints), Purchase (supplier rating, and receipts infested or in an improper vehicle) and Store (material wasted in storage) — each with its unit, the plan and the actual for each month of the half - January to June, or July to December for a sheet dated in the second half of the year - the total and the percentage achieved. The management review (F/SYS/04) reviews them and revises the targets. On file: the sheet for January to June 2026.",
     sourceFile: "F-SYS-16-Quality & Product Safety objectives 2024-25.pdf (the 2026 sheet as supplied); the company's own original is XXXXX_Quality & Product Safety objectives.xls",
     // A sheet per review period, started when the management review sets the
-    // targets — the supplied one covers January to June.
+    // targets — the supplied one covers January to June; one dated July to
+    // December prints July to December (§397).
     schedule: { type: "as-required" },
   },
   {

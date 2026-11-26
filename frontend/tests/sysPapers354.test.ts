@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
-import { SYS_PAPERS_354, SYS_PAPER_354_WIDTHS } from "../src/data/seed/sysPapers354";
+import { objectivesHalfOf, objectivesPaperFor, SYS_PAPERS_354, SYS_PAPER_354_WIDTHS } from "../src/data/seed/sysPapers354";
 import { paperTableFits, paperTableFor, paperTablePrint, type PaperCell, type PaperRow, type PaperTable } from "../src/data/seed/qcPaperTables";
 import { paperNeedsReading } from "../src/engine/paperReadable";
 import { HARA_MONTHLY_2024_04_ROWS, HARA_MONTHLY_ROWS } from "../src/data/seed/sysHaraTraceabilityLayouts";
@@ -123,4 +123,22 @@ test("F/SYS/13 is his blank sheet: the rows the 2025 pages left out are boxes of
   assert.deepEqual(picks.map((p) => [p.box, p.value]), [["effective", "Yes"], ["effective", "No"]]);
   // The Responsible table: the four printed functions are the format's lines.
   assert.deepEqual(cellsOf(paper("sys-mock-recall")).filter((c) => c.col === "processFunction").map((c) => c.ln), [0, 1, 2, 3]);
+});
+
+// §397 (the owner, 26-Nov-2026, F/SYS/16 against his Drive file: "Yes, add July–Dec"): his "2026 - H2" sheet.
+test("F/SYS/16: a sheet dated July to December prints July to December, his H2 sheet; the same boxes, the same pages", () => {
+  const h1 = objectivesPaperFor("2026-01-01");
+  const h2 = objectivesPaperFor("2026-11-26");
+  assert.equal(h1, paper("sys-objectives"), "January to June is the format's own paper");
+  assert.equal(objectivesPaperFor("2026-06-30"), h1);
+  assert.equal(objectivesPaperFor("2026-07-01"), h2);
+  assert.equal(objectivesHalfOf("2026-07-01"), "H2");
+  assert.equal(objectivesHalfOf("2026-06-30"), "H1");
+  const layout = getLogSheetLayout("sys-objectives")!;
+  assert.ok(paperTableFits(h2, layout), "the July-December paper fits the format");
+  const w2 = words(h2);
+  for (const m of ["July", "August", "September", "October", "November", "December"]) assert.equal(w2.filter((w) => w === m).length, 4, `${m} on each of the four pages`);
+  for (const m of ["January", "June"]) assert.ok(!w2.includes(m), `${m} is not on the July-December sheet`);
+  assert.deepEqual([...cols(h2)].sort(), [...cols(h1)].sort(), "the same boxes: the half's first to sixth month");
+  assert.equal(rowsOf(h2).length, rowsOf(h1).length);
 });

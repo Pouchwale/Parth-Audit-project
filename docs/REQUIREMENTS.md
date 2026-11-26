@@ -14715,3 +14715,25 @@ new row here, the box should be created containing plan and actual with the seri
   printed as Chrome prints with headers and footers ticked: one landscape page, no browser lines, Date / Approved by in the frame.
 - Files: frontend/src/data/seed/sysPapers352.ts, sysInternalAuditLayouts.ts, qcPaperTables.ts (PaperCell.keep, PaperRow.give),
   frontend/src/engine/paperRows.ts, frontend/tests/paperRows.test.ts.
+
+## §397 F/SYS/16: a sheet dated July to December prints July to December, his "2026 - H2" sheet (26-Nov-2026)
+
+The owner, 26-Nov-2026, after F/SYS/16 was compared with his Drive file (BRCGS 25-26, "F-SYS-16-Quality & Product Safety
+objectives 2024-25 (1) (1).xlsx": sheets 2022 H2, 2026 - H1 and 2026 - H2): "Yes, add July–Dec". The system printed only
+January to June (his H1 sheet); his H2 sheet, the same eighteen objectives for July to December, had no place.
+
+- A sheet dated July to December is drawn as his H2 sheet: the same paper - company, "Quality & Product Safety Objectives
+  ( Year … )", F/SYS/16 (00/01.12.2021), Sr. No. ... Plan / Actual, Total, % Achieved, the eighteen objectives with their Plan
+  and Actual rows (objective 8's Actual - meters), the same merged months, five objectives a page on four pages - with July,
+  August, September, October, November, December over the six month columns (data/seed/sysPapers354.ts objectivesPaperFor,
+  objectivesHalfOf; components/records/LogSheetRecordView.tsx). A sheet dated January to June is drawn exactly as before.
+- The record keeps its six months in the same boxes (janPlan ... junActual: the half's first to sixth month), so nothing of
+  the format changes, every record on file reads on, and the plans carry from one half to the next as before.
+- Only the format's own paper is turned so; a format the plant has replaced with its own paper is drawn as it is.
+- Proved on a local copy: the blank format and a sheet started 26-11-2026 print July to December on all four pages; the
+  sheet of 01-01-2026 prints January to June with its entries; the test-account check passed for F/SYS/16 and F/SYS/04.
+- A new sheet starts with its objectives blank (no Department / Parameter / Unit carried from the last sheet), as before
+  this change; his H2 sheet has them written in. Open with the owner.
+- Files: frontend/src/data/seed/sysPapers354.ts, frontend/src/components/records/LogSheetRecordView.tsx,
+  frontend/src/data/seed/documentDefinitions.ts, frontend/src/data/seed/sysManagementReviewLayouts.ts,
+  frontend/tests/sysPapers354.test.ts.

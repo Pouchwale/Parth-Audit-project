@@ -9,6 +9,7 @@ import { PLAIN_TWIN_ATTR, registerPaperTwin } from "../../utils/paperTwin";
 import { EXTRA_BOX, isExtraBox, listTables, rowWords, shownRows, withRecordBoxRows, withRowAdded, withRowRemoved } from "../../engine/boxRows";
 import { setShownPaperTable } from "../../data/seed/qcPaperTables";
 import { fhr15PaperFor } from "../../data/seed/hrPapers357";
+import { objectivesPaperFor, SYS_PAPERS_354 } from "../../data/seed/sysPapers354";
 import { daysOfSheet, TICK, tickCell } from "../../engine/cleaningMonth";
 import { unitized } from "../../engine/calibration";
 import { FiAlertTriangle, FiPlus, FiRotateCcw, FiTrash2 } from "react-icons/fi";
@@ -659,11 +660,15 @@ export function LogSheetRecordView({
   // (only while the paper still fits the format: one the plant has edited since is drawn as every grid is)
   // (a record written on a revision since replaced keeps its own page, never the format's paper: F/MNT/11's 2024 and 2025 rounds, §316)
   // (F/HR/15 drawn with its month's days, 28 to 31: its Month & Year, else its own month, §378)
+  // (F/SYS/16 drawn as his January-June sheet, or as his July-December one for a sheet dated July to December, §397)
+  const ptOwn = !frame && !lc && !asPlainTwin && !superseded ? paperTableFor(layout.documentId) : undefined;
   const ptForm =
     !frame && !lc && !asPlainTwin && !superseded
       ? layout.documentId === "hr-daily-cleaning"
         ? fhr15PaperFor(daysOfSheet(data.header?.monthYear, record.dueDate))
-        : paperTableFor(layout.documentId)
+        : layout.documentId === "sys-objectives" && ptOwn === SYS_PAPERS_354["sys-objectives"]
+          ? objectivesPaperFor(record.dueDate)
+          : ptOwn
       : undefined;
   // ...its tables of boxes with the record's own rows (§246, engine/boxRows.ts).
   const ptFormed = ptForm && paperTableFits(ptForm, layout) ? withRecordBoxRows(ptForm, layout, data) : undefined;
