@@ -66,7 +66,7 @@
 import { logActivity } from "./activityLog";
 import { formatDisplayDate } from "./date";
 import { fitAll, measureWords, unfitAll } from "./fitText";
-import { pagePapers, unpagePapers } from "./paperPages";
+import { breaksOf, pagePapers, unpagePapers } from "./paperPages";
 
 const DOC_SELECTOR = "[data-print-doc]";
 const HIDDEN = "print-scope-hidden";
@@ -1428,6 +1428,28 @@ function keepWithinPage(docs: Element[]): void {
     }
   });
   if (active) active.whole = keepWordsWhole(docs);
+}
+
+/**
+ * THE SCREEN'S PAGE COUNT IS THE PRINT'S (REQUIREMENTS §391; the owner, 26-Nov-2026, F/SYS/04 said "Of 8" on the screen and
+ * printed "Of 9"). How many pages a paper's lines run onto beyond its own, measured as the Print button measures them: the
+ * sheet made ready to print, its breaks found (utils/paperPages.ts), and everything taken back before anything is painted.
+ * Null while a print is under way or the sheet is not on the page.
+ */
+export function printedPageBreaks(sheet: Element): number | null {
+  if (active || !sheet.isConnected) return null;
+  const doc = sheet.closest(DOC_SELECTOR) ?? sheet;
+  prepareScope([doc]);
+  try {
+    document.documentElement.classList.add("print-measure");
+    try {
+      return withPrintRules(() => breaksOf(sheet as HTMLElement)).length;
+    } finally {
+      document.documentElement.classList.remove("print-measure");
+    }
+  } finally {
+    clearScope();
+  }
 }
 
 /**

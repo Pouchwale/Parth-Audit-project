@@ -20,6 +20,7 @@ import { lineClearanceGeometryFor, LINE_CLEARANCE_COMPANY, LINE_CLEARANCE_MACHIN
 import { readablePaper } from "../../engine/paperReadable";
 import { listHolds, listToggled } from "../../data/seed/qcPaperTables";
 import { registerPaperPager } from "../../utils/paperPages";
+import { printedPageBreaks } from "../../utils/print";
 import { paperRowAdded, paperRowRemoved, paperRowsBack, paperWithRows } from "../../engine/paperRows";
 import { paperFrameStyle, paperTableFits, paperTableFor, paperTablePrint, type PaperCell } from "../../data/seed/qcPaperTables";
 import { calibrationGeometryFor } from "../../data/seed/qcCalibrationGeometry";
@@ -253,6 +254,39 @@ export function LogSheetRecordView({
   // The pages of a long register, while it prints (§277).
   const [pageBreaks, setPageBreaks] = React.useState<number[] | null>(null);
   React.useEffect(() => (paperId ? registerPaperPager(paperId, setPageBreaks) : undefined), [paperId]);
+  // ...and on the screen, how many pages those breaks will add, so its "Page No.: 1 Of N" says what the print says (§391; F/SYS/04
+  // said "Of 8" and printed "Of 9"). Only a paper that draws pages of its own; measured a moment after the record last changed,
+  // never while a box of the sheet is being written in (making it ready to print would take the cursor out of it).
+  const [printBreaks, setPrintBreaks] = React.useState<number | null>(null);
+  const ownPaged = !!paperId && (() => {
+    const form = paperTableFor(doc.id);
+    return !!form?.flows && [...form.head, ...form.body, ...form.foot].some((r) => r.pb);
+  })();
+  React.useEffect(() => {
+    if (!ownPaged || !paperId) return;
+    let live = true;
+    let timer: number | undefined;
+    const sheetOf = () => document.querySelector(`.paper-table-sheet[data-bind-record="${CSS.escape(paperId)}"]`);
+    const run = () => {
+      const sheet = sheetOf();
+      if (!live || !sheet) return;
+      if (sheet.contains(document.activeElement)) {
+        sheet.addEventListener("focusout", schedule, { once: true });
+        return;
+      }
+      const n = printedPageBreaks(sheet);
+      if (n !== null) setPrintBreaks(n);
+    };
+    const schedule = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(run, 600);
+    };
+    schedule();
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [ownPaged, paperId, stored]);
   // THE HEADER BLOCK, TYPED OVER ON THE RECORD (REQUIREMENTS §86): the format's
   // company, title, number, revision and its date, and this record's own Page No.
   // (no Date cell of the record's own on the header, §117).
@@ -1035,6 +1069,7 @@ export function LogSheetRecordView({
       layout,
       rowCount: data.rows.length,
       pageBreaks,
+      printBreaks,
       removeLine: ptCanRemove ? (line: number) => { const r = data.rows[line]; if (r) removeRow(r.id); } : undefined,
       insertLine:
         ptCanAdd && pt.ownWords

@@ -14619,3 +14619,19 @@ unbroken line): "extend this line like this and remove the bracket at the end . 
 - Proved on a local copy with the period typed: the printout's line is unbroken from "Evaluation" to the last date; the workbook
   and the Word file read "Evaluation Period : 01-11-2026 to 18-11-2026" on one line, one A4 page each.
 - Files: frontend/src/data/seed/mktPapers355.ts, frontend/src/styles.css.
+
+## §391 F/SYS/04: the screen's "Page No.: 1 Of N" says what the print says (26-Nov-2026)
+
+The owner, 26-Nov-2026, comparing F/SYS/04 in his Drive with the system ("Yes, fix it"): the screen said "Page No.: X Of 8" and
+the print "Of 9" - the objectives table runs onto a page of its own only in the print, so the screen never counted it.
+
+- A paper that draws pages of its own (F/SYS/04) now measures on the screen, a moment after the record last changed, how many
+  pages the print's breaks add - the sheet made ready exactly as the Print button makes it, then put back before anything is
+  painted (utils/print.ts printedPageBreaks, utils/paperPages.ts breaksOf) - and every page's head counts them.
+- Never measured while a box of the sheet is being written in: it waits until the cursor leaves the sheet.
+- The 21.07.2025 meeting (19 objectives) reads "1 Of 9" ... "9 Of 9" on the screen as in the print (page 7, the objectives'
+  second page, exists only in the print); a blank record reads "Of 8" on both, as its print has no second objectives page.
+- Proved on a local copy: screen and print page numbers compared for both records; typing in a box keeps its cursor; the
+  test-account check passed for F/SYS/04 and F/SYS/04-A; 85 paper unit tests pass.
+- Files: frontend/src/components/records/LogSheetRecordView.tsx, frontend/src/components/records/PaperTableSheet.tsx,
+  frontend/src/utils/print.ts, frontend/src/utils/paperPages.ts.

@@ -56,6 +56,8 @@ export interface PaperTableParts {
   rowCount?: number;
   /** For the print of a long register: the lines each later page starts at (utils/paperPages.ts, §277). */
   pageBreaks?: number[] | null;
+  /** On the screen: how many pages the print's breaks add (utils/print.ts printedPageBreaks, §391), for "Page No.: 1 Of N". */
+  printBreaks?: number | null;
   /** A line of the record put in under this one, on an HR paper's register (§276). */
   insertLine?: (line: number) => void;
   /** Take a line of the record off (the screen's bin on a register's line), where lines may be removed. */
@@ -551,7 +553,9 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
   const ownPages = 1 + [...form.head, ...form.body].filter((r) => r.pb).length;
   // (and pages it starts in its foot, after a register: F/SYS/04's items 9 to 11, §325)
   const footPages = form.ownWords ? form.foot.filter((r) => r.pb).length : 0;
-  const pages = breaks.length + ownPages + footPages;
+  // (on the screen, where no breaks are drawn, the pages the print will add all the same: §391)
+  const added = form.ownWords && !parts.pageBreaks ? (parts.printBreaks ?? 0) : breaks.length;
+  const pages = added + ownPages + footPages;
   // Every page says its true number and how many there are: the papers' own "1 Of 1" over a second page, "1 Of 5" over a single one (§285).
   let ownPage = 1;
   const ownBody: PaperRow[] = form.ownWords
@@ -560,7 +564,7 @@ export function PaperTablePart({ part, parts }: { part: "head" | "body" | "foot"
         return { ...r, cells: r.cells.map((c) => onPage(c, ownPage, pages)) };
       })
     : form.body;
-  let footPage = breaks.length + ownPages;
+  let footPage = added + ownPages;
   const ownFoot: PaperRow[] =
     form.ownWords && footPages > 0
       ? form.foot.map((r) => {

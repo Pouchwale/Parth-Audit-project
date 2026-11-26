@@ -23,7 +23,7 @@ export function registerPaperPager(recordId: string, set: SetBreaks): () => void
 const heightOf = (els: Element[]): number => els.reduce((a, e) => a + e.getBoundingClientRect().height, 0);
 
 /** The lines each later page starts at, from the sheet as it prints. */
-function breaksOf(sheet: HTMLElement): number[] {
+export function breaksOf(sheet: HTMLElement): number[] {
   const pageH = sheet.getAttribute("data-paper") === "landscape" ? 210 : 297;
   const top = Number(sheet.style.getPropertyValue("--pt-top")) || 12;
   const room = (pageH - top - FOOT_MM) * PX_PER_MM;
