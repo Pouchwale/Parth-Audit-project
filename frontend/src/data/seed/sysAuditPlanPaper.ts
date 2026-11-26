@@ -101,7 +101,10 @@ const planRows: PaperRow[] = [
     cells: [
       { w: PL[0], t: `${ln + 1}.`, b: true, x: 4.4, y: 1.0 },
       // (the Audit Date is one line, and prints as the sheet writes dates: it does not grow its row)
-      ...PLAN_COLS.map((col, i): PaperCell => (col === "auditDate" ? { w: PL[i + 1], col, ln, a: "c", y: 1.0 } : { w: PL[i + 1], col, ln, x: 1.9, y: 1.0, lh: L, lines: true, grow: true })),
+      // (no line between the two Audit Dates - the owner, 26-Nov-2026, §392: the first open at its foot, the second at its head)
+      ...PLAN_COLS.map((col, i): PaperCell =>
+        col === "auditDate" ? { w: PL[i + 1], col, ln, a: "c", y: 1.0, edges: ln === 0 ? "ltr" : "lrb" } : { w: PL[i + 1], col, ln, x: 1.9, y: 1.0, lh: L, lines: true, grow: true }
+      ),
     ],
   })),
 ];
@@ -152,9 +155,7 @@ export const AUDIT_PLAN_PAPER: PaperTable = {
     { h: 19.6, cells: [{ w: W, t: "AUDIT SUMMARY", b: true, a: "c", y: 7.4, edges: "" }] },
     ...summaryRows,
   ],
-  foot: [
-    gap(12.8),
-    // "Verified By: _________________": the signature written on the page's line, 14.2 mm to 62.8 mm.
-    { h: 7.0, cells: [{ w: W, t: "Verified By:", b: true, x: 2.0, y: 1.0, edges: "", over: [{ box: "verifiedBy", x: 19.6, y: 0.4, w: 60, h: 4.6, rule: 29.0 }] }] },
-  ],
+  // (his "Verified By: ____" under the summary is taken off the paper - the owner, 26-Nov-2026, §392; the record keeps its box)
+  offPaper: ["verifiedBy"],
+  foot: [],
 };

@@ -14635,3 +14635,16 @@ the print "Of 9" - the objectives table runs onto a page of its own only in the 
   test-account check passed for F/SYS/04 and F/SYS/04-A; 85 paper unit tests pass.
 - Files: frontend/src/components/records/LogSheetRecordView.tsx, frontend/src/components/records/PaperTableSheet.tsx,
   frontend/src/utils/print.ts, frontend/src/utils/paperPages.ts.
+
+## §392 F/SYS/06: no line between the two Audit Dates; "Verified By:" off the paper (26-Nov-2026)
+
+The owner, 26-Nov-2026, with the printout's Audit Date column (01-12-2026 over 22-02-2026): "in format sys 6 remove this middle
+line from the audit date and also remove verified by that is written below and keep the format intact"; asked which line, he
+chose the line between the two dates.
+
+- The plan table's Audit Date cells: the first line's is open at its foot, the second's at its head, so no line parts the two
+  dates (every other column keeps its line between the two plan lines). On the screen, in print, in Word and in Excel.
+- "Verified By: ____" under the AUDIT SUMMARY is taken off the paper (PaperTable.offPaper); the record keeps its box.
+- Everything else as §326 drew it. Proved on a local copy with both dates typed: the printout, the workbook (converted by Excel)
+  and the Word file (converted by Word) are one A4 page each, with no line between the dates and no "Verified By".
+- Files: frontend/src/data/seed/sysAuditPlanPaper.ts.
