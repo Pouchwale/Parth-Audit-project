@@ -232,7 +232,8 @@ export function styleScope(documentId: string, layout: Pick<LogSheetLayout, "sty
   return `${documentId}-${(h >>> 0).toString(36)}`;
 }
 
-const WORDS_INSIDE = ":is(input, select, textarea, button.designer-label, .cell-text, .print-box-text, .print-box-words, .print-box-words *)";
+// (.pt-words: a paper's printed words, set apart in their cell - a style on the cell alone would not reach them, §395)
+const WORDS_INSIDE = ":is(input, select, textarea, button.designer-label, .cell-text, .print-box-text, .print-box-words, .print-box-words *, .pt-words)";
 
 /** The elements a key styles, within the sheet's scope. */
 function selectorsOf(key: StyleKey): string[] | null {

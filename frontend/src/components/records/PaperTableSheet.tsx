@@ -58,6 +58,11 @@ export interface PaperTableParts {
   pageBreaks?: number[] | null;
   /** On the screen: how many pages the print's breaks add (utils/print.ts printedPageBreaks, §391), for "Page No.: 1 Of N". */
   printBreaks?: number | null;
+  /**
+   * The format is styled in Edit format (§318): a paper row that prints one of the format's printed lines (layout.instructions)
+   * carries that line's marker, so its style - underline, bold, size, alignment - draws on the paper too (§395).
+   */
+  styled?: boolean;
   /** A line of the record put in under this one, on an HR paper's register (§276). */
   insertLine?: (line: number) => void;
   /** Take a line of the record off (the screen's bin on a register's line), where lines may be removed. */
@@ -219,14 +224,21 @@ function lineMergeOf(layout: LogSheetLayout, cells: PaperCell[], held: (col: str
 /** A row as drawn: a register's line knows its number, and whether it is one of the paper's blank lines (pad). */
 type DrawnRow = PaperRow & { line?: number; pad?: boolean };
 
+/** A printed line's words as compared: spaces evened, case and the paper's dash forms aside. */
+const lineWords = (s: string): string => s.replace(/[–—]/g, "-").replace(/\s+/g, " ").trim().toLowerCase();
+
 function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: number[]; parts: PaperTableParts; row0: number }) {
   const { form, layout, words, edit } = parts;
+  // The format's printed lines by their words, where it is styled (§395): the paper's row that prints one carries its marker.
+  const styledLines = parts.styled && layout.instructions?.length ? new Map(layout.instructions.map((t, i) => [lineWords(t), i] as const).filter(([w]) => w)) : null;
   return (
     <>
       {rows.map((row, ri) => {
         let x = 0;
         const cells: React.ReactNode[] = [];
         const merged = row.line !== undefined && !row.pad ? lineMergeOf(layout, row.cells, (col) => parts.cellText?.(row.line!, col) ?? "") : null;
+        // (a row printing one of the format's lines: "Agenda Points for MRM meeting", "1. Follow up action items ...", §395)
+        const styleLine = styledLines && row.line === undefined ? styledLines.get(lineWords(row.cells.filter((c) => !c.skip && !c.box && !c.sentence && c.col === undefined).map((c) => c.t ?? "").join(" "))) : undefined;
         row.cells.forEach((c, ci) => {
           const start = nearest(edges, x);
           // A run of a register's line drawn as one cell (LogSheetLayout.lineMerges, F/PUR/03's SERVICE AGREEMENT, §309): its first
@@ -413,6 +425,7 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
               data-pt-col={c.col}
               data-pt-blank={c.t === "" && !c.box && !c.col && !c.sentence && !c.img && !c.at && !c.num && c.lab === undefined ? "" : undefined}
               data-line-merge={merged && ci === merged.first ? "" : undefined}
+              data-style-line={styleLine !== undefined && (c.t ?? "").trim() ? styleLine : undefined}
             >
               {/* A row of a table of boxes: a row put in under it, and it taken off - outside the paper's table, never printed (§246). */}
               {ci === 0 && c.rowKey && c.rowTable && parts.addRow && (

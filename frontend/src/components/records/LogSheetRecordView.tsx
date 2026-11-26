@@ -1070,6 +1070,7 @@ export function LogSheetRecordView({
       rowCount: data.rows.length,
       pageBreaks,
       printBreaks,
+      styled: !!styledAs,
       removeLine: ptCanRemove ? (line: number) => { const r = data.rows[line]; if (r) removeRow(r.id); } : undefined,
       insertLine:
         ptCanAdd && pt.ownWords
@@ -1182,6 +1183,7 @@ export function LogSheetRecordView({
         className={`${rootClass} paper-table-sheet`}
         translate={asIssued ? "no" : undefined}
         data-bind-record={record.id}
+        data-format-styles={styledAs}
         data-paper={pt.page}
         data-paper-left={ptPrint.left}
         data-sheet={doc.id}

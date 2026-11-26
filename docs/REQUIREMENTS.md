@@ -14674,3 +14674,23 @@ the middle".
   (converted by Word) show 22-02-2026 at the top of the box beside line 1.
 - Files: frontend/src/data/seed/sysAuditPlanPaper.ts, frontend/src/components/records/PaperTableSheet.tsx, frontend/src/styles.css,
   frontend/src/utils/paperTableExport.ts.
+
+## §395 A style set in Edit format shows on a format drawn as the owner's paper (26-Nov-2026)
+
+The owner, 26-Nov-2026: "i have edited the format and added the underline in Agenda Points for MRM meeting but it didn't
+shown check the logics and make it perfect" (F/SYS/04-A).
+
+- The cause: Edit format saved the style (LogSheetLayout.styles, "instruction:0": underlined) and its own sheet showed it, but a
+  format drawn as the owner's paper (PaperTableSheet: F/SYS/04-A and every other paper) never carried the format's styles -
+  no data-format-styles on the paper, no data-style-line on its rows - so the record, its print and its downloads ignored it.
+- Now the paper carries the format's styles, and a paper row whose words are one of the format's printed lines
+  (layout.instructions: "Agenda Points for MRM meeting", "1. Follow up action items ...", the number and words of a row read
+  together) carries that line's marker. Its style - underline, bold, italic, size, font, alignment, spacing - draws on the
+  screen, in the print and in the Word / Excel downloads (paperTableExport reads wordsLookOf for those cells).
+- A format nobody styled is drawn exactly as before (no markers unless the format has styles).
+- Proved on a local copy: underlined printed line 1 of F/SYS/04-A in Edit format, saved as Rev 02; the blank format and the
+  07.07.2025 notice show "Agenda Points for MRM meeting" underlined on the screen and in the print, the eleven points as
+  before; the test-account check passed for F/SYS/04 and F/SYS/04-A. (sysAuditPlanPaper.test.ts fails on main already, from
+  the F/SYS/06 work, not this change.)
+- Files: frontend/src/components/records/PaperTableSheet.tsx, frontend/src/components/records/LogSheetRecordView.tsx,
+  frontend/src/engine/formatStyles.ts, frontend/src/utils/paperTableExport.ts.

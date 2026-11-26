@@ -1,4 +1,5 @@
 import type { Cell, CellPicture, ExportBlock, PaperCellSpec, SheetCell } from "./documentExport";
+import { wordsLookOf } from "../engine/formatStyles";
 import { lineRow, paperTableFor as ownPaper, paperTablePrint, shownPaperTable as paperTableFor, type PaperCell, type PaperRow, type PaperTable } from "../data/seed/qcPaperTables";
 
 // A PAPER DRAWN AS ITS OWN TABLE, DOWNLOADED AS IT IS DRAWN (the owner, 30-10-26, F/QC/17 with its printout beside its
@@ -413,6 +414,8 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
           const picture = img?.getAttribute("src") ? { src: img.src, alt: img.alt, x: mm("--pt-ix"), y: mm("--pt-iy"), w: mm("--pt-iw"), h: mm("--pt-ih") } : undefined;
           const said = blankLine || has("pt-padc") ? { text: "" } : drawnWords(td, read);
           words.push(picture && said.text.trim() === picture.alt.trim() ? { text: "" } : said);
+          // (a style set on the format in Edit format, where the cell prints one of its lines: §395)
+          const look = td.hasAttribute("data-style-line") ? wordsLookOf(td) : undefined;
           drawn.push({
             ...(picture && picture.w > 0 && picture.h > 0 ? { picture } : {}),
             // (one box for the whole table is written at its top, as the page writes it: F/SYS/06's Audit Date, §394)
@@ -421,11 +424,11 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
             col,
             colSpan,
             rowSpan,
-            size: Number(line?.style.getPropertyValue("--pt-size")) || Number(td.style.getPropertyValue("--pt-size")) || form.pt,
-            bold: has("pt-b") || !!line?.classList.contains("pt-b"),
-            underline: has("pt-u"),
+            size: look?.size ?? (Number(line?.style.getPropertyValue("--pt-size")) || Number(td.style.getPropertyValue("--pt-size")) || form.pt),
+            bold: look?.bold ?? (has("pt-b") || !!line?.classList.contains("pt-b")),
+            underline: has("pt-u") || !!look?.underline,
             ...(fill ? { fill } : {}),
-            align: has("pt-ac") ? "center" : has("pt-ar") ? "right" : "left",
+            align: look?.align === "center" || look?.align === "right" || look?.align === "left" ? look.align : has("pt-ac") ? "center" : has("pt-ar") ? "right" : "left",
             font: FACE[face ?? form.font],
             borders: gridRuled ? [gridRule("l"), gridRule("r"), gridRule("t"), gridRule("b")] : [rule("l", "pt-nl"), rule("r", "pt-or", "pt-hr"), rule("t", "pt-nt"), rule("b", "pt-ob", "pt-hb")],
           });
