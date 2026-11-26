@@ -91,6 +91,8 @@ function blankCell(c: PaperCell, place: string, line: (n: number | undefined) =>
   for (const k of LOOK) if (c[k] !== undefined) look[k] = c[k];
   const out = look as unknown as PaperCell;
   if (c.skip) return out;
+  // (one box for the whole table: the row put in leaves its place to the box above, which runs down over it - spanOnce)
+  if (c.once) return { ...out, skip: true, once: true };
   const own = line(c.ln);
   if (c.col !== undefined && own !== undefined) return { ...out, col: c.col, ln: own, ...(c.lines ? { lines: true as const } : {}) };
   if (c.calc && own !== undefined) return { ...out, calc: c.calc, ln: own };
@@ -123,6 +125,31 @@ function renumbered(rows: PaperRow[], put: Set<PaperRow>): PaperRow[] {
     last += 1;
     const t = `${last}${(c.t as string).trim().endsWith(".") ? "." : ""}`;
     return t === c.t ? r : { ...r, cells: r.cells.map((x, i) => (i === ci ? { ...x, t } : x)) };
+  });
+}
+
+/**
+ * A cell that is one box for the whole table (PaperCell.once) runs down over the rows put in straight under it; a row put in
+ * whose box has no such cell above it (that row was taken off) has the cell blank, as the paper draws it.
+ */
+function spanOnce(out: PaperRow[], put: Set<PaperRow>): PaperRow[] {
+  if (!out.some((r) => r.cells.some((c) => c.once))) return out;
+  const res = [...out];
+  const covered = new Set<string>();
+  out.forEach((r, i) =>
+    r.cells.forEach((c, ci) => {
+      if (!c.once || c.skip) return;
+      const own = c.rs ?? 1;
+      let end = i + own;
+      while (end < out.length && put.has(out[end]) && out[end].cells[ci]?.skip) covered.add(`${end}:${ci}`), end++;
+      if (end - i !== own) res[i] = { ...res[i], cells: res[i].cells.map((x, k) => (k === ci ? { ...x, rs: end - i } : x)) };
+    })
+  );
+  return res.map((r, i) => {
+    if (!put.has(out[i]) || !r.cells.some((c, ci) => c.once && c.skip && !covered.has(`${i}:${ci}`))) return r;
+    const row = { ...r, cells: r.cells.map((c, ci) => (c.once && c.skip && !covered.has(`${i}:${ci}`) ? { ...c, skip: undefined, t: "" } : c)) };
+    put.add(row);
+    return row;
   });
 }
 
@@ -170,7 +197,7 @@ export function paperWithRows(form: PaperTable, kept: PaperRowsKept | undefined)
       }
       follow(key);
     }
-    return changed ? renumbered(out, put) : out;
+    return changed ? renumbered(spanOnce(out, put), put) : out;
   };
   return { ...form, head: build(head), body: build(body), foot: build(foot) };
 }

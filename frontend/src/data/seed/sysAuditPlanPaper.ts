@@ -101,9 +101,14 @@ const planRows: PaperRow[] = [
     cells: [
       { w: PL[0], t: `${ln + 1}.`, b: true, x: 4.4, y: 1.0 },
       // (the Audit Date is one line, and prints as the sheet writes dates: it does not grow its row)
-      // (no line between the two Audit Dates - the owner, 26-Nov-2026, §392: the first open at its foot, the second at its head)
+      // (one Audit Date for the whole plan, the first line's, in one box down both lines - the owner, 26-Nov-2026, §392/§393:
+      //  "the date should be one for the whole, dont give the option to enter 2 dates")
       ...PLAN_COLS.map((col, i): PaperCell =>
-        col === "auditDate" ? { w: PL[i + 1], col, ln, a: "c", y: 1.0, edges: ln === 0 ? "ltr" : "lrb" } : { w: PL[i + 1], col, ln, x: 1.9, y: 1.0, lh: L, lines: true, grow: true }
+        col === "auditDate"
+          ? ln === 0
+            ? { w: PL[i + 1], col, ln, a: "c", vm: true, rs: 2, once: true }
+            : { w: PL[i + 1], skip: true }
+          : { w: PL[i + 1], col, ln, x: 1.9, y: 1.0, lh: L, lines: true, grow: true }
       ),
     ],
   })),

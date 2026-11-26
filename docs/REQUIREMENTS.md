@@ -14648,3 +14648,17 @@ chose the line between the two dates.
 - Everything else as §326 drew it. Proved on a local copy with both dates typed: the printout, the workbook (converted by Excel)
   and the Word file (converted by Word) are one A4 page each, with no line between the dates and no "Verified By".
 - Files: frontend/src/data/seed/sysAuditPlanPaper.ts.
+
+## §393 F/SYS/06: one Audit Date for the whole plan (26-Nov-2026)
+
+The owner, 26-Nov-2026, with §392's two date boxes (dd-mm-yyyy over dd-mm-yyyy): "the date should be one for the whole, dont
+give the option to enter 2 dates, just give 1 option that is the top one".
+
+- The plan table's Audit Date is one box, the first line's, running down both plan lines (rs 2, centred); the second line has
+  no date box of its own. The header's "Date:" is unchanged.
+- A plan line put in (§276) takes no date box either: the one box runs down over it (PaperCell.once, engine/paperRows.ts
+  spanOnce); with the first lines taken off, a line put in has the column blank.
+- Proved: frontend/tests/paperRows.test.ts; on a local copy the screen shows one Audit Date down 2 and down 6 plan lines, and the
+  printout, the workbook (converted by Excel) and the Word file (converted by Word) are one A4 page each with one Audit Date.
+- Files: frontend/src/data/seed/sysAuditPlanPaper.ts, qcPaperTables.ts (PaperCell.once), frontend/src/engine/paperRows.ts,
+  frontend/tests/paperRows.test.ts.

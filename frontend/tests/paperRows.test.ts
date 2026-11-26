@@ -89,3 +89,18 @@ test("the directors' details from Master Data.xlsx fill only empty boxes", () =>
   assert.equal(shail().dateOfBirth, "1988-10-21");
   assert.equal(shail().designation, before || "CEO");
 });
+
+test("F/SYS/06: one Audit Date for the whole plan, running down over every plan line put in (§393)", async () => {
+  const { AUDIT_PLAN_PAPER } = await import("../src/data/seed/sysAuditPlanPaper");
+  const plan = (d: LogSheetData) => paperWithRows(AUDIT_PLAN_PAPER, d.words?.paperRows).body;
+  const dateCells = (rows: ReturnType<typeof plan>) => rows.flatMap((r) => r.cells.filter((c) => c.col === "auditDate" && !c.skip));
+  const two: LogSheetData = { header: {}, rows: [{ id: "a" } as LogSheetRow, { id: "b" } as LogSheetRow] };
+  assert.deepEqual(dateCells(plan(two)).map((c) => [c.ln, c.rs]), [[0, 2]], "one Audit Date box, the first line's, over both lines");
+  const key = plan(two).find((r) => r.rowKey && r.cells.some((c) => c.col === "auditDate"))!.rowKey!;
+  const more = paperRowAdded(AUDIT_PLAN_PAPER, two, key, "p1", () => ({ id: "n" }) as LogSheetRow);
+  assert.deepEqual(dateCells(plan(more)).map((c) => [c.ln, c.rs]), [[0, 4]], "a plan line put in takes no date box: the one box runs down over it");
+  const gone = paperRowRemoved(AUDIT_PLAN_PAPER, more, key);
+  const rows = plan(gone);
+  assert.equal(dateCells(rows).length, 0, "with the first lines taken off no date box is left");
+  assert.ok(rows.every((r) => r.cells.reduce((w, c) => w + c.w, 0) > 184), "every row still spans the table");
+});

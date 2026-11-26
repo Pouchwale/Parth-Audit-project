@@ -121,6 +121,11 @@ export interface PaperCell {
   caps?: true;
   rs?: number;
   skip?: true;
+  /**
+   * One box for the whole table (F/SYS/06's Audit Date, §393): rows put in under it take no box of their own here - the cell
+   * runs down over them instead (engine/paperRows.ts).
+   */
+  once?: true;
   /** A register's line number: on every ruled line ("all", the paper prints them) or on the record's lines only ("rows"). */
   num?: "all" | "rows";
   /** The line number as the paper writes it: "1." (F/SYS/04's objectives) or "01" (F/SYS/04-A's participants), §325. */
