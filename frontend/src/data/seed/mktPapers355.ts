@@ -69,8 +69,10 @@ const FEEDBACK_ANALYSIS_PAPER: PaperTable = {
         { w: F_ATTR, b: true, u: true, pt: 11.88, x: 0.7, vm: true, sentence: { before: "Product : -", box: "product", after: "", boxWidth: 30, pw: true } },
         // (one line, "Evaluation Period : 01-11-2026 to 18-11-2026 )", on the rating columns' own edges: its narrow cells of
         //  their own broke the words and the dates over two lines and cut the workbook into slivers - the owner, 26-Nov-2026)
+        // (one unbroken line under the words and both dates, and no closing bracket - the owner, 26-Nov-2026, §390: the two
+        //  cells meet with no room between them, and the print rules the line under each, styles.css)
         { w: F_RATE[0] + F_RATE[1] + F_RATE[2], b: true, u: true, pt: 9.6, a: "r", vm: true, edges: "ltb", sentence: { before: "Evaluation Period :", box: "periodFrom", after: "", boxWidth: 17 } },
-        { w: F_RATE[3] + F_RATE[4], b: true, u: true, pt: 9.6, x: 0.6, vm: true, edges: "rtb", sentence: { before: "to", box: "periodTo", after: ")", boxWidth: 17 } },
+        { w: F_RATE[3] + F_RATE[4], b: true, u: true, pt: 9.6, vm: true, edges: "rtb", sentence: { before: "to", box: "periodTo", after: "", boxWidth: 17 } },
         blank(F_OUTSIDE),
       ],
     },

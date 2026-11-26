@@ -4094,6 +4094,14 @@ table.svc-paper {
   .pt-table .pt-sentence.pt-sw > .pt-pw:empty { display: inline-block; width: calc(var(--pt-bw) * var(--u)); }
   /* (an underlined title's blank stays underlined, as his "[ Vehicle number: ____ ]" is: F/DISP/04, F/MKT/02, F/MKT/04, §372) */
   .paper-sheet:is([data-sheet="disp-vehicle-cleaning"], [data-sheet="mkt-feedback-analysis"], [data-sheet="mkt-complaint-trend"]) .pt-table td.pt-c.pt-u .pt-sentence.pt-sw > .pt-pw:empty { border-bottom: calc(0.42 * var(--u)) solid #000; }
+  /* (F/MKT/02's period: one line ruled under the words and both dates, the boxes as wide as their dates, the two halves
+     meeting at the cells' edge, §390) */
+  .paper-sheet[data-sheet="mkt-feedback-analysis"] .pt-table td.pt-c.pt-u .pt-sentence:not(.pt-sw) { text-decoration: none; border-bottom: calc(0.42 * var(--u)) solid #000; display: inline-block; width: max-content; line-height: 1.15; }
+  .paper-sheet[data-sheet="mkt-feedback-analysis"] .pt-table td.pt-c.pt-u.pt-ar .pt-sentence:not(.pt-sw) { left: auto; }
+  .paper-sheet[data-sheet="mkt-feedback-analysis"] .pt-table td.pt-c.pt-u:not(.pt-ar) .pt-sentence:not(.pt-sw) { right: auto; }
+  .paper-sheet[data-sheet="mkt-feedback-analysis"] .pt-table td.pt-c.pt-u .pt-sentence:not(.pt-sw) * { text-decoration: none; }
+  .paper-sheet[data-sheet="mkt-feedback-analysis"] .pt-table td.pt-c.pt-u:not(.pt-ar) .pt-sentence:not(.pt-sw) { padding-left: 0.3em; }
+  .paper-sheet[data-sheet="mkt-feedback-analysis"] .pt-table td.pt-c.pt-u .pt-sentence:not(.pt-sw) .field-in-table { width: auto; }
 }
 /* A cell that grows to its words (PaperCell.grow, F/SYS/04, §325): the hidden copy sizes the row, the box stands over it;
    printed, the words stand in the box's place. */

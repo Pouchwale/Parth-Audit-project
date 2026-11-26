@@ -14608,3 +14608,14 @@ we have in date and every other".
   on the screen, in print, in the Word file and in the workbook. Nothing else of the paper moves; the record's boxes are the same.
 - Proved: the mkt and paper unit tests; on a local copy the screen, the print, Word and Excel each show both boxes closed, one
   page each; the test account check (§206).
+## §390 F/MKT/02: one line under the whole period, no closing bracket (26-Nov-2026)
+
+The owner, 26-Nov-2026, with the printout's period beside his own ("Evaluation Period : 03-11-2026 to 18-11-2026" over one
+unbroken line): "extend this line like this and remove the bracket at the end . in print out pdf".
+
+- The ")" after the second date is gone (on the screen, in print, in Word and in Excel).
+- In print one line runs under "Evaluation Period : <from> to <to>", the dates included: each half is ruled under its own words
+  (a border hugging the words, the date's box as wide as its date), and the two halves meet at the cells' edge (styles.css).
+- Proved on a local copy with the period typed: the printout's line is unbroken from "Evaluation" to the last date; the workbook
+  and the Word file read "Evaluation Period : 01-11-2026 to 18-11-2026" on one line, one A4 page each.
+- Files: frontend/src/data/seed/mktPapers355.ts, frontend/src/styles.css.
