@@ -14557,3 +14557,26 @@ The owner, 25-Nov-2026, on the downloaded F/MNT/02: "the table is breaking, it s
   a page of its own after the first gets this. The lines were put on one left and one right edge by §379.
 - Proved: mntPapers351 and qcPaperTables tests; on a local copy the Word download of F/MNT/02 is two tables, the second after a
   page break, and Word counts 2 pages, page 1's table all on page 1 and page 2's on page 2; the test account check (§206).
+
+## §387 F/MNT/11: the Word and Excel downloads as the printed page - its lines and its logo (26-Nov-2026)
+
+The owner, 26-Nov-2026, with the downloaded F/MNT/11 open in Word: "when downloading the word the format is getting ruined, solve
+it and keep the exact format as printing the pdf and also while downloading the excel the format is getting ruined, update it".
+
+- The cause: the Word and Excel files of a drawn paper (utils/paperTableExport.ts paperDrawnBlocks, §275) took a cell's lines
+  only from a paper ruled cell by cell (data-pt-rules="cells"). F/MNT/11 (§316) is a full grid, so both files had no line at all,
+  and its logo was written as its words "Gujarat Print Pack Publications Pvt. Ltd.".
+- A paper that is not ruled cell by cell now has every line in both files as the page draws it: each cell's right and bottom
+  edge, the table's left and top; heavy where the page is heavy (its frame, the lines under the logo band, Make/Model and Range);
+  none between Make/Model and Sr.No., as on the paper.
+- A picture the paper draws in a cell (PaperCell.img) goes into both files as the picture, where the paper sets it and at its
+  printed size: in Word an inline picture in its cell (utils/docx.ts), in Excel a picture anchored at its cell (xl/drawings).
+  Its bytes are fetched when the file is made (withPictureBytes); a picture that cannot be read falls back to its words. Every
+  drawn paper with a logo (F/MNT/01-10, F/PUR, F/SYS, F/QC and CAPA papers) now carries its logo in its downloads too.
+- F/MNT/11 only (AS_PRINTED): in Word each row at its printed height (other one-page papers keep 0.48 of it so they stay on one
+  page), and the table in the middle of the page's width in Word and in Excel (printOptions horizontalCentered), as the print.
+- Proved: frontend/tests/paperPicture.test.ts; on a local copy F/MNT/11's Word file (converted by Word) and workbook (converted by
+  Excel) are one A4 page each, laid as the print: logo, title and Doc No. band, Make/Model with Sr.No., Range, the headings and
+  the 26 areas, every line, the heavy frame. The 40 drawn papers with a logo or a grid, downloaded before and after: no Word or Excel page count changed; F/QC/08 and F/QC/16 now have their lines in Word too.
+- Files: frontend/src/utils/paperTableExport.ts, documentExport.ts (Cell.picture, sheet centred, workbook drawing), docx.ts
+  (DocxPaperCell.picture); frontend/tests/paperPicture.test.ts.

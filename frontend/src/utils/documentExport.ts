@@ -6,7 +6,7 @@ import { downloadBlob } from "./csv";
 import { displayDateToISO, formatDisplayDate, todayISO } from "./date";
 import { PRINT_PREPARE_EVENT, paperOf } from "./print";
 import { paperMarginsOf, paperPageOf, paperSheetBlocks, paperWordBlocks } from "./paperSheets";
-import { paperDrawnBlocks, paperTableSheet, paperTableWord, paperTableWordMargins } from "./paperTableExport";
+import { paperDrawnBlocks, paperTableSheet, paperTableWord, paperTableWordMargins, withPictureBytes } from "./paperTableExport";
 import { originalFileBytes, originalFileOf } from "./originalFill";
 import { withPlainTwins } from "./paperTwin";
 import { paperTableFor } from "../data/seed/qcPaperTables";
@@ -176,6 +176,19 @@ export interface Cell {
   look?: WordsLook;
   /** A box's label's own look (the value's is `look`). */
   labelLook?: WordsLook;
+  /** A picture the paper draws in the cell (F/MNT/11's logo, §387), in the Word file and the workbook. */
+  picture?: CellPicture;
+}
+
+/** A picture in a cell: where it sits from the cell's top-left and its size (points), and its bytes once fetched. */
+export interface CellPicture {
+  src: string;
+  alt: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  bytes?: { data: Uint8Array; type: "jpeg" | "png" };
 }
 
 /**
@@ -237,7 +250,7 @@ export type ExportBlock =
    * A sheet drawn as the company's own Excel paper: merged cells, the paper's column widths (Excel characters) and row
    * heights (points), fonts, borders. Read from a table marked data-paper-sheet (utils/documentExport.ts sheetBlock).
    */
-  | { kind: "sheet"; name: string; widths: number[]; heights: (number | undefined)[]; rowCount: number; cells: SheetCell[]; /** Rows (0-based) a new printed page starts at. */ breaks?: number[]; /** The page's way, where the sheet names it (F/HR/17's register: portrait). */ page?: "portrait" | "landscape"; /** The paper is one page: Excel prints it on one (§278). */ onePage?: boolean }
+  | { kind: "sheet"; name: string; widths: number[]; heights: (number | undefined)[]; rowCount: number; cells: SheetCell[]; /** Rows (0-based) a new printed page starts at. */ breaks?: number[]; /** The page's way, where the sheet names it (F/HR/17's register: portrait). */ page?: "portrait" | "landscape"; /** The paper is one page: Excel prints it on one (§278). */ onePage?: boolean; /** Printed in the middle of the page's width, as the print sets it (§387). */ centred?: boolean }
   /** Boxes with their labels; `perLine`, how many the paper puts on one line (LogSheetLayout.headerColumns, REQUIREMENTS §117). */
   | { kind: "fields"; pairs: [string, Cell][]; perLine?: number }
   | { kind: "table"; rows: Cell[][]; headerRows: number; bindTable?: ExportTableBinding; band?: true };
@@ -786,8 +799,11 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
   let sheetTitle = "";
   let sheetPage: "portrait" | "landscape" | undefined;
   let sheetOnePage = false;
+  let sheetCentred = false;
   // Rows holding one line of words (a heading, a note): the ones too long for the sheet's width wrap across it (below).
   const textRows = new Set<number>();
+  // Pictures a paper draws in its cells (§387): each anchored at its cell, as far in and down as the paper sets it.
+  const pictures: { row: number; col: number; picture: CellPicture }[] = [];
   // 8 bold wrapped (a label) · 9 plain wrapped · 10 title wrapped — after the eight above, so their numbers stay.
   // 11 a value centred across the cells it is merged over (Cell.across, §309).
   const CENTRED_ACROSS = 11;
@@ -867,6 +883,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       if (block.name) sheetTitle = block.name;
       if (block.page) sheetPage = block.page;
       if (block.onePage) sheetOnePage = true;
+      if (block.centred) sheetCentred = true;
       for (let r = 0; r < block.rowCount; r++) rows.push([]);
       block.widths.forEach((w, ci) => (fixedWidths[ci] = w));
       block.heights.forEach((h, ri) => h !== undefined && heightsAt.set(base + ri, h));
@@ -874,6 +891,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
       for (const c of block.cells) {
         const lastRow = c.row + c.rowSpan - 1;
         const lastCol = c.col + c.colSpan - 1;
+        if (c.picture?.bytes) pictures.push({ row: base + c.row, col: c.col, picture: c.picture });
         if (c.rowSpan > 1 || c.colSpan > 1) merges.push(`${columnName(c.col)}${base + c.row + 1}:${columnName(lastCol)}${base + lastRow + 1}`);
         // A merged cell draws its edges on the cells around the range, as Excel does.
         for (let r = c.row; r <= lastRow; r++) {
@@ -1059,6 +1077,7 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
         `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
         (envelope ? `<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` : "") +
+        (pictures.length ? `<Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>` : "") +
         `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
         (envelope ? `<Override PartName="/${CUSTOM_PROPERTIES_PART}" ContentType="${CUSTOM_PROPERTIES_TYPE}"/>` : "") +
         `</Types>`,
@@ -1121,12 +1140,14 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
         `<cols>${Array.from({ length: columns }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${fixedWidths[i] ?? widths[i] ?? 10}" customWidth="1"/>`).join("")}</cols>` +
         `<sheetData>${sheetData}</sheetData>` +
         (merges.length ? `<mergeCells count="${merges.length}">${merges.map((m) => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>` : "") +
+        (sheetCentred ? `<printOptions horizontalCentered="1"/>` : "") +
         `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
         // Printed from Excel: one page wide, as many pages down as it takes.
         // ...on the paper's own page where the layout names it (REQUIREMENTS §117), else as its width needs.
         `<pageSetup paperSize="9" orientation="${orientation}" fitToWidth="1" fitToHeight="${onePageTall ? 1 : 0}"/>` +
         // A new page where the paper starts one (F/HR/18's second page): Excel breaks above the row.
         (pageBreaks.length ? `<rowBreaks count="${pageBreaks.length}" manualBreakCount="${pageBreaks.length}">${pageBreaks.map((r) => `<brk id="${r}" max="16383" man="1"/>`).join("")}</rowBreaks>` : "") +
+        (pictures.length ? `<drawing r:id="rId1"/>` : "") +
         `</worksheet>`,
     ],
   ];
@@ -1134,7 +1155,28 @@ export function workbookFromBlocks(sheetName: string, blocks: ExportBlock[], env
     parts.push(["xl/worksheets/sheet2.xml", mapSheet]);
     parts.push([CUSTOM_PROPERTIES_PART, customPropertiesXml([[ENVELOPE_PROPERTY, envelopePropertyValue(envelope)]])]);
   }
-  return zipStored(parts.map(([name, xml]) => ({ name, data: new TextEncoder().encode(declaration + xml) })));
+  const media: { name: string; data: Uint8Array }[] = [];
+  if (pictures.length) {
+    const EMU = 12700;
+    const XDR = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing";
+    const A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+    const anchors = pictures.map(({ row, col, picture: p }, i) => {
+      media.push({ name: `xl/media/image${i + 1}.${p.bytes!.type}`, data: p.bytes!.data });
+      const [cx, cy] = [Math.round(p.w * EMU), Math.round(p.h * EMU)];
+      return (
+        `<xdr:oneCellAnchor><xdr:from><xdr:col>${col}</xdr:col><xdr:colOff>${Math.round(p.x * EMU)}</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>${Math.round(p.y * EMU)}</xdr:rowOff></xdr:from>` +
+        `<xdr:ext cx="${cx}" cy="${cy}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${i + 2}" name="Picture ${i + 1}" descr="${xmlText(p.alt).replace(/"/g, "&quot;")}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>` +
+        `<xdr:blipFill><a:blip r:embed="rId${i + 1}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>` +
+        `<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`
+      );
+    });
+    parts.push(
+      ["xl/worksheets/_rels/sheet1.xml.rels", `<Relationships xmlns="${PACKAGE_REL}"><Relationship Id="rId1" Type="${REL}/drawing" Target="../drawings/drawing1.xml"/></Relationships>`],
+      ["xl/drawings/drawing1.xml", `<xdr:wsDr xmlns:xdr="${XDR}" xmlns:a="${A}" xmlns:r="${REL}">${anchors.join("")}</xdr:wsDr>`],
+      ["xl/drawings/_rels/drawing1.xml.rels", `<Relationships xmlns="${PACKAGE_REL}">${pictures.map(({ picture: p }, i) => `<Relationship Id="rId${i + 1}" Type="${REL}/image" Target="../media/image${i + 1}.${p.bytes!.type}"/>`).join("")}</Relationships>`]
+    );
+  }
+  return zipStored([...parts.map(([name, xml]) => ({ name, data: new TextEncoder().encode(declaration + xml) })), ...media]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1387,6 +1429,7 @@ async function downloadRead(doc: DocumentDefinition, roots: Element[], dateISO?:
     const onePage = (live.length ? live : roots).some((r) => r.matches("[data-one-page]") || r.querySelector("[data-one-page]") !== null);
     // An HR paper in the other kind of file, or with words its own file has no place for: drawn from the paper itself (§275).
     const drawn = paperDrawnBlocks(doc.id, kind, onPage, cellOf, knownFormatNo(doc).replace(/\//g, "-"));
+    if (drawn) await withPictureBytes(drawn);
     const bytes = documentFileBytes(kind, doc, drawn ?? blocks, recordIdsIn(live.length ? live : roots), undefined, paper, onePage);
     downloadBlob(`${name}.${kind}`, new Blob([bytes], { type: kind === "xlsx" ? XLSX_TYPE : DOCX_TYPE }));
     return kind;

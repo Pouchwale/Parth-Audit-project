@@ -73,6 +73,8 @@ export interface DocxPaperCell {
   fill?: string;
   /** left, right, top, bottom in eighths of a point (0 none; 4 is half a point, 12 a point and a half). */
   borders: [number, number, number, number];
+  /** A picture the paper draws in the cell (F/MNT/11's logo, §387): points in from the cell's left, its size in points, its bytes. */
+  picture?: { alt: string; x: number; w: number; h: number; bytes?: { data: Uint8Array; type: "jpeg" | "png" } };
 }
 
 export type DocxBlock =
@@ -106,6 +108,9 @@ export interface DocxExtras {
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+const DRAWING = "http://schemas.openxmlformats.org/drawingml/2006/main";
+const PIC = "http://schemas.openxmlformats.org/drawingml/2006/picture";
 
 const escape = (s: string) => xmlText(s).replace(/"/g, "&quot;");
 
@@ -123,6 +128,21 @@ function runs(text: string, props: string): string {
 /** Writes pieces of text, each tagged one inside its own content control; numbers the controls. */
 class Controls {
   private next = 1;
+  /** The pictures the body holds, in order: each related from the document as rIdPic<n>, its bytes in word/media. */
+  readonly pictures: { data: Uint8Array; type: "jpeg" | "png" }[] = [];
+  /** A picture set in its line of words (inline), at its size in points. */
+  picture(p: NonNullable<DocxPaperCell["picture"]>): string {
+    if (!p.bytes) return "";
+    const n = this.pictures.push(p.bytes);
+    const [cx, cy] = [Math.round(p.w * 12700), Math.round(p.h * 12700)];
+    return (
+      `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="Picture ${n}" descr="${escape(p.alt)}"/>` +
+      `<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+      `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>` +
+      `<pic:nvPicPr><pic:cNvPr id="${n}" name="Picture ${n}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdPic${n}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
+      `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`
+    );
+  }
   pieces(parts: DocxRun[], props: string): string {
     return parts
       .map((p) => {
@@ -227,7 +247,10 @@ function paperTable(controls: Controls, block: Extract<DocxBlock, { type: "paper
             (c.fill && /^#?[0-9a-f]{6}$/i.test(c.fill) ? `<w:shd w:val="clear" w:color="auto" w:fill="${c.fill.replace("#", "").toUpperCase()}"/>` : "") +
             `<w:vAlign w:val="${c.valign}"/></w:tcPr>`;
           // (keepNext: the row stays on the page of the row after it - F/HR/18's two lines of a unit never part, 31-Oct-2026)
-          const para = `<w:p><w:pPr>${row.keepNext ? "<w:keepNext/>" : ""}<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="${c.align}"/></w:pPr>${c.boldLead ? runs(c.boldLead, props(true)) : ""}${controls.cell(c.text, rPr)}</w:p>`;
+          // (a picture stands as far in from the cell's left as the paper sets it, less the cell's own room)
+          const pic = c.picture?.bytes ? controls.picture(c.picture) : "";
+          const indent = pic ? `<w:ind w:left="${Math.max(0, tw(c.picture!.x) - (block.cellPad ?? 108))}"/>` : "";
+          const para = `<w:p><w:pPr>${row.keepNext ? "<w:keepNext/>" : ""}<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>${indent}<w:jc w:val="${pic ? "left" : c.align}"/></w:pPr>${pic}${c.boldLead ? runs(c.boldLead, props(true)) : ""}${controls.cell(c.text, rPr)}</w:p>`;
           return `<w:tc>${tcPr}${para}</w:tc>`;
         })
         .join("");
@@ -272,6 +295,7 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
   // A page drawn as paper tables ends on its own small spacing line: no empty line of the body's size after it, which on a
   // page filled to its foot would start a blank page (the owner, 31-Oct-2026: "not even a single page should be blank").
   const endsOnPaper = blocks.length > 0 && blocks[blocks.length - 1].type === "paper";
+  const pictures = controls.pictures;
   // A4, 12.7 mm margins; landscape swaps the sides.
   const [w, h] = landscape ? [16838, 11906] : [11906, 16838];
   const mm = extras.margins;
@@ -291,6 +315,7 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
         `<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>` +
         (custom ? `<Override PartName="/customXml/itemProps1.xml" ContentType="application/vnd.openxmlformats-officedocument.customXmlProperties+xml"/>` : "") +
         (props ? `<Override PartName="/${CUSTOM_PROPERTIES_PART}" ContentType="${CUSTOM_PROPERTIES_TYPE}"/>` : "") +
+        (pictures.length ? `<Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/>` : "") +
         `</Types>`,
     ],
     [
@@ -303,6 +328,7 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
       "word/_rels/document.xml.rels",
       `<Relationships xmlns="${PACKAGE_REL}"><Relationship Id="rId1" Type="${R}/styles" Target="styles.xml"/>` +
         (custom ? `<Relationship Id="rId2" Type="${R}/customXml" Target="../customXml/item1.xml"/>` : "") +
+        pictures.map((p, i) => `<Relationship Id="rIdPic${i + 1}" Type="${R}/image" Target="media/image${i + 1}.${p.type}"/>`).join("") +
         `</Relationships>`,
     ],
     [
@@ -311,7 +337,7 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
         `<w:pPrDefault><w:pPr><w:spacing w:after="80" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>` +
         `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>`,
     ],
-    ["word/document.xml", `<w:document xmlns:w="${W}" xmlns:r="${R}"><w:body>${body}${endsOnPaper ? "" : paragraph(controls, "")}${section}</w:body></w:document>`],
+    ["word/document.xml", `<w:document xmlns:w="${W}" xmlns:r="${R}"${pictures.length ? ` xmlns:wp="${WP}" xmlns:a="${DRAWING}" xmlns:pic="${PIC}"` : ""}><w:body>${body}${endsOnPaper ? "" : paragraph(controls, "")}${section}</w:body></w:document>`],
   ];
   if (custom) {
     parts.push(
@@ -326,5 +352,6 @@ export function buildDocx(blocks: DocxBlock[], extras: DocxExtras = {}): Uint8Ar
     );
   }
   if (props) parts.push([CUSTOM_PROPERTIES_PART, customPropertiesXml(props)]);
-  return zipStored(parts.map(([name, xml]) => ({ name, data: new TextEncoder().encode(declaration + xml) })));
+  const media = pictures.map((p, i) => ({ name: `word/media/image${i + 1}.${p.type}`, data: p.data }));
+  return zipStored([...parts.map(([name, xml]) => ({ name, data: new TextEncoder().encode(declaration + xml) })), ...media]);
 }

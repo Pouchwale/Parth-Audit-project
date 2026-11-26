@@ -1,4 +1,4 @@
-import type { Cell, ExportBlock, PaperCellSpec, SheetCell } from "./documentExport";
+import type { Cell, CellPicture, ExportBlock, PaperCellSpec, SheetCell } from "./documentExport";
 import { lineRow, paperTableFor as ownPaper, paperTablePrint, shownPaperTable as paperTableFor, type PaperCell, type PaperRow, type PaperTable } from "../data/seed/qcPaperTables";
 
 // A PAPER DRAWN AS ITS OWN TABLE, DOWNLOADED AS IT IS DRAWN (the owner, 30-10-26, F/QC/17 with its printout beside its
@@ -289,6 +289,13 @@ function wordsInPlace(td: HTMLTableCellElement, read: (el: Element) => Cell): st
  * from the Moderately columns and the last one, which have some to spare; the Attribute column keeps its width.
  */
 const DRAWN_COLUMN_SHIFT: Record<string, number[]> = { "hr-psc-survey": [0, 0, 1, -1.7, 1.4, 1.4, 1.4, -2, -1.5] };
+/**
+ * Papers whose Word file and workbook are laid exactly as the print (the owner, 26-Nov-2026, F/MNT/11: "keep the exact format
+ * as printing the pdf", §387): in Word each row at its printed height, not given up to fit (a one-page paper's rows otherwise
+ * stand at 0.48 of it); the table in the middle of the page's width, in Word and in Excel, as the print sets it.
+ */
+const AS_PRINTED: ReadonlySet<string> = new Set(["mnt-lux-level"]);
+
 /** Word's room inside each cell of such a paper (twentieths of a point), so the headings stay whole. */
 const DRAWN_CELL_PAD: Record<string, number> = { "hr-psc-survey": 40 };
 
@@ -299,6 +306,45 @@ function drawnWords(td: HTMLTableCellElement, read: (el: Element) => Cell): Cell
   const bullets = Array.from(td.querySelectorAll(".pt-bullet"));
   if (bullets.length) return { text: bullets.map((b) => `• ${read(b).text.trim().replace(/^[•●]\s*/, "")}`).join("\n") };
   return read(td);
+}
+
+/** A picture the paper draws in a cell (PaperCell.img), in mm from the cell's top-left. */
+interface DrawnPicture {
+  src: string;
+  alt: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Fetches the bytes of every picture in the blocks (a drawn paper's logo, §387), so the Word file and the workbook carry it.
+ * A picture that cannot be read, or is neither a JPEG nor a PNG, is left out, and its cell says its words instead.
+ */
+export async function withPictureBytes(blocks: ExportBlock[]): Promise<void> {
+  const cells: Cell[] = blocks.flatMap((b): Cell[] => (b.kind === "sheet" ? b.cells : b.kind === "paper" ? b.rows.flatMap((r) => r.cells) : []));
+  const loaded = new Map<string, Promise<CellPicture["bytes"] | null>>();
+  const load = (src: string): Promise<CellPicture["bytes"] | null> =>
+    fetch(src)
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .then((buf) => {
+        if (!buf) return null;
+        const bytes = new Uint8Array(buf);
+        const type = bytes[0] === 0xff && bytes[1] === 0xd8 ? ("jpeg" as const) : bytes[0] === 0x89 && bytes[1] === 0x50 ? ("png" as const) : null;
+        return type ? { data: bytes, type } : null;
+      })
+      .catch(() => null);
+  for (const c of cells) {
+    if (!c.picture) continue;
+    if (!loaded.has(c.picture.src)) loaded.set(c.picture.src, load(c.picture.src));
+    const got = await loaded.get(c.picture.src)!;
+    if (got) c.picture.bytes = got;
+    else {
+      if (!c.text) c.text = c.picture.alt;
+      delete c.picture;
+    }
+  }
 }
 
 /** The paper on the page as a sheet or a Word table, or null for any other document. */
@@ -315,13 +361,19 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
   if (!(totalMm > 0)) return null;
   const heightsMm: number[] = [];
   const starts: number[] = [];
-  const drawn: Omit<Placed, "def" | "shown">[] = [];
+  const drawn: (Omit<Placed, "def" | "shown"> & { picture?: DrawnPicture })[] = [];
   const words: Cell[] = [];
   for (const paper of papers) {
     starts.push(heightsMm.length);
     for (const table of Array.from(paper.querySelectorAll<HTMLTableElement>("table.pt-table"))) {
       const perMm = table.getBoundingClientRect().width / totalMm || 1;
       const held = new Map<number, Set<number>>();
+      // A paper not ruled cell by cell (F/MNT/11, §387) is a full grid, as the page draws it: every cell its right and bottom
+      // edge, the table its left and top; in a heavy frame (pt-frame) the outer edges heavy. Its downloads had no line at all.
+      const gridRuled = table.getAttribute("data-pt-rules") !== "cells" && !table.querySelector("td.pt-e");
+      const framed = table.classList.contains("pt-frame");
+      const topTable = table === paper.querySelector("table.pt-table");
+      const lastTr = table.rows[table.rows.length - 1];
       for (const tr of Array.from(table.rows)) {
         const ri = heightsMm.length;
         // A new page of the paper (its head again, PaperRow.pb) starts a new page in Word too: F/MNT/02's page 2 ran on
@@ -339,10 +391,23 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
           const has = (c: string) => td.classList.contains(c);
           const line = td.querySelector<HTMLElement>(":scope > .pt-at");
           const rule = (e: string, open: string, heavy?: string) => (has(open) || !has(`pt-e${e}`) ? 0 : heavy && has(heavy) ? 2 : 1);
+          const outer = framed ? 2 : 1;
+          const gridRule = (e: "l" | "r" | "t" | "b"): number => {
+            if (e === "l") return col === 0 ? outer : 0;
+            if (e === "t") return tr.rowIndex === 0 && topTable ? outer : 0;
+            if (e === "r") return has("pt-or") ? 0 : has("pt-hr") || (framed && col + colSpan >= widthsMm.length) ? 2 : 1;
+            return has("pt-ob") ? 0 : has("pt-hb") || (framed && table.classList.contains("pt-body") && tr === lastTr) ? 2 : 1;
+          };
           const face = (["arial", "times", "gothic"] as const).find((f) => has(`pt-f-${f}`) || line?.classList.contains(`pt-f-${f}`));
           const fill = has("pt-bg") ? td.style.getPropertyValue("--pt-bg").trim() : "";
-          words.push(blankLine || has("pt-padc") ? { text: "" } : drawnWords(td, read));
+          // The paper's own picture in the cell (F/MNT/11's logo): in the file as the picture, not its words.
+          const img = td.querySelector<HTMLImageElement>(":scope > img.pt-img");
+          const mm = (name: string) => Number(img?.style.getPropertyValue(name)) || 0;
+          const picture = img?.getAttribute("src") ? { src: img.src, alt: img.alt, x: mm("--pt-ix"), y: mm("--pt-iy"), w: mm("--pt-iw"), h: mm("--pt-ih") } : undefined;
+          const said = blankLine || has("pt-padc") ? { text: "" } : drawnWords(td, read);
+          words.push(picture && said.text.trim() === picture.alt.trim() ? { text: "" } : said);
           drawn.push({
+            ...(picture && picture.w > 0 && picture.h > 0 ? { picture } : {}),
             row: ri,
             col,
             colSpan,
@@ -353,7 +418,7 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
             ...(fill ? { fill } : {}),
             align: has("pt-ac") ? "center" : has("pt-ar") ? "right" : "left",
             font: FACE[face ?? form.font],
-            borders: [rule("l", "pt-nl"), rule("r", "pt-or", "pt-hr"), rule("t", "pt-nt"), rule("b", "pt-ob", "pt-hb")],
+            borders: gridRuled ? [gridRule("l"), gridRule("r"), gridRule("t"), gridRule("b")] : [rule("l", "pt-nl"), rule("r", "pt-or", "pt-hr"), rule("t", "pt-nt"), rule("b", "pt-ob", "pt-hb")],
           });
           for (let d = 1; d < rowSpan; d++) {
             const below = held.get(ri + d) ?? new Set<number>();
@@ -383,6 +448,8 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
   const page = sheet.getAttribute("data-paper") === "landscape" ? "landscape" : "portrait";
   const roomPt = (page === "portrait" ? 595.28 : 841.89) - 2 * WORD_MARGIN;
   const scale = Math.min(Number(sheet.style.getPropertyValue("--pt-print-scale")) || 1, roomPt / (totalMm * MM_PT));
+  // a picture's place in its cell and its size, in points at the printed size (its bytes are fetched before the file is made)
+  const pictureAt = (p: DrawnPicture, fit = 1): CellPicture => ({ src: p.src, alt: p.alt, x: p.x * scale * fit * MM_PT, y: p.y * scale * fit * MM_PT, w: p.w * scale * fit * MM_PT, h: p.h * scale * fit * MM_PT });
   if (kind === "xlsx") {
     const narrow = (p: { col: number; colSpan: number }, text: string) => /^\d/.test(text) && widthsMm.slice(p.col, p.col + p.colSpan).reduce((a, b) => a + b, 0) * scale < 3.2 * text.length + 4;
     const cells: SheetCell[] = drawn.map((p, i) => ({
@@ -391,11 +458,12 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
       col: p.col,
       rowSpan: p.rowSpan,
       colSpan: p.colSpan,
+      ...(p.picture ? { picture: pictureAt(p.picture) } : {}),
       style: { size: round(p.size * scale, 0.5), bold: p.bold, underline: p.underline, align: p.align, valign: "center", wrap: true, borders: p.borders, font: p.font, ...(p.fill ? { fill: p.fill } : {}), ...(/^0\d|\.\d*0$/.test(words[i].text.trim()) || narrow(p, words[i].text.trim()) ? { keepText: true } : {}) },
     }));
     const widths = widthsMm.map((mm) => Math.max(0.5, Math.round((((mm * scale * 96) / 25.4 - 5) / 7) * 100) / 100));
     const heights = heightsMm.map((h) => round(Math.min(409, h * scale * MM_PT), 0.25));
-    return [{ kind: "sheet", name: sheetName, widths, heights, rowCount: heightsMm.length, cells, breaks: starts.slice(1), page, ...(form.flows ? {} : { onePage: true }) }];
+    return [{ kind: "sheet", name: sheetName, widths, heights, rowCount: heightsMm.length, cells, breaks: starts.slice(1), page, ...(form.flows ? {} : { onePage: true }), ...(AS_PRINTED.has(documentId) ? { centred: true } : {}) }];
   }
   const eighths = (level: number) => (level === 2 ? 12 : level === 1 ? 6 : 0);
   const byRow: { col: number; cell: PaperCellSpec }[][] = heightsMm.map(() => []);
@@ -404,17 +472,21 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
   drawn.forEach((p, i) => {
     const [l, r, t, b] = p.borders.map(eighths) as PaperCellSpec["borders"];
     const set = { size: Math.round(p.size * scale * wordFit * 2), bold: p.bold, align: p.align, valign: "center" as const, font: p.font, ...(p.underline ? { underline: true } : {}), ...(p.fill ? { fill: p.fill } : {}), ...(p.colSpan > 1 ? { colSpan: p.colSpan } : {}) };
-    byRow[p.row].push({ col: p.col, cell: { ...words[i], ...set, borders: [l, r, t, b], ...(p.rowSpan > 1 ? { vMerge: "restart" as const } : {}) } });
+    byRow[p.row].push({ col: p.col, cell: { ...words[i], ...set, borders: [l, r, t, b], ...(p.picture ? { picture: pictureAt(p.picture, wordFit) } : {}), ...(p.rowSpan > 1 ? { vMerge: "restart" as const } : {}) } });
     for (let d = 1; d < p.rowSpan; d++) byRow[p.row + d]?.push({ col: p.col, cell: { text: "", ...set, borders: [l, r, 0, b], vMerge: "continue" } });
   });
   const wordWidths = widthsMm.map((mm) => Math.round(mm * scale * MM_PT * 100) / 100);
+  const asPrinted = AS_PRINTED.has(documentId);
+  const rowFit = form.flows || asPrinted ? 1 : 0.48;
+  const centredIndent = asPrinted ? Math.max(0, Math.round(((roomPt - wordWidths.reduce((a, b) => a + b, 0)) / 2) * 100) / 100) : 0;
   return starts.map((from, n) => ({
     kind: "paper" as const,
     widths: wordWidths,
     spaceAfter: 1,
+    ...(centredIndent > 0 ? { indent: centredIndent } : {}),
     ...(DRAWN_CELL_PAD[documentId] !== undefined ? { cellPad: DRAWN_CELL_PAD[documentId] } : {}),
     ...(n > 0 ? { pageBreakBefore: true } : {}),
     // (a one-page paper: Word's lines stand a little taller than the page's, so its rows give up their spare height)
-    rows: heightsMm.slice(from, starts[n + 1] ?? heightsMm.length).map((h, k) => ({ height: Math.round(h * scale * MM_PT * (form.flows ? 1 : 0.48) * 100) / 100, cells: byRow[from + k].sort((a, b) => a.col - b.col).map((c) => c.cell) })),
+    rows: heightsMm.slice(from, starts[n + 1] ?? heightsMm.length).map((h, k) => ({ height: Math.round(h * scale * MM_PT * rowFit * 100) / 100, cells: byRow[from + k].sort((a, b) => a.col - b.col).map((c) => c.cell) })),
   }));
 }
