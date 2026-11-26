@@ -126,6 +126,8 @@ export interface PaperCell {
    * runs down over them instead (engine/paperRows.ts).
    */
   once?: true;
+  /** The cell's printed words go with it into a row put in under it (F/SYS/05's "Plan" and "Actual", §396). */
+  keep?: true;
   /** A register's line number: on every ruled line ("all", the paper prints them) or on the record's lines only ("rows"). */
   num?: "all" | "rows";
   /** The line number as the paper writes it: "1." (F/SYS/04's objectives) or "01" (F/SYS/04-A's participants), §325. */
@@ -183,6 +185,11 @@ export interface PaperRow {
   pb?: true;
   /** The row a person may add under or take off, by its key (engine/paperRows.ts, §276). */
   rowKey?: string;
+  /**
+   * An empty strip that gives up the height of the rows put in above it, so what follows stays inside the page's frame
+   * (F/SYS/05's space over Date and Approved by, §396; engine/paperRows.ts).
+   */
+  give?: true;
 }
 
 export interface PaperTable {

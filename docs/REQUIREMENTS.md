@@ -14694,3 +14694,24 @@ shown check the logics and make it perfect" (F/SYS/04-A).
   the F/SYS/06 work, not this change.)
 - Files: frontend/src/components/records/PaperTableSheet.tsx, frontend/src/components/records/LogSheetRecordView.tsx,
   frontend/src/engine/formatStyles.ts, frontend/src/utils/paperTableExport.ts.
+
+## §396 F/SYS/05: a department put in is the next SN with Plan and Actual; Date and Approved by inside the frame (26-Nov-2026)
+
+The owner, 26-Nov-2026, with the printout (the browser's date, title, address and page number over and under the page, "Date /
+Approved by (PSTL)" under the page's frame) and the screen (a row put in under PERSONNEL as one bare box): "in document sys 5
+remove this header lines and the footer lines and take this date and approved by inside the big box and also while adding the
+new row here, the box should be created containing plan and actual with the serial number plus 1 from the past".
+
+- A department put in (+ beside a department) is a line of the record's own (rowMode fixedRows, openLines): its SN the next
+  (7, 8, ...), "Plan" and "Actual" printed (PaperCell.keep), its department and every month's Plan and Actual to write.
+- The empty space over Date / Approved by gives up the height of every department put in above it (PaperRow.give, engine/
+  paperRows.ts given; down to 2 mm), and gets back what a department taken off gave up: Date / Approved by stay inside the
+  double frame (189.7 mm down; the frame ends at 201 mm) with 1 or 4 departments put in.
+- The browser's own date, title, address and page number: the page asks for no margin (@page margin 0, §59), so Chrome has no
+  room for them; a Chrome print of F/SYS/05 with "Headers and footers" ticked and the page's margins (Margins: Default) prints none.
+  They print when the dialog's Margins is set to Minimum or Custom, which a page cannot change: Margins "Default" (or "None"),
+  or "Headers and footers" unticked under More settings, takes them off.
+- Proved: frontend/tests/paperRows.test.ts; on a local copy a new F/SYS/05 with departments 7-10 put in, one typed and marked,
+  printed as Chrome prints with headers and footers ticked: one landscape page, no browser lines, Date / Approved by in the frame.
+- Files: frontend/src/data/seed/sysPapers352.ts, sysInternalAuditLayouts.ts, qcPaperTables.ts (PaperCell.keep, PaperRow.give),
+  frontend/src/engine/paperRows.ts, frontend/tests/paperRows.test.ts.

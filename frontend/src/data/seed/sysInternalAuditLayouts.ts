@@ -258,7 +258,8 @@ const AUDIT_SCHEDULE: LogSheetLayout = {
       { key: auditScheduleKey(m.key, "Actual"), label: "Actual", type: "text", width: 62, group: m.label, autoFill: { fresh: true } },
     ]),
   ],
-  rowMode: { kind: "fixedRows", rows: AUDIT_SCHEDULE_DEPARTMENTS.map((department) => ({ department })) },
+  // (a department put in on the paper is a line of its own, its SN the next, its Plan and Actual to mark - §396)
+  rowMode: { kind: "fixedRows", openLines: true, rows: AUDIT_SCHEDULE_DEPARTMENTS.map((department) => ({ department })) },
   footerFields: [
     { key: "date", label: "Date", type: "date" },
     { key: "approvedBy", label: "Approved by (PSTL)", type: "text", autoFill: { sign: true } },

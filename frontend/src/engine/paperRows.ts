@@ -106,7 +106,7 @@ function blankCell(c: PaperCell, place: string, line: (n: number | undefined) =>
     if (o.pick?.length && o.pick.every((p) => p.col && line(p.ln ?? o.ln ?? c.ln) !== undefined)) return [{ ...o, ln: n, pick: o.pick.map((p) => ({ ...p, ln: line(p.ln ?? o.ln ?? c.ln) })) }];
     return [];
   });
-  return { ...out, t: NUMBER.test((c.t ?? "").trim()) ? c.t : "", pl: place, ...(over.length ? { over } : {}) };
+  return { ...out, t: NUMBER.test((c.t ?? "").trim()) || c.keep ? c.t : "", pl: place, ...(c.keep ? { keep: true as const } : {}), ...(over.length ? { over } : {}) };
 }
 
 /** The paper's own numbers of its lines, counted again where rows went in or came off; each list of numbers counts by itself. */
@@ -153,6 +153,16 @@ function spanOnce(out: PaperRow[], put: Set<PaperRow>): PaperRow[] {
   });
 }
 
+/**
+ * An empty strip that gives way (PaperRow.give) loses the height of the rows put in above it, down to 2 mm, and gets back
+ * the height of the rows taken off, so the rows under it stay where the page's frame has them.
+ */
+function given(rows: PaperRow[], less: number): PaperRow[] {
+  const at = rows.findIndex((r) => r.give);
+  if (at < 0 || !less) return rows;
+  return rows.map((r, i) => (i === at ? { ...r, h: Math.max(2, Math.round((r.h - less) * 100) / 100) } : r));
+}
+
 /** The paper as this record keeps its rows; each row that can change says its key (PaperRow.rowKey). */
 export function paperWithRows(form: PaperTable, kept: PaperRowsKept | undefined): PaperTable {
   if (!form.ownWords) return form;
@@ -184,10 +194,15 @@ export function paperWithRows(form: PaperTable, kept: PaperRowsKept | undefined)
         follow(`add:${a.id}`);
       }
     };
+    // (the height the rows put in add above a strip that gives way, less what the rows taken off there gave up)
+    let less = 0;
+    let gave = false;
     for (const u of units(p.rows)) {
       const key = String(p.row0 + u.from);
       const rows = p.rows.slice(u.from, u.to + 1);
       const may = u.from >= p.fixed && canChange(rows);
+      if (rows.some((r) => r.give)) gave = true;
+      if (!gave && may && removed.has(key)) less -= rows.reduce((h, r) => h + r.h, 0);
       if (!(may && removed.has(key))) {
         rows.forEach((r, ri) => {
           // (a row keeps its words by its place on the format, wherever it now stands)
@@ -195,9 +210,11 @@ export function paperWithRows(form: PaperTable, kept: PaperRowsKept | undefined)
           out.push(ri === 0 && may ? { ...stamped, rowKey: key } : stamped);
         });
       }
+      const before = out.length;
       follow(key);
+      if (!gave) less += out.slice(before).reduce((h, r) => h + r.h, 0);
     }
-    return changed ? renumbered(spanOnce(out, put), put) : out;
+    return changed ? given(renumbered(spanOnce(out, put), put), less) : out;
   };
   return { ...form, head: build(head), body: build(body), foot: build(foot) };
 }

@@ -205,14 +205,14 @@ const scheduleRows: PaperRow[] = AUDIT_SCHEDULE_DEPARTMENTS.flatMap((_, ln): Pap
       cells: [
         { w: AS_BODY[0], t: String(ln + 1), a: "c", y: 1.16, pt: 9.96, rs: 2 },
         { w: AS_BODY[1], col: "department", ln, x: 1.9, y: 1.21, lh: 4.27, pt: 9.96, ww: AS_BODY[1] - 3.8, rs: 2 },
-        { w: AS_BODY[2], t: "Plan", a: "c", y: 1.16, pt: 9.96 },
+        { w: AS_BODY[2], t: "Plan", a: "c", y: 1.16, pt: 9.96, keep: true },
         ...months("Plan"),
         { ...pad(AS_OUT), rs: 2 },
       ],
     },
     {
       h: AS_LINES[2 * ln + 1],
-      cells: [under(AS_BODY[0]), under(AS_BODY[1]), { w: AS_BODY[2], t: "Actual", a: "c", y: 1.17, pt: 9.96 }, ...months("Actual"), under(AS_OUT)],
+      cells: [under(AS_BODY[0]), under(AS_BODY[1]), { w: AS_BODY[2], t: "Actual", a: "c", y: 1.17, pt: 9.96, keep: true }, ...months("Actual"), under(AS_OUT)],
     },
   ];
 });
@@ -272,7 +272,8 @@ const AUDIT_SCHEDULE_PAPER: PaperTable = {
     // The 2025 schedule's note, typed across its months (the page has no place of its own for it): under the schedule, at the
     // months' place; nothing prints here while it is blank.
     { h: 12.0, cells: [pad(AS_BODY.slice(0, 5).reduce((a, b) => a + b, 0)), { w: AS_BODY.slice(5).reduce((a, b) => a + b, 0), box: "scheduleNote", a: "c", y: 1.16, lines: true, edges: "" }, pad(AS_OUT)] },
-    gap(49.73, AS_W),
+    // (gives up the height of every department put in above, so Date and Approved by stay inside the frame - the owner, 26-Nov-2026, §396)
+    { ...gap(49.73, AS_W), give: true },
   ],
   foot: [
     {

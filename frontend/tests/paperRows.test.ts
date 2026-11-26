@@ -104,3 +104,19 @@ test("F/SYS/06: one Audit Date for the whole plan, running down over every plan 
   assert.equal(dateCells(rows).length, 0, "with the first lines taken off no date box is left");
   assert.ok(rows.every((r) => r.cells.reduce((w, c) => w + c.w, 0) > 184), "every row still spans the table");
 });
+
+test("F/SYS/05: a department put in is the next SN with Plan and Actual, and Date / Approved by stay where they were (§396)", async () => {
+  const { SYS_PAPERS_352 } = await import("../src/data/seed/sysPapers352");
+  const form = SYS_PAPERS_352["sys-audit-schedule"];
+  const six: LogSheetData = { header: {}, rows: Array.from({ length: 6 }, (_, i) => ({ id: `d${i}` }) as LogSheetRow) };
+  const shown = (d: LogSheetData) => paperWithRows(form, d.words?.paperRows).body;
+  const height = (rows: ReturnType<typeof shown>) => rows.reduce((h, r) => h + r.h, 0);
+  const key = shown(six).filter((r) => r.rowKey && r.cells.some((c) => c.col === "department")).pop()!.rowKey!;
+  const more = paperRowAdded(form, six, key, "d7", () => ({ id: "n" }) as LogSheetRow);
+  const rows = shown(more);
+  const words = rows.map((r) => r.cells.map((c) => c.t ?? "").join("|"));
+  assert.ok(words.some((w) => w.startsWith("7|") && w.includes("Plan")), "SN 7 with Plan");
+  assert.ok(words.filter((w) => w.includes("Actual")).length === 7, "seven Actual lines");
+  assert.equal(more.rows.length, 7, "the new department is a line of its own");
+  assert.equal(Math.round(height(rows) * 100), Math.round(height(shown(six)) * 100), "the page below keeps its place");
+});
