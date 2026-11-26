@@ -288,16 +288,23 @@ function wordsInPlace(td: HTMLTableCellElement, read: (el: Element) => Cell): st
  * "Neutral" and "Disagree" broke in their narrow columns in Word and Excel, and a box parted from its number. The room comes
  * from the Moderately columns and the last one, which have some to spare; the Attribute column keeps its width.
  */
-const DRAWN_COLUMN_SHIFT: Record<string, number[]> = { "hr-psc-survey": [0, 0, 1, -1.7, 1.4, 1.4, 1.4, -2, -1.5] };
+const DRAWN_COLUMN_SHIFT: Record<string, number[]> = {
+  "hr-psc-survey": [0, 0, 1, -1.7, 1.4, 1.4, 1.4, -2, -1.5],
+  // F/MKT/02: "Evaluation Period : 01-11-2026" broke after "01-11-" in Excel; the first three ratings take 6 mm from the
+  // attributes' column, which has room to spare (§388)
+  "mkt-feedback-analysis": [0, -6, 2, 2, 2, 0, 0, 0, 0, 0],
+};
 /**
  * Papers whose Word file and workbook are laid exactly as the print (the owner, 26-Nov-2026, F/MNT/11: "keep the exact format
  * as printing the pdf", §387): in Word each row at its printed height, not given up to fit (a one-page paper's rows otherwise
  * stand at 0.48 of it); the table in the middle of the page's width, in Word and in Excel, as the print sets it.
  */
-const AS_PRINTED: ReadonlySet<string> = new Set(["mnt-lux-level"]);
+// F/MKT/02 too (the owner, 26-Nov-2026: "give the exact format of in word and also in the excel the format is getting ruined").
+const AS_PRINTED: ReadonlySet<string> = new Set(["mnt-lux-level", "mkt-feedback-analysis"]);
 
 /** Word's room inside each cell of such a paper (twentieths of a point), so the headings stay whole. */
-const DRAWN_CELL_PAD: Record<string, number> = { "hr-psc-survey": 40 };
+// (F/MKT/02: "5 Excellent" and "Conclusion :" broke in Word's wider room, §388)
+const DRAWN_CELL_PAD: Record<string, number> = { "hr-psc-survey": 40, "mkt-feedback-analysis": 40 };
 
 function drawnWords(td: HTMLTableCellElement, read: (el: Element) => Cell): Cell {
   if (td.querySelector(":scope > .pt-over, .pt-pick")) return { text: wordsInPlace(td, read) };

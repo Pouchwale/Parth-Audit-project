@@ -67,11 +67,10 @@ const FEEDBACK_ANALYSIS_PAPER: PaperTable = {
       h: 7.2,
       cells: [
         { w: F_ATTR, b: true, u: true, pt: 11.88, x: 0.7, vm: true, sentence: { before: "Product : -", box: "product", after: "", boxWidth: 30, pw: true } },
-        { w: 32.2, t: "Evaluation Period :", b: true, u: true, pt: 10.32, a: "r", vm: true, edges: "ltb" },
-        { w: 18.2, box: "periodFrom", b: true, pt: 10.32, a: "c", vm: true, edges: "tb" },
-        { w: 4.0, t: "to", b: true, u: true, pt: 10.32, a: "c", vm: true, edges: "tb" },
-        { w: 18.2, box: "periodTo", b: true, pt: 10.32, a: "c", vm: true, edges: "tb" },
-        { w: F_GRID - 32.2 - 18.2 - 4.0 - 18.2, t: ")", b: true, u: true, pt: 10.32, vm: true, edges: "rtb" },
+        // (one line, "Evaluation Period : 01-11-2026 to 18-11-2026 )", on the rating columns' own edges: its narrow cells of
+        //  their own broke the words and the dates over two lines and cut the workbook into slivers - the owner, 26-Nov-2026)
+        { w: F_RATE[0] + F_RATE[1] + F_RATE[2], b: true, u: true, pt: 9.6, a: "r", vm: true, edges: "ltb", sentence: { before: "Evaluation Period :", box: "periodFrom", after: "", boxWidth: 17 } },
+        { w: F_RATE[3] + F_RATE[4], b: true, u: true, pt: 9.6, x: 0.6, vm: true, edges: "rtb", sentence: { before: "to", box: "periodTo", after: ")", boxWidth: 17 } },
         blank(F_OUTSIDE),
       ],
     },

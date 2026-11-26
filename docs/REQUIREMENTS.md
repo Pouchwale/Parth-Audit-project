@@ -14580,3 +14580,20 @@ it and keep the exact format as printing the pdf and also while downloading the 
   the 26 areas, every line, the heavy frame. The 40 drawn papers with a logo or a grid, downloaded before and after: no Word or Excel page count changed; F/QC/08 and F/QC/16 now have their lines in Word too.
 - Files: frontend/src/utils/paperTableExport.ts, documentExport.ts (Cell.picture, sheet centred, workbook drawing), docx.ts
   (DocxPaperCell.picture); frontend/tests/paperPicture.test.ts.
+
+## §388 F/MKT/02: "Evaluation Period : 01-11-2026 to 18-11-2026 )" on one line; the Word and Excel downloads as the printed page (26-Nov-2026)
+
+The owner, 26-Nov-2026, with F/MKT/02's Excel download open: "in mkt 2 format this line under evaluation period and to should be
+whole and also give the exact format of in word and also in the excel the format is getting ruined, fix that and make it live".
+
+- The cause: the period's row (§372) was five narrow cells of its own - "Evaluation Period :" 32.2 mm, each date 18.2 mm, "to"
+  4 mm - whose edges matched no other row's. The words and the dates broke over two lines ("t / o", "01-11- / 2026"), and the
+  workbook cut the rating columns into slivers (its E, G, H, I), so "2 Average" broke too.
+- The row is now two cells on the rating columns' own edges: "Evaluation Period : <from>" over 5, 4 and 3, right-aligned, and
+  "to <to> )" over 2 and - 5; the words underlined, the dates written as typed (01-11-2026), 9.6 pt.
+- In the downloads (utils/paperTableExport.ts): the first three rating columns take 2 mm each from the attributes' column, as
+  Excel draws Calibri wider than the page; Word's room inside a cell is 2 pt ("5 Excellent" and "Conclusion :" had broken); and
+  F/MKT/02 joins AS_PRINTED (§387): in Word each row at its printed height, the table centred, in Excel centred.
+- Proved on a local copy with the period typed: the print, the workbook (converted by Excel) and the Word file (converted by
+  Word) are each one A4 page with the period on one line and the grid on whole columns.
+- Files: frontend/src/data/seed/mktPapers355.ts, frontend/src/utils/paperTableExport.ts.
