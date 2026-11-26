@@ -14662,3 +14662,15 @@ give the option to enter 2 dates, just give 1 option that is the top one".
   printout, the workbook (converted by Excel) and the Word file (converted by Word) are one A4 page each with one Audit Date.
 - Files: frontend/src/data/seed/sysAuditPlanPaper.ts, qcPaperTables.ts (PaperCell.once), frontend/src/engine/paperRows.ts,
   frontend/tests/paperRows.test.ts.
+
+## §394 F/SYS/06: the one Audit Date at the top of its box (26-Nov-2026)
+
+The owner, 26-Nov-2026, with §393's Audit Date standing in the middle of the plan's lines: "the date should be at the top not in
+the middle".
+
+- The Audit Date is written at the top of its box, level with the first plan line's words: on the screen, in print, and in the
+  Word and Excel files (a cell that is one box for the whole table, PaperCell.once, carries pt-once; the files set it valign top).
+- Proved on a local copy with the date typed: the screen, the printout, the workbook (converted by Excel) and the Word file
+  (converted by Word) show 22-02-2026 at the top of the box beside line 1.
+- Files: frontend/src/data/seed/sysAuditPlanPaper.ts, frontend/src/components/records/PaperTableSheet.tsx, frontend/src/styles.css,
+  frontend/src/utils/paperTableExport.ts.

@@ -260,6 +260,8 @@ function PaperRows({ rows, edges, parts, row0 }: { rows: DrawnRow[]; edges: numb
           if (c.caps) classes.push("pt-caps");
           if (c.bg) classes.push("pt-bg");
           if (c.vm) classes.push("pt-vm");
+          // (one box for the whole table, written at its top - F/SYS/06's Audit Date, §394)
+          if (c.once) classes.push("pt-once");
           // A register's line the record does not hold, in a row that shows (a second block beside the record's lines).
           if (row.line !== undefined && !row.pad && c.ln !== undefined && c.ln >= (parts.rowCount ?? 0)) classes.push("pt-padc");
           if (c.ww) classes.push("pt-ww");

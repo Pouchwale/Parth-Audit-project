@@ -368,7 +368,7 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
   if (!(totalMm > 0)) return null;
   const heightsMm: number[] = [];
   const starts: number[] = [];
-  const drawn: (Omit<Placed, "def" | "shown"> & { picture?: DrawnPicture })[] = [];
+  const drawn: (Omit<Placed, "def" | "shown"> & { picture?: DrawnPicture; top?: boolean })[] = [];
   const words: Cell[] = [];
   for (const paper of papers) {
     starts.push(heightsMm.length);
@@ -415,6 +415,8 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
           words.push(picture && said.text.trim() === picture.alt.trim() ? { text: "" } : said);
           drawn.push({
             ...(picture && picture.w > 0 && picture.h > 0 ? { picture } : {}),
+            // (one box for the whole table is written at its top, as the page writes it: F/SYS/06's Audit Date, §394)
+            ...(has("pt-once") ? { top: true } : {}),
             row: ri,
             col,
             colSpan,
@@ -466,7 +468,7 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
       rowSpan: p.rowSpan,
       colSpan: p.colSpan,
       ...(p.picture ? { picture: pictureAt(p.picture) } : {}),
-      style: { size: round(p.size * scale, 0.5), bold: p.bold, underline: p.underline, align: p.align, valign: "center", wrap: true, borders: p.borders, font: p.font, ...(p.fill ? { fill: p.fill } : {}), ...(/^0\d|\.\d*0$/.test(words[i].text.trim()) || narrow(p, words[i].text.trim()) ? { keepText: true } : {}) },
+      style: { size: round(p.size * scale, 0.5), bold: p.bold, underline: p.underline, align: p.align, valign: p.top ? "top" : "center", wrap: true, borders: p.borders, font: p.font, ...(p.fill ? { fill: p.fill } : {}), ...(/^0\d|\.\d*0$/.test(words[i].text.trim()) || narrow(p, words[i].text.trim()) ? { keepText: true } : {}) },
     }));
     const widths = widthsMm.map((mm) => Math.max(0.5, Math.round((((mm * scale * 96) / 25.4 - 5) / 7) * 100) / 100));
     const heights = heightsMm.map((h) => round(Math.min(409, h * scale * MM_PT), 0.25));
@@ -478,7 +480,7 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
   const wordFit = documentId === "hr-pre-employment-health" ? 0.94 : 1;
   drawn.forEach((p, i) => {
     const [l, r, t, b] = p.borders.map(eighths) as PaperCellSpec["borders"];
-    const set = { size: Math.round(p.size * scale * wordFit * 2), bold: p.bold, align: p.align, valign: "center" as const, font: p.font, ...(p.underline ? { underline: true } : {}), ...(p.fill ? { fill: p.fill } : {}), ...(p.colSpan > 1 ? { colSpan: p.colSpan } : {}) };
+    const set = { size: Math.round(p.size * scale * wordFit * 2), bold: p.bold, align: p.align, valign: (p.top ? "top" : "center") as "top" | "center", font: p.font, ...(p.underline ? { underline: true } : {}), ...(p.fill ? { fill: p.fill } : {}), ...(p.colSpan > 1 ? { colSpan: p.colSpan } : {}) };
     byRow[p.row].push({ col: p.col, cell: { ...words[i], ...set, borders: [l, r, t, b], ...(p.picture ? { picture: pictureAt(p.picture, wordFit) } : {}), ...(p.rowSpan > 1 ? { vMerge: "restart" as const } : {}) } });
     for (let d = 1; d < p.rowSpan; d++) byRow[p.row + d]?.push({ col: p.col, cell: { text: "", ...set, borders: [l, r, 0, b], vMerge: "continue" } });
   });

@@ -106,7 +106,7 @@ const planRows: PaperRow[] = [
       ...PLAN_COLS.map((col, i): PaperCell =>
         col === "auditDate"
           ? ln === 0
-            ? { w: PL[i + 1], col, ln, a: "c", vm: true, rs: 2, once: true }
+            ? { w: PL[i + 1], col, ln, a: "c", y: 1.0, rs: 2, once: true } // (at the top, level with line 1's words, §394)
             : { w: PL[i + 1], skip: true }
           : { w: PL[i + 1], col, ln, x: 1.9, y: 1.0, lh: L, lines: true, grow: true }
       ),
