@@ -120,3 +120,14 @@ test("F/SYS/05: a department put in is the next SN with Plan and Actual, and Dat
   assert.equal(more.rows.length, 7, "the new department is a line of its own");
   assert.equal(Math.round(height(rows) * 100), Math.round(height(shown(six)) * 100), "the page below keeps its place");
 });
+
+test("F/SYS/05: the heading, the note and Date / Approved by have no + or x, and a strip put in under the note before is gone (§399)", async () => {
+  const { SYS_PAPERS_352 } = await import("../src/data/seed/sysPapers352");
+  const form = SYS_PAPERS_352["sys-audit-schedule"];
+  const keyed = (p: ReturnType<typeof paperWithRows>) => [...p.body, ...p.foot].filter((r) => r.rowKey);
+  const plain = paperWithRows(form, undefined);
+  assert.ok(keyed(plain).every((r) => r.cells.some((c) => c.col === "department")), "only a department has + and x");
+  const note = String(form.head.length + form.body.findIndex((r) => r.cells.some((c) => c.box === "scheduleNote")));
+  const old = paperWithRows(form, { added: [{ id: "x", after: note, from: note }] });
+  assert.equal(old.body.length, plain.body.length, "the empty strip under the note is not drawn");
+});

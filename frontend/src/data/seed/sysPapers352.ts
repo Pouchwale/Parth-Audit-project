@@ -259,6 +259,9 @@ const AUDIT_SCHEDULE_PAPER: PaperTable = {
     gap(4.4, AS_W),
     {
       h: 10.63,
+      // (the heading, the note and the foot are the paper's: a department is put in only by the + of a department, the next
+      // SN with Plan and Actual - the owner, 26-Nov-2026, the + under the table gave an empty box, §399)
+      stays: true,
       cells: [
         { w: AS_HEADING[0], t: "SN", b: true, a: "c", y: 2.1 },
         { w: AS_HEADING[1], t: "DEPARTMENT", b: true, x: 1.9, y: 2.1 },
@@ -271,13 +274,14 @@ const AUDIT_SCHEDULE_PAPER: PaperTable = {
     ...scheduleRows,
     // The 2025 schedule's note, typed across its months (the page has no place of its own for it): under the schedule, at the
     // months' place; nothing prints here while it is blank.
-    { h: 12.0, cells: [pad(AS_BODY.slice(0, 5).reduce((a, b) => a + b, 0)), { w: AS_BODY.slice(5).reduce((a, b) => a + b, 0), box: "scheduleNote", a: "c", y: 1.16, lines: true, edges: "" }, pad(AS_OUT)] },
+    { h: 12.0, stays: true, cells: [pad(AS_BODY.slice(0, 5).reduce((a, b) => a + b, 0)), { w: AS_BODY.slice(5).reduce((a, b) => a + b, 0), box: "scheduleNote", a: "c", y: 1.16, lines: true, edges: "" }, pad(AS_OUT)] },
     // (gives up the height of every department put in above, so Date and Approved by stay inside the frame - the owner, 26-Nov-2026, §396)
     { ...gap(49.73, AS_W), give: true },
   ],
   foot: [
     {
       h: 9.62,
+      stays: true,
       cells: [
         { w: 53.99, t: "Date", b: true, pt: 11.04, x: 1.91, y: 3.64 },
         { w: 68.54, box: "date", x: 1.9, vm: true },

@@ -190,6 +190,8 @@ export interface PaperRow {
    * (F/SYS/05's space over Date and Approved by, §396; engine/paperRows.ts).
    */
   give?: true;
+  /** A row that is the paper's own and never added under or taken off: no + or × beside it (F/SYS/05's heading, note and foot, §399). */
+  stays?: true;
 }
 
 export interface PaperTable {

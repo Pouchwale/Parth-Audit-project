@@ -14737,3 +14737,11 @@ January to June (his H1 sheet); his H2 sheet, the same eighteen objectives for J
 - Files: frontend/src/data/seed/sysPapers354.ts, frontend/src/components/records/LogSheetRecordView.tsx,
   frontend/src/data/seed/documentDefinitions.ts, frontend/src/data/seed/sysManagementReviewLayouts.ts,
   frontend/tests/sysPapers354.test.ts.
+
+## §399 F/SYS/05: only a department has + and ×; the + under the table no longer puts in an empty box (26-Nov-2026)
+
+The owner, 26-Nov-2026, with a screenshot of F/SYS/05: "when i click the plus, the box should be added automatically like the upper one and plan and actual should be written in the boxes and everything should be empty and to be filled manually". The + he clicked was the note line's under the table (the 2025 schedule's note), which put in a copy of that line: an empty grey box. The + of a department already put in the next SN with Plan and Actual (§396).
+
+- PaperRow.stays: a row of the paper's own that is never added under or taken off; no + or × beside it (engine/paperRows.ts canChange). F/SYS/05's heading row, note row and Date / Approved by row stay.
+- A row put in under, or copied from, a row that stays is not drawn, so the empty strips already put in on a record are gone.
+- So the + nearest under the table is the last department's: the next SN, Plan and Actual printed, every box empty to be filled by hand.

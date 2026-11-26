@@ -41,7 +41,7 @@ function partsOf(form: PaperTable): { head: Part; body: Part; foot: Part } {
 
 /** A row that may be added after or taken off: never the letterhead, a page's repeated head, a heading or a hair-thin strip. */
 function canChange(rows: PaperRow[]): boolean {
-  if (rows.reduce((a, r) => a + r.h, 0) < 3) return false;
+  if (rows.reduce((a, r) => a + r.h, 0) < 3 || rows.some((r) => r.stays)) return false;
   const holds = (c: PaperCell) => !!(c.t || c.lab || c.box || c.col || c.pick?.length || c.sentence || c.at?.length || c.over?.length || c.calc || c.num);
   if (!rows.some((r) => r.cells.some((c) => !c.skip && (holds(c) || (c.edges ?? "ltrb") !== "")))) return false;
   return !rows.some((r) => r.pb || r.head || r.cells.some((c) => HEAD_WORDS.test(wordsOf(c)) || /^Sr\.?\s*no/i.test(wordsOf(c).trim()) || (!!c.pl && wordsOf(c).trim() !== "")));
@@ -179,6 +179,8 @@ export function paperWithRows(form: PaperTable, kept: PaperRowsKept | undefined)
     const follow = (key: string) => {
       for (const a of added.filter((x) => x.after === key)) {
         const source = unitOf.get(a.from);
+        // (a copy of a row that stays, put in before it did, is not drawn: F/SYS/05's empty strips under the note, §399)
+        if (source?.some((r) => r.stays)) continue;
         if (source) {
           const from = linesOf(source);
           const line = (n: number | undefined) => {
@@ -211,7 +213,7 @@ export function paperWithRows(form: PaperTable, kept: PaperRowsKept | undefined)
         });
       }
       const before = out.length;
-      follow(key);
+      if (!rows.some((r) => r.stays)) follow(key);
       if (!gave) less += out.slice(before).reduce((h, r) => h + r.h, 0);
     }
     return changed ? given(renumbered(spanOnce(out, put), put), less) : out;
