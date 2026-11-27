@@ -14754,3 +14754,7 @@ The owner, 27-Nov-2026, with a screenshot of departments 7 and 8 put in (their n
 ## §401 F/SYS/05: Issue 07 in the heading (27-Nov-2026)
 
 The owner, 27-Nov-2026: "do here issue 7 instead of issue 6". F/SYS/05's heading reads "YEARLY INTERNAL AUDIT SCHEDULE (BRCGS PACKAGING – Issue 07) for the Year:", and its name in the library "Yearly Internal Audit Schedule (BRCGS Packaging – Issue 07)". The other formats that say Issue 06 (F/SYS/10, the audit plan's words, F/SYS/04's item 10) are as they were.
+
+## §402 F/SYS/13: the company's name and the title as one box (27-Nov-2026)
+
+The owner, 27-Nov-2026: "make this as a whole box the lines that i have highlight". F/SYS/13's company row is ruled all round (its 2.12 mm gap goes into the row) and the title cell is ruled round beside F/SYS/13(00/01.12.2021), so the name, title and number close as one box.

@@ -173,11 +173,12 @@ const MOCK_RECALL_PAPER: PaperTable = {
   clearFoot: true,
   // (one page: fitted to the page's width and height, as his file prints it)
   head: [
-    { h: 7.41, cells: [{ w: C13[0], t: "", edges: "lt" }, { w: cw(1, 9), t: COMPANY, b: true, a: "c", pt: 16, vm: true, edges: "t" }, { w: C13[10], t: "", edges: "tr" }] },
-    blank13(2.12),
+    // §402 (owner, 27-Nov-2026): the company's name and the title are one closed box - the name's row ruled round, the
+    // title ruled round beside the number (his sheet's 2.12 mm gap under the name goes into the name's row).
+    { h: 9.53, cells: [{ w: C13[0], t: "", edges: "lt" }, { w: cw(1, 10), t: COMPANY, b: true, a: "c", pt: 16, vm: true }] },
     // (his blank sheet prints no number; his sheet in use since 2025 prints it in the title row's right cell, I3:K3)
     framed(7.41, [
-      { w: cw(1, 7), b: true, u: true, a: "c", pt: 16, vm: true, edges: "", sentence: { before: "Mock Product Withdrawal Record", box: "product", after: "", boxWidth: 30, pw: true } },
+      { w: cw(1, 7), b: true, u: true, a: "c", pt: 16, vm: true, sentence: { before: "Mock Product Withdrawal Record", box: "product", after: "", boxWidth: 30, pw: true } },
       { w: cw(8, 10), t: "F/SYS/13(00/01.12.2021)", b: true, a: "c", pt: 12, vm: true },
     ]),
   ],
