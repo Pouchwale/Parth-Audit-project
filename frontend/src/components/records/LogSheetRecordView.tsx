@@ -1182,7 +1182,7 @@ export function LogSheetRecordView({
     // Where the paper stands on its printed page, and how much bigger it is drawn there (PaperTable.fillA4: F/QC/17; and
     // every paper of a document that fills its page, REQUIREMENTS §194 - the QC papers).
     const ptFill = !!pt.fillA4 || printFillOf(doc) === "page";
-    const ptPrint = paperTablePrint(pt, ptFill);
+    const ptPrint = paperTablePrint(pt, ptFill, (key) => String(data.header?.[key] ?? ""));
     return (
       <div
         className={`${rootClass} paper-table-sheet`}

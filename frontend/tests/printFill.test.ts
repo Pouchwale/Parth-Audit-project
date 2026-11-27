@@ -143,7 +143,7 @@ test("§194: a register is ruled with blank lines to the foot of its page - afte
   assert.match(css, /\[data-print-fill="page"\] \.pt-table tr\.pt-pad \{ display: table-row; \}/);
   // ...and such a paper is printed to fill the A4 page, as F/QC/17 is (the owner, 30-Oct-2026).
   assert.match(sheet, /const ptFill = !!pt\.fillA4 \|\| printFillOf\(doc\) === "page";/);
-  assert.match(sheet, /const ptPrint = paperTablePrint\(pt, ptFill\);/);
+  assert.match(sheet, /const ptPrint = paperTablePrint\(pt, ptFill(, \(key\) => [^;]+)?\);/);
 });
 
 test("§194: a form's lines taller, its boxes, paragraphs and blocks set further apart to fill the page, round by round, never past it; a block of boxes taller than half the page may break", () => {

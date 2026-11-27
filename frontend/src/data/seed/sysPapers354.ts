@@ -351,6 +351,7 @@ const BACKWARD_TRACE_PAPER: PaperTable = {
   // §407: a filled trace's 35 ruled lines print a little taller than drawn; fitted to the page's full height they pushed
   // Box / Reel / Verified By onto a second page, so 4 mm of the page is held back from the fit.
   fitSlack: 4,
+  fitGrown: true,
   head: traceHead(BACKWARD_TITLE, false),
   body: [
     gap(WT, 4.9),
@@ -381,8 +382,9 @@ const BACKWARD_TRACE_PAPER: PaperTable = {
     pair("Slitting & packing date", "slittingPackingDate", 61.8),
     pair("Slitting OK meter", "slittingOkMeter", 61.8),
     // §407: the whole table on one page - Packing Quantity shorter, Box / Reel / Verified By under it (no page 2).
-    // (40 mm holds nine lines at 4.3 mm, the 12.12.2024 trace's packing; a longer list still grows onto a second page)
-    pair("Packing Quantity", "packingQuantity", 61.8, 40.0, { ...PARA, lh: 4.3 }),
+    // §408 (owner, 27-Nov-2026: "the length of this box should be according to how much is written into it"): one line
+    // drawn, growing a line for each written; the page's fit counts them (fitGrown), so a long list stays on page 1.
+    pair("Packing Quantity", "packingQuantity", 61.8, 7.3, PARA),
     pair("Box number", "boxNumber", 61.8),
     pair("Reel number", "reelNumber", 61.8),
     pair("Verified By", "verifiedBy", 61.8),

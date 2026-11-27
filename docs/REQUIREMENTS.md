@@ -14802,3 +14802,8 @@ hardcopy".
 ## §407 F/SYS/14: Punching dated and Punching meter; the whole table on one page (27-Nov-2026)
 
 The owner, 27-Nov-2026: "after balanced return, add punching dated and punching meter ... make it in 1 page by reducing the row length of packing quantity". F/SYS/14 has the boxes Punching dated (a date) and Punching meter after Balance returned. Packing Quantity is 40 mm (was 67 mm), its lines 4.3 mm apart, so the 12.12.2024 trace's nine packing lines fit; Box number, Reel number and Verified By follow it on page 1, and there is no page 2. PaperTable.fitSlack holds 4 mm back from the A4 height fit, since a filled trace's 35 ruled lines print a little taller than drawn. A packing list longer than nine lines still grows onto a second page.
+
+
+## §408 F/SYS/14: Packing Quantity as tall as what is written in it (27-Nov-2026)
+
+The owner, 27-Nov-2026: "the length of this box should be according to how much is written into it . extra space should not be there". Packing Quantity is drawn one line tall (7.3 mm) and grows a line (4.7 mm) for each line written, every line starting at the same place (styles.css: a growing box's textarea indents by padding, not text-indent). PaperTable.fitGrown: the A4 fit counts the lines the growing boxes hold (qcPaperTables.ts grownBy), so blank, 5, 20 lines and the 12.12.2024 trace each print on one page.

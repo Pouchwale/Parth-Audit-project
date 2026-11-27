@@ -254,6 +254,8 @@ export interface PaperTable {
   flows?: true;
   /** Millimetres of the page held back when the paper is fitted to its height: many ruled lines print a little taller than drawn (F/SYS/14, §407). */
   fitSlack?: number;
+  /** Fitted to its page with its growing boxes as tall as the record's words make them, so a long one stays on the page (F/SYS/14, §408). */
+  fitGrown?: true;
   /** Boxes and columns of the format the paper prints no place for (its own words stand there): kept on the record, not drawn. */
   offPaper?: string[];
 }
@@ -1679,11 +1681,37 @@ export function paperFrameStyle(form: PaperTable, print: { left: number; top: nu
   };
 }
 
-export function paperTablePrint(form: PaperTable, fill: boolean = !!form.fillA4): { left: number; top: number; scale: number } {
+/**
+ * How much taller the record's words make the paper's growing boxes than drawn (PaperTable.fitGrown, §408): each line
+ * written, and each a long one wraps to, at the box's line height.
+ */
+function grownBy(form: PaperTable, value: (box: string) => string): number {
+  let more = 0;
+  for (const r of [...form.head, ...form.body, ...form.foot]) {
+    let rowMore = 0;
+    for (const c of r.cells) {
+      if (!c.grow || !c.box) continue;
+      const text = value(c.box);
+      if (!text) continue;
+      const lh = c.lh ?? 4.7;
+      // (Calibri's letters are about half their size wide: 1 pt = 0.3528 mm)
+      const perLine = Math.max(1, Math.floor((c.w - 2 * (c.x ?? 1.5)) / ((c.pt ?? form.pt ?? 10) * 0.3528 * 0.5)));
+      const lines = text.split("\n").reduce((a, l) => a + Math.max(1, Math.ceil(l.length / perLine)), 0);
+      rowMore = Math.max(rowMore, lines * lh + 2 * (c.y ?? 0.8) - r.h);
+    }
+    more += Math.max(0, rowMore);
+  }
+  return more;
+}
+
+export function paperTablePrint(form: PaperTable, fill: boolean = !!form.fillA4, value?: (box: string) => string): { left: number; top: number; scale: number } {
   if (!fill) return { left: form.left, top: form.top, scale: 1 };
   const [pageW, pageH] = form.page === "portrait" ? [210, 297] : [297, 210];
   const width = form.head[0]?.cells.reduce((a, c) => a + c.w, 0) ?? pageW;
-  const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
+  const height =
+    [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) +
+    (form.lines ? form.lines.h * form.lines.count : 0) +
+    (form.fitGrown && value ? grownBy(form, value) : 0);
   // An HR paper keeps its margin at the foot of every page too (§277), and each page it draws for itself fits inside them.
   const room = (form.clearFoot ? pageH - A4_MARGIN_MM - 13 : form.ownWords ? pageH - A4_MARGIN_MM - 10 : pageH - A4_MARGIN_MM - 6) - (form.fitSlack ?? 0);
   const pages: number[] = [0];

@@ -4036,6 +4036,8 @@ html:not(.print-measure) .paper-sheet[data-paper-own] .pt-table td.pt-c.pt-top >
   text-indent: calc(var(--pt-x) * var(--u)); border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #000;
   font: inherit; text-align: inherit;
 }
+/* (a growing box's every line from the same place, not the first alone: F/SYS/14's Packing Quantity, §408) */
+.pt-table td.pt-c.pt-grow > .field-in-table > textarea.input { text-indent: 0; padding-left: calc(var(--pt-x) * var(--u)); }
 .pt-table :is(td.pt-c, .pt-over) > .field-in-table.pt-lines > textarea.input { padding-top: calc(var(--pt-y) * var(--u)); resize: none; overflow: hidden; white-space: pre-wrap; text-indent: 0; padding-left: calc(var(--pt-x) * var(--u)); }
 .pt-table :is(td.pt-c, .pt-over) > .pt-box > .cell-text { display: block; min-width: 0; padding: calc(var(--pt-y) * var(--u)) 0 0 calc(var(--pt-x) * var(--u)); color: #000; font: inherit; }
 /* A written date prints as its words in the place of its box (utils/print.ts), in the cell's own face and place. */
