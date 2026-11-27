@@ -83,7 +83,7 @@ function columnsOf(rows: PaperRow[]): string[] {
   return Array.from(keys);
 }
 
-const LOOK = ["w", "edges", "a", "pt", "f", "x", "y", "lh", "b", "bg", "open", "heavy", "vm", "skip", "rs", "u"] as const;
+const LOOK = ["w", "edges", "a", "pt", "f", "x", "y", "lh", "b", "bg", "open", "heavy", "vm", "skip", "rs", "u", "fromTop"] as const;
 
 /** A cell of a row put in: the look of the cell it copies, blank, written on the row's own lines where it has them. */
 function blankCell(c: PaperCell, place: string, line: (n: number | undefined) => number | undefined): PaperCell {

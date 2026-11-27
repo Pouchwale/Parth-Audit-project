@@ -14745,3 +14745,9 @@ The owner, 26-Nov-2026, with a screenshot of F/SYS/05: "when i click the plus, t
 - PaperRow.stays: a row of the paper's own that is never added under or taken off; no + or × beside it (engine/paperRows.ts canChange). F/SYS/05's heading row, note row and Date / Approved by row stay.
 - A row put in under, or copied from, a row that stays is not drawn, so the empty strips already put in on a record are gone.
 - So the + nearest under the table is the last department's: the next SN, Plan and Actual printed, every box empty to be filled by hand.
+## §400 F/SYS/05: a department written in starts at the top of its box, as PERSONNEL does (27-Nov-2026)
+
+The owner, 27-Nov-2026, with a screenshot of departments 7 and 8 put in (their names in the middle of the two-line box): "keep it the same as the format in number 6 box. any word should start from the top of the box".
+
+- PaperCell.fromTop: the box's one line stands at the cell's y, one line of the cell's pitch high (class pt-top, with pt-once's top placing), on the screen and in the print, so its words are level with the paper's own; Word and Excel write the cell at its top (pt-once).
+- F/SYS/05's department cell is fromTop, and a row put in copies it (engine/paperRows.ts LOOK).

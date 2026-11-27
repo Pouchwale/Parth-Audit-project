@@ -126,6 +126,8 @@ export interface PaperCell {
    * runs down over them instead (engine/paperRows.ts).
    */
   once?: true;
+  /** What is written in the box starts at the cell's top, at its y, as the paper's own words there do (F/SYS/05's departments, §400). */
+  fromTop?: true;
   /** The cell's printed words go with it into a row put in under it (F/SYS/05's "Plan" and "Actual", §396). */
   keep?: true;
   /** A register's line number: on every ruled line ("all", the paper prints them) or on the record's lines only ("rows"). */
