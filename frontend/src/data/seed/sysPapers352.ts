@@ -694,7 +694,7 @@ const AUDIT_NC_PAPER: PaperTable = {
   rules: "cells",
   ownWords: true,
   fillA4: true,
-  head: ncHead([{ w: NC_W, t: "INTERNAL AUDIT NC REPORT", b: true, u: true, a: "c", pt: 12, y: 4.47 }], "F/SYS/10", "Rev No: 01", true),
+  head: ncHead([{ w: NC_W, t: "INTERNAL AUDIT NC REPORT", b: true, u: true, a: "c", pt: 12, y: 4.47 }], "F/SYS/10", "Rev No: 00", true),
   body: [
     gap(4.4, NC_W),
     // (his format ticks Non-Conformance alone; F/SYS/11 prints Observation beside it)

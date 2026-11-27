@@ -14777,3 +14777,23 @@ everything else".
 - Proved on a local copy: the printout, the workbook (converted by Excel) and the Word file (converted by Word) are one A4 page
   each, every box from the frame's left line, the two tables of two lines each.
 - Files: frontend/src/data/seed/sysPapers354.ts, frontend/src/utils/originalFill/index.ts, frontend/src/utils/paperTableExport.ts.
+
+## §406 Indexing for the super admin alone; F/SYS/10 as the owner's hardcopy, with June /08 on file (27-Nov-2026)
+
+The owner, 27-Nov-2026, with Indexing's "3 / SAP" count and a photo of his F/SYS/10: "make sure this option should be visible by
+only super admin not by others ... check the sys/10 also is it added or not perfect and with filled data ... make format like
+hardcopy".
+
+- Indexing (every format's mode - Automatic, Manual, Manual start, Reference only, SAP - its counts, versions and formulas) was in
+  the super admin's menu only, but its page opened for anybody who typed its address. Now anybody else is told "Only the super
+  admin opens this page" (App.tsx). Checked on the local copy as Kapila Barad: no menu link, no SAP count, the page refused.
+- F/SYS/10 as his hardcopy: "INTERNAL AUDIT NC REPORT", "Format No.: F/SYS/10 | Rev No: 00 | Date: 01.12.2021 | Page No.: 1 Of 1"
+  (it printed Rev No: 01); the format is named "Internal Audit NC Report", Rev 00 of 01.12.2021 (it was "BRCGS Packaging (Issue 06)
+  - Internal Audit NC Report", Rev 01 of 01.05.2013, from the filled PDF of Feb -25/02). The master list F/SYS/02 gives revision 1
+  of F-SYS-10 as 01.03.23: for the owner to say whether Rev 01 is in use.
+- On file, as the hardcopy is filled: June /08 of 24.06.2023, auditor Shashank Sheth, Dispatch, Non-Conformance: "There are 2
+  company owned vehicle. However, same is not included for documented cleaning schedule"; Reference Record(s) NA, Procedure /
+  Flow Chart No. FLEXO-SOP-11, Clause No. 5.10.4. The root cause, actions, follow-up and closing are blank on the paper and here,
+  so the insights name it as not verified closed. The photo is shown beside the format.
+- Proved: sysPapers352, sysModule (S3 names June /08 at 5.10.4 as open) tests; on the local copy the record beside the photo, one
+  A4 portrait page printed with Rev No: 00, Word and Excel opened in Word and Excel; the test account check (§206).

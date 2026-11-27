@@ -80,6 +80,16 @@ function NotFoundPage() {
 
 // THE SYSTEM MENU'S OTHER PAGES ARE NOT KAPILA BARAD'S (engine/masterDataAccess.ts mayOpenSystemPages, the owner,
 // 3-Nov-2026, REQUIREMENTS §173): their addresses say so, as Master Data's does for everybody else (§134).
+/** A super admin's page opened by anybody else (REQUIREMENTS §406: Indexing is the super admin's alone). */
+function SuperAdminOnly() {
+  return (
+    <div className="empty-state" data-state="super-admin-only">
+      <h2 className="text-xl mb-2">Only the super admin opens this page</h2>
+      <p className="text-muted">Indexing - every format's mode (Automatic, Manual, Reference only, SAP), versions and formulas - is the super admin's.</p>
+    </div>
+  );
+}
+
 function SystemPageNotAllowed() {
   const t = useT();
   return (
@@ -202,8 +212,9 @@ function RouteSwitch() {
     case "master-list":
       return <MasterListPage />;
     // The index of every format and document, its versions and formulas — the super admin's (indexing/).
+    // (the super admin's alone, opened from the menu or typed into the address bar: §406)
     case "indexing":
-      return <IndexingPage />;
+      return user?.role === "admin" ? <IndexingPage /> : <SuperAdminOnly />;
     case "activity":
       // Everything anybody has done on the portal (REQUIREMENTS §62).
       return systemPages ? <ActivityLogPage /> : <SystemPageNotAllowed />;

@@ -128,15 +128,18 @@ test("S1 and S2: the plant's mock withdrawals and traceability tests, more than 
   assert.equal(byRule(then, "S2").length, 0);
 });
 
-test("S3: Feb -25/02 was never verified closed — while the audit plan marks 4.7.6 Closed", () => {
-  const s3 = byRule(insightsAsOf(TODAY), "S3");
-  assert.equal(s3.length, 1, s3.map((i) => i.title).join(" | "));
+test("S3: Feb -25/02 was never verified closed — while the audit plan marks 4.7.6 Closed; June /08 (2023) is open too", () => {
+  const all = byRule(insightsAsOf(TODAY), "S3");
+  // The hardcopy of June /08 (§406) is filled only to its finding: it is not verified closed either.
+  assert.equal(all.length, 2, all.map((i) => i.title).join(" | "));
+  assert.ok(all.some((i) => /June \/08/.test(i.title) && /5\.10\.4/.test(i.title)), "June /08 at 5.10.4");
+  const s3 = all.filter((i) => /4\.7\.6/.test(i.title));
+  assert.equal(s3.length, 1);
   assert.equal(s3[0].severity, "high");
-  assert.match(s3[0].title, /4\.7\.6/);
   assert.match(s3[0].detail, /Closed/, "the audit plan's summary is named");
   assert.ok(s3[0].evidence.some((e) => e.recordId === "seed-sys-audit-plan-2025-01"), "and read from");
-  // Twelve days after the audit, with a month allowed and no planned date written, it is not yet raised.
-  assert.equal(byRule(insightsAsOf("2025-03-01"), "S3").length, 0);
+  // Twelve days after the audit, with a month allowed and no planned date written, Feb -25/02 is not yet raised.
+  assert.ok(!byRule(insightsAsOf("2025-03-01"), "S3").some((i) => /4\.7\.6/.test(i.title)));
 });
 
 test("S4: the audit's NC - 01 at 4.2.1 has no NC report on file; NC - 02 at 4.7.6 has one", () => {
@@ -200,7 +203,7 @@ test("S3: an audit plan that marks the clause Not Closed agrees with the open re
   const plan = edited("seed-sys-audit-plan-2025-01", (d) => {
     for (const row of d.rows) for (const [k, v] of Object.entries(row)) if (v === "Closed, Closed") row[k] = "Not Closed, Not Closed";
   });
-  const s3 = byRule(insightsWith(TODAY, plan), "S3");
+  const s3 = byRule(insightsWith(TODAY, plan), "S3").filter((i) => /4\.7\.6/.test(i.title));
   assert.equal(s3.length, 1, "the report is still open");
   assert.doesNotMatch(s3[0].detail, /audit plan's summary/, s3[0].detail);
   assert.ok(!s3[0].evidence.some((e) => e.recordId === "seed-sys-audit-plan-2025-01"));

@@ -2762,20 +2762,21 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
   {
     id: "sys-audit-nc",
     kind: "log-sheet",
-    name: "BRCGS Packaging (Issue 06) - Internal Audit NC Report",
+    // As the owner's hardcopy prints it (REQUIREMENTS §406, 27-Nov-2026): "INTERNAL AUDIT NC REPORT", "Rev No: 00",
+    // "Date: 01.12.2021". (The filled PDF of Feb -25/02 printed "BRCGS Packaging (Issue 06)", Rev 01 of 01.05.2013; the
+    // master list gives revision 1 as 01.03.23.)
+    name: "Internal Audit NC Report",
     formatNo: "F/SYS/10",
-    revisionNo: "01",
-    // As the paper prints it: "Date: 01.05.2013". The master list gives
-    // revision 1 of F-SYS-10 as 01.03.23 — for the MR to confirm.
-    revisionDate: "2013-05-01",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
     department: "System / Management",
     module: "System / Management",
     section: "Internal Audit",
     frequency: "As Required",
     status: "Configured",
     description:
-      "The report raised for each non-conformity an internal audit finds: its number and date, the auditor, the area, the finding and its objective evidence (records, procedure, clause), the planned closing date, the root cause, the correction and corrective action taken, the follow-up audit of its effectiveness, and the closing verification — actions satisfactory or not, the CAR closed or not. On file: Feb -25/02 of 17.02.2025, clause 4.7.6 — a temporary repair with thread and cloth on the lamination machine, removed, with the operators made aware; its closing verification is not filled in.",
-    sourceFile: "F-SYS-10.pdf (filled); the company's own original is F-SYS-10-Internal audit NC report.DOC",
+      "The report raised for each non-conformity an internal audit finds: its number and date, the auditor, the area, the finding and its objective evidence (records, procedure, clause), the planned closing date, the root cause, the correction and corrective action taken, the follow-up audit of its effectiveness, and the closing verification — actions satisfactory or not, the CAR closed or not. On file: June /08 of 24.06.2023, Dispatch, clause 5.10.4 — the two company-owned vehicles not in the documented cleaning schedule (FLEXO-SOP-11), as the hardcopy is filled; and Feb -25/02 of 17.02.2025, clause 4.7.6 — a temporary repair with thread and cloth on the lamination machine, removed, with the operators made aware; its closing verification is not filled in.",
+    sourceFile: "The owner's hardcopy of June /08 (photographed 27-Nov-2026) and F-SYS-10.pdf (filled); the company's own original is F-SYS-10-Internal audit NC report.DOC",
     schedule: { type: "as-required" },
   },
   {

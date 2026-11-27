@@ -835,7 +835,10 @@ const AUDIT_NC: LogSheetLayout = {
     { key: "carSign", label: `${CAR_CLOSING} — Sign.: -`, type: "text" },
   ],
   specimenHeader: { auditorName: "Kapila barad" },
-  originalPages: [page("fsys10-audit-nc-feb-25-02-p1.jpg", "F/SYS/10 (Rev No: 01, Date: 01.05.2013 as printed) — NC report Feb -25/02 of 17.02.2025, clause 4.7.6, as supplied")],
+  originalPages: [
+    page("fsys10-audit-nc-june-08-p1.jpg", "F/SYS/10 (Rev No: 00, Date: 01.12.2021) — the owner's hardcopy: NC report June /08 of 24.06.2023, Dispatch, clause 5.10.4"),
+    page("fsys10-audit-nc-feb-25-02-p1.jpg", "F/SYS/10 (Rev No: 01, Date: 01.05.2013 as printed) — NC report Feb -25/02 of 17.02.2025, clause 4.7.6, as supplied"),
+  ],
   specimenSource:
     "F-SYS-10.pdf — F/SYS/10 (Rev No: 01, Date: 01.05.2013 as printed; the master list gives 01.03.23), the plant's own NC report Feb -25/02 of 17.02.2025; its auditor is the specimen",
 };

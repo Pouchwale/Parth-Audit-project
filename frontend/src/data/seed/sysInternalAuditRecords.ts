@@ -174,6 +174,44 @@ export const SEED_SYS_AUDIT_NC_FEB_25_02 = seeded("seed-sys-audit-nc-feb-25-02",
   rows: [{ id: "r1" }],
 });
 
+// F/SYS/10 — NC report June /08 of 24.06.2023, the owner's hardcopy (REQUIREMENTS §406, photographed 27-Nov-2026): filled to
+// the Planned Closing Date as the paper is; its root cause, actions, follow-up and closing are blank on the paper and here.
+const HARDCOPY_ON_FILE = "System / Management (hardcopy as supplied, 27-Nov-2026)";
+export const SEED_SYS_AUDIT_NC_JUNE_08 = {
+  ...seeded("seed-sys-audit-nc-2023-06-08", "sys-audit-nc", "2023-06-24", {
+    header: {
+      reportNo: "June /08",
+      reportDate: "2023-06-24",
+      auditorName: "Shashank Sheth",
+      deptAreaFunction: "Dispatch",
+      ncType: "Non-Conformance",
+      ncFindingStatement: "There are 2 company owned vehicle. However, same is not included for documented cleaning schedule",
+      referenceRecords: "NA",
+      procedureFlowChart: "FLEXO-SOP-11",
+      clauseNo: "5.10.4",
+      auditorSign: "",
+      auditeeSign: "",
+      plannedClosingDate: "",
+      rootCause: "",
+      rootCauseAuditeeSign: "",
+      rootCauseAuditorSign: "",
+      correctionAction: "",
+      correctiveAction: "",
+      correctiveActionAuditeeSign: "",
+      correctiveActionDate: "",
+      followUp: "",
+      actionsFound: "",
+      carStatus: "",
+      carClosingDate: "",
+      carVerifiedBy: "",
+      carSign: "",
+    },
+    rows: [{ id: "r1" }],
+  }),
+  submittedBy: HARDCOPY_ON_FILE,
+  verifiedBy: HARDCOPY_ON_FILE,
+};
+
 export const SEED_SYS_INTERNAL_AUDIT_RECORDS: RecordInstance<LogSheetData>[] = [
   SEED_SYS_AUDIT_SCHEDULE_2024,
   SEED_SYS_AUDIT_SCHEDULE_2025,
@@ -181,4 +219,5 @@ export const SEED_SYS_INTERNAL_AUDIT_RECORDS: RecordInstance<LogSheetData>[] = [
   SEED_SYS_AUDIT_RISK_2024,
   SEED_SYS_AUDIT_FINDINGS_2025_02,
   SEED_SYS_AUDIT_NC_FEB_25_02,
+  SEED_SYS_AUDIT_NC_JUNE_08,
 ];
