@@ -348,7 +348,9 @@ const BACKWARD_TRACE_PAPER: PaperTable = {
   ownWords: true,
   fillA4: true,
   clearFoot: true,
-  flows: true,
+  // §407: a filled trace's 35 ruled lines print a little taller than drawn; fitted to the page's full height they pushed
+  // Box / Reel / Verified By onto a second page, so 4 mm of the page is held back from the fit.
+  fitSlack: 4,
   head: traceHead(BACKWARD_TITLE, false),
   body: [
     gap(WT, 4.9),
@@ -370,22 +372,22 @@ const BACKWARD_TRACE_PAPER: PaperTable = {
     pair("Printing production date", "printingProductionDate", 61.8),
     pair("Print Quantity", "printQuantity", 61.8),
     pair("Balance returned", "balanceReturned", 61.8),
+    // §407 (owner, 27-Nov-2026): Punching dated and Punching meter after Balance returned.
+    pair("Punching dated", "punchingDated", 61.8),
+    pair("Punching meter", "punchingMeter", 61.8),
     pair("QC Inspection dated", "qcInspectionDated", 61.8),
     pair("QC Inspected OK meter", "qcInspectedOkMeter", 61.8),
     pair("Balance scrapped", "balanceScrapped", 61.8),
     pair("Slitting & packing date", "slittingPackingDate", 61.8),
     pair("Slitting OK meter", "slittingOkMeter", 61.8),
-    pair("Packing Quantity", "packingQuantity", 61.8, 67.0, { ...PARA, lh: 7.2 }),
-    // (6 mm less than page 2: page 1's 31 ruled lines print a little taller than drawn)
-    gap(WT, 14.3),
-    traceFoot(BACKWARD_FOOT),
-    // Page 2: the head again, the last three lines, the footer at the same place.
-    ...traceHead(BACKWARD_TITLE, true),
-    gap(WT, 4.9),
+    // §407: the whole table on one page - Packing Quantity shorter, Box / Reel / Verified By under it (no page 2).
+    // (40 mm holds nine lines at 4.3 mm, the 12.12.2024 trace's packing; a longer list still grows onto a second page)
+    pair("Packing Quantity", "packingQuantity", 61.8, 40.0, { ...PARA, lh: 4.3 }),
     pair("Box number", "boxNumber", 61.8),
     pair("Reel number", "reelNumber", 61.8),
     pair("Verified By", "verifiedBy", 61.8),
-    gap(WT, 235.6),
+    // (ruled lines print a little taller than drawn: room kept above the footer)
+    gap(WT, 3.5),
   ],
   foot: [traceFoot(BACKWARD_FOOT)],
 };

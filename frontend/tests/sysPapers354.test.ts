@@ -54,13 +54,13 @@ test("each paper's company, title and format number, in his words", () => {
   for (const id of IDS.filter((i) => i !== "sys-hara-annual")) has(id, "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED");
   has("sys-hara-monthly", "MONTHLY HARA VERIFICATION", "Format No.: F/SYS/12", "Rev No: 00", "Date: 01.12.2021", "Page No.: 1 of 2", "Month: -", "Review date: -", "Sr.No.", "Verification attributes", "Status\n(Yes/No)", "Reference documents\n/ records", "Verification\nstatus\n(C / NC)", "Review comments", "HARA Review Team", "Sr.no.", "Name of Product safety team member", "Designation", "Sign");
   has("sys-mock-recall", "Mock Product Withdrawal Record", "F/SYS/13(00/01.12.2021)", "Date", "Start Time", "End time", "Total time", "Customer  Information", "Contact Person ( For Mock Withdrawal )", "Site senior management - Name", "Designation of Site senior management", "Contacted\nby", "e-mail", "Phone", "Fax", "Information of the product", "(Information that we are looking for)", "Response from Customer", "Responsible ( Product recall Team + other concerned members of the Organization as necessary )", "Process / Function", "Name", "Designation", "Signature", "Product Traced % :", "Was the Mock Recall efecctive?", "Why was effective? (add comments).", "Comments");
-  has("sys-backward-trace", "BACKWARD TRACEABILITY RECORD (CUSTOMER to SUPPLIER)", "F/SYS/14 (00/01.12.2021)", "B/W Traceability date", "P/O Number", "Description", "Observation", "Packing Quantity", "Verified By");
+  has("sys-backward-trace", "BACKWARD TRACEABILITY RECORD (CUSTOMER to SUPPLIER)", "F/SYS/14 (00/01.12.2021)", "B/W Traceability date", "P/O Number", "Description", "Observation", "Balance returned", "Punching dated", "Punching meter", "QC Inspection dated", "Packing Quantity", "Verified By");
   has("sys-forward-trace", "FORWARD TRACEABILITY CHECK LIST (SUPPLIER to CUSTOMER)", "F/SYS/15 (00/01.12.2021)", "Date of Forward\nTraceability", "Internal batch number", "1st Issue", "Issue dated", "Balance Qty.", "Verified By");
   has("sys-objectives", "Quality & Product Safety Objectives ( Year", "F/SYS/16 (00/01.12.2021)", "Sr. No.", "Department / Processes", "Parameter / Attribute", "Unit", "Plan / Actual", "January", "June", "Total", "% Achieved", "Plan", "Actual", "Actual - meters");
   has("sys-hara-annual", "ANNUAL HARA REVIEW & VERIFICATION RECORD", "F/SYS/20 (00 / 01.04.2025)", "Page No.: 1 of 4", "SITE NAME", "PRODUCTS", "HARA TEAM LEADER", "1. Review Purpose", "2. Changes Reviewed", "POINTS", "OBSERVATION", "3. CCMs / PRPs Verified", "CCM / CM / PRPs", "Effective?", "4. Validation/Verification Summary", "5. Recommendations/Updates", "6. Conclusion", "Next scheduled review:", "7.HARA Review Team");
   // F/SYS/20's letterhead is the company's logo; F/SYS/14 prints its number at the foot of both its pages.
   assert.ok(cellsOf(paper("sys-hara-annual")).some((c) => c.img?.src === "brand/gpp-paper-logo.png"), "the logo");
-  assert.equal(words(paper("sys-backward-trace")).filter((w) => w === "F/SYS/14 (00/01.12.2021)").length, 2, "F/SYS/14's footer on each page");
+  assert.equal(words(paper("sys-backward-trace")).filter((w) => w === "F/SYS/14 (00/01.12.2021)").length, 1, "F/SYS/14's footer, one page (§407)");
 });
 
 test("the pages: F/SYS/12 and F/SYS/20 run on with their head, F/SYS/14 and F/SYS/16 are drawn page by page", () => {
@@ -70,7 +70,7 @@ test("the pages: F/SYS/12 and F/SYS/20 run on with their head, F/SYS/14 and F/SY
   assert.equal(paper("sys-hara-annual").lines?.count, 12);
   for (const id of ["sys-hara-monthly", "sys-hara-annual"]) assert.equal(paper(id).pageFrame?.double, true, `${id}: the page's double border`);
   const pages = (id: string) => 1 + [...paper(id).head, ...paper(id).body, ...paper(id).foot].filter((r) => r.pb).length;
-  assert.equal(pages("sys-backward-trace"), 2);
+  assert.equal(pages("sys-backward-trace"), 1, "§407: the whole table on one page");
   assert.equal(pages("sys-forward-trace"), 1);
   assert.equal(pages("sys-mock-recall"), 1);
   assert.equal(pages("sys-objectives"), 4, "five objectives a page, his print titles on each");

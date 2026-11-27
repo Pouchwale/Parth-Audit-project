@@ -638,7 +638,7 @@ const BACKWARD_TRACE: LogSheetLayout = {
   columns: [],
   rowMode: { kind: "single" },
   // The Description / Observation table, line by line: each Description is the
-  // label of its box. Page 2 carries the last three lines.
+  // label of its box. All on one page since §407 (was: page 2 carried the last three lines).
   footerFields: [
     { key: "customerOrderNumberDate", label: "Customer order number & date", type: "text" },
     { key: "customerOrderQuantity", label: "Customer order quantity", type: "text" },
@@ -653,6 +653,9 @@ const BACKWARD_TRACE: LogSheetLayout = {
     { key: "printingProductionDate", label: "Printing production date", type: "date" },
     { key: "printQuantity", label: "Print Quantity", type: "text" },
     { key: "balanceReturned", label: "Balance returned", type: "text" },
+    // §407 (owner, 27-Nov-2026): the punching step between printing and QC.
+    { key: "punchingDated", label: "Punching dated", type: "date" },
+    { key: "punchingMeter", label: "Punching meter", type: "text" },
     { key: "qcInspectionDated", label: "QC Inspection dated", type: "date" },
     { key: "qcInspectedOkMeter", label: "QC Inspected OK meter", type: "text" },
     { key: "balanceScrapped", label: "Balance scrapped", type: "text" },

@@ -252,6 +252,8 @@ export interface PaperTable {
   pageFrame?: { l: number; t: number; w: number; h: number; double?: true };
   /** The paper runs over several pages: fitted to the page's width alone, never squeezed onto one (§275). */
   flows?: true;
+  /** Millimetres of the page held back when the paper is fitted to its height: many ruled lines print a little taller than drawn (F/SYS/14, §407). */
+  fitSlack?: number;
   /** Boxes and columns of the format the paper prints no place for (its own words stand there): kept on the record, not drawn. */
   offPaper?: string[];
 }
@@ -1683,7 +1685,7 @@ export function paperTablePrint(form: PaperTable, fill: boolean = !!form.fillA4)
   const width = form.head[0]?.cells.reduce((a, c) => a + c.w, 0) ?? pageW;
   const height = [...form.head, ...form.body, ...form.foot].reduce((a, r) => a + r.h, 0) + (form.lines ? form.lines.h * form.lines.count : 0);
   // An HR paper keeps its margin at the foot of every page too (§277), and each page it draws for itself fits inside them.
-  const room = form.clearFoot ? pageH - A4_MARGIN_MM - 13 : form.ownWords ? pageH - A4_MARGIN_MM - 10 : pageH - A4_MARGIN_MM - 6;
+  const room = (form.clearFoot ? pageH - A4_MARGIN_MM - 13 : form.ownWords ? pageH - A4_MARGIN_MM - 10 : pageH - A4_MARGIN_MM - 6) - (form.fitSlack ?? 0);
   const pages: number[] = [0];
   for (const r of [...form.head, ...form.body, ...form.foot]) {
     if (r.pb) pages.push(0);

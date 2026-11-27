@@ -14797,3 +14797,8 @@ hardcopy".
   so the insights name it as not verified closed. The photo is shown beside the format.
 - Proved: sysPapers352, sysModule (S3 names June /08 at 5.10.4 as open) tests; on the local copy the record beside the photo, one
   A4 portrait page printed with Rev No: 00, Word and Excel opened in Word and Excel; the test account check (§206).
+
+
+## §407 F/SYS/14: Punching dated and Punching meter; the whole table on one page (27-Nov-2026)
+
+The owner, 27-Nov-2026: "after balanced return, add punching dated and punching meter ... make it in 1 page by reducing the row length of packing quantity". F/SYS/14 has the boxes Punching dated (a date) and Punching meter after Balance returned. Packing Quantity is 40 mm (was 67 mm), its lines 4.3 mm apart, so the 12.12.2024 trace's nine packing lines fit; Box number, Reel number and Verified By follow it on page 1, and there is no page 2. PaperTable.fitSlack holds 4 mm back from the A4 height fit, since a filled trace's 35 ruled lines print a little taller than drawn. A packing list longer than nine lines still grows onto a second page.
