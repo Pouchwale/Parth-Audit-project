@@ -14758,3 +14758,22 @@ The owner, 27-Nov-2026: "do here issue 7 instead of issue 6". F/SYS/05's heading
 ## §402 F/SYS/13: the company's name and the title as one box (27-Nov-2026)
 
 The owner, 27-Nov-2026: "make this as a whole box the lines that i have highlight". F/SYS/13's company row is ruled all round (its 2.12 mm gap goes into the row) and the title cell is ruled round beside F/SYS/13(00/01.12.2021), so the name, title and number close as one box.
+
+## §403 F/SYS/13: every box starts on the frame's line; Customer Information Name / Location, Contact Person Name / Position (27-Nov-2026)
+
+The owner, 27-Nov-2026, with the printout marked at each box's left end: "in sys 13 make all the boxes ending at the main box as it
+is seen in the right side of the page ... and keep only name and location and name and position in the table and remove
+everything else".
+
+- His sheet's column A (2.38 mm between the frame and the boxes) is each row's first cell's own (sysPapers354.ts framed): every
+  box, band and table starts on the frame's left line as it ends on its right; a cell that writes nothing there is ruled at its
+  left, the frame's line. The company's name is one cell across.
+- Customer Information keeps Name and Location; Contact Person keeps Name and Position. Site senior management - Name,
+  Designation of Site senior management and Contacted by e-mail / Phone / Fax are off the paper (offPaper: the record keeps their
+  boxes); their 20.64 mm go to the Response from Customer box, so the page is as full as it was.
+- The Excel download is drawn from the page (originalFill HAND_DRAWN): his blank sheet would bring the removed rows back. In it,
+  and in Word, "Start Time" and "Total time" take 3 mm each from the empty column after the Date box and from the Total time box
+  (DRAWN_COLUMN_SHIFT), and Excel's letters are 0.88 of the print's (EXCEL_LETTERS), so no heading breaks.
+- Proved on a local copy: the printout, the workbook (converted by Excel) and the Word file (converted by Word) are one A4 page
+  each, every box from the frame's left line, the two tables of two lines each.
+- Files: frontend/src/data/seed/sysPapers354.ts, frontend/src/utils/originalFill/index.ts, frontend/src/utils/paperTableExport.ts.

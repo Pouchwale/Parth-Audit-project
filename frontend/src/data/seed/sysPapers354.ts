@@ -150,8 +150,16 @@ const C13 = [2.38, 52.39, 16.14, 16.14, 16.14, 16.14, 16.14, 16.14, 16.14, 16.14
 const W13 = Math.round(C13.reduce((a, w) => a + w, 0) * 100) / 100;
 /** Columns `from` to `to` (A = 0) as one cell's width. */
 const cw = (from: number, to: number): number => Math.round(C13.slice(from, to + 1).reduce((a, w) => a + w, 0) * 100) / 100;
-/** A row inside the frame: column A ruled at its left, the rest given, the last cell ruled at its right where it says nothing. */
-const framed = (h: number, cells: PaperCell[]): PaperRow => ({ h, cells: [{ w: C13[0], t: "", edges: "l" }, ...cells] });
+/**
+ * A row inside the frame. His column A (the strip between the frame and the boxes) is the first cell's own, so every box starts
+ * on the frame's left line as it ends on its right (the owner, 27-Nov-2026, §403); a cell that says nothing there is ruled at its
+ * left, the frame's line.
+ */
+const framed = (h: number, cells: PaperCell[]): PaperRow => {
+  const [first, ...rest] = cells;
+  const edges = first.edges === undefined || first.edges.includes("l") ? first.edges : `l${first.edges}`;
+  return { h, cells: [{ ...first, w: Math.round((first.w + C13[0]) * 100) / 100, ...(edges !== undefined ? { edges } : {}) }, ...rest] };
+};
 const blank13 = (h: number): PaperRow => framed(h, [{ w: cw(1, 9), t: "", edges: "" }, { w: C13[10], t: "", edges: "r" }]);
 /** A grey band of his sheet, its words bold and centred (not shaded: §282). */
 const band13 = (t: string): PaperRow => framed(4.87, [{ w: cw(1, 10), t, b: true, a: "c", vm: true }]);
@@ -175,7 +183,7 @@ const MOCK_RECALL_PAPER: PaperTable = {
   head: [
     // §402 (owner, 27-Nov-2026): the company's name and the title are one closed box - the name's row ruled round, the
     // title ruled round beside the number (his sheet's 2.12 mm gap under the name goes into the name's row).
-    { h: 9.53, cells: [{ w: C13[0], t: "", edges: "lt" }, { w: cw(1, 10), t: COMPANY, b: true, a: "c", pt: 16, vm: true }] },
+    { h: 9.53, cells: [{ w: W13, t: COMPANY, b: true, a: "c", pt: 16, vm: true }] },
     // (his blank sheet prints no number; his sheet in use since 2025 prints it in the title row's right cell, I3:K3)
     framed(7.41, [
       { w: cw(1, 7), b: true, u: true, a: "c", pt: 16, vm: true, sentence: { before: "Mock Product Withdrawal Record", box: "product", after: "", boxWidth: 30, pw: true } },
@@ -216,28 +224,8 @@ const MOCK_RECALL_PAPER: PaperTable = {
       { w: C13[7], t: "Position", x: 0.7, vm: true },
       { w: cw(8, 10), box: "contactPosition", a: "c", vm: true },
     ]),
-    framed(6.88, [
-      { w: C13[1], t: "Site senior management - Name", x: 0.7, vm: true },
-      { w: cw(2, 4), box: "siteSeniorName", x: 0.7, vm: true },
-      { w: cw(5, 6), t: "", edges: "" },
-      { w: C13[7], t: "Contacted\nby", x: 0.7, vm: true, lh: 4.2, rs: 3 },
-      { w: C13[8], t: "e-mail", x: 0.7, vm: true },
-      { w: cw(9, 10), box: "contactEmail", x: 0.7, vm: true },
-    ]),
-    framed(6.88, [
-      { w: C13[1], t: "Designation of Site senior management", x: 0.7, vm: true },
-      { w: cw(2, 4), box: "siteSeniorDesignation", x: 0.7, vm: true },
-      { w: cw(5, 6), t: "", edges: "" },
-      { w: C13[7], t: "", skip: true },
-      { w: C13[8], t: "Phone", x: 0.7, vm: true },
-      { w: cw(9, 10), box: "contactPhone", x: 0.7, vm: true },
-    ]),
-    framed(6.88, [
-      { w: cw(1, 6), t: "", edges: "" },
-      { w: C13[7], t: "", skip: true },
-      { w: C13[8], t: "Fax", x: 0.7, vm: true },
-      { w: cw(9, 10), box: "contactFax", x: 0.7, vm: true },
-    ]),
+    // (Site senior management and Contacted by e-mail / Phone / Fax taken off: Customer Information keeps Name and Location,
+    //  Contact Person Name and Position - the owner, 27-Nov-2026, §403; their 20.64 mm go to the Response from Customer box)
     blank13(4.87),
     band13("Information of the product"),
     // (his 8 pt note set at 9.5 pt: the sheet prints at under 90 %, and nothing on a paper prints under 8 pt, §282)
@@ -253,7 +241,7 @@ const MOCK_RECALL_PAPER: PaperTable = {
     framed(9.74, [{ w: cw(1, 10), box: "telephonicConversation", x: 0.7, y: 0.7, lh: 4.2, lines: true, grow: true, edges: "lrb" }]),
     blank13(4.87),
     band13("Response from Customer"),
-    framed(48.7, [{ w: cw(1, 10), box: "responseFromCustomer", x: 0.7, y: 0.7, lh: 4.2, lines: true, grow: true }]),
+    framed(48.7 + 20.64, [{ w: cw(1, 10), box: "responseFromCustomer", x: 0.7, y: 0.7, lh: 4.2, lines: true, grow: true }]),
     blank13(4.87),
     blank13(4.87),
     band13("Responsible ( Product recall Team + other concerned members of the Organization as necessary )"),
@@ -300,7 +288,8 @@ const MOCK_RECALL_PAPER: PaperTable = {
     ]),
     band13("Comments"),
   ],
-  foot: [{ h: 24.56, cells: [{ w: C13[0], t: "", edges: "lb" }, { w: cw(1, 10), box: "comments", x: 0.7, y: 0.7, lh: 4.2, lines: true, grow: true, edges: "lrb" }] }],
+  foot: [framed(24.56, [{ w: cw(1, 10), box: "comments", x: 0.7, y: 0.7, lh: 4.2, lines: true, grow: true, edges: "lrb" }])],
+  offPaper: ["siteSeniorName", "siteSeniorDesignation", "contactEmail", "contactPhone", "contactFax"],
 };
 
 // ====================================================================================================================

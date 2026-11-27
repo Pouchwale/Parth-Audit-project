@@ -294,6 +294,9 @@ const DRAWN_COLUMN_SHIFT: Record<string, number[]> = {
   // F/MKT/02: "Evaluation Period : 01-11-2026" broke after "01-11-" in Excel; the first three ratings take 6 mm from the
   // attributes' column, which has room to spare (§388)
   "mkt-feedback-analysis": [0, -6, 2, 2, 2, 0, 0, 0, 0, 0],
+  // F/SYS/13: "Start Time" (F) and "Total time" (J) take 3 mm each, from the empty column after the Date box (E) and from the
+  // Total time box (K) - Excel broke both words (§403)
+  "sys-mock-recall": [0, 0, 0, -3, 3, 0, 0, 0, 3, -3],
 };
 /**
  * Papers whose Word file and workbook are laid exactly as the print (the owner, 26-Nov-2026, F/MNT/11: "keep the exact format
@@ -302,6 +305,12 @@ const DRAWN_COLUMN_SHIFT: Record<string, number[]> = {
  */
 // F/MKT/02 too (the owner, 26-Nov-2026: "give the exact format of in word and also in the excel the format is getting ruined").
 const AS_PRINTED: ReadonlySet<string> = new Set(["mnt-lux-level", "mkt-feedback-analysis"]);
+
+/**
+ * Papers whose letters Excel sets a little smaller than the print, where Excel's wider Calibri broke a word in a narrow column:
+ * F/SYS/13's "Start Time", "Total time" and "F/SYS/13(00/01.12.2021)" (§403).
+ */
+const EXCEL_LETTERS: Record<string, number> = { "sys-mock-recall": 0.88 };
 
 /** Word's room inside each cell of such a paper (twentieths of a point), so the headings stay whole. */
 // (F/MKT/02: "5 Excellent" and "Conclusion :" broke in Word's wider room, §388)
@@ -471,7 +480,7 @@ export function paperDrawnBlocks(documentId: string, kind: "xlsx" | "docx", root
       rowSpan: p.rowSpan,
       colSpan: p.colSpan,
       ...(p.picture ? { picture: pictureAt(p.picture) } : {}),
-      style: { size: round(p.size * scale, 0.5), bold: p.bold, underline: p.underline, align: p.align, valign: p.top ? "top" : "center", wrap: true, borders: p.borders, font: p.font, ...(p.fill ? { fill: p.fill } : {}), ...(/^0\d|\.\d*0$/.test(words[i].text.trim()) || narrow(p, words[i].text.trim()) ? { keepText: true } : {}) },
+      style: { size: round(p.size * scale * (EXCEL_LETTERS[documentId] ?? 1), 0.5), bold: p.bold, underline: p.underline, align: p.align, valign: p.top ? "top" : "center", wrap: true, borders: p.borders, font: p.font, ...(p.fill ? { fill: p.fill } : {}), ...(/^0\d|\.\d*0$/.test(words[i].text.trim()) || narrow(p, words[i].text.trim()) ? { keepText: true } : {}) },
     }));
     const widths = widthsMm.map((mm) => Math.max(0.5, Math.round((((mm * scale * 96) / 25.4 - 5) / 7) * 100) / 100));
     const heights = heightsMm.map((h) => round(Math.min(409, h * scale * MM_PT), 0.25));

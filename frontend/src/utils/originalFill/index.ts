@@ -47,6 +47,9 @@ export const HAND_DRAWN = new Set([
   "qc-gsm-plate-calibration",
   // F/QC/16: its Excel download drawn as its page (utils/paperTableExport.ts PAPER_TABLE_EXCEL, the owner, 31-10-26).
   "qc-obsolete-artwork",
+  // F/SYS/13: its Excel drawn as its page, which no longer has his sheet's Site senior management and Contacted by rows and
+  // whose boxes start on the frame's line (the owner, 27-Nov-2026, §403); his blank sheet would bring them back.
+  "sys-mock-recall",
 ]);
 
 /**
