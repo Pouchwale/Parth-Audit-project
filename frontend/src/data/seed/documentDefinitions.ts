@@ -2693,7 +2693,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
   {
     id: "sys-audit-schedule",
     kind: "log-sheet",
-    name: "Yearly Internal Audit Schedule (BRCGS Packaging – Issue 06)",
+    name: "Yearly Internal Audit Schedule (BRCGS Packaging – Issue 07)",
     formatNo: "F/SYS/05",
     revisionNo: "01",
     revisionDate: "2023-03-01",

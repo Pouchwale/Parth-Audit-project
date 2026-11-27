@@ -241,7 +241,7 @@ const AUDIT_SCHEDULE_PAPER: PaperTable = {
           a: "c",
           pt: 12.96,
           y: 4.85,
-          sentence: { before: "YEARLY INTERNAL AUDIT SCHEDULE (BRCGS PACKAGING – Issue 06) for the Year:", box: "year", after: "", boxWidth: 12, pw: true },
+          sentence: { before: "YEARLY INTERNAL AUDIT SCHEDULE (BRCGS PACKAGING – Issue 07) for the Year:", box: "year", after: "", boxWidth: 12, pw: true },
         },
       ],
     },
